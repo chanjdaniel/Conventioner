@@ -1,6 +1,6 @@
 # What E26 left as it is
 
-Epic E26 ("The user flows hold") fixed every bug the [2026-09-30 usage run](MVP_TEST_RUN_2026-09-30.md) and the [2026-10-03 re-walk](MVP_TEST_RUN_2026-10-03.md) found, with one exception, and it was scoped to bugs only.
+Epic E26 ("The user flows hold") fixed every bug the [2026-09-30 usage run](records/MVP_TEST_RUN_2026-09-30.md) and the [2026-10-03 re-walk](records/MVP_TEST_RUN_2026-10-03.md) found, with one exception, and it was scoped to bugs only.
 This is everything those runs met that still stands: one behaviour kept on purpose, and the usability observations that were never in scope.
 Each item says what happens, where, and what fixing it would take, so it can become backlog work when someone decides it should.
 
@@ -38,7 +38,7 @@ On the usage run's March 2026 market (84 vendors, 5 dates, 50 tables, at most 3 
 **Why it was kept:** no vendor is placed worse by it: the count of dates each vendor gets, and so satisfaction, is the same either way.
 When demand exceeds the tables, as in both markets of the re-walk, every date fills and the order never shows.
 Whether a market wants its vendors spread evenly, kept to consecutive days, or front-loaded is a choice about what a market is, and nobody has made it.
-Decided with the user on 2026-10-01 ([MVP_BUGS.md, bug 39](MVP_BUGS.md#bug-39)).
+Decided with the user on 2026-10-01 ([MVP_BUGS.md, bug 39](records/MVP_BUGS.md#bug-39)); the kept behaviour is the rule [Dates fill in calendar order](business/rules/dates-fill-in-calendar-order.md).
 
 **Where it lives:** the date loop in `MarketAssignment`'s placement pass, `back-end/assignment/assignment.py`; the vendor order is `sort_vendors()` in the same file.
 
@@ -92,7 +92,7 @@ There is no name, no search and no filter by verdict, so changing one decision a
 
 ### 7. Result counts table-days as "tables"
 
-**Fixed on 2026-10-18**, after the [final dry run](MVP_TEST_RUN_2026-10-18.md): the strip says "table-days used" and defines a table-day beside satisfaction, and satisfaction rounds down.
+**Fixed on 2026-10-18**, after the [final dry run](records/MVP_TEST_RUN_2026-10-18.md): the strip says "table-days used" and defines a table-day beside satisfaction, and satisfaction rounds down.
 
 **What happens:** the result summary says "300 of 300 tables used" for a plan of 60 tables over 5 dates, because it counts a table once per date.
 The usage run also saw "100% satisfaction" for 209 of 210 dates, rounded.

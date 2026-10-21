@@ -1,3 +1,13 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - .github/workflows/deploy.yml
+  - .github/workflows/release-please.yml
+  - release-please-config.json
+verified: 2026-10-21
+---
+
 # Release Process
 
 ## Branch Model
@@ -51,7 +61,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
    Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
    This is the **only** way code reaches `main`.
    A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
-3. **The Deploy workflow ships `main` once CI passes on it** (`.github/workflows/deploy.yml`).
+3. **The Deploy workflow ships `main` once CI passes on it** ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)).
    Vercel's own deploys of `main` are switched off (`git.deploymentEnabled.main: false` in each project's `vercel.json`), so a push to `main` runs the Test workflow, and only a green run deploys: the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then `/healthz` is checked, then the front end (`makers-market-management-front-end`, `conventioner.io`) and a deep link.
    The promotion is what starts a deploy; the tag below is bookkeeping.
    It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
@@ -225,7 +235,8 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 
 | File | Purpose |
 |------|---------|
-| `release-please-config.json` | Configures release-please behavior (release type, tag format) |
-| `.release-please-manifest.json` | Tracks the current version per package, auto-updated by release-please |
-| `.github/workflows/release-please.yml` | GitHub Actions workflow that runs release-please on pushes to `main` |
-| `CHANGELOG.md` | Auto-generated changelog (created on first release) |
+| [`release-please-config.json`](../release-please-config.json) | Configures release-please behavior (release type, tag format) |
+| [`.release-please-manifest.json`](../.release-please-manifest.json) | Tracks the current version per package, auto-updated by release-please |
+| [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | GitHub Actions workflow that runs release-please on pushes to `main` |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | GitHub Actions workflow that deploys `main` once its Test run passes |
+| `CHANGELOG.md` | Auto-generated changelog, written by release-please and never by hand |

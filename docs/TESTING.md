@@ -1,4 +1,18 @@
+---
+layer: implementation
+kind: testing
+describes:
+  - front-end/playwright.config.ts
+  - scripts/seed_fixture.sh
+  - scripts/nm-test.sh
+verified: 2026-10-21
+---
+
 # Testing Conventioner
+
+How to run each suite, and what each covers.
+The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
+The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs everything through [`scripts/nm-test.sh`](../scripts/nm-test.sh).
 
 ## Quick Start: Seed Fixture
 
@@ -256,11 +270,12 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   `MarketSetupPage`, `ResultPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
   `PasswordResetPage`, `ApplicationFormPage`, `FloorplanWorkflowPage`,
-  `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`, `CsvImportPage`, and
+  `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`, `CsvImportPage`,
+  `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage` and
   `ApplicationMonitorPage` each wrap `getByTestId()` selectors and expose action methods.
   New page objects should follow these patterns.
-  `MarketSetupPage` covers the whole of Market Setup, not only the wizard: its three tabs and
-  the phase control panel above them live there too, because they are one view.
+  `MarketSetupPage` covers more than the plan: the market's tabs and the phase rail live there
+  too, because every market page stands in the same frame.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (derived from `stack().backendURL`; defaults to
   `https://localhost:5000` for the primary stack, offset per worktree slot,
@@ -353,16 +368,19 @@ helpers skip the actual send and report success. This is also honored only under
 `ALLOW_INSECURE_LOCAL_DEV`, defaults OFF, and is forwarded by
 `docker-compose.yml`; the CI e2e job sets it too. The password-reset E2E test does
 not read the reset link from an email - it reads the token directly from MongoDB
-(via `docker exec` into the container named by `E2E_MONGO_CONTAINER`, derived
-from `stack().mongoContainerName`).
+(through `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container
+named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ## CI Pipeline
 
 Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Back-end: install dependencies + pytest
 - Front-end: (two jobs) `frontend-unit` runs unit tests; `frontend-lint-and-types` runs `format:check`, lint, and type-check
+- `knowledge-graph`: the checker's tests, `scripts/knowledge_graph.py check`, and on a pull
+  request `drift` against the base branch (see [the knowledge graph](README.md#the-checks))
 - Docker build verification
-- E2E: build and start the Docker stack, seed fixtures, install Playwright
+- E2E, in four shards, each with its own Docker stack (`e2e` passes when all four do):
+  build and start the Docker stack, seed fixtures, install Playwright
   (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and
   `DISABLE_EMAIL=true` - Playwright is configured with 2 retries and
   `failOnFlakyTests: true` in CI, so a test that passes only on retry

@@ -1,8 +1,21 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - scripts/th-lease.sh
+  - scripts/th-compose.sh
+  - scripts/th-return.sh
+  - docker-compose.worktree.yml
+verified: 2026-10-21
+---
+
 # Treehouse worktrees for agents
 
 This project uses [treehouse](https://github.com/kunchenguid/treehouse) to give
-each coding agent its own isolated, pre-warmed git worktree from a reusable pool —
+each coding agent its own isolated, pre-warmed git worktree from a reusable pool -
 no re-cloning, no reinstalling deps, no port collisions.
+
+The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) and [`th-return.sh`](th-return.sh); each worktree's stack is the base compose file plus [`docker-compose.worktree.yml`](../docker-compose.worktree.yml).
 
 ## Prerequisites
 
@@ -47,9 +60,9 @@ an explicit stack identity via `COMPOSE_PROJECT_NAME` + `TH_*` port variables
 
 ## Housekeeping
 
-- `treehouse status` — show the pool
-- `treehouse prune` — remove stale idle worktrees (dry-run; `--yes` to apply)
-- `treehouse destroy <path> --yes` — remove a specific worktree
+- `treehouse status` - show the pool
+- `treehouse prune` - remove stale idle worktrees (dry-run; `--yes` to apply)
+- `treehouse destroy <path> --yes` - remove a specific worktree
 - `max_trees` is set in `treehouse.toml` (default 4; each tree is hundreds of MB)
 
 > **⚠️ `treehouse prune` and `treehouse destroy` do NOT tear down per-slot docker
@@ -76,17 +89,17 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 ## Notes / gotchas
 
 - **Returning a slot wipes its DB/volumes.** `th-return.sh` runs `docker compose
-  down -v`, which removes the worktree's isolated mongodb, backend sessions, and
-  CSV export volumes. A re-leased worktree always starts with a fresh DB — this
+  down -v`, which removes the worktree's isolated mongodb and backend sessions
+  volumes. A re-leased worktree always starts with a fresh DB - this
   is intentional for per-slot isolation.
 - **Use `th-lease.sh`, not raw `treehouse get`.** treehouse v2.0.0 parses but does
   not invoke the `post_create` hook, so a raw worktree would be missing `.env` and
   `node_modules`. All pre-warming is driven by the wrapper.
-- **Back-end has no local Python venv** — it runs via Docker (`python:3.11-slim`).
+- **Back-end has no local Python venv** - it runs via Docker (`python:3.12-slim`).
   The pinned deps don't build on the Python versions installed here.
-- Reused worktrees don't auto-update node deps when a lockfile changes — run
+- Reused worktrees don't auto-update node deps when a lockfile changes - run
   `npm install` yourself, or `treehouse destroy` the tree to force a fresh warm.
 - If you `treehouse destroy` or `treehouse prune` a worktree without returning it
-  first, its docker stack lingers (only `th-return.sh` tears stacks down) — run
+  first, its docker stack lingers (only `th-return.sh` tears stacks down) - run
   `scripts/th-compose.sh down -v` in the worktree beforehand, or see
   [Kill lingering worktree stacks](#kill-lingering-worktree-stacks) above.

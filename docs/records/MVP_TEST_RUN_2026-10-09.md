@@ -1,7 +1,13 @@
+---
+layer: implementation
+kind: record
+sources:
+  - wayfinding/november-2026-dry-run/map
+---
 # Rehearsal of the November 2026 market, 2026-10-09
 
 The UBC Makers Market of 18 to 20 November 2026, rehearsed end to end in a real browser with the organizer's real Google Form export, before the market happens.
-Scoped on the wayfinder map [November 2026 dry run](../.scratch/wayfinding/november-2026-dry-run/map.md); its tickets fix the plan, the verdicts, the path and the pass criteria this report checks.
+Scoped on the wayfinder map November 2026 dry run; its tickets fix the plan, the verdicts, the path and the pass criteria this report checks.
 Run on `feat/table-share-pairs` (epic E27, built for this run) on 2026-10-09.
 Defects found during the run were fixed as found, each first reproduced in a test that failed.
 
@@ -27,7 +33,7 @@ All 212 rows imported, an identical re-import changed nothing, and the stored as
 | Pairs split by the half-table share | Two pairs were split on 18 November: Gold had used its share, so the either chooser in each pair got a whole table | The share never blocks a pair (decided with the user) |
 | Check-in table wording | "Table: A 1 (Half Table (Left))" on the phone | "Table: A 1, left half" |
 
-The one thing the run shows the market still needs is **Attendance cannot say who is missing** ([known gap 3](MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)): with about 130 vendors a day it lists only those who have checked in, by email.
+The one thing the run shows the market still needs is **Attendance cannot say who is missing** ([known gap 3](../MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)): with about 130 vendors a day it lists only those who have checked in, by email.
 
 ## Second run: no first-come rule, and the most constrained first among equals
 

@@ -1,3 +1,12 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - back-end/vercel.json
+  - front-end/vercel.json
+verified: 2026-10-21
+---
+
 # Building Production on Vercel
 
 How production is put together, in the order it has to be done, for rebuilding it from nothing or moving it.
@@ -34,7 +43,7 @@ Both import this repository from GitHub, each with its own root directory:
 | Root directory | `front-end` | `back-end` |
 | Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
 | Runtime | Node (build only) | Python 3.12, from `back-end/.python-version` |
-| Config in the repo | `front-end/vercel.json`: every path that is not a file serves `index.html`, so deep links work | `back-end/vercel.json` |
+| Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work | [`back-end/vercel.json`](../back-end/vercel.json) |
 | Custom domain | `conventioner.io` | `api.conventioner.io` |
 
 Both `vercel.json` files set `git.deploymentEnabled.main: false`: Vercel does not build `main` by itself, because the Deploy workflow does once CI passes (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
@@ -92,4 +101,4 @@ The back end no longer waves that through - it has a real secret now, and Google
 - **"Refusing to start: N of the things this app's public surface rests on are not configured"**: one or more of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `TRUSTED_PROXY_HOPS` is unset. The log names every one of them, and each names what it defends, delivers or stores. Set them and redeploy; do not work around it by setting `ALLOW_INSECURE_LOCAL_DEV`, which turns all of that off. See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
 - **"`SECRET_KEY` is set to a value this repository has published"**: the key you set is one of the placeholders or fallbacks that appear in this repo (or its history), so it is readable by anyone who can read the repo. Generate a real one with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`. This ends every session signed with the old key, so organizers log in again once - that is the cost of the key not being public.
 - **"`RECAPTCHA_SECRET_KEY` / `RESEND_API_KEY` is set to a placeholder this repository has printed"**: the value you set is one of the example strings from an env template or an older version of this guide (`6Lcxxxxx...`, `re_xxxxx...`, `your-...`), not a secret an issuer ever gave you. Google and Resend both reject it, so the captcha would fail every signup and no verification mail would ever be delivered - a check that passed on a value nothing works with is the failure this refusal exists to move to boot time. Set the real key from the linked console, or, if this is a local machine, clear the variable and set `ALLOW_INSECURE_LOCAL_DEV=true` with `DISABLE_CAPTCHA=true` / `DISABLE_EMAIL=true`.
-- **"The market-key migration has not been applied to this database"**: the function is refusing to boot because it cannot confirm the migration (see step 5 above). Run `migrations/migrate_market_keys.py` against the Atlas database and redeploy. The same error appears when the marker simply cannot be read - an unknown migration state is treated as unmigrated - so check network access too.
+- **"The market-document migration has not been applied to this database"**: the function is refusing to boot because it cannot confirm the migration (see step 5 above). Run `migrations/migrate_market_keys.py` against the Atlas database and redeploy. The same error appears when the marker simply cannot be read - an unknown migration state is treated as unmigrated - so check network access too.
