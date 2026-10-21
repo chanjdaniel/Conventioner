@@ -20,6 +20,27 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
       - run: python -m pytest tests/ -v
 
+  # The docs are a graph of nodes that describe the code (scripts/knowledge_graph.py). Drift - a PR
+  # that changes described code without touching the node that describes it - needs the base
+  # branch's history, hence the full clone. Not a required check yet.
+  knowledge-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - name: Checker tests
+        run: python -m pytest scripts/tests -q
+      - name: Check the graph
+        run: python scripts/knowledge_graph.py check
+      - name: Drift against the base branch
+        if: github.event_name == 'pull_request'
+        run: python scripts/knowledge_graph.py drift --base origin/${{ github.base_ref }}
+
   frontend-unit:
     runs-on: ubuntu-latest
     defaults:
