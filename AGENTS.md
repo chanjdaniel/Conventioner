@@ -60,7 +60,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 - **A node is a Markdown file with frontmatter**, exactly these keys in this order: `layer`, `kind`, `describes` (the code it is about: a file, a `dir/`, or `file#symbol`), `verified` (the day it was read against the code), `sources` (work-item ids, never links) and, on an ADR only, `status`.
   Links are relative Markdown links, and a link across the business/implementation line is answered by one back.
 - **A PR that changes a described file touches the node or bumps `verified`.**
-  Find a file's nodes before changing it with `git grep -l '<path>' docs`; CI's `drift` step fails a PR that does neither.
+  Find a file's nodes before changing it with `git grep -l '<path>' docs`; CI's `knowledge-graph` job fails on a PR that does neither; it is not a required check yet, and becomes one once this graph merges (Daniel's decision).
 - **`python3 scripts/knowledge_graph.py check`** checks the frontmatter, every link and anchor, reachability and back-links; run it after editing any Markdown.
 
 ## Before changing an area, read its node
