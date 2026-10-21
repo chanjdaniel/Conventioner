@@ -1,0 +1,52 @@
+---
+layer: implementation
+kind: convention
+describes:
+  - front-end/src/router/index.ts
+  - front-end/src/utils/market.ts#marketPath
+  - front-end/src/utils/market.ts#resolutionPath
+  - front-end/src/utils/market.ts#openMarket
+  - front-end/src/views/MarketLanding.vue
+verified: 2026-10-22
+sources:
+  - wayfinding/the-market-frame/03
+  - wayfinding/the-assignment-tab/02
+  - E21/F02/S02
+  - E22/F04/S02
+---
+
+# Every market page has an address
+
+**Every market page has its own address, and every market screen is addressed by the market's id.**
+A link to any of them, bookmarked, shared or opened in a second browser tab, opens that page of that market; nothing about which market is open lives anywhere but the URL and [the market store](../modules/market-store.md).
+
+## The addresses
+
+The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts):
+
+- `/markets/:marketId/{setup,form,applications,assignment}` are the pages of one view, `MarketSetupView` (`SETUP_VIEW_PAGES`).
+- `/markets/:marketId/result`, `/vendors` and `/attendance` are views of their own.
+- `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
+- `/markets/:marketId` alone is [`MarketLanding`](../../../front-end/src/views/MarketLanding.vue), which opens the market, shows the frame's arrival, and then replaces itself with the page the market is worked on in its phase: `currentPage` in [the market guide](../modules/market-guide.md), a reading of the guide's table.
+  Opening a market from a list, the dashboard or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
+
+**Every address is built with [`marketPath()`](../../../front-end/src/utils/market.ts)**; nothing spells a market path by hand.
+
+## Old addresses
+
+- `setup?tab=<page>` lands on the page it named, keeping the rest of its query.
+- `/markets/:marketId/tables` redirects to `result`, with its filters.
+- `/floorplan-editor?marketId=` opens that market's floorplan flow.
+- The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
+
+## A guard names a page
+
+A transition guard's `resolution_link` (in [`back-end/guards.py`](../../../back-end/guards.py)) names a page of the market relative to its own pages, such as `applications` or `setup`, perhaps with a query, and never which market or a redirect.
+[`resolutionPath()`](../../../front-end/src/utils/market.ts) is the one reading of it, for the rail's fix and the blocker panel alike.
+
+## What breaks it
+
+- A screen that reads its market from anything but the route's id.
+- A link built by string concatenation instead of `marketPath()`.
+- A `resolution_link` naming an old address: it would be followed through a redirect, or nowhere.
+- A new market page added without its route, so it cannot be bookmarked.

@@ -10,3 +10,8 @@ The design language is the convention node [`design-system.md`](../../design-sys
 ## Nodes
 
 One line per node, sorted by file name.
+
+- [Dialogs](dialogs.md) - `AppDialog`: a native form in a modal, Enter, focus, closing, and a dialog opened from a dialog
+- [Every control is named](every-control-is-named.md) - a name for every control, the named-controls walk, focus rings, answers as links
+- [Every market page has an address](every-market-page-has-an-address.md) - `/markets/:marketId/...`, `marketPath()`, the landing, the redirects
+- [One market, from the server](one-market-from-the-server.md) - one store, a re-read after every write, nothing in the browser, facts served on the market
