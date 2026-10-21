@@ -12,6 +12,7 @@ sources:
   - E01/F03/S02
   - E01/F03/S03
   - E32/F02/S02
+  - E01
   - bug/34
   - bug/40
 status: accepted
@@ -60,3 +61,4 @@ Rejected:
   A late export goes back through the existing `review -> applications_closed` edge, which the Google Form path takes in one move as "Import more responses", keeping every verdict.
 - Two concurrent writes can still meet on one application; a verdict is written only on the answers the reviewer saw (`if_unchanged_since`), so a re-import's new answers are never approved unseen.
 - When a market can take vendors both ways at once, the `source` field becomes a fact of its own; nothing needs it before then.
+- So the application does not record that an imported address is the file's word rather than proven by a sign-in code; the intake mode says it, and what to do with it is settled before any mail but a sign-in code is sent ([an imported email is asserted](../business/rules/an-imported-email-is-asserted.md)).

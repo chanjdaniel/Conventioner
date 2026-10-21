@@ -47,6 +47,9 @@ Its words name the CSV rail's moves: from a draft, "Use Import responses on the 
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
 
+**An address is taken as written, never proven.**
+The column mapped to `APPLICANT_EMAIL_TARGET` is lowercased and trimmed, and `_EMAIL_ADDRESS` refuses only what is plainly not an address, deliberately loose; nothing confirms that the vendor controls it, and the application records no difference from one proven by a sign-in code ([an imported email is asserted](../../business/rules/an-imported-email-is-asserted.md)).
+
 **It refuses at the mapping and tolerates at the row.**
 An unmapped required target imports nothing, and neither does an unsettled value; one malformed row does not stop the others, and every skipped row is named in the result, since an import that looks complete with a vendor silently missing is the worst outcome.
 Every refusal is decided before anything is written: creating first and validating after left an empty application behind for every row the preview had promised to skip (bug 5).
@@ -83,6 +86,7 @@ The start from a CSV writes the same format, so the first import of a later expo
 
 - [Intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md): importing is the CSV path's way in, refused on a form market.
 - [What an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md): the one answer an imported row may leave out.
+- [An imported email is asserted](../../business/rules/an-imported-email-is-asserted.md): the file's address is the organizer's word, which must be settled before any mail but a sign-in code.
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 

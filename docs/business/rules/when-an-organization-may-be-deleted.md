@@ -12,6 +12,7 @@ verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/10
   - E20/F04/S01
+  - E20
   - bug/47
 ---
 

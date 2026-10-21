@@ -16,6 +16,7 @@ sources:
   - E20/F01
   - E20/F01/S01
   - E31/F03/S01
+  - E20
 ---
 
 # Dialogs
@@ -49,6 +50,10 @@ A dialog's text input is the `.field` primitive ([the design language](../../des
 
 **Errors sit in the layout.**
 A field's error goes beneath its field, in the body; the `error` prop is for one about the submission as a whole and renders in flow above the actions, never positioned over them.
+
+**The page behind a modal is out of play, not only dimmed.**
+`aria-modal="true"` tells assistive technology that everything outside the dialog is out of play, and that has to be true: the vendor drawer once declared it while fourteen controls behind it stayed in the tab order, the rail's "Publish Market" among them, so a keyboard user could publish with a vendor's details open.
+A control that can be focused and fired presents itself as available far more strongly than a dimmed one, so the page behind is held `inert` ([`useInertBehind`](../../../front-end/src/utils/useInertBehind.ts)).
 
 **A dialog opened from a dialog is a sibling of it**, so [`useInertBehind`](../../../front-end/src/utils/useInertBehind.ts) marked it out of play: it rendered, read correctly, was visible and enabled, and could not be clicked.
 A dialog now takes `inert` off its own branch on open and puts the marks back on close; the marks are counted per element, so the dialog beneath still releases correctly.

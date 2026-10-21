@@ -27,6 +27,7 @@ sources:
   - E21/F03/S03
   - E21/F03/S06
   - E26/F06/S03
+  - E01/F06
 ---
 
 # The market document
@@ -120,6 +121,8 @@ Keep it that way.
 **Parse stored markets with `market_from_document()`, never `Market(**snake_dict)`.**
 `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written before the field existed.
 `phase_from_market_document()` (`datatypes.py`) is the one source of truth for that mapping: a document with no `phase`, or one this build does not recognize, reads as `draft` when `isDraft` (or the older `is_draft`) is true or absent and `archived` when it is false.
+The fallback stays `archived` though the old build's publishing meant a running market: redefining it as `market_days` would contradict `migrate_phase.py` and `migrate_is_draft_consistency.py`, which define a legacy published market as `archived` too, so one definition is kept and [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) does the moving.
+Until it runs, such a market reads as finished: its check-in page takes no check-in, and is served at all only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 `load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.
 
 **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes both from their document readers, `phase_from_market_document()` and `intake_mode_from_market_document()`.

@@ -44,7 +44,7 @@ The organizer's and the applicant's views camel-case an application on the way o
 | --- | --- |
 | `id` | a UUID, the primary key |
 | `market_id` | the market it belongs to |
-| `applicant_email` | the applicant, stored lowercased and trimmed by every writer ([users and email](users-and-email.md)) |
+| `applicant_email` | the applicant, stored lowercased and trimmed by every writer ([users and email](users-and-email.md)); proven by a sign-in code on the online path, asserted by the file on an import, and nothing here says which ([an imported email is asserted](../../business/rules/an-imported-email-is-asserted.md)) |
 | `application_type` | `main`, or `waitlist` for a second application beside it (`main_application_id` names the main one) |
 | `form_data` | the answers, keyed by form field key; the essential questions' answers under their reserved `essential_*` keys |
 | `status` | where review has got to (below) |

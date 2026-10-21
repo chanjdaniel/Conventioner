@@ -16,6 +16,7 @@ sources:
   - E31/F01
   - E31/F02
   - E33/F01
+  - E18
   - bug/16
   - bug/23
   - bug/25

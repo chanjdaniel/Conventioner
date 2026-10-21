@@ -23,6 +23,8 @@ sources:
   - E19/F02/S01
   - E27/F01/S01
   - E31/F04
+  - E18
+  - E19
 ---
 
 # Essential fields
