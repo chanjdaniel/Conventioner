@@ -7,6 +7,8 @@ verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/04
   - wayfinding/v0-1-0/05
+  - wayfinding/the-order-of-the-work/06
+  - wayfinding/the-order-of-the-work/map
   - E24
   - E26
   - E30/F02/S01
@@ -33,6 +35,8 @@ sources:
 Importing is the Google Form path's alone, in every phase it imports in ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)): a market whose vendors apply on its own page offers no import, and the server refuses one with "This market takes applications on its own page, so nothing is imported into it."
 The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import applications", in four steps: Upload, Map columns, Preview, Confirm.
 It is a full-width page of its own, not a dialog and not a card of Market Setup: mapping a dozen columns and then settling the answers that match nothing is too dense for either.
+It stands in the market frame at the workspace width like every market page, and keeps that width through all four steps, since a page that resized under the organizer at each Next would read as unsteady: Upload, Preview and Confirm centre a narrower panel (720px) inside it, and Map columns takes the whole width for its ledger and rail.
+A dialog opened from the import, such as the form amendment ([H2e](#h2e-add-a-question-for-a-column-with-nowhere-to-go)), is a dialog over a page, which holds only while the import is a page.
 How the file becomes applications, and why each rule holds, is [the CSV import](../../implementation/modules/csv-import.md).
 
 **Map columns is a ledger of the file's columns**: one row per column in file order, each with its "Maps to" choice, and "Required questions" beside it ticking off what is served.

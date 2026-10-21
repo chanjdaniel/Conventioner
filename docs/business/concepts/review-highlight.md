@@ -10,6 +10,7 @@ verified: 2026-10-22
 
 ## Rules
 
+- [Review highlights](../rules/review-highlights.md): where they live, who changes them, and what the card does with them.
 - [What each role may do](../rules/what-each-role-may-do.md): the highlights are an Editor's.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md): an archived market's highlights do not change.
 

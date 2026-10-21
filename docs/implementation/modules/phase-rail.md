@@ -6,9 +6,12 @@ describes:
   - front-end/src/utils/phase.ts
 verified: 2026-10-22
 sources:
+  - wayfinding/claims-and-room/07
+  - wayfinding/the-order-of-the-work/09
   - E10/F01
   - E10/F01/S02
   - E26/F06/S03
+  - E26/F10/S01
   - E31/F02/S01
   - E32/F01/S01
   - E32/F02/S01
@@ -55,6 +58,11 @@ Before posting, the rail awaits the screen's `beforeTransition` (the plan flushe
 Strikethrough alone reads as stopped, not as archived; the prototype proved it, so an archived rail says what became of the market ("It was published and ran its market days.") and keeps the strikethrough only as reinforcement.
 An archived market's frozen stage is the furthest phase in `phasesReached`, the server's [phase record](phase-record.md); it was once read off evidence, and told a market that ran that no check-in page ever went on the air (bug 8).
 Without a complete record (`phaseRecordComplete: false`) the rail says only what is proven and strikes nothing through.
+
+**The addresses give way, and the rail's end travels as one piece.**
+An address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
+Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
 

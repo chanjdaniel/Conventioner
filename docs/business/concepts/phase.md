@@ -38,3 +38,4 @@ verified: 2026-10-22
 - [The form amendment](../../implementation/modules/form-amendment.md): the one other mover, which walks a market back and forth to fix its form.
 - [The market document](../../implementation/data/market-document.md#the-phase-and-isdraft): `phase` stored, and `isDraft` derived from it.
 - [ADR 0005: The phase is a market's only lifecycle state](../../adr/0005-phase-is-the-only-lifecycle-state.md).
+- [ADR 0012: A market remembers every phase it entered](../../adr/0012-a-market-remembers-every-phase-it-entered.md).

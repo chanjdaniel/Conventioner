@@ -3,9 +3,12 @@ layer: business
 kind: flow
 verified: 2026-10-22
 sources:
+  - wayfinding/the-order-of-the-work/11
+  - E18/F02/S03
   - E18/F04
   - E31/F01/S01
   - E31/F02
+  - E31/F03/S04
   - E32/F01/S01
   - E32/F02/S01
   - bug/11
@@ -19,6 +22,11 @@ sources:
 These are the online path's moves ([the online path](the-online-path.md)): its applications open, close and reopen.
 A market whose vendors apply on the organizer's own Google Form leaves Draft with "Import responses" instead, which lands on [the import](import.md), and has no Close or Reopen Applications ([the Google Form path](the-google-form-path.md)).
 How vendors apply while applications are open is [applying online](applying-online.md).
+
+**One Applications page serves Applications Open, Applications Closed and Review**, and says in words, at its top, which of them the market is in ("This market is no longer taking applications. No new ones will arrive."; in Review, how many are still to decide).
+The three phases differ too little for three pages: a verdict can be given from the first application, and Review is the phase after which reviewing must be finished, not the one in which it happens ([review](review.md)).
+Hiding a control is not saying the state: a page whose only difference is a missing button teaches an organizer that the phases are arbitrary.
+The phases are not merged either: for a market taking applications online, "applications have closed" is a real state, since its public form stops accepting, and the phase machine stays as it is.
 
 ## H1. Open applications
 
@@ -50,6 +58,10 @@ Covered by: `phase-state-machine.spec.ts`, `vendors-see-their-application-after-
 **Status:** Works (walked live).
 From Applications Closed, More…, "Reopen Applications"; the form guard runs again (H1a).
 Covered by: `phase-state-machine.spec.ts`.
+
+## Superseded
+
+- The Applications page was to offer Import in Applications Open and Applications Closed on any market, dropping it in Review (wayfinding/the-order-of-the-work/11); importing is the Google Form path's alone, which never stops in Applications Closed, and from Review it is one move back, "Import more responses" (E31/F03/S04, E32/F02).
 
 ## The rules it obeys
 

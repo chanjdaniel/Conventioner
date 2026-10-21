@@ -11,6 +11,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/05
+  - wayfinding/the-order-of-the-work/07
   - E03/F04
   - E20/F03
   - E21/F02/S03
@@ -28,6 +29,7 @@ An applicant answers the form as it stands; a question that moved after they ans
 The form is editable in `draft` alone, and the way back to draft (`applications_open -> draft`) is open only while no application exists (`NoApplicationsYetGuard`).
 That guard is not redundant with the lock: the lock runs when the form is written, the guard when the market moves, and applicant submission is gated to `applications_open`, so a count of zero is stable in `draft` and a race while applications are open; gating the going back is what makes the lock race-free.
 A form found wrong after leaving draft, while nobody has applied, is fixed through [the form amendment](../../implementation/modules/form-amendment.md), which walks the market back to draft and forward again; after the first application nothing changes it.
+No edge from `applications_closed` back to draft is added for it: a market that has closed applications has moved past where its form is a draft of anything, so the amendment returns through `applications_open`.
 Writing a question in place from the import, while applications are open, was rejected: it carries the same race, and it would be a second writer of the form.
 
 ## Where it is kept

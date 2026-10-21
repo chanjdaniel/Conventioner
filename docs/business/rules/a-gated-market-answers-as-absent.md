@@ -12,7 +12,10 @@ verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07
+  - wayfinding/the-order-of-the-work/09
+  - wayfinding/the-order-of-the-work/map
   - E03/F02/S02
+  - E18/F04/S02
   - E26/F07/S02
   - E32/F03/S01
   - bug/20
@@ -40,6 +43,11 @@ The sign-in page itself reads the public form first, so at a gated or unknown ad
 An applicant may always sign in and read their own application and its outcome; closing the surface with applications hid every verdict (bug 20).
 Applying itself stays `applications_open`'s ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
 
+**The organizer's own link to the page follows the gate.**
+The rail shows the application page's address, with Copy, only for a form market, from the first phase after draft until it is archived ([the phase rail](../../implementation/modules/phase-rail.md)).
+A CSV market shows none in any phase, since a link there would be the one place the product admitted the market was real; a draft shows none, since its page deliberately tells the organizer nothing either.
+The check-in chip waits for `market_days` because before then its page is absent; the application page answers in every phase after draft, so its chip shows in each until the archive, where the check-in record is the address that stays.
+
 ## Where it is kept
 
 - **`applicant_intake_market_by_slug()`** ([`back-end/market_documents.py`](../../../back-end/market_documents.py)) is the single expression of the gate: a market at the slug, in a phase of `APPLICANT_SURFACE_PHASES`, whose intake mode is `form`, or `None`, the same answer as for a slug that names nothing.
@@ -48,5 +56,10 @@ Applying itself stays `applications_open`'s ([an applicant never reads a verdict
   It is one lookup rather than a check in each endpoint, because five checks are five chances to forget the sixth.
 - **It is not the check-in lookup**, because check-in must stay open to every market that runs ([attendance and the door](../../implementation/modules/attendance-and-door.md)); both narrow `market_by_slug`, each with its own phases.
 - What the mode is and when it may change: [intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md), and why absence is CSV, [ADR 0006](../../adr/0006-intake-mode-fails-closed.md).
+- The intake-mode control exists because this gate is what keeps the address from simply being shown: which mode a market has decides whether the page is real ([intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md)).
 - [`front-end/e2e/intake-mode.spec.ts`](../../../front-end/e2e/intake-mode.spec.ts) asserts the gated and absent renders are identical, text and final address alike, at `/<slug>`, `/apply`, `/applicant-login` and `/applicant/dashboard`, rather than asserting each alone; and that a vendor already signed in to a market taken back to draft is shown what a stranger is.
   [`back-end/tests/test_applicant_intake_gate.py`](../../../back-end/tests/test_applicant_intake_gate.py) pins the five endpoints and the open check-in.
+
+## Superseded
+
+The application page's chip was to show in every phase of a form market, draft included, on the grounds that the page answers in every phase (wayfinding/the-order-of-the-work/09); a draft's page answers as absent, so the chip starts at the first phase after draft (E18/F04/S02).
