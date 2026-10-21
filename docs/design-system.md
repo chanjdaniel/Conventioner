@@ -8,12 +8,18 @@ describes:
   - front-end/.stylelintrc.json
 verified: 2026-10-22
 sources:
+  - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
+  - wayfinding/claims-and-room/07
   - wayfinding/the-assignment-tab/02
   - wayfinding/the-plan-uses-its-space/01
   - wayfinding/the-market-frame/01
+  - wayfinding/the-market-frame/map
+  - wayfinding/the-order-of-the-work/map
   - E16
   - E15/F01/S01
+  - E17/F01
+  - E22/F04/S01
   - E26/F07
   - E26/F10/S01
 ---
@@ -107,6 +113,7 @@ Decided by claims-and-room ticket 01, which holds the measurements.
 
 **A screen is a card of one of two widths that grows to its content while the page scrolls.**
 No screen caps its own height, and no row carries a minimum height.
+The market screen's `height: 80%`, which pinned it to most of the window and hid half of it, was scaffolding from that view's first commit, never a decision, and went with the rest.
 `.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
 
 | Token | Value | Screens |
@@ -218,6 +225,7 @@ Tokens alone cannot fix what is actually wrong. A `--radius-control` does not st
 
 Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Reach for a primitive rather than deciding again.
+Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 
 | | Variants | Notes |
 | --- | --- | --- |
@@ -244,3 +252,8 @@ A convention nothing enforces is how the product got here. Three checks, in `E16
    `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
 
 The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
+
+## Superseded
+
+- `--list-max` was to hold a market's Tables, Vendors and Attendance (wayfinding/claims-and-room/01); every market screen is the workspace width, set by the frame (E22/F04/S01).
+- A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).

@@ -9,6 +9,7 @@ sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
   - wayfinding/real-market-readiness/04
+  - wayfinding/claims-and-room/map
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#10
   - E19/F03
@@ -125,6 +126,6 @@ Its specs and gaps are in [walking the flows](../../implementation/testing/walki
 
 - Imported applications were first to be approved with a bulk-approve action in the old monitor (wayfinding/v0-1-0/map), and how it should look was asked (wayfinding/v0-1-0/08).
   A walk of a real 232-row export showed the card carried nothing to decide on, so the question was closed unanswered and replaced by what a reviewer must see (wayfinding/real-market-readiness/04).
-- That answer chose triage with no bulk action at all, so no application could be approved without being looked at (wayfinding/real-market-readiness/04).
+- That answer chose triage with no bulk action at all, so no application could be approved without being looked at (wayfinding/real-market-readiness/04), and bulk approve was ruled out again (wayfinding/claims-and-room/map).
   The organizers asked for bulk verdicts, and the All view gives them, on ticked rows only and confirmed by count, never on "everything matching" (brain-dump/2026-10-19#10, E34/F04).
 - Its third verdict, Skip, became "Needs follow-up", a stored status with an owner, beside "Next", which passes over a card and decides nothing (brain-dump/2026-10-19#9, E34/F02/S01).

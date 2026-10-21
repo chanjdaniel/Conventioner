@@ -7,6 +7,7 @@ describes:
   - back-end/api/markets.py#get_market_for_user
 verified: 2026-10-22
 sources:
+  - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/02
   - wayfinding/the-market-frame/03
   - E21/F02

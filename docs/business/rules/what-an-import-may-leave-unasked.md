@@ -7,9 +7,13 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/03
+  - wayfinding/claims-and-room/03
   - E01/F06
   - E26/F02/S03
+  - E26/F03/S01
   - bug/24
+  - bug/29
+  - bug/45
 ---
 
 # What an import may leave unasked
@@ -32,6 +36,7 @@ Available dates, tier preference and table choice decide where or whether a vend
 Giving every applicant the same ranking without recording that nobody was asked was rejected: it puts a made-up answer where the applicant's own answers live, which is what [an incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) exists to prevent.
 
 **It is recorded on the market's form, not on the import's mapping**: whether a market asks vendors to rank its sections is a fact about the market, and must hold for its own application page too.
+A question switched off stays off through later edits of the form, and the applicant form then asks no ranking (bugs 29 and 45).
 On the form it is read by `asked_essential_keys()`, so which questions are asked stays one statement, read by the applicant's validator, the import and the solver alike.
 
 A tier is still a property of a section, so a market offering three tiers needs three sections, and still asks the tier question.
@@ -42,3 +47,7 @@ A tier is still a property of a section, so a market offering three tiers needs 
 - `validated_essential_answers` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py) then stores the missing answer as `None`, and the solver reads `max_dates` None as no personal limit ([the assignment solver](../../implementation/modules/assignment-solver.md)).
 - The switch is `unaskedEssentials` on the application form, held to `UNASKABLE_ESSENTIAL_KEYS` by `unaskable_essential_error` ([essential fields](../../implementation/modules/essential-fields.md)); from the import, "Stop asking it" switches one off through [the form amendment](../../implementation/modules/form-amendment.md) while nobody has applied ([importing a Google Form's responses](../flows/import.md#h2f-stop-asking-a-preference-the-form-never-asked)).
 - The cases are `test_no_personal_limit_is_bounded_by_the_market_cap` and `test_no_personal_limit_and_no_cap_is_every_date_they_can_attend` in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).
+
+## Evidence
+
+The re-walk of 2026-10-03 imported two real Google Form exports into markets with two sections and no section question; neither import stopped, and on the first the section preference, switched off, stayed off.

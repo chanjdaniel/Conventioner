@@ -5,9 +5,11 @@ describes:
   - front-end/src/components/PlacementDialog.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/claims-and-room/05
   - E11/F02/S01
   - E11/F03/S01
   - E11/F04/S01
+  - E26/F05/S03
   - E35/F01/S02
   - E35/F03/S03
   - E36/F02
@@ -25,6 +27,13 @@ sources:
 Every seat on the Result page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
 Before a run the tables are drawn already, so a seat can be given first: "Anyone you place below first keeps their table: the run places everyone else around them."
 A hand placement warns about every answer it overrides and never blocks on one; what it may not do is seat someone with no application, or two people in one seat ([a seat only for an applicant](../rules/a-seat-only-for-an-applicant.md)).
+**Every answer a hand change can cross is said before it is made, and the list is grouped, never filtered**, so overriding an answer is always one pick away.
+The two ceilings are separate sentences because they are separate promises: "This gives them 2 dates; they asked for at most 1." is the vendor's own answer, "…the market allows at most 1 per vendor." the organizer's rule for everyone.
+A tier is warned only on a date the vendor offered, since a date they never offered carries no tier answer; a swap warns each vendor only about the seat's tier and size, because trading tables on one date never changes whether they are there or how many dates they hold.
+A vendor fits a seat when placing them overrides nothing, and a sharing vendor fits a wholly free table, since the organizer can give them half of it.
+A searchable picker was weighed for a market of two hundred and not taken: the product has no such shared control, and a native select already jumps to a name as it is typed.
+The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
+
 Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the placement history](../../implementation/data/placement-history.md).
 
 ## J6. Place a vendor in an empty seat

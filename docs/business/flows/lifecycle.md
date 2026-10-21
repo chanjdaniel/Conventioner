@@ -3,6 +3,8 @@ layer: business
 kind: flow
 verified: 2026-10-22
 sources:
+  - wayfinding/the-order-of-the-work/01
+  - wayfinding/the-order-of-the-work/map
   - E03
   - E26
   - E31/F01/S01
@@ -85,6 +87,20 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.
+
+## Why the phases are the order of the work
+
+The phases are the order in which a market is built and run, and the rail reads that order from the phase machine rather than from a list of its own ([the phase rail](../../implementation/modules/phase-rail.md)).
+The screens follow the phase rather than standing beside it as peers: a move lands on its phase's page, the bar's dot marks the tab the market is worked on now, and a tab out of its phase says when it will matter.
+The market's state is the phase alone; a tab is a place to look, never a state.
+
+`draft` holds two stages, in order: the plan, then the form built from it.
+The form's essential questions offer exactly what the plan holds, so the form has nothing to ask until the plan does; no phase sits between the two, because both are the organizer's own work before anyone applies, and Market Setup shows the order instead ([planning the market](planning.md)).
+The assignment rules (priority and options) and Assign belong to the Assignment tab, not to Market Setup: a priority rule names a question of the form, so it cannot be written before the form exists, and Assign runs only in `assignment` ([assign runs only in assignment](../rules/assign-runs-only-in-assignment.md)).
+
+## Superseded
+
+- Every earlier stage was to stay editable in later phases, the plan included (wayfinding/the-order-of-the-work/01); the setup settles on leaving draft instead ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md), E31/F01).
 
 ## The rules it obeys
 

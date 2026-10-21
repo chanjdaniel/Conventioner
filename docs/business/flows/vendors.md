@@ -5,7 +5,9 @@ describes:
   - front-end/src/views/VendorsView.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/claims-and-room/04
   - E11/F04
+  - E26/F05/S04
   - E35/F01/S01
   - E36/F02/S04
   - E36/F03/S01
@@ -44,6 +46,11 @@ Covered by: `adding-a-vendor.spec.ts`.
 On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be placed".
 Only the last offers "Place them", which opens the Result page on that date, searched for them; a date stopped by a limit offers no placing.
 Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why"), `vendors-and-limits.spec.ts`.
+
+## Superseded
+
+- The page was to list only the vendors the run places, a rejected applicant leaving it, so that it and the Result page counted the same people by construction (wayfinding/claims-and-room/04, E26/F05/S04).
+  It lists every applicant, so a rejected one can be found and seated by hand, and only its count is the run's vendors, the people the Result page counts (E36/F02/S04).
 
 ## The rules it obeys
 

@@ -11,6 +11,9 @@ describes:
   - back-end/guards.py#_earliest_calendar_day
 verified: 2026-10-22
 sources:
+  - wayfinding/the-order-of-the-work/03
+  - wayfinding/the-order-of-the-work/map
+  - E18/F03/S01
   - E31/F01
   - E31/F01/S01
   - E31/F01/S02
@@ -25,6 +28,12 @@ So leaving draft requires a complete setup: dates none of which has passed, a lo
 
 Once the market is out of draft, applicants choose its dates, tiers and sections, and the assignment places vendors in them; a date or a section that moved under them would leave an answer naming something that no longer exists.
 A setup that leaves incomplete could therefore never be completed, so the move out of draft asks for each part of it, each pointing at Market Setup.
+
+**Leaving draft is finalizing.**
+There is no separate act for the organizer to find: the move out of draft is it, and it already judges the plan and the form together, since a plan that offers nothing gives a form that asks nothing ([the guards](../../implementation/modules/guards.md)).
+The move stamps the form's `publishedAt` and a return to draft clears it, so the stamp says whether the form is open to applicants now.
+It is not the phase restated, because `draft -> archived`, abandoning a draft, does not stamp: a market archived straight from draft never opened its form.
+If that edge is ever retired, `publishedAt` becomes derivable from the phase and should be deleted rather than kept; whether the edge stays is not decided.
 
 **A date has passed only once it has passed everywhere.**
 A market's date is a day where the market is, and the server does not know where that is, so it refuses a date only once that day is over even at UTC-12 (`_earliest_calendar_day`).
