@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/datatypes.py#IntakeMode
   - back-end/datatypes.py#intake_mode_from_market_document
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07

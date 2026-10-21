@@ -7,7 +7,7 @@ describes:
   - back-end/csv_proposal.py#_ceiling_state
   - back-end/csv_proposal.py#_shape
   - back-end/csv_proposal.py#_team_candidates
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-form-started-from-a-csv/01
   - wayfinding/the-form-started-from-a-csv/02

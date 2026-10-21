@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py
   - back-end/assignment/vendor_input.py
   - back-end/assignment/csv_output.py
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02

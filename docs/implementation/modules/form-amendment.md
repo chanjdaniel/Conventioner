@@ -7,7 +7,7 @@ describes:
   - back-end/app.py#amend_application_form
   - back-end/app.py#resume_application_form_amendment
   - front-end/src/components/application/AmendFormDialog.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-order-of-the-work/07
   - wayfinding/the-order-of-the-work/map

@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/StartFromCsvView.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-form-started-from-a-csv/05
   - wayfinding/the-form-started-from-a-csv/map

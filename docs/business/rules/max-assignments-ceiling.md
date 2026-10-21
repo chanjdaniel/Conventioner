@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment.market_max_assignments
   - back-end/assignment/assignment.py#MarketAssignment.max_assignments_for
   - front-end/src/components/elements/ElementAssignmentOptions.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/02
   - E02

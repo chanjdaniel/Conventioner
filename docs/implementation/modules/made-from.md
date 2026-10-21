@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - back-end/assignment/made_from.py
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-assignment-tab/03
   - E22/F03

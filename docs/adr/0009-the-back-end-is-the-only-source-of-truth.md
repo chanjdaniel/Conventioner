@@ -1,7 +1,7 @@
 ---
 layer: implementation
 kind: adr
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/02
