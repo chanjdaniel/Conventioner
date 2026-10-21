@@ -419,7 +419,7 @@ def check(repo):
     for path, doc in repo.docs.items():
         check_links(repo, doc, report)
         if path in HUBS and doc.has_frontmatter:
-            report(path, 1, "a hub has no frontmatter")
+            report(path, 1, "a hub must not carry frontmatter")
         elif doc.is_node:
             check_schema(repo, doc, report)
         for line, message in doc.meta_errors:
