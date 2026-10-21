@@ -1,7 +1,7 @@
 ---
 layer: implementation
 kind: adr
-verified: 2026-10-21
+verified: 2026-10-22
 status: accepted
 ---
 
@@ -17,10 +17,11 @@ Every solver input (`SOLVER_RELEVANT_KEYS` in `back-end/essential_fields.py`) is
 
 - `essential_table_choice` and an optional `essential_table_share_email` are added; the per-date question splits into plain availability plus one global tier question.
   The table-share answer is read into a first address and any further ones (`essential_table_share_also`), both solver inputs.
-- **Tier filters, section prefers.** Tier is a hard constraint because it determines what the applicant pays for a table on a given day, so a vendor is never placed at a tier they did not accept, even if that leaves them unassigned. Section is a placement preference: a vendor gets their highest-ranked section still available, and is never left unassigned merely because a preferred section filled up.
+- **[Tier filters, section prefers](../business/rules/tier-filters-section-prefers.md).** Tier is a hard constraint because it determines what the applicant pays for a table on a given day, so a vendor is never placed at a tier they did not accept, even if that leaves them unassigned. Section is a placement preference: a vendor gets their highest-ranked section still available, and is never left unassigned merely because a preferred section filled up.
 - Rankings are *total* (a permutation of the offering), which excludes nothing - so a ranking can only ever be a preference, never a filter. That is why section cannot be enforced the way tier is.
 - Honouring section preference inverted the solver's table-driven loop into a vendor-driven one (`best_table_for` in `back-end/assignment/assignment.py`), which moved existing assignment outputs.
 - The tier substring match (a tier named `A` matched an answer of `AB`) is designed out rather than ported, since set membership replaces it.
+- The contract is kept by [essential fields](../implementation/modules/essential-fields.md), and read by [the assignment solver](../implementation/modules/assignment-solver.md) through its one seam, `vendor_input.py`.
 
 ## Considered and rejected
 

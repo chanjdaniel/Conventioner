@@ -366,7 +366,10 @@ Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
 `send_verification_email`, `send_password_reset_email`, and `send_otp_email`
 helpers skip the actual send and report success. This is also honored only under
 `ALLOW_INSECURE_LOCAL_DEV`, defaults OFF, and is forwarded by
-`docker-compose.yml`; the CI e2e job sets it too. The password-reset E2E test does
+`docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it too, but a bare
+`scripts/th-compose.sh up` does not, so export it in the shell that brings the stack up:
+without it the password-reset test in `auth.spec.ts` answers 500 from the unconfigured
+mailer. The password-reset E2E test does
 not read the reset link from an email - it reads the token directly from MongoDB
 (through `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container
 named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
