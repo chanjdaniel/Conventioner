@@ -16,6 +16,7 @@ sources:
   - E35/F01/S02
   - E36/F04/S02
   - bug/1
+  - E08/F03
 ---
 
 # Publishing, and the door on market day

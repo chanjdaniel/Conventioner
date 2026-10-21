@@ -9,6 +9,7 @@ sources:
   - E03/F02/S04
   - E04/F01/S02
   - E32/F02/S01
+  - E36/F04/S02
 ---
 
 # The market journey spec
