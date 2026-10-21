@@ -1,11 +1,21 @@
+---
+layer: implementation
+kind: module
+describes:
+  - back-end/requirements.txt
+  - front-end/package.json
+  - docker-compose.yml
+verified: 2026-10-21
+---
 # Technology Stack
 
-This document outlines the complete technology stack used in the Conventioner application.
+The technology Conventioner is built on, as its manifests pin it: [`back-end/requirements.txt`](../back-end/requirements.txt), [`front-end/package.json`](../front-end/package.json) and [`docker-compose.yml`](../docker-compose.yml).
+How each part of the code works is in the implementation layer of the [knowledge graph](README.md): [modules](implementation/modules/README.md), [data](implementation/data/README.md), [conventions](implementation/conventions/README.md) and [testing](implementation/testing/README.md).
 
 ## Backend
 
 ### Core Framework
-- **Flask 3.0.0** - Python web framework
+- **Flask 3.1** - Python web framework
   - Lightweight and flexible microframework
   - RESTful API endpoints
   - Session management with Flask-Session
@@ -18,19 +28,19 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **Flask-Bcrypt 1.0.1** - Password hashing
   - Secure password storage using bcrypt
   - Password verification for login
-- **Flask-CORS 4.0.0** - Cross-Origin Resource Sharing
+- **Flask-CORS 6.0** - Cross-Origin Resource Sharing
   - Enables frontend-backend communication
   - Configured with credentials support
 
 ### Database
 - **MongoDB 7** - NoSQL document database
   - Primary data storage
-  - Collections: `users`, `markets`, `organizations`, `source_data`, `attendance`, `applications`, `floorplan_templates`, `schema_migrations` (created by `back-end/mongo-init.js` on a fresh volume)
-  - Connection via PyMongo 4.6.1
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `placement_history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
 ### Data Validation
-- **Pydantic 2.5.3** - Data validation and settings management
+- **Pydantic 2.10** - Data validation and settings management
   - Type-safe data models
   - Automatic validation
   - Used for API request/response validation
@@ -52,13 +62,18 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Test-only bypass via `DISABLE_CAPTCHA`, honored only under `ALLOW_INSECURE_LOCAL_DEV` (see Environment Variables)
 
 ### Utilities
-- **Cryptography 41.0.0+** - Cryptographic functions
-  - Secure token generation
-  - Used for email verification and password reset tokens
+- **Python's `secrets`** - Email verification and password reset tokens, and sign-in codes
+- **PyJWT 2.8+** - The applicant's sign-in token, signed with `SECRET_KEY`
+- **Cryptography 41.0.0+** - Lets the local stack's `flask run --cert=adhoc` make its certificate; no module imports it
 - **Requests 2.31.0+** - HTTP library
   - Used for reCAPTCHA verification API calls
-- **python-dotenv 1.0.1** - Reads `back-end/.env` on the first line `app.py` runs
+- **python-dotenv 1.2** - Reads `back-end/.env` on the first line `app.py` runs
   - The real environment wins over the file, so nothing exported by hand is shadowed by it
+
+### Floorplan (beta)
+- **Shapely 2** and **NumPy** - The geometry of table auto-placement
+- **pyckingsolver** - The packing solver, in `back-end/requirements-floorplan-solver.txt` (Docker, CI and local development) because it has no wheel for production's glibc; production places tables on a grid instead
+- **google-genai**, **openai**, **pdf2image** and **Pillow** - The vision endpoint `POST /floorplans/analyze` and PDF uploads; the wizard calls no model
 
 ### Session Management
 - **Flask-Session 0.8.0** - Server-side session storage
@@ -68,9 +83,9 @@ This document outlines the complete technology stack used in the Conventioner ap
 
 ### Testing
 - **pytest 8+** - Python test framework
-  - Runs the back-end test suite (`python -m pytest tests/`)
+  - Runs the back-end test suite (`python -m pytest tests/`), from `back-end/requirements-dev.txt`
   - Configured via `back-end/pytest.ini`
-  - Tests use in-memory fakes, so no database connection is required
+  - `tests/conftest.py` replaces PyMongo with an in-memory fake, so no database connection is required
 
 ## Frontend
 
@@ -101,8 +116,8 @@ This document outlines the complete technology stack used in the Conventioner ap
 
 ### State Management
 - **Pinia 2.3.1** - Vue state management
-  - Store-based state management
-  - Currently using provide/inject pattern for user state
+  - Stores in `src/stores/`: the open market (`market.ts`), the applicant's application and the floorplan wizard
+  - The signed-in user is held by `App.vue` and handed down with provide/inject
 
 ### Routing
 - **Vue Router 4.5.0** - Official router for Vue.js
@@ -112,8 +127,7 @@ This document outlines the complete technology stack used in the Conventioner ap
 
 ### HTTP Client
 - **Axios 1.12.2** - Promise-based HTTP client
-  - API communication
-  - Request/response interceptors
+  - API communication through one instance, `src/utils/api.ts`
   - Cookie-based authentication support
 
 ### Utilities
@@ -121,13 +135,15 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Reusable composition functions
 - **VueDraggable 4.1.0** - Drag and drop component
   - Drag-and-drop functionality for UI elements
+- **Konva 10** and **vue-konva 3** - The floorplan wizard's canvas
 
 ### Development Tools
 - **ESLint 9.18.0** - JavaScript/TypeScript linter
   - Code quality enforcement
   - Vue-specific linting rules
 - **Prettier 3.4.2** - Code formatter
-  - Consistent code formatting
+  - Consistent code formatting; CI fails unformatted code
+- **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `.stylelintrc.json`
 - **Vue TSC 2.2.0** - TypeScript type checker for Vue
   - Type checking for Vue components
 
@@ -148,32 +164,32 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **Docker** - Container platform
   - Multi-container application setup
   - Service orchestration via Docker Compose
-  - Development and production environments
+  - The local stack, E2E and CI; production runs on Vercel (see [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md))
 
 ### Services (Docker Compose)
 1. **MongoDB** - Database service
-   - Port: 27017
+   - `mongo:7`, port 27017
    - Persistent data volumes
    - Health checks configured
 
 2. **Backend** - Flask API service
    - Port: 5000 (HTTPS with adhoc certificate)
    - Hot-reload enabled
-   - Volume mounts for code and sessions
+   - `back-end/` is bind-mounted into the container, so a `back-end/.env` is read by the running stack
 
 3. **Frontend** - Vue development server
    - Port: 5173
    - Hot-reload enabled
    - Vite dev server with proxy
 
-4. **Mongo Express** (optional) - MongoDB admin UI
+4. **Mongo Express** - MongoDB admin UI
    - Port: 8081
    - Database management interface
 
 ### Continuous Integration
 - **GitHub Actions** - CI pipeline (`.github/workflows/test.yml`)
   - Runs on pushes and pull requests to `main` or `dev`
-  - Jobs: back-end pytest, front-end type-check + lint + unit tests, Docker build verification, and E2E (Playwright against the Docker stack with `DISABLE_CAPTCHA=true` and `DISABLE_EMAIL=true`, uploading artifacts on failure)
+  - Jobs: back-end pytest, the knowledge graph's checker, front-end unit tests, front-end format + lint + style lint + type-check, Docker build verification, and E2E (Playwright in four shards, each against its own Docker stack with `DISABLE_CAPTCHA=true` and `DISABLE_EMAIL=true`, uploading artifacts on failure)
 - **GitHub Actions** - Release automation (`.github/workflows/release-please.yml`)
   - Runs [release-please](https://github.com/googleapis/release-please) on pushes to `main`
   - Opens/updates a Release PR (version bump + CHANGELOG) that, when merged, tags a release
@@ -186,7 +202,7 @@ This document outlines the complete technology stack used in the Conventioner ap
 2. Backend validates CAPTCHA token
 3. Password is hashed with bcrypt
 4. User account created with `email_verified: false`
-5. Verification token generated and stored
+5. Verification token generated and stored; it expires in 1 hour
 6. Verification email sent via Resend
 7. User clicks verification link in email
 8. Email verified, account activated
@@ -201,14 +217,14 @@ This document outlines the complete technology stack used in the Conventioner ap
    - User requests OTP via email
    - 6-digit code sent via Resend
    - Code expires in 5 minutes
-   - Max 5 verification attempts
-   - Rate limited (max 3 requests per hour)
+   - The fifth wrong code clears it
+   - Rate limited: another code is refused (429) until an hour after the last one expired, unless it was used
 
 ### Password Reset
 1. User requests password reset
 2. Reset token generated and stored
 3. Reset link sent via Resend email
-4. Token expires in 1 hour
+4. Token expires in 1 hour; another reset is refused (429) until an hour after it expired
 5. User sets new password
 6. Password hashed and stored
 
@@ -237,16 +253,18 @@ This document outlines the complete technology stack used in the Conventioner ap
 - `ALLOW_INSECURE_LOCAL_DEV` - Local-development escape hatch for the six required variables above (default OFF; set `true`/`1`). Never set it on a deployment
 - `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
-- `MONGODB_HOST` - MongoDB hostname (default: `mongodb` in Docker, `localhost` locally)
+- `MONGODB_URI` - A full MongoDB connection string (production's Atlas cluster); when set, the five below are not read
+- `MONGODB_HOST` - MongoDB hostname (default: `localhost`; the compose file sets `mongodb`)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)
-- `MONGODB_DB` - Database name (default: `conventioner`)
+- `MONGODB_AUTH_DB` - The database the user authenticates against (default: `admin`)
+- `GEMINI_API_KEY`, `OPENAI_API_KEY` - Only for the floorplan vision endpoint, which the wizard does not call
 - `SESSION_TYPE` - Where the organizer's session is kept: `filesystem` (on local disk: a container or VM) or `null` (in the signed cookie only: a serverless deployment, which has no disk that outlives a request). **Required**: there is deliberately no default, because neither value is right for both hosts, and the app refuses to boot without it
 
 ### Frontend
-- `VITE_FLASK_HOST` - API base path (default: `/api`)
-- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://backend:5000`)
+- `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
+- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5000`; the compose file sets `https://backend:5000`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
 - `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`). Opt-in, warns on every build it allows, and must never be set on a deployed build
 
@@ -260,26 +278,34 @@ Conventioner/
 │   │   ├── markets.py     # Market management + application form endpoints
 │   │   ├── organizations.py  # Organization endpoints
 │   │   ├── applications.py  # Sole owner of the `applications` collection
-│   │   └── source_data.py   # CSV data endpoints
+│   │   ├── applicants.py, applicant_auth.py  # The public applicant surface
+│   │   ├── placements.py # The only writer of a market's assignment
+│   │   ├── attendance.py, door.py  # Check-in, by the vendor and at the door
+│   │   └── floorplans*.py   # The floorplan wizard (beta)
 │   ├── utils/            # Utility modules
 │   │   ├── tokens.py     # Token/OTP generation
 │   │   ├── email.py      # Email service integration
-│   │   └── captcha.py   # CAPTCHA verification
+│   │   ├── captcha.py    # CAPTCHA verification
+│   │   └── configured_secret.py  # Whether a variable holds a secret
 │   ├── migrations/       # Database migration scripts
 │   ├── assignment/       # Assignment algorithm logic
+│   ├── services/         # Floorplan placement and GridFS storage
 │   ├── app.py            # Flask application entry point
 │   ├── datatypes.py      # Pydantic data models
 │   ├── guards.py         # Every phase-transition precondition (the D16 registry)
 │   ├── market_documents.py  # Canonical market document form + migration markers
+│   ├── csv_import.py, csv_proposal.py, csv_start.py  # Importing a Google Form's responses
 │   ├── db_config.py      # MongoDB connection configuration
 │   └── requirements.txt  # Python dependencies
 ├── front-end/
 │   ├── src/
 │   │   ├── views/        # Page components
 │   │   ├── components/   # Reusable components
+│   │   ├── stores/       # Pinia stores
 │   │   ├── utils/        # Utility functions
 │   │   ├── router/       # Vue Router configuration
 │   │   └── App.vue       # Root component
+│   ├── e2e/              # Playwright specs, page objects and seeds
 │   ├── package.json      # Node.js dependencies
 │   └── vite.config.ts   # Vite configuration
 ├── docs/                 # Documentation
@@ -329,7 +355,7 @@ Conventioner/
 ## Version Information
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
-- **Node.js**: 18+
+- **Node.js**: 20 (the front-end Dockerfile and CI)
 - **MongoDB**: 7
 - **Docker**: Latest stable version
 

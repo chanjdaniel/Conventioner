@@ -1,3 +1,19 @@
+---
+layer: implementation
+kind: convention
+describes:
+  - front-end/src/assets/base.css
+  - front-end/src/assets/primitives.css
+  - front-end/.stylelintrc.json
+verified: 2026-10-21
+sources:
+  - wayfinding/claims-and-room/01
+  - wayfinding/the-assignment-tab/02
+  - wayfinding/the-plan-uses-its-space/01
+  - wayfinding/the-market-frame/01
+  - E16
+---
+
 # Conventioner's design language
 
 This file is the single statement of what Conventioner looks like.
@@ -5,7 +21,7 @@ It exists because the product did not have one: 12,211 lines of CSS across 71 sc
 The evidence is `.lavish/aesthetics-2026-09-20.html`; the decisions were taken on 2026-09-20.
 
 A value not in this file does not belong in a component.
-`front-end/src/assets/base.css` is where these become tokens, and the checks in `E16/F01` are what keep them there.
+[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/.stylelintrc.json`](../front-end/.stylelintrc.json), are what keep them there.
 
 ## How this was decided
 
@@ -44,7 +60,7 @@ Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning 
 | `--text-xl` | 26px | Page and screen titles |
 | `--text-2xl` | 32px | Display figures - the assignment summary's numbers |
 
-Nothing below 12px. The product currently ships 10px and 8px body text, which is below any readable minimum.
+Nothing below 12px. The product once shipped 10px and 8px body text, which is below any readable minimum; none is left.
 
 ### Weight
 
@@ -70,7 +86,7 @@ The largest migration cost is here: **10px is the second most-used spacing value
 
 ## Layout
 
-Decided by [claims-and-room ticket 01](../.scratch/wayfinding/claims-and-room/issues/01-how-an-organizer-screen-sizes-itself.md), which holds the measurements.
+Decided by claims-and-room ticket 01, which holds the measurements.
 
 **A screen is a card of one of two widths that grows to its content while the page scrolls.**
 No screen caps its own height, and no row carries a minimum height.
@@ -87,12 +103,12 @@ Two widths rather than one because the content clusters into two groups and **no
 
 **1440 rather than the content-only answer of 1360** because that is the phase rail's measured break - below it the rail wraps to a second row on a published market. `readable-journey` ticket 06 had already put that break "between 1366 and 1440"; it is exactly 1440.
 
-**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from [the-assignment-tab ticket 02](../.scratch/wayfinding/the-assignment-tab/issues/02-how-every-market-screen-is-reached.md)).
+**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from the-assignment-tab ticket 02).
 Tables, Vendors and Attendance used to be `--list-max`, so moving between a market's screens made the frame jump 340px, cut the market's name, and wrapped the rail to a second row on the narrow ones.
 A screen that stands in the frame sets no width of its own.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 
-**A screen of cards is a two-track grid** (E23/F01/S01, from [the-plan-uses-its-space ticket 01](../.scratch/wayfinding/the-plan-uses-its-space/issues/01-the-row-rule.md)).
+**A screen of cards is a two-track grid** (E23/F01/S01, from the-plan-uses-its-space ticket 01).
 It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
 
 - **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
@@ -103,7 +119,7 @@ It is `.card-grid` in `primitives.css`; a screen reaches for it rather than layi
 On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form.
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
-**A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
+**A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
 `--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time.
 The frame's own pinned block is the one thing that is measured: it grows with whatever the rail shows, so no token could state it.
@@ -119,7 +135,7 @@ The root keeps the scrollbar's room (`scrollbar-gutter: stable`), so a page tall
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
 
-**Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: `.plan-row--asymmetric` is `3fr 2fr`.
+**Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: the assignment tab's `.plan-row--asymmetric` is `3fr 2fr`.
 
 ## Radius
 
@@ -169,7 +185,7 @@ The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#0
 
 ### Two grounds, not one
 
-`--mm-green` measures 4.59:1 on white and **4.43:1 on the phase rail's `#FBFBFA`**, where it is the current-phase label on every market screen. A token is only AA on the grounds it was measured against. Either the ground becomes white or the label takes a darker value.
+`--mm-green` measures 4.59:1 on white and **4.43:1 on `#FBFBFA`**, the phase rail's old ground, where it is the current-phase label on every market screen. A token is only AA on the grounds it was measured against, so the rail's ground became white (E16/F01/S03).
 
 ## The primitive layer
 

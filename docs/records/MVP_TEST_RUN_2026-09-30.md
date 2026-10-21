@@ -1,6 +1,10 @@
+---
+layer: implementation
+kind: record
+---
 # MVP usage test run, 2026-09-30
 
-Every path and flow in [USER_FLOWS.md](USER_FLOWS.md), walked in a real browser as an organizer and as a vendor, using five real Google Form exports as the applications.
+Every path and flow in [USER_FLOWS.md](../USER_FLOWS.md), walked in a real browser as an organizer and as a vendor, using five real Google Form exports as the applications.
 Run on `dev` at `59677cf8`, on 2026-09-30 (UTC).
 Every defect found is written up, with a reproduction and a cause where one was traced, in [MVP_BUGS.md](MVP_BUGS.md): bugs 1 to 21 were retested, and bugs 22 to 44 are new.
 Nothing was fixed.

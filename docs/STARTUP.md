@@ -1,3 +1,13 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - docker-compose.yml
+  - back-end/.env.example
+  - front-end/.env.example
+verified: 2026-10-21
+---
+
 # Conventioner - Development Startup Guide
 
 This guide will help you set up and run the Conventioner application for development.
@@ -504,12 +514,12 @@ The `docker-compose.yml` defines four services:
 
 ### Vision AI Setup (Optional)
 
-The floorplan feature includes AI-powered auto-detection of table placements. This is **optional** - the floorplan editor works without these keys, but the automatic table detection feature will be disabled.
+The back end has a vision endpoint, `POST /floorplans/analyze`, that reads walls and tables from a floorplan image with Gemini or OpenAI. It is **optional**, and nothing in the product calls it: the floorplan wizard draws walls by hand and places tables with a geometry solver, with or without these keys.
 
 1. **Gemini API Key**: Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with your Google account, and click **Create API Key**. Copy the key and set `GEMINI_API_KEY` in your `.env`.
 2. **OpenAI API Key**: Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys), sign in, and click **Create new secret key**. Copy the key and set `OPENAI_API_KEY` in your `.env`.
 
-Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`. If neither key is set, the AI auto-detection button is hidden in the UI and the floorplan editor behaves as a manual layout tool.
+Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`. If neither key is set, the endpoint answers with an error and nothing else changes.
 
 ### Backend Structure
 
@@ -532,8 +542,8 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 
 - **Backend Config**: `back-end/app.py` (Flask app configuration)
 - **Frontend Config**: `front-end/vite.config.ts` (Vite proxy settings)
-- **Environment**: `back-end/.env` (loaded by `back-end/utils/env_file.py`) and `front-end/.env` (read by Vite); copy each from its `.env.example`
-- **Docker Compose**: `docker-compose.yml` (Service orchestration)
+- **Environment**: `back-end/.env` (loaded by `back-end/utils/env_file.py`) and `front-end/.env` (read by Vite); copy each from its template, [`back-end/.env.example`](../back-end/.env.example) and [`front-end/.env.example`](../front-end/.env.example)
+- **Docker Compose**: [`docker-compose.yml`](../docker-compose.yml) (Service orchestration)
 
 ### Assignment CSV Download
 

@@ -5,6 +5,7 @@ Every file here but this one is a node of kind `convention`, named in kebab-case
 
 A convention node states a rule for all code that no one module owns: the rule, why, how it is enforced (a test, a lint, a check), and what breaks it.
 `describes` and `verified` are required.
+The design language is the convention node [`design-system.md`](../../design-system.md), where it stands.
 
 ## Nodes
 

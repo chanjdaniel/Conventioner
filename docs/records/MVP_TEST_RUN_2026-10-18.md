@@ -1,3 +1,10 @@
+---
+layer: implementation
+kind: record
+sources:
+  - wayfinding/november-2026-dry-run/07
+  - wayfinding/november-2026-dry-run/04
+---
 # Final dry run of the November 2026 market, 2026-10-18
 
 The UBC Makers Market of 18 to 20 November 2026, walked end to end in a real browser on the day it goes to production, with the organizer's real Google Form export and, for the first time, the market's real room.
@@ -7,7 +14,7 @@ Run on `dev` plus [#96](https://github.com/chanjdaniel/Conventioner/pull/96), th
 ## Summary
 
 **The dry run passes, and found no defect.**
-Every pass criterion of the [rehearsal map](../.scratch/wayfinding/november-2026-dry-run/issues/07-what-counts-as-a-pass.md) holds on the real room, which has 42% fewer tables than the rehearsal's.
+Every pass criterion of the rehearsal map holds on the real room, which has 42% fewer tables than the rehearsal's.
 
 | | Result |
 | --- | --- |
@@ -19,7 +26,7 @@ Every pass criterion of the [rehearsal map](../.scratch/wayfinding/november-2026
 
 ## The real room
 
-Stated by the organizer on 2026-10-18; it replaces the four-section stand-in of [ticket 04](../.scratch/wayfinding/november-2026-dry-run/issues/04-the-real-plan.md).
+Stated by the organizer on 2026-10-18; it replaces the four-section stand-in of ticket 04.
 
 | Section | Location | Tier | Tables |
 | --- | --- | --- | --- |
@@ -92,7 +99,7 @@ The organizer asked for four changes after reading the run; they are built in th
    It is not refused in code for now.
 2. **The re-import preview's headline says "212 of 212 rows will be imported"** beside "0 new, 0 updated, 212 unchanged".
 3. **The Vendors list counts a vendor's days against the market's**: "1 / 3 dates" for a vendor who asked for one day and got it.
-4. **Result calls table-days "tables"**: "177 of 177 tables used" for 59 tables over three days ([known gap 7](MVP_KNOWN_GAPS.md#7-result-counts-table-days-as-tables)).
+4. **Result calls table-days "tables"**: "177 of 177 tables used" for 59 tables over three days ([known gap 7](../MVP_KNOWN_GAPS.md#7-result-counts-table-days-as-tables)).
 
 ### For the organizer before the real run
 
@@ -103,7 +110,7 @@ The organizer asked for four changes after reading the run; they are built in th
 
 ### Standing
 
-- **Attendance cannot say who is missing** ([known gap 3](MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)), and an organizer cannot check a vendor in.
+- **Attendance cannot say who is missing** ([known gap 3](../MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)), and an organizer cannot check a vendor in.
   Decided with the organizer on 2026-10-18: both are built before the market.
 
 ## Left on the stack
