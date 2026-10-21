@@ -98,6 +98,7 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 
 **A drift warning** means a pull request changed code a node describes without touching the node.
 Answer it one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
+Today is your own calendar day: `check` refuses only a day that has not begun anywhere on Earth, so a node verified in the morning east of UTC passes CI, which runs in UTC.
 Either way the node is in the diff, and the warning clears.
 To find the nodes for a file before changing it: `git grep -l 'path/to/file' docs`.
 
