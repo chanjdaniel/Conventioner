@@ -6,9 +6,11 @@ The design is the captain's ruling in full - see the decision file at
 ``/home/danielc/.firstmate/data/decision-applicant-login-oracle.md``. The key
 constraints:
 
-1. **No attempt counter anywhere.** A code is consumed by a single verification
-   attempt, right or wrong. No per-address counter, no lockout, no "attempts
-   remaining."
+1. **No attempt counter on an application.** A code is consumed by a single
+   verification attempt, right or wrong. No "attempts remaining", and nothing
+   counted only for addresses that applied: such a counter answers whether they
+   had. The rate limits (``sign_in_limits``) count every address and every
+   caller alike, before the market is looked up, so their refusal leaks nothing.
 
 2. **Requesting a code is indistinguishable, always.** Same HTTP status, shape
    and body whether or not the address is known.
@@ -34,12 +36,15 @@ address and the market, not an application, and their first save creates it.
 """
 import hashlib
 import logging
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from flask import jsonify, request
 from pymongo.errors import PyMongoError
 
+import sign_in_limits
 from db_config import get_database
 from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
@@ -69,11 +74,13 @@ class ApplicantLoginIndexError(RuntimeError):
 def ensure_applicant_login_indexes() -> None:
     """Build the indexes the applicant login endpoints rest on.
 
-    Two indexes:
+    Three indexes:
     1. A unique compound index on ``(market_id, email)`` so an address has at
        most one active challenge per market - a new request overwrites the old one.
     2. A TTL index on ``expires_at`` so expired challenges are cleaned up by
        the database, not by application code.
+    3. The TTL index that expires the sign-in rate limit counters
+       (``sign_in_limits``), without which they would pile up for ever.
 
     A build that fails raises, and the caller fails with it. This index is not
     a decoration; it is the guarantee that find_one_and_update with a consumed
@@ -96,11 +103,13 @@ def ensure_applicant_login_indexes() -> None:
             expireAfterSeconds=0,
             name="challenge_ttl",
         )
+        sign_in_limits.ensure_expiry_index()
     except PyMongoError as exc:
         message = (
-            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION} could not be "
-            f"built, so nothing is enforcing one-code-one-attempt or cleaning up "
-            f"expired challenges: {exc}"
+            f"The indexes on {APPLICANT_LOGIN_CHALLENGES_COLLECTION} and "
+            f"{sign_in_limits.SIGN_IN_ATTEMPTS_COLLECTION} could not be built, so nothing "
+            f"is enforcing one-code-one-attempt or cleaning up expired challenges and "
+            f"rate limit counters: {exc}"
         )
         logger.critical("%s", message)
         raise ApplicantLoginIndexError(message) from exc
@@ -153,6 +162,39 @@ _REQUEST_CODE_STATUS = 200
 
 _VERIFY_FAILURE_BODY = {"message": "Invalid or expired code."}
 _VERIFY_FAILURE_STATUS = 401
+
+
+# ── Rate limits ──────────────────────────────────────────────────────────
+
+def _refusal(caller_limit: sign_in_limits.SignInLimit,
+             address_limit: sign_in_limits.SignInLimit,
+             email: Optional[str]):
+    """A 429 when this caller, or then this address, is past its limit; None otherwise.
+
+    The caller is counted on every request, before the body or the slug says anything, so a
+    refusal is the same for every address and every market, real or not. The address is counted
+    only once the caller is within its limit. Either refusal says plainly how long to wait, and the
+    sign-in screen shows the message as it stands.
+    """
+    caller = request.remote_addr or "unknown"
+    retry_after = sign_in_limits.count_attempt(caller_limit, caller)
+    if retry_after is None and email:
+        retry_after = sign_in_limits.count_attempt(address_limit, email)
+    if retry_after is None:
+        return None
+    minutes = math.ceil(retry_after / 60)
+    wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
+    response = jsonify({"message": f"Too many sign-in attempts. Please try again in {wait}."})
+    response.headers["Retry-After"] = str(retry_after)
+    return response, 429
+
+
+def _email_from(data) -> Optional[str]:
+    """The normalised address a request names, or None when it names none."""
+    if not isinstance(data, dict):
+        return None
+    email = normalized_email(data.get("email"))
+    return email if email and "@" in email else None
 
 
 # ── Email sending ─────────────────────────────────────────────────────────
@@ -311,14 +353,15 @@ def request_login_code(market_slug: str) -> tuple:
 
     Always returns the same 200 response regardless of whether the email is
     known to this market, and whether its email was sent. A challenge is created,
-    and its code sent, for every address, before the response returns.
+    and its code sent, for every address, before the response returns - unless the
+    caller or the address is past its rate limit, which answers 429 and sends nothing.
     """
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data:
-        return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
-
-    email = normalized_email(data.get("email"))
-    if not email or "@" not in email:
+    email = _email_from(request.get_json(silent=True))
+    refused = _refusal(sign_in_limits.REQUEST_CODE_PER_CALLER,
+                       sign_in_limits.REQUEST_CODE_PER_ADDRESS, email)
+    if refused:
+        return refused
+    if not email:
         return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 
     # Resolve the slug to a market. If the market does not exist, return the
@@ -372,14 +415,17 @@ def verify_login_code(market_slug: str) -> tuple:
     "code already used", or "wrong code" - one response for all.
 
     On success, returns the market ID and applicant email so the front end
-    can proceed with authenticated applicant operations.
+    can proceed with authenticated applicant operations. Past the caller's or the
+    address's rate limit it answers 429 and consumes nothing.
     """
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data:
-        return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+    email = _email_from(data)
+    refused = _refusal(sign_in_limits.VERIFY_CODE_PER_CALLER,
+                       sign_in_limits.VERIFY_CODE_PER_ADDRESS, email)
+    if refused:
+        return refused
 
-    email = normalized_email(data.get("email"))
-    code = (data.get("code") or "").strip()
+    code = (data.get("code") or "").strip() if isinstance(data, dict) else ""
 
     if not email or not code:
         return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS

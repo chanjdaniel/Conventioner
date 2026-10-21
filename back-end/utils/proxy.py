@@ -4,8 +4,10 @@
 Flask. Behind a reverse proxy, a load balancer, or a serverless ingress it is the *proxy* - the same
 address for every caller in the world.
 
-One thing on this branch reads it: organizer signup hands it to Google as reCAPTCHA's ``remoteip``
-(``api/users.py`` -> ``utils.captcha.verify_recaptcha``). reCAPTCHA v3 scores rather than passes or
+Two things read it. Organizer signup hands it to Google as reCAPTCHA's ``remoteip``
+(``api/users.py`` -> ``utils.captcha.verify_recaptcha``), and the applicant sign-in rate limits count
+each caller by it (``api/applicant_auth.py`` -> ``sign_in_limits``): with the proxy's address there,
+every applicant in the world would share one caller's limit. reCAPTCHA v3 scores rather than passes or
 fails, and the address is one of the signals it scores on, so a deployment that reports its own
 ingress as the client reports the same client for every signup in the world, and scores it against
 ``MIN_SCORE`` accordingly. That was survivable while the secret was optional, because a deployment
@@ -26,9 +28,6 @@ above. So it fails closed, at boot, naming the variable: 0 is a legitimate value
 means it can say so. The only process exempt from saying so is one that has explicitly declared
 itself a local development one - see ``utils.deployment`` for why that, and not ``FLASK_ENV``, is the
 escape hatch.
-
-The rate limits that will also key on this address are not on this branch; they land with the
-applicant endpoints they bound. This variable is here because the captcha is here.
 """
 
 import os
@@ -66,7 +65,8 @@ def trusted_proxy_hops() -> int:
                 f"proxy, a load balancer, or a serverless ingress each count as one). Without it, "
                 f"the address this app takes for the caller's is the proxy's - the same address for "
                 f"every caller in the world - and that address is what organizer signup reports to "
-                f"reCAPTCHA, which scores on it. Set it to 0 only if Flask is exposed directly, or "
+                f"reCAPTCHA, which scores on it, and what the applicant sign-in rate limits count "
+                f"each caller by. Set it to 0 only if Flask is exposed directly, or "
                 f"set {INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
             )
         warn_insecure_local_dev(f"the trusted-proxy hop count ({TRUSTED_PROXY_HOPS_VAR})")

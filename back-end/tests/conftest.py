@@ -534,6 +534,41 @@ def market_records(monkeypatch):
     monkeypatch.setattr(PlacementHistory, "placement_history_collection", fakes.history)
     return fakes
 
+class FakeAttemptsCollection:
+    """The ``sign_in_attempts`` collection: an ``$inc`` upsert by ``_id``, and its index."""
+
+    def __init__(self):
+        self.docs = {}
+        self.indexes = []
+
+    def create_index(self, keys, **kwargs):
+        self.indexes.append((keys, kwargs))
+        return kwargs.get("name", "fake-index")
+
+    def find_one_and_update(self, query, update, upsert=False, return_document=None):
+        key = query["_id"]
+        doc = self.docs.get(key)
+        if doc is None:
+            if not upsert:
+                return None
+            doc = {"_id": key, **update.get("$setOnInsert", {})}
+            self.docs[key] = doc
+        for field, amount in update.get("$inc", {}).items():
+            doc[field] = doc.get(field, 0) + amount
+        return dict(doc)
+
+
+@pytest.fixture(autouse=True)
+def sign_in_attempts(monkeypatch):
+    """The applicant sign-in rate limit counters, fresh for every test (T12)."""
+    if STUBBED_MODULES:
+        return None
+    import sign_in_limits
+
+    fake = FakeAttemptsCollection()
+    monkeypatch.setattr(sign_in_limits, "attempts_collection", fake)
+    return fake
+
 # app.py refuses to boot unless the market-key migration is recorded as applied, and it fails
 # closed when it cannot read the marker at all -- which is exactly what would happen here, since
 # the suite points Mongo at a port nothing listens on. The probe is answered in-process instead,
@@ -604,6 +639,11 @@ if not STUBBED_MODULES:
     import api.applicant_auth as _applicant_auth_module
 
     _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
+
+    # The sign-in rate limit counters, whose expiry index the same boot check builds (T12).
+    import sign_in_limits as _sign_in_limits_module
+
+    _sign_in_limits_module.attempts_collection = FakeAttemptsCollection()
 
     # And the users collection, whose unique address index the boot builds (E32/F03/S04).
     import api.users as _users_module
