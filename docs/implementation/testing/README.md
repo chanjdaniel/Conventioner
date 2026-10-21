@@ -10,3 +10,5 @@ A testing node says what is tested where, the helpers, and the test-only sharp e
 ## Nodes
 
 One line per node, sorted by file name.
+
+- [The assignment behaviour suite](assignment-behaviour-suite.md) - `test_assignment_behaviour.py`, the solver's behavioural suite; change placement against it
