@@ -62,7 +62,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `intakeMode` | `csv` or `form`; absence means `csv` |
 | `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options and floorplans; null on a market whose plan was never saved |
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |
-| `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate` and `madeFrom` (what the run read); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`) |
+| `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate` and `madeFrom` (what the run read); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md) |
 | `importMapping` | the CSV import's saved column mapping, server-owned |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first, and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |

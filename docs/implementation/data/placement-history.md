@@ -40,7 +40,7 @@ A swap is one entry too, because it was one action.
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
-The placement writes in `api/placements.py` record after the seat is taken, and `_record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
+The placement writes in `api/placements.py` ([placements](../modules/placements.md)) record after the seat is taken, and `_record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
 
 **Recording who** attaches an organizer's identity to a market that may be exported, shared or handed to a successor organizer; that was weighed and accepted when the trail was decided, so do not widen it without revisiting that.
 
