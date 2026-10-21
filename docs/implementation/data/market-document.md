@@ -56,7 +56,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `slug` | derived from the name, persisted and uniquely indexed (below) |
 | `organizationId` | the one organization the market belongs to, fixed at creation; see [the organization document](organization-document.md) |
 | `roles` | a map from user id to `owner`, `admin`, `editor` or `viewer`, with exactly one `owner` |
-| `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth |
+| `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
 | `intakeMode` | `csv` or `form`; absence means `csv` |
@@ -72,7 +72,7 @@ The other collections differ: applications and the placement trail are stored sn
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
 
 **The application form is stored as one validator returns it.**
-Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked:
+Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked; the writes on an existing market go through `prepared_application_form`, which asks [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) first:
 
 - A field's `key` is non-blank, unique in the form, matches `^[a-z0-9_]+$` (it becomes a key inside an application's answers) and does not start with the reserved `essential_`.
 - Its `label` is non-blank, and its `type` is one of `text`, `number`, `select`, `multi_select`, `checkbox`, `date` and `email`.

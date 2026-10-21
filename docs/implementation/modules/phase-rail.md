@@ -45,7 +45,7 @@ A second list beside the table would be the drift `_validate_registry()` refuses
 Only the one forward step is on the rail; every other move is in the "More…" menu behind `phase-rail-menu-button`, a real menu whose arrow keys walk its items and whose Escape or an outside press closes it.
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
-Someone below ADMIN (`adminActionsReason`) is offered no move at all, and the rail still says where the market stands.
+Someone below ADMIN (`adminActionsReason`) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.
 A spec that clicks a move follows it to that page; it does not stay on the tab it clicked from.
@@ -53,7 +53,7 @@ Before posting, the rail awaits the screen's `beforeTransition` (the plan flushe
 
 **A terminal state is stated in words.**
 Strikethrough alone reads as stopped, not as archived; the prototype proved it, so an archived rail says what became of the market ("It was published and ran its market days.") and keeps the strikethrough only as reinforcement.
-An archived market's frozen stage is the furthest phase in `phasesReached`, the server's phase record; it was once read off evidence, and told a market that ran that no check-in page ever went on the air (bug 8).
+An archived market's frozen stage is the furthest phase in `phasesReached`, the server's [phase record](phase-record.md); it was once read off evidence, and told a market that ran that no check-in page ever went on the air (bug 8).
 Without a complete record (`phaseRecordComplete: false`) the rail says only what is proven and strikes nothing through.
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
@@ -61,4 +61,4 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 ## Why
 
 The phase is the single source of truth for a market's lifecycle; the rail reads it and its moves from the server and decides neither.
-The rules for moving a market are with the guards in `back-end/guards.py`.
+The rules for moving a market are with [the guards](guards.md) in `back-end/guards.py`, and why the phase is the only lifecycle state is [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md).
