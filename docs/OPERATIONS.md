@@ -1,3 +1,9 @@
+---
+layer: implementation
+kind: runbook
+verified: 2026-10-21
+---
+
 # Operations
 
 How production runs, and what to do when something about it needs doing.
@@ -67,8 +73,8 @@ What a person may do is decided per organization and per market:
 | --- | --- | --- |
 | Organization owner, admin, member | Manage organization (Organizations page) | being in the organization, and **Viewer** on every market it holds - nothing more |
 | Market owner | creating the market | everything, including roles and deletion |
-| Market admin | Manage market | phase moves, verdicts, importing, publishing, plus everything an editor does |
-| Market editor | Manage market | the plan, the form, placements, and checking vendors in at the door |
+| Market admin | Manage market | phase moves, importing, publishing results, plus everything an editor does |
+| Market editor | Manage market | the plan, the form, verdicts on applications, placements, and checking vendors in at the door |
 | Market viewer | Manage market, or organization membership | reading |
 
 **Organization membership alone gives Viewer on its markets, even to the organization's owner and admins.**

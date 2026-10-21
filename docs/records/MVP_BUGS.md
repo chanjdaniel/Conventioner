@@ -1,6 +1,10 @@
+---
+layer: implementation
+kind: record
+---
 # MVP bugs found walking the user flows
 
-Found on 2026-09-30, on `dev` at `59677cf8`, while walking every flow in [USER_FLOWS.md](USER_FLOWS.md) on a fresh local stack.
+Found on 2026-09-30, on `dev` at `59677cf8`, while walking every flow in [USER_FLOWS.md](../USER_FLOWS.md) on a fresh local stack.
 Bugs 22 to 44 were found the same day by the usage test run with five real Google Form exports, written up in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md); that run also retested bugs 1 to 21, and each entry below says what it saw.
 Every one was fixed by epic E26 ("The user flows hold") on `fix/mvp-e2e-testing`, except bug 39, which is known behaviour; the summary names the commit for each.
 Bugs 45 to 47 were found while fixing the others, and bugs 48 to 53 on the live re-walk after the fixes ([MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md)).
@@ -25,7 +29,7 @@ Severity is judged by what a real organizer or vendor would suffer:
 
 ## Summary
 
-Flow ids refer to [USER_FLOWS.md](USER_FLOWS.md); "Tracked" names an open Wayfinder ticket that already records the problem.
+Flow ids refer to [USER_FLOWS.md](../USER_FLOWS.md); "Tracked" names an open Wayfinder ticket that already records the problem.
 
 | # | Bug | Severity | Flows | Tracked | Fixed in |
 | --- | --- | --- | --- | --- | --- |
@@ -776,7 +780,7 @@ A vendor available all week who wants 2 dates always gets the first two.
 Spreading a vendor's dates would cost nothing when there is room.
 
 **Decided (E26): known behaviour, left as it is.** No vendor is placed worse by it, and spreading dates is a choice about what a market wants that nobody has made yet.
-Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
+Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](../MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
 
 <a id="bug-40"></a>
 ## 40. The import misreports its own counts and rows

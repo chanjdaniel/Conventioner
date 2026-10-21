@@ -45,8 +45,10 @@ A **hub** is a file with no frontmatter that lists nodes: this file, [`CONTEXT.m
 | Rebuilding production from nothing | [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) |
 | Worktrees and their stacks | [scripts/README-treehouse.md](../scripts/README-treehouse.md) |
 | Running the tests | [TESTING.md](TESTING.md) |
+| The Google Form test corpus | [back-end/tests/test_data/README.md](../back-end/tests/test_data/README.md) |
+| What the product looks like | [design-system.md](design-system.md) |
 
-The runbooks, `TESTING.md` and `TECH_STACK.md` stay where they are, because code and scripts cite them by path; they are nodes outside the graph folders, and declare their layer.
+The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus README stay where they are, because code and scripts cite them by path; they are nodes outside the graph folders, and declare their layer.
 
 ## Adding a node
 

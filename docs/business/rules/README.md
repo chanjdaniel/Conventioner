@@ -10,3 +10,5 @@ Then `## Why`; `## Who may` when roles matter; `## Where it is kept`, linking th
 ## Nodes
 
 One line per node, sorted by file name.
+
+- [Dates fill in calendar order](dates-fill-in-calendar-order.md) - the solver fills each date before the next, in the plan's order; kept on purpose
