@@ -65,6 +65,18 @@ async function withBrowserDiagnostics(
 
 export const test = base.extend<{ authenticatedPage: Page }>({
   page: async ({ page }, use, testInfo) => {
+    // The dev server ships vite-plugin-vue-devtools, whose floating panel overlays the app and
+    // intercepts clicks aimed at it. It is a developer tool, not the app, so the tests hide it
+    // rather than race its button for the corner it hovers over.
+    await page.addInitScript(() => {
+      const inject = () => {
+        const style = document.createElement('style');
+        style.textContent = '#__vue-devtools-container__ { display: none !important; }';
+        document.head.appendChild(style);
+      };
+      if (document.head) inject();
+      else document.addEventListener('DOMContentLoaded', inject, { once: true });
+    });
     await withBrowserDiagnostics(page, use, testInfo);
   },
   authenticatedPage: async ({ page }, use) => {
