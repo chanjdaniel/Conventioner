@@ -858,13 +858,15 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
-    # everyone the role rule gives a role, the organization's people too, who may own a follow-up
-    # (T15), served only to someone who may give a verdict and so name one (E34's EDITOR gate).
+    # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
+    # and so name one (E34's EDITOR gate): the organization's people too, if the reader is one.
     may_give_verdicts = PermissionsApi.user_has_permission(
         user_email, market, MarketRole.EDITOR, context.organization,
     )
+    reader = UsersApi.get_user(user_email) if may_give_verdicts else None
     ids = (
-        PermissionsApi.people_with_market_role(market, context.organization)
+        PermissionsApi.follow_up_owners_for(
+            market, context.organization, reader.id if reader else None)
         if may_give_verdicts
         else list((market_dict.get('roles') or {}).keys())
     )
@@ -1999,20 +2001,27 @@ def save_review_highlights(
     return seen
 
 
-def person_on_market(
-    market: Market, organization: Optional[Organization], email: Optional[str],
-) -> Optional[MarketPerson]:
-    """The person with this address, if they hold a role on the market, or None (E34/F02/S01).
+def follow_up_owner(
+    market: Market, organization: Optional[Organization], requester: MarketPerson,
+    email: Optional[str],
+) -> MarketPerson:
+    """The person with this address, if the requester may hand them a follow-up (E34/F02/S01).
 
     A follow-up is owned by someone who can see the market to work on it: anyone the role rule
-    gives a role, named in its roles or reached through its organization (T15). Asked of the same
-    list the market read serves as ``peopleOnMarket``, so the server takes exactly whom the dialog
-    offers.
+    gives a role, named in its roles or reached through its organization (T15), as far as the
+    requester is offered them (``follow_up_owners_for``). Asked of the same list the market read
+    serves this requester as ``peopleOnMarket``, so the server takes exactly whom the dialog offers.
+    Raises ``ValueError`` with the refusal's words otherwise; to someone outside the organization
+    they never tell an organization address from a stranger's.
     """
+    offered = PermissionsApi.follow_up_owners_for(market, organization, requester.user_id)
     user = UsersApi.get_user(email) if email else None
-    if user is None or user.id not in PermissionsApi.people_with_market_role(market, organization):
-        return None
-    return MarketPerson(user_id=user.id, email=user.email)
+    if user is not None and user.id in offered:
+        return MarketPerson(user_id=user.id, email=user.email)
+    if market.organization_id and not PermissionsApi.in_market_organization(
+            market, organization, requester.user_id):
+        raise ValueError("You can hand a follow-up only to someone named in this market's roles.")
+    raise ValueError("A follow-up's owner must have a role on this market.")
 
 
 def save_rejection_rules(

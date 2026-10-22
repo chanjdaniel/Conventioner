@@ -1826,14 +1826,15 @@ def review_application(market_id: str, application_id: str) -> Response:
         new_status = ApplicationStatus(status_raw)
     except ValueError:
         return jsonify({"error": f"Invalid status: {status_raw}"}), 400
-    # A follow-up is owned by whoever marked it, or by the person named, who must hold a role on
-    # the market (E34/F02/S01).
+    # A follow-up is owned by whoever marked it, or by the person named, who must be one of the
+    # people the market read offered them (E34/F02/S01, T15).
     owner = None
     if new_status is ApplicationStatus.NEEDS_FOLLOW_UP and data.get('ownerEmail'):
-        owner = MarketsApi.person_on_market(
-            context.market, context.organization, data['ownerEmail'])
-        if owner is None:
-            return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+        try:
+            owner = MarketsApi.follow_up_owner(
+                context.market, context.organization, person, data['ownerEmail'])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
     result, status_code = ApplicantsApi.review_application(
         market_id, application_id, new_status, by=person.as_giver(), owner=owner,
         seen=ApplicantsApi.seen_from(data.get('seen')),
@@ -1917,14 +1918,15 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
 
     Body: { "ownerEmail": "sam@market.test" }
     """
-    _person, context, refused = _reviewer_on(market_id)
+    person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
-    owner = MarketsApi.person_on_market(
-        context.market, context.organization, data.get('ownerEmail'))
-    if owner is None:
-        return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+    try:
+        owner = MarketsApi.follow_up_owner(
+            context.market, context.organization, person, data.get('ownerEmail'))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
     return jsonify(result), status_code
 

@@ -92,6 +92,31 @@ def people_with_market_role(market: Market, organization: Optional[Organization]
     ]
 
 
+def in_market_organization(
+    market: Market, organization: Optional[Organization], user_id: Optional[str],
+) -> bool:
+    """Whether this person is the owner, an admin or a member of the market's organization."""
+    return bool(
+        user_id and organization is not None and organization.id == market.organization_id
+        and organization_market_role(
+            user_id, organization.owner, organization.admins, organization.members)
+    )
+
+
+def follow_up_owners_for(
+    market: Market, organization: Optional[Organization], requester_id: Optional[str],
+) -> List[str]:
+    """The user ids a requester may hand a follow-up to: those they are offered, and no others.
+
+    Someone in the market's organization is offered everyone ``people_with_market_role`` finds.
+    Someone outside it, there by a role on the market alone, is offered only the people named in
+    the market's roles, so the organization's addresses never reach them (decision/2026-10-22).
+    """
+    if in_market_organization(market, organization, requester_id):
+        return people_with_market_role(market, organization)
+    return list(market.roles or {})
+
+
 def user_has_permission(user_email: str, market: Market, required_role: MarketRole, organization: Optional[Organization] = None) -> bool:
     """
     Check if user has required permission level.

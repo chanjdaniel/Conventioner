@@ -29,8 +29,8 @@ export function useVerdictActions(
   /** The reviewer's own address, for "(you)" and for Mine. */
   const me = computed(() => signedInEmail() ?? '');
 
-  /** Everyone with a role on the market, explicit or through its organization: a follow-up's
-   *  possible owners, as the server serves them (T15). */
+  /** A follow-up's possible owners, as the server serves them to this reviewer (T15): everyone
+   *  with a role on the market if they are in its organization, its own roles if not. */
   const people = computed(() => market.value?.peopleOnMarket ?? []);
 
   /**
