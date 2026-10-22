@@ -20,10 +20,11 @@
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
+import { computed } from 'vue';
 import type { FormField, IncompleteApplication, SetupObject } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
 
-defineProps<{
+const props = defineProps<{
   setupObject: SetupObject;
   formFields: FormField[];
   assignmentOptionsComplete: boolean;
@@ -32,6 +33,8 @@ defineProps<{
   /** The applications a refused run named, each linked to where it can be dealt with (bug 42). */
   assignIncomplete: IncompleteApplication[];
   marketId: string;
+  /** This person may change nothing on the market; the frame says why (T15). */
+  readOnly: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
   /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
@@ -42,16 +45,20 @@ const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
   (event: 'assign'): void;
 }>();
+
+/** The rules cannot change and nothing runs, for either reason. */
+const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 </script>
 
 <template>
   <div class="settings-body settings-body-stacked">
-    <!-- The rules as they were run, and why nothing offers to change them (E22/F02/S02). -->
+    <!-- The rules as they were run, and why nothing offers to change them (E22/F02/S02). Only the
+         rules' own lock: why this person may change nothing is the frame's to say (T15). -->
     <p v-if="rulesLockReason" class="note" data-testid="assignment-rules-settled">
       {{ rulesLockReason }}
     </p>
     <section class="plan-row plan-row--asymmetric">
-      <ElementSettingContainer>
+      <ElementSettingContainer data-testid="assignment-card-priority">
         <template #setting-title>
           <h2>Assignment Priority</h2>
         </template>
@@ -59,7 +66,7 @@ const emit = defineEmits<{
           <ElementAssignmentPriority
             :setupObject="setupObject"
             :formFields="formFields"
-            :readonly="!!rulesLockReason"
+            :readonly="locked"
             @update:setupObject="(value) => emit('update:setupObject', value)"
           />
         </template>
@@ -71,15 +78,16 @@ const emit = defineEmits<{
         <template #setting-content>
           <ElementAssignmentOptions
             :setupObject="setupObject"
-            :readonly="!!rulesLockReason"
+            :readonly="locked"
             @update:setupObject="(value) => emit('update:setupObject', value)"
           />
         </template>
       </ElementSettingContainer>
     </section>
 
-    <!-- Nothing can run once the rules are settled, so there is no button to explain. -->
-    <div v-if="!rulesLockReason" class="assign-actions">
+    <!-- Nothing can run once the rules are settled, or for a person who may change nothing, so
+         there is no button to explain. -->
+    <div v-if="!locked" class="assign-actions">
       <button
         type="button"
         class="btn btn--primary done-button"
@@ -102,9 +110,8 @@ const emit = defineEmits<{
       </p>
       <!-- The phase comes first: a market that may not be assigned at all is not waiting on
            two numbers, and saying so would send the organizer to fix the wrong thing. -->
-      <!-- Said once: when the rules are settled, the line above already says why nothing runs. -->
       <p
-        v-if="assignRefusalReason && !rulesLockReason"
+        v-if="assignRefusalReason"
         class="assign-disabled-hint"
         data-testid="market-setup-assign-phase-hint"
       >
@@ -153,7 +160,7 @@ const emit = defineEmits<{
   align-self: stretch;
   display: flex;
   gap: 30px;
-  padding: 40px;
+  padding: var(--space-6);
 }
 
 .settings-body-stacked {

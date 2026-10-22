@@ -36,7 +36,7 @@ How to run the suite is [TESTING.md](../../TESTING.md#end-to-end-e2e-tests); the
 Adding a `data-testid` changes no behaviour; a view gains them as specs need them.
 
 **A page object wraps one screen** ([`front-end/e2e/pages/`](../../../front-end/e2e/pages/)): it holds `getByTestId()` locators and exposes action methods, and a spec calls those methods rather than reaching for locators of its own.
-A new page follows the existing ones (`LoginPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
+A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
 `MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame.
 
 **The Application Form tab is a sequence of steps** (E33/F01): the builder, the preview and the highlights are never all on screen.

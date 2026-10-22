@@ -41,7 +41,12 @@ export class MarketsPage {
     await expect(this.cardNames).toHaveText(names);
   }
 
+  /** One market's card, by its name. */
+  card(name: string): Locator {
+    return this.page.getByTestId('market-card').filter({ hasText: name });
+  }
+
   async openMarket(name: string): Promise<void> {
-    await this.page.getByTestId('market-card').filter({ hasText: name }).click();
+    await this.card(name).click();
   }
 }

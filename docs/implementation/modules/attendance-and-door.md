@@ -28,6 +28,7 @@ sources:
   - bug/1
   - bug/9
   - known-gap/3
+  - T15
 ---
 
 # Attendance and the door
@@ -78,6 +79,7 @@ The product is built for a laptop, and nothing else of the organizer's needs to 
 The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
 Of the organizer's screens only Attendance has it, because the door is sometimes a person standing up.
+At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 
 ## Why
 

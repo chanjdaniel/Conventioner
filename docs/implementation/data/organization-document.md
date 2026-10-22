@@ -25,6 +25,8 @@ sources:
   - E21/F03/S01
   - E26/F08/S01
   - bug/46
+  - T15
+  - decision/2026-10-20
 ---
 
 # The organization document, and roles
@@ -70,24 +72,25 @@ Roles change on an archived market too: they are not a change to its record.
 
 ## What a person may do on a market
 
-`get_user_market_role` resolves a person's role on one market:
+`get_user_market_role` resolves a person's role on one market as the higher of two:
 
 1. Their entry in the market's `roles`, if there is one.
-2. Otherwise **Viewer**, if they are the owner, an admin or a member of the market's organization.
-3. Otherwise nothing, and the market is not theirs to see.
+2. What their place in the market's organization gives (`organization_market_role`): **Admin** to its owner and its admins, **Viewer** to a member, nothing to anyone else.
 
-**Organization membership gives only Viewer on its markets**, even to the organization's owner and admins.
-Anyone who changes a market, a door volunteer included, needs a role on that market (Manage market); [Operations](../../OPERATIONS.md#accounts-and-access) says how to give one.
+The higher of the two (`higher_role`) is the one held, and holding neither means the market is not theirs to see.
+**An organization's admins run its markets**, but never as Owner: the Owner is the one entry in `roles` that says so, and deleting the market and changing an admin's role ask for OWNER.
+Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market); [Operations](../../OPERATIONS.md#accounts-and-access) says how to give one.
+Removing someone from the organization takes away what it gave them and leaves any role a market gave them.
 
-`user_has_permission` ranks the roles owner 4, admin 3, editor 2, viewer 1, and grants an action when the person's rank reaches the action's.
+`user_has_permission` ranks the roles by `ROLE_RANK`, owner 4, admin 3, editor 2, viewer 1, and grants an action when the person's rank reaches the action's.
 Every market write asks it, and the market read serves the answers for the screens (`readOnlyReason` below EDITOR, `adminActionsReason` below ADMIN), so no screen decides a threshold of its own ([what each role may do](../../business/rules/what-each-role-may-do.md)).
-The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations at Viewer.
+The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations; each entry's `user_role` is the role the market's own read would serve, worked by the same two rules from the documents the list already holds (`_summary_role`, reading the organization from the list's memo), so the card offers Manage to exactly the people the market lets manage it.
 
 ## A market's organization
 
 **A market belongs to exactly one organization, fixed at creation.**
 `organization_refusal` refuses a market that names no organization, one that does not exist, or one its creator is not in; no write changes `organizationId` afterwards.
-Its members see the market, and deleting the organization deletes it, so a market belonging to nothing is a state the product never produces.
+Its people see the market, its owner and admins run it, and deleting the organization deletes it, so a market belonging to nothing is a state the product never produces.
 `Market.organization_id` stays `Optional` in the model only so that a market stored before this rule still parses.
 
 ## Migrations

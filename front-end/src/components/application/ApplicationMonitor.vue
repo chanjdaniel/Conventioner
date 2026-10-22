@@ -211,6 +211,16 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, adopt } = verdicts;
+/**
+ * Whom the card's "Followed up by" offers: the people a follow-up can be handed to, led by its
+ * recorded owner when they are not among them (T15). An Editor from outside the organization is
+ * offered only the market's roles, so an organization admin who owns the follow-up would match no
+ * option and the box would read blank. Choosing the owner again changes nothing.
+ */
+const ownerChoices = computed(() => {
+  const owner = current.value?.followUpOwner?.email;
+  return owner && !people.value.includes(owner) ? [owner, ...people.value] : people.value;
+});
 
 /**
  * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
@@ -605,21 +615,25 @@ function submittedOn(app: Application): string {
             {{ verdictGiverLine(current) }}.
           </span>
         </p>
-        <!-- Who is reaching out, and who can be handed it (E34/F02/S01). -->
+        <!-- Who is reaching out, and who can be handed it (E34/F02/S01). A Viewer reads the recorded
+             owner as plain text - the people it could be handed to are a verdict-giver's list. -->
         <div v-if="current.status === ApplicationStatus.NeedsFollowUp" class="follow-up-owner">
-          <label for="app-monitor-follow-up-owner">Followed up by</label>
+          <label :for="decides ? 'app-monitor-follow-up-owner' : undefined">Followed up by</label>
           <select
+            v-if="decides"
             id="app-monitor-follow-up-owner"
             class="field field--select"
             :value="current.followUpOwner?.email ?? ''"
-            :disabled="!decides"
             data-testid="app-monitor-follow-up-owner"
             @change="reassign(current, ($event.target as HTMLSelectElement).value)"
           >
-            <option v-for="person in people" :key="person" :value="person">
+            <option v-for="person in ownerChoices" :key="person" :value="person">
               {{ person === me ? `${person} (you)` : person }}
             </option>
           </select>
+          <span v-else class="follow-up-owner-value" data-testid="app-monitor-follow-up-owner">
+            {{ current.followUpOwner?.email ?? '-' }}
+          </span>
         </div>
 
         <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
@@ -1026,15 +1040,26 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
 }
 
+/*
+ * The select is as wide as its longest person, and no wider than the card. A fixed 20rem cut a
+ * long address's "(you)" off against the chevron.
+ */
 .follow-up-owner {
   display: grid;
-  grid-template-columns: auto minmax(0, 20rem);
+  grid-template-columns: auto minmax(0, max-content);
   justify-content: start;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-bottom: var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* The owner a Viewer reads is a recorded fact, not a control: quiet, like the card's other
+   read-only fields. */
+.follow-up-owner-value {
+  color: var(--mm-text-muted-on-beige);
+  overflow-wrap: anywhere;
 }
 
 /* Who gave the verdict (E34/F01/S01): on the card's beige and on the decided list's rows alike. */

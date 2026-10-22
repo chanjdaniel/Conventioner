@@ -103,6 +103,50 @@ test('every page of a market puts its frame in the same place, flows included', 
   }
 });
 
+/** Each Market Setup page's first thing, as wide as the page's content allows where it is wide. */
+const SETUP_CONTENT = [
+  { tab: 'setup', testid: 'plan-card-dates', wide: true },
+  { tab: 'form', testid: 'form-steps', wide: true },
+  { tab: 'applications', testid: 'market-setup-applications-condition', wide: false },
+  { tab: 'assignment', testid: 'assignment-card-priority', wide: false },
+] as const;
+
+for (const width of [1440, 1100]) {
+  test(`every Market Setup page keeps the frame's 24px gutter at ${width}`, async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Each tab padded itself 40px while the rail, Result, Vendors and the frame's own note sit
+    // 24px in, so a Viewer's note and the page under it started 16px apart (T15, ticket 03).
+    await page.setViewportSize({ width, height: 900 });
+    const draft = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const open = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    for (const { tab, testid, wide } of SETUP_CONTENT) {
+      const marketId = tab === 'applications' ? open.marketId : draft.marketId;
+      await frameOn(page, marketSetupPath(marketId, tab));
+      const card = await box(page.getByTestId('market-frame-card'));
+      const content = await box(page.getByTestId(testid));
+      expect.soft(content.x - card.x, tab).toBeCloseTo(24, 0);
+      if (wide)
+        expect.soft(card.x + card.width - (content.x + content.width), tab).toBeCloseTo(24, 0);
+    }
+
+    // The plan's save line ends under its cards' right edge, in the same gutter.
+    await page.goto(marketSetupPath(draft.marketId, 'setup'));
+    await page.getByTestId('setup-location-add-button').click();
+    await page.getByTestId('setup-location-name-input-0').fill('Pier Hall');
+    const saved = await box(page.getByTestId('market-setup-plan-saved'));
+    const card = await box(page.getByTestId('market-frame-card'));
+    expect(card.x + card.width - (saved.x + saved.width)).toBeCloseTo(24, 0);
+  });
+}
+
 test('the floorplan wizard fills the card rather than ending above a grey void', async ({
   authenticatedPage: page,
   request,

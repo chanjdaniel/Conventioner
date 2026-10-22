@@ -90,7 +90,9 @@ SOURCE = re.compile(
     r"|brain-dump/\d{4}-\d{2}-\d{2}(?:#\d+)?"
     r"|qc/2026-09-21"
     r"|bug/\d+"
-    r"|known-gap/\d+)$"
+    r"|known-gap/\d+"
+    r"|T\d+"
+    r"|decision/\d{4}-\d{2}-\d{2})$"
 )
 WORK_ITEM = re.compile(r"\bE\d{2}(?:/F\d{2}(?:/S\d{2})?)?\b")
 

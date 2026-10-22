@@ -293,9 +293,13 @@ function moveTo(id: FormStepId) {
   step.value = id;
   window.scrollTo({ top: 0 });
 }
-/** Why this step cannot be changed, or null: the form's lock, but on Review setup only the person's. */
+/**
+ * What this step says of why it cannot change: the form's own lock, and nothing on Review setup,
+ * which the form's lock does not reach. Why this person may change nothing at all is the frame's
+ * to say, once for every page of the market (T15); the steps still offer them no control.
+ */
 const lockHere = computed(() =>
-  step.value === 'review' ? (market.value?.readOnlyReason ?? null) : formLockReason.value,
+  step.value === 'review' ? null : (market.value?.applicationFormLockReason ?? null),
 );
 /** Save Form belongs to the organizer's questions, and to the preview they check them in. */
 const savesHere = computed(() => step.value === 'questions' || step.value === 'preview');
@@ -550,7 +554,7 @@ watch(formLocked, (locked, wasLocked) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 40px;
+  padding: var(--space-6);
 }
 .form-step-body {
   display: flex;
