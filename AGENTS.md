@@ -1,50 +1,7 @@
 # Project agent memory
 
-This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
-
-- Add durable project-specific notes here as they are discovered through real work.
-
-## Branch Model
-
-- `dev` is the default/integration branch: all feature PRs target `dev`.
-- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and a green CI run on it deploys.
-  Both branches require the five CI checks; after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
-- Never commit directly to `main`. Never open PRs targeting `main` (except the release-please Release PR, which is automated).
-- **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml`
-  ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`);
-  Vercel's own deploys of `main` are off. After an Instant Rollback, promote a build again or no
-  deploy reaches the domain. A hotfix goes through `dev` when nothing unreleased waits there, else
-  through a `hotfix/` branch from `main`. See `docs/RELEASING.md#hotfixes`.
-
-## Operating Production
-
-- **`docs/OPERATIONS.md` is the runbook**: what runs where (Vercel projects, Atlas cluster, Resend,
-  reCAPTCHA), every variable and where it lives, accounts and access, the database, logs, incidents.
-  `docs/VERCEL_DEPLOYMENT.md` rebuilds production from nothing.
-- **Organization membership gives only Viewer on its markets**, even to its owner and admins; anyone
-  who changes a market, a door volunteer included, needs a role on that market (Manage market).
-- **An operator makes or verifies an account with `back-end/create_account.py`**, never
-  `create_test_user.py` (a fixture script that prints the password). **One address is one account**
-  (E32/F03/S04): every writer and lookup goes through `utils/email_address.normalized_email`, and the
-  back end builds a UNIQUE index on `users.email` at boot, refusing to start while an address is
-  stored with capitals (`migrations/migrate_user_emails.py`) or two accounts share one.
-- **Production's test markets come from `back-end/seed_test_markets.py`** (E32/F03/S03): one of each
-  intake path in "Conventioner Test Organization", made through the product's own writes; check
-  against those, never a real organizer's market.
-- **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory
-  and would run against production. Pass it inline to one-off scripts. `reset_database.py` refuses
-  whenever `MONGODB_URI` is set.
-
-## Release Process
-
-- Release management uses [release-please](https://github.com/googleapis/release-please) (GitHub Action `googleapis/release-please-action@v5`).
-- Release type is `simple` (conventional-commits-driven; no per-language package file parsing).
-- Workflow triggers on push to `main` (`.github/workflows/release-please.yml`).
-- When `dev` is promoted to `main`, release-please opens a Release PR with version bump + CHANGELOG.
-- Merging the Release PR creates a git tag (e.g., `v0.1.0`) and a GitHub Release.
-- All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.).
-- `v0.1.0` shipped on 2026-09-13 and `v1.0.0` (production's first real market) on 2026-10-18; `.release-please-manifest.json` tracks the current version. Versions are derived from conventional commits (`feat:` → minor, `fix:` → patch, breaking → major). The one-time `release-as: 0.1.0` bootstrap that forced the first version has been removed - do not reintroduce it, since `release-as` overrides the calculation on *every* run until cleared.
-- Full release docs: `docs/RELEASING.md`.
+Conventioner runs a vendor market from applications to the door, in production at `conventioner.io`: an organizer plans the market, takes applications on its own page or imports a Google Form's responses, reviews them, assigns every approved vendor a table by the market's rules, publishes the result, and checks vendors in on the day.
+This file holds what nearly every session needs; everything else is in the knowledge graph, reached through the index below.
 
 ## Tech Stack
 
@@ -52,837 +9,114 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Back-end: Python 3.12 / Flask + MongoDB (in `back-end/`); `back-end/.python-version`, the Dockerfile and CI agree.
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.
-- Front-end formatting is Prettier-enforced: config in `front-end/.prettierrc.json`
-  (semi:true, singleQuote:true, printWidth:100, trailingComma:all), `npm run format`
-  to fix and `npm run format:check` to verify. CI runs `format:check` in the
-  `frontend-lint-and-types` job, so unformatted front-end code fails the build; run
-  `npm run format` before committing. The one-time reformat commit is listed in
-  `.git-blame-ignore-revs`.
+- The whole stack, its versions and its folders: [`docs/TECH_STACK.md`](docs/TECH_STACK.md).
 
-## E2E Testing Patterns
+## Branch Model
 
-- **A market that opens applications needs a complete plan with dates still to come**
-  (E31/F01/S01). `seeds.ts` exports `completePlan()` and a future `SEED_MARKET_DATE`; a spec that
-  picks dates on the calendar uses `upcomingSaturday()` (`helpers/upcoming.ts`), since the
-  calendar steps a month at a time. A plan cannot change after draft, so a spec wanting a smaller
-  room seeds one (`seedAssignedMarket({ tables })`); only an orphaned-pin spec rewrites a settled
-  plan, as a legacy market's, with `changeASettledPlan()`. A market a spec imports into is
-  `intakeMode: 'csv'`.
-- **The Application Form tab is a sequence of steps** (E33/F01): a spec opens the step it asserts on
-  (`ApplicationFormPage.openStep`, or `form-step-<id>`); the builder, preview and highlights are
-  never all on screen.
-- **A spec shells into Mongo through `mongoEval`** (`e2e/helpers/mongo.ts`), never its own
-  `docker exec`: the container, address and flags were once copied into fifteen files.
-- **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).
-  No product behavior changes - purely additive test infrastructure.
-- **Page Object Model**: Located under `front-end/e2e/pages/`.
-  Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
-  New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
-  `ResultPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
-- **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
-  re-exports page objects for convenience, and exposes `BACKEND_URL`
-  (derived from `stack().backendURL`) for direct API calls.
-- **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`
-  which creates markets through the application-based path (organization -> market ->
-  application form finalization -> source data upload) via the back-end API.
-  `front-end/e2e/helpers/seedAssignedMarket.ts` exports `seedAssignedMarket()`, which
-  also configures the market `setupObject` and triggers assignment via the API.
-  Requires a verified test user (created by `scripts/seed_fixture.sh`).
-- **Markets require an organization**: `POST /markets` rejects a payload with no
-  `organizationId`, an unknown organization, or an organization the caller is not a
-  member of (400 each).
-  Anything that creates a market must therefore attach one: `seeds.ts` exports
-  `ensureTestOrgAuthenticated()` (already-logged-in request context) and
-  `ensureTestOrg()` (logs in first), both of which reuse the user's first organization
-  or create `E2E Test Org`, and the seed helpers return it as `orgId`.
-  Specs that create a market through the UI must call `ensureTestOrg()` in `beforeAll`,
-  otherwise the overlay's org dropdown is empty and submit stays disabled.
-- **Test user creation**: The back-end `/register-user` endpoint does NOT set `email_verified`,
-  so users created through it cannot log in.
-  Test users must be created via `back-end/create_test_user.py` which sets `email_verified=True`.
-  `scripts/seed_fixture.sh` creates two verified users: `TEST_EMAIL` (owns `Seed Test Org`)
-  and `NO_ORG_EMAIL` (`e2e-noorg@example.com`), which is deliberately left in no organization
-  so `new-market-org.spec.ts` can exercise the zero-org fallback.
-  A spec needing users beyond those two calls `ensureVerifiedUser()`
-  (`front-end/e2e/helpers/verifiedUser.ts`) in `beforeAll`, which runs that same script inside
-  the back-end container; do not hand-roll the user document, and do not switch to
-  `/register-user`.
-- **One spec walks the whole journey; the rest are slices.** `market-journey.spec.ts` is the only
-  one that goes create -> plan -> open -> import -> **approve** -> assign in a single organizer
-  session through the UI, and the only one that clicks Approve at all. Every other spec seeds past
-  some part of it: the pipeline spec seeds applications already approved, the import spec seeds the
-  market over the API and stops at "awaiting review". Before adding a test, decide which of those
-  you are extending - and if the answer is "the seam between two of them", it belongs in the
-  journey spec.
-- **Open a market by URL**, the way a bookmark would: `e2e/helpers/marketScreens.ts`
-  (`marketSetupPath`, `marketScreenPath`). Specs no longer plant a market in `localStorage`.
+- `dev` is the default/integration branch: all feature PRs target `dev`.
+- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and a green CI run on it deploys.
+  Both branches require the five CI checks; after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
+- Never commit directly to `main`.
+  Never open PRs targeting `main` (except the release-please Release PR, which is automated).
+- **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml` ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`); Vercel's own deploys of `main` are off.
+  After an Instant Rollback, promote a build again or no deploy reaches the domain.
+  A hotfix goes through `dev` when nothing unreleased waits there, else through a `hotfix/` branch from `main`.
+  See [`docs/RELEASING.md#hotfixes`](docs/RELEASING.md#hotfixes).
+
+## Commits and releases
+
+- All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.): release-please derives every version from them (`feat:` → minor, `fix:` → patch, breaking → major).
+- Never edit `CHANGELOG.md` by hand: release-please writes it.
+- Never reintroduce `release-as` in `release-please-config.json`: it overrides the version calculation on *every* run until cleared, and the one-time `0.1.0` bootstrap that used it is gone.
+- Full release docs: [`docs/RELEASING.md`](docs/RELEASING.md).
+
+## Irreversible-safety rules
+
+- **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory and would run against production.
+  Pass it inline to one-off scripts.
+  `reset_database.py` refuses whenever `MONGODB_URI` is set.
+- **An operator makes or verifies an account with `back-end/create_account.py`**, never `create_test_user.py` (a fixture script that prints the password).
+- **`.scratch/examples/` holds real applicants' details**: the organizers' Google Form exports, untracked; never commit, quote or paste from them.
+- **There is no fallback signing secret anywhere in this repository** and there must never be one again - not even "for dev".
+  A committed fallback is a published key; see [ADR 0010](docs/adr/0010-no-secret-has-a-fallback.md).
+- Running production, its variables and its incidents: [`docs/OPERATIONS.md`](docs/OPERATIONS.md); rebuilding it from nothing: [`docs/VERCEL_DEPLOYMENT.md`](docs/VERCEL_DEPLOYMENT.md).
+
+## Running the stack and the suites
+
+- **Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d`** (compose passes it through from the host shell; CI and `nm-test.sh` set it) - without it the password-reset E2E 500s on the missing `RESEND_API_KEY`.
+  A worktree's stack and ports come from its treehouse slot: [`scripts/README-treehouse.md`](scripts/README-treehouse.md).
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
-  Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` (compose passes it
-  through from the host shell; CI and `nm-test.sh` set it) - without it the password-reset
-  E2E 500s on the missing `RESEND_API_KEY`.
-- **Market dates are calendar days, not instants**: a stored `YYYY-MM-DD` market date must
-  render as the same day for every viewer regardless of timezone. `getFormattedDate`
-  (`front-end/src/utils/utils.ts`) formats with pure UTC math; never parse a market date
-  through `new Date()` with an offset. `front-end/e2e/date-display-timezone.spec.ts` pins
-  this across Honolulu/LA/Tokyo via Playwright `timezoneId`.
+- Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
+  Front-end unit tests: `cd front-end && npm run test:unit`.
+- **Run `npm run format` in `front-end/` before committing**: CI's `format:check` fails unformatted front-end code.
+- `scripts/nm-test.sh` runs everything the no-mistakes gate runs, on an isolated stack of its own.
+- Setting up a machine: [`docs/STARTUP.md`](docs/STARTUP.md); every suite and its gotchas: [`docs/TESTING.md`](docs/TESTING.md).
 
-### Floorplan Workflow E2E
+## Knowledge graph
 
-- **Deterministic - no AI mocking needed.** Despite the "Floorplan AI" name,
-  the front-end wizard makes no LLM/vision calls. Table auto-placement
-  (`POST /floorplans/place-tables`, `back-end/services/placement_service.py`)
-  is a pure geometry solver (Shapely + `pyckingsolver`). The
-  Gemini/GPT vision endpoint (`POST /floorplans/analyze`,
-  `back-end/api/floorplans_analysis.py`) exists but is not wired into the
-  front-end workflow (walls are drawn by hand). Consequence: the flow can be
-  exercised end-to-end for real in CI with no API keys and no stubbing.
-- **Konva canvas interactions and coverage gap.** The wizard's three canvas
-  steps have different testability:
-  - Calibration line drawing IS drivable with real Playwright `page.mouse`
-    drags on the Konva stage (see `FloorplanWorkflowPage.drawCalibrationLine()`).
-  - Section-grouping (Konva "lasso" selection) and the `FloorplanEditor` step
-    are NOT reliably drivable via simulated mouse events.
-    `floorplan.spec.ts` drives Pinia store state directly via `page.evaluate`
-    for those steps (`groupAllTablesIntoSection()`), and uses
-    `snapshotPlacedTables()` to assert table state persists across wizard steps.
-  - **Coverage gap**: section grouping and editor canvas interactions are
-    validated at the state level, not as real user gestures. Anyone extending
-    floorplan coverage should account for this.
-- **Artifacts** (PR #18 pattern to follow):
-  - Page object: `front-end/e2e/pages/FloorplanWorkflowPage.ts`
-  - Spec: `front-end/e2e/floorplan.spec.ts`
-  - Fixture: `front-end/e2e/fixtures/test-floorplan.png` (800×600 PNG)
-- **Save-path null-tolerance**: `POST /floorplans/save-to-market`
-  (`back-end/api/floorplans_save.py`) handles a null `setupObject` on the
-  market doc (the manual-setup path leaves it null). The fix uses
-  `isinstance(existing_setup, dict)` to branch between updating the existing
-  object and seeding a fresh one.
-- **Editor-mount table preservation**: `FloorplanEditor.vue`'s
-  `loadBackgroundImage()` only calls `store.initFloorplan()` when no floorplan
-  exists yet, spreading the existing store data (`placedTables`, `tableTypes`,
-  `sections`, `walls`, `obstacles`, scale) into the init so forward wizard
-  progression keeps auto-placed tables; when a floorplan already exists it just
-  refreshes the background image fields. This replaced an earlier
-  snapshot/restore workaround in the e2e page object.
-- **The room is the floor plan** (bug 38): with no walls drawn, Auto-Place packs
-  into the uploaded image's extent at the calibrated scale (`room_mm`), never a
-  fixed square, and refuses without either. The organizer asks for a count per
-  table type. The solver is bounded by its own `time_limit`
-  (`SOLVER_TIME_LIMIT_S`); a thread timeout around it bounded nothing.
-- **Production has no `pyckingsolver`.** It ships only `manylinux_2_35` wheels and Vercel builds
-  on Amazon Linux 2023 (glibc 2.34), so it lives in `back-end/requirements-floorplan-solver.txt`
-  (Docker, CI, local) and production Auto-Place runs the grid fallback. Any dependency added to
-  `requirements.txt` must install on glibc 2.34; it failed every production build June-October 2026.
-- **Konva cannot read a CSS variable**: handed `var(--mm-red)` it silently keeps
-  its previous colour. Pass a canvas colour through `canvasColor()`
-  (`front-end/src/utils/canvasColor.ts`).
+- **Durable knowledge lives in the graph, entered at [`docs/README.md`](docs/README.md).**
+  Nodes live in `docs/business/{concepts,flows,rules,intents}/`, `docs/implementation/{modules,data,conventions,testing}/`, `docs/adr/` and `docs/records/`, each folder listed by its `README.md`; the runbooks, `docs/TESTING.md`, `docs/TECH_STACK.md` and `docs/design-system.md` are nodes where they stand.
+- **A node is a Markdown file with frontmatter**, exactly these keys in this order: `layer`, `kind`, `describes` (the code it is about: a file, a `dir/`, or `file#symbol`), `verified` (the day it was read against the code), `sources` (work-item ids, never links) and, on an ADR only, `status`.
+  Links are relative Markdown links, and a link across the business/implementation line is answered by one back.
+- **A PR that changes a described file touches the node or bumps `verified`.**
+  Find a file's nodes before changing it with `git grep -l '<path>' docs`; CI's `knowledge-graph-drift` job fails on a PR that does neither; it is not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay, while `knowledge-graph` (the checker's tests and `check`) is a required check.
+- **`python3 scripts/knowledge_graph.py check`** checks the frontmatter, every link and anchor, reachability and back-links; run it after editing any Markdown.
 
-## E2E Seed Helpers for Published Markets
+## Before changing an area, read its node
 
-- `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
-  published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
-- Publishing is `POST /markets/{id}/transition` - `isDraft` is derived from `phase`, and no
-  request body can set either.
-- **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else.**
-  That one call runs the solver and persists what it produced.
-  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result. `assignmentObject` is what `record_attendance` reads at check-in time, so a stale client copy overwriting it moved vendors on market day (E11/F01/S01); the whole-market PUT is gone now (E21/F03/S06).
-  `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
-  Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
+The market on screen:
 
-## One Market, From the Server (Conventioner sharp edge)
+- Before changing how a screen gets, holds or writes a market, read [one market, from the server](docs/implementation/conventions/one-market-from-the-server.md) and [the market store](docs/implementation/modules/market-store.md).
+- Before changing a market route or link, read [every market page has an address](docs/implementation/conventions/every-market-page-has-an-address.md).
+- Before changing the market bar, its tabs or a market screen's layout, read [the market frame](docs/implementation/modules/market-frame.md).
+- Before changing what a screen says in a phase or on an intake path, read [the market guide](docs/implementation/modules/market-guide.md).
+- Before changing the phase rail, read [the phase rail](docs/implementation/modules/phase-rail.md).
+- Before changing styles, tokens or a control's look, read [the design language](docs/design-system.md) and [every control is named](docs/implementation/conventions/every-control-is-named.md).
+- Before writing or changing a dialog, read [dialogs](docs/implementation/conventions/dialogs.md).
 
-- **The back end is the only source of truth about a market, and the browser holds it in ONE
-  place:** `front-end/src/stores/market.ts`. Every market screen, the rail and every tab read it;
-  screens get it through `useOpenMarket` (`front-end/src/utils/openMarket.ts`). Settled in
-  `.scratch/wayfinding/the-market-frame/issues/03-one-market-every-surface-reads.md`.
-- **Every market page has its own address** (E22/F04/S02): `/markets/:marketId/{setup,form,
-  applications,assignment,result,vendors,attendance}` plus the `import` and `floorplan` flows, built
-  with `marketPath()`. `/markets/:marketId` alone lands on the page for the market's phase
-  (`MarketLanding`, via `currentPage` in `utils/marketGuide.ts`, a reading of the guide's table).
-  The old `setup?tab=` and `/tables` addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
-  page (`applications`), never a redirect.
-- **The market's bar is `MarketBar`, rendered once by `MarketFrame`**: the name and the tabs (Market
-  Setup, Application Form, Applications, Assignment, and Attendance once published). A screen draws
-  no title or Back button of its own; `utils/marketPage.ts` says which tab holds which page.
-- **A write is followed by a re-read, never a patch.** After anything that changes the market
-  (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
-  highlight) call the store's `refresh()`. Do not assign into the held market: no caller should
-  need to know which fields its write touched.
-- **Each write names what it changes; there is no whole-market PUT** (E21/F03/S06). The plan is
-  `PUT /markets/:id/plan`, the name `PUT /markets/:id/name` (draft only - the name is the public
-  address), the form, placements, highlights and transitions have their own. A market's
-  organization is fixed at creation, and no two markets share a slug (unique `market_slug` index).
-- **Unsaved work is the editor's working copy**, never layered on the store (the plan's
-  `setupObject`/`planIntakeMode`, the form builder's form). A re-read never overwrites a working
-  copy that holds unsaved edits.
-- **Nothing about a market is stored in the browser.** `localStorage` `market` is gone and
-  `noMarketInTheBrowser.test.ts` fails if it returns; the dashboard keeps only a `lastMarketId`
-  pointer (`utils/lastMarket.ts`), set by the store when a market arrives.
-- **`parseMarketFromApi` must carry every field the server sends.** It once rebuilt `setupObject`
-  from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's
-  autosave erased the floorplan. It spreads the payload and the plan first and normalises what it
-  names over them; a field added to the read reaches every screen without touching the parser.
-- **Facts derived from the market are served on it**, not fetched per tab: the form lock is
-  `applicationFormLockReason` on `GET /markets/:id`. A tab that fetches a fact for itself and
-  publishes it to siblings is how the form builder and the priority rules went stale.
+The market's lifecycle:
 
-## The Phase Rail (Conventioner sharp edge)
+- Before changing a phase move or a precondition, read [the guards and the phase move](docs/implementation/modules/guards.md) and [ADR 0005](docs/adr/0005-phase-is-the-only-lifecycle-state.md).
+- Before changing the phase history or "did this market run", read [the phase record](docs/implementation/modules/phase-record.md).
+- Before changing what Market Setup may change after draft, read [the setup settles on leaving draft](docs/business/rules/the-setup-settles-on-leaving-draft.md).
+- Before changing who may do what on a market, read [what each role may do](docs/business/rules/what-each-role-may-do.md) and [an archived market is read-only](docs/business/rules/an-archived-market-is-read-only.md).
+- Before changing the application form builder or its lock, read [the form locks at the first application](docs/business/rules/the-form-locks-at-the-first-application.md) and [essential fields](docs/implementation/modules/essential-fields.md).
+- Before changing a verdict or when review closes, read [verdicts settle on entering assignment](docs/business/rules/verdicts-settle-on-entering-assignment.md).
+- Before changing Publish Results or what an applicant sees of it, read [Publish Results waits for the allocation](docs/business/rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](docs/business/rules/an-applicant-never-reads-a-verdict-early.md).
 
-- **`PhaseRail.vue` is the market lifecycle, on every market screen**, as a band below that
-  screen's header. It replaced `PhaseControlPanel`, which floated above the card.
-- **What a market's screens say comes from one table: `front-end/src/utils/marketGuide.ts`**
-  (E31, map `what-to-show-and-when` ticket 02): the rail's next-step sentence, the step onward
-  (archiving, once a running market's last date has passed), each phase's and move's name on each
-  intake path (a CSV market imports its Google Form's responses; its form tab is "Questions"), and
-  the line a tab shows while out of its phase - in place of the page, rendered once by `MarketFrame`.
-  **Every tab stays on the bar for the market's whole life**, Attendance included.
-- **A path may step through a phase it never stops in** (E32/F02/S01): `PASSED_THROUGH` and
-  `path_moves` in `guards.py`. A CSV market reads Plan, Import, Review: Begin Review is one move
-  through `applications_closed`, every step's guards judged first (`judge_route`, which is why no
-  guard may read the phase). The read serves the path's moves as the keys of `transitionBlockers`
-  and the stepped-through phases as `phasesPassedThrough`; the browser keeps no copy of either. The
-  single edge is still taken when asked for, so a seed may walk it - but review refuses a CSV market
-  with nothing imported.
-- **The rail says no before the click.** `GET /markets/:id` serves `transitionBlockers` -
-  every move open from the phase, judged by `guards.transition_verdicts` (the endpoint's own
-  `evaluate_transition`) - and a refused move is drawn disabled with its first blocker as the
-  sentence. The 409 path stays for races; do not decide a move's verdict on the front end.
-- **The spine is derived, never listed.** `phaseSpine()` (`front-end/src/utils/phase.ts`) walks
-  `VALID_TRANSITIONS` forward from `draft`; a second list beside the table is the drift
-  `_validate_registry()` refuses on the server. `offers` is off it (nothing sets
-  `assignment_sent`) *except* for a market actually in that phase, which gets its stage back so
-  the rail can still say where it stands.
-- **Forward / back / destructive is read off the spine** (`transitionDirection`), not
-  special-cased per phase. Only the one forward step is on the rail; everything else is behind
-  `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
-  destructive edge must open that menu first.
-- **A move lands on the guide's page for the phase entered** (E32/F01/S01), in any direction, and
-  the router starts a new page at its top. A spec that clicks a move follows it to that page; it
-  does not stay on the tab it clicked from.
-- **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
-  *archived* - the prototype proved it. An archived market's frozen stage is the furthest phase
-  in `phasesReached` (see Phase Transitions); it once was read off evidence, and told a market
-  that ran that no check-in page ever went on the air (bug 8). Without a complete record the rail
-  says only what is proven and strikes nothing through.
-- Screens routed by market id get their `Market` from `useOpenMarket`
-  (`front-end/src/utils/openMarket.ts`), a reader of the one market store
-  (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
-  re-reading the market, and the rail never fails a screen that cannot load one.
+Vendors coming in:
 
-## The Door on Market Day (Conventioner sharp edge)
+- Before changing intake mode or the applicant surface, read [intake mode decides how vendors arrive](docs/business/rules/intake-mode-decides-how-vendors-arrive.md), [a gated market answers as absent](docs/business/rules/a-gated-market-answers-as-absent.md) and [ADR 0006](docs/adr/0006-intake-mode-fails-closed.md).
+- Before changing applicant sign-in, read [a vendor signs in before they have applied](docs/business/rules/a-vendor-signs-in-before-applying.md).
+- Before changing the CSV import, read [the CSV import](docs/implementation/modules/csv-import.md) and [the form amendment](docs/implementation/modules/form-amendment.md).
+- Before changing the start from a CSV or what reaches TypeSafe, read [the CSV proposal and start](docs/implementation/modules/csv-proposal-and-start.md) and [ADR 0007](docs/adr/0007-what-may-be-sent-to-hosted-typesafe.md).
 
-- **Attendance is a roster off the stored assignment** (E29): `GET /markets/:id/attendance` serves
-  `{dates, roster}`, every vendor placed per date with `checkedInAt`/`checkedInBy`
-  (`attendance_roster` in `api/attendance.py`). Never derive who is expected from check-in records:
-  that list is who came, and it is how the page could not say who was missing.
-- **An organizer checks a vendor in through `api/door.py`**: `POST`/`DELETE /markets/:id/attendance`,
-  EDITOR, `market_days` only, loading through `_load_market_to_change`. It writes through
-  `record_attendance`, which stamps `checked_in_by` (None for the vendor's own), so the two doors
-  record alike. A vendor checking in on another day is not refused, and no screen suggests it.
-- **One organizer screen works on a phone**: a route with `meta: { fitsAPhone: true }` lifts the
-  app's 1000px desktop floor (`App.vue`) and nothing else; at 640px and below the market bar's tabs
-  and the rail's spine scroll sideways inside themselves. Only Attendance has it.
+The assignment:
 
-## Placements, Pins and the Trail (Conventioner sharp edge)
+- Before changing the solver or a placement rule, read [the assignment solver](docs/implementation/modules/assignment-solver.md) and [the assignment behaviour suite](docs/implementation/testing/assignment-behaviour-suite.md); the rules it keeps are listed in [business/rules/](docs/business/rules/README.md).
+- Before changing a placement, a pin or a swap, read [placements](docs/implementation/modules/placements.md) and [ADR 0002](docs/adr/0002-a-pin-is-a-placement-row.md).
+- Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
+- Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
+- Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
 
-- **Assign runs in the `assignment` phase and nowhere else** (`assign_phase_refusal` in
-  `api/placements.py`, mirrored by `front-end/src/utils/assignPhase.ts`). A seed or a spec that
-  wants an assignment must walk the market to `assignment` first - assigning from `draft` is a
-  409. It deliberately does not repeat `_ALL_REVIEWED` or `_ASSIGNMENT_COMPUTED`, which
-  `guards.py` already says once each.
-- **`back-end/api/placements.py` is the only writer of `assignmentObject`.**
-  `POST /markets/{id}/assignment` runs the solver and stores the result; `PUT`/`DELETE
-  /markets/{id}/placements` writes or frees one seat; `POST /markets/{id}/placements/swap`
-  trades two atomically.
-  All four are gated on `MarketRole.EDITOR` - the same bar as every other market write, and
-  deliberately not stricter, since an EDITOR already owns the tiers, sections and counts the
-  whole assignment is computed from.
-  There is no other door: the whole-market PUT that once let a stale client copy move vendors on
-  market day is deleted (E21/F03/S06).
-- **A vendor who never applied is added by hand** (E36/F03/S01): `POST /markets/:id/vendors`
-  (`api/added_vendors.py`), EDITOR, in assignment and market days, served as `addVendorReason`. It
-  stores an approved application stamped `added_by`/`added_at`, which the run never reads
-  (`approved_solver_vendors` skips it): they are seated by hand and held like any pin.
-- **A seat goes only to someone with an application in the market** (E36/F02/S01): every
-  placement and swap writes the applicant's normalised address, or refuses one the market has no
-  application for (`has_applied` in `api/placements.py`). A seed that places someone gives them one.
-- **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
-  two records could disagree, and a vendor pinned to one table and placed at another is the exact
-  bug pins exist to prevent.
-  `assign_market` reads the market's own stored rows for flagged ones and seats them before
-  anyone else, so the ordinary loop sees those tables occupied.
-  A pin the plan can no longer hold is **orphaned, never deleted**, and `NoOrphanedPinGuard`
-  blocks `-> assignment` until it is re-placed or freed.
-  **Anyone may be pinned, warned** (E36/F02/S02): the place dialog offers every applicant, the ones
-  outside the run under "Not approved", and the run seats such a pin as `held` (`held_vendors_for`):
-  the seat is occupied, they are placed nowhere else and never counted among the run's vendors.
-- **Read-only views describe the STORED assignment, and only that.** `assignment_to_show()`
-  (`api/markets.py`) is `describe_stored_assignment()`; a market with nothing stored is shown
-  nobody placed, never the run it would get (E31/F03/S05 - that preview read "197 of 197 vendors
-  assigned" before anyone pressed Assign). The statistics, the tables grid, the CSV all go through
-  it. `GET /markets/{id}/assignment` is the one preview, and says so.
-- **A run records what it was made from** (E22/F03): `assignmentObject.madeFrom` holds one
-  fingerprint each for the rules, the plan and the approved applications (as `SolverVendor`s), and
-  `GET /markets/:id` serves `assignmentOutOfDate`, the groups that differ now.
-  `back-end/assignment/made_from.py` is the ONE place a fingerprint is computed - the run and the
-  read both call it. Only a solver run writes `madeFrom`; a hand placement is an edit to the result,
-  never an input. An assignment with no fingerprints is served as not out of date, never as stale.
-- **The assignment rules close with the assignment** (E22/F02): once the market can no longer
-  reach `assignment` (derived with `guards.route_between`, not listed), the plan write refuses a
-  change to the priority or the assignment options, and `assignmentRulesLockReason` rides on the
-  market for the page to mirror.
-- **`MarketTableRow.assignment` is the occupants and nothing else** - its LENGTH is what
-  `derive_unassigned_tables_from_rows` reads to count spare capacity. Which side of a table is
-  free lives in `assignment_slots` (`[left, right]`, null for vacant). Do not conflate them.
-- **`back-end/placement_history.py` owns the `placement_history` collection**: who changed a
-  placement, to what, when. Placements only - phase transitions, plan edits and form edits are
-  out. **A solver run is one entry**, not one per placement. Entries are stored structured and
-  worded by `front-end/src/utils/placementHistory.ts`. Deleted with the market.
+The data and the back end:
 
-## The Solver Reads Applications (Conventioner sharp edge)
+- Before writing a raw Mongo read, filter or write on a market, read [the market document](docs/implementation/data/market-document.md).
+- Before changing how applications are stored, read [the application document](docs/implementation/data/application-document.md).
+- Before changing organizations, membership or market roles, read [the organization document, and roles](docs/implementation/data/organization-document.md).
+- Before changing accounts or how an address is compared, read [users, and the one spelling of an address](docs/implementation/data/users-and-email.md).
+- Before adding a query on a new field, read [lookup indexes](docs/implementation/data/lookup-indexes.md).
+- Before deleting a market or an organization, or adding a collection keyed by market, read [market deletion](docs/implementation/modules/market-deletion.md) and [when an organization may be deleted](docs/business/rules/when-an-organization-may-be-deleted.md).
+- Before changing a secret, a boot check or an environment variable, read [security invariants](docs/implementation/conventions/security-invariants.md) and the environment table in [`docs/RELEASING.md`](docs/RELEASING.md).
+- Before answering a back end that refuses to boot, read [`docs/OPERATIONS.md`](docs/OPERATIONS.md#when-the-back-end-refuses-to-boot).
 
-- **There is no spreadsheet behind a market.** E02 removed `source_data`, its endpoints and its
-  collection, every `col_name`/`col_name_idx`/`col_names`/`col_values`/`col_include`, and
-  `enum_priority_order`. What this file used to call "Phase 5" is done; nothing is waiting on it.
-- **`assign_market(market)` reads the market's own approved applications.** No caller fetches
-  anything first. `assignment/vendor_input.py` is the single seam where application shape meets
-  solver shape, and it is the only place that knows both; it is unit-testable with no database.
-- **An approved application missing a required answer refuses the whole run**, naming the
-  applicants (`IncompleteApplicationsError`), rather than being skipped into an assignment that
-  looks complete with someone silently missing.
-- **Requiredness is defined by what the market asked**, not by a fixed list.
-  `essential_fields.asked_essential_keys()` is the single statement of that rule, read by both
-  the applicant validator and the solver's translation. Two copies would drift, and the drift
-  would surface as the solver rejecting answers the form had just accepted. Table type is stubbed
-  to one type in MVP, so a fixed list would reject every application in the product.
-- **No personal limit is an answer, not a gap** (E26/F02/S03). "Number of dates you want" is
-  required online but not of an import, because most real forms never asked it. A missing answer
-  is `max_dates` None, bounded by the vendor's availability and the market ceiling. The import's
-  only door to that is `record_application_answers(imported=True)`; the applicant path never
-  passes it.
-- **A placement is dated by the market date itself.** It used to be dated by the spreadsheet
-  column heading, which is why check-in, the table rows and the statistics each built a map from
-  headings back to dates. Those maps are gone; do not reintroduce one.
-- **A priority rule names a target and carries its own ordering.** The target is a form field key
-  or a built-in attribute in the `application.` namespace (`submitted_at`, `application_type`);
-  field keys are held to `^[a-z0-9_]+$`, so the two can never collide. How to order follows from
-  the target's type - there is no `data_type` to declare, and adding one back would restore the
-  silent no-op it replaced. **A CSV-imported row must carry its own `submitted_at`**, or
-  first-come-first-served decides nothing.
-- **Who shares a table with whom is `back-end/table_share.py`'s rule** (E27): both applicants
-  exist and accept a half table, one-way is enough, and a person's own request outranks one about
-  them. The solver seats pairs by it and the organizer's applications list serves
-  `tableShareNotice` (derived on read, never stored) by it; do not restate it beside either.
-  The write (`essential_fields.table_share_answers`) reads every address out of the applicant's
-  words, lowercased and in order (the first in `essential_table_share_email`, the rest in
-  `essential_table_share_also`), and keeps the words in `essential_table_share_answer`; the
-  pairing takes the first that belongs to an applicant. `migrations/migrate_table_share_answer.py`
-  brings stored applications into that shape. A field added to `SolverVendor` changes every
-  assignment fingerprint unless `made_from._ADDED_SINCE_FINGERPRINTS` names it.
-- **The half-table share is the organizer's `max_half_table_proportion_per_section`**, 30% when
-  unset, and blank on the plan screen runs it. The solver ignored the setting until E27 and ran
-  every market at a hard-coded 30%. It bounds only vendors who chose Either and have no partner:
-  a Half chooser is always seated on a half, and a table-share pair is an exception to it.
-- **Among vendors the organizer's rules leave equal, the most constrained go first**: fewest
-  available days, then fewest tiers across those days (`Vendor.tier_flexibility`), then earliest
-  submission. A first-come rule the organizer adds settles every tie before these are reached.
-- **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
-  gone. Unset means the organizer named no ceiling; there is no hidden default.
-- **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the
-  best table still open to them (`best_table_for`). It was table-driven, which made a vendor's own
-  section ranking unable to influence anything and stopped a date at the first unfillable table.
-  Section ranking is a preference and never a filter; tier is a filter, because it sets the price.
-- `back-end/tests/test_assignment_behaviour.py` is the solver's behavioural suite. Before E02 the
-  solver had none - `assign_market` was monkeypatched away everywhere - so any change to placement
-  should be made against it rather than beside it.
-- Do NOT delete `is_draft` from the `Market` model, and do not make it writable again. It is a
-  `@computed_field` derived strictly from `phase` (true iff `phase == draft`), kept on the
-  document only because it is the fallback `phase_from_market_document()` uses for a market
-  written before `phase` existed. See Phase Transitions below.
+Tests and CI:
 
-## Application Form Lock (Conventioner sharp edge)
-
-- **Applications are stored snake_case**, unlike markets and organizations, which are
-  camelCased on write. The market foreign key is `market_id`, NOT `marketId`.
-  `back-end/api/applications.py` is the single owner of the collection and every reader and
-  writer must go through it. A writer that stored the market reference under any other key
-  would silently disable the D9 lock below - the count would just return 0.
-- **The D9 lock has one source of truth**: `application_form_lock_reason()` in
-  `back-end/api/markets.py`. A market's application form is editable only in `draft` phase
-  and only while no application exists for it; once an applicant has submitted, the form is
-  frozen for good.
-- **`Market.application_form` is written through one judgement:** `prepared_application_form`
-  (`api/markets.py`) - the lock and the validator - which `PUT /markets/<id>/application-form` writes
-  alone and the CSV start's confirm writes in one update with the plan and the mapping. That shared
-  judgement is what makes the lock unbypassable; do not add a writer that skips it (the whole-market
-  PUT that did is deleted, E21/F03/S06). `POST /markets` may carry a form, and it runs through the
-  same validator. `prepared_plan` is the plan write's equivalent.
-- E2E reaches the locked state with `seedApplication()`
-  (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
-  via `mongosh`, because no applicant-facing submit endpoint exists yet.
-
-## Intake Mode (Conventioner sharp edge)
-
-- **`Market.intake_mode` says how vendors reach a market: `csv` or `form`, exactly one.** The
-  phase cannot express this. Application submission is already gated to `applications_open`, but a
-  CSV market passes through that phase too - that is where the import happens - so during that
-  window its public application form would be live and taking applications from strangers the
-  organizer has no way to answer.
-- **Absence means `csv`, so the public applicant surface fails closed.** Wrongly hiding an
-  application surface is visible and gets complained about; wrongly exposing one is silent until a
-  stranger applies. There is no migration and no backfill, and none is needed.
-  Consequence for tests: **any fixture whose market serves applicants must say `intakeMode: "form"`**,
-  in pytest and in the e2e seeds alike. A fixture that does not is a market whose applicant
-  endpoints answer 404, which is the default doing its job.
-- **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
-  the gate**, read by exactly the five applicant endpoints. It serves a form market in every phase
-  but draft (`APPLICANT_SURFACE_PHASES`, E26/F07/S02): an applicant may always sign in and read their
-  own application and its outcome - closing the surface with applications hid every verdict (bug 20).
-  **An applicant never reads a verdict** (E36/F05): "Submitted" until results are published, then
-  "You have a table" with their seats or "You did not get assigned", read off the stored seats by
-  `back-end/result_outcome.py` on every read; `applicant_visible_status` serves only `open`.
-  APPLYING stays `applications_open`-only, refused in words by `save_applicant_application`. It is
-  not the check-in lookup, because check-in must stay open to every market that runs: how a vendor
-  entered has no bearing on whether they can scan in on the day. It is one lookup rather than a
-  check in each endpoint, because five checks are five chances to forget the sixth.
-- **A gated market answers exactly as a market that does not exist.** Never add a "not accepting
-  applications online" message: it confirms to any stranger guessing slugs that the market is real.
-  The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their
-  own, because a 404 there would be an oracle saying "this slug is a CSV market" where every other
-  answer says nothing. `front-end/e2e/intake-mode.spec.ts` asserts the gated and absent renders are
-  identical rather than asserting each alone.
-- **A vendor signs in before they have applied** (E26/F07/S01). Every address that asks is sent a
-  code - which also makes the work identical for all, the strongest form of the login ruling - the
-  token (`utils/application_token.py`) names the market and the address, never an application, and
-  the first VALID save creates the application (`save_applicant_application`). Do not reintroduce
-  "send only to known addresses" or "token only with an application": together they made the
-  "Vendors apply on this market's page" option unable to take a single new application (bug 6).
-- **Importing is the CSV path's in every phase** (E31/F03/S04): `csv_import.import_refusal`
-  refuses a form market, and its words name the CSV rail's moves ("Import responses", "Import more
-  responses"). Publish Results is the form path's.
-- **Intake mode does not gate the form builder.** A CSV market still has an application form,
-  because the essential questions define the offering the CSV maps onto. Intake mode decides who
-  fills the form in, not whether one exists.
-- **It is organizer-settable only while the market is a draft**, through the plan write (`PUT
-  /markets/<id>/plan`, `save_plan`), which refuses a change after that - derived from the stored
-  phase rather than from a list of late phases. The control is
-  `ElementIntakeMode`, a plan card; the server is the authority, so a hidden or disabled control is
-  never the rule. It was withheld through MVP on the grounds that a toggle would advertise a surface
-  MVP withheld - retired by `E18/F04/S01`, because the applicant surface turned out to be built and
-  switched off rather than absent, and the apply page already answers correctly in every phase.
-- **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes
-  both from their document readers. Pydantic validates an enum on construction, before any later
-  assignment can degrade it, so a stored value this build does not recognize used to raise - taking
-  down every list that included that one market. Do not "simplify" this by letting the model parse
-  either field.
-
-## Market Document Canonical Form (Conventioner sharp edge)
-
-- **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded
-  every marker in `MARKET_MIGRATION_IDS` (`market_document_keys`, `market_slugs`,
-  `market_slugs_unique`) in the `schema_migrations` collection. The migration establishes a
-  market document's canonical form: camelCase keys (no legacy snake_case), a stored slug derived
-  from the name, and a UNIQUE slug index. A dev Mongo volume older than a marker lacks it, so an
-  existing stack hits this on first pull. The fix is the migration itself: `docker compose run
-  --rm backend python migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is
-  crash-looping). One command records every marker; the operator never discovers them one
-  restart at a time. When stored markets already share a public address it stops and names
-  them: rename all but one in each group and run it again. Do not "fix" either refusal by
-  softening the check: it fails closed because an unmigrated market is invisible, not broken.
-- **Market documents are stored camelCase, and that is the only spelling reads may name.**
-  Every write camel-cases the whole document, so a hand-written filter on `organization_id`
-  matches nothing. Anything touching a raw document or a Mongo filter goes through
-  `back-end/market_documents.py` (`market_doc_field`/`market_doc_filter`/`market_doc_set`/
-  `market_from_document`). Do not add a read-time fallback that accepts both spellings: writes
-  only refresh the camelCase key, so a legacy key holds a value that is stale forever.
-  `front-end/e2e/access-control.spec.ts` pins the visibility that depends on this: a
-  snake_case filter in the org-scoped market query is exactly the bug that once hid every
-  org member's markets, and the suite's positive assertions catch it.
-- **`Market.slug` is a computed field** (`@computed_field` on the Pydantic model, derived from
-  the name via `market_name_slug()` in `back-end/datatypes.py`). It is persisted and indexed
-  (`market_slug`, **unique** over non-empty slugs) so the public slug lookup
-  (`published_market_by_slug` in `market_documents.py`) is one indexed query rather than a
-  decode of every market on every unauthenticated request. It is never independently writable:
-  no request body can name it, and every write recomputes it from the name. The stored slug
-  narrows the query but does not decide it - `published_market_by_slug` re-checks the name
-  against `market_name_slug`. **One address, one market** (E21/F03/S03): creation and rename both
-  ask `public_address_refusal()`, so "Cafe Market" is refused beside "Café Market"; uniqueness
-  on the exact name alone let two markets share a public URL.
-- **Every field a document is looked up by is indexed at boot, from one list:**
-  `back-end/lookup_indexes.py` (`LOOKUP_INDEXES`). A new query on a new field belongs there when it
-  is written. The ids were once indexed only on databases old enough to have run
-  `migrate_to_uuid.py`, so every newer database scanned whole collections for its commonest reads.
-  A role is a key of a market's `roles` map, so "markets this person has a role on" is
-  `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
-- **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
-  `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
-  before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
-  source of truth for that mapping, and `MarketsApi.load_market_context()` is the shared
-  market + organization + permission load every endpoint should use.
-
-## Phase Transitions (Conventioner sharp edge)
-
-- **The setup settles on leaving draft** (E31/F01): everything on Market Setup - dates, locations,
-  sections and their tables, tiers, floorplan, intake mode. The plan write and the floorplan save
-  refuse a change after draft (`setup_lock_reason`, served as `setupLockReason`); restating the
-  stored setup is not a change, and the assignment rules beside it keep their own lock. The only
-  way back is `applications_open -> draft`, while nobody has applied. So **leaving draft requires a
-  complete setup**: three guards on that edge alone - dates none of which has passed, a location,
-  tables at every tier - each its own blocker line. A date has passed only once it has passed
-  everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
-  screens read the viewer's own calendar (`calendarToday`).
-- **The verdicts settle on entering assignment** (E36/F01/S01): approve, reject and follow-up are
-  open while the market can still reach `review` (`review_is_open`, the automatic rejections' own
-  rule), served as `verdictLockReason`. Nothing leaves `assignment` backwards, so from there a
-  verdict is the review's record and a mistake is fixed with a seat placed or freed by hand.
-- **A market is created only through `MarketsApi.create_owned_market` and moved only through
-  `MarketsApi.take_move`** (judged, then walked); the endpoints and the test-market seeder call both.
-- **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
-  removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
-  front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
-  stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
-  so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
-- `Market.phase` is server-owned: `create_market()` stamps `draft`, and
-  `apply_phase_transition()` (`api/markets.py`) is the only writer on an existing market - the
-  transition endpoint and the form amendment chain both move a market through it. Do not add a
-  second copy of that write: the endpoint carried one until E26, which is how stamps drift.
-- **An archived market is read-only** (E26/F06/S01). Every market write loads through
-  `_load_market_to_change()` (`api/markets.py`), which refuses an archived market with
-  `MarketArchivedError` - a `PermissionError`, so each write route already answers it with a 403;
-  a route that loads its own market asks `archived_refusal()`. A new write must load through the
-  change loader, never `_load_market_for`. Roles and deletion are not changes to the record.
-- **A screen offers each person only what their role lets them do** (E26/F08/S01). The market read
-  serves two per-person reasons, asked through the same `user_has_permission` the writes ask:
-  `readOnlyReason` (`change_refusal`: archived, or below EDITOR - the plan, form, placements,
-  highlights, automatic rejections, and verdicts, which record their giver since E34/F01/S01) and
-  `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, publishing results,
-  importing, starting from a CSV). A screen draws no control while the reason
-  for it is set; never decide a role threshold on the front end beside them.
-- **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
-  one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
-  `back-end/phase_record.py` owns it, and `phases_reached()` is the one answer to "how far did this
-  market get" and "did it run" - served on `GET /markets/:id` as `phasesReached` and
-  `phaseRecordComplete`. A market older than the record is read from what it can PROVE (a
-  check-in, a stored assignment, a published form) and served `phaseRecordComplete: false`; only a
-  complete record may say a market never reached a phase.
-- **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
-  it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
-  never independently writable: no request body can set it, and it is recomputed from the stored
-  phase on every write. Nothing reads the stored value for a market whose `phase` this build
-  understands. It is still *persisted*, and every writer keeps it in agreement with `phase` (create stamps both,
-  the transition endpoint sets both in one atomic update, and no other write touches either), purely because it is the fallback `phase_from_market_document()` drops to when
-  `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
-  confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
-  `Market` re-stamp `isDraft` from the effective phase before responding.
-- **Publish Results waits for the allocation, and settles it** (E36/F04): a form market publishes
-  in `assignment` once a run is stored and current (`publish_results_refusal`, served with the
-  admin check as `publishResultsReason`, and its counts as `publishOutcomes` from
-  `back-end/result_outcome.py`). After it the run is refused (`assign_refusal`, served as
-  `assignRefusalReason`) and the assignment rules lock; `ResultsPublishedGuard` keeps a form market
-  out of `market_days` until it has published. A CSV market has neither.
-- **Publishing a market is `assignment` → `market_days`**, which puts its check-in page on the
-  air. `draft` → `archived` is abandoning a draft, not publishing it (that was the old flow's
-  Done button, long gone). A market leaves `draft` for its lifecycle via
-  `draft` → `applications_open` (guarded by `FormHasFieldsGuard`).
-  A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
-  `draft` is a phase this build recognizes and takes at face value - hence the migration below.
-- **No Mongo condition can answer "is this market published?"** `{"phase": {"$ne": "draft"}}`
-  also matches a document with no `phase` - which is exactly what a legacy *draft* looks like -
-  so a filter like that would put an unpublished market on a public check-in URL. The public
-  slug lookup prunes with `non_draft_market_prefilter()` (`back-end/market_documents.py`) and
-  makes the draft decision in Python via `phase_from_market_document()`. The prefilter prunes;
-  it does not judge. Keep it that way.
-- **`migrations/migrate_is_draft_consistency.py`** repairs documents whose `isDraft` and `phase`
-  disagree, in *opposite* directions depending on which build wrote them: a market the old build
-  published (`phase: "draft"` + `isDraft: false`) has its **phase** advanced to `archived` - its
-  `isDraft` was the only publish signal it ever had, and confirming it as a draft would take a
-  live market's public check-in URL off the air - while a market with a non-draft `phase` and a
-  stale `isDraft: true` has its `isDraft` recomputed. Documents with **no** `phase` are left
-  alone; they are `migrate_phase.py`'s to backfill.
-
-## Security Hardening (PR 5a)
-
-- **Invariant: a security control must never key on a variable whose default is the insecure value.**
-  This is the root cause of both vulnerabilities this PR closes: `SECRET_KEY` fell back to a
-  committed literal, and the CORS policy gated on `FLASK_ENV`, whose default (`development`) ran
-  the permissive branch on every deployment.
-- **There is no fallback signing secret anywhere in this repository** and there must never be one
-  again - not even "for dev". A committed fallback is a published key. Deleting one is only half the
-  job, because it stays readable in the history: `back-end/utils/configured_secret.py` is the single
-  answer to "does this variable hold a secret?", and all three secrets (`SECRET_KEY`,
-  `RECAPTCHA_SECRET_KEY`, `RESEND_API_KEY`) ask it. An operator meeting the boot refusal has an
-  incentive to paste the old literal back (a fresh key logs every organizer out; the old one does
-  not), and that would clear the refusal while changing nothing.
-- **A blank or published value is NOT a configured secret, and a truthy placeholder is worse than a
-  blank.** Both are what a half-copied template looks like, and a check that keys on mere truthiness
-  passes on `re_xxxxx` - so the boot check reported a configured deployment and the failure landed at
-  request time instead (a captcha verified against a key Google never issued, a 500 per signup from
-  Resend). `configured_secret()` therefore strips, and `is_published()` refuses every value this repo
-  has printed where a secret goes plus anything shaped like one (a run of x's, a `your-` prefix), on
-  a laptop as on a deployment. Add any future placeholder to that set; better, never let a doc or a
-  template print a usable-looking key - **every env template in this repo ships blanks** (with
-  `DISABLE_CAPTCHA`/`DISABLE_EMAIL` on) precisely so there is nothing to copy.
-- **`ALLOW_INSECURE_LOCAL_DEV` is the ONLY escape hatch** for the six boot-time requirements
-  (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `SESSION_TYPE`,
-  `TRUSTED_PROXY_HOPS`). It defaults to OFF - the secure state is the one you get by forgetting. It
-  does *not* excuse a published `SECRET_KEY`: the hatch exists so a process with **no** key can boot
-  with a random one.
-- **A boot requirement must defend something this branch actually serves.** Each of the six is
-  reachable today: the session cookie, `POST /register`'s captcha, the organizer API's origin list,
-  the mail that carries every verification link, reset link and OTP, the store the session is kept
-  in, and - the subtlest - the address that captcha is scored against. A requirement with nothing
-  behind it teaches operators to work around the check, so `utils/rate_limit.py` is *not* here: it
-  bounds the applicant endpoints, which are not on this branch. `TRUSTED_PROXY_HOPS` is, because
-  `remote_addr` is what organizer signup hands Google as reCAPTCHA's `remoteip` - so the hop count
-  serves the captcha, not a limiter that does not exist yet. Make the requirement follow the caller,
-  not the module it was first written for: the same variable can be dead weight in one slice and
-  load-bearing in the next, and this one became load-bearing the moment `RECAPTCHA_SECRET_KEY` did
-  (before, a deployment with no secret took the dev bypass and no token ever reached Google).
-- **`FLASK_ENV` does not exist in this repository - nothing reads it, and nothing sets it.** It is
-  gone from the Dockerfile, `docker-compose.yml` and the env templates, so the invariant is
-  structural rather than aspirational: a variable nobody sets is a variable nobody can key on. Do not
-  reintroduce it. The image used to export `development`, so anything keyed on it read the same on a
-  deployment as on a laptop - that is how the CORS hole survived, and how `SESSION_TYPE` came to
-  default to `filesystem` on serverless hosts that have no disk. `SESSION_TYPE` is therefore
-  configuration with no default (`back-end/utils/session_storage.py`), and `SESSION_COOKIE_SECURE` is
-  not configurable at all, because a `SameSite=None` cookie is only accepted by a browser when Secure.
-- **`SESSION_TYPE=null` installs no session store.** flask-session has no `null` backend and raises
-  on one; Flask's own interface signs the session into the cookie, which is the only store a
-  serverless function has. Do not "fix" a `null` deployment by handing it to `Session(app)`.
-- **The check is a check.** `check_public_endpoint_defenses()` reads configuration and returns it;
-  `configure_public_endpoint_defenses()` is the only thing that touches the app. Keep them apart:
-  flask-cors installs an `after_request` handler per call, so a check with side effects stacked one
-  onto the live app every time anything asked it a question.
-- **The required production environment is documented in `docs/RELEASING.md`** - keep that table
-  in step with the boot check in `back-end/app.py`. `back-end/.env.example` is the local-development
-  template and must boot as it stands (it sets the hatch); a placeholder that is *truthy* is worse
-  than a blank, because the app takes it for a configured secret. A deploy doc that is wrong is worse
-  than one that is missing, because it will be trusted.
-- **Every secret is read from the environment when it is asked for, never captured at import.**
-  `signing_secret()`, `verifiable_secret()` and `sendable_key()` all call `os.getenv` per call, so the
-  boot check is a pure function of the environment rather than of the import order that produced it.
-  Two of them used to read their key into a module global on the way up, and that one difference cost
-  three separate bugs: a `.env` loaded afterwards was a `.env` nobody saw (hence the ordering rule
-  `app.py` used to hold in a comment), `monkeypatch.delenv` on those variables was a silent no-op, and
-  every test had to know which module attribute to patch instead - so a test that "cleared the secret"
-  cleared nothing and passed only because the shell running it happened to hold no key. Do not
-  reintroduce a module-level `os.getenv` for a secret. `resend.api_key` is set on the way into each
-  send (`ready_mailer()`), for the same reason.
-- **`back-end/.env` is read by `back-end/utils/env_file.py`, called on `app.py`'s first line** (before
-  the imports below it build their Mongo clients). Nothing loaded that file before this PR (no
-  `load_dotenv`, no `python-dotenv`), which was harmless only while the app booted regardless; with
-  the six requirements in place, the developer who followed `docs/STARTUP.md` met a refusal naming
-  the variable they had just set. The real environment wins (`override=False`): the Docker stack
-  bind-mounts `back-end/` into the container, so a stray `.env` must never be able to hand a process
-  an escape hatch or a signing key it did not choose. **The test suite reads no `.env` at all** -
-  `tests/conftest.py` points `utils.env_file.ENV_FILE` at a path that does not exist, because two test
-  modules import `app`, and a suite whose result depends on an untracked file is green in CI and red
-  on the laptop of anyone whose `.env` still carries what the old template printed.
-  `test_the_local_development_template_boots_as_it_stands`
-  (`tests/test_public_endpoint_defenses.py`) runs the shipped template through the real boot check, so
-  an edit that pins an origin or reinstates a placeholder fails there rather than on a laptop.
-- **`VITE_RECAPTCHA_SITE_KEY` is the other half of `RECAPTCHA_SECRET_KEY`, and it is a *build-time*
-  requirement.** Making the back-end secret mandatory is what made it load-bearing: a bundle with no
-  site key sends a placeholder token (`front-end/src/utils/captcha.ts`), which a back end with no
-  secret used to wave through and a back end with a real one hands to Google, who never issued it - so
-  every organizer signup 400s on a deployment that looks healthy. `vite build` therefore refuses a
-  bundle without it (`front-end/vite.config.ts`), with the same opt-in escape hatch by the same name
-  (`VITE_ALLOW_INSECURE_LOCAL_DEV`). A defense that exists on only one side of the wire is not one.
-  Consequence for setup: **`cp .env.example .env` is a step in `front-end/` too**, not only in
-  `back-end/`. Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so a fresh clone has
-  no site key and no hatch, and `npm run build` throws. Both templates ship the shape that works as
-  it stands; `docs/STARTUP.md` names both copies.
-
-## Essential Form Fields (Conventioner sharp edge)
-
-- `back-end/essential_fields.py` is the single owner of the essential-questions contract:
-  the reserved `essential_*` answer keys in `Application.form_data`, the offering derivation
-  (dates from `setupObject.marketDates`, sections from `setupObject.sections`, table types from
-  the LAST floorplan's `tableTypes`), applicant answer validation, and the freeze.
-  `front-end/src/utils/essentialFields.ts` is its front-end mirror and must stay in step.
-- The offering follows the market plan live until the first applicant save, which snapshots it
-  onto `applicationForm.essentialOptions` (camelCase, server-owned like `publishedAt`; a client
-  payload can never write it). After that, no market-plan edit reaches the form - do not add a
-  refresh path. The form save writes `essentialOptions: null`, so the freeze filter matches
-  null-or-missing, not `$exists`.
-- **A form is its custom fields PLUS the essential questions the plan asks, and either half alone
-  is a form.** Every layer that asks "does this market have a form?" must read
-  `asked_essential_keys()` rather than count custom fields. `FormHasFieldsGuard` does, and so does
-  `application_write._asks_nothing()` - it did not, and the disagreement meant a market could open
-  applications and then refuse every application it received, by CSV import and by applicant alike.
-  A market that asks genuinely nothing is still refused.
-- Custom form-field keys may not use the `essential_` prefix (validated in
-  `_normalized_application_form` and mirrored in `front-end/src/utils/applicationForm.ts`).
-- `docs/schema.d.ts` is generated from `datatypes:MarketSchemaContract`; after changing a
-  contract model, run `python generate_market_schema.py --output ../docs/schema.d.ts` from
-  `back-end/` (pinned by `tests/test_generate_market_schema.py`).
-- Local stack for E2E: export `DISABLE_EMAIL=true` when bringing the stack up (`nm-test.sh`
-  does this; a bare `th-compose.sh up` does not), otherwise `auth.spec.ts`'s password-reset
-  test hits a 500 from the unconfigured mailer.
-
-## No-mistakes Gate
-
-- `.no-mistakes.yaml` at the repo root configures the no-mistakes CI gate.
-  `allow_repo_commands: true` is the only safe setting (without it the gate has
-  no way to run the test suite), but it is **only trusted from the `dev` branch**:
-  the gate reads the config from the base branch's commit, so a pushed branch
-  cannot self-enable arbitrary commands.
-- `scripts/nm-test.sh` is the committed test runner the gate invokes. It runs the
-  full suite (backend pytest, frontend vitest, Playwright E2E) with an isolated
-  Docker stack (unique `COMPOSE_PROJECT_NAME` + bind-to-port-0 free ports), and
-  guarantees teardown via an `EXIT` trap.
-- Both `scripts/th-compose.sh` and `scripts/seed_fixture.sh` resolve their stack
-  identity in this priority order: 1) explicit env vars (`COMPOSE_PROJECT_NAME` +
-  `TH_BACKEND_PORT` etc.), 2) treehouse slot from path, 3) primary defaults (or
-  fail loud for `th-compose.sh`). This makes them work from a no-mistakes worktree
-  (which has no treehouse slot) without falling through to the primary stack.
-
-## The Design Language (Conventioner sharp edge)
-
-- **`docs/design-system.md` is the single statement of what this product looks like**, decided
-  2026-09-20 from the walk in `.lavish/aesthetics-2026-09-20.html`. A value not in that file does not
-  belong in a component. `front-end/src/assets/base.css` is where it becomes tokens; `E16` is the work
-  of making it true.
-- **There is no shared component layer yet, and that is the root cause of everything aesthetic.**
-  12,211 lines of CSS in 71 scoped `<style>` blocks, each re-deciding from scratch: 17 radius
-  declarations, 24 font sizes, 32 spacing values, 351 hardcoded hex colours against 704 token uses.
-  Do not add a 72nd set of local decisions - reach for the tokens, and once `E16/F03` lands, the
-  primitives.
-- **The card idiom was extracted; the type and spacing scales were authored.** That distinction
-  matters when something looks off: 6px controls, 10px cards and the three-layer shadow are what the
-  newer screens already did, so a disagreement with them is a bug. The type and spacing scales are
-  new, so a disagreement is unmigrated code.
-- **A `var(--x)` that resolves to nothing fails silently and catastrophically.** `--mm-text-red` was
-  referenced in seven rules and defined nowhere, which rendered the market-archive confirmation button
-  as white text on a white dialog with no border - invisible, on the only irreversible action in the
-  product. `E16/F01/S05` adds the resolution check. Never write `var(--mm-x, #fallback)`: a fallback
-  on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
-- **`contrast.test.ts` asserts tokens, not usages, and that gap has been occupied.** A token exempt
-  from the contract because it "never carries text" (`--mm-border`) was used as a button fill with
-  white text at 1.74:1. The Playwright sweep in `E16/F01/S05` covers usages - and **it is only worth
-  the states it walks**, so dialogs, menus, disabled controls and empty states must be opened
-  deliberately. A twenty-screen pass missed the invisible button because nobody opened that dialog.
-- **A token is only AA on the ground it was measured against.** `--mm-green` is 4.59:1 on white and
-  4.43:1 on the phase rail's `#FBFBFA`. So a chip carries its own ground: `--mm-chip-*` are opaque
-  (the tint already laid over white), each asserted with its ink in `contrast.test.ts`. Translucent
-  tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
-- **Weight does not inherit here.** A global reset gives every element `font-weight: 400`, so a
-  span inside a 600 cell is 400 until it says otherwise.
-- **Every control has a name, and a placeholder is not one** (E26/F10/S03): a `<label for>`, an
-  `aria-label` or `aria-labelledby`. `e2e/every-control-is-named.spec.ts` walks the screens with
-  `namelessControls()` (`e2e/helpers/accessibleNames.ts`); a new screen or dialog joins that walk.
-  The walk only sees the rows it seeds: the rules page walked with no rule on it missed every control
-  inside one (bug 50).
-  A field styled `all: unset` loses its focus ring with everything else, so its container draws one.
-- **Native checks and radios take `accent-color` from `body`, and no link pads itself**: set
-  neither per component (bug 52). An answer is rendered through `AnswerValue.vue`, which links its
-  `http(s)` addresses and nothing else.
-- **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
-  `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
-  Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
-  `line-height` too, and a control's height is its line box, so the reset pairs it with
-  `line-height: normal`.
-- **`front-end/src/assets/primitives.css` owns every control.** `.btn`, `.field` and `.chip` carry
-  height, padding, radius, type, focus and the disabled state, because a token cannot stop a file
-  writing `height: 45px` - and that was the damage: ten control heights on one screen, four disabled
-  treatments, sixty button-ish class names. Reach for a primitive rather than deciding again;
-  `src/__tests__/primitives.test.ts` is the contract.
-- **`npm run lint:css` is the design-language gate**, and it is **warnings globally, errors per
-  migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
-  backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
-  serves is on the list, the applicant views included since vendors apply online (E26/F07); the
-  128 remaining warnings are the floorplan GUI, a beta.
-- **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
-  bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
-  same principle as the banner itself. The card fills at least the window under the banner. Never
-  give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
-  **The frame places itself and says what shows until the market arrives** (E26/F10/S01): the
-  page gutter, the card, and the loading, missing and failed states are its own, and it renders a
-  screen's content only once the market is in hand (`@retry` lets a screen refetch its own data).
-  The import and floorplan flows stand in it too. A screen that pads itself or renders its own
-  `MarketArrival` is how one market's pages came to put the frame in four different places.
-- **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
-  `--list-max` (1100); the PAGE scrolls. **Every market screen is `--workspace-max`, set by
-  `MarketFrame`** (E22/F04/S01): a screen in the frame sets no width of its own, or moving between
-  a market's screens makes the frame jump. `.app-container` used to be `position: absolute;
-  height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
-  nested scrollers. Do not reintroduce a viewport-height shell.
-
-## Dialogs (Conventioner sharp edge)
-
-- **`front-end/src/components/AppDialog.vue` is what a dialog is in this product** (E20/F01): a
-  native `<form>` in a modal doing one small job. It owns the scrim, window, close control, Escape
-  and backdrop dismissal, the inert behaviour, and the `type="submit"` confirm. **That form IS the
-  Enter contract** - Enter runs the same handler as the button, so it inherits that handler's
-  guard, and a disabled submit makes Enter inert with no key handler anywhere. Do not add
-  `@keydown.enter`: five views each invented their own answer and one of them (`ApplicantLogin`)
-  bypassed its own resend cooldown by doing so.
-- A dialog of several independent actions passes no `confirmLabel` and hosts its own `<form>`s
-  (Manage organization has three). Testids come from the `testid` prefix - `<testid>-window`,
-  `-submit-button`, `-cancel-button`, `-background`, `-close-button`.
-- **Closing never means saved, and saving never closes.** Three closes are correct and are pinned:
-  deleting the thing, the explicit close control, and Escape or backdrop. The parent learns about a
-  save through its own event, never through close - `OrganizationsView` treating close as its
-  refresh signal is why every membership change used to close the dialog.
-- **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be
-  the whole irreversible action. Focus skips `:disabled` controls - `focus()` on a disabled element
-  is a silent no-op, which left the create-market dialog opening with focus on `<body>`.
-- **A dialog opened FROM a dialog is a sibling of it**, so `useInertBehind` marked it out of play:
-  it rendered, read correctly, was visible and enabled, and could not be clicked. A dialog now
-  un-inerts its own branch on open and restores the marks on close. Asserting this needs a control
-  the PAGE holds - the view container is an ancestor of the dialogs and is never marked.
-- `src/__tests__/modalsHoldThePageInert.test.ts` keeps a FLOOR of cover-painting files that **falls
-  on purpose** as dialogs adopt the shell. `AppDialog` itself is pinned by name, because without
-  that every dialog built on it leaves the rule's sight at once.
-
-## Organization Deletion and the Import Chain (Conventioner sharp edge)
-
-- **Deleting an organization deletes the drafts and archived markets it holds, and is refused while
-  it holds anything mid-lifecycle** (`BLOCKING_PHASES` in `back-end/api/organizations.py`). The
-  refusal names each market. The update that set `organizationId` to null is **gone outright** - a
-  market belonging to nothing is a state `POST /markets` refuses to produce.
-  The check lives with the organization API, NOT in `guards.py`, which is validated against the
-  transition table and is for transitions.
-- **An archived market that ran is still publicly served, as a record** (reaffirmed 2026-09-22,
-  built E26/F06/S02): `AttendanceApi.get_check_in_market` serves a running market, or an archived
-  one whose phase record says it ran, marked `ended` - its page shows each vendor's seats and
-  check-ins and takes no check-in (writes answer 409). Archiving one that never ran leaves no page.
-  So deleting an archived market that ran takes a live URL off the air and destroys the record of
-  a market that happened; the confirmation names what each deletion destroys per market, and
-  `back-end/deletion_trail.py` records it - written BEFORE anything is destroyed, and allowed to
-  fail the whole operation.
-- **A market's records go with it, by either door** (bug 47): `back-end/market_deletion.py` deletes
-  its applications, check-ins, applicant sign-in codes, placement trail and the organizer's vendor
-  notes (`back-end/vendor_notes.py`), then the market. A new
-  collection keyed by `market_id` belongs there; deleting the market document alone once left every
-  vendor's name, email and answers behind for ever.
-- **`back-end/api/form_amendment.py` fixes the application form from inside the import** (E20/F03).
-  It **adds no transition edge**: the route is a breadth-first walk of `VALID_TRANSITIONS`, two hops
-  from `applications_open` and four from `applications_closed`, and the market returns to the phase
-  it started in.
-- **Pre-flight, not rollback.** Every guard on every hop is judged against the PROPOSED form before
-  the market moves. Judging the stored form would pass a market whose current form is fine, move it
-  to draft, write a form that asks nothing and then refuse the return - stranding it mid-import.
-  `Market.form_amendment` records the destination before the first step, so a chain that stalls says
-  where it stopped and offers to finish.
-- The form is still written by `save_application_form` in `draft`, so the D9 lock stays
-  unbypassable. The chain is ADMIN, because it moves phases.
-
-## Starting a Form from a CSV (Conventioner sharp edge)
-
-- **A draft can be started from its Google Form's responses** (E24).
-  `POST /markets/:id/csv-proposal` returns a **proposal** (`back-end/csv_proposal.py`) and writes nothing.
-  `.../csv-proposal/confirm` (`back-end/csv_start.py`) writes the plan facts, the form, the ceiling and the import mapping in ONE conditioned update, or nothing.
-  The file is sent twice and stored never.
-- **The proposal writes the import's own mapping, and there is one mapping format** (`csv_import.mapping_payload`).
-  The first import of a later export restores every column and matches every value.
-  A value the proposal never offered (fewer than 3 applicants gave it) is saved as ignored; a day or tier the plan lacks that the organizer did not settle is left for the import to ask.
-  Do not give the proposal a mapping shape of its own.
-- **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured** (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never a value.
-  The key is optional and never a boot requirement.
-- The rules are held to the hand-written answer key on the five anonymised exports (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
-- **The proposal marks no question required** (E33/F02): the export does not say which were, and a guess skipped every row that left one blank at import. Only the organizer marks one.
+- Before writing or changing an E2E spec, read [E2E patterns](docs/implementation/testing/e2e-patterns.md) and [E2E seeds](docs/implementation/testing/e2e-seeds.md).
+- Before adding a test that spans the organizer's journey, read [the market journey spec](docs/implementation/testing/the-market-journey-spec.md).
+- Before extending floorplan coverage, read [floorplan E2E](docs/implementation/testing/floorplan-e2e.md).
+- Before changing CI, `.no-mistakes.yaml` or `nm-test.sh`, read [CI and the gate](docs/implementation/testing/ci-and-the-gate.md).
 
 ## Agent skills
 
@@ -896,7 +130,7 @@ be updated as PRs merge - see `docs/agents/issue-tracker.md` for the full conven
 
 ## Maintaining this file
 
-Keep this file for knowledge useful to almost every future agent session in this project.
-Do not repeat what the codebase already shows; point to the authoritative file or command instead.
-Prefer rewriting or pruning existing entries over appending new ones.
-When updating this file, preserve this bar for all agents and keep entries concise.
+- This file holds only what nearly every session needs before it knows which area it is in: the stack, the branch model, the irreversible-safety rules, the commands, the graph's contract and the index.
+- Durable knowledge about one area goes to a node in the graph, read against the code first ([adding a node](docs/README.md#adding-a-node)), not here.
+- When a new area gains a node, the index gains one line: "Before changing X, read [node]".
+- Point to the authoritative file or command rather than repeating what the codebase already shows, and prefer rewriting or pruning a line over appending one.

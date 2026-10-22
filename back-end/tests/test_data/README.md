@@ -1,8 +1,27 @@
+---
+layer: implementation
+kind: testing
+describes:
+  - back-end/tests/test_data/google_forms/
+  - back-end/tests/test_data/google_forms_export.csv
+  - back-end/tests/fixtures/anonymise_form_export.py
+verified: 2026-10-22
+sources:
+  - wayfinding/real-market-readiness/map
+  - wayfinding/the-form-started-from-a-csv/01
+  - wayfinding/the-form-started-from-a-csv/07
+  - E06/F04
+  - E24/F01/S01
+---
+
 # Test data
 
-## `google_forms/`
+The back-end suite's realistic data: real Google Form exports with the people replaced.
+How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
-Five real Google Form application exports, one per market, with the people replaced by `tests/fixtures/anonymise_form_export.py` (E24/F01/S01).
+## [`google_forms/`](google_forms/)
+
+Five real Google Form application exports, one per market, with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
 They are the only realistic responses this suite has, and the form started from a CSV is built and measured against them.
 
 | File | Market days | Applications submitted | Rows | Columns |
@@ -19,7 +38,8 @@ Submission dates are read from the anonymised timestamps, which the anonymiser m
 ### What was kept and what was invented
 
 The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
-An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email.
+An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email, and it holds no email address, link, handle or phone number, however many share it.
+That is the rule for what the CSV proposal may treat as shared, so the fixtures keep exactly what the proposal reads; it is decided by the count, never by a list of header words, which is what let a column be missed before.
 Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email and a link for a link.
 A link keeps its scheme and each part at least 3 applicants' links share, so a Drive upload still reads `https://drive.google.com/open?id=` and an Instagram link still names Instagram, while the file id, the handle and anyone's own site are invented.
 One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
@@ -39,16 +59,17 @@ The real exports live only on the maintainer's machine.
 The output is deterministic, so regenerating from the same export produces an identical file.
 Never commit a real export, and never hand-edit a copy: change the anonymiser, so the next person can tell what was done to the data.
 
-## `google_forms_export.csv`
+## [`google_forms_export.csv`](google_forms_export.csv)
 
 A real Google Forms response export with the people replaced.
-231 applications to a five-day market, 31 columns, produced by an earlier version of `tests/fixtures/anonymise_form_export.py`.
+232 applications to a five-day market, 31 columns, produced by an earlier version of `tests/fixtures/anonymise_form_export.py`.
 
 ### Why it exists
 
 Three MVP blockers found on 2026-09-14 came from the **shape** of a real export rather than from logic.
 Every CSV test in this suite wrote its own headers, and every one of them used a short single-line stem like `"Which days can you attend?"`.
 That is why grid detection failing on a multi-line header survived to production: a fixture invented by the people who wrote the parser only tests what they already thought of.
+So a real export, anonymised, is the acceptance fixture for taking an organizer's file through to an assignment; it is used because synthetic data hid real blockers, not to serve the one organizer whose form it was.
 
 The source file is 232 real applicants' names and email addresses, so it cannot be committed as it stands.
 The anonymiser is committed beside the fixture so the transformation is auditable and re-runnable.
@@ -77,3 +98,7 @@ The anonymiser has since changed what it keeps: a value stays only when at least
 This file's source export is not among the ones that version was run on, so the file stays as the earlier version produced it.
 Do not hand-edit it: a change it needs is a reason to replace it with one of the exports made by the current anonymiser.
 Do not commit a real export.
+
+## Superseded
+
+- One anonymiser regenerating this fixture as well as the five (wayfinding/the-form-started-from-a-csv/07): its source export is not among the five, so it stays as the earlier version made it (above).

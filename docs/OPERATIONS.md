@@ -1,3 +1,19 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - back-end/market_documents.py#assert_market_key_migration_recorded
+  - back-end/migrations/migrate_market_keys.py
+  - back-end/api/users.py#ensure_user_indexes
+  - back-end/migrations/migrate_user_emails.py
+  - back-end/api/applications.py#ensure_application_indexes
+  - back-end/migrations/create_applications_collection.py
+  - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
+verified: 2026-10-21
+sources:
+  - E32/F03/S03
+---
+
 # Operations
 
 How production runs, and what to do when something about it needs doing.
@@ -67,8 +83,8 @@ What a person may do is decided per organization and per market:
 | --- | --- | --- |
 | Organization owner, admin, member | Manage organization (Organizations page) | being in the organization, and **Viewer** on every market it holds - nothing more |
 | Market owner | creating the market | everything, including roles and deletion |
-| Market admin | Manage market | phase moves, verdicts, importing, publishing, plus everything an editor does |
-| Market editor | Manage market | the plan, the form, placements, and checking vendors in at the door |
+| Market admin | Manage market | phase moves, importing, publishing results, plus everything an editor does |
+| Market editor | Manage market | the plan, the form, verdicts on applications, placements, and checking vendors in at the door |
 | Market viewer | Manage market, or organization membership | reading |
 
 **Organization membership alone gives Viewer on its markets, even to the organization's owner and admins.**
@@ -94,7 +110,8 @@ A forgotten password is reset by its owner from the sign-in page ("Forgot passwo
 ### The test markets
 
 Checking something in production - that an applicant's sign-in code arrives, that a Google Form market's sign-in reads as no market - needs markets that are nobody's real one.
-`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above).
+`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above), through the product's own writes: it creates and moves each market the way the endpoints do ([the guards and the phase move](implementation/modules/guards.md)).
+Check against those, never against a real organizer's market.
 Run it from `back-end/` in a checkout of what production runs (`main`), so it writes what that build reads; it arrives there with the E32 release, whose migration must have run first (below).
 
 ```bash
@@ -106,6 +123,8 @@ MONGODB_URI='<production URI>' .venv/bin/python seed_test_markets.py --owner you
   Both are left open, with dates a year out and no applicant.
 - It prints each market's phase and path, which is under `https://conventioner.io`.
   Running it again changes nothing that exists, and finishes a market a failed run left in draft.
+  It refuses, naming it, a test organization owned by another account or a market address held outside it.
+- `front-end/e2e/seed-test-markets.spec.ts` runs it twice from an empty start in the back-end container, visits both markets as a stranger, and applies to the online one as a vendor.
 - Apply or import with made-up details only, and an address you own for a sign-in code.
   To start over, delete the market in the product and run it again.
 
@@ -140,6 +159,54 @@ A new database is started once with `MONGODB_URI='<URI>' .venv/bin/python init_d
 Production was started that way on 2026-10-18, so no script in `back-end/migrations/` was needed then; [RELEASING.md](RELEASING.md#pre-deploy-database-migrations) says when one is.
 The first that is: the release carrying E32 refuses to boot until every account address is stored lowercased, so run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_user_emails.py --dry-run`, then without `--dry-run`, before promoting it.
 If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
+
+### When the back end refuses to boot
+
+The back end checks the database as it starts and refuses to serve one it cannot trust: the migration markers ([`market_documents.py`](../back-end/market_documents.py)) and three unique indexes ([`api/users.py`](../back-end/api/users.py), [`api/applications.py`](../back-end/api/applications.py), [`api/applicant_auth.py`](../back-end/api/applicant_auth.py)).
+Every request then answers 500 `FUNCTION_INVOCATION_FAILED`, and the log says which check refused and what to run (Vercel, the back-end project, Logs).
+Each refusal below names its fix; take a `mongodump` first (above) when the fix writes.
+On a local stack the same refusals appear in `docker compose logs backend`, and the commands run as `docker compose run --rm backend python <script>` - `run`, not `exec`, because the back-end container is crash-looping and there is nothing to attach to ([STARTUP.md](STARTUP.md#troubleshooting)).
+
+**"The market-document migration has not been applied to this database: no '...' marker"**.
+The database lacks one of the markers [`migrations/migrate_market_keys.py`](../back-end/migrations/migrate_market_keys.py) records in `schema_migrations` (`market_document_keys`, `market_slugs`, `market_slugs_unique`), so its markets may be stored under legacy keys or without their slug, and would be invisible rather than broken ([the market document](implementation/data/market-document.md#the-boot-refusal-and-the-migration)).
+A database older than a marker lacks it, so a local stack meets this on the first pull that adds one.
+The migration is the whole fix, and one run records every marker:
+
+```bash
+MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_market_keys.py --dry-run   # what it would rewrite, and any shared address
+MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_market_keys.py
+```
+
+Then redeploy (Deploy, Run workflow), or restart the local back end.
+
+**The migration stops: "These markets share a public address"**, listing `/<slug>: '<name>' (id <id>), ...`.
+A public address belongs to one market, and which market keeps it is the organizer's call, so the migration writes no marker until it is settled.
+Rename all but one market in each group, then run the migration again: it recomputes each slug from the name.
+The back end is down, so rename in the database: `mongosh '<URI>'`, `use conventioner`, `db.markets.updateOne({id: '<id>'}, {$set: {name: '<new name>'}})`.
+
+**"Could not read the market-document migration markers"**.
+The database did not answer: the check fails closed rather than assume the migration ran.
+Make the database reachable (the `MONGODB_URI`, the database user's password, Atlas's status), then redeploy.
+
+**"N account(s) have an address not stored lowercased (ids: ...)"**.
+`users.email` is unique over the lowercased address, and an account written before every writer lowercased it blocks that index ([users and email](implementation/data/users-and-email.md#one-address-is-one-account)).
+Run [`migrations/migrate_user_emails.py`](../back-end/migrations/migrate_user_emails.py), `--dry-run` first, as under [Starting a database, and migrations](#starting-a-database-and-migrations).
+When it names accounts that would share an address, it writes nothing: decide with their owners which account stays, delete the others (`db.users.deleteOne({id: '<id>'})`, after any organization they own is transferred), and run it again.
+
+**"Could not build the unique index 'user_email' on users.email ... Accounts sharing an address: ..."**.
+Two accounts already hold one address; keep one per address as above, then redeploy.
+
+**"The unique index market_applicant_type_unique ... could not be built"**.
+Some applicant holds two applications of one type at one market, which the index exists to forbid ([the application document](implementation/data/application-document.md#indexes)).
+`MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
+Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
+
+**"The indexes on applicant_login_challenges could not be built"**.
+The log quotes Mongo's reason.
+These are applicants' sign-in codes, used once and expiring within five minutes, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
+
+**"Refusing to start: ... are not configured"**, naming variables.
+A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.
 
 ### Scripts never to run against production
 

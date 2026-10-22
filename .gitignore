@@ -45,3 +45,6 @@ flask_session/
 
 # Real organizer CSVs (vendor PII) used to measure the form started from a CSV. Never commit.
 .scratch/examples/
+
+# Obsidian's workspace state, for anyone who opens the repository as a vault (docs/README.md).
+.obsidian/

@@ -20,6 +20,40 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
       - run: python -m pytest tests/ -v
 
+  # The docs are a graph of nodes that describe the code (scripts/knowledge_graph.py). This job
+  # checks the graph itself and is a required check on dev.
+  knowledge-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - name: Checker tests
+        run: python -m pytest scripts/tests -q
+      - name: Check the graph
+        run: python scripts/knowledge_graph.py check
+
+  # Drift - a PR that changes described code without touching the node that describes it - needs
+  # the base branch's history, hence the full clone. A job of its own so it is not required: for
+  # the next 10 PRs from 2026-10-22 a finding shows red without blocking the merge, then it is
+  # re-judged.
+  knowledge-graph-drift:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Drift against the base branch
+        run: python scripts/knowledge_graph.py drift --base origin/${{ github.base_ref }}
+
   frontend-unit:
     runs-on: ubuntu-latest
     defaults:
