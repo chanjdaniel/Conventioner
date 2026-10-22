@@ -160,6 +160,8 @@ test('an organization admin with no role on the market marks a follow-up and own
  * Who is offered a follow-up's owners depends on who asks (decision/2026-10-22). An Editor from
  * outside the organization, there by a role on the market alone, is offered the people the
  * market's roles name and none of the organization's own, whose addresses they must not read.
+ * A follow-up an organization admin already owns still names them on that Editor's card: the
+ * owner is a recorded fact, not someone the Editor is offered.
  */
 test('an editor from outside the organization is offered only the people on the market', async ({
   browser,
@@ -177,6 +179,12 @@ test('an editor from outside the organization is offered only the people on the 
   await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  const theo = seedApplicationWithStatus(marketId, 'needs_follow_up', 'theo@thistle.test');
+  mongoEval(
+    `const admin = db.users.findOne({ email: ${JSON.stringify(ORG_ADMIN.email)} }); ` +
+      `db.applications.updateOne({ id: ${JSON.stringify(theo)} }, ` +
+      `{ $set: { follow_up_owner: { user_id: admin.id, email: admin.email } } })`,
+  );
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
@@ -200,5 +208,20 @@ test('an editor from outside the organization is offered only the people on the 
         options.map((option) => (option as HTMLOptionElement).value).sort(),
       );
     expect(offered).toEqual([EDITOR.email, TEST_USER.email].sort());
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('follow-up-window')).toBeHidden();
+
+    // The organization admin's follow-up names them, and goes on only to the market's people.
+    await page.getByTestId('app-monitor-include-follow-ups').check();
+    await monitor.advanceTo('theo@thistle.test');
+    const followedUpBy = page.getByTestId('app-monitor-follow-up-owner');
+    await expect(followedUpBy).toHaveValue(ORG_ADMIN.email);
+    await expect(followedUpBy.locator('option:checked')).toHaveText(ORG_ADMIN.email);
+    const handedTo = await followedUpBy
+      .locator('option:not(:checked)')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).sort(),
+      );
+    expect(handedTo).toEqual([EDITOR.email, TEST_USER.email].sort());
   });
 });

@@ -211,6 +211,16 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, adopt } = verdicts;
+/**
+ * Whom the card's "Followed up by" offers: the people a follow-up can be handed to, led by its
+ * recorded owner when they are not among them (T15). An Editor from outside the organization is
+ * offered only the market's roles, so an organization admin who owns the follow-up would match no
+ * option and the box would read blank. Choosing the owner again changes nothing.
+ */
+const ownerChoices = computed(() => {
+  const owner = current.value?.followUpOwner?.email;
+  return owner && !people.value.includes(owner) ? [owner, ...people.value] : people.value;
+});
 
 /**
  * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
@@ -617,7 +627,7 @@ function submittedOn(app: Application): string {
             data-testid="app-monitor-follow-up-owner"
             @change="reassign(current, ($event.target as HTMLSelectElement).value)"
           >
-            <option v-for="person in people" :key="person" :value="person">
+            <option v-for="person in ownerChoices" :key="person" :value="person">
               {{ person === me ? `${person} (you)` : person }}
             </option>
           </select>
@@ -1040,7 +1050,7 @@ function submittedOn(app: Application): string {
   justify-content: start;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-bottom: var(--space-3);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
