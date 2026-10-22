@@ -1049,6 +1049,29 @@ class TestSignInIsBounded:
         bodies = {repr(self._refused(result)) for result in refusals}
         assert len(bodies) == 1
 
+    @pytest.mark.parametrize("endpoint", ["request_login_code", "verify_login_code"])
+    def test_the_caller_is_counted_before_the_body_is_read(
+        self, applicant_auth_module, monkeypatch, endpoint
+    ):
+        """What the caller sends cannot shape how the caller is counted: the count comes first."""
+        events = []
+        count_attempt = sign_in_limits.count_attempt
+        monkeypatch.setattr(sign_in_limits, "count_attempt", lambda limit, subject, *rest: (
+            events.append(f"count {limit.name}") or count_attempt(limit, subject, *rest)
+        ))
+        email_from = applicant_auth_module._email_from
+        monkeypatch.setattr(applicant_auth_module, "_email_from", lambda data: (
+            events.append("read body") or email_from(data)
+        ))
+
+        if endpoint == "request_login_code":
+            self._request(applicant_auth_module)
+        else:
+            self._verify(applicant_auth_module)
+
+        caller_count = next(e for e in events if e.startswith("count") and e.endswith(":caller"))
+        assert events.index(caller_count) < events.index("read body")
+
     def test_verifying_past_the_limit_for_an_address_is_refused_and_consumes_nothing(
         self, applicant_auth_module, test_db, monkeypatch
     ):

@@ -166,20 +166,30 @@ _VERIFY_FAILURE_STATUS = 401
 
 # ── Rate limits ──────────────────────────────────────────────────────────
 
-def _refusal(caller_limit: sign_in_limits.SignInLimit,
-             address_limit: sign_in_limits.SignInLimit,
-             email: Optional[str]):
-    """A 429 when this caller, or then this address, is past its limit; None otherwise.
+def _caller_refusal(limit: sign_in_limits.SignInLimit):
+    """A 429 when this caller is past its limit; None otherwise.
 
-    The caller is counted on every request, before the body or the slug says anything, so a
-    refusal is the same for every address and every market, real or not. The address is counted
-    only once the caller is within its limit. Either refusal says plainly how long to wait, and the
-    sign-in screen shows the message as it stands.
+    Asked on every request before the body or the slug is read, so the caller is counted alike
+    whatever it sends, and a refusal is the same for every address and every market, real or not.
     """
-    caller = request.remote_addr or "unknown"
-    retry_after = sign_in_limits.count_attempt(caller_limit, caller)
-    if retry_after is None and email:
-        retry_after = sign_in_limits.count_attempt(address_limit, email)
+    return _too_many(sign_in_limits.count_attempt(limit, request.remote_addr or "unknown"))
+
+
+def _address_refusal(limit: sign_in_limits.SignInLimit, email: Optional[str]):
+    """A 429 when this address is past its limit; None otherwise, and for a request naming none.
+
+    Asked only once the caller is within its limit.
+    """
+    if not email:
+        return None
+    return _too_many(sign_in_limits.count_attempt(limit, email))
+
+
+def _too_many(retry_after: Optional[int]):
+    """The refusal for a limit that says to wait ``retry_after`` seconds, or None when it does not.
+
+    It says plainly how long to wait, and the sign-in screen shows the message as it stands.
+    """
     if retry_after is None:
         return None
     minutes = math.ceil(retry_after / 60)
@@ -356,9 +366,11 @@ def request_login_code(market_slug: str) -> tuple:
     and its code sent, for every address, before the response returns - unless the
     caller or the address is past its rate limit, which answers 429 and sends nothing.
     """
+    refused = _caller_refusal(sign_in_limits.REQUEST_CODE_PER_CALLER)
+    if refused:
+        return refused
     email = _email_from(request.get_json(silent=True))
-    refused = _refusal(sign_in_limits.REQUEST_CODE_PER_CALLER,
-                       sign_in_limits.REQUEST_CODE_PER_ADDRESS, email)
+    refused = _address_refusal(sign_in_limits.REQUEST_CODE_PER_ADDRESS, email)
     if refused:
         return refused
     if not email:
@@ -418,10 +430,12 @@ def verify_login_code(market_slug: str) -> tuple:
     can proceed with authenticated applicant operations. Past the caller's or the
     address's rate limit it answers 429 and consumes nothing.
     """
+    refused = _caller_refusal(sign_in_limits.VERIFY_CODE_PER_CALLER)
+    if refused:
+        return refused
     data = request.get_json(silent=True)
     email = _email_from(data)
-    refused = _refusal(sign_in_limits.VERIFY_CODE_PER_CALLER,
-                       sign_in_limits.VERIFY_CODE_PER_ADDRESS, email)
+    refused = _address_refusal(sign_in_limits.VERIFY_CODE_PER_ADDRESS, email)
     if refused:
         return refused
 
