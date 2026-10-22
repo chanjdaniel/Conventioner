@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/utils/marketGuide.ts
-verified: 2026-10-23
+verified: 2026-10-22
 sources:
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map

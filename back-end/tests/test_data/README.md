@@ -5,7 +5,7 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/google_forms_export.csv
   - back-end/tests/fixtures/anonymise_form_export.py
-verified: 2026-10-23
+verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/the-form-started-from-a-csv/01
