@@ -605,14 +605,15 @@ function submittedOn(app: Application): string {
             {{ verdictGiverLine(current) }}.
           </span>
         </p>
-        <!-- Who is reaching out, and who can be handed it (E34/F02/S01). -->
+        <!-- Who is reaching out, and who can be handed it (E34/F02/S01). A Viewer reads the recorded
+             owner as plain text - the people it could be handed to are a verdict-giver's list. -->
         <div v-if="current.status === ApplicationStatus.NeedsFollowUp" class="follow-up-owner">
-          <label for="app-monitor-follow-up-owner">Followed up by</label>
+          <label :for="decides ? 'app-monitor-follow-up-owner' : undefined">Followed up by</label>
           <select
+            v-if="decides"
             id="app-monitor-follow-up-owner"
             class="field field--select"
             :value="current.followUpOwner?.email ?? ''"
-            :disabled="!decides"
             data-testid="app-monitor-follow-up-owner"
             @change="reassign(current, ($event.target as HTMLSelectElement).value)"
           >
@@ -620,6 +621,9 @@ function submittedOn(app: Application): string {
               {{ person === me ? `${person} (you)` : person }}
             </option>
           </select>
+          <span v-else class="follow-up-owner-value" data-testid="app-monitor-follow-up-owner">
+            {{ current.followUpOwner?.email ?? '-' }}
+          </span>
         </div>
 
         <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
@@ -1039,6 +1043,13 @@ function submittedOn(app: Application): string {
   margin-top: var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* The owner a Viewer reads is a recorded fact, not a control: quiet, like the card's other
+   read-only fields. */
+.follow-up-owner-value {
+  color: var(--mm-text-muted-on-beige);
+  overflow-wrap: anywhere;
 }
 
 /* Who gave the verdict (E34/F01/S01): on the card's beige and on the decided list's rows alike. */
