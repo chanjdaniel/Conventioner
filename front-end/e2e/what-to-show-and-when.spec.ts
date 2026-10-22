@@ -101,11 +101,11 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
-    await expect(page.getByTestId('market-read-only')).toContainText(
+    await expect(page.getByTestId('plan-setup-settled')).toContainText(
       'The setup is settled: it cannot change once applications have opened',
     );
     // Nobody has applied, so the way back is named.
-    await expect(page.getByTestId('market-read-only')).toContainText('go back to draft');
+    await expect(page.getByTestId('plan-setup-settled')).toContainText('go back to draft');
     await expect(page.locator('fieldset.plan-body')).toHaveAttribute('disabled', '');
 
     await page.goto(marketSetupPath(marketId, 'form'));
@@ -152,7 +152,7 @@ test.describe('What to show, and when', () => {
       { run: false },
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
-    await expect(page.getByTestId('market-read-only')).toContainText(
+    await expect(page.getByTestId('plan-setup-settled')).toContainText(
       'The setup is settled: it cannot change once the market has moved on to importing',
     );
     await page.goto(marketSetupPath(marketId, 'form'));

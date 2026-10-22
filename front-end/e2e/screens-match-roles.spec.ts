@@ -52,6 +52,9 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     await expect(page.getByTestId('market-read-only')).toContainText('view this market', {
       timeout: 15000,
     });
+    // Said once, by the frame (T15); the plan says only its own lock, the settled setup.
+    await expect(page.getByTestId('market-read-only')).toHaveCount(1);
+    await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
     await expect(page.getByTestId('plan-card-dates').getByRole('button').first()).toBeDisabled();
     // No phase moves, on the rail or behind it.
     await expect(page.getByTestId('phase-rail')).toBeVisible();
@@ -61,11 +64,14 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator('button.seat-button')).toHaveCount(0);
+    // And says why, on the page whose seats are plain text: a Viewer took it for broken (T15).
+    await expect(page.getByTestId('market-read-only')).toContainText('view this market');
 
     await page.goto(marketSetupPath(marketId, 'applications'));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+    await expect(page.getByTestId('market-read-only')).toHaveCount(1);
   });
 });
 
@@ -78,8 +84,8 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
     // Past draft nobody changes the setup (E31/F01/S03): the reason is the market's, not the role's.
-    await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
-    await expect(page.getByTestId('market-read-only')).not.toContainText('editing access');
+    await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
+    await expect(page.getByTestId('market-read-only')).toHaveCount(0);
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-menu-button')).toHaveCount(0);
 

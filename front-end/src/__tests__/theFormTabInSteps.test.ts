@@ -247,16 +247,35 @@ describe('a locked form opens on the review setup (E33/F01/S03)', () => {
 });
 
 describe('a person who may only read (E33/F01/S03, review)', () => {
-  it('is told why on Review setup, and offered no control there', async () => {
-    const READ_ONLY = 'You can view this market, but not change it.';
+  const READ_ONLY = 'You can view this market, but not change it.';
+
+  // The frame says why, once, on every page of the market (T15): the tab says only the form's lock.
+  it('is offered no control on Review setup, and not told twice', async () => {
     const wrapper = await mountTab({
       applicationFormLockReason: null,
       readOnlyReason: READ_ONLY,
     } as Partial<Market>);
 
     expect(currentStep(wrapper)).toContain('Review setup');
-    expect(wrapper.get('[data-testid="form-builder-lock-banner"]').text()).toBe(READ_ONLY);
+    expect(shown(wrapper, 'form-builder-lock-banner')).toBe(false);
     expect(wrapper.getComponent('[data-testid="stub-highlights"]').props('disabled')).toBe(true);
+  });
+
+  it("reads the questions as read-only, and is told only the form's own lock", async () => {
+    const LOCKED = 'Application form is locked: 1 application has already been submitted.';
+    const open = await mountTab({ readOnlyReason: READ_ONLY } as Partial<Market>);
+    await open.get('[data-testid="form-step-questions"]').trigger('click');
+
+    expect(shown(open, 'form-builder-lock-banner')).toBe(false);
+    expect(open.getComponent('[data-testid="stub-builder"]').props('readonly')).toBe(true);
+
+    const locked = await mountTab({
+      applicationFormLockReason: LOCKED,
+      readOnlyReason: READ_ONLY,
+    } as Partial<Market>);
+    await locked.get('[data-testid="form-step-questions"]').trigger('click');
+
+    expect(locked.get('[data-testid="form-builder-lock-banner"]').text()).toBe(LOCKED);
   });
 
   it('leaves Review setup live for someone who may change the market', async () => {

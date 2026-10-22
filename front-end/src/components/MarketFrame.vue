@@ -22,7 +22,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import type { Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import MarketArrival from '@/components/MarketArrival.vue';
 import MarketBar from '@/components/MarketBar.vue';
 import MarketPages from '@/components/MarketPages.vue';
@@ -53,6 +53,18 @@ const note = computed(() => {
   const where = pageOfRoute(route.name, route.params);
   return props.market && where ? tabNote(props.market, tabOf(where)) : null;
 });
+
+/**
+ * Why the person looking may change nothing here, said once for every page of the market (T15).
+ * Each screen drops its controls on `readOnlyReason`, and only Market Setup said why, so a Viewer
+ * met a Result page whose seats were plain text and took it for broken. An archived market is said
+ * by the rail, and a tab's note in place of its page says the one thing that page says.
+ */
+const readOnlyNote = computed(() =>
+  props.market && props.market.phase !== MarketPhase.Archived && !note.value
+    ? (props.market.readOnlyReason ?? null)
+    : null,
+);
 
 function retry(): void {
   void store.refresh();
@@ -98,7 +110,12 @@ onBeforeUnmount(() => observer?.disconnect());
       <p v-if="market && note" class="market-tab-note" data-testid="market-tab-note">
         {{ note }}
       </p>
-      <slot v-else-if="market" />
+      <template v-else-if="market">
+        <p v-if="readOnlyNote" class="note market-read-only" data-testid="market-read-only">
+          {{ readOnlyNote }}
+        </p>
+        <slot />
+      </template>
       <MarketArrival v-else :status="status" @retry="retry" />
     </div>
   </div>
@@ -141,6 +158,17 @@ onBeforeUnmount(() => observer?.disconnect());
   padding: var(--space-8) var(--space-6);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
+}
+
+/* Inset as a page insets its content, so the note lines up with what it explains. */
+.market-read-only {
+  margin: var(--space-6) var(--space-6) 0;
+}
+
+@media (width <= 640px) {
+  .market-read-only {
+    margin: var(--space-4) var(--space-4) 0;
+  }
 }
 
 .market-frame {
