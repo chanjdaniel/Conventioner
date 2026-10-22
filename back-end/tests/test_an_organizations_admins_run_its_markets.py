@@ -166,3 +166,83 @@ def test_naming_the_role_costs_the_list_no_extra_read(listing, who, roles):
 
     assert listing.organization_reads == []
     assert listing.markets.reads == 2
+
+
+MARKET_ADMIN = "market-admin"
+EDITOR = "market-editor"
+VIEWER = "market-viewer"
+
+
+@pytest.fixture
+def roles_on_the_market(monkeypatch):
+    """One market of the organization with an Owner, an Admin, an Editor and a Viewer on it.
+
+    Returns the roles as the last write left them.
+    """
+    doc = stored_market(
+        MarketPhase.MARKET_DAYS, organizationId=ORG_ID,
+        roles={MARKET_OWNER: "owner", MARKET_ADMIN: "admin", EDITOR: "editor", VIEWER: "viewer"},
+    )
+
+    def load(_market_id):
+        return MarketsApi.MarketContext(
+            doc, MarketsApi.market_from_document(doc), organization(), organization().model_dump(),
+        )
+
+    class Markets:
+        def update_one(self, _query, update):
+            doc["roles"] = dict(update["$set"]["roles"])
+            return SimpleNamespace(modified_count=1)
+
+    monkeypatch.setattr(MarketsApi, "load_market_context", load)
+    monkeypatch.setattr(MarketsApi, "markets_collection", Markets())
+    return lambda: dict(doc["roles"])
+
+
+@pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN, MARKET_ADMIN])
+@pytest.mark.parametrize("target", [MARKET_OWNER, MARKET_ADMIN, EDITOR, VIEWER])
+def test_adding_someone_already_on_the_market_changes_nothing(roles_on_the_market, who, target):
+    """"Add user" with an address already on the market would overwrite its role, the Owner's too.
+
+    Changing a role is the role change's, where the Owner and the market's Admins are guarded.
+    """
+    before = roles_on_the_market()
+
+    with pytest.raises(ValueError, match="already has a role on this market"):
+        MarketsApi.add_market_role("market-123", target, MarketRole.VIEWER, who)
+
+    assert roles_on_the_market() == before
+
+
+@pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
+@pytest.mark.parametrize("role", [MarketRole.EDITOR, MarketRole.VIEWER])
+def test_an_organization_admin_adds_an_editor_or_a_viewer(roles_on_the_market, who, role):
+    MarketsApi.add_market_role("market-123", "newcomer", role, who)
+
+    assert roles_on_the_market()["newcomer"] == role.value
+
+
+@pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
+def test_an_organization_admin_does_not_add_a_market_admin(roles_on_the_market, who):
+    """Raising someone to Admin stays the market owner's, as it is for the market's own Admins."""
+    with pytest.raises(PermissionError):
+        MarketsApi.add_market_role("market-123", "newcomer", MarketRole.ADMIN, who)
+
+    assert "newcomer" not in roles_on_the_market()
+
+
+@pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
+@pytest.mark.parametrize("target,new_role", [(EDITOR, MarketRole.VIEWER), (VIEWER, MarketRole.EDITOR)])
+def test_an_organization_admin_changes_an_editor_or_a_viewer(roles_on_the_market, who, target, new_role):
+    MarketsApi.update_market_role("market-123", target, new_role, who)
+
+    assert roles_on_the_market()[target] == new_role.value
+
+
+@pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN, MARKET_ADMIN])
+@pytest.mark.parametrize("target", [MARKET_OWNER, MARKET_ADMIN])
+def test_only_the_owner_changes_the_owner_or_an_admin(roles_on_the_market, who, target):
+    with pytest.raises(PermissionError):
+        MarketsApi.update_market_role("market-123", target, MarketRole.VIEWER, who)
+
+    assert roles_on_the_market()[target] == ("owner" if target == MARKET_OWNER else "admin")
