@@ -82,7 +82,7 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    Keep `describes` narrow: a file many areas share is described by `#symbol`, and a directory only by a node that owns all of it.
 3. The first line after the frontmatter is the `# Title`, one sentence per physical line, in the present tense: a node holds current truth, and history is git's.
 4. Link every file in `describes` from the body, with a relative link.
-   Work-item ids and `.scratch/` paths are never links: they go in `sources`, or inline in backticks.
+   Work-item ids are never links: they go in `sources`, or inline in backticks, and resolve in the team home as [the tracker contract](agents/issue-tracker.md#resolving-provenance) says.
 5. When the node links a node in the other layer, add the link back in that node too; links within one layer may be one-way.
 6. Add a line to the folder's `README.md`, `- [Title](file.md) - one line`, kept sorted by file name.
 7. Run `python3 scripts/knowledge_graph.py check`.

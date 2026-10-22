@@ -11,8 +11,8 @@ Why it is not the real file: the sources are hundreds of real applicants' names,
 links to their documents, and what they wrote about themselves.
 
 What is kept is decided by how many people share a value, never by what a column is called. That is
-the privacy rule of the form-started-from-a-CSV map, ticket 01:
-``.scratch/wayfinding/the-form-started-from-a-csv/issues/01-what-hosted-jev-may-be-sent.md``.
+the privacy rule of ``wayfinding/the-form-started-from-a-csv/01``, kept in
+``back-end/tests/test_data/README.md`` ("What was kept and what was invented").
 The header row stays verbatim, and any value - or option inside a multi-select answer -
 that at least 3 distinct applicants gave, counted by applicant email rather than by row, so one
 applicant who submitted three times shares nothing. Everything else is invented in the same shape:

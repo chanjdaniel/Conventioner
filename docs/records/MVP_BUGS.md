@@ -292,7 +292,7 @@ The Attendance tab on the same screen shows the check-in recorded on market day.
 Nothing it reads says the market reached Market Days.
 Attendance records exist and are evidence of exactly that; a published flag or timestamp on the transition would be another.
 
-**Already tracked:** `.scratch/wayfinding/claims-and-room/issues/06-does-a-market-remember-where-it-has-been.md` (open) records the same finding and holds the decision.
+**Already tracked:** `wayfinding/claims-and-room/06` (open) records the same finding and holds the decision.
 
 **Retested on the usage run:** reproduced on "Spring Makers Market 2026", where the note sits directly above an attendance table holding two check-ins.
 A market archived from Applications Open says "It was abandoned before it ran." although it had opened applications.
@@ -325,7 +325,7 @@ The dead page lets a vendor type their email before saying "Market not found", a
 **Observed:** with 72 approved and 165 rejected applications, Vendors says "72 of 237 vendors assigned" while Result says "72 of 72 vendors placed".
 Rejected applicants are not vendors of this market; the two pages should agree.
 
-**Already tracked:** `.scratch/wayfinding/claims-and-room/issues/04-who-is-in-the-vendors-list.md` (open), which also notes that a rejected applicant's date cards say "Not placed" with no reason.
+**Already tracked:** `wayfinding/claims-and-room/04` (open), which also notes that a rejected applicant's date cards say "Not placed" with no reason.
 
 **Retested on the usage run:** "84 of 250 vendors assigned" beside Result's "0 unassigned".
 On a market whose run placed nobody (bug 23) it reads "0 of 0 vendors assigned" while 172 applications are approved.
@@ -340,7 +340,7 @@ On a market whose run placed nobody (bug 23) it reads "0 of 0 vendors assigned" 
 **Observed:** the "Application page" chip with its URL and "Copy" pushes "Close Applications" and "More…" onto a second row, doubling the rail's height (about 120 px) and leaving an empty band beside the phase steps.
 The Market Days rail with its "Check-in page" chip fits, because it has no forward button.
 
-**Already tracked:** `.scratch/wayfinding/claims-and-room/issues/07-the-rails-second-row.md` (open), measured for the check-in chip at several widths; the application-page chip in Applications Open is a second case of the same cause.
+**Already tracked:** `wayfinding/claims-and-room/07` (open), measured for the check-in chip at several widths; the application-page chip in Applications Open is a second case of the same cause.
 
 **Retested on the usage run:** reproduced on "Harbour Night Market" in Applications Open.
 
@@ -409,7 +409,7 @@ The preview beside it, and every review card, also ask Full name and Preferred n
 Placing a vendor into an empty seat does warn about the same things ("They asked for a whole table. This gives them half of one."), so the swap is the odd one out.
 Tier is a filter in the solver because it sets the price, so a swap that crosses tiers or table sizes probably deserves the same warnings, for both vendors.
 
-**Already tracked, in part:** `.scratch/wayfinding/claims-and-room/issues/05-before-you-override-an-answer.md` (open) decides what the placement dialog says before a change overrides an answer; it covers placing, and a third override it misses (a vendor's own ceiling on dates), but not swaps.
+**Already tracked, in part:** `wayfinding/claims-and-room/05` (open) decides what the placement dialog says before a change overrides an answer; it covers placing, and a third override it misses (a vendor's own ceiling on dates), but not swaps.
 
 **See also:** bug 32, found on the usage run: a swap and a placement can both move a vendor into a tier they refused, with no warning.
 
