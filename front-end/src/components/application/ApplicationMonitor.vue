@@ -1026,9 +1026,13 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
 }
 
+/*
+ * The select is as wide as its longest person, and no wider than the card. A fixed 20rem cut a
+ * long address's "(you)" off against the chevron.
+ */
 .follow-up-owner {
   display: grid;
-  grid-template-columns: auto minmax(0, 20rem);
+  grid-template-columns: auto minmax(0, max-content);
   justify-content: start;
   align-items: center;
   gap: var(--space-2);
