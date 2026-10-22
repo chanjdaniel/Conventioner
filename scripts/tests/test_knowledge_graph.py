@@ -187,8 +187,9 @@ RULE_BODY = (
         ("layer: business\nkind: rule\nverified: 2999-01-01", "4: verified is in the future: 2999-01-01"),
         ("kind: rule\nlayer: business\nverified: 2026-10-01", "1: frontmatter keys out of order"),
         ("layer: business\nkind: rule\nverified: 2026-10-01\nsources:\n  - E31/F01/S01\n  - wayfinding/v0-1-0/map\n"
-         "  - brain-dump/2026-10-19#4\n  - qc/2026-09-21\n  - bug/39\n  - known-gap/1\n  - .scratch/backlog/E31.md",
-         "12: not a source string: .scratch/backlog/E31.md"),
+         "  - brain-dump/2026-10-19#4\n  - qc/2026-09-21\n  - bug/39\n  - known-gap/1\n  - T15\n  - decision/2026-10-20\n"
+         "  - .scratch/backlog/E31.md",
+         "14: not a source string: .scratch/backlog/E31.md"),
         ("layer: business\nkind: rule\nverified: 2026-10-01\nsources: [E31, story 4]", "5: not a source string: story 4"),
     ],
 )

@@ -29,12 +29,9 @@ export function useVerdictActions(
   /** The reviewer's own address, for "(you)" and for Mine. */
   const me = computed(() => signedInEmail() ?? '');
 
-  /** Everyone with a role on the market: a follow-up's possible owners. */
-  const people = computed(() =>
-    Object.keys(market.value?.roles ?? {})
-      .map((id) => market.value?.roleEmails?.[id])
-      .filter((email): email is string => Boolean(email)),
-  );
+  /** A follow-up's possible owners, as the server serves them to this reviewer (T15): everyone
+   *  with a role on the market if they are in its organization, its own roles if not. */
+  const people = computed(() => market.value?.peopleOnMarket ?? []);
 
   /**
    * Take an application the server answered with, merged over what the list holds: a single

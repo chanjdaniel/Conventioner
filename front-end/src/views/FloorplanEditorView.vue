@@ -19,12 +19,13 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market } = useOpenMarket(marketId);
 
 /**
- * Why this market's sections can no longer be drawn, or null while they can. The flow writes the
- * setup, which settles on leaving draft (E31/F01/S03), so past it the flow says so in place of a
- * wizard whose save would only be refused - as Market Setup does, in the same words.
+ * Whether this market's sections can no longer be drawn. The flow writes the setup, which settles
+ * on leaving draft (E31/F01/S03), so past it the flow says so in place of a wizard whose save would
+ * only be refused - as Market Setup does, in the same words. A person who may change nothing is
+ * offered no wizard either, and the frame says why (T15).
  */
-const settledReason = computed(
-  () => market.value?.readOnlyReason || market.value?.setupLockReason || null,
+const settled = computed(() =>
+  Boolean(market.value?.readOnlyReason || market.value?.setupLockReason),
 );
 
 function backToSetup() {
@@ -41,8 +42,8 @@ function handleSaved(payload: { market_id: string }) {
   <!-- A flow entered from Market Setup, standing in the frame like every market page (bug 43): the
        bar with that tab active (E22/F04/S02), and the rail. It was full-bleed, with neither. -->
   <MarketFrame :market="market">
-    <div v-if="market && settledReason" class="floorplan-settled" data-testid="floorplan-settled">
-      <p class="note">{{ settledReason }}</p>
+    <div v-if="market && settled" class="floorplan-settled" data-testid="floorplan-settled">
+      <p v-if="market.setupLockReason" class="note">{{ market.setupLockReason }}</p>
       <button type="button" class="btn btn--secondary" @click="backToSetup">
         Back to Market Setup
       </button>

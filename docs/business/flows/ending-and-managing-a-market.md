@@ -17,6 +17,7 @@ sources:
   - bug/37
   - bug/43
   - bug/47
+  - T15
 ---
 
 # Ending and managing a market
@@ -65,6 +66,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 2. A role the reader may change is a dropdown of the roles they may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
 3. "Remove" beside each person the reader may remove; never the owner.
 4. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row.
+   An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
 5. A refused change is said beneath that person's row, which keeps the role they hold.
 
 The organization line says "Belongs to <organization>. Its members can view it."

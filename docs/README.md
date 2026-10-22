@@ -79,6 +79,19 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    | adr | implementation | optional | required | required |
    | record | implementation | forbidden | forbidden | forbidden |
 
+   A source is one of these kinds; the checker refuses any other:
+
+   | Source | Names |
+   | --- | --- |
+   | `E07`, `E26/F08`, `E34/F01/S01` | an epic, a feature or a story of the backlog |
+   | `wayfinding/<effort>/03`, `wayfinding/<effort>/map` | a Wayfinder ticket, or its map |
+   | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
+   | `qc/2026-09-21` | the manual quality check of that day |
+   | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
+   | `known-gap/3` | a gap in [the known gaps](MVP_KNOWN_GAPS.md) |
+   | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
+   | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
+
    Keep `describes` narrow: a file many areas share is described by `#symbol`, and a directory only by a node that owns all of it.
 3. The first line after the frontmatter is the `# Title`, one sentence per physical line, in the present tense: a node holds current truth, and history is git's.
 4. Link every file in `describes` from the body, with a relative link.

@@ -6,6 +6,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#ensureTestOrgAuthenticated
   - front-end/e2e/helpers/seeds.ts#ensureTestOrgs
   - front-end/e2e/helpers/seeds.ts#ensureTestOrg
+  - front-end/e2e/helpers/seeds.ts#ensureOrganizationAdmin
   - front-end/e2e/helpers/seeds.ts#seedMarketWithVendors
   - front-end/e2e/helpers/seeds.ts#seedPublishedMarketWithAssignments
   - front-end/e2e/helpers/seedAssignedMarket.ts
@@ -24,6 +25,7 @@ sources:
   - E31/F01/S01
   - E35/F02/S02
   - E36/F04/S02
+  - T15
 ---
 
 # E2E seeds
@@ -46,6 +48,8 @@ An operator never uses that script for a real account: it prints the password ([
 So anything that creates a market attaches one: [`helpers/seeds.ts`](../../../front-end/e2e/helpers/seeds.ts) exports `ensureTestOrgAuthenticated()` (for a request context already logged in by `loginViaApi()`) and `ensureTestOrg()` (which logs in first), both reusing the user's first organization or creating `E2E Test Org`; the seed helpers return it as `orgId`.
 A spec that creates a market through the UI calls `ensureTestOrg()` in `beforeAll`, or the create dialog's organization list is empty and its submit stays disabled.
 `ensureTestOrgs(count)` is for a spec whose subject is a choice of organization, which a split run (CI shards) no longer guaranteed by accident.
+`ensureOrganizationAdmin(orgId, email)` makes a verified user an admin of that organization, through the owner's session the request carries, and so Admin on every market it holds; it is idempotent across runs.
+Every spec using it adds its own account to the shared `E2E Test Org`, so that account is Admin on every market seeded there and no other spec signs in as it.
 
 ## The seed helpers
 

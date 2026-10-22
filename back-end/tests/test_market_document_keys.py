@@ -60,7 +60,10 @@ def _market(market_id, org_key="organizationId", org_id=ORG_ID, roles=None):
 
 def _organization(org_id):
     """An organization as ``get_organization`` and ``get_organizations_for_user`` return it."""
-    return {"id": org_id, "_id": f"mongo-{org_id}", "name": "Test Org"}
+    return {
+        "id": org_id, "_id": f"mongo-{org_id}", "name": "Test Org",
+        "owner": "org-owner", "admins": [], "members": [USER_ID],
+    }
 
 
 class FakeMarketsCollection:

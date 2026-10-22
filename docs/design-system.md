@@ -33,6 +33,7 @@ sources:
   - E28/F03/S01
   - E28/F04/S02
   - E15/F01/S02
+  - T15
 ---
 
 # Conventioner's design language
@@ -154,6 +155,7 @@ It is one written rule rather than a rearrangement per screen: the design langua
 - **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
 - **A card ends at its own content.** Two cards in a row do not stretch to match, and the next row starts under the taller: blank space inside a card reads as something missing.
 - **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
+  The plan never reaches it on an organizer's screen: at the app's 1000px floor it has 920px of room and keeps two tracks.
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
 - **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
 
@@ -171,6 +173,8 @@ A frame screen never scrolls inside its card: a sticky element inside an `overfl
 The page gutter, the card's width and corners, and what is shown until the market arrives belong to `MarketFrame`, never to the screen inside it.
 Each screen used to pad itself, so one market's frame sat at x 0, 16 or 32 depending on the page, and the page behind it was white on some and beige on others; it is white.
 The root keeps the scrollbar's room (`scrollbar-gutter: stable`), so a page taller than the window is not 15px narrower than one that is not.
+**Inside the card, every page insets its content `--space-6`**, the rail's own inset, so the rail, the frame's read-only note and the page's first card start on one line.
+Market Setup's four tabs each padded themselves 40px, so there the frame's note sat 16px left of the cards it explained (T15).
 
 **The rail is one row at the workspace width.**
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.

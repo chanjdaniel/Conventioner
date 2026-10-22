@@ -116,6 +116,9 @@ class TestWhoMayOwnIt:
             id=people[email], email=email) if email in people else None)
         market = client_market(roles={"user-owner": "owner", "user-sam": "viewer"})
 
-        assert MarketsApi.person_on_market(market, "sam@market.test") == SAM
-        assert MarketsApi.person_on_market(market, "stranger@x.test") is None
-        assert MarketsApi.person_on_market(market, "nobody@x.test") is None
+        requester = MarketPerson(user_id="user-owner", email="owner@market.test")
+
+        assert MarketsApi.follow_up_owner(market, None, requester, "sam@market.test") == SAM
+        for email in ("stranger@x.test", "nobody@x.test", None):
+            with pytest.raises(ValueError, match="must have a role on this market"):
+                MarketsApi.follow_up_owner(market, None, requester, email)

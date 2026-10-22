@@ -404,7 +404,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
           :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
-          :readOnlyReason="market?.readOnlyReason || market?.setupLockReason || null"
+          :readOnly="Boolean(market.readOnlyReason)"
+          :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
@@ -435,7 +436,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignError="assignError"
           :assignIncomplete="assignIncomplete"
           :marketId="market.id"
-          :rulesLockReason="market?.assignmentRulesLockReason || market?.readOnlyReason || null"
+          :readOnly="Boolean(market.readOnlyReason)"
+          :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
@@ -479,9 +481,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-  /* In the plan's own 40px gutter, under its cards' right edge: with none, "Plan saved" sat in the
+  /* In the plan's own gutter, under its cards' right edge: with none, "Plan saved" sat in the
      card's bottom-right corner, touching both edges (E26 re-walk). */
-  padding: 0 40px var(--space-6);
+  padding: 0 var(--space-6) var(--space-6);
 }
 
 .plan-save-status {
@@ -526,6 +528,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   align-self: stretch;
   display: flex;
   gap: 30px;
-  padding: 40px;
+  padding: var(--space-6);
 }
 </style>

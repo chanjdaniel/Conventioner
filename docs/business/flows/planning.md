@@ -23,6 +23,7 @@ sources:
   - bug/30
   - bug/38
   - E23/F02/S01
+  - T15
 ---
 
 # Planning the market
@@ -116,6 +117,7 @@ Once the market leaves Draft every card on Market Setup is disabled under one li
 While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail." (from Applications Closed, two moves).
 The Application form card is not shown past Draft.
 On an archived market every page is read only, and says so (bug 30).
+A person who may change nothing finds every card disabled too, and reads why once, above the page ([what each role may do](../rules/what-each-role-may-do.md)); the plan's own line says only that the setup settled (T15).
 
 What still changes after Draft, and where:
 

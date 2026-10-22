@@ -132,3 +132,31 @@ test('deleting is a destructive dialog that opens on Cancel and says what goes',
   await expect(manage.window).toHaveCount(0);
   await expect(page.getByTestId('market-card')).toHaveCount(0);
 });
+
+test('adding someone already on the market says so and leaves their role as it was', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId, marketName } = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const added = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: COLLEAGUE.email, role: 'editor' },
+  });
+  expect(added.ok(), await added.text()).toBeTruthy();
+  const manage = await openManage(page, marketName);
+
+  // "Add user" once overwrote whatever role the address held, the Owner's too: changing a role is
+  // its row's, where the Owner and the market's Admins are guarded.
+  await manage.addUser(COLLEAGUE.email, 'viewer');
+
+  await expect(page.getByTestId('manage-market-add-user-error')).toHaveText(
+    `${COLLEAGUE.email} already has a role on this market. Change it in their row under Users with access.`,
+  );
+  const row = page.locator('.user-entry').filter({ hasText: COLLEAGUE.email });
+  await expect(row.getByTestId('manage-market-role-select')).toHaveValue('editor');
+  await expect(manage.addUserInput).toHaveValue(COLLEAGUE.email);
+});
