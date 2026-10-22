@@ -780,7 +780,7 @@ A vendor available all week who wants 2 dates always gets the first two.
 Spreading a vendor's dates would cost nothing when there is room.
 
 **Decided (E26): known behaviour, left as it is.** No vendor is placed worse by it, and spreading dates is a choice about what a market wants that nobody has made yet.
-Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](../MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
+Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
 
 <a id="bug-40"></a>
 ## 40. The import misreports its own counts and rows

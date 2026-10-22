@@ -33,7 +33,7 @@ All 212 rows imported, an identical re-import changed nothing, and the stored as
 | Pairs split by the half-table share | Two pairs were split on 18 November: Gold had used its share, so the either chooser in each pair got a whole table | The share never blocks a pair (decided with the user) |
 | Check-in table wording | "Table: A 1 (Half Table (Left))" on the phone | "Table: A 1, left half" |
 
-The one thing the run shows the market still needs is **Attendance cannot say who is missing** ([known gap 3](../MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)): with about 130 vendors a day it lists only those who have checked in, by email.
+The one thing the run shows the market still needs is **Attendance cannot say who is missing** ([known gap 3](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)): with about 130 vendors a day it lists only those who have checked in, by email.
 
 ## Second run: no first-come rule, and the most constrained first among equals
 
