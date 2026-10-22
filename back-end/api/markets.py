@@ -1719,8 +1719,14 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     user = UsersApi.get_user(user_email)
     if not user:
         raise ValueError("User not found")
-    
+
     roles = market_dict.get('roles', {})
+    # Adding never changes a role: overwriting one here would skip update_market_role's guards and
+    # let an Admin demote the Owner.
+    if user.id in roles:
+        raise ValueError(
+            f"{user.email} already has a role on this market. Change it in their row under Users with access."
+        )
     roles[user.id] = role.value
     
     result = markets_collection.update_one(

@@ -4,6 +4,7 @@ kind: rule
 describes:
   - back-end/api/markets.py#change_refusal
   - back-end/api/markets.py#admin_actions_refusal
+  - back-end/api/markets.py#add_market_role
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/tests/test_an_organizations_admins_run_its_markets.py
   - back-end/utils/identity.py
@@ -71,8 +72,10 @@ See [the organization document](../../implementation/data/organization-document.
 - **Who is asking is the session's answer, never the request's.**
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
+- **Adding a person never changes a role.**
+  `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's two answers.
-- [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, and that the Markets list names the same role; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
+- [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - A follow-up's owner is anyone with a role on the market by this rule, explicit or through its organization, members included ([needs follow-up](needs-follow-up.md)).
 
 ## Superseded
