@@ -59,7 +59,7 @@ test('the plan says what the application form is, not only what it could be', as
   // Past draft, Market Setup is a settled record and says so; the form is its own tab's to describe
   // (E31/F01/S03).
   await page.goto(marketSetupPath(open.marketId, 'setup'));
-  await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+  await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
   await expect(page.getByTestId('plan-card-form')).toHaveCount(0);
 });
 

@@ -10,6 +10,7 @@ verified: 2026-10-22
 sources:
   - E26/F06/S01
   - bug/30
+  - T15
 ---
 
 # An archived market is read-only
@@ -38,4 +39,5 @@ Nobody changes it; an owner or admin still manages its roles, and its owner may 
   The phase cannot move either: no edge leaves `archived` ([the guards](../../implementation/modules/guards.md)).
 - The locks the market read serves give the archived reason first where it applies (`readOnlyReason`, the form's, the assignment rules', the automatic rejections'), since it is the true one; the setup's says only that it settled on leaving draft.
   The phase itself is on [the market document](../../implementation/data/market-document.md).
+- On screen the phase rail alone says the market is archived; [the market frame](../../implementation/modules/market-frame.md) shows no read-only note beside it (T15).
 - [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) runs the writes that load through the change loader (rename, plan, highlights, form, the form amendment, the run, a seat, a freed seat, a swap) against an archived market and checks nothing is written, and that the refusal is a `PermissionError`.

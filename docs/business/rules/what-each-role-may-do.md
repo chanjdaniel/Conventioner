@@ -66,6 +66,7 @@ See [the organization document](../../implementation/data/organization-document.
   `readOnlyReason` (`change_refusal`: archived, or below EDITOR) and `adminActionsReason` (`admin_actions_refusal`: that, or below ADMIN).
   The verdicts' reason (`verdictLockReason`), adding a vendor's (`addVendorReason`) and publishing's (`publishResultsReason`) are built on them.
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
+  [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.
 - **Who is asking is the session's answer, never the request's.**
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.

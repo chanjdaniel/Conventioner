@@ -21,6 +21,7 @@ sources:
   - E31/F03/S02
   - E21/F04/S01
   - E21/F04/S02
+  - T15
 ---
 
 # The market frame
@@ -40,6 +41,8 @@ A screen hands it the market from [the market store](market-store.md) and render
 - **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Assignment, Result and Vendors.
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
+- **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+  Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not beside a tab's note, which stands in for the page.
 
 These are the frame's words: the market bar, a tab, the phase rail and a phase; "Market Setup" names a tab, never the page, and the plan is what it edits, each card of it a plan card.
 A tab is a place to look and never a state: the market's state is its phase, on the rail alone.
@@ -63,6 +66,10 @@ Never give a frame screen an `overflow` scroller of its own: a sticky element in
 The pinned block's height is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 The card is at least the height of the window under the banner, so a short page fills it.
 
+**A page says only its own lock; the frame says the person's.**
+The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Assignment page why its rules settled; each still disables its controls for a person who may change nothing, but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
+The floorplan flow stands in for its wizard on either reason and says only the setup's.
+
 **Every market screen is `--workspace-max` wide, and the frame sets it.**
 A screen in the frame sets no width of its own, or moving between a market's screens makes the frame jump.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not; the tabs never give way to it.
@@ -83,6 +90,8 @@ Tables, Vendors and Attendance used to draw a title of their own with no tabs, s
 The glossary concept it serves: [Market](../../business/concepts/market.md).
 
 ## Superseded
+
+- Only Market Setup said why a person could change nothing, so a Viewer met Result's seats as plain text and took the page for broken; the frame says it on every page, and Market Setup's plan says only its own lock (T15).
 
 - Attendance was to join the bar once the market was published, so the bar grew with the market (wayfinding/the-assignment-tab/02); every tab stays on the bar for the market's whole life, and a tab out of its phase says when it matters (E31/F03/S02).
 - The market's page was "the market workspace" and its white container "the settings panel" (wayfinding/the-order-of-the-work/map); the page is the market frame's card, which every market screen shares (E21/F04).
