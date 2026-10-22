@@ -47,9 +47,6 @@ This file holds what nearly every session needs; everything else is in the knowl
   A worktree's stack and ports come from its treehouse slot: [`scripts/README-treehouse.md`](scripts/README-treehouse.md).
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
-- **Applicant sign-in is rate limited** (T12, `back-end/sign_in_limits.py`): an address is sent at
-  most five codes per 15 minutes. `e2e/global-setup.ts` clears the counters at the start of every
-  run; a spec that signs the same address in more than that within one run trips the limit.
 - Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
   Front-end unit tests: `cd front-end && npm run test:unit`.
 - **Run `npm run format` in `front-end/` before committing**: CI's `format:check` fails unformatted front-end code.
