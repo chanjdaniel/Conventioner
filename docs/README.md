@@ -105,12 +105,13 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 | Command | Does |
 | --- | --- |
 | `python3 scripts/knowledge_graph.py check` | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, and that every cross-layer link is answered. Exits 1 on any error; CI runs it on every push and pull request, in `knowledge-graph`, a required check. |
-| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
+| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not, unless the node was verified on or after the day of that change. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
 | `python3 scripts/knowledge_graph.py stale` | Nodes not verified for 60 days whose described files have changed since. |
 | `python3 scripts/knowledge_graph.py ids` | Work-item ids cited in the repo that no node's `sources` covers. |
 
-**A drift warning** means a pull request changed code a node describes without touching the node.
-Answer it one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
+**A drift warning** means a pull request changed code a node describes without touching the node, and the node's `verified` is before the day of the pull request's newest commit to that file.
+That day is the commit's author date in the author's own time zone, the same calendar day `verified` is written in, and a merge commit never counts: so a node verified today is not flagged for code changed today.
+Answer a warning one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
 Today is your own calendar day: `check` refuses only a day that has not begun anywhere on Earth, so a node verified in the morning east of UTC passes CI, which runs in UTC.
 Either way the node is in the diff, and the warning clears.
 To find the nodes for a file before changing it: `git grep -l 'path/to/file' docs`.
