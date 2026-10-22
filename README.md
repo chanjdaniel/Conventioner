@@ -27,7 +27,6 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 | Rebuild production from nothing | [VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) |
 | See what the product does, flow by flow | [USER_FLOWS.md](docs/USER_FLOWS.md) |
 | Match the design language | [design-system.md](docs/design-system.md) |
-| See what is known to be missing | [MVP_KNOWN_GAPS.md](docs/MVP_KNOWN_GAPS.md) |
 
 ## Contributing
 
