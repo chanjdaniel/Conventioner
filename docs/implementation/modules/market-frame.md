@@ -59,6 +59,7 @@ The page gutter (on three sides; the card hangs from the banner), the card's wid
 Until the market is in hand the bar holds its place and [`MarketArrival`](../../../front-end/src/components/MarketArrival.vue) says "Loading market…", that the market could not be loaded with a retry, or the one message for a market that is missing or not this organizer's.
 A screen's content is rendered only once its market is in hand, and `@retry` lets a screen refetch its own data beside the market.
 A screen that pads itself or renders its own arrival is how one market's pages came to put the frame in four different places.
+A page inside the card insets its content `--space-6`, the rail's inset, so what the frame says above a page (`market-read-only`) lines up with it; Market Setup's tabs were 40px in until T15.
 
 **Sticky, never a scroller.**
 The bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the banner's height as a token.

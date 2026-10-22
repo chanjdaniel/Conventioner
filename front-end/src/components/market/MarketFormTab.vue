@@ -554,7 +554,7 @@ watch(formLocked, (locked, wasLocked) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 40px;
+  padding: var(--space-6);
 }
 .form-step-body {
   display: flex;
