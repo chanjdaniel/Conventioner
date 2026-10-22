@@ -857,10 +857,19 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
-    # The roles on the market itself, which Manage market lists; and everyone the role rule gives
-    # a role, the organization's people too, who may own a follow-up (T15).
+    # The roles on the market itself, which Manage market lists, served to every reader; and
+    # everyone the role rule gives a role, the organization's people too, who may own a follow-up
+    # (T15), served only to someone who may give a verdict and so name one (E34's EDITOR gate).
+    may_give_verdicts = PermissionsApi.user_has_permission(
+        user_email, market, MarketRole.EDITOR, context.organization,
+    )
+    ids = (
+        PermissionsApi.people_with_market_role(market, context.organization)
+        if may_give_verdicts
+        else list((market_dict.get('roles') or {}).keys())
+    )
     email_by_user_id = {}
-    for uid in PermissionsApi.people_with_market_role(market, context.organization):
+    for uid in ids:
         user = UsersApi.get_user_by_id(uid)
         if user:
             email_by_user_id[uid] = user.email
@@ -868,7 +877,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         uid: email_by_user_id[uid]
         for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
     }
-    market_dict['peopleOnMarket'] = list(email_by_user_id.values())
+    market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:

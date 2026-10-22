@@ -21,6 +21,7 @@ ORG_ID = "org-1"
 PEOPLE = {
     "owner@market.test": "user-1",
     "sam@market.test": "user-sam",
+    "editor@market.test": "user-editor",
     "org-owner@org.test": "org-owner",
     "org-admin@org.test": "org-admin",
     "org-member@org.test": "org-member",
@@ -46,7 +47,7 @@ def market(monkeypatch, applications):
     """A market in review, of the organization, with an application waiting on a verdict."""
     doc = stored_market(
         MarketPhase.REVIEW, _id="mongo-m1", organizationId=ORG_ID,
-        roles={"user-1": "owner", "user-sam": "viewer"},
+        roles={"user-1": "owner", "user-sam": "viewer", "user-editor": "editor"},
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(doc))
     monkeypatch.setattr(
@@ -129,9 +130,29 @@ def test_the_market_read_serves_everyone_who_may_own_one(market):
     served = MarketsApi.get_market_for_user("org-admin@org.test", "market-123")
 
     assert sorted(served["peopleOnMarket"]) == sorted([
-        "owner@market.test", "sam@market.test", *ORGANIZATION_PEOPLE])
+        "owner@market.test", "sam@market.test", "editor@market.test", *ORGANIZATION_PEOPLE])
     # Manage market keeps listing the roles on the market, and only those.
-    assert served["role_emails"] == {"user-1": "owner@market.test", "user-sam": "sam@market.test"}
+    assert served["role_emails"] == {
+        "user-1": "owner@market.test", "user-sam": "sam@market.test",
+        "user-editor": "editor@market.test",
+    }
+
+
+def test_an_editor_not_in_the_organization_reads_everyone_who_may_own_one(market):
+    served = MarketsApi.get_market_for_user("editor@market.test", "market-123")
+
+    assert sorted(served["peopleOnMarket"]) == sorted([
+        "owner@market.test", "sam@market.test", "editor@market.test", *ORGANIZATION_PEOPLE])
+
+
+def test_a_viewer_not_in_the_organization_reads_no_people(market):
+    served = MarketsApi.get_market_for_user("sam@market.test", "market-123")
+
+    assert served["peopleOnMarket"] == []
+    assert served["role_emails"] == {
+        "user-1": "owner@market.test", "user-sam": "sam@market.test",
+        "user-editor": "editor@market.test",
+    }
 
 
 def test_someone_on_the_market_and_in_its_organization_is_served_once(monkeypatch, market):
