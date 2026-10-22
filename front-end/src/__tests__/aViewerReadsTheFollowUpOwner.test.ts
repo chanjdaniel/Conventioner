@@ -33,14 +33,19 @@ function followUpApplication(email: string): Application {
   } as unknown as Application;
 }
 
-function market(verdictLockReason: string | null): Market {
-  return { id: 'm1', verdictLockReason, applicationForm: { fields: [] } } as unknown as Market;
+function market(verdictLockReason: string | null, peopleOnMarket: string[]): Market {
+  return {
+    id: 'm1',
+    verdictLockReason,
+    peopleOnMarket,
+    applicationForm: { fields: [] },
+  } as unknown as Market;
 }
 
 /** Mount the review on a card that needs a follow-up, asking for follow-ups to be walked. */
-async function mountFollowUpCard(verdictLockReason: string | null) {
+async function mountFollowUpCard(verdictLockReason: string | null, peopleOnMarket: string[]) {
   const wrapper = mount(ApplicationMonitor, {
-    props: { market: market(verdictLockReason), visible: true },
+    props: { market: market(verdictLockReason, peopleOnMarket), visible: true },
   });
   await vi.waitFor(() => {
     expect(wrapper.find('[data-testid="app-monitor-include-follow-ups"]').exists()).toBe(true);
@@ -58,7 +63,7 @@ describe('who owns a follow-up on the card', () => {
   });
 
   it('a Viewer reads the recorded owner as plain text, not an empty select', async () => {
-    const wrapper = await mountFollowUpCard(VIEWER);
+    const wrapper = await mountFollowUpCard(VIEWER, []);
 
     expect(wrapper.find('select[data-testid="app-monitor-follow-up-owner"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="app-monitor-follow-up-owner"]').text()).toBe(
@@ -67,7 +72,7 @@ describe('who owns a follow-up on the card', () => {
   });
 
   it('an Editor or above still gets the select to hand the follow-up on', async () => {
-    const wrapper = await mountFollowUpCard(null);
+    const wrapper = await mountFollowUpCard(null, ['robin@org.test']);
 
     expect(wrapper.find('select[data-testid="app-monitor-follow-up-owner"]').exists()).toBe(true);
     expect(
