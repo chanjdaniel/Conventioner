@@ -62,7 +62,7 @@ The essential questions need their usual headings recognised too ("Full Name" fo
 
 ### 3. Attendance cannot say who is missing
 
-**Fixed on 2026-10-18** by [E29](../.scratch/backlog/E29-the-door-on-market-day/epic.md): Attendance lists every vendor placed on a date, by name and table, with "Not yet" or their check-in time, counted and filterable, and an editor can check a vendor in.
+**Fixed on 2026-10-18** by E29: Attendance lists every vendor placed on a date, by name and table, with "Not yet" or their check-in time, counted and filterable, and an editor can check a vendor in.
 
 **What happens:** Attendance lists only vendors who have checked in, by email, with a column only for dates on which someone did.
 On market day an organizer cannot see who is expected, who has not arrived, or which table is empty, and cannot check a vendor in themselves.
