@@ -11,6 +11,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#SEED_MARKET_DATE
   - front-end/e2e/helpers/seeds.ts#completePlan
   - front-end/e2e/date-display-timezone.spec.ts
+  - front-end/e2e/global-setup.ts
   - front-end/src/utils/utils.ts#getFormattedDate
 verified: 2026-10-22
 sources:
@@ -76,6 +77,9 @@ Only a spec about a market older than that rule rewrites a settled plan, straigh
 
 **Several specs and seeds still send an `X-Owner-Email` header, and it is inert**: identity comes from the session cookie alone, and the helpers authenticate by logging in.
 That, the self-signed certificate and the other suite-wide traps are TESTING.md's [testing gotchas](../../TESTING.md#testing-gotchas).
+
+**Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes, and a caller thirty, which the whole serial run shares.
+[`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit.
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.

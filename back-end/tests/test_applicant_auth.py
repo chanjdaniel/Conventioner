@@ -12,6 +12,7 @@ import pytest
 import time
 from types import SimpleNamespace
 
+import sign_in_limits
 from datatypes import Application, ApplicationStatus, ApplicationType, MarketPhase
 from market_documents import market_name_slug
 
@@ -939,3 +940,194 @@ class TestTheCodeEmail:
         assert "https://app.test/harbour-night-market/applicant-login" in sent[0]["text"]
         assert "/markets/" not in sent[0]["text"]
         assert sent[0]["subject"] == "Your sign-in code for Harbour Night Market"
+
+
+# ── Rate limits ──────────────────────────────────────────────────────
+
+
+class TestSignInIsBounded:
+    """Nobody can use these endpoints to flood an address with codes, or to guess one (T12).
+
+    Past a limit both endpoints answer 429 with a Retry-After, and do nothing else: no challenge,
+    no email, no code consumed. The refusal is the same for every address and every slug, so it is
+    no oracle either.
+    """
+
+    CALLER = "203.0.113.7"
+
+    def _post(self, handler, path, payload, caller=CALLER):
+        from flask import Flask
+
+        app = Flask(__name__)
+        with app.test_request_context(
+            path, method="POST", json=payload, environ_base={"REMOTE_ADDR": caller},
+        ):
+            return handler()
+
+    def _request(self, mod, email="applicant@example.com", slug="test-market", caller=CALLER):
+        return self._post(
+            lambda: mod.request_login_code(slug),
+            f"/public/markets/{slug}/applicant-login/request-code",
+            {"email": email},
+            caller,
+        )
+
+    def _verify(self, mod, email="applicant@example.com", code="000000", slug="test-market",
+                caller=CALLER):
+        return self._post(
+            lambda: mod.verify_login_code(slug),
+            f"/public/markets/{slug}/applicant-login/verify-code",
+            {"email": email, "code": code},
+            caller,
+        )
+
+    @staticmethod
+    def _refused(result):
+        body, status = result
+        assert status == 429
+        assert int(body.headers["Retry-After"]) >= 1
+        return body.get_json()
+
+    def test_asking_for_codes_past_the_limit_for_an_address_is_refused_and_sends_nothing(
+        self, applicant_auth_module, test_db, monkeypatch
+    ):
+        sent = []
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email",
+                            lambda *args: sent.append(args) or True)
+        allowed = sign_in_limits.REQUEST_CODE_PER_ADDRESS.attempts
+        for i in range(allowed):
+            # From different callers, so only the address is counted against.
+            assert self._request(applicant_auth_module, caller=f"198.51.100.{i}")[1] == 200
+        stored = test_db.challenges.find_one({"email": "applicant@example.com"})
+
+        body = self._refused(self._request(applicant_auth_module, caller="198.51.100.99"))
+
+        assert "Too many sign-in attempts" in body["message"]
+        assert len(sent) == allowed
+        assert test_db.challenges.find_one({"email": "applicant@example.com"}) == stored
+
+    def test_the_address_is_counted_as_typed_or_not(self, applicant_auth_module):
+        allowed = sign_in_limits.REQUEST_CODE_PER_ADDRESS.attempts
+        for i in range(allowed):
+            self._request(applicant_auth_module, email="Applicant@Example.com ",
+                          caller=f"198.51.100.{i}")
+        self._refused(self._request(applicant_auth_module, caller="198.51.100.99"))
+
+    def test_asking_for_codes_for_many_addresses_from_one_caller_is_refused(
+        self, applicant_auth_module, monkeypatch
+    ):
+        sent = []
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email",
+                            lambda *args: sent.append(args) or True)
+        allowed = sign_in_limits.REQUEST_CODE_PER_CALLER.attempts
+        for i in range(allowed):
+            assert self._request(applicant_auth_module, email=f"v{i}@example.com")[1] == 200
+
+        self._refused(self._request(applicant_auth_module, email="one-more@example.com"))
+        assert len(sent) == allowed
+
+    def test_another_caller_is_not_held_back_by_one_that_was_refused(self, applicant_auth_module):
+        for i in range(sign_in_limits.REQUEST_CODE_PER_CALLER.attempts + 1):
+            self._request(applicant_auth_module, email=f"v{i}@example.com")
+        assert self._request(applicant_auth_module, email="someone@example.com",
+                             caller="192.0.2.1")[1] == 200
+
+    def test_a_caller_past_its_limit_is_refused_alike_for_every_address_and_every_slug(
+        self, applicant_auth_module
+    ):
+        """Counted before the body or the slug is read, so a refusal tells nobody anything."""
+        for i in range(sign_in_limits.REQUEST_CODE_PER_CALLER.attempts):
+            self._request(applicant_auth_module, email=f"v{i}@example.com")
+
+        refusals = [
+            self._request(applicant_auth_module, email="applicant@example.com"),
+            self._request(applicant_auth_module, email="stranger@example.com"),
+            self._request(applicant_auth_module, slug="no-such-market"),
+            self._post(lambda: applicant_auth_module.request_login_code("test-market"),
+                       "/public/markets/test-market/applicant-login/request-code", {}),
+        ]
+        bodies = {repr(self._refused(result)) for result in refusals}
+        assert len(bodies) == 1
+
+    @pytest.mark.parametrize("endpoint", ["request_login_code", "verify_login_code"])
+    def test_the_caller_is_counted_before_the_body_is_read(
+        self, applicant_auth_module, monkeypatch, endpoint
+    ):
+        """What the caller sends cannot shape how the caller is counted: the count comes first."""
+        events = []
+        count_attempt = sign_in_limits.count_attempt
+        monkeypatch.setattr(sign_in_limits, "count_attempt", lambda limit, subject, *rest: (
+            events.append(f"count {limit.name}") or count_attempt(limit, subject, *rest)
+        ))
+        email_from = applicant_auth_module._email_from
+        monkeypatch.setattr(applicant_auth_module, "_email_from", lambda data: (
+            events.append("read body") or email_from(data)
+        ))
+
+        if endpoint == "request_login_code":
+            self._request(applicant_auth_module)
+        else:
+            self._verify(applicant_auth_module)
+
+        caller_count = next(e for e in events if e.startswith("count") and e.endswith(":caller"))
+        assert events.index(caller_count) < events.index("read body")
+
+    def test_verifying_past_the_limit_for_an_address_is_refused_and_consumes_nothing(
+        self, applicant_auth_module, test_db, monkeypatch
+    ):
+        monkeypatch.setattr(applicant_auth_module, "_generate_code", lambda: "135790")
+        allowed = sign_in_limits.VERIFY_CODE_PER_ADDRESS.attempts
+        for i in range(allowed):
+            assert self._verify(applicant_auth_module, caller=f"198.51.100.{i}")[1] == 401
+        self._request(applicant_auth_module)
+
+        body = self._refused(
+            self._verify(applicant_auth_module, code="135790", caller="198.51.100.99")
+        )
+
+        assert "Too many sign-in attempts" in body["message"]
+        challenge = test_db.challenges.find_one({"email": "applicant@example.com"})
+        assert challenge["consumed"] is False
+
+    def test_guessing_codes_for_many_addresses_from_one_caller_is_refused(
+        self, applicant_auth_module
+    ):
+        for i in range(sign_in_limits.VERIFY_CODE_PER_CALLER.attempts):
+            assert self._verify(applicant_auth_module, email=f"v{i}@example.com")[1] == 401
+        self._refused(self._verify(applicant_auth_module, email="one-more@example.com"))
+
+    def test_a_verify_refusal_is_alike_for_every_address_and_every_slug(
+        self, applicant_auth_module
+    ):
+        for i in range(sign_in_limits.VERIFY_CODE_PER_CALLER.attempts):
+            self._verify(applicant_auth_module, email=f"v{i}@example.com")
+
+        refusals = [
+            self._verify(applicant_auth_module, email="applicant@example.com"),
+            self._verify(applicant_auth_module, email="stranger@example.com"),
+            self._verify(applicant_auth_module, slug="no-such-market"),
+        ]
+        assert len({repr(self._refused(result)) for result in refusals}) == 1
+
+    def test_the_boot_check_builds_the_index_that_expires_the_counters(
+        self, applicant_auth_module, sign_in_attempts, monkeypatch
+    ):
+        monkeypatch.setattr(applicant_auth_module, "_indexes_ready", False)
+        applicant_auth_module.ensure_applicant_login_indexes()
+        assert [kwargs["name"] for _keys, kwargs in sign_in_attempts.indexes] == [
+            "sign_in_attempt_ttl",
+        ]
+
+    def test_a_vendor_who_asks_again_and_mistypes_signs_in(
+        self, applicant_auth_module, monkeypatch
+    ):
+        """Under the limits sign-in is exactly as it was."""
+        codes = iter(["111111", "222222", "333333"])
+        monkeypatch.setattr(applicant_auth_module, "_generate_code", lambda: next(codes))
+        self._request(applicant_auth_module)
+        self._request(applicant_auth_module)
+        assert self._verify(applicant_auth_module, code="999999")[1] == 401
+        self._request(applicant_auth_module)
+        body, status = self._verify(applicant_auth_module, code="333333")
+        assert status == 200
+        assert body.get_json()["success"] is True
