@@ -9,7 +9,7 @@ describes:
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E32/F03/S03
 ---
@@ -201,9 +201,9 @@ Some applicant holds two applications of one type at one market, which the index
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
-**"The indexes on applicant_login_challenges could not be built"**.
+**"The indexes on applicant_login_challenges and sign_in_attempts could not be built"**.
 The log quotes Mongo's reason.
-These are applicants' sign-in codes, used once and expiring within five minutes, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
+These are applicants' sign-in codes, used once and expiring within five minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 
 **"Refusing to start: ... are not configured"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.

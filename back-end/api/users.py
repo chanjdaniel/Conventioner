@@ -346,7 +346,8 @@ def request_password_reset(request):
         # Don't reveal if user exists for security
         return jsonify({"msg": "If an account exists, a password reset email has been sent"}), 200
 
-    # Check rate limiting (max 3 requests per hour)
+    # One link at a time: refused until an hour after the last link expired (two hours after it was
+    # sent), unless that link was used, which clears its expiry.
     last_reset_time = user_doc.get("password_reset_token_expires")
     if last_reset_time:
         try:
@@ -355,8 +356,6 @@ def request_password_reset(request):
                 last_reset = last_reset.replace(tzinfo=timezone.utc)
             time_since_last = datetime.now(timezone.utc) - last_reset
             if time_since_last < timedelta(hours=1):
-                # Check how many requests in the last hour
-                # Simple check: if token exists and is recent, rate limit
                 return jsonify({"msg": "Please wait before requesting another password reset"}), 429
         except (ValueError, AttributeError):
             pass
@@ -445,7 +444,8 @@ def request_otp(request):
     if not user_doc.get("email_verified", False):
         return jsonify({"msg": "Please verify your email before using passwordless login"}), 403
 
-    # Check rate limiting (max 3 requests per hour)
+    # One code at a time: refused until an hour after the last code expired, unless it was used or
+    # five wrong tries discarded it, either of which clears its expiry.
     last_otp_time = user_doc.get("otp_expires")
     if last_otp_time:
         try:
@@ -454,7 +454,6 @@ def request_otp(request):
                 last_otp = last_otp.replace(tzinfo=timezone.utc)
             time_since_last = datetime.now(timezone.utc) - last_otp
             if time_since_last < timedelta(hours=1):
-                # Count requests in last hour (simple check)
                 return jsonify({"msg": "Please wait a moment before asking for another code."}), 429
         except (ValueError, AttributeError):
             pass
