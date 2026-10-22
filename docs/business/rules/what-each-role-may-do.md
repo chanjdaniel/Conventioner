@@ -5,6 +5,7 @@ describes:
   - back-end/api/markets.py#change_refusal
   - back-end/api/markets.py#admin_actions_refusal
   - back-end/tests/test_what_a_role_may_change.py
+  - back-end/tests/test_an_organizations_admins_run_its_markets.py
   - back-end/utils/identity.py
 verified: 2026-10-22
 sources:
@@ -13,6 +14,8 @@ sources:
   - E34/F01/S01
   - bug/37
   - E07
+  - T15
+  - decision/2026-10-20
 ---
 
 # What each role may do
@@ -28,6 +31,7 @@ A Viewer was once shown every editing control, and each edit appeared to work un
 A control the write would refuse is a control that lies, so the market read says, per person, what each write would answer.
 An Editor works on the market (the plan, the seats, the review) but takes none of the actions that move it or bring people in or tell them: a phase move puts a public page on or off the air, publishing results tells applicants, an import adds applicants.
 A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdict records who gave it.
+An organization's admins run its markets (decision/2026-10-20): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
 
 ## Who may
 
@@ -39,8 +43,11 @@ A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdic
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 Whoever creates a market is its owner, and a market has exactly one.
-A market may give a person a role of its own, which takes precedence over what their organization gives: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
-**Organization membership gives only Viewer on its markets**, in any of the organization's roles (Owner, Admin or Member), even to its owner and admins; anyone who changes a market, a door volunteer included, needs a role on that market (Manage market).
+**An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
+A market may also give a person a role of its own; both are held, and the higher one counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
+So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.
+**Nobody is a market's Owner through its organization**: deleting a market and managing its admins stay with the one person who owns it.
+Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
 See [the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market) for how a role is resolved.
 
 ## Who signs in, and how
@@ -48,6 +55,7 @@ See [the organization document](../../implementation/data/organization-document.
 | Person | Signs in how | What they do |
 | --- | --- | --- |
 | Organizer | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them |
+| Organization owner or admin | As an organizer | Runs every market of their organization as its Admin |
 | Organization member | As an organizer | Sees every market of their organization as a Viewer |
 | Vendor applying online | A 6-digit code emailed per market; no account | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
 | Vendor on market day | Nothing: types the address they applied with | Looks up their table and checks in |
@@ -63,8 +71,10 @@ See [the organization document](../../implementation/data/organization-document.
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's two answers.
+- [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, and that the Markets list names the same role; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - A follow-up's owner is anyone with a role on the market ([needs follow-up](needs-follow-up.md)).
 
 ## Superseded
 
 Verdicts were an admin action, served on `adminActionsReason`; they and follow-ups drop to an Editor, and phase moves stay an Admin's (brain-dump/2026-10-19#22, E34/F01/S01).
+Organization membership gave only Viewer on its markets, even to its owner and admins, and a role on the market replaced the organization's rather than adding to it; an organization's owner and admins became Admin, and the higher role counts (T15, decision/2026-10-20).

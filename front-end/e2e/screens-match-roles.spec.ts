@@ -2,6 +2,9 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
+import { seedPublishedMarketWithAssignments, type PublishedSeedResult } from './helpers/seeds';
+import { MarketsPage } from './pages/MarketsPage';
+import { TablesPage } from './pages/TablesPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 
@@ -14,6 +17,7 @@ import { withUser } from './helpers/withUser';
  */
 const VIEWER = { email: 'e2e-role-viewer@example.com', password: 'e2epassword123' };
 const EDITOR = { email: 'e2e-role-editor@example.com', password: 'e2epassword123' };
+const ORG_ADMIN = { email: 'e2e-role-org-admin@example.com', password: 'e2epassword123' };
 
 let marketId: string;
 
@@ -112,5 +116,73 @@ test('an Editor of a market importing is shown the import, and told only an admi
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
     await expect(page.getByTestId('market-setup-import-button')).toBeDisabled({ timeout: 15000 });
     await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+  });
+});
+
+/*
+ * An organization's admins run every market it holds (T15). Membership gave Viewer even to them,
+ * so the admin running a market on the day met its seats as plain text and could swap none.
+ */
+test.describe('an organization admin with no role on the market', () => {
+  let published: PublishedSeedResult;
+
+  test.beforeAll(async ({ request }) => {
+    ensureVerifiedUser(ORG_ADMIN.email, ORG_ADMIN.password);
+    published = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const { orgId } = published;
+    const made = await request.post(`${BACKEND_URL}/organizations/${orgId}/admins`, {
+      data: { user_email: ORG_ADMIN.email },
+    });
+    // Idempotent across runs: a second add changes nothing and answers 400, so ask the
+    // organization instead.
+    if (!made.ok()) {
+      const orgs = await request.get(`${BACKEND_URL}/organizations`);
+      const { organizations } = (await orgs.json()) as {
+        organizations: { id: string; adminEmails?: string[] }[];
+      };
+      const org = organizations.find((o) => o.id === orgId);
+      expect(org?.adminEmails, await made.text()).toContain(ORG_ADMIN.email);
+    }
+  });
+
+  test('swaps two seats on market day, and is offered what a market admin is', async ({
+    browser,
+  }) => {
+    await withUser(browser, ORG_ADMIN.email, ORG_ADMIN.password, async (page) => {
+      const tables = new TablesPage(page);
+      await tables.goto(published.marketId);
+      await expect(tables.tableRows.first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('market-read-only')).toHaveCount(0);
+
+      const seats = page.getByTestId('tables-seat-occupied');
+      await expect(seats.nth(1)).toBeVisible();
+      const first = await tables.occupantOf(seats.nth(0));
+      const second = await tables.occupantOf(seats.nth(1));
+      const firstTable = await tables.tableCodeOf(seats.nth(0));
+      const secondTable = await tables.tableCodeOf(seats.nth(1));
+      // A Viewer's seats carry no Change: the seat is plain text.
+      await expect(seats.nth(0).getByTestId('tables-seat-change')).toBeVisible();
+      await tables.change(seats.nth(0));
+      await tables.swapWith(second);
+      await expect(tables.dialog).toBeHidden();
+      await expect(tables.row(firstTable).locator(`[data-vendor-email="${second}"]`)).toBeVisible();
+      await expect(tables.row(secondTable).locator(`[data-vendor-email="${first}"]`)).toBeVisible();
+
+      // The phase moves are an admin's, so the rail offers them.
+      await expect(page.getByTestId('phase-rail-menu-button')).toBeVisible();
+
+      // And the market's card offers Manage, as it does a market admin.
+      const markets = new MarketsPage(page);
+      await markets.goto();
+      await markets.searchInput.fill(published.marketName);
+      await expect(
+        markets.card(published.marketName).getByTestId('market-card-manage-button'),
+      ).toBeVisible({ timeout: 15000 });
+    });
   });
 });
