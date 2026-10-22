@@ -1,6 +1,7 @@
 """Single owner of the ``vendor_notes`` collection: what the organizer knows and did about a vendor.
 
-E31/F04, decided in map ticket 03 (``.scratch/wayfinding/what-to-show-and-when``). A vendor may
+E31/F04, decided in ``wayfinding/what-to-show-and-when/03`` and kept in
+``docs/implementation/modules/vendor-notes.md``. A vendor may
 need something beyond their table - an extra chair, an outlet - and two kinds of note answer it,
 kept apart rather than one field with two authors:
 

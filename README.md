@@ -12,7 +12,7 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 | `front-end/` | Vue 3, Vite, TypeScript; Vitest and Playwright |
 | `back-end/` | Python 3.12, Flask, MongoDB; pytest |
 | `docs/` | Everything below |
-| `.scratch/` | The backlog (Epic, Feature, Story) and the decision maps ([how it works](docs/agents/issue-tracker.md)) |
+| `.scratch/` | A local, ignored working folder; planning lives outside this repo ([the tracker contract](docs/agents/issue-tracker.md)) |
 | `AGENTS.md` (`CLAUDE.md`) | The codebase's sharp edges, for anyone changing it |
 
 ## Docs
