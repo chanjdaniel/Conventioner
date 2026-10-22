@@ -134,7 +134,10 @@ echo ""
 echo "===== E2E Tests ====="
 
 echo "nm-test: installing Playwright browsers..."
-npx playwright install chromium --with-deps 2>/dev/null || npx playwright install chromium
+# Never --with-deps or install-deps: they run sudo, which fails without a
+# terminal and counts toward the account's lockout. The machine's own package
+# manager provides the system libraries.
+npx playwright install chromium
 
 # Match CI's e2e job env
 export DISABLE_CAPTCHA=true

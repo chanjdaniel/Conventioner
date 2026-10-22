@@ -48,6 +48,8 @@ Without it the gate has no way to run the suite, so it is the only workable sett
 It runs, in order, the knowledge graph's checker tests and `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
 Its Python is `PYTHON_CMD`, else `python3.11`, else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and four free ports, each found by binding to port 0; an `EXIT` trap saves the back end's and front end's logs to `.stack-logs/` and tears the stack and its volumes down, however the run ends.
+It never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
+CI's workflow keeps `--with-deps`, which is correct on GitHub's Ubuntu runners.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.
 
 ## Stack identity
