@@ -116,6 +116,6 @@ class TestWhoMayOwnIt:
             id=people[email], email=email) if email in people else None)
         market = client_market(roles={"user-owner": "owner", "user-sam": "viewer"})
 
-        assert MarketsApi.person_on_market(market, "sam@market.test") == SAM
-        assert MarketsApi.person_on_market(market, "stranger@x.test") is None
-        assert MarketsApi.person_on_market(market, "nobody@x.test") is None
+        assert MarketsApi.person_on_market(market, None, "sam@market.test") == SAM
+        assert MarketsApi.person_on_market(market, None, "stranger@x.test") is None
+        assert MarketsApi.person_on_market(market, None, "nobody@x.test") is None

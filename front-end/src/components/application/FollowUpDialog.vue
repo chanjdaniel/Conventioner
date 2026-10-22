@@ -2,9 +2,10 @@
 /**
  * Marking an application as needing a follow-up (E34/F02/S01).
  *
- * Who will reach out - the reviewer, unless they name someone else with a role on the market - and,
- * if they like, what is needed. That is the vendor's notes, where every surface reads them, so the
- * box opens on the note already there: the reviewer adds to it, and never writes over it unseen.
+ * Who will reach out - the reviewer, unless they name someone else with a role on the market,
+ * explicit or through its organization - and, if they like, what is needed. That is the vendor's
+ * notes, where every surface reads them, so the box opens on the note already there: the reviewer
+ * adds to it, and never writes over it unseen.
  * Nothing is sent to the owner.
  */
 import { ref, watch } from 'vue';
@@ -13,7 +14,7 @@ import AppDialog from '@/components/AppDialog.vue';
 const props = defineProps<{
   open: boolean;
   applicantEmail: string;
-  /** The addresses of everyone with a role on the market. */
+  /** The addresses of everyone with a role on the market, as the market read serves them. */
   people: string[];
   /** The reviewer's own address: the owner unless they choose another. */
   me: string;

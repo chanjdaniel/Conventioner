@@ -13,6 +13,7 @@ sources:
   - E21/F02
   - E21/F03/S06
   - E04/F04/S02
+  - T15
 ---
 
 # One market, from the server
@@ -40,7 +41,7 @@ The `localStorage` key `market` is gone, and [`noMarketInTheBrowser.test.ts`](..
 The dashboard keeps only the `lastMarketId` pointer, which the store sets when a market arrives.
 
 **Facts derived from the market are served on it, not fetched per tab.**
-`GET /markets/:id` ([`get_market_for_user`](../../../back-end/api/markets.py)) stamps every derived fact onto the market it serves: the form lock (`applicationFormLockReason`), the setup and rules locks, `transitionBlockers`, `phasesPassedThrough`, `phasesReached`, `assignmentOutOfDate`, `orphanedPins`, and each person's `readOnlyReason`, `adminActionsReason`, `verdictLockReason` and the rest.
+`GET /markets/:id` ([`get_market_for_user`](../../../back-end/api/markets.py)) stamps every derived fact onto the market it serves: the form lock (`applicationFormLockReason`), the setup and rules locks, `transitionBlockers`, `phasesPassedThrough`, `phasesReached`, `assignmentOutOfDate`, `orphanedPins`, each person's `readOnlyReason`, `adminActionsReason`, `verdictLockReason` and the rest, and `peopleOnMarket`, everyone the role rule reaches, whom a follow-up may name ([needs follow-up](../../business/rules/needs-follow-up.md)).
 A tab that fetches a fact for itself and publishes it to its siblings is how the form builder and the priority rules went stale.
 Nothing a client sends can write one of these.
 

@@ -205,6 +205,10 @@ export interface Market {
   phase?: MarketPhase;
   roles: Record<string, MarketRole>; // Map of user_id -> role
   roleEmails?: Record<string, string>; // Map of user_id -> email (for display)
+  /** The addresses of everyone who holds a role on the market, named in `roles` or reached through
+   *  its organization (T15): who may own a follow-up. Served on the read of one market; Manage
+   *  market keeps listing `roles` alone. */
+  peopleOnMarket?: string[];
   organizationId?: string | null;
   organizationName?: string | null; // Resolved display name from API
   theme?: ThemeObject; // Market-specific theme

@@ -7,8 +7,10 @@ import {
 } from './helpers/seedPhaseMarket';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { ensureOrganizationAdmin } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { namelessControls } from './helpers/accessibleNames';
+import { withUser } from './helpers/withUser';
 
 /**
  * An application can need a follow-up, and someone owns it (E34/F02/S01).
@@ -19,6 +21,10 @@ import { namelessControls } from './helpers/accessibleNames';
  * Begin Assignment, which says so.
  */
 const EDITOR = { email: 'e2e-follow-up-editor@example.com', password: 'e2efollowupeditor1' };
+const ORG_ADMIN = {
+  email: 'e2e-follow-up-org-admin@example.com',
+  password: 'e2efollowuporgadmin1',
+};
 
 test('a follow-up is marked, waits out of the queue, holds the market, and is handed on', async ({
   authenticatedPage: page,
@@ -99,4 +105,53 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   expect(
     mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).follow_up_owner.email`),
   ).toBe(EDITOR.email);
+});
+
+/*
+ * A follow-up can be owned by anyone the market's roles reach (T15). An organization admin reviews
+ * its markets with no role on them, but the dialog offered only the market's roles: marking one
+ * silently handed it to the market's owner, and choosing themselves answered 400.
+ */
+test('an organization admin with no role on the market marks a follow-up and owns it', async ({
+  browser,
+  request,
+}) => {
+  ensureVerifiedUser(ORG_ADMIN.email, ORG_ADMIN.password);
+  const { marketId, orgId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
+
+  await withUser(browser, ORG_ADMIN.email, ORG_ADMIN.password, async (page) => {
+    await page.goto(marketScreenPath(marketId, 'applications'));
+    const monitor = new ApplicationMonitorPage(page);
+    await monitor.waitForLoaded();
+    await expect(monitor.email).toHaveText('nadia@ember.test');
+
+    // The admin is offered beside the market's owner, and is the owner by default.
+    await page.keyboard.press('s');
+    const dialog = page.getByTestId('follow-up-window');
+    await expect(dialog).toBeVisible();
+    const owner = page.getByTestId('follow-up-owner');
+    await expect(owner).toHaveValue(ORG_ADMIN.email);
+    await expect(owner.locator(`option[value="${TEST_USER.email}"]`)).toHaveCount(1);
+    await page.getByTestId('follow-up-submit-button').click();
+    await expect(dialog).toBeHidden();
+
+    // Asked for, the follow-up names them its owner.
+    await page.getByTestId('app-monitor-include-follow-ups').check();
+    await expect(monitor.email).toHaveText('nadia@ember.test');
+    await expect(page.getByTestId('app-monitor-follow-up-owner')).toHaveValue(ORG_ADMIN.email);
+  });
+  expect(
+    mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).follow_up_owner.email`),
+  ).toBe(ORG_ADMIN.email);
 });

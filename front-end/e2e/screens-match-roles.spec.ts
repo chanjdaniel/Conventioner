@@ -2,7 +2,11 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
-import { seedPublishedMarketWithAssignments, type PublishedSeedResult } from './helpers/seeds';
+import {
+  ensureOrganizationAdmin,
+  seedPublishedMarketWithAssignments,
+  type PublishedSeedResult,
+} from './helpers/seeds';
 import { MarketsPage } from './pages/MarketsPage';
 import { TablesPage } from './pages/TablesPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -134,20 +138,7 @@ test.describe('an organization admin with no role on the market', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    const { orgId } = published;
-    const made = await request.post(`${BACKEND_URL}/organizations/${orgId}/admins`, {
-      data: { user_email: ORG_ADMIN.email },
-    });
-    // Idempotent across runs: a second add changes nothing and answers 400, so ask the
-    // organization instead.
-    if (!made.ok()) {
-      const orgs = await request.get(`${BACKEND_URL}/organizations`);
-      const { organizations } = (await orgs.json()) as {
-        organizations: { id: string; adminEmails?: string[] }[];
-      };
-      const org = organizations.find((o) => o.id === orgId);
-      expect(org?.adminEmails, await made.text()).toContain(ORG_ADMIN.email);
-    }
+    await ensureOrganizationAdmin(request, BACKEND_URL, published.orgId, ORG_ADMIN.email);
   });
 
   test('swaps two seats on market day, and is offered what a market admin is', async ({
