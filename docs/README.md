@@ -110,7 +110,9 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 | `python3 scripts/knowledge_graph.py ids` | Work-item ids cited in the repo that no node's `sources` covers. |
 
 **A drift warning** means a pull request changed code a node describes without touching the node, and the node's `verified` is before the day of the pull request's newest commit to that file.
-That day is the commit's author date in the author's own time zone, the same calendar day `verified` is written in, and a merge commit never counts: so a node verified today is not flagged for code changed today.
+That day is the commit's committer date in the committer's own time zone, the same calendar day `verified` is written in, so a node verified today is not flagged for code changed today.
+A rebased, cherry-picked or amended commit counts from the day it was rebased, picked or amended, not the day it was first written.
+A merge commit never counts, so a branch merged without a rebase is dated by its own commits, not by the merge.
 Answer a warning one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
 Today is your own calendar day: `check` refuses only a day that has not begun anywhere on Earth, so a node verified in the morning east of UTC passes CI, which runs in UTC.
 Either way the node is in the diff, and the warning clears.

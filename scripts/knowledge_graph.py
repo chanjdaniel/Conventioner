@@ -653,9 +653,11 @@ def drift(repo, base, head):
 
     def newest_day(file):
         """The day the range last touched the file: its own commits, not a merge carrying them, each
-        dated by its author's own calendar day, as `verified` is."""
+        dated by its committer's own calendar day, as `verified` is. The committer date, because a
+        rebase, cherry-pick or amend moves it to the day the change reached this code, while the
+        author date stays on the day it was first written."""
         if file not in last_changed:
-            days = repo.git("log", "--format=%as", "--no-merges", f"{base}..{head}", "--", file).split()
+            days = repo.git("log", "--format=%cs", "--no-merges", f"{base}..{head}", "--", file).split()
             last_changed[file] = max(map(datetime.date.fromisoformat, days), default=None)
         return last_changed[file]
 
