@@ -19,6 +19,7 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 
 | To | Read |
 | --- | --- |
+| Find what the product does and how the code does it: the knowledge graph | [docs/README.md](docs/README.md) |
 | Run it on your machine | [STARTUP.md](docs/STARTUP.md) |
 | Run the tests | [TESTING.md](docs/TESTING.md) |
 | Ship a change, hotfix, roll back | [RELEASING.md](docs/RELEASING.md) |

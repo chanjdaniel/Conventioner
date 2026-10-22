@@ -1,3 +1,40 @@
+---
+layer: implementation
+kind: convention
+describes:
+  - front-end/src/assets/base.css
+  - front-end/src/assets/primitives.css
+  - front-end/src/assets/main.css
+  - front-end/.stylelintrc.json
+verified: 2026-10-22
+sources:
+  - wayfinding/claims-and-room/map
+  - wayfinding/claims-and-room/01
+  - wayfinding/claims-and-room/07
+  - wayfinding/readable-journey/03
+  - wayfinding/readable-journey/06
+  - wayfinding/readable-journey/map
+  - wayfinding/the-assignment-tab/02
+  - wayfinding/the-plan-uses-its-space/01
+  - wayfinding/the-market-frame/01
+  - wayfinding/the-market-frame/map
+  - wayfinding/the-order-of-the-work/map
+  - wayfinding/the-plan-uses-its-space/map
+  - E16
+  - E15/F01/S01
+  - E17/F01
+  - E22/F04/S01
+  - E26/F07
+  - E26/F10/S01
+  - E09/F01
+  - E21/F04
+  - E35/F03/S01
+  - E21/F04/S01
+  - E28/F03/S01
+  - E28/F04/S02
+  - E15/F01/S02
+---
+
 # Conventioner's design language
 
 This file is the single statement of what Conventioner looks like.
@@ -5,7 +42,9 @@ It exists because the product did not have one: 12,211 lines of CSS across 71 sc
 The evidence is `.lavish/aesthetics-2026-09-20.html`; the decisions were taken on 2026-09-20.
 
 A value not in this file does not belong in a component.
-`front-end/src/assets/base.css` is where these become tokens, and the checks in `E16/F01` are what keep them there.
+The product had no shared component layer, and that was the root cause of everything aesthetic: at the walk, 17 radius declarations, 24 font sizes, 32 spacing values, and 351 hardcoded hex colours against 704 token uses.
+Do not add a 72nd set of local decisions: reach for the tokens and the primitives.
+[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/.stylelintrc.json`](../front-end/.stylelintrc.json), are what keep them there.
 
 ## How this was decided
 
@@ -14,7 +53,10 @@ Two halves, decided differently, and it matters which is which.
 - **The card idiom was extracted, not invented.** The screens `E09` through `E13` built had already converged on something coherent - 6px controls, 10px cards, a three-layer shadow, 12px gaps. That is written down below as it was found.
 - **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a *step* - they each chose a pixel.
 
-Consequence, accepted when this was decided: **conforming to the scales changes screens that currently look fine.** Roughly 116 declarations at 13px and 15px have to be re-homed one at a time, by judgement. A caption and a dense table cell are both 13px today and want different answers.
+That distinction matters when something looks off: a screen that disagrees with the card idiom is a bug, while one that disagrees with a scale is code not yet migrated.
+
+Consequence, accepted when this was decided: **conforming to the scales changes screens that currently look fine.** Roughly 116 declarations at 13px and 15px were re-homed one at a time, by judgement, because a caption and a dense table cell both sat at 13px and want different answers.
+None is left.
 
 ## Type
 
@@ -28,6 +70,10 @@ Two families, and only two.
 **The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: `public/fonts/Outfit/static/` ships Medium, SemiBold and Bold, and `public/fonts/Outfit-VariableFont_wght.ttf` covers the whole axis, and none of them were ever declared. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
 
 `Inter` is retired. `body` declared it while 354 component rules named a face of their own - 274 Outfit, 80 Merge One - so Inter survived in 2 rules and in the one place nothing overrode it: form controls, which do not inherit `font-family` and fell through to the user agent's Arial instead.
+
+**Form controls do not inherit `font-family`.**
+The reset in [`front-end/src/assets/main.css`](../front-end/src/assets/main.css) gives `button`, `input`, `select` and `textarea` `font: inherit`, which lands on Outfit only because `body` names it: the same reset while `body` declared Inter would have made every control Inter and left the Outfit rules around them as they were, so `body` became Outfit first (E15/F01/S01).
+`font` is a shorthand and carries `line-height` too, and a control's height is its line box, so the reset pairs it with `line-height: normal`.
 
 Of those 274 Outfit declarations, 273 only restated what `body` now says and are gone; the surviving one opts a chip back out of a heading that sets Merge One around it. `front-end/src` went from 363 `font-family` declarations to 92.
 
@@ -44,11 +90,15 @@ Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning 
 | `--text-xl` | 26px | Page and screen titles |
 | `--text-2xl` | 32px | Display figures - the assignment summary's numbers |
 
-Nothing below 12px. The product currently ships 10px and 8px body text, which is below any readable minimum.
+Nothing below 12px, which is the readable minimum.
+No `font-size` in `front-end/src` is smaller.
 
 ### Weight
 
 `400` and `600` only, both as real loaded faces. `500` reads as 400 at these sizes and just doubles the number of things to keep in step; `700` is heavier than this type wants.
+
+**Weight does not inherit here.**
+The global reset in `base.css` gives every element `font-weight: 400`, so a span inside a 600 cell is 400 until it says otherwise.
 
 ## Spacing
 
@@ -70,10 +120,15 @@ The largest migration cost is here: **10px is the second most-used spacing value
 
 ## Layout
 
-Decided by [claims-and-room ticket 01](../.scratch/wayfinding/claims-and-room/issues/01-how-an-organizer-screen-sizes-itself.md), which holds the measurements.
+Decided by claims-and-room ticket 01, which holds the measurements.
 
 **A screen is a card of one of two widths that grows to its content while the page scrolls.**
 No screen caps its own height, and no row carries a minimum height.
+The market screen's `height: 80%`, which pinned it to most of the window and hid half of it, was scaffolding from that view's first commit, never a decision, and went with the rest.
+`.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
+
+**The organizer's screens are designed for 1920x1080**, and no other width is a requirement new work is held to (wayfinding/readable-journey/06).
+The public check-in page is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
 
 | Token | Value | Screens |
 | --- | --- | --- |
@@ -83,29 +138,31 @@ No screen caps its own height, and no row carries a minimum height.
 The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the apply page and the applicant's dashboard.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
 
-Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace currently gets**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
+Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace was given before**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
 
 **1440 rather than the content-only answer of 1360** because that is the phase rail's measured break - below it the rail wraps to a second row on a published market. `readable-journey` ticket 06 had already put that break "between 1366 and 1440"; it is exactly 1440.
 
-**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from [the-assignment-tab ticket 02](../.scratch/wayfinding/the-assignment-tab/issues/02-how-every-market-screen-is-reached.md)).
+**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from the-assignment-tab ticket 02).
 Tables, Vendors and Attendance used to be `--list-max`, so moving between a market's screens made the frame jump 340px, cut the market's name, and wrapped the rail to a second row on the narrow ones.
 A screen that stands in the frame sets no width of its own.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 
-**A screen of cards is a two-track grid** (E23/F01/S01, from [the-plan-uses-its-space ticket 01](../.scratch/wayfinding/the-plan-uses-its-space/issues/01-the-row-rule.md)).
+**A screen of cards is a two-track grid** (E23/F01/S01, from the-plan-uses-its-space ticket 01).
 It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
+It is one written rule rather than a rearrangement per screen: the design language named two widths and said nothing of how cards share a row, which is why every plan card once had a row to itself, and a local fix per card would leave the next card to decide again.
 
 - **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
 - **A card ends at its own content.** Two cards in a row do not stretch to match, and the next row starts under the taller: blank space inside a card reads as something missing.
 - **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
+- **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
 
-On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form.
+On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
-**A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
+**A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
-`--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time.
+`--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time; it is the clamp the banner already came to rather than one pixel height, which would have changed the banner's size at every other window height.
 The frame's own pinned block is the one thing that is measured: it grows with whatever the rail shows, so no token could state it.
 `MarketFrame` measures it and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
@@ -119,7 +176,9 @@ The root keeps the scrollbar's room (`scrollbar-gutter: stable`), so a page tall
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
 
-**Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: `.plan-row--asymmetric` is `3fr 2fr`.
+**Columns are sized by need, not by count.**
+Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
+The assignment tab's `.plan-row--asymmetric` is `3fr 2fr` for the same reason.
 
 ## Radius
 
@@ -131,7 +190,8 @@ Extracted from the newer screens. Three values.
 | `--radius-card` | 10px | Cards, panels, dialogs |
 | `--radius-pill` | 999px | Pills and fully-rounded badges |
 
-"Fully rounded" is currently spelled four ways (`999px`, `100px`, `30px`, `20px`). One spelling.
+"Fully rounded" has one spelling, `--radius-pill`.
+It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left, in the floorplan beta.
 
 ## Elevation
 
@@ -149,6 +209,25 @@ One shadow, extracted from the newer screens, where it is already used 77 times 
 ## Colour
 
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.
+WCAG AA is the product's stated standard, held over the whole palette rather than the colours someone happened to measure; raising the muted grey changed the texture of every screen, and that was accepted (wayfinding/readable-journey/map).
+The product has one theme, light: nothing in `front-end/src` answers `prefers-color-scheme`, so a pair is held on the grounds it is drawn on, white and the beige of a hovered row among them, and a dark theme, when there is one, is a palette of its own to check.
+
+### The contrast contract
+
+**A colour token's name is its declaration**: a token named as text (`--mm-text-*`, `--mm-black`, `--color-text`) is ink, held to AA on each ground it is set on, and a token that only paints a line or a fill is exempt.
+The roles are told apart by name rather than by a sidecar map, which could disagree with the CSS, or a lint rule, which would have to infer which ground each usage sits on.
+So a colour used both ways is two tokens: the old `--mm-grey` (alpha 0.25) is `--mm-border` for lines and `--mm-text-muted` (alpha 0.63, 4.63:1 on white) for secondary text.
+The contract says which values are text and holds those to AA; it does not raise every value, and a border keeps its 0.25.
+
+**Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
+Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
+
+**Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
+That check is what made the brand green darker rather than leaving each button to a judgement call.
+
+**A mark that carries no text is held to the non-text bar, 3:1**: the bar's current-tab dot, `--mm-green` on `--mm-black`, measures 3.39:1, and the test pins it, so a bar retinted darker or a green lightened for a light ground cannot take it under unnoticed.
+
+[`src/__tests__/contrast.test.ts`](../front-end/src/__tests__/contrast.test.ts) parses the real `base.css`, so the file that ships is the file under test, and lists every colour token as ink, fill, chip ground or line; a colour token in none of those lists fails it, so a new colour must declare itself.
 
 ### Added
 
@@ -169,13 +248,19 @@ The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#0
 
 ### Two grounds, not one
 
-`--mm-green` measures 4.59:1 on white and **4.43:1 on the phase rail's `#FBFBFA`**, where it is the current-phase label on every market screen. A token is only AA on the grounds it was measured against. Either the ground becomes white or the label takes a darker value.
+`--mm-green` measures 4.59:1 on white and **4.43:1 on the off-white `#FBFBFA`**, and it is the current-phase label on every market screen.
+A token is only AA on the grounds it was measured against, so the phase rail's ground is white (E16/F01/S03).
+
+So a chip carries its own ground: the `--mm-chip-*` tokens are opaque, the tint already laid over white, and `contrast.test.ts` asserts each with its ink.
+Translucent tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
 
 ## The primitive layer
 
-Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button.
+Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, sixty button-ish class names, two designs for the same `Manage` button.
 
 Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
+Reach for a primitive rather than deciding again.
+Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 
 | | Variants | Notes |
 | --- | --- | --- |
@@ -193,8 +278,22 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 A convention nothing enforces is how the product got here. Three checks, in `E16/F01` and `E16/F02`:
 
-1. **Stylelint** bans raw hex, raw `font-size` and raw `border-radius` outside `base.css` and the primitive files.
-2. **A custom-property resolution check** fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
-3. **A rendered-usage contrast sweep** in the Playwright suite walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
+   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
+   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 128 remaining warnings are the floorplan GUI, a beta.
+2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
+   **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
+3. **A rendered-usage contrast sweep**, `e2e/contrast-sweep.spec.ts`, walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+   `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
 
-The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus and empty states have to be walked deliberately.**
+The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
+
+## Evidence
+
+The contrast contract rests on an audit that measured every colour on the grounds the product paints on (wayfinding/readable-journey/03): four text colours failed, `--mm-yellow` at 2.15:1, `--mm-grey` at 1.67, `--mm-green` at 2.65 and the hard-coded `#2196F3` link at 3.12, with `--vt-c-text-light-2` a near miss at 4.06; `--mm-grey` was text at 18 sites and a border or fill at 57, which is what made splitting it cheap.
+
+## Superseded
+
+- White text on `--mm-yellow` was to reach AA like every other fill (wayfinding/readable-journey/03); yellow is a black-text fill, and the contract asserts white is never put on it (E09/F01).
+- `--list-max` was to hold a market's Tables, Vendors and Attendance (wayfinding/claims-and-room/01); every market screen is the workspace width, set by the frame (E22/F04/S01).
+- A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).

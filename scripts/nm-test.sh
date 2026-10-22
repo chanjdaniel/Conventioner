@@ -74,13 +74,11 @@ cleanup() {
     -p "$COMPOSE_PROJECT_NAME" \
     down -v 2>/dev/null || true
   echo "nm-test: stack torn down."
+  if [[ -n "${VENV_DIR:-}" ]]; then
+    rm -rf "$VENV_DIR"
+  fi
 }
 trap cleanup EXIT
-
-# ── Backend tests (hermetic, no stack) ───────────────────────────────────────
-
-echo ""
-echo "===== Backend Tests ====="
 
 PYTHON="${PYTHON_CMD:-python3.11}"
 if ! command -v "$PYTHON" &>/dev/null; then
@@ -90,6 +88,30 @@ if ! command -v "$PYTHON" &>/dev/null; then
   fail "Python not found on PATH. Install Python 3.11+ or set PYTHON_CMD."
 fi
 echo "nm-test: Python $($PYTHON --version)"
+
+# Install into a virtual environment of the run's own, never into that Python: a uv- or
+# distro-managed interpreter refuses `pip install` outright (PEP 668), and one that accepts it
+# would keep whatever this run installed. The trap deletes it.
+VENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/$RUN_ID-venv.XXXXXX")"
+"$PYTHON" -m venv "$VENV_DIR"
+PYTHON="$VENV_DIR/bin/python"
+$PYTHON -m pip install -q --disable-pip-version-check --upgrade pip
+
+# ── Knowledge graph (hermetic, no stack) ─────────────────────────────────────
+
+echo ""
+echo "===== Knowledge Graph ====="
+
+cd "$REPO_ROOT"
+$PYTHON -m pip install -q pytest
+$PYTHON -m pytest scripts/tests -q
+$PYTHON scripts/knowledge_graph.py check
+echo "Knowledge graph: OK"
+
+# ── Backend tests (hermetic, no stack) ───────────────────────────────────────
+
+echo ""
+echo "===== Backend Tests ====="
 
 cd "$REPO_ROOT/back-end"
 $PYTHON -m pip install -q -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt

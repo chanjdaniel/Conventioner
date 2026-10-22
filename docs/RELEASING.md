@@ -1,3 +1,15 @@
+---
+layer: implementation
+kind: runbook
+describes:
+  - .github/workflows/deploy.yml
+  - .github/workflows/release-please.yml
+  - release-please-config.json
+  - back-end/app.py#check_public_endpoint_defenses
+  - front-end/vite.config.ts#assertCaptchaSiteKey
+verified: 2026-10-21
+---
+
 # Release Process
 
 ## Branch Model
@@ -9,7 +21,7 @@ This project uses a **dev → main promotion flow**:
   CI (`.github/workflows/test.yml`) runs on every push and PR to `dev`.
 - **`main`** is the deploy-only branch.
   It deploys through the Deploy workflow once CI passes on it, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
-  Never commit or open PRs directly against `main` (the release-please Release PR and the back-merge below are the exceptions).
+  Never commit or open PRs directly against `main` (the release-please Release PR and a `hotfix/` PR are the exceptions, [below](#hotfixes)).
 
 **Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e` checks to pass (`e2e` passes only when all four shards do), and a push to `main` is accepted only for a commit that has passed them.
 Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
@@ -51,7 +63,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
    Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
    This is the **only** way code reaches `main`.
    A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
-3. **The Deploy workflow ships `main` once CI passes on it** (`.github/workflows/deploy.yml`).
+3. **The Deploy workflow ships `main` once CI passes on it** ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)).
    Vercel's own deploys of `main` are switched off (`git.deploymentEnabled.main: false` in each project's `vercel.json`), so a push to `main` runs the Test workflow, and only a green run deploys: the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then `/healthz` is checked, then the front end (`makers-market-management-front-end`, `conventioner.io`) and a deep link.
    The promotion is what starts a deploy; the tag below is bookkeeping.
    It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
@@ -108,6 +120,8 @@ Each version is now derived from the accumulated commits (`feat:` → minor, `fi
 ## Pre-Deploy: Required Production Environment
 
 The back end **refuses to start** unless all six of these are set, and it fails at import, so a deployment that is missing one serves nothing at all.
+The check is `check_public_endpoint_defenses()` in [`back-end/app.py`](../back-end/app.py); keep this table in step with it, because a deploy checklist that is wrong is worse than none: it will be trusted.
+Why each is required, and the rules around them, are the [security invariants](implementation/conventions/security-invariants.md).
 Set them in the hosting environment **before** promoting `dev` → `main`.
 The startup log names every variable that is missing, all of them at once.
 
@@ -141,6 +155,7 @@ A default that quietly becomes the production value is the failure each of these
 For the same reason, **every value this repository has printed where a secret goes is refused by name** - by all three of `SECRET_KEY`, `RECAPTCHA_SECRET_KEY` and `RESEND_API_KEY`, and on a laptop as on a deployment (`back-end/utils/configured_secret.py`).
 That covers the old `TEMP_KEY_CHANGE_IN_PRODUCTION` fallback, the `re_xxxxx` and `6Lcxxxxx` placeholders the env templates and this guide once carried, and anything shaped like them (a run of x's, a `your-` prefix).
 They are all one `git log` away from anybody, so setting one back would clear the boot refusal and leave the vulnerability exactly where it was.
+`ALLOW_INSECURE_LOCAL_DEV` does not excuse a published value of any of the three ([ADR 0010](adr/0010-no-secret-has-a-fallback.md)).
 
 A placeholder is refused rather than accepted because it is **truthy**, which is the whole problem: a check that asks only whether a variable is set passes on `re_xxxxx`, and the deployment then fails at request time instead - reCAPTCHA verifying signups against a key Google never issued, Resend rejecting every verification mail behind a 500.
 A check that can be satisfied with garbage is not a check.
@@ -153,8 +168,8 @@ The one exemption is `ALLOW_INSECURE_LOCAL_DEV=true`, which `docker-compose.yml`
 It must never be set on a deployed environment.
 
 `TRUSTED_PROXY_HOPS` is here for the captcha, and for nothing else yet.
-The one thing on this branch that reads the caller's address is the `remoteip` hint organizer signup passes to reCAPTCHA, and that hint only started mattering when `RECAPTCHA_SECRET_KEY` became a boot requirement: before, a deployment without a secret took the dev-bypass path and no token ever reached Google.
-The per-IP rate limits that will also key on this address are not on this branch - they land with the applicant endpoints they bound - so do not read this variable as configuring a limiter that does not exist yet.
+The one thing in the code that reads the caller's address is the `remoteip` hint organizer signup passes to reCAPTCHA, and that hint only started mattering when `RECAPTCHA_SECRET_KEY` became a boot requirement: before, a deployment without a secret took the dev-bypass path and no token ever reached Google.
+No per-address rate limit exists - the applicant endpoints are served without one - so do not read this variable as configuring a limiter.
 
 ### The front end has one requirement too, and it is the other half of the reCAPTCHA pair
 
@@ -167,7 +182,7 @@ Before, a back end with no secret took its dev-bypass path and waved the placeho
 It cannot now: the back end refuses to boot without a real secret, and a real secret rejects a token Google did not issue.
 
 It is a **build-time** variable, not a runtime one - Vite bakes it into the bundle - so setting it after the fact does nothing until the front end is rebuilt.
-`vite build` refuses to produce a bundle without it (`front-end/vite.config.ts`), for the same reason the back end refuses to boot without its half: the alternative is a deployment that ships, looks fine, and cannot register a single organizer.
+`vite build` refuses to produce a bundle without it (`assertCaptchaSiteKey` in [`front-end/vite.config.ts`](../front-end/vite.config.ts)), for the same reason the back end refuses to boot without its half: the alternative is a deployment that ships, looks fine, and cannot register a single organizer.
 The one exemption is `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, which `front-end/.env.example` and `docker-compose.yml` set and which warns on every build it lets through.
 It must never be set on a deployed build.
 
@@ -178,8 +193,9 @@ It must never be set on a deployed build.
 | `TYPESAFE_API_KEY` | A TypeSafe API key ([console](https://console.typesafe.ai)). When an organizer starts a market from their Google Form's responses CSV, the proposal asks TypeSafe's Jev model two questions the rules leave: whether a trailing optional column is a question or a column the organizer's team added, and what ceiling on days per vendor a heading states in words the rules cannot read. | Nothing breaks: the rules alone decide, and those rows are left for the organizer to check. |
 
 It is not a boot requirement, and a blank or placeholder value counts as unset (`back-end/utils/configured_secret.py`).
-What a request sends is one column and never a row: the column's heading, and either the answers at least 3 distinct applicants gave (most common first, at most 10, none holding an email, link, handle or phone number) or a shape computed on the server, such as "prose, around 80 characters".
-A ceiling question sends one sentence of one heading.
+What a request sends is one column and never a row, and never an answer: the column's heading, how many rows answered it, how many answers are distinct, and a shape computed on the server, such as "prose, around 80 characters" ([ADR 0007](adr/0007-what-may-be-sent-to-hosted-typesafe.md)).
+A ceiling question sends one heading's text.
+A heading that holds an email, link, handle or phone number is not sent.
 The upload step tells the organizer this in one line, shown only when the key is set.
 A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marked "Couldn't reach TypeSafe".
 
@@ -225,7 +241,8 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 
 | File | Purpose |
 |------|---------|
-| `release-please-config.json` | Configures release-please behavior (release type, tag format) |
-| `.release-please-manifest.json` | Tracks the current version per package, auto-updated by release-please |
-| `.github/workflows/release-please.yml` | GitHub Actions workflow that runs release-please on pushes to `main` |
-| `CHANGELOG.md` | Auto-generated changelog (created on first release) |
+| [`release-please-config.json`](../release-please-config.json) | Configures release-please: release type `simple` (driven by conventional commits alone, no language's package file parsed), tags `vX.Y.Z` |
+| [`.release-please-manifest.json`](../.release-please-manifest.json) | Tracks the current version per package, auto-updated by release-please |
+| [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | GitHub Actions workflow that runs release-please on pushes to `main` |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | GitHub Actions workflow that deploys `main` once its Test run passes |
+| `CHANGELOG.md` | Auto-generated changelog, written by release-please and never by hand |
