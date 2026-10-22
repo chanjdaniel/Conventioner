@@ -46,7 +46,7 @@ Without it the gate has no way to run the suite, so it is the only workable sett
 
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
 It runs, in order, the knowledge graph's checker tests and `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
-Its Python is `PYTHON_CMD`, else `python3.11`, else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
+Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and four free ports, each found by binding to port 0; an `EXIT` trap saves the back end's and front end's logs to `.stack-logs/` and tears the stack and its volumes down, however the run ends.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.
 
