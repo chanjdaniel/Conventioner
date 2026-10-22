@@ -58,7 +58,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       {{ rulesLockReason }}
     </p>
     <section class="plan-row plan-row--asymmetric">
-      <ElementSettingContainer>
+      <ElementSettingContainer data-testid="assignment-card-priority">
         <template #setting-title>
           <h2>Assignment Priority</h2>
         </template>
@@ -160,7 +160,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
   align-self: stretch;
   display: flex;
   gap: 30px;
-  padding: 40px;
+  padding: var(--space-6);
 }
 
 .settings-body-stacked {

@@ -285,7 +285,8 @@ const intakeEditable = computed(() => props.intakeEditable);
    parent's scoped rule reaches a child's root - which silently outranked the card grid. */
 .plan-body {
   align-self: stretch;
-  padding: 40px;
+  /* The frame's gutter, as on every market page: in line with the rail and the frame's own note. */
+  padding: var(--space-6);
   /* A fieldset's own defaults: a border and margin nobody chose, and a min-content minimum width
      that would hold the grid wider than its card. */
   margin: 0;
