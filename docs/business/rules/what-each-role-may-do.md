@@ -32,7 +32,7 @@ A Viewer was once shown every editing control, and each edit appeared to work un
 A control the write would refuse is a control that lies, so the market read says, per person, what each write would answer.
 An Editor works on the market (the plan, the seats, the review) but takes none of the actions that move it or bring people in or tell them: a phase move puts a public page on or off the air, publishing results tells applicants, an import adds applicants.
 A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdict records who gave it.
-An organization's admins run its markets (decision/2026-10-20): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
+An organization's admins run its markets ([the decision of 2026-10-20](../../records/DECISION_2026-10-20.md)): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
 
 ## Who may
 
