@@ -11,6 +11,7 @@ Its text never changes, except a link whose target moved; it carries no `describ
 One line per node, sorted by file name.
 
 - [Decision of 2026-10-20: an organization's admins run its markets](DECISION_2026-10-20.md) - the ruling cited as `decision/2026-10-20`, kept from the unshipped commit that first recorded it
+- [Decision of 2026-10-22: who is offered a follow-up's owners](DECISION_2026-10-22.md) - the ruling cited as `decision/2026-10-22`: someone outside the organization is offered only the people the market names
 - [MVP bugs found walking the user flows](MVP_BUGS.md) - the bug ledger, bugs 1 to 53, each with its reproduction and cause; code comments cite it as "bug N"
 - [MVP usage test run, 2026-09-30](MVP_TEST_RUN_2026-09-30.md) - every flow walked with five real Google Form exports; bugs 1 to 21 retested, 22 to 44 new
 - [MVP re-walk after E26, 2026-10-03](MVP_TEST_RUN_2026-10-03.md) - the three intake paths walked again after E26; bugs 48 to 53

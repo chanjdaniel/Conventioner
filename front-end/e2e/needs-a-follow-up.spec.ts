@@ -155,3 +155,50 @@ test('an organization admin with no role on the market marks a follow-up and own
     mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).follow_up_owner.email`),
   ).toBe(ORG_ADMIN.email);
 });
+
+/*
+ * Who is offered a follow-up's owners depends on who asks (decision/2026-10-22). An Editor from
+ * outside the organization, there by a role on the market alone, is offered the people the
+ * market's roles name and none of the organization's own, whose addresses they must not read.
+ */
+test('an editor from outside the organization is offered only the people on the market', async ({
+  browser,
+  request,
+}) => {
+  ensureVerifiedUser(EDITOR.email, EDITOR.password);
+  ensureVerifiedUser(ORG_ADMIN.email, ORG_ADMIN.password);
+  const { marketId, orgId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
+  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: EDITOR.email, role: 'editor' },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+
+  await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+    await page.goto(marketScreenPath(marketId, 'applications'));
+    const monitor = new ApplicationMonitorPage(page);
+    await monitor.waitForLoaded();
+    await expect(monitor.email).toHaveText('nadia@ember.test');
+
+    await page.keyboard.press('s');
+    await expect(page.getByTestId('follow-up-window')).toBeVisible();
+    const owner = page.getByTestId('follow-up-owner');
+    await expect(owner).toHaveValue(EDITOR.email);
+    const offered = await owner
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value).sort(),
+      );
+    expect(offered).toEqual([EDITOR.email, TEST_USER.email].sort());
+  });
+});
