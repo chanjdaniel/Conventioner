@@ -857,12 +857,18 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
-    role_emails = {}
-    for uid in (market_dict.get('roles') or {}).keys():
-        u = UsersApi.get_user_by_id(uid)
-        if u:
-            role_emails[uid] = u.email
-    market_dict['role_emails'] = role_emails
+    # The roles on the market itself, which Manage market lists; and everyone the role rule gives
+    # a role, the organization's people too, who may own a follow-up (T15).
+    email_by_user_id = {}
+    for uid in PermissionsApi.people_with_market_role(market, context.organization):
+        user = UsersApi.get_user_by_id(uid)
+        if user:
+            email_by_user_id[uid] = user.email
+    market_dict['role_emails'] = {
+        uid: email_by_user_id[uid]
+        for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
+    }
+    market_dict['peopleOnMarket'] = list(email_by_user_id.values())
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
@@ -1978,14 +1984,18 @@ def save_review_highlights(
     return seen
 
 
-def person_on_market(market: Market, email: Optional[str]) -> Optional[MarketPerson]:
+def person_on_market(
+    market: Market, organization: Optional[Organization], email: Optional[str],
+) -> Optional[MarketPerson]:
     """The person with this address, if they hold a role on the market, or None (E34/F02/S01).
 
-    A follow-up is owned by someone who can see the market to work on it: an account named in its
-    roles, the people Manage market lists.
+    A follow-up is owned by someone who can see the market to work on it: anyone the role rule
+    gives a role, named in its roles or reached through its organization (T15). Asked of the same
+    list the market read serves as ``peopleOnMarket``, so the server takes exactly whom the dialog
+    offers.
     """
     user = UsersApi.get_user(email) if email else None
-    if user is None or user.id not in (market.roles or {}):
+    if user is None or user.id not in PermissionsApi.people_with_market_role(market, organization):
         return None
     return MarketPerson(user_id=user.id, email=user.email)
 

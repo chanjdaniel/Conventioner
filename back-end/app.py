@@ -1830,7 +1830,8 @@ def review_application(market_id: str, application_id: str) -> Response:
     # the market (E34/F02/S01).
     owner = None
     if new_status is ApplicationStatus.NEEDS_FOLLOW_UP and data.get('ownerEmail'):
-        owner = MarketsApi.person_on_market(context.market, data['ownerEmail'])
+        owner = MarketsApi.person_on_market(
+            context.market, context.organization, data['ownerEmail'])
         if owner is None:
             return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
     result, status_code = ApplicantsApi.review_application(
@@ -1920,7 +1921,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
-    owner = MarketsApi.person_on_market(context.market, data.get('ownerEmail'))
+    owner = MarketsApi.person_on_market(
+        context.market, context.organization, data.get('ownerEmail'))
     if owner is None:
         return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
     result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)

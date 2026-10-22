@@ -74,6 +74,24 @@ def get_user_market_role(user_email: str, market: Market, organization: Optional
     return higher_role(market.roles.get(user_id), through_organization)
 
 
+def people_with_market_role(market: Market, organization: Optional[Organization]) -> List[str]:
+    """The user ids of everyone who holds any role on the market, by ``get_user_market_role``'s rule.
+
+    The people named in its roles, then its organization's owner, admins and members, each once
+    and each kept only if the rule gives them a role: everyone who can see the market, and so may
+    own a follow-up on it.
+    """
+    roles = market.roles or {}
+    if organization is None or organization.id != market.organization_id:
+        return list(roles)
+    candidates = [*roles, organization.owner, *organization.admins, *organization.members]
+    return [
+        user_id for user_id in dict.fromkeys(candidates)
+        if user_id and higher_role(roles.get(user_id), organization_market_role(
+            user_id, organization.owner, organization.admins, organization.members))
+    ]
+
+
 def user_has_permission(user_email: str, market: Market, required_role: MarketRole, organization: Optional[Organization] = None) -> bool:
     """
     Check if user has required permission level.

@@ -4,6 +4,7 @@ kind: rule
 describes:
   - back-end/api/applications.py#reassign_follow_up_owner
   - back-end/api/markets.py#person_on_market
+  - back-end/api/permissions.py#people_with_market_role
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
 verified: 2026-10-22
@@ -13,6 +14,7 @@ sources:
   - brain-dump/2026-10-19#22
   - E34/F02
   - E34/F02/S01
+  - T15
 ---
 
 # Needs follow-up
@@ -28,7 +30,9 @@ An application that needs a question answered cannot be approved or rejected yet
 A follow-up is a decision that the application cannot be decided yet, so it is recorded with who marked it and who will reach out, and the market cannot be assigned while one is open.
 "Next" still passes over a card and records nothing.
 
-**The owner is whoever marked it, unless they name someone else**, and it can be handed on at any time to anyone with a role on the market: the people Manage market lists, who can see the market to work on it.
+**The owner is whoever marked it, unless they name someone else**, and it can be handed on at any time to anyone with a role on the market, by [the role rule](what-each-role-may-do.md): the people Manage market lists, and the market's organization's owner, admins and members, who can all see the market to work on it.
+An organization's admins run its markets, so they review them too; an owner drawn from the market's own roles alone would leave the admin reviewing silently replaced by the market's owner, and refused when choosing themselves.
+Members are included, as an explicit Viewer is.
 Nothing is sent to the owner; the All view's "Mine" filter is how they find their follow-ups.
 
 **It is not undecided to the automatic rejections**: a rule never judges a follow-up, since a person has looked at it and decided it needs more.
@@ -42,9 +46,10 @@ An Editor marks one, hands it on and resolves it, as with every verdict; it sett
 ## Where it is kept
 
 - The status `needs_follow_up`, its giver in `verdict_by` and its owner in `follow_up_owner` are on [the application document](../../implementation/data/application-document.md#statuses); `update_application_status` writes the owner with the status and clears it with any other.
-- It is marked through the verdict endpoint, and `PUT /markets/:id/applications/:id/follow-up-owner` hands it on (`reassign_follow_up_owner` in [`back-end/api/applications.py`](../../../back-end/api/applications.py), written only while the application still needs one); an owner must be someone `person_on_market` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) finds among the market's roles.
+- It is marked through the verdict endpoint, and `PUT /markets/:id/applications/:id/follow-up-owner` hands it on (`reassign_follow_up_owner` in [`back-end/api/applications.py`](../../../back-end/api/applications.py), written only while the application still needs one); an owner must be someone `person_on_market` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) finds among the people the role rule reaches, the very list the market read serves, and anyone else answers 400 "A follow-up's owner must have a role on this market.".
+- The read of one market serves those people's addresses as `peopleOnMarket`, a fact [derived on the market](../../implementation/conventions/one-market-from-the-server.md) (`people_with_market_role` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), the market's roles and then its organization's people, each once); `role_emails` stays the market's own roles, which Manage market lists.
 - `AllApplicationsReviewedGuard` in [`back-end/guards.py`](../../../back-end/guards.py) counts follow-ups apart from the undecided, so Begin Assignment's reason names them: "1 application needs a follow-up".
-- [`FollowUpDialog.vue`](../../../front-end/src/components/application/FollowUpDialog.vue) asks who follows up and what is needed; the box opens on the vendor's note as it stands, and is saved to [their notes](vendor-notes.md) only when changed, so nothing there is written over unseen.
+- [`FollowUpDialog.vue`](../../../front-end/src/components/application/FollowUpDialog.vue) asks who follows up, offering `peopleOnMarket` (read through `verdictActions.ts`) with the reviewer chosen when they are among them, and what is needed; the box opens on the vendor's note as it stands, and is saved to [their notes](vendor-notes.md) only when changed, so nothing there is written over unseen.
 - Two reviewers marking one card at once meet [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md); a selection marked at once is owned by the reviewer.
 - How it looks in the review is [I1 and the All view](../flows/review.md#i1-work-through-the-queue).
 
