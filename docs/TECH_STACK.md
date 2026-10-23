@@ -3,16 +3,27 @@ layer: implementation
 kind: module
 describes:
   - back-end/requirements.txt
+  - back-end/requirements.in
+  - scripts/lock-backend-requirements.sh
   - front-end/package.json
   - docker-compose.yml
-verified: 2026-10-23
+verified: 2026-10-24
 ---
 # Technology Stack
 
-The technology Conventioner is built on, as its manifests pin it: [`back-end/requirements.txt`](../back-end/requirements.txt), [`front-end/package.json`](../front-end/package.json) and [`docker-compose.yml`](../docker-compose.yml).
+The technology Conventioner is built on, as its manifests pin it: [`back-end/requirements.in`](../back-end/requirements.in) and its lock [`requirements.txt`](../back-end/requirements.txt), [`front-end/package.json`](../front-end/package.json) and [`docker-compose.yml`](../docker-compose.yml).
 How each part of the code works is in the implementation layer of the [knowledge graph](README.md): [modules](implementation/modules/README.md), [data](implementation/data/README.md), [conventions](implementation/conventions/README.md) and [testing](implementation/testing/README.md).
 
 ## Backend
+
+### Python dependencies are locked
+- Each back-end requirements file that Vercel, Docker, CI or the gate installs is a lock: every package, direct or not, at one exact version with its hashes, so a redeploy of unchanged code installs exactly what was tested
+  - The redeploy of 2026-10-23 re-resolved six packages left unpinned, openai 3.35.1 to 3.37.0 among them; the first locks hold what that deploy installed
+- People edit the `.in` file beside each lock (`requirements.in`, `requirements-floorplan-solver.in`, `requirements-dev.in`), never the `.txt`
+- [`scripts/lock-backend-requirements.sh`](../scripts/lock-backend-requirements.sh) (needs any [uv](https://docs.astral.sh/uv/); it runs the uv pinned in `requirements-dev.in`, so every machine writes the same locks) is the one way to change a lock: with no options it keeps every pin and adds or drops only what an `.in` changed; `--upgrade-package <name>` moves one package on purpose, `--upgrade` everything
+- Two checks hold the locks to that command:
+  - `tests/test_requirements_are_locked.py` fails on a lock line that is not a hashed pin, a lock whose direct requirements are not exactly its `.in`'s or whose pins no longer satisfy it, and a package pinned differently in two locks
+  - CI's `backend` job and `scripts/nm-test.sh` re-run the lock command and fail on any difference, which is what catches a pin edited by hand: the command writes that version's own hashes, and the files differ
 
 ### Core Framework
 - **Flask 3.1** - Python web framework
@@ -63,9 +74,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Utilities
 - **Python's `secrets`** - Email verification and password reset tokens, and sign-in codes
-- **PyJWT 2.8+** - The applicant's sign-in token, signed with `SECRET_KEY`
-- **Cryptography 41.0.0+** - Lets the local stack's `flask run --cert=adhoc` make its certificate; no module imports it
-- **Requests 2.31.0+** - HTTP library
+- **PyJWT 2.15** - The applicant's sign-in token, signed with `SECRET_KEY`
+- **Cryptography 50** - Lets the local stack's `flask run --cert=adhoc` make its certificate; no module imports it
+- **Requests 2.34** - HTTP library
   - Used for reCAPTCHA verification API calls
 - **python-dotenv 1.2** - Reads `back-end/.env` on the first line `app.py` runs
   - The real environment wins over the file, so nothing exported by hand is shadowed by it
@@ -82,7 +93,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - The cookie is `SameSite=None`, so it is always `Secure` and `HttpOnly` - not configurable
 
 ### Testing
-- **pytest 8+** - Python test framework
+- **pytest 9.1** - Python test framework
   - Runs the back-end test suite (`python -m pytest tests/`), from `back-end/requirements-dev.txt`
   - Configured via `back-end/pytest.ini`
   - `tests/conftest.py` replaces PyMongo with an in-memory fake, so no database connection is required
@@ -302,7 +313,8 @@ Conventioner/
 │   ├── market_documents.py  # Canonical market document form + migration markers
 │   ├── csv_import.py, csv_proposal.py, csv_start.py  # Importing a Google Form's responses
 │   ├── db_config.py      # MongoDB connection configuration
-│   └── requirements.txt  # Python dependencies
+│   ├── requirements.in   # Python dependencies, edited by hand
+│   └── requirements.txt  # Their lock, from scripts/lock-backend-requirements.sh
 ├── front-end/
 │   ├── src/
 │   │   ├── views/        # Page components

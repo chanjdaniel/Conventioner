@@ -1,0 +1,6 @@
+# The floorplan beta's packing solver, kept out of requirements.txt because it ships only
+# manylinux_2_35 wheels (glibc 2.35+) and Vercel builds and runs on Amazon Linux 2023 (glibc 2.34),
+# where pip finds nothing to install - which failed every production build from June 2026.
+# services/placement_service.py imports it lazily and falls back to grid placement without it, so
+# production runs Auto-Place on the grid; Docker, CI and local development install it.
+pyckingsolver
