@@ -5,6 +5,7 @@ describes:
   - .github/workflows/test.yml
   - .no-mistakes.yaml
   - scripts/nm-test.sh
+  - scripts/e2e-lock.sh
   - scripts/th-compose.sh
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
@@ -66,6 +67,16 @@ It waits for the run's process to be gone, then runs `docker compose -p <project
 It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it holds nothing of the gate's open once the run is over.
 Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
 The guard does not remove the run's virtual environment, which the trap does; a killed run leaves it in `$TMPDIR`.
+
+**Gate runs take turns for their E2E phase, one at a time on a machine.**
+A stack starting or stopping creates or removes a Docker network, which changes the host's networks under every browser on the machine, and another run's Playwright then fails with `net::ERR_NETWORK_CHANGED`.
+So from just after its images are built until its teardown is done, `nm-test.sh` holds an exclusive kernel lock on `${XDG_STATE_HOME:-$HOME/.local/state}/conventioner/e2e.lock` ([`scripts/e2e-lock.sh`](../../../scripts/e2e-lock.sh)), taken with `flock` on one of its file descriptors, or with Python's `fcntl` where `flock` is missing.
+The kernel releases it when the last process holding that descriptor is gone: the run, and the teardown guard it starts just after taking it, so a killed run keeps the lock until its stack is down and a waiting run never starts beside a stack still being removed.
+Every other command of the E2E phase (`up`, `seed_fixture.sh`, Playwright) runs with the descriptor closed, so a process one of them leaves behind, such as a browser, never keeps the lock.
+The rest of the run (the knowledge graph, the back end's and the front end's unit tests, the image build) runs beside other runs.
+A run that finds the lock held prints `nm-test: waiting for the end-to-end lock since <time>, held by <project> (pid <pid>, <worktree>) since <time>`, and `nm-test: has the end-to-end lock at <time>` once it has it; after 45 minutes without it the run fails with `no end-to-end slot within 45 minutes`.
+To see who holds it and who waits: `cat ~/.local/state/conventioner/e2e.lock` names the last run to take it, and `lsof ~/.local/state/conventioner/e2e.lock` lists every process with it open, the holder and its guard, and each waiting run with its `flock`.
+The lock is the one place T19's `team-capacity run --kind gate:conventioner` takes over, with the lock kept as the fallback where `team-capacity` is absent; it can go once the browser is isolated from the host's network changes.
 `nm-test.sh` never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
 CI's workflow keeps `--with-deps`, which is correct on GitHub's Ubuntu runners.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.

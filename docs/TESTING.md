@@ -360,6 +360,13 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
+- **Gate runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs on one machine
+  run their unit suites side by side, but the second waits, saying `nm-test: waiting for the
+  end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
+  because a stack starting or stopping breaks another run's browser with
+  `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
+  every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
+  has the lock's rules. A dev stack or a hand-run Playwright takes no turn and can still meet it.
 - **An agent or gate stack never restarts by itself**: every stack started through
   `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
