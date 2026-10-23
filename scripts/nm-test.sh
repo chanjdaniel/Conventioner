@@ -2,9 +2,9 @@
 #
 # Deterministic full-suite test runner for the no-mistakes gate.
 #
-# Computes a unique, collision-free stack identity (project name + 3 free ports)
-# so it runs safely alongside the primary stack. Tears the stack down however the
-# run ends: an EXIT trap, and a guard that outlives a SIGKILL (see Teardown).
+# Runs its E2E stack under a project name of its own, on host ports Docker picks,
+# so it runs safely alongside the primary stack and other runs. Tears the stack down
+# however the run ends: an EXIT trap, and a guard that outlives a SIGKILL (see Teardown).
 #
 # Usage:
 #     ./scripts/nm-test.sh
@@ -28,29 +28,12 @@ if ! command -v "$PYTHON" &>/dev/null; then
   fail "Python not found on PATH. Install Python 3.12 or set PYTHON_CMD."
 fi
 
-# ── Port discovery ───────────────────────────────────────────────────────────
-
-find_free_port() {
-  if command -v python3 &>/dev/null; then
-    python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()"
-  else
-    local port
-    while true; do
-      port=$((10000 + RANDOM % 50000))
-      if ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-        echo "$port"; return 0
-      fi
-    done
-  fi
-}
-
 # ── Stack identity ───────────────────────────────────────────────────────────
 
-COMPOSE_PROJECT_NAME="$RUN_ID"
-TH_MONGO_PORT="$(find_free_port)"
-TH_BACKEND_PORT="$(find_free_port)"
-TH_FRONTEND_PORT="$(find_free_port)"
-export COMPOSE_PROJECT_NAME TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT
+# Docker assigns every host port as the stack starts (th-compose.sh's auto mode), so two runs can
+# never race for one port; the E2E phase reads them back once the stack is up.
+export COMPOSE_PROJECT_NAME="$RUN_ID" TH_PORTS=auto TH_DIR="$REPO_ROOT"
+unset TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT TH_MONGO_EXPRESS_PORT
 
 # The team's labels, which the overlay puts on every container, volume and network of the stack,
 # so whatever is left of it says what it is (docs/implementation/testing/ci-and-the-gate.md).
@@ -67,7 +50,6 @@ TEAM_EXPIRES="$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.time
 export TEAM_EXPIRES
 
 echo "nm-test: project=$COMPOSE_PROJECT_NAME"
-echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_FRONTEND_PORT"
 
 # ── Teardown ─────────────────────────────────────────────────────────────────
 
@@ -80,21 +62,13 @@ cleanup() {
   # which is why E06/F01/S02 went undiagnosed through several attempts.
   mkdir -p "$STACK_LOG_DIR"
   for service in backend frontend; do
-    docker compose \
-      -f "$REPO_ROOT/docker-compose.yml" \
-      -f "$REPO_ROOT/docker-compose.worktree.yml" \
-      -p "$COMPOSE_PROJECT_NAME" \
-      logs --no-color --timestamps "$service" \
+    "$SCRIPT_DIR/th-compose.sh" logs --no-color --timestamps "$service" \
       > "$STACK_LOG_DIR/$COMPOSE_PROJECT_NAME-$service.log" 2>&1 || true
   done
   echo "nm-test: stack logs in $STACK_LOG_DIR/"
 
   echo "nm-test: tearing down stack..."
-  if docker compose \
-    -f "$REPO_ROOT/docker-compose.yml" \
-    -f "$REPO_ROOT/docker-compose.worktree.yml" \
-    -p "$COMPOSE_PROJECT_NAME" \
-    down -v --remove-orphans; then
+  if "$SCRIPT_DIR/th-compose.sh" down -v --remove-orphans; then
     echo "nm-test: stack torn down."
   else
     echo "nm-test: ERROR: tearing down $COMPOSE_PROJECT_NAME failed (above); the teardown guard retries it." >&2
@@ -208,6 +182,10 @@ cd "$REPO_ROOT"
 "$REPO_ROOT/scripts/th-compose.sh" build
 start_teardown_guard
 "$REPO_ROOT/scripts/th-compose.sh" up -d
+# seed_fixture.sh and Playwright find the stack by the project and ports this exports.
+STACK_ENV="$("$REPO_ROOT/scripts/th-compose.sh" ports)"
+eval "$STACK_ENV"
+echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_FRONTEND_PORT"
 "$REPO_ROOT/scripts/seed_fixture.sh"
 
 cd "$REPO_ROOT/front-end"
