@@ -27,6 +27,13 @@
 #
 # Every port is published on 127.0.0.1 only.
 #
+# Every stack with the same dependencies runs the same two images, conventioner/backend:<tag> and
+# conventioner/frontend:<tag>, tagged by scripts/image-tags.sh with a hash of the files each is
+# built from; the source reaches the containers through their bind mounts. So an `up` builds an
+# image only when none has its tag yet, and
+#     th-compose.sh ensure-images
+# builds the missing ones without starting anything. `th-compose.sh build` always builds.
+#
 # Resolution order:
 #   1. TH_PORTS=auto + COMPOSE_PROJECT_NAME -> that project, every host port empty
 #   2. COMPOSE_PROJECT_NAME + the three TH_*_PORT variables already set -> use as-is
@@ -90,6 +97,12 @@ else
   exit 1
 fi
 
+# The images' tags, computed from the worktree every time, whatever the caller set.
+TAGS="$("$REPO/scripts/image-tags.sh" "$WT")"
+while IFS='=' read -r var tag; do
+  export "$var=$tag"
+done <<<"$TAGS"
+
 # A volume mounted inside a bind mount needs a mountpoint in the worktree, and Docker creates a
 # missing one as root, which then outlives the stack and blocks deleting the worktree. So make
 # each one as the user first - but only inside a source that exists: a worktree whose sources are
@@ -143,6 +156,18 @@ subcommand() {
   done
 }
 
+# Build each shared image that no image has the tag of yet.
+ensure_images() {
+  local image service
+  for image in "conventioner/backend:$TH_BACKEND_TAG" "conventioner/frontend:$TH_FRONTEND_TAG"; do
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+      echo "th-compose: building $image, as no image has its tag yet" >&2
+      service="${image#conventioner/}"
+      compose build "${service%%:*}"
+    fi
+  done
+}
+
 if [ "${1:-}" = ports ]; then
   ports="$(running_ports)"
   for service in TH_MONGO_PORT:mongodb TH_BACKEND_PORT:backend TH_FRONTEND_PORT:frontend; do
@@ -156,7 +181,17 @@ if [ "${1:-}" = ports ]; then
   exit 0
 fi
 
-if [ "${TH_PORTS:-}" = auto ] && [ "$(subcommand "$@")" = up ]; then
+if [ "${1:-}" = ensure-images ]; then
+  ensure_images
+  exit 0
+fi
+
+SUBCOMMAND="$(subcommand "$@")"
+case "$SUBCOMMAND" in
+  up | create | run) ensure_images ;;
+esac
+
+if [ "${TH_PORTS:-}" = auto ] && [ "$SUBCOMMAND" = up ]; then
   compose "$@"
   running_ports >&2
   exit 0
