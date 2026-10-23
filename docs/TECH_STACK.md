@@ -5,7 +5,7 @@ describes:
   - back-end/requirements.txt
   - front-end/package.json
   - docker-compose.yml
-verified: 2026-10-21
+verified: 2026-10-23
 ---
 # Technology Stack
 
@@ -168,6 +168,11 @@ How each part of the code works is in the implementation layer of the [knowledge
   - The local stack, E2E and CI; production runs on Vercel (see [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md))
 
 ### Services (Docker Compose)
+
+Every port is published on `127.0.0.1` only. A worktree's stack (`scripts/th-compose.sh`) offsets
+the ports, caps each service's memory, CPU and processes, and starts mongo-express only with
+`--profile tools` ([the treehouse runbook](../scripts/README-treehouse.md)).
+
 1. **MongoDB** - Database service
    - `mongo:7`, port 27017
    - Persistent data volumes

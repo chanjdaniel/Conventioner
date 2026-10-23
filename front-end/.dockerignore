@@ -9,3 +9,9 @@ dist
 coverage
 .vscode
 .idea
+# A worktree's own files: the image is shared by every stack with the same dependencies, and the
+# source reaches the container through its bind mount.
+.env
+playwright-report
+test-results
+e2e-screenshots

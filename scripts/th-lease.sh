@@ -7,9 +7,10 @@
 #     cd "$path" && <do work>
 #     scripts/th-return.sh "$path"    # or: treehouse return "$path"
 #
-# Wraps `treehouse get --lease` (v2.0.0 does not run post_create hooks, so the
-# pre-warm is driven here instead). The lease means the tree is never handed to
-# another agent or pruned until you return it.
+# Wraps `treehouse get --lease` (treehouse v3 runs hooks only from the user's
+# ~/.config/treehouse/config.toml, never from this repository, so the pre-warm is
+# driven here instead). The lease means the tree is never handed to another agent
+# or pruned until you return it.
 #
 set -euo pipefail
 
@@ -21,7 +22,7 @@ HOLDER="${1:-${TREEHOUSE_LEASE_HOLDER:-agent}}"
 path="$(cd "$REPO" && treehouse get --lease --lease-holder "$HOLDER")"
 
 # Pre-warm it (idempotent; fast on pool hits). Progress -> stderr. A pre-warm
-# hiccup must not lose the lease path — warn but still return it.
+# hiccup must not lose the lease path - warn but still return it.
 if ! TREEHOUSE_DIR="$path" "$REPO/scripts/treehouse-setup.sh" 1>&2; then
   echo "[treehouse] WARNING: pre-warm reported an error; worktree is leased at $path" >&2
 fi

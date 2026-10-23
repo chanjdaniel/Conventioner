@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-22
+verified: 2026-10-23
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -182,6 +182,21 @@ npm run test:e2e
 
 E2E tests use Playwright driving Chromium against the running Docker stack.
 
+A second stack beside your worktree's, say for a run that must not touch the slot's database, gets
+its own project name and lets Docker pick its ports (`TH_PORTS=auto`):
+
+```bash
+export COMPOSE_PROJECT_NAME=my-e2e TH_PORTS=auto
+scripts/th-compose.sh up -d            # prints the ports Docker picked
+eval "$(scripts/th-compose.sh ports)"  # exports them for seed_fixture.sh and Playwright
+./scripts/seed_fixture.sh
+(cd front-end && npm run test:e2e)
+scripts/th-compose.sh down -v
+```
+
+`scripts/nm-test.sh` runs its stack this way; [CI and the gate](implementation/testing/ci-and-the-gate.md#stack-identity)
+has the details.
+
 **Which spec to extend**: `market-journey.spec.ts` is the only spec that walks the whole journey
 in one organizer session, and every other spec is a slice of it; [the market journey
 spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
@@ -276,11 +291,12 @@ still reaches the back-end where the `DISABLE_CAPTCHA` bypass applies.
 Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
 `send_verification_email`, `send_password_reset_email`, and `send_otp_email`
 helpers skip the actual send and report success. This is also honored only under
-`ALLOW_INSECURE_LOCAL_DEV`, defaults OFF, and is forwarded by
-`docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it too, but a bare
-`scripts/th-compose.sh up` does not, so export it in the shell that brings the stack up:
-without it the password-reset test in `auth.spec.ts` answers 500 from the unconfigured
-mailer. The password-reset E2E test does
+`ALLOW_INSECURE_LOCAL_DEV`, defaults OFF in the back end, and is forwarded by
+`docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it, and a worktree's
+stack (`scripts/th-compose.sh`) defaults it to `true` (pass `DISABLE_EMAIL=false` to send).
+The primary checkout's plain `docker compose up` does not, so export it in the shell that
+brings that stack up: without it the password-reset test in `auth.spec.ts` answers 500 from
+the unconfigured mailer. The password-reset E2E test does
 not read the reset link from an email - it reads the token directly from MongoDB
 (through `mongoEval` in `front-end/e2e/helpers/mongo.ts`, which runs `mongosh` in the container
 named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
@@ -293,6 +309,24 @@ the E2E suite in four shards.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
 checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh`.
+
+## Stack limits
+
+Every worktree and gate stack runs within the limits that [`docker-compose.worktree.yml`](../docker-compose.worktree.yml) sets per service (`mem_limit`, `cpus`, `pids_limit`), and MongoDB sizes its cache for its limit (`--wiredTigerCacheSizeGB 0.25`).
+Each limit sits well above that service's peak in a full `scripts/nm-test.sh` run, read from `docker stats` throughout the run; a limit the peak comes within 20% of is raised and the run repeated.
+
+Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one gate run at a time, `docker stats` read about twice a second per service over the stack's whole life (22.6 minutes, 375 E2E tests); CPU is in cores, as `docker stats` gives it (100% is one core):
+
+| Service | Limit: memory / CPUs / PIDs | Peak memory | Peak CPU | Peak PIDs |
+| - | - | - | - | - |
+| mongodb | 1g / 2 / 512 | 479 MiB (47%) | 119% (59%) | 62 (12%) |
+| backend | 768m / 1 / 256 | 134 MiB (17%) | 59% (59%) | 19 (7%) |
+| frontend | 1g / 2 / 256 | 471 MiB (46%) | 151% (75%) | 38 (15%) |
+| mongo-express | 256m / 0.5 / 64 | not started by a gate run | | |
+
+MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
+Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
+A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise its limit here with a new measurement, not by guessing.
 
 ## Testing Gotchas
 
@@ -326,6 +360,35 @@ runs through `scripts/nm-test.sh`.
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
+- **Gate runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs on one machine
+  run their unit suites side by side, but the second waits, saying `nm-test: waiting for the
+  end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
+  because a stack starting or stopping breaks another run's browser with
+  `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
+  every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
+  has the lock's rules. A dev stack or a hand-run Playwright takes no turn and can still meet it.
+- **An agent or gate stack never restarts by itself**: every stack started through
+  `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
+  stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
+  Its bind mounts never create a missing source either, so a stack whose worktree is gone fails to
+  start instead of re-creating the worktree's folders as root.
+- **Every stack listens on `127.0.0.1` only**: the primary stack (`docker-compose.yml`) and every
+  worktree and gate stack publish their ports on loopback, so `localhost` reaches them and
+  another machine on the network does not.
+  mongo-express is not part of a worktree or gate stack unless asked for:
+  `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
+- **Worktree and gate stacks share their images**: every slot stack and gate run with the same
+  dependencies runs the same `conventioner/backend:<tag>` and `conventioner/frontend:<tag>`, each
+  tag a hash of the files its image is built from (`scripts/image-tags.sh`: the back end's
+  Dockerfile, entrypoint and two requirements files; the front end's Dockerfile, `package.json`
+  and `package-lock.json`), and the source reaches the containers through the bind mounts.
+  So a change to the source needs no build, `scripts/th-compose.sh up -d` builds an image only
+  when none has its tag yet, and `scripts/th-compose.sh build` rebuilds one anyway (say for a
+  newer base image). After the front end's dependencies change, a stack keeps its old
+  `node_modules` volume however its front end is recreated: `scripts/th-compose.sh rm -s -f -v
+  frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
+  leaves the old volume behind). The primary stack and CI build their own images from
+  `docker-compose.yml`, as before.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
   sets the store directly and the editor canvas is not exercised at all; see [floorplan
   E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.
