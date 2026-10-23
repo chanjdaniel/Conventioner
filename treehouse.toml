@@ -1,4 +1,4 @@
-# treehouse config for Conventioner — pooled, pre-warmed worktrees for agents.
+# treehouse config for Conventioner - pooled, pre-warmed worktrees for agents.
 # See scripts/README-treehouse.md for the full workflow.
 #
 # QUICK START (agents):
@@ -7,8 +7,9 @@
 #   scripts/th-compose.sh up -d                   # (optional) isolated back-end stack
 #   scripts/th-return.sh "$path"                  # release; tears down the stack
 #
-# NOTE: do NOT call `treehouse get` directly for automation — treehouse v2.0.0
-# does not run post_create hooks, so a raw worktree is missing .env/node_modules.
+# NOTE: do NOT call `treehouse get` directly for automation - treehouse v3 runs
+# hooks only from the user's ~/.config/treehouse/config.toml, never from this
+# file, so a raw worktree is missing .env/node_modules.
 # The th-lease.sh wrapper leases AND pre-warms in one step.
 
 # Pool size. Each worktree carries its own node_modules (hundreds of MB), so keep
