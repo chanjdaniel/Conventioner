@@ -19,7 +19,9 @@ The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) 
 
 ## Prerequisites
 
-- `treehouse` on your PATH (`curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh`)
+- `treehouse` on your PATH, at the version the team home pins in `machine/tools.lock`
+  (not treehouse's `install.sh`, which installs the latest release, not the pin):
+  `team-doctor` checks it, and its `tool treehouse` line's fix is the pinned install command.
 - Node (for the front-end) and Docker (for the back-end)
 - Your own `.env`, `front-end/.env`, `back-end/.env` in the primary checkout
   (git-ignored; the pre-warm copies them into each worktree)
@@ -41,6 +43,23 @@ scripts/th-compose.sh up -d           # or: logs -f backend, exec backend sh, et
 #    worktree's docker stack; keeps node_modules warm for the next lease.
 scripts/th-return.sh "$path"
 ```
+
+### When the teardown fails
+
+`th-return.sh` never hands a slot back with its stack still on it without saying so.
+When the slot's `down -v --remove-orphans` fails, it prints the teardown's own error output and
+`th-return: teardown failed for <path>; the lease is kept (use --force to return it anyway)`,
+and exits 1 without calling `treehouse return`, so the slot stays leased to you.
+Fix the cause (often a Docker daemon that is not running), then run it again.
+`scripts/th-return.sh "$path" --force` reports the failure too but returns the lease anyway,
+and keeps its other meaning: `treehouse return --force`, no prompts.
+The teardown always targets the slot's own stack (`conventioner-<slot>`), even when your shell
+has another stack's `COMPOSE_PROJECT_NAME` or `TH_*` ports exported.
+A successful teardown is silent, and a worktree with no `docker-compose.yml` is returned
+without one.
+
+The last step is `treehouse return`, and its exit status is the script's: treehouse v3 exits 3
+when it leaves a dirty worktree leased (commit its changes first; `--force` discards them).
 
 ## Port map (per worktree slot)
 
@@ -73,7 +92,8 @@ and ports as `export` lines (`eval "$(scripts/th-compose.sh ports)"`).
 
 - `treehouse status` - show the pool
 - `treehouse prune` - remove stale idle worktrees (dry-run; `--yes` to apply)
-- `treehouse destroy <path> --yes` - remove a specific worktree
+- `treehouse destroy <path> --yes` - remove a specific worktree; a leased one also needs
+  `--include-leased` (and a dirty or busy one `--include-unlanded` or `--include-in-use`)
 - `max_trees` is set in `treehouse.toml` (default 4; each tree is hundreds of MB)
 
 > **⚠️ `treehouse prune` and `treehouse destroy` do NOT tear down per-slot docker
@@ -136,10 +156,12 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 - **Returning a slot wipes its DB/volumes.** `th-return.sh` runs `docker compose
   down -v`, which removes the worktree's isolated mongodb and backend sessions
   volumes. A re-leased worktree always starts with a fresh DB - this
-  is intentional for per-slot isolation.
-- **Use `th-lease.sh`, not raw `treehouse get`.** treehouse v2.0.0 parses but does
-  not invoke the `post_create` hook, so a raw worktree would be missing `.env` and
-  `node_modules`. All pre-warming is driven by the wrapper.
+  is intentional for per-slot isolation. If that teardown fails, the lease is kept
+  (see [When the teardown fails](#when-the-teardown-fails)).
+- **Use `th-lease.sh`, not raw `treehouse get`.** treehouse v3 runs hooks only from
+  the user's `~/.config/treehouse/config.toml`, never from this repository's
+  `treehouse.toml`, so a raw worktree would be missing `.env` and `node_modules`.
+  All pre-warming is driven by the wrapper.
 - **Back-end has no local Python venv** - it runs via Docker (`python:3.12-slim`).
   The pinned deps don't build on the Python versions installed here.
 - Reused worktrees don't auto-update node deps when a lockfile changes - run
