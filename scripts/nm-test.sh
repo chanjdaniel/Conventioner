@@ -3,8 +3,9 @@
 # Deterministic full-suite test runner for the no-mistakes gate.
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
-# so it runs safely alongside the primary stack and other runs. Tears the stack down
-# however the run ends: an EXIT trap, and a guard that outlives a SIGKILL (see Teardown).
+# so it runs safely alongside the primary stack and other runs, and takes turns with other runs for
+# its E2E phase (see the lock). Tears the stack down however the run ends: an EXIT trap, and a
+# guard that outlives a SIGKILL (see Teardown).
 #
 # Usage:
 #     ./scripts/nm-test.sh
@@ -180,16 +181,26 @@ export DISABLE_EMAIL=true
 
 cd "$REPO_ROOT"
 "$REPO_ROOT/scripts/th-compose.sh" build
+
+# One E2E phase at a time on this machine, from the stack's start to its teardown: a stack starting
+# or stopping breaks another run's browser with net::ERR_NETWORK_CHANGED. The teardown guard
+# inherits the lock, so a killed run keeps it until its stack is down; every other command runs
+# without it. T19's ticket 11 replaces this with `team-capacity run --kind gate:conventioner`,
+# keeping the lock as the fallback when team-capacity is absent.
+# shellcheck source=scripts/e2e-lock.sh
+source "$SCRIPT_DIR/e2e-lock.sh"
+take_e2e_lock $((45 * 60)) "$COMPOSE_PROJECT_NAME (pid $$, $REPO_ROOT)"
 start_teardown_guard
-"$REPO_ROOT/scripts/th-compose.sh" up -d
+
+without_e2e_lock "$REPO_ROOT/scripts/th-compose.sh" up -d
 # seed_fixture.sh and Playwright find the stack by the project and ports this exports.
-STACK_ENV="$("$REPO_ROOT/scripts/th-compose.sh" ports)"
+STACK_ENV="$(without_e2e_lock "$REPO_ROOT/scripts/th-compose.sh" ports)"
 eval "$STACK_ENV"
 echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_FRONTEND_PORT"
-"$REPO_ROOT/scripts/seed_fixture.sh"
+without_e2e_lock "$REPO_ROOT/scripts/seed_fixture.sh"
 
 cd "$REPO_ROOT/front-end"
-npx playwright test
+without_e2e_lock npx playwright test
 echo "E2E tests: OK"
 
 # ── Done ─────────────────────────────────────────────────────────────────────
