@@ -46,8 +46,8 @@ services:
     labels: *team-labels
     ports: !override
       - "127.0.0.1:${TH_MONGO_PORT}:27017"
-    mem_limit: 768m
-    cpus: 1
+    mem_limit: 1g
+    cpus: 2
     pids_limit: 512
     # The base flags, plus a cache sized for the limit: by default WiredTiger
     # takes half of the host's memory, not of the container's.
