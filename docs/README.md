@@ -88,7 +88,7 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
    | `qc/2026-09-21` | the manual quality check of that day |
    | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
-   | `known-gap/3` | a known gap of the MVP: the story of epic `E37` that names it when the gap was carried, otherwise item `n` of `docs/MVP_KNOWN_GAPS.md` at the source sha (gap 3 was not carried, so it is [this item](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)) |
+   | `known-gap/3` | a known gap of the MVP: the story of epic `E37` that names it when the gap was carried, otherwise item `n` of `docs/MVP_KNOWN_GAPS.md` at the source sha (gap 3 was not carried, so it is [this item](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)) |
    | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
    | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
 

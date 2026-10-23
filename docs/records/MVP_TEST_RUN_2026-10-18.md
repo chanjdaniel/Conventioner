@@ -99,7 +99,7 @@ The organizer asked for four changes after reading the run; they are built in th
    It is not refused in code for now.
 2. **The re-import preview's headline says "212 of 212 rows will be imported"** beside "0 new, 0 updated, 212 unchanged".
 3. **The Vendors list counts a vendor's days against the market's**: "1 / 3 dates" for a vendor who asked for one day and got it.
-4. **Result calls table-days "tables"**: "177 of 177 tables used" for 59 tables over three days ([known gap 7](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#7-result-counts-table-days-as-tables)).
+4. **Result calls table-days "tables"**: "177 of 177 tables used" for 59 tables over three days ([known gap 7](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#7-result-counts-table-days-as-tables)).
 
 ### For the organizer before the real run
 
@@ -110,7 +110,7 @@ The organizer asked for four changes after reading the run; they are built in th
 
 ### Standing
 
-- **Attendance cannot say who is missing** ([known gap 3](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)), and an organizer cannot check a vendor in.
+- **Attendance cannot say who is missing** ([known gap 3](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)), and an organizer cannot check a vendor in.
   Decided with the organizer on 2026-10-18: both are built before the market.
 
 ## Left on the stack

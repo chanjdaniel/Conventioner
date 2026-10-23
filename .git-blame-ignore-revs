@@ -2,5 +2,5 @@
 # Enable locally with:
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 
-# style(frontend): reformat with Prettier
-54f1ecf9e9d3f9b2b5d2dd04d4ca08c228271abb
+# style(frontend): one-time Prettier reformat with CI enforcement (#43)
+426aee8424691da721aa564f665c2489e08e4cec

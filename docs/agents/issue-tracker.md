@@ -10,7 +10,7 @@ GitHub is used for pull requests only.
 
 - **The durable backlog** is `~/agent-team/projects/conventioner/backlog/`, and **the Wayfinder maps** are `~/agent-team/projects/conventioner/wayfinding/<effort>/`.
   `~/agent-team` is the team home, a checkout of the private repo `chanjdaniel/agent-team`; its `projects/conventioner/` also holds the brain dumps (`brain-dump/`), the QC walk (`qc/`) and the plan-era review pages (`lavish/`).
-- **The history came with it**: the planning was imported from Conventioner `dev` at `84b97f70eb19ec610496dd6e37b28a7d29349097` (the source sha), and `git log --follow` on a file in the team home lists the commits Conventioner had for it.
+- **The history came with it**: the planning was imported from Conventioner `dev` at `4aa7e30429768dbe09bc8037abd115486f6fd7fb` (the source sha), and `git log --follow` on a file in the team home lists the commits Conventioner had for it.
   Until then it was `.scratch/` and four `.lavish/` pages in this repo, and it can still be read at the source sha in Conventioner's own history.
   `~/agent-team/projects/conventioner/README.md` records the import.
 - **`.scratch/` is transient and task-local**: it is ignored, exists only in a worktree with a task in flight, and dies with that worktree.
