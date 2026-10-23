@@ -2,8 +2,8 @@
  * What a market's screens say about where it stands and what to do now, for each phase and each
  * intake path (E31/F02/S02, F03).
  *
- * The one table the product reads it from - the answer to ticket 02 of the "what to show, and when"
- * map (`.scratch/wayfinding/what-to-show-and-when/issues/02-the-next-step-per-phase-and-path.md`).
+ * The one table the product reads it from - the answer to `wayfinding/what-to-show-and-when/02`,
+ * kept in `docs/implementation/modules/market-guide.md`.
  * The phases are the same on both paths; what they are called, what the rail says, and what each
  * tab says out of its phase are not. A CSV market's vendors apply on the organizer's own Google
  * Form, so nothing on it may suggest they apply here.

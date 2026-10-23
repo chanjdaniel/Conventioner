@@ -12,7 +12,7 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 | `front-end/` | Vue 3, Vite, TypeScript; Vitest and Playwright |
 | `back-end/` | Python 3.12, Flask, MongoDB; pytest |
 | `docs/` | Everything below |
-| `.scratch/` | The backlog (Epic, Feature, Story) and the decision maps ([how it works](docs/agents/issue-tracker.md)) |
+| `.scratch/` | A local, ignored working folder; planning lives outside this repo ([the tracker contract](docs/agents/issue-tracker.md)) |
 | `AGENTS.md` (`CLAUDE.md`) | The codebase's sharp edges, for anyone changing it |
 
 ## Docs
@@ -27,7 +27,6 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 | Rebuild production from nothing | [VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) |
 | See what the product does, flow by flow | [USER_FLOWS.md](docs/USER_FLOWS.md) |
 | Match the design language | [design-system.md](docs/design-system.md) |
-| See what is known to be missing | [MVP_KNOWN_GAPS.md](docs/MVP_KNOWN_GAPS.md) |
 
 ## Contributing
 

@@ -88,14 +88,14 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
    | `qc/2026-09-21` | the manual quality check of that day |
    | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
-   | `known-gap/3` | a gap in [the known gaps](MVP_KNOWN_GAPS.md) |
+   | `known-gap/3` | a known gap of the MVP: the story of epic `E37` that names it when the gap was carried, otherwise item `n` of `docs/MVP_KNOWN_GAPS.md` at the source sha (gap 3 was not carried, so it is [this item](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)) |
    | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
    | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
 
    Keep `describes` narrow: a file many areas share is described by `#symbol`, and a directory only by a node that owns all of it.
 3. The first line after the frontmatter is the `# Title`, one sentence per physical line, in the present tense: a node holds current truth, and history is git's.
 4. Link every file in `describes` from the body, with a relative link.
-   Work-item ids and `.scratch/` paths are never links: they go in `sources`, or inline in backticks.
+   Work-item ids are never links: they go in `sources`, or inline in backticks, and resolve in the team home as [the tracker contract](agents/issue-tracker.md#resolving-provenance) says.
 5. When the node links a node in the other layer, add the link back in that node too; links within one layer may be one-way.
 6. Add a line to the folder's `README.md`, `- [Title](file.md) - one line`, kept sorted by file name.
 7. Run `python3 scripts/knowledge_graph.py check`.

@@ -43,8 +43,9 @@ flask_session/
 # against the repo root rather than front-end/ (where an identical rule already lives).
 /e2e-screenshots
 
-# Real organizer CSVs (vendor PII) used to measure the form started from a CSV. Never commit.
-.scratch/examples/
+# A transient, task-local working folder (spec, tickets, notes); planning lives outside this repo.
+# In the primary checkout, .scratch/examples/ holds real applicants' data. Never commit any of it.
+.scratch/
 
 # Obsidian's workspace state, for anyone who opens the repository as a vault (docs/README.md).
 .obsidian/

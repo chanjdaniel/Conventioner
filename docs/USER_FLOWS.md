@@ -129,5 +129,5 @@ No bug blocks a flow any more: the fourteen rows that once stood here for bugs w
 The walk behind this document found 21 problems, from check-in sending vendors to the wrong table down to stale copy, and the usage test run with real exports found 23 more (bugs 22 to 44).
 Fixing them found three more (45 to 47), and the re-walk after the fixes found the last ones (48 onwards).
 They are written up, with reproductions, in [MVP_BUGS.md](records/MVP_BUGS.md); every one is fixed by epic E26 except bug 39, which is kept as known behaviour.
-What E26 left as it is, bug 39 and the usability observations, is in [MVP_KNOWN_GAPS.md](MVP_KNOWN_GAPS.md).
+Bug 39 is kept on purpose, as the rule [dates fill one at a time, in the plan's order](business/rules/dates-fill-in-calendar-order.md); the usability observations the runs left, where still open, are proposed work, epic E37 in the team home's backlog.
 The runs' flow-by-flow results are in [MVP_TEST_RUN_2026-09-30.md](records/MVP_TEST_RUN_2026-09-30.md) and [MVP_TEST_RUN_2026-10-03.md](records/MVP_TEST_RUN_2026-10-03.md).
