@@ -6,6 +6,7 @@ describes:
   - .no-mistakes.yaml
   - scripts/nm-test.sh
   - scripts/e2e-lock.sh
+  - scripts/image-tags.sh
   - scripts/th-compose.sh
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
@@ -52,6 +53,8 @@ Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`), and host ports Docker assigns as the stack starts (`TH_PORTS=auto`, [below](#stack-identity)), so two runs started together can never race for one port, as runs that each probed for a free port before starting could.
 Once the stack is up, the run reads its ports back with `th-compose.sh ports` and exports them for `seed_fixture.sh` and Playwright.
 mongo-express is not started (it is in the overlay's `tools` profile).
+It builds no image of its own: its stack runs the images every worktree and gate stack with the same dependencies shares, `conventioner/backend:<tag>` and `conventioner/frontend:<tag>`, each tag a hash of the files its image is built from ([`scripts/image-tags.sh`](../../../scripts/image-tags.sh)), and `th-compose.sh ensure-images` builds one only when no image has its tag yet, so a run whose dependencies did not change builds nothing.
+The source reaches the containers through the bind mounts, so the images do not depend on it.
 It labels the stack as a gate run (`TEAM_KIND=gate`, `TEAM_WORKTREE` its repository root, `TEAM_EXPIRES` two hours after its start, and `TEAM_OWNER=agent-team` only when `TEAM_TASK` is set), and the [worktree overlay](../../../scripts/README-treehouse.md) puts those labels on every container, volume and network, with `restart: "no"`, no bind mount that creates its missing source, every port on `127.0.0.1` and each service within its memory, CPU and process limits ([measured](../../TESTING.md#stack-limits)).
 
 **A run's stack is gone within a minute, however the run ends.**
@@ -73,7 +76,7 @@ A stack starting or stopping creates or removes a Docker network, which changes 
 So from just after its images are built until its teardown is done, `nm-test.sh` holds an exclusive kernel lock on `${XDG_STATE_HOME:-$HOME/.local/state}/conventioner/e2e.lock` ([`scripts/e2e-lock.sh`](../../../scripts/e2e-lock.sh)), taken with `flock` on one of its file descriptors, or with Python's `fcntl` where `flock` is missing.
 The kernel releases it when the last process holding that descriptor is gone: the run, and the teardown guard it starts just after taking it, so a killed run keeps the lock until its stack is down and a waiting run never starts beside a stack still being removed.
 Every other command of the E2E phase (`up`, `seed_fixture.sh`, Playwright) runs with the descriptor closed, so a process one of them leaves behind, such as a browser, never keeps the lock.
-The rest of the run (the knowledge graph, the back end's and the front end's unit tests, the image build) runs beside other runs.
+The rest of the run (the knowledge graph, the back end's and the front end's unit tests, building a shared image whose dependencies changed) runs beside other runs.
 A run that finds the lock held prints `nm-test: waiting for the end-to-end lock since <time>, held by <project> (pid <pid>, <worktree>) since <time>`, and `nm-test: has the end-to-end lock at <time>` once it has it; after 45 minutes without it the run fails with `no end-to-end slot within 45 minutes`.
 To see who holds it and who waits: `cat ~/.local/state/conventioner/e2e.lock` names the last run to take it, and `lsof ~/.local/state/conventioner/e2e.lock` lists every process with it open, the holder and its guard, and each waiting run with its `flock`.
 The lock is the one place T19's `team-capacity run --kind gate:conventioner` takes over, with the lock kept as the fallback where `team-capacity` is absent; it can go once the browser is isolated from the host's network changes.
