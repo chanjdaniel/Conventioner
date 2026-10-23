@@ -31,9 +31,9 @@ def slot(tmp_path):
     return worktree
 
 
-def run_wrapper(worktree, bin_dir, *args):
+def run_wrapper(worktree, bin_dir, *args, **extra):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("COMPOSE_", "TH_", "TEAM_"))}
-    env.update(TH_DIR=str(worktree), PATH=f"{bin_dir}{os.pathsep}{env['PATH']}")
+    env.update(TH_DIR=str(worktree), PATH=f"{bin_dir}{os.pathsep}{env['PATH']}", **extra)
     return subprocess.run([str(WRAPPER), *args], env=env, capture_output=True, text=True)
 
 
@@ -61,3 +61,28 @@ def test_a_missing_bind_source_is_never_created(slot, docker_calls):
     assert result.returncode == 0, result.stderr
     assert not (slot / "back-end").exists()
     assert not (slot / "front-end").exists()
+
+
+def test_an_explicit_identity_needs_no_mongo_express_port(tmp_path, docker_calls):
+    # mongo-express is a tool, in its own profile; without a port Docker picks one.
+    bin_dir, log = docker_calls
+    worktree = tmp_path / "gate" / "Conventioner"
+    worktree.mkdir(parents=True)
+    shutil.copy(REPO / "docker-compose.yml", worktree)
+
+    result = run_wrapper(
+        worktree,
+        bin_dir,
+        "--profile",
+        "tools",
+        "up",
+        "-d",
+        "mongo-express",
+        COMPOSE_PROJECT_NAME="nmtest-4242",
+        TH_MONGO_PORT="41001",
+        TH_BACKEND_PORT="41002",
+        TH_FRONTEND_PORT="41003",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert log.read_text().rstrip("\n").endswith(" --profile tools up -d mongo-express")

@@ -13,7 +13,13 @@
 # Or provide an explicit stack identity (for non-treehouse contexts like CI or
 # no-mistakes gates):
 #     COMPOSE_PROJECT_NAME=nmtest-12345  TH_BACKEND_PORT=...  TH_FRONTEND_PORT=...
-#     TH_MONGO_PORT=...  TH_MONGO_EXPRESS_PORT=...  th-compose.sh up -d
+#     TH_MONGO_PORT=...  th-compose.sh up -d
+#
+# mongo-express is in the `tools` profile, so it starts only when asked for:
+#     th-compose.sh --profile tools up -d mongo-express
+# (TH_MONGO_EXPRESS_PORT names its host port; unset, Docker picks a free one.)
+#
+# Every port is published on 127.0.0.1 only.
 #
 # Resolution order:
 #   1. COMPOSE_PROJECT_NAME + TH_BACKEND_PORT already set -> use as-is
@@ -38,9 +44,9 @@ if [ ! -f "$WT/docker-compose.yml" ]; then
 fi
 
 # Resolution order: 1) explicit env  2) treehouse slot  3) fail loud
-if [ -n "${COMPOSE_PROJECT_NAME:-}" ] && [ -n "${TH_BACKEND_PORT:-}" ] && [ -n "${TH_MONGO_PORT:-}" ] && [ -n "${TH_FRONTEND_PORT:-}" ] && [ -n "${TH_MONGO_EXPRESS_PORT:-}" ]; then
+if [ -n "${COMPOSE_PROJECT_NAME:-}" ] && [ -n "${TH_BACKEND_PORT:-}" ] && [ -n "${TH_MONGO_PORT:-}" ] && [ -n "${TH_FRONTEND_PORT:-}" ]; then
   # Explicit stack identity provided — use it as-is. The caller owns every
-  # TH_* port variable and the project name. We skip slot detection entirely
+  # TH_* port variable it sets and the project name. We skip slot detection entirely
   # so this works from a no-mistakes worktree, CI, or any directory.
   :
 elif SLOT="$(printf '%s' "$WT" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#p')" && [[ "$SLOT" =~ ^[0-9]+$ ]]; then
@@ -52,9 +58,9 @@ elif SLOT="$(printf '%s' "$WT" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#
   export TH_MONGO_EXPRESS_PORT=$((8081 + OFF))
 else
   echo "th-compose: '$WT' is not a treehouse worktree and COMPOSE_PROJECT_NAME / TH_BACKEND_PORT are not set." >&2
-  echo "            Set COMPOSE_PROJECT_NAME, TH_BACKEND_PORT, TH_FRONTEND_PORT," >&2
-  echo "            TH_MONGO_PORT, and TH_MONGO_EXPRESS_PORT in the environment" >&2
-  echo "            to provide an explicit stack identity, or run from inside a" >&2
+  echo "            Set COMPOSE_PROJECT_NAME, TH_BACKEND_PORT, TH_FRONTEND_PORT" >&2
+  echo "            and TH_MONGO_PORT in the environment to provide an explicit" >&2
+  echo "            stack identity, or run from inside a" >&2
   echo "            treehouse worktree. For the primary checkout, use plain" >&2
   echo "            'docker compose' instead." >&2
   exit 1
@@ -70,6 +76,6 @@ for mountpoint in back-end/flask_session front-end/node_modules; do
   fi
 done
 
-echo "th-compose: project=${COMPOSE_PROJECT_NAME:-?}  mongo=${TH_MONGO_PORT:-?}  backend=${TH_BACKEND_PORT:-?}  frontend=${TH_FRONTEND_PORT:-?}  mongo-express=${TH_MONGO_EXPRESS_PORT:-?}" >&2
+echo "th-compose: project=${COMPOSE_PROJECT_NAME:-?}  mongo=${TH_MONGO_PORT:-?}  backend=${TH_BACKEND_PORT:-?}  frontend=${TH_FRONTEND_PORT:-?}  mongo-express=${TH_MONGO_EXPRESS_PORT:-any} (--profile tools)" >&2
 
 exec docker compose -f "$WT/docker-compose.yml" -f "$OVERLAY" "$@"

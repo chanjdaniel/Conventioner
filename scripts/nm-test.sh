@@ -2,7 +2,7 @@
 #
 # Deterministic full-suite test runner for the no-mistakes gate.
 #
-# Computes a unique, collision-free stack identity (project name + 4 free ports)
+# Computes a unique, collision-free stack identity (project name + 3 free ports)
 # so it runs safely alongside the primary stack. Tears the stack down however the
 # run ends: an EXIT trap, and a guard that outlives a SIGKILL (see Teardown).
 #
@@ -50,8 +50,7 @@ COMPOSE_PROJECT_NAME="$RUN_ID"
 TH_MONGO_PORT="$(find_free_port)"
 TH_BACKEND_PORT="$(find_free_port)"
 TH_FRONTEND_PORT="$(find_free_port)"
-TH_MONGO_EXPRESS_PORT="$(find_free_port)"
-export COMPOSE_PROJECT_NAME TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT TH_MONGO_EXPRESS_PORT
+export COMPOSE_PROJECT_NAME TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT
 
 # The team's labels, which the overlay puts on every container, volume and network of the stack,
 # so whatever is left of it says what it is (docs/implementation/testing/ci-and-the-gate.md).
@@ -68,7 +67,7 @@ TEAM_EXPIRES="$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.time
 export TEAM_EXPIRES
 
 echo "nm-test: project=$COMPOSE_PROJECT_NAME"
-echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_FRONTEND_PORT mongo-express=$TH_MONGO_EXPRESS_PORT"
+echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_FRONTEND_PORT"
 
 # ── Teardown ─────────────────────────────────────────────────────────────────
 

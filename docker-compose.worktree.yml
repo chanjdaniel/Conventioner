@@ -4,9 +4,12 @@
 # can run the stack in parallel without colliding. It gives each worktree:
 #   - a unique COMPOSE_PROJECT_NAME (isolates containers, networks, volumes)
 #   - unique container_names
-#   - offset host ports
+#   - offset host ports, published on 127.0.0.1 only
 #   - the team's ownership labels, on every container, named volume and network
 #   - no restart by itself, and no bind mount that creates its missing source
+#   - memory, CPU and process limits per service
+#   - mongo-express only when asked for (`th-compose.sh --profile tools up -d`)
+#   - email off unless the caller turns it on
 #
 # Driven exclusively by scripts/th-compose.sh, which exports COMPOSE_PROJECT_NAME
 # and the TH_*_PORT variables. Do not use this file directly - the variables have
@@ -20,6 +23,11 @@
 # worktrees, and each restart re-created the missing mount sources as root, which
 # blocked every later gate run until they were removed with sudo. Now a stack
 # whose worktree is gone fails to start instead.
+#
+# The limits are service-level keys, which plain `docker compose up` honours
+# (`deploy.resources` is for Swarm). Each sits well above the service's peak in
+# a full gate run, as measured in docs/TESTING.md ("Stack limits"); a limit
+# within 20% of a measured peak is raised.
 
 # The ownership contract: who started the stack, for which task, of which kind,
 # from which worktree, and when the reaper may remove it. Each is empty when its
@@ -37,7 +45,13 @@ services:
     restart: "no"
     labels: *team-labels
     ports: !override
-      - "${TH_MONGO_PORT}:27017"
+      - "127.0.0.1:${TH_MONGO_PORT}:27017"
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 512
+    # The base flags, plus a cache sized for the limit: by default WiredTiger
+    # takes half of the host's memory, not of the container's.
+    command: !override ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log", "--wiredTigerCacheSizeGB", "0.25"]
     volumes: !override
       - mongodb_data:/data/db
       - type: bind
@@ -52,7 +66,13 @@ services:
     restart: "no"
     labels: *team-labels
     ports: !override
-      - "${TH_BACKEND_PORT}:5000"
+      - "127.0.0.1:${TH_BACKEND_PORT}:5000"
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 256
+    environment:
+      # An agent stack has no Resend key, so it sends no email unless asked to.
+      - DISABLE_EMAIL=${DISABLE_EMAIL:-true}
     volumes: !override
       - type: bind
         source: ./back-end
@@ -66,7 +86,10 @@ services:
     restart: "no"
     labels: *team-labels
     ports: !override
-      - "${TH_FRONTEND_PORT}:5173"
+      - "127.0.0.1:${TH_FRONTEND_PORT}:5173"
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 256
     volumes: !override
       - type: bind
         source: ./front-end
@@ -79,8 +102,14 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-mongo-express
     restart: "no"
     labels: *team-labels
+    # A database browser for a person, so it starts only with `--profile tools`.
+    # Without TH_MONGO_EXPRESS_PORT, Docker picks a free host port.
+    profiles: [tools]
     ports: !override
-      - "${TH_MONGO_EXPRESS_PORT}:8081"
+      - "127.0.0.1:${TH_MONGO_EXPRESS_PORT:-}:8081"
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
 
 networks:
   conventioner_network:
