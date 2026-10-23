@@ -30,7 +30,7 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 | `knowledge-graph` | the checker's tests and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `docker-build` | `docker compose build` |
-| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; on failure it uploads the report and posts a flaky-test summary |
+| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; the start retries a handful of times because its pull of `mongo:7` and `mongo-express:latest` from Docker Hub fails a shard outright on a transient registry 500; on failure it uploads the report and posts a flaky-test summary |
 | `e2e` | passes only when every shard did |
 
 **Branch protection requires five checks** on both `dev` and `main`: `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e`.

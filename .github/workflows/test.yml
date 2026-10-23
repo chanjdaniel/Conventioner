@@ -131,7 +131,17 @@ jobs:
         working-directory: front-end
         run: npx playwright install chromium --with-deps
       - run: docker compose build
-      - run: docker compose up -d
+      # `up` pulls `mongo:7` and `mongo-express:latest` from Docker Hub, which fails a shard
+      # outright when the registry returns a transient 500 (three shards pulled, the fourth did
+      # not). Retry a handful of times so one flaky pull cannot sink a whole run.
+      - name: Start the stack
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            docker compose up -d && exit 0
+            echo "docker compose up -d failed (attempt $attempt of 6); retrying" >&2
+            sleep 10
+          done
+          exit 1
       - run: ./scripts/seed_fixture.sh
       - name: Run Playwright tests
         working-directory: front-end
