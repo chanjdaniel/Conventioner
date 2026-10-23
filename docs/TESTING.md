@@ -182,6 +182,21 @@ npm run test:e2e
 
 E2E tests use Playwright driving Chromium against the running Docker stack.
 
+A second stack beside your worktree's, say for a run that must not touch the slot's database, gets
+its own project name and lets Docker pick its ports (`TH_PORTS=auto`):
+
+```bash
+export COMPOSE_PROJECT_NAME=my-e2e TH_PORTS=auto
+scripts/th-compose.sh up -d            # prints the ports Docker picked
+eval "$(scripts/th-compose.sh ports)"  # exports them for seed_fixture.sh and Playwright
+./scripts/seed_fixture.sh
+(cd front-end && npm run test:e2e)
+scripts/th-compose.sh down -v
+```
+
+`scripts/nm-test.sh` runs its stack this way; [CI and the gate](implementation/testing/ci-and-the-gate.md#stack-identity)
+has the details.
+
 **Which spec to extend**: `market-journey.spec.ts` is the only spec that walks the whole journey
 in one organizer session, and every other spec is a slice of it; [the market journey
 spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
