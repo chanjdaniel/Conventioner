@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-23
+verified: 2026-10-24
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -50,7 +50,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-Install **both** files. `requirements-dev.txt` is only `pytest`; it does not pull in the runtime
+Install **both** files. `requirements-dev.txt` is only `pytest` and what it needs; it does not pull in the runtime
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
 why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
 

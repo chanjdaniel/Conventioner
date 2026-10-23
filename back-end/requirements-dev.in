@@ -1,0 +1,2 @@
+# The test tools. Edit them here; requirements-dev.txt is their lock (scripts/lock-backend-requirements.sh).
+pytest>=8.0

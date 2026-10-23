@@ -139,7 +139,7 @@ echo ""
 echo "===== Knowledge Graph ====="
 
 cd "$REPO_ROOT"
-$PYTHON -m pip install -q pytest
+$PYTHON -m pip install -q -r back-end/requirements-dev.txt
 $PYTHON -m pytest scripts/tests -q
 $PYTHON scripts/knowledge_graph.py check
 echo "Knowledge graph: OK"

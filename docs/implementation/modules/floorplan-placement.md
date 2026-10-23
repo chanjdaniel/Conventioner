@@ -4,13 +4,14 @@ kind: module
 describes:
   - back-end/services/placement_service.py
   - back-end/api/floorplans_placement.py
+  - back-end/requirements-floorplan-solver.in
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
   - back-end/api/floorplans_analysis.py
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-10-22
+verified: 2026-10-24
 sources:
   - bug/38
   - E26/F09/S01
@@ -46,8 +47,8 @@ A thread timeout wrapped around the call bounded nothing: it raised in the calle
 When the solver fails or finds no packing, a grid-based greedy placement runs instead.
 
 **Production has no `pyckingsolver`.**
-It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (glibc 2.34), so it lives in [`back-end/requirements-floorplan-solver.txt`](../../../back-end/requirements-floorplan-solver.txt), which Docker, CI and local development install; the service imports it lazily, and production's Auto-Place runs the grid.
-**Any dependency added to `requirements.txt` must install on glibc 2.34**: this one failed every production build from June to October 2026.
+It ships only `manylinux_2_35` wheels and Vercel builds on Amazon Linux 2023 (glibc 2.34), so it lives in [`back-end/requirements-floorplan-solver.in`](../../../back-end/requirements-floorplan-solver.in) and its lock [`requirements-floorplan-solver.txt`](../../../back-end/requirements-floorplan-solver.txt), which Docker, CI and local development install; the service imports it lazily, and production's Auto-Place runs the grid.
+**Any dependency added to `requirements.in` must install on glibc 2.34**: this one failed every production build from June to October 2026.
 
 **Konva cannot read a CSS variable.**
 Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had, silently.
