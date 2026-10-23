@@ -7,7 +7,7 @@ describes:
   - scripts/nm-test.sh
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
-verified: 2026-10-22
+verified: 2026-10-23
 ---
 
 # CI and the gate
@@ -47,7 +47,22 @@ Without it the gate has no way to run the suite, so it is the only workable sett
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
 It runs, in order, the knowledge graph's checker tests and `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
 Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
-Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and four free ports, each found by binding to port 0; an `EXIT` trap saves the back end's and front end's logs to `.stack-logs/` and tears the stack and its volumes down, however the run ends.
+Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and four free ports, each found by binding to port 0.
+It labels the stack as a gate run (`TEAM_KIND=gate`, `TEAM_WORKTREE` its repository root, `TEAM_EXPIRES` two hours after its start, and `TEAM_OWNER=agent-team` only when `TEAM_TASK` is set), and the [worktree overlay](../../../scripts/README-treehouse.md) puts those labels on every container, volume and network, with `restart: "no"` and no bind mount that creates its missing source.
+
+**A run's stack is gone within a minute, however the run ends.**
+
+| The run | What tears its stack down |
+| --- | --- |
+| passes, fails, or is sent `SIGTERM` | the `EXIT` trap: it saves the back end's and front end's logs to `.stack-logs/`, then `down -v --remove-orphans`, printing any error |
+| is aborted by the gate (`SIGTERM`, then `SIGKILL`, to its process group) | the teardown guard, since the `SIGKILL` kills the trap's own `docker` commands |
+| is sent `SIGKILL` | the teardown guard, since nothing of the script runs after it |
+
+The teardown guard is a subshell that `nm-test.sh` starts with job control just before `up`, so it has a process group of its own and the gate's group kill misses it.
+It waits for the run's process to be gone, then runs `docker compose -p <project> down -v --remove-orphans` (no compose file, as the gate may already be deleting the worktree), retrying until no container, volume or network of the project is left; after a normal exit it finds nothing left.
+It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it holds nothing of the gate's open once the run is over.
+Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
+The guard does not remove the run's virtual environment, which the trap does; a killed run leaves it in `$TMPDIR`.
 It never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
 CI's workflow keeps `--with-deps`, which is correct on GitHub's Ubuntu runners.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.

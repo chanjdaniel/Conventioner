@@ -6,7 +6,7 @@ describes:
   - scripts/th-compose.sh
   - scripts/th-return.sh
   - docker-compose.worktree.yml
-verified: 2026-10-21
+verified: 2026-10-23
 ---
 
 # Treehouse worktrees for agents
@@ -88,6 +88,19 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 
 ## Notes / gotchas
 
+- **A worktree's stack never restarts by itself.** The overlay sets `restart: "no"`
+  on every service, so after a reboot or a Docker restart the stack stays down until
+  `scripts/th-compose.sh up -d` brings it back. Its bind mounts are in long syntax with
+  `create_host_path: false`: a stack whose worktree was deleted fails to start rather
+  than re-creating the worktree's folders as root, and `th-compose.sh` makes the
+  mountpoints of the volumes nested in them (`back-end/flask_session`,
+  `front-end/node_modules`) as you, since Docker would make them as root.
+- **Every stack carries the team's labels.** The overlay labels each container, named
+  volume and network with `io.github.chanjdaniel.team.owner`, `.task`, `.kind`,
+  `.worktree` and `.expires`, taken from `TEAM_OWNER`, `TEAM_TASK`, `TEAM_KIND`,
+  `TEAM_WORKTREE` and `TEAM_EXPIRES`, each empty when its variable is unset. A named
+  volume keeps the labels it was created with, so a stack for another task needs a
+  `down -v` first.
 - **Returning a slot wipes its DB/volumes.** `th-return.sh` runs `docker compose
   down -v`, which removes the worktree's isolated mongodb and backend sessions
   volumes. A re-leased worktree always starts with a fresh DB - this

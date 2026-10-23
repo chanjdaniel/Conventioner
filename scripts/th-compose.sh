@@ -60,6 +60,16 @@ else
   exit 1
 fi
 
+# A volume mounted inside a bind mount needs a mountpoint in the worktree, and Docker creates a
+# missing one as root, which then outlives the stack and blocks deleting the worktree. So make
+# each one as the user first - but only inside a source that exists: a worktree whose sources are
+# gone must fail to start (the overlay's `create_host_path: false`), not start on empty folders.
+for mountpoint in back-end/flask_session front-end/node_modules; do
+  if [ -d "$WT/$(dirname "$mountpoint")" ]; then
+    mkdir -p "$WT/$mountpoint"
+  fi
+done
+
 echo "th-compose: project=${COMPOSE_PROJECT_NAME:-?}  mongo=${TH_MONGO_PORT:-?}  backend=${TH_BACKEND_PORT:-?}  frontend=${TH_FRONTEND_PORT:-?}  mongo-express=${TH_MONGO_EXPRESS_PORT:-?}" >&2
 
 exec docker compose -f "$WT/docker-compose.yml" -f "$OVERLAY" "$@"
