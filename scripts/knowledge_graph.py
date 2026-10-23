@@ -90,7 +90,9 @@ SOURCE = re.compile(
     r"|brain-dump/\d{4}-\d{2}-\d{2}(?:#\d+)?"
     r"|qc/2026-09-21"
     r"|bug/\d+"
-    r"|known-gap/\d+)$"
+    r"|known-gap/\d+"
+    r"|T\d+"
+    r"|decision/\d{4}-\d{2}-\d{2})$"
 )
 WORK_ITEM = re.compile(r"\bE\d{2}(?:/F\d{2}(?:/S\d{2})?)?\b")
 
@@ -626,9 +628,17 @@ def changed_lines(repo, base, head, path):
     return ranges
 
 
+def verified_day(doc):
+    value = doc.meta.get("verified", (None,))[0]
+    try:
+        return datetime.date.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None
+
+
 def drift(repo, base, head):
     changed = set(repo.git("diff", "--name-only", "--no-renames", f"{base}...{head}").split("\n")) - {""}
-    spans_at_head, hunks = {}, {}
+    spans_at_head, hunks, last_changed = {}, {}, {}
 
     def touched(file):
         if file not in hunks:
@@ -641,11 +651,21 @@ def drift(repo, base, head):
             spans_at_head[file] = symbol_spans(file, text) or {}
         return spans_at_head[file]
 
+    def newest_day(file):
+        """The day the range last touched the file: its own commits, not a merge carrying them, each
+        dated by its committer's own calendar day, as `verified` is. The committer date, because a
+        rebase, cherry-pick or amend moves it to the day the change reached this code, while the
+        author date stays on the day it was first written."""
+        if file not in last_changed:
+            days = repo.git("log", "--format=%cs", "--no-merges", f"{base}..{head}", "--", file).split()
+            last_changed[file] = max(map(datetime.date.fromisoformat, days), default=None)
+        return last_changed[file]
+
     warnings = []
     for path, doc in sorted(repo.nodes.items()):
         if path in changed or not isinstance(doc.meta.get("describes", (None,))[0], list):
             continue
-        verified = doc.meta.get("verified")
+        verified, day = doc.meta.get("verified"), verified_day(doc)
         for value, _ in doc.meta["describes"][0]:
             file, _, symbol = value.partition("#")
             for hit in sorted(changed):
@@ -658,7 +678,7 @@ def drift(repo, base, head):
                 else:
                     first, last = spans(file)[symbol]
                     matches = any(a <= last and b >= first for a, b in touched(file))
-                if matches:
+                if matches and (day is None or newest_day(hit) is None or day < newest_day(hit)):
                     warnings.append((path, verified, value, hit))
     for path, verified, value, hit in warnings:
         line = verified[1] if verified else 1

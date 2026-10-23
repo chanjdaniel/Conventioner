@@ -191,7 +191,7 @@ const condition = computed(() => {
   align-self: stretch;
   display: flex;
   gap: 30px;
-  padding: 40px;
+  padding: var(--space-6);
 }
 
 .settings-body-stacked {

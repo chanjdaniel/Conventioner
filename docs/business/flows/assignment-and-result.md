@@ -30,6 +30,7 @@ sources:
   - E28/F02/S01
   - E35/F03/S01
   - E35/F03/S02
+  - T15
 ---
 
 # The assignment and its result
@@ -121,6 +122,7 @@ Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
 
 **Status:** Works (walked live; the published case read from the code as of E36/F04/S02).
 Once the market can no longer return to Assignment, or its results are published, the priority and options are read only and the page says why ("The assignment for this market is settled. …", or "Results are published, so the assignment is settled: …"); Assign is gone.
+A person who may change nothing reads the rules read only too, with no Assign, and is told why once, above the page; the page's own line says only the rules' lock (T15).
 Covered by: `the-assignment-rules-close.spec.ts`.
 
 ## I7. Publish results

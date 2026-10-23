@@ -34,7 +34,7 @@ The back end refuses to boot without six things, all checked by [`check_public_e
 | `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py) | which websites may spend the organizer's `SameSite=None` cookie; `*` is refused, and so is an entry that is not an origin |
 | `RESEND_API_KEY` | [`utils/email.py`](../../../back-end/utils/email.py) | the mail that carries every verification link, reset link and sign-in code |
 | `SESSION_TYPE` | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default |
-| `TRUSTED_PROXY_HOPS` | [`utils/proxy.py`](../../../back-end/utils/proxy.py) | the address reCAPTCHA scores a signup on |
+| `TRUSTED_PROXY_HOPS` | [`utils/proxy.py`](../../../back-end/utils/proxy.py) | the address reCAPTCHA scores a signup on, and the caller the applicant sign-in limits count |
 
 Three fail silently when unset (the captcha passes everybody, a forgeable session, a credentialed policy for every origin); the mail key and the session store fail loudly but name nothing; the hop count fails more quietly than any, showing only in a reCAPTCHA score.
 What each one is, and what an unset one would do, is the deployment's checklist in [RELEASING.md](../../RELEASING.md#pre-deploy-required-production-environment); **keep that table in step with the check**, because a deploy doc that is wrong is worse than one that is missing: it will be trusted.
@@ -46,7 +46,7 @@ Keep them apart: flask-cors installs an `after_request` handler per call, so a c
 **A boot requirement defends something the product serves.**
 A requirement with nothing behind it teaches operators to work around the check.
 `TRUSTED_PROXY_HOPS` is required because `request.remote_addr` is what organizer signup hands Google as reCAPTCHA's `remoteip` (`api/users.py`), and it became load-bearing the moment `RECAPTCHA_SECRET_KEY` did: before, a deployment with no secret took the bypass and no token reached Google.
-It serves the captcha alone: no per-address rate limit exists in the code, though the applicant endpoints it was meant to bound are served now.
+The applicant sign-in limits count each caller by the same address ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), so a wrong hop count would put every applicant behind one caller's limit.
 Make a requirement follow its caller, not the module it was first written for.
 
 ## The one escape hatch

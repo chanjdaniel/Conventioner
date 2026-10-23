@@ -33,9 +33,10 @@ test('an archived market that ran is shown as a record, with nothing to change',
   );
   await archive(request, marketId);
 
-  // The plan says why it cannot change, and its controls do nothing.
+  // The rail says why it cannot change, once (T15), and the plan's controls do nothing.
   await page.goto(marketSetupPath(marketId, 'setup'));
-  await expect(page.getByTestId('market-read-only')).toContainText('archived', { timeout: 15000 });
+  await expect(page.getByTestId('phase-rail-frozen')).toContainText('archived', { timeout: 15000 });
+  await expect(page.getByTestId('market-read-only')).toHaveCount(0);
   const dates = page.getByTestId('plan-card-dates').getByRole('button');
   await expect(dates.first()).toBeDisabled();
   // And the server is the rule, not the disabled control.

@@ -140,18 +140,20 @@ test.describe('Plan cards share a row', () => {
     });
   }
 
-  test('below 900px of room, every card is full width, in plan order', async ({
+  test("at the app's 1000px floor the plan keeps two tracks, nothing truncated", async ({
     authenticatedPage: page,
   }) => {
-    await page.setViewportSize({ width: 900, height: 900 });
+    // The frame's gutter and the page's own 24px leave the plan 920px of room at the floor, over
+    // the 900 where the grid falls to one track: two half cards of 444, past the 434 a half
+    // card is allowed. It was one track here while the plan padded itself 40px (T15).
+    await page.setViewportSize({ width: 1000, height: 900 });
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-locations')).toBeVisible({ timeout: 15000 });
     const b = await boxes(page);
 
-    const widths = new Set(CARDS.map((card) => b[card].w));
-    expect(widths.size, JSON.stringify(b)).toBe(1);
-    const tops = CARDS.map((card) => b[card].y);
-    expect(tops).toEqual([...tops].sort((a, c) => a - c));
+    expect(b.tiers.y, JSON.stringify(b)).toBe(b.locations.y);
+    expect(b.intake.y).toBe(b.form.y);
+    expect(b.tiers.w).toBeGreaterThanOrEqual(434);
     expect(await truncatedSelects(page)).toEqual([]);
   });
 });

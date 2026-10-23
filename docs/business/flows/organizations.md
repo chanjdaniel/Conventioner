@@ -7,6 +7,8 @@ sources:
   - E26/F08/S01
   - bug/9
   - bug/37
+  - T15
+  - decision/2026-10-20
 ---
 
 # Organizations
@@ -17,7 +19,7 @@ sources:
 
 A market must belong to an organization, and its organization never changes after creation.
 An organization's people are its Owner, its Admins and its Members; only the owner renames it or adds an admin, the owner or an admin adds a member, and the owner removes anyone but themselves while an admin removes only members ([the organization document, and roles](../../implementation/data/organization-document.md#the-organization)).
-Being in an organization in any role gives Viewer, and only Viewer, on its markets ([what each role may do](../rules/what-each-role-may-do.md)).
+Its owner and admins run every market it holds as the market's Admin does, and a member reads them; a role a market gives someone counts beside that, and the higher one is held ([what each role may do](../rules/what-each-role-may-do.md)).
 
 ## B1. Create an organization
 
@@ -38,15 +40,15 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 1. On an organization card, "Manage".
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
 3. Expect the person listed and the dialog still open (closing is not saving).
-4. Sign in as that person: every market of the organization is visible to them as a Viewer.
+4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Result), and a member sees every one as a Viewer.
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
-Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`.
+Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market").
 
 ## B3. Remove a person
 
 **Status:** Works (walked live).
-"Remove" beside them, with no confirmation; they lose Viewer access to the organization's markets unless the market gives them a role of its own.
+"Remove" beside them, with no confirmation; they lose what the organization gave them on its markets (Admin for an admin, Viewer for a member) and keep any role a market gives them of its own.
 Covered by: `access-control.spec.ts` ("org membership changes").
 
 ## B4. Rename an organization
