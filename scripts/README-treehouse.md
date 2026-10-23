@@ -119,6 +119,17 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
   memory, not the container's. A full gate run's peaks are in
   [`docs/TESTING.md`](../docs/TESTING.md#stack-limits); raise a limit there, with a
   measurement, if a stack is OOM-killed (`docker inspect -f '{{.State.OOMKilled}}'`).
+- **Every worktree shares its images.** The overlay runs `conventioner/backend:<tag>`
+  and `conventioner/frontend:<tag>`, tagged by `scripts/image-tags.sh` with a hash of
+  the files each is built from, so every slot stack and gate run with the same
+  dependencies uses one image, and the source comes from the bind mounts.
+  `th-compose.sh` builds an image only when none has its tag yet (`th-compose.sh
+  ensure-images` does just that, starting nothing); `th-compose.sh build` always
+  builds. The overlay never pulls them (`pull_policy: never`): `conventioner/*` on
+  Docker Hub is not ours. After the front end's dependencies change, a stack keeps
+  its old `node_modules` volume: `th-compose.sh rm -s -f -v frontend` then
+  `th-compose.sh up -d` refills it from the new image (`up --renew-anon-volumes`
+  leaves the old volume behind).
 - **Email is off in a worktree's stack.** The overlay sets the backend's `DISABLE_EMAIL`
   to `true` unless the shell sets it, since an agent's stack has no Resend key;
   `DISABLE_EMAIL=false scripts/th-compose.sh up -d` sends real mail.

@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from build_inputs import copy_build_inputs
 
 REPO = Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "scripts" / "th-compose.sh"
@@ -45,13 +46,17 @@ def render(worktree, *args, **env):
     return json.loads(result.stdout)
 
 
-@pytest.fixture
-def slot(tmp_path):
-    """A treehouse slot's worktree, as the wrapper reads it from the path; only the base file is needed."""
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+def slot_worktree(root, number):
+    """A treehouse slot's worktree, as the wrapper reads it from the path: the base file and the images' build inputs."""
+    worktree = root / ".treehouse" / "Conventioner-abc123" / str(number) / "Conventioner"
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
-    return worktree
+    return copy_build_inputs(worktree)
+
+
+@pytest.fixture
+def slot(tmp_path):
+    return slot_worktree(tmp_path, 3)
 
 
 # No TH_MONGO_EXPRESS_PORT: the explicit mode does not need one, since mongo-express is a tool.
@@ -262,4 +267,58 @@ def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
         "backend": [("127.0.0.1", "5000", 5000)],
         "frontend": [("127.0.0.1", "5173", 5173)],
         "mongo-express": [("127.0.0.1", "8081", 8081)],
+    }
+
+
+def image_tags(worktree):
+    result = subprocess.run([str(REPO / "scripts" / "image-tags.sh"), str(worktree)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    return dict(line.split("=", 1) for line in result.stdout.splitlines())
+
+
+def test_the_back_end_and_front_end_run_the_shared_images_of_their_build_inputs(worktree_and_env):
+    worktree, env = worktree_and_env
+    tags = image_tags(worktree)
+
+    services = render(worktree, **env)["services"]
+
+    assert services["backend"]["image"] == f"conventioner/backend:{tags['TH_BACKEND_TAG']}"
+    assert services["frontend"]["image"] == f"conventioner/frontend:{tags['TH_FRONTEND_TAG']}"
+
+
+def test_a_shared_image_is_built_when_missing_and_never_pulled(worktree_and_env):
+    # Docker Hub's conventioner/* is not ours: a missing image is built from the worktree.
+    worktree, env = worktree_and_env
+    services = render(worktree, **env)["services"]
+
+    for name in ("backend", "frontend"):
+        assert services[name]["pull_policy"] == "never", name
+        assert "build" in services[name], name
+
+
+def test_two_slots_with_the_same_dependencies_run_the_same_images(tmp_path):
+    images = [
+        {name: spec.get("image") for name, spec in render(slot_worktree(tmp_path, number))["services"].items()}
+        for number in (2, 3)
+    ]
+
+    assert images[0] == images[1]
+    assert images[0]["backend"].startswith("conventioner/backend:")
+
+
+def test_the_primary_stack_names_its_own_images():
+    # The base file alone, Daniel's primary stack and CI's, builds images named after its project.
+    result = subprocess.run(
+        ["docker", "compose", "-f", str(REPO / "docker-compose.yml"), "-p", "conventioner", "config", "--images"],
+        env=clean_env(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    assert set(result.stdout.split()) == {
+        "mongo:7",
+        "conventioner-backend",
+        "conventioner-frontend",
+        "mongo-express:latest",
     }

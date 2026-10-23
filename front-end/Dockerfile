@@ -1,25 +1,23 @@
 FROM node:20-alpine
 
-WORKDIR /app
-
 # Create a non-root user (using 1001 to avoid conflicts with base image)
 RUN addgroup -g 1001 appuser && \
     adduser -D -u 1001 -G appuser appuser
 
+# The work directory is appuser's before anything is written into it, so `npm ci` writes
+# node_modules as appuser once, instead of as root followed by a `chown -R` layer that copies it.
+WORKDIR /app
+RUN chown appuser:appuser /app
+USER appuser
+
 # Copy package files
 COPY --chown=appuser:appuser package*.json ./
 
-# Install dependencies as root (needed for npm ci)
+# Install dependencies
 RUN npm ci
 
 # Copy application code
 COPY --chown=appuser:appuser . .
-
-# Change ownership of node_modules (created by npm ci)
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
 
 # Expose port
 EXPOSE 5173

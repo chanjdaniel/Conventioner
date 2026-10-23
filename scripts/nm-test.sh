@@ -180,7 +180,8 @@ export DISABLE_CAPTCHA=true
 export DISABLE_EMAIL=true
 
 cd "$REPO_ROOT"
-"$REPO_ROOT/scripts/th-compose.sh" build
+# The images every run with the same dependencies shares: built only when none has their tag yet.
+"$REPO_ROOT/scripts/th-compose.sh" ensure-images
 
 # One E2E phase at a time on this machine, from the stack's start to its teardown: a stack starting
 # or stopping breaks another run's browser with net::ERR_NETWORK_CHANGED. The teardown guard

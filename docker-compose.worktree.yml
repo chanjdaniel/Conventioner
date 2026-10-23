@@ -8,11 +8,13 @@
 #   - the team's ownership labels, on every container, named volume and network
 #   - no restart by itself, and no bind mount that creates its missing source
 #   - memory, CPU and process limits per service
+#   - the back end's and front end's images shared with every stack of the same
+#     dependencies, never pulled
 #   - mongo-express only when asked for (`th-compose.sh --profile tools up -d`)
 #   - email off unless the caller turns it on
 #
-# Driven exclusively by scripts/th-compose.sh, which exports COMPOSE_PROJECT_NAME
-# and the TH_*_PORT variables. Do not use this file directly - the variables have
+# Driven exclusively by scripts/th-compose.sh, which exports COMPOSE_PROJECT_NAME,
+# the TH_*_PORT variables and the TH_*_TAG image tags. Do not use this file directly - the variables have
 # no defaults on purpose, so a bare `docker compose -f ... -f this` would error.
 #
 # `!override` (Compose 2.24+) REPLACES the base list instead of appending to
@@ -28,6 +30,13 @@
 # (`deploy.resources` is for Swarm). Each sits well above the service's peak in
 # a full gate run, as measured in docs/TESTING.md ("Stack limits"); a limit
 # within 20% of a measured peak is raised.
+#
+# The back end's and front end's images are named by a hash of the files each is
+# built from (scripts/image-tags.sh), not by the project, so every slot stack and
+# gate run with the same dependencies shares one image, and the source reaches
+# the containers through the bind mounts. `pull_policy: never` builds a missing
+# image from the worktree instead of pulling it: conventioner/* on Docker Hub is
+# not ours.
 
 # The ownership contract: who started the stack, for which task, of which kind,
 # from which worktree, and when the reaper may remove it. Each is empty when its
@@ -63,6 +72,8 @@ services:
 
   backend:
     container_name: ${COMPOSE_PROJECT_NAME}-backend
+    image: conventioner/backend:${TH_BACKEND_TAG}
+    pull_policy: never
     restart: "no"
     labels: *team-labels
     ports: !override
@@ -83,6 +94,8 @@ services:
 
   frontend:
     container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    image: conventioner/frontend:${TH_FRONTEND_TAG}
+    pull_policy: never
     restart: "no"
     labels: *team-labels
     ports: !override

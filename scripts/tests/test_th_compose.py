@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from build_inputs import copy_build_inputs
 
 REPO = Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "scripts" / "th-compose.sh"
@@ -14,12 +15,21 @@ WRAPPER = REPO / "scripts" / "th-compose.sh"
 # The host ports the stub reports, as Docker would after an `up` with empty host ports.
 ASSIGNED = {"mongodb": "49153", "backend": "49154", "frontend": "49155", "mongo-express": "49156"}
 
-# A stub docker that logs its arguments with the stack's port variables as compose sees them, and
-# answers `compose ... port <service> <port>` like Docker for each service named in $RUNNING.
+# A stub docker that logs its arguments with the stack's port variables and image tags as compose
+# sees them, answers `image inspect <image>` like Docker, with no such image for each repository
+# named in $MISSING, and answers `compose ... port <service> <port>` like Docker for each service
+# named in $RUNNING.
 STUB = """#!/usr/bin/env bash
-printf '%s | mongo=%s backend=%s frontend=%s express=%s\\n' "$*" \\
+printf '%s | mongo=%s backend=%s frontend=%s express=%s | tags=%s %s\\n' "$*" \\
   "${TH_MONGO_PORT-unset}" "${TH_BACKEND_PORT-unset}" "${TH_FRONTEND_PORT-unset}" \\
-  "${TH_MONGO_EXPRESS_PORT-unset}" >> "$DOCKER_LOG"
+  "${TH_MONGO_EXPRESS_PORT-unset}" "${TH_BACKEND_TAG-unset}" "${TH_FRONTEND_TAG-unset}" >> "$DOCKER_LOG"
+if [ "$1 $2" = "image inspect" ]; then
+  image="${!#}"
+  case " $MISSING " in
+    *" ${image%%:*} "*) echo "Error: No such image: $image" >&2; exit 1 ;;
+  esac
+  exit 0
+fi
 while [ $# -gt 0 ] && [ "$1" != port ]; do shift; done
 [ $# -eq 0 ] && exit 0
 case " $RUNNING " in
@@ -49,7 +59,7 @@ def slot(tmp_path):
     worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
-    return worktree
+    return copy_build_inputs(worktree)
 
 
 def run_wrapper(worktree, bin_dir, *args, **extra):
@@ -59,6 +69,7 @@ def run_wrapper(worktree, bin_dir, *args, **extra):
         PATH=f"{bin_dir}{os.pathsep}{env['PATH']}",
         DOCKER_LOG=str(bin_dir.parent / "docker.log"),
         RUNNING=ALL_RUNNING,
+        MISSING="",
     )
     env.update(extra)
     return subprocess.run([str(WRAPPER), *args], env=env, capture_output=True, text=True)
@@ -68,11 +79,19 @@ def calls(log):
     return log.read_text().splitlines()
 
 
+def compose_calls(log):
+    """What compose was asked to do, without the arguments' variables."""
+    return [call.split(" | ")[0] for call in calls(log) if call.startswith("compose ")]
+
+
+def compose_args(log):
+    """Each compose call's arguments past the two compose files."""
+    return [call.split(".yml ", 2)[-1] for call in compose_calls(log)]
+
+
 def test_the_volumes_nested_in_a_bind_mount_get_their_mountpoints_from_the_user(slot, docker_calls):
     # Docker creates a missing mountpoint as root, inside the worktree.
     bin_dir, log = docker_calls
-    (slot / "back-end").mkdir()
-    (slot / "front-end").mkdir()
 
     result = run_wrapper(slot, bin_dir, "up", "-d")
 
@@ -80,25 +99,29 @@ def test_the_volumes_nested_in_a_bind_mount_get_their_mountpoints_from_the_user(
     for mountpoint in (slot / "back-end" / "flask_session", slot / "front-end" / "node_modules"):
         assert mountpoint.is_dir()
         assert mountpoint.stat().st_uid == os.getuid()
-    assert calls(log)[0].startswith("compose -f ")
+    assert compose_args(log) == ["up -d"]
 
 
-def test_a_missing_bind_source_is_never_created(slot, docker_calls):
+def test_a_missing_bind_source_is_never_created(tmp_path, docker_calls):
     # A worktree whose sources are gone must fail to start, not start on empty directories.
-    bin_dir, _ = docker_calls
+    bin_dir, log = docker_calls
+    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+    worktree.mkdir(parents=True)
+    shutil.copy(REPO / "docker-compose.yml", worktree)
 
-    result = run_wrapper(slot, bin_dir, "up", "-d")
+    result = run_wrapper(worktree, bin_dir, "up", "-d")
 
-    assert result.returncode == 0, result.stderr
-    assert not (slot / "back-end").exists()
-    assert not (slot / "front-end").exists()
+    assert result.returncode == 1
+    assert "back-end/Dockerfile is missing" in result.stderr
+    assert not (worktree / "back-end").exists()
+    assert not (worktree / "front-end").exists()
+    assert not log.exists()
 
 
 def test_an_explicit_identity_needs_no_mongo_express_port(tmp_path, docker_calls):
     # mongo-express is a tool, in its own profile; without a port Docker picks one.
     bin_dir, log = docker_calls
-    worktree = tmp_path / "gate" / "Conventioner"
-    worktree.mkdir(parents=True)
+    worktree = copy_build_inputs(tmp_path / "gate" / "Conventioner")
     shutil.copy(REPO / "docker-compose.yml", worktree)
 
     result = run_wrapper(
@@ -116,7 +139,7 @@ def test_an_explicit_identity_needs_no_mongo_express_port(tmp_path, docker_calls
     )
 
     assert result.returncode == 0, result.stderr
-    assert calls(log)[0].split(" | ")[0].endswith(" --profile tools up -d mongo-express")
+    assert compose_args(log) == ["--profile tools up -d mongo-express"]
 
 
 @pytest.fixture
@@ -125,7 +148,7 @@ def gate(tmp_path):
     worktree = tmp_path / "gate" / "Conventioner"
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
-    return worktree
+    return copy_build_inputs(worktree)
 
 
 AUTO = {"COMPOSE_PROJECT_NAME": "nmtest-4242", "TH_PORTS": "auto"}
@@ -142,9 +165,8 @@ def test_auto_mode_leaves_every_host_port_to_docker(gate, docker_calls):
     result = run_wrapper(gate, bin_dir, "build", **AUTO, TH_BACKEND_PORT="41002", TH_MONGO_EXPRESS_PORT="41004")
 
     assert result.returncode == 0, result.stderr
-    assert calls(log) == [
-        f"compose -f {gate}/docker-compose.yml -f {REPO}/docker-compose.worktree.yml build"
-        " | mongo= backend= frontend= express="
+    assert [call.split(" | ")[:2] for call in calls(log)] == [
+        [f"compose -f {gate}/docker-compose.yml -f {REPO}/docker-compose.worktree.yml build", "mongo= backend= frontend= express="]
     ]
 
 
@@ -160,7 +182,7 @@ def test_after_an_up_in_auto_mode_the_assigned_ports_are_printed(gate, docker_ca
         "TH_FRONTEND_PORT=49155",
     ]
     assert result.stdout == ""
-    assert calls(log)[0].split(" | ")[0].endswith(".yml up -d")
+    assert compose_args(log)[0] == "up -d"
 
 
 def test_the_printed_ports_are_those_of_the_services_that_run(gate, docker_calls):
@@ -261,3 +283,86 @@ def test_an_unknown_ports_mode_is_refused(gate, docker_calls):
     assert result.returncode == 1
     assert "TH_PORTS" in result.stderr
     assert not log.exists()
+
+
+def image_tags(worktree):
+    result = subprocess.run([str(REPO / "scripts" / "image-tags.sh"), str(worktree)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    return dict(line.split("=", 1) for line in result.stdout.splitlines())
+
+
+def test_compose_gets_the_tags_of_the_worktrees_build_inputs(slot, docker_calls):
+    # Whatever the caller set: the tag says what the image was built from.
+    bin_dir, log = docker_calls
+    tags = image_tags(slot)
+
+    result = run_wrapper(slot, bin_dir, "up", "-d", TH_BACKEND_TAG="stale")
+
+    assert result.returncode == 0, result.stderr
+    expected = f"tags={tags['TH_BACKEND_TAG']} {tags['TH_FRONTEND_TAG']}"
+    assert {call.split(" | ")[2] for call in calls(log)} == {expected}
+
+
+def test_an_up_builds_nothing_when_both_images_exist(slot, docker_calls):
+    bin_dir, log = docker_calls
+    tags = image_tags(slot)
+
+    result = run_wrapper(slot, bin_dir, "up", "-d")
+
+    assert result.returncode == 0, result.stderr
+    assert [call.split(" | ")[0] for call in calls(log) if call.startswith("image ")] == [
+        f"image inspect conventioner/backend:{tags['TH_BACKEND_TAG']}",
+        f"image inspect conventioner/frontend:{tags['TH_FRONTEND_TAG']}",
+    ]
+    assert compose_args(log) == ["up -d"]
+
+
+def test_an_up_builds_only_the_image_that_is_missing(slot, docker_calls):
+    bin_dir, log = docker_calls
+
+    result = run_wrapper(slot, bin_dir, "up", "-d", MISSING="conventioner/frontend")
+
+    assert result.returncode == 0, result.stderr
+    assert compose_args(log) == ["build frontend", "up -d"]
+    assert "building conventioner/frontend:" in result.stderr
+
+
+def test_a_failed_build_starts_nothing(slot, docker_calls):
+    bin_dir, log = docker_calls
+    failing = bin_dir / "docker"
+    failing.write_text(STUB.replace("#!/usr/bin/env bash\n", '#!/usr/bin/env bash\ncase "$*" in *" build backend") exit 4 ;; esac\n', 1))
+
+    result = run_wrapper(slot, bin_dir, "up", "-d", MISSING="conventioner/backend")
+
+    assert result.returncode == 4
+    assert compose_args(log) == []
+
+
+def test_ensure_images_builds_what_is_missing_and_starts_nothing(gate, docker_calls):
+    bin_dir, log = docker_calls
+
+    result = run_wrapper(gate, bin_dir, "ensure-images", **AUTO, MISSING="conventioner/backend conventioner/frontend")
+
+    assert result.returncode == 0, result.stderr
+    assert compose_args(log) == ["build backend", "build frontend"]
+    assert assigned_lines(result.stderr) == []
+
+
+def test_ensure_images_with_both_images_there_does_nothing(gate, docker_calls):
+    bin_dir, log = docker_calls
+
+    result = run_wrapper(gate, bin_dir, "ensure-images", **AUTO)
+
+    assert result.returncode == 0, result.stderr
+    assert compose_calls(log) == []
+
+
+def test_build_always_builds(slot, docker_calls):
+    # `build` is the way to rebuild an image whose inputs did not change, say for a newer base image.
+    bin_dir, log = docker_calls
+
+    result = run_wrapper(slot, bin_dir, "build")
+
+    assert result.returncode == 0, result.stderr
+    assert [call.split(" | ")[0] for call in calls(log) if call.startswith("image ")] == []
+    assert compose_args(log) == ["build"]
