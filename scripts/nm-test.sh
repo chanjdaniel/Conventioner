@@ -7,9 +7,9 @@
 #
 # Usage:
 #     ./scripts/nm-test.sh
-#     PYTHON_CMD=/path/to/python3.11 ./scripts/nm-test.sh
+#     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
-# Requires: Docker, Node.js 20+, Python 3.11+ (or set PYTHON_CMD).
+# Requires: Docker, Node.js 20+, Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
@@ -80,12 +80,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-PYTHON="${PYTHON_CMD:-python3.11}"
+PYTHON="${PYTHON_CMD:-python3.12}"
 if ! command -v "$PYTHON" &>/dev/null; then
   PYTHON=python3
 fi
 if ! command -v "$PYTHON" &>/dev/null; then
-  fail "Python not found on PATH. Install Python 3.11+ or set PYTHON_CMD."
+  fail "Python not found on PATH. Install Python 3.12 or set PYTHON_CMD."
 fi
 echo "nm-test: Python $($PYTHON --version)"
 

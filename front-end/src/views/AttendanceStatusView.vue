@@ -419,10 +419,11 @@ watch(marketId, loadAttendance, { immediate: true });
 }
 
 /* A phone at the door: the vendor on top, where they sit and whether they came beneath, and the
-   button within a thumb's reach on the right. */
+   button within a thumb's reach on the right. The gutter narrows but stays on both sides: without
+   it the rows ran to the card's edges. */
 @media (width <= 640px) {
   .door {
-    padding: var(--space-4) 0;
+    padding: var(--space-4);
   }
 
   .door-row {

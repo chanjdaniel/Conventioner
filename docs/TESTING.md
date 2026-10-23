@@ -321,6 +321,11 @@ runs through `scripts/nm-test.sh`.
   `test_real_export_shapes.py` asserts those before it asserts anything else.
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
   Alpine Docker container, install Playwright and browsers on the host instead.
+- **`nm-test.sh` never runs `sudo`**: it installs Chromium with
+  `npx playwright install chromium`, never `--with-deps` or `install-deps` - those run
+  `sudo` with no terminal, and each failed attempt counts toward the account's
+  `pam_faillock` lockout. The machine's own package manager provides the system libraries;
+  CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
   sets the store directly and the editor canvas is not exercised at all; see [floorplan
   E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.

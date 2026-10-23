@@ -79,6 +79,19 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    | adr | implementation | optional | required | required |
    | record | implementation | forbidden | forbidden | forbidden |
 
+   A source is one of these kinds; the checker refuses any other:
+
+   | Source | Names |
+   | --- | --- |
+   | `E07`, `E26/F08`, `E34/F01/S01` | an epic, a feature or a story of the backlog |
+   | `wayfinding/<effort>/03`, `wayfinding/<effort>/map` | a Wayfinder ticket, or its map |
+   | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
+   | `qc/2026-09-21` | the manual quality check of that day |
+   | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
+   | `known-gap/3` | a gap in [the known gaps](MVP_KNOWN_GAPS.md) |
+   | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
+   | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
+
    Keep `describes` narrow: a file many areas share is described by `#symbol`, and a directory only by a node that owns all of it.
 3. The first line after the frontmatter is the `# Title`, one sentence per physical line, in the present tense: a node holds current truth, and history is git's.
 4. Link every file in `describes` from the body, with a relative link.
@@ -92,12 +105,15 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 | Command | Does |
 | --- | --- |
 | `python3 scripts/knowledge_graph.py check` | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, and that every cross-layer link is answered. Exits 1 on any error; CI runs it on every push and pull request, in `knowledge-graph`, a required check. |
-| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
+| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not, unless the node was verified on or after the day of that change. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
 | `python3 scripts/knowledge_graph.py stale` | Nodes not verified for 60 days whose described files have changed since. |
 | `python3 scripts/knowledge_graph.py ids` | Work-item ids cited in the repo that no node's `sources` covers. |
 
-**A drift warning** means a pull request changed code a node describes without touching the node.
-Answer it one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
+**A drift warning** means a pull request changed code a node describes without touching the node, and the node's `verified` is before the day of the pull request's newest commit to that file.
+That day is the commit's committer date in the committer's own time zone, the same calendar day `verified` is written in, so a node verified today is not flagged for code changed today.
+A rebased, cherry-picked or amended commit counts from the day it was rebased, picked or amended, not the day it was first written.
+A merge commit never counts, so a branch merged without a rebase is dated by its own commits, not by the merge.
+Answer a warning one of two ways: edit the node so it says what the code now does, or read the node against the change, find it still true, and bump its `verified` to today.
 Today is your own calendar day: `check` refuses only a day that has not begun anywhere on Earth, so a node verified in the morning east of UTC passes CI, which runs in UTC.
 Either way the node is in the diff, and the warning clears.
 To find the nodes for a file before changing it: `git grep -l 'path/to/file' docs`.

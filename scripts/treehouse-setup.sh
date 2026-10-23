@@ -9,7 +9,7 @@
 #   - front-end/node_modules           -> front-end / JS tooling works locally
 #
 # Back-end Python is intentionally NOT set up as a local venv: the project runs
-# the back-end via Docker (python:3.11-slim, see docker-compose.yml), and this
+# the back-end via Docker (python:3.12-slim, see back-end/Dockerfile), and this
 # machine only has Python 3.13/3.14, on which the pinned deps won't build.
 # Set TREEHOUSE_BUILD_VENV=1 to attempt a local venv anyway (best-effort).
 #

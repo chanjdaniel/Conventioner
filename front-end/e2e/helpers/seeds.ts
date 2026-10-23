@@ -125,6 +125,32 @@ export async function ensureTestOrgAuthenticated(
 }
 
 /**
+ * Make `email` an admin of the organization, as its owner, whose session the request carries.
+ *
+ * An organization's admins run its markets (T15), so this makes them Admin on every market the
+ * organization holds. Idempotent across runs: a second add changes nothing and answers 400, so the
+ * organization is asked instead.
+ */
+export async function ensureOrganizationAdmin(
+  request: APIRequestContext,
+  baseURL: string,
+  orgId: string,
+  email: string,
+): Promise<void> {
+  const made = await request.post(`${baseURL}/organizations/${orgId}/admins`, {
+    data: { user_email: email },
+  });
+  if (made.ok()) return;
+  const orgs = await request.get(`${baseURL}/organizations`);
+  const { organizations = [] } = (await orgs.json()) as {
+    organizations?: { id: string; adminEmails?: string[] }[];
+  };
+  if (!organizations.find((o) => o.id === orgId)?.adminEmails?.includes(email)) {
+    throw new Error(`Making ${email} an organization admin failed: ${await made.text()}`);
+  }
+}
+
+/**
  * Log in and make sure the user belongs to at least `count` organizations, creating the rest.
  *
  * For a spec whose subject needs a CHOICE of organization: with one, the create-market dialog

@@ -141,7 +141,7 @@ test.describe("Start from a draft's Market Setup", () => {
     // Past draft the setup is settled (E31/F01/S03), so Market Setup offers no start at all and says
     // why; the flow's own address still refuses in words.
     await page.goto(marketSetupPath(marketId));
-    await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+    await expect(page.getByTestId('plan-setup-settled')).toContainText('The setup is settled');
     await expect(page.getByTestId('plan-start-from-csv')).toHaveCount(0);
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);

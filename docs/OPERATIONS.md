@@ -9,9 +9,11 @@ describes:
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E32/F03/S03
+  - T15
+  - decision/2026-10-20
 ---
 
 # Operations
@@ -81,14 +83,16 @@ What a person may do is decided per organization and per market:
 
 | Role | Where it comes from | What it allows |
 | --- | --- | --- |
-| Organization owner, admin, member | Manage organization (Organizations page) | being in the organization, and **Viewer** on every market it holds - nothing more |
+| Organization owner, admin | Manage organization (Organizations page) | **Admin** on every market the organization holds - never the market's owner |
+| Organization member | Manage organization (Organizations page) | **Viewer** on every market the organization holds |
 | Market owner | creating the market | everything, including roles and deletion |
-| Market admin | Manage market | phase moves, importing, publishing results, plus everything an editor does |
+| Market admin | Manage market, or being the organization's owner or an admin | phase moves, importing, publishing results, adding editors and viewers, plus everything an editor does |
 | Market editor | Manage market | the plan, the form, verdicts on applications, placements, and checking vendors in at the door |
 | Market viewer | Manage market, or organization membership | reading |
 
-**Organization membership alone gives Viewer on its markets, even to the organization's owner and admins.**
-Anyone who must change a market, including a volunteer at the door, needs a role on that market: Markets, the market's card, **Manage**, "Users with access", **Add user**, their email and a role.
+**An organization's owner and admins run every market it holds, and its members read them.**
+A role given on a market is held beside the organization's, and the higher one counts; only the market's owner deletes it.
+Anyone outside the organization who must change a market, including a volunteer at the door, needs a role on that market: Markets, the market's card, **Manage**, "Users with access", **Add user**, their email and a role.
 The person must already have an account.
 
 ### Making an account
@@ -201,9 +205,9 @@ Some applicant holds two applications of one type at one market, which the index
 `MONGODB_URI='<URI>' .venv/bin/python migrations/create_applications_collection.py --dry-run` ([`create_applications_collection.py`](../back-end/migrations/create_applications_collection.py)) lists each such applicant with their application ids; it prints their addresses, so keep its output off anything shared.
 Which document is the applicant's is the organizer's call: merge each pair by hand in `mongosh`, then redeploy.
 
-**"The indexes on applicant_login_challenges could not be built"**.
+**"The indexes on applicant_login_challenges and sign_in_attempts could not be built"**.
 The log quotes Mongo's reason.
-These are applicants' sign-in codes, used once and expiring within five minutes, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
+These are applicants' sign-in codes, used once and expiring within five minutes, and the sign-in rate-limit counters, which last fifteen, so nothing lasting is lost by clearing them: drop a conflicting index of the same name (`db.applicant_login_challenges.dropIndex('<name>')`, `db.sign_in_attempts.dropIndex('<name>')`), or remove duplicate challenges (`db.applicant_login_challenges.deleteMany({})`), then redeploy.
 
 **"Refusing to start: ... are not configured"**, naming variables.
 A configuration refusal, not a database one: set each variable it names ([RELEASING.md](RELEASING.md#pre-deploy-required-production-environment)) and redeploy.

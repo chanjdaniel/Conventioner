@@ -857,12 +857,29 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
-    role_emails = {}
-    for uid in (market_dict.get('roles') or {}).keys():
-        u = UsersApi.get_user_by_id(uid)
-        if u:
-            role_emails[uid] = u.email
-    market_dict['role_emails'] = role_emails
+    # The roles on the market itself, which Manage market lists, served to every reader; and
+    # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
+    # and so name one (E34's EDITOR gate): the organization's people too, if the reader is one.
+    may_give_verdicts = PermissionsApi.user_has_permission(
+        user_email, market, MarketRole.EDITOR, context.organization,
+    )
+    reader = UsersApi.get_user(user_email) if may_give_verdicts else None
+    ids = (
+        PermissionsApi.follow_up_owners_for(
+            market, context.organization, reader.id if reader else None)
+        if may_give_verdicts
+        else list((market_dict.get('roles') or {}).keys())
+    )
+    email_by_user_id = {}
+    for uid in ids:
+        user = UsersApi.get_user_by_id(uid)
+        if user:
+            email_by_user_id[uid] = user.email
+    market_dict['role_emails'] = {
+        uid: email_by_user_id[uid]
+        for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
+    }
+    market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
@@ -920,6 +937,29 @@ def _decorate_market_summary(
     return market
 
 
+def _summary_role(
+    market: Dict[str, Any], user_id: str, lookups: _SummaryLookups
+) -> Optional[str]:
+    """The role a list entry names: the one ``get_user_market_role`` would serve on the market.
+
+    Worked from the raw documents the list already holds, by the same two rules, so a card offers
+    Manage to exactly the people the market's own page lets manage it: an organization's admins
+    run its markets, and the list called them viewers.
+    """
+    explicit = (market_doc_field(market, 'roles') or {}).get(user_id)
+    try:
+        on_the_market = MarketRole(explicit) if explicit else None
+    except ValueError:
+        on_the_market = None
+    organization_id = market_doc_field(market, 'organization_id')
+    org = lookups.organization(organization_id) if organization_id else None
+    through_organization = PermissionsApi.organization_market_role(
+        user_id, org.get('owner'), org.get('admins') or [], org.get('members') or [],
+    ) if org else None
+    role = PermissionsApi.higher_role(on_the_market, through_organization)
+    return role.value if role else explicit
+
+
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
     Get all markets a user has access to (via explicit role or organization).
@@ -948,7 +988,7 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
         if mid not in seen_ids:
             seen_ids.add(mid)
             result.append(_decorate_market_summary(
-                market, market.get('roles', {}).get(user_id), lookups
+                market, _summary_role(market, user_id, lookups), lookups
             ))
 
     org_ids = [org['id'] for org in user_orgs]
@@ -961,7 +1001,9 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
             mid = market["id"]
             if mid not in seen_ids:
                 seen_ids.add(mid)
-                result.append(_decorate_market_summary(market, MarketRole.VIEWER.value, lookups))
+                result.append(_decorate_market_summary(
+                    market, _summary_role(market, user_id, lookups), lookups
+                ))
 
     return result
 
@@ -1679,8 +1721,14 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     user = UsersApi.get_user(user_email)
     if not user:
         raise ValueError("User not found")
-    
+
     roles = market_dict.get('roles', {})
+    # Adding never changes a role: overwriting one here would skip update_market_role's guards and
+    # let an Admin demote the Owner.
+    if user.id in roles:
+        raise ValueError(
+            f"{user.email} already has a role on this market. Change it in their row under Users with access."
+        )
     roles[user.id] = role.value
     
     result = markets_collection.update_one(
@@ -1953,16 +2001,27 @@ def save_review_highlights(
     return seen
 
 
-def person_on_market(market: Market, email: Optional[str]) -> Optional[MarketPerson]:
-    """The person with this address, if they hold a role on the market, or None (E34/F02/S01).
+def follow_up_owner(
+    market: Market, organization: Optional[Organization], requester: MarketPerson,
+    email: Optional[str],
+) -> MarketPerson:
+    """The person with this address, if the requester may hand them a follow-up (E34/F02/S01).
 
-    A follow-up is owned by someone who can see the market to work on it: an account named in its
-    roles, the people Manage market lists.
+    A follow-up is owned by someone who can see the market to work on it: anyone the role rule
+    gives a role, named in its roles or reached through its organization (T15), as far as the
+    requester is offered them (``follow_up_owners_for``). Asked of the same list the market read
+    serves this requester as ``peopleOnMarket``, so the server takes exactly whom the dialog offers.
+    Raises ``ValueError`` with the refusal's words otherwise; to someone outside the organization
+    they never tell an organization address from a stranger's.
     """
+    offered = PermissionsApi.follow_up_owners_for(market, organization, requester.user_id)
     user = UsersApi.get_user(email) if email else None
-    if user is None or user.id not in (market.roles or {}):
-        return None
-    return MarketPerson(user_id=user.id, email=user.email)
+    if user is not None and user.id in offered:
+        return MarketPerson(user_id=user.id, email=user.email)
+    if market.organization_id and not PermissionsApi.in_market_organization(
+            market, organization, requester.user_id):
+        raise ValueError("You can hand a follow-up only to someone named in this market's roles.")
+    raise ValueError("A follow-up's owner must have a role on this market.")
 
 
 def save_rejection_rules(

@@ -42,8 +42,10 @@ const props = defineProps<{
   /** Why starting from a Google Form's responses cannot, as the server serves it on the market;
    * null when it can (E24/F04/S02). */
   csvStartRefusal: string | null;
-  /** Why this plan cannot change at all, as the server serves it; null while it can (bug 30). */
-  readOnlyReason: string | null;
+  /** This person may change nothing on the market; the frame says why (T15). */
+  readOnly: boolean;
+  /** Why the setup has settled, as the server serves it; null while it can change (E31/F01/S02). */
+  setupLockReason: string | null;
   /** How many questions of its own the market's form asks: the card says what the form IS. */
   formQuestions: number;
   /** Why the form can no longer change, as the server serves it; null while it can. */
@@ -72,6 +74,9 @@ const sectionsUndescribed = computed(
     !(props.setupObject.floorplans && props.setupObject.floorplans.length > 0),
 );
 
+/** The plan cannot change, for either reason (bug 30). */
+const locked = computed(() => props.readOnly || Boolean(props.setupLockReason));
+
 const setupObject = computed(() => props.setupObject);
 const intakeEditable = computed(() => props.intakeEditable);
 </script>
@@ -84,10 +89,12 @@ const intakeEditable = computed(() => props.intakeEditable);
        dates bound the max-assignments clamp, which the organizer can now see move. Paging it
        was the same mistake as the wizard pretending to be the lifecycle, one level down. -->
   <!-- A fieldset, so a plan that cannot change disables every control in it at once (bug 30): one
-       attribute rather than one prop per card, and a card added later is covered without asking. -->
-  <fieldset class="plan-body card-grid" :disabled="Boolean(readOnlyReason)">
-    <p v-if="readOnlyReason" class="note card-grid__wide" data-testid="market-read-only">
-      {{ readOnlyReason }}
+       attribute rather than one prop per card, and a card added later is covered without asking.
+       It says only the plan's own lock: why this person may change nothing is the frame's to say,
+       once for every page of the market (T15). -->
+  <fieldset class="plan-body card-grid" :disabled="locked">
+    <p v-if="setupLockReason" class="note card-grid__wide" data-testid="plan-setup-settled">
+      {{ setupLockReason }}
     </p>
     <ElementSettingContainer class="card-grid__wide" data-testid="plan-card-dates">
       <template #setting-title>
@@ -108,7 +115,7 @@ const intakeEditable = computed(() => props.intakeEditable);
       <template #setting-content>
         <ElementTierSetup
           :setupObject="setupObject"
-          :readonly="Boolean(readOnlyReason)"
+          :readonly="locked"
           @update:setupObject="(value) => emit('update:setupObject', value)"
         />
       </template>
@@ -132,7 +139,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         <!-- The choice belongs here, where sections are described, rather than over the
                whole page - and it is offered rather than imposed. -->
         <button
-          v-if="sectionsUndescribed && !readOnlyReason"
+          v-if="sectionsUndescribed && !locked"
           type="button"
           class="section-path-button"
           @click="emit('choosePath')"
@@ -159,7 +166,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         />
         <!-- Seeding this market's form from last year's responses works for either intake, so it
              leaves the choice above as it is (E24/F04/S02). -->
-        <div v-if="!readOnlyReason" class="csv-start" data-testid="plan-start-from-csv">
+        <div v-if="!locked" class="csv-start" data-testid="plan-start-from-csv">
           <button
             v-if="!csvStartRefusal"
             type="button"
@@ -204,7 +211,7 @@ const intakeEditable = computed(() => props.intakeEditable);
       guided page and a broken one.
     -->
     <!-- Guidance for building a form, which a record has no use for. -->
-    <ElementSettingContainer v-if="!readOnlyReason" data-testid="plan-card-form">
+    <ElementSettingContainer v-if="!locked" data-testid="plan-card-form">
       <template #setting-title>
         <h2>Application form</h2>
       </template>
@@ -278,7 +285,8 @@ const intakeEditable = computed(() => props.intakeEditable);
    parent's scoped rule reaches a child's root - which silently outranked the card grid. */
 .plan-body {
   align-self: stretch;
-  padding: 40px;
+  /* The frame's gutter, as on every market page: in line with the rail and the frame's own note. */
+  padding: var(--space-6);
   /* A fieldset's own defaults: a border and margin nobody chose, and a min-content minimum width
      that would hold the grid wider than its card. */
   margin: 0;
