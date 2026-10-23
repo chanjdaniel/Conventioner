@@ -1,6 +1,7 @@
 """The knowledge-graph checker, driven the way CI drives it: a small git repository, the CLI, its output."""
 
 import datetime
+import os
 import subprocess
 import sys
 import time
@@ -13,9 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import knowledge_graph  # noqa: E402
 
 
-def git(repo, *args):
+def git(repo, *args, date=None):
+    env = {**os.environ, "GIT_COMMITTER_DATE": date} if date else None
     return subprocess.run(
-        ["git", *args], cwd=repo, capture_output=True, text=True, check=True
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True, env=env
     ).stdout.strip()
 
 
@@ -39,10 +41,10 @@ def write(repo, files):
         path.write_text(text, encoding="utf-8")
 
 
-def commit(repo, files, message="change"):
+def commit(repo, files, message="change", date="2026-10-10T12:00:00+08:00"):
     write(repo, files)
     git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", message)
+    git(repo, "commit", "-q", "-m", message, f"--date={date}", date=date)
     return git(repo, "rev-parse", "HEAD")
 
 
@@ -529,6 +531,76 @@ def test_drift_is_quiet_when_the_node_is_touched_too(repo, capsys):
 def test_drift_is_quiet_when_nothing_described_changed(repo, capsys):
     code, lines = drifted(repo, capsys, ["back-end/guards.py"], {"README.md": "# Project\n\n[docs](docs/README.md)\n"})
     assert (code, lines) == (0, [])
+
+
+def at_noon(file, day):
+    return file, f"{day}T12:00:00+08:00"
+
+
+@pytest.mark.parametrize(
+    "verified, changes, warns",
+    [
+        ("2026-10-05", [at_noon("back-end/guards.py", "2026-10-06")], True),
+        ("2026-10-06", [at_noon("back-end/guards.py", "2026-10-06")], False),
+        ("2026-10-07", [at_noon("back-end/guards.py", "2026-10-06")], False),
+        # the newest commit to the file counts, by date rather than by order
+        ("2026-10-07", [at_noon("back-end/guards.py", "2026-10-06"), at_noon("back-end/guards.py", "2026-10-08")], True),
+        ("2026-10-07", [at_noon("back-end/guards.py", "2026-10-08"), at_noon("back-end/guards.py", "2026-10-06")], True),
+        ("2026-10-08", [at_noon("back-end/guards.py", "2026-10-06"), at_noon("back-end/guards.py", "2026-10-08")], False),
+        # a later commit that leaves the described file alone does not count
+        ("2026-10-06", [at_noon("back-end/guards.py", "2026-10-06"), at_noon("README.md", "2026-10-08")], False),
+        # the day is the committer's own, as `verified` is: not UTC's
+        ("2026-10-06", [("back-end/guards.py", "2026-10-06T07:00:00+08:00")], False),
+        ("2026-10-05", [("back-end/guards.py", "2026-10-05T20:00:00-07:00")], False),
+    ],
+)
+def test_drift_passes_a_node_verified_on_or_after_the_day_of_its_newest_change(
+    repo, capsys, verified, changes, warns
+):
+    files = drift_graph(["back-end/guards.py"])
+    files["docs/implementation/modules/guards.md"] = files["docs/implementation/modules/guards.md"].replace(
+        "2026-10-01", verified
+    )
+    commit(repo, files, "base", date="2026-10-01T12:00:00+08:00")
+    git(repo, "checkout", "-q", "-b", "feature")
+    for n, (file, date) in enumerate(changes):
+        commit(repo, {file: files[file] + f"\n# change {n}\n" * (n + 1)}, date=date)
+    code, lines = errors(capsys, "drift", "--base", "dev")
+    assert (code, len(lines)) == ((1, 1) if warns else (0, 0)), lines
+
+
+def test_drift_dates_a_change_by_its_own_commit_not_the_merge_that_carries_it(repo, capsys):
+    # CI checks out the pull request merged into its base, a merge commit made the day CI runs
+    files = drift_graph(["back-end/guards.py"])
+    files["docs/implementation/modules/guards.md"] = files["docs/implementation/modules/guards.md"].replace(
+        "2026-10-01", "2026-10-06"
+    )
+    commit(repo, files, "base", date="2026-10-01T12:00:00+08:00")
+    git(repo, "checkout", "-q", "-b", "feature")
+    commit(repo, {"back-end/guards.py": "NEW = 1\n" + files["back-end/guards.py"]}, date="2026-10-06T12:00:00+08:00")
+    git(repo, "checkout", "-q", "dev")
+    commit(repo, {"back-end/guards.py": files["back-end/guards.py"] + "\nOTHER = 1\n"}, "dev", "2026-10-07T12:00:00+08:00")
+    git(repo, "merge", "-q", "--no-ff", "--no-commit", "feature")
+    git(repo, "commit", "-q", "-m", "merge", "--date=2026-10-09T12:00:00+08:00", date="2026-10-09T12:00:00+08:00")
+    code, lines = errors(capsys, "drift", "--base", "HEAD^1", "--head", "HEAD")
+    assert (code, lines) == (0, [])
+
+
+def test_drift_dates_a_rebased_change_by_the_day_it_reached_the_base(repo, capsys):
+    # a rebase keeps the author date, so a change written before the node was re-read on dev must
+    # still warn once it lands on top of that re-read
+    files = drift_graph(["back-end/guards.py"])
+    commit(repo, files, "base", date="2026-10-01T12:00:00+08:00")
+    git(repo, "checkout", "-q", "-b", "feature")
+    commit(repo, {"back-end/guards.py": files["back-end/guards.py"] + "\nNEW = 1\n"}, date="2026-10-05T12:00:00+08:00")
+    git(repo, "checkout", "-q", "dev")
+    reread = files["docs/implementation/modules/guards.md"].replace("2026-10-01", "2026-10-08")
+    commit(repo, {"docs/implementation/modules/guards.md": reread}, "re-read", "2026-10-08T12:00:00+08:00")
+    git(repo, "checkout", "-q", "feature")
+    git(repo, "rebase", "-q", "dev", date="2026-10-10T12:00:00+08:00")
+    assert git(repo, "log", "-1", "--format=%as %cs") == "2026-10-05 2026-10-10"
+    code, lines = errors(capsys, "drift", "--base", "dev")
+    assert (code, len(lines)) == (1, 1), lines
 
 
 @pytest.mark.parametrize(
