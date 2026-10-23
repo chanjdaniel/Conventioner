@@ -34,7 +34,7 @@ Whether a market wants its vendors spread evenly, kept to consecutive days, or f
 ## Where it is kept
 
 The date loop is `MarketAssignment.assign` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), and the order of the turns on each date is `MarketAssignment.sort_vendors` in the same file ([priority and tie-breaks](priority-and-tie-breaks.md)); the module is [the assignment solver](../../implementation/modules/assignment-solver.md).
-The usability gaps the same runs left are in [MVP_KNOWN_GAPS.md](../../MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
+The usability observations the same runs left, where still open, are proposed work, epic E37 in the team home's backlog.
 
 ## Changing it
 

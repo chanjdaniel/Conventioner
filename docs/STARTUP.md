@@ -86,7 +86,7 @@ Conventioner/
 │   └── package.json
 ├── docs/               # This file, TESTING.md, RELEASING.md, ADRs
 ├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh
-├── .scratch/           # The work backlog: epics, features, stories, wayfinding maps
+├── .scratch/           # Local, ignored working folder; planning lives outside this repo (docs/agents/issue-tracker.md)
 ├── docker-compose.yml  # Docker Compose configuration
 └── AGENTS.md           # Project-intrinsic notes: sharp edges, conventions, invariants
 ```
@@ -572,7 +572,7 @@ Use the schema utility to regenerate the backend/frontend contract declaration d
 Once the application is running:
 
 1. Read `AGENTS.md` for this codebase's sharp edges before changing markets, phases or secrets
-2. Browse the work backlog under `.scratch/backlog/` for what is built and what is planned
+2. Read [the tracker contract](./agents/issue-tracker.md) for where the backlog lives and what is built and what is planned
 3. Explore the API endpoints via the browser dev tools Network tab
 4. Run the test suites, documented in [TESTING.md](./TESTING.md)
 

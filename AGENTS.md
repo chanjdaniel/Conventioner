@@ -122,11 +122,10 @@ Tests and CI:
 
 ### Issue tracker
 
-Work is tracked as committed markdown under `.scratch/`: an Epic > Feature > Story backlog in
-`.scratch/backlog/`, and Wayfinder decision maps in `.scratch/wayfinding/`. GitHub is used for pull
-requests only; its issue tracker is deliberately empty. Work items are things to *build*; Wayfinder
-maps are open *questions* to resolve, and a decision lives in exactly one of them. Story status must
-be updated as PRs merge - see `docs/agents/issue-tracker.md` for the full convention.
+- The durable Epic > Feature > Story backlog and the Wayfinder maps live in the team home, `~/agent-team/projects/conventioner/{backlog,wayfinding}/` (the private `chanjdaniel/agent-team` repo), not in this repo.
+- `.scratch/` is the task's transient, ignored working folder: `/to-spec` writes `.scratch/spec.md` and `/to-tickets` writes `.scratch/tickets/`.
+- A Story's status moves in the team home as its Conventioner PR merges; GitHub is used for pull requests only, and its issue tracker is deliberately empty.
+- [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) has the rest: the hierarchy, who moves status, and where every work-item id and `sources` string resolves.
 
 ## Maintaining this file
 
