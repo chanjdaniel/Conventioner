@@ -59,11 +59,11 @@ It labels the stack as a gate run (`TEAM_KIND=gate`, `TEAM_WORKTREE` its reposit
 | is sent `SIGKILL` | the teardown guard, since nothing of the script runs after it |
 
 The teardown guard is a subshell that `nm-test.sh` starts with job control just before `up`, so it has a process group of its own and the gate's group kill misses it.
-It waits for the run's process to be gone, then runs `docker compose -p <project> down -v --remove-orphans` (no compose file, as the gate may already be deleting the worktree), retrying until no container, volume or network of the project is left; after a normal exit it finds nothing left.
+It waits for the run's process to be gone, then runs `docker compose -p <project> down -v --remove-orphans` (no compose file, as the gate may already be deleting the worktree), up to three times, until no container, volume or network of the project is left; after a normal exit it finds nothing left.
 It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it holds nothing of the gate's open once the run is over.
 Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
 The guard does not remove the run's virtual environment, which the trap does; a killed run leaves it in `$TMPDIR`.
-It never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
+`nm-test.sh` never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
 CI's workflow keeps `--with-deps`, which is correct on GitHub's Ubuntu runners.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.
 
