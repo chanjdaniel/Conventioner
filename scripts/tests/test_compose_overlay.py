@@ -199,7 +199,7 @@ def test_every_service_runs_within_its_limits(worktree_and_env):
     }
     mib = 1024 * 1024
     assert limits == {
-        "mongodb": (768 * mib, 1.0, 512),
+        "mongodb": (1024 * mib, 2.0, 512),
         "backend": (768 * mib, 1.0, 256),
         "frontend": (1024 * mib, 2.0, 256),
         "mongo-express": (256 * mib, 0.5, 64),
