@@ -18,6 +18,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
+      # Re-lock with the pinned uv (the dev lock installs it); a lock edited by hand, or an .in
+      # changed without re-locking, comes out different.
+      - name: The locks are what the lock command writes
+        run: |
+          ../scripts/lock-backend-requirements.sh
+          git diff --exit-code -- 'requirements*.txt' || {
+            echo "::error::A back-end lock differs from what scripts/lock-backend-requirements.sh writes; run it and commit the result"
+            exit 1
+          }
       - run: python -m pytest tests/ -v
 
   # The docs are a graph of nodes that describe the code (scripts/knowledge_graph.py). This job
@@ -31,7 +40,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install pytest
+      - run: pip install -r back-end/requirements-dev.txt
       - name: Checker tests
         run: python -m pytest scripts/tests -q
       - name: Check the graph

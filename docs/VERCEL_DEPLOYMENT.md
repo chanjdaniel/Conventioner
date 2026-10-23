@@ -4,7 +4,7 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-10-21
+verified: 2026-10-24
 ---
 
 # Building Production on Vercel
@@ -51,6 +51,7 @@ Pushes to other branches still reach Vercel and are cancelled by each project's 
 
 `back-end/requirements.txt` must install on Vercel's build image, Amazon Linux 2023 (glibc 2.34): a package that ships only newer wheels fails the whole build.
 That is why the floorplan solver `pyckingsolver` lives in `requirements-floorplan-solver.txt`, installed by Docker, CI and local setups but not by Vercel; production's Auto-Place uses its grid fallback.
+`requirements.txt` is a lock with hashes, compiled from `requirements.in` by `scripts/lock-backend-requirements.sh`, so every build installs the same packages ([Python dependencies are locked](TECH_STACK.md#python-dependencies-are-locked)).
 
 ## 4. Environment variables
 
@@ -94,7 +95,7 @@ The back end no longer waves that through - it has a real secret now, and Google
 
 ## Troubleshooting a back end that will not boot
 
-- **Import Errors**: Ensure all dependencies are in `requirements.txt`
+- **Import Errors**: Ensure every dependency is in `requirements.in`, then re-run `scripts/lock-backend-requirements.sh`
 - **MongoDB Connection Issues**: Check your MongoDB Atlas network access settings
 - **Session Issues**: Verify `SESSION_TYPE=null` is set for Vercel. There is no default - the function refuses to boot without it - and `filesystem` is a store a serverless function does not keep between requests.
 - **CORS Issues**: Ensure `CORS_ALLOWED_ORIGINS` lists your frontend's origin exactly as the browser sends it (`https://conventioner.io` - scheme and host, no trailing slash, no path). A preview deployment served from a different domain is a different origin and has to be listed too. `FRONTEND_URL` is only used for the links in outgoing mail and has no say in CORS.

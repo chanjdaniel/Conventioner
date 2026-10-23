@@ -1,0 +1,5 @@
+# The test tools. Edit them here; requirements-dev.txt is their lock (scripts/lock-backend-requirements.sh).
+pytest>=8.0
+# The resolver scripts/lock-backend-requirements.sh runs, pinned so CI's re-lock reproduces the locks
+# byte for byte; a newer uv may write them differently.
+uv==0.13.5
