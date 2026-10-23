@@ -4,8 +4,8 @@
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
 # so it runs safely alongside the primary stack and other runs, and takes turns with other runs for
-# its E2E phase (see the lock). Tears the stack down however the run ends: an EXIT trap, and a
-# guard that outlives a SIGKILL (see Teardown).
+# its E2E phase (see the lock). Tears the stack down and removes its virtual environment however the
+# run ends: an EXIT trap, and guards that outlive a SIGKILL (see Teardown).
 #
 # Usage:
 #     ./scripts/nm-test.sh
@@ -55,6 +55,7 @@ echo "nm-test: project=$COMPOSE_PROJECT_NAME"
 # ── Teardown ─────────────────────────────────────────────────────────────────
 
 STACK_LOG_DIR="$REPO_ROOT/.stack-logs"
+GUARD_LOG="$STACK_LOG_DIR/$COMPOSE_PROJECT_NAME-guard.log"
 
 cleanup() {
   echo ""
@@ -74,9 +75,6 @@ cleanup() {
   else
     echo "nm-test: ERROR: tearing down $COMPOSE_PROJECT_NAME failed (above); the teardown guard retries it." >&2
   fi
-  if [[ -n "${VENV_DIR:-}" ]]; then
-    rm -rf "$VENV_DIR"
-  fi
 }
 trap cleanup EXIT
 
@@ -85,7 +83,8 @@ trap cleanup EXIT
 # commands, and nothing at all runs after a SIGKILL to this script. So the stack's teardown also
 # rests on a guard in a process group of its own, which outlives this script, waits for it to be
 # gone, and removes whatever of the stack is left. It needs no compose file, since the gate may be
-# deleting this worktree by then. After a normal exit it finds nothing left and exits.
+# deleting this worktree by then. After a normal exit it finds nothing left and exits. Another guard
+# removes the run's virtual environment, from the moment it exists.
 alive() {
   local state
   state="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
@@ -99,27 +98,37 @@ leftovers() {
   docker network ls -q --filter "$filter"
 }
 
-start_teardown_guard() {
-  local run=$$ project=$COMPOSE_PROJECT_NAME
+# Runs "$@" once this run is gone, in a guard writing to the guard log.
+after_run() {
+  local run=$$
   mkdir -p "$STACK_LOG_DIR"
   set -m # job control: the guard gets a process group of its own
   (
     trap - EXIT
     set +e
     cd /
-    echo "nm-test guard: watching run $run for $project"
+    echo "nm-test guard: watching run $run to run: $*"
     while alive "$run"; do sleep 1; done
-    echo "nm-test guard: run $run is gone; removing what is left of $project"
-    for _ in 1 2 3; do
-      docker compose -p "$project" down -v --remove-orphans --timeout 5
-      left="$(leftovers "$project" | tr '\n' ' ')"
-      [[ -z "$left" ]] && exit 0
-      sleep 5
-    done
-    echo "nm-test guard: ERROR: $project still has: $left" >&2
-    exit 1
-  ) </dev/null >>"$STACK_LOG_DIR/$COMPOSE_PROJECT_NAME-guard.log" 2>&1 &
+    echo "nm-test guard: run $run is gone; running: $*"
+    "$@"
+  ) </dev/null >>"$GUARD_LOG" 2>&1 &
   set +m
+}
+
+remove_stack() {
+  local project=$1 left
+  for _ in 1 2 3; do
+    docker compose -p "$project" down -v --remove-orphans --timeout 5
+    left="$(leftovers "$project" | tr '\n' ' ')"
+    [[ -z "$left" ]] && return 0
+    sleep 5
+  done
+  echo "nm-test guard: ERROR: $project still has: $left" >&2
+  return 1
+}
+
+start_teardown_guard() {
+  after_run remove_stack "$COMPOSE_PROJECT_NAME"
   echo "nm-test: teardown guard $! watches this run"
 }
 
@@ -127,8 +136,9 @@ echo "nm-test: Python $($PYTHON --version)"
 
 # Install into a virtual environment of the run's own, never into that Python: a uv- or
 # distro-managed interpreter refuses `pip install` outright (PEP 668), and one that accepts it
-# would keep whatever this run installed. The trap deletes it.
+# would keep whatever this run installed. A guard deletes it once the run is gone, however it ends.
 VENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/$RUN_ID-venv.XXXXXX")"
+after_run rm -rf "$VENV_DIR"
 "$PYTHON" -m venv "$VENV_DIR"
 PYTHON="$VENV_DIR/bin/python"
 $PYTHON -m pip install -q --disable-pip-version-check --upgrade pip

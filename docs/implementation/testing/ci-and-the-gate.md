@@ -69,7 +69,7 @@ The teardown guard is a subshell that `nm-test.sh` starts with job control just 
 It waits for the run's process to be gone, then runs `docker compose -p <project> down -v --remove-orphans` (no compose file, as the gate may already be deleting the worktree), up to three times, until no container, volume or network of the project is left; after a normal exit it finds nothing left.
 It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it holds nothing of the gate's open once the run is over.
 Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
-The guard does not remove the run's virtual environment, which the trap does; a killed run leaves it in `$TMPDIR`.
+A second guard, started the moment the run makes its virtual environment (`$TMPDIR/nmtest-<pid>-venv.*`), removes it once the run is gone, so a run killed in any phase leaves nothing behind.
 
 **Gate runs take turns for their E2E phase, one at a time on a machine.**
 A stack starting or stopping creates or removes a Docker network, which changes the host's networks under every browser on the machine, and another run's Playwright then fails with `net::ERR_NETWORK_CHANGED`.
