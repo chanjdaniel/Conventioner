@@ -134,8 +134,12 @@ def test_no_bind_mount_creates_its_missing_source(worktree_and_env):
         ("backend", "/app"),
         ("frontend", "/app"),
     }
-    for where, mount in binds.items():
-        assert mount["bind"]["create_host_path"] is False, where
+    # The overlay states create_host_path: false on each of its bind mounts. Compose's
+    # `config` JSON drops a false bool (its zero value) on Compose <= 2.38, so the
+    # guarantee is read from the overlay source rather than the render.
+    overlay = (REPO / "docker-compose.worktree.yml").read_text()
+    assert overlay.count("create_host_path: false") == len(binds)
+    assert "create_host_path: true" not in overlay
     # Relative sources stay relative to the worktree, not to the wrapper's own checkout.
     assert binds[("backend", "/app")]["source"] == str(worktree / "back-end")
     assert binds[("mongodb", "/docker-entrypoint-initdb.d/mongo-init.js")]["read_only"] is True
