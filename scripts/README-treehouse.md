@@ -53,10 +53,18 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | frontend      | 5173                    | 5183   | 5193   |
 | mongo-express | 8081                    | 8091   | 8101   |
 
+Every port, the primary checkout's included, is published on `127.0.0.1` only: `localhost`
+reaches a stack, another machine on the network does not.
+mongo-express is in the overlay's `tools` profile, so a worktree's stack starts without it;
+start it with `scripts/th-compose.sh --profile tools up -d mongo-express`.
+In the explicit mode below, `TH_MONGO_EXPRESS_PORT` is optional: unset, Docker picks a free
+host port (`docker compose port mongo-express 8081` prints it).
+
 The **primary checkout** uses plain `docker compose` (default ports, container
 names `conventioner-*-1`, auto-named by Compose). `th-compose.sh` also supports
-an explicit stack identity via `COMPOSE_PROJECT_NAME` + `TH_*` port variables
-(used by `scripts/nm-test.sh` for the no-mistakes gate).
+an explicit stack identity via `COMPOSE_PROJECT_NAME`, `TH_MONGO_PORT`,
+`TH_BACKEND_PORT` and `TH_FRONTEND_PORT` (used by `scripts/nm-test.sh` for the
+no-mistakes gate).
 
 ## Housekeeping
 
@@ -101,6 +109,16 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
   `TEAM_WORKTREE` and `TEAM_EXPIRES`, each empty when its variable is unset. A named
   volume keeps the labels it was created with, so a stack for another task needs a
   `down -v` first.
+- **Every service runs within limits.** The overlay sets `mem_limit`, `cpus` and
+  `pids_limit` per service (mongodb 1g / 2 / 512, backend 768m / 1 / 256, frontend
+  1g / 2 / 256, mongo-express 256m / 0.5 / 64), and MongoDB runs with
+  `--wiredTigerCacheSizeGB 0.25`, since by default it sizes its cache from the host's
+  memory, not the container's. A full gate run's peaks are in
+  [`docs/TESTING.md`](../docs/TESTING.md#stack-limits); raise a limit there, with a
+  measurement, if a stack is OOM-killed (`docker inspect -f '{{.State.OOMKilled}}'`).
+- **Email is off in a worktree's stack.** The overlay sets the backend's `DISABLE_EMAIL`
+  to `true` unless the shell sets it, since an agent's stack has no Resend key;
+  `DISABLE_EMAIL=false scripts/th-compose.sh up -d` sends real mail.
 - **Returning a slot wipes its DB/volumes.** `th-return.sh` runs `docker compose
   down -v`, which removes the worktree's isolated mongodb and backend sessions
   volumes. A re-leased worktree always starts with a fresh DB - this

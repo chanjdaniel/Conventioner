@@ -49,3 +49,6 @@ flask_session/
 
 # Obsidian's workspace state, for anyone who opens the repository as a vault (docs/README.md).
 .obsidian/
+
+# A developer's own Compose override, such as publishing a port beyond 127.0.0.1 (docs/STARTUP.md).
+docker-compose.override.yml

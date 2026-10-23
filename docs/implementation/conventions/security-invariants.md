@@ -14,6 +14,7 @@ describes:
   - back-end/tests/test_public_endpoint_defenses.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/src/utils/captcha.ts
+  - docker-compose.yml
 verified: 2026-10-22
 ---
 
@@ -56,6 +57,10 @@ Under it a missing value boots: a random signing key for the process's lifetime,
 `DISABLE_CAPTCHA` and `DISABLE_EMAIL` are honoured only under the hatch, so a deployment that inherited either from a copied env file is not silently unprotected.
 The hatch never excuses a published secret ([ADR 0010](../../adr/0010-no-secret-has-a-fallback.md)).
 `docker-compose.yml` and `back-end/.env.example` set it; it must never be set on a deployed environment.
+
+**A stack under the hatch listens on `127.0.0.1` only.**
+Such a stack has fixed database credentials, mongo-express's `admin` / `admin`, no captcha and a random signing key, so it must not be on the local network: [`docker-compose.yml`](../../../docker-compose.yml) publishes every port on loopback, and so does the worktree overlay for every agent and gate stack ([the treehouse runbook](../../../scripts/README-treehouse.md)).
+Reaching the primary stack from another device takes an override file of one's own ([STARTUP.md](../../STARTUP.md#quick-start-with-docker-recommended)); never widen the committed files.
 
 **`FLASK_ENV` does not exist in this repository**: nothing reads it, and nothing sets it.
 It is gone from the Dockerfile, `docker-compose.yml` and the env templates, so the invariant is structural: a variable nobody sets is one nobody can key on.
