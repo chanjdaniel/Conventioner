@@ -5,31 +5,89 @@
 #   - a unique COMPOSE_PROJECT_NAME (isolates containers, networks, volumes)
 #   - unique container_names
 #   - offset host ports
+#   - the team's ownership labels, on every container, named volume and network
+#   - no restart by itself, and no bind mount that creates its missing source
 #
 # Driven exclusively by scripts/th-compose.sh, which exports COMPOSE_PROJECT_NAME
-# and the TH_*_PORT variables. Do not use this file directly — the variables have
+# and the TH_*_PORT variables. Do not use this file directly - the variables have
 # no defaults on purpose, so a bare `docker compose -f ... -f this` would error.
 #
-# `!override` (Compose 2.24+) REPLACES the base port list instead of appending to
-# it, so the base's fixed host ports don't leak through.
+# `!override` (Compose 2.24+) REPLACES the base list instead of appending to
+# it, so the base's fixed host ports and short-syntax mounts don't leak through.
+#
+# Why a stack never restarts and never creates a bind source: on 2026-10-22 two
+# aborted gate runs left their stacks restart-looping after the gate deleted their
+# worktrees, and each restart re-created the missing mount sources as root, which
+# blocked every later gate run until they were removed with sudo. Now a stack
+# whose worktree is gone fails to start instead.
+
+# The ownership contract: who started the stack, for which task, of which kind,
+# from which worktree, and when the reaper may remove it. Each is empty when its
+# variable is unset, which marks the stack as not the team's.
+x-team-labels: &team-labels
+  io.github.chanjdaniel.team.owner: ${TEAM_OWNER:-}
+  io.github.chanjdaniel.team.task: ${TEAM_TASK:-}
+  io.github.chanjdaniel.team.kind: ${TEAM_KIND:-}
+  io.github.chanjdaniel.team.worktree: ${TEAM_WORKTREE:-}
+  io.github.chanjdaniel.team.expires: ${TEAM_EXPIRES:-}
 
 services:
   mongodb:
     container_name: ${COMPOSE_PROJECT_NAME}-mongodb
+    restart: "no"
+    labels: *team-labels
     ports: !override
       - "${TH_MONGO_PORT}:27017"
+    volumes: !override
+      - mongodb_data:/data/db
+      - type: bind
+        source: ./back-end/mongo-init.js
+        target: /docker-entrypoint-initdb.d/mongo-init.js
+        read_only: true
+        bind:
+          create_host_path: false
 
   backend:
     container_name: ${COMPOSE_PROJECT_NAME}-backend
+    restart: "no"
+    labels: *team-labels
     ports: !override
       - "${TH_BACKEND_PORT}:5000"
+    volumes: !override
+      - type: bind
+        source: ./back-end
+        target: /app
+        bind:
+          create_host_path: false
+      - backend_sessions:/app/flask_session
 
   frontend:
     container_name: ${COMPOSE_PROJECT_NAME}-frontend
+    restart: "no"
+    labels: *team-labels
     ports: !override
       - "${TH_FRONTEND_PORT}:5173"
+    volumes: !override
+      - type: bind
+        source: ./front-end
+        target: /app
+        bind:
+          create_host_path: false
+      - /app/node_modules
 
   mongo-express:
     container_name: ${COMPOSE_PROJECT_NAME}-mongo-express
+    restart: "no"
+    labels: *team-labels
     ports: !override
       - "${TH_MONGO_EXPRESS_PORT}:8081"
+
+networks:
+  conventioner_network:
+    labels: *team-labels
+
+volumes:
+  mongodb_data:
+    labels: *team-labels
+  backend_sessions:
+    labels: *team-labels

@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-22
+verified: 2026-10-23
 sources:
   - E34/F03/S02
   - E35/F02/S01
@@ -326,6 +326,11 @@ runs through `scripts/nm-test.sh`.
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
+- **An agent or gate stack never restarts by itself**: every stack started through
+  `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
+  stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
+  Its bind mounts never create a missing source either, so a stack whose worktree is gone fails to
+  start instead of re-creating the worktree's folders as root.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
   sets the store directly and the editor canvas is not exercised at all; see [floorplan
   E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.
