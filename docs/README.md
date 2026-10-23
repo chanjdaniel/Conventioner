@@ -88,7 +88,7 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
    | `brain-dump/2026-10-19`, `brain-dump/2026-10-19#22` | a brain dump, or one item of it |
    | `qc/2026-09-21` | the manual quality check of that day |
    | `bug/37` | a bug in [the bug ledger](records/MVP_BUGS.md) |
-   | `known-gap/3` | a gap in [the known gaps](MVP_KNOWN_GAPS.md) |
+   | `known-gap/3` | a known gap of the MVP, now the story of epic `E37` that names it |
    | `T15` | a task of the agent team, built on a branch named for it (`feat/T15-...`) |
    | `decision/2026-10-20` | Daniel's ruling of that day, kept as a record (`records/DECISION_2026-10-20.md`) |
 
