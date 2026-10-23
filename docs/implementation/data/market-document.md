@@ -20,7 +20,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-22
+verified: 2026-10-23
 sources:
   - E02
   - E03/F03
