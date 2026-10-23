@@ -377,6 +377,18 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   another machine on the network does not.
   mongo-express is not part of a worktree or gate stack unless asked for:
   `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
+- **Worktree and gate stacks share their images**: every slot stack and gate run with the same
+  dependencies runs the same `conventioner/backend:<tag>` and `conventioner/frontend:<tag>`, each
+  tag a hash of the files its image is built from (`scripts/image-tags.sh`: the back end's
+  Dockerfile, entrypoint and two requirements files; the front end's Dockerfile, `package.json`
+  and `package-lock.json`), and the source reaches the containers through the bind mounts.
+  So a change to the source needs no build, `scripts/th-compose.sh up -d` builds an image only
+  when none has its tag yet, and `scripts/th-compose.sh build` rebuilds one anyway (say for a
+  newer base image). After the front end's dependencies change, a stack keeps its old
+  `node_modules` volume however its front end is recreated: `scripts/th-compose.sh rm -s -f -v
+  frontend` then `up -d` refills it from the new image (`up --renew-anon-volumes` would too, but
+  leaves the old volume behind). The primary stack and CI build their own images from
+  `docker-compose.yml`, as before.
 - **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
   sets the store directly and the editor canvas is not exercised at all; see [floorplan
   E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.
