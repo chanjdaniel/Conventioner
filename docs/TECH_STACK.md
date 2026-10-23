@@ -20,8 +20,10 @@ How each part of the code works is in the implementation layer of the [knowledge
 - Each back-end requirements file that Vercel, Docker, CI or the gate installs is a lock: every package, direct or not, at one exact version with its hashes, so a redeploy of unchanged code installs exactly what was tested
   - The redeploy of 2026-10-23 re-resolved six packages left unpinned, openai 3.35.1 to 3.37.0 among them; the first locks hold what that deploy installed
 - People edit the `.in` file beside each lock (`requirements.in`, `requirements-floorplan-solver.in`, `requirements-dev.in`), never the `.txt`
-- [`scripts/lock-backend-requirements.sh`](../scripts/lock-backend-requirements.sh) (needs [uv](https://docs.astral.sh/uv/)) is the one way to change a lock: with no options it keeps every pin and adds or drops only what an `.in` changed; `--upgrade-package <name>` moves one package on purpose, `--upgrade` everything
-- `tests/test_requirements_are_locked.py` fails on a lock edited by hand or an `.in` changed without re-locking
+- [`scripts/lock-backend-requirements.sh`](../scripts/lock-backend-requirements.sh) (needs any [uv](https://docs.astral.sh/uv/); it runs the uv pinned in `requirements-dev.in`, so every machine writes the same locks) is the one way to change a lock: with no options it keeps every pin and adds or drops only what an `.in` changed; `--upgrade-package <name>` moves one package on purpose, `--upgrade` everything
+- Two checks hold the locks to that command:
+  - `tests/test_requirements_are_locked.py` fails on a lock line that is not a hashed pin, a lock whose direct requirements are not exactly its `.in`'s or whose pins no longer satisfy it, and a package pinned differently in two locks
+  - CI's `backend` job and `scripts/nm-test.sh` re-run the lock command and fail on any difference, which is what catches a pin edited by hand: the command writes that version's own hashes, and the files differ
 
 ### Core Framework
 - **Flask 3.1** - Python web framework

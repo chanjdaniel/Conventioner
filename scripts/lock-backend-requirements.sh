@@ -9,10 +9,13 @@
 #   --upgrade-package <name>[==<ver>]   move one package (and what it needs) on purpose
 #   --upgrade                           move everything to the newest versions that resolve
 #
-# Needs uv (https://docs.astral.sh/uv/). The locks are universal (every platform, for the Python in
-# back-end/.python-version), so the hashes cover Vercel's Amazon Linux, Docker's Debian and CI's
-# Ubuntu alike. The floorplan solver's and the dev locks are constrained by requirements.txt, so a
-# package that appears in two locks has the same pin in both and they install together.
+# Needs uv (https://docs.astral.sh/uv/), any version: it runs the uv pinned in requirements-dev.in,
+# so every machine writes the same locks, and CI's backend job re-runs it and fails on any
+# difference, which is what catches a lock edited by hand.
+# The locks are universal (every platform, for the Python in back-end/.python-version), so the
+# hashes cover Vercel's Amazon Linux, Docker's Debian and CI's Ubuntu alike. The floorplan solver's
+# and the dev locks are constrained by requirements.txt, so a package that appears in two locks has
+# the same pin in both and they install together.
 #
 set -euo pipefail
 
@@ -23,8 +26,10 @@ if ! command -v uv >/dev/null; then
   exit 1
 fi
 
+UV_VERSION="$(sed -n 's/^uv==\([^ ]*\).*/\1/p' requirements-dev.in)"
+
 lock() {
-  uv pip compile --quiet --universal --generate-hashes \
+  uvx --quiet "uv@$UV_VERSION" pip compile --quiet --universal --generate-hashes \
     --python-version "$(cat .python-version)" \
     --custom-compile-command "scripts/lock-backend-requirements.sh" \
     "$@"

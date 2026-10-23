@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-23
+verified: 2026-10-24
 ---
 
 # Conventioner - Development Startup Guide
@@ -89,7 +89,8 @@ If you prefer to run services locally without Docker:
 Conventioner/
 ├── back-end/           # Flask backend API
 │   ├── Dockerfile      # Backend Docker image
-│   ├── requirements.txt
+│   ├── requirements.in # Python dependencies, edited by hand
+│   ├── requirements.txt # Their lock, from scripts/lock-backend-requirements.sh
 │   ├── migrations/     # One-off migrations, two of which the app refuses to boot without
 │   ├── tests/          # pytest suite
 │   └── db_config.py    # MongoDB connection config

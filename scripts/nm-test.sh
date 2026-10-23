@@ -151,6 +151,10 @@ echo "===== Backend Tests ====="
 
 cd "$REPO_ROOT/back-end"
 $PYTHON -m pip install -q -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
+# As CI does: re-lock (the dev lock just installed uv, which the script needs) and fail on any
+# difference, which is how a lock edited by hand is caught.
+PATH="$VENV_DIR/bin:$PATH" "$REPO_ROOT/scripts/lock-backend-requirements.sh"
+git diff --exit-code -- 'requirements*.txt'
 $PYTHON -m pytest tests/ -v
 echo "Backend tests: OK"
 

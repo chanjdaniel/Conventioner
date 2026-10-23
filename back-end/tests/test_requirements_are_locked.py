@@ -5,7 +5,10 @@ among them, because requirements.txt named most of them with no version at all. 
 file is now a lock compiled from the `.in` file beside it by `scripts/lock-backend-requirements.sh`:
 every line one exact version with its hashes, which also makes pip refuse any line that is not.
 
-These tests catch a lock edited by hand, or a `.in` changed without re-running that command.
+These tests fail on a lock line that is not a hashed pin, on a lock whose direct requirements are
+not exactly its `.in`'s or whose pins no longer satisfy it, and on a package pinned differently in
+two locks. A pin changed by hand to another version that still satisfies the `.in` passes them; CI's
+`backend` job catches that by re-running the lock command and failing on any difference.
 """
 
 import re
@@ -21,16 +24,28 @@ LOCKS = ["requirements.txt", "requirements-floorplan-solver.txt", "requirements-
 HASH = re.compile(r"\s--hash=sha256:[0-9a-f]{64}")
 
 
+def _source(lock):
+    return lock.replace(".txt", ".in")
+
+
 def _lock_entries(lock):
-    """Each requirement of a compiled lock, as (Requirement, number of hashes)."""
+    """Each requirement of a compiled lock, as (Requirement, number of hashes, its `# via` sources).
+
+    uv writes a requirement's sources under it, on the `# via` line or one per line after it.
+    """
     text = (BACK_END / lock).read_text().replace("\\\n", " ")
     entries = []
     for line in text.splitlines():
-        line = line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        hashes = len(HASH.findall(" " + line))
-        entries.append((Requirement(HASH.sub("", " " + line).strip()), hashes))
+        comment = line.strip().startswith("#")
+        if comment and entries:
+            body = line.strip()[1:].strip()
+            if body.startswith("via"):
+                body = body[len("via"):].strip()
+            if body:
+                entries[-1][2].append(body)
+        elif not comment and line.strip():
+            hashes = len(HASH.findall(" " + line))
+            entries.append((Requirement(HASH.sub("", " " + line).strip()), hashes, []))
     return entries
 
 
@@ -41,13 +56,13 @@ def _pinned_version(req):
 
 
 def _pins(lock):
-    return {canonicalize_name(req.name): _pinned_version(req) for req, _ in _lock_entries(lock)}
+    return {canonicalize_name(req.name): _pinned_version(req) for req, _, _ in _lock_entries(lock)}
 
 
 def _sources(lock):
     """The requirements its `.in` file names, without the `-c` / `-r` lines that join them."""
-    source = BACK_END / lock.replace(".txt", ".in")
-    lines = (line.split("#", 1)[0].strip() for line in source.read_text().splitlines())
+    text = (BACK_END / _source(lock)).read_text()
+    lines = (line.split("#", 1)[0].strip() for line in text.splitlines())
     return [Requirement(line) for line in lines if line and not line.startswith("-")]
 
 
@@ -55,10 +70,24 @@ def _sources(lock):
 def test_every_package_is_one_exact_version_with_its_hashes(lock):
     loose = [
         str(req)
-        for req, hashes in _lock_entries(lock)
+        for req, hashes, _ in _lock_entries(lock)
         if hashes == 0 or _pinned_version(req) is None
     ]
     assert not loose, f"{lock} has lines that are not a pin with hashes: {loose}"
+
+
+@pytest.mark.parametrize("lock", LOCKS)
+def test_the_lock_takes_its_direct_requirements_from_its_source_alone(lock):
+    direct = {
+        canonicalize_name(req.name)
+        for req, _, sources in _lock_entries(lock)
+        if f"-r {_source(lock)}" in sources
+    }
+    wanted = {canonicalize_name(req.name) for req in _sources(lock)}
+    assert direct == wanted, (
+        f"{lock} locks {sorted(direct - wanted)} that {_source(lock)} no longer names and lacks "
+        f"{sorted(wanted - direct)} that it does; run scripts/lock-backend-requirements.sh"
+    )
 
 
 @pytest.mark.parametrize("lock", LOCKS)
@@ -70,7 +99,7 @@ def test_the_lock_still_satisfies_what_its_source_asks_for(lock):
         if version is None or not wanted.specifier.contains(version, prereleases=True):
             stale.append(str(wanted))
     assert not stale, (
-        f"{lock} no longer matches {lock.replace('.txt', '.in')} for {stale}; "
+        f"{lock} no longer matches {_source(lock)} for {stale}; "
         "run scripts/lock-backend-requirements.sh"
     )
 
