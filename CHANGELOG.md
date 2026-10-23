@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/chanjdaniel/Conventioner/compare/v1.0.0...v1.1.0) (2026-10-23)
+
+
+### Features
+
+* an operator can create or verify an organizer account by hand ([a9cda50](https://github.com/chanjdaniel/Conventioner/commit/a9cda503f08e31c7f8965c3a8a7e9fb7c465d227))
+
+
+### Bug Fixes
+
+* **lists:** a market row's facts keep their room on narrow cards ([b862ee4](https://github.com/chanjdaniel/Conventioner/commit/b862ee492ebf7c861e34436557298b569fc994ae))
+* **lists:** a market row's facts keep their room on narrow cards ([19cf2b8](https://github.com/chanjdaniel/Conventioner/commit/19cf2b825b05d05ff24fb165622177297d17b508))
+* reset_database refuses a hosted database ([a790806](https://github.com/chanjdaniel/Conventioner/commit/a790806b091cf7d19ba9778eae82a009a2bd840f))
+* **ui:** a select stays inside its column in Firefox ([0fa4764](https://github.com/chanjdaniel/Conventioner/commit/0fa476469c88e05be8467e51498b4bca5a8001bc))
+* **ui:** a select stays inside its column in Firefox ([5aca24b](https://github.com/chanjdaniel/Conventioner/commit/5aca24b1e7e37b47f8344f6ddcff219f915ce5e0))
+
 ## [1.0.0](https://github.com/chanjdaniel/Conventioner/compare/v0.1.0...v1.0.0) (2026-10-18)
 
 
