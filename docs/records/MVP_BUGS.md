@@ -4,7 +4,7 @@ kind: record
 ---
 # MVP bugs found walking the user flows
 
-Found on 2026-09-30, on `dev` at `59677cf8`, while walking every flow in [USER_FLOWS.md](../USER_FLOWS.md) on a fresh local stack.
+Found on 2026-09-30, on `dev` at `b084ecbd`, while walking every flow in [USER_FLOWS.md](../USER_FLOWS.md) on a fresh local stack.
 Bugs 22 to 44 were found the same day by the usage test run with five real Google Form exports, written up in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md); that run also retested bugs 1 to 21, and each entry below says what it saw.
 Every one was fixed by epic E26 ("The user flows hold") on `fix/mvp-e2e-testing`, except bug 39, which is known behaviour; the summary names the commit for each.
 Bugs 45 to 47 were found while fixing the others, and bugs 48 to 53 on the live re-walk after the fixes ([MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md)).
@@ -33,59 +33,59 @@ Flow ids refer to [USER_FLOWS.md](../USER_FLOWS.md); "Tracked" names an open Way
 
 | # | Bug | Severity | Flows | Tracked | Fixed in |
 | --- | --- | --- | --- | --- | --- |
-| [1](#bug-1) | Check-in sends hand-placed vendors to the wrong table | Critical | J6, J7, J8, K2 | | `176f9c2c` |
-| [2](#bug-2) | A market started from a Google Form imports 0 rows of that same file | Critical | P2, G5, H2a | | `0eb2d8df` |
-| [3](#bug-3) | The proposal saves the main table-choice answers as "ignore" | Critical | P2, G5, H2a | | `0eb2d8df` |
-| [22](#bug-22) | Password-reset and verification links send a signed-out person to sign-in | Critical | A1, A4 | | `d6558368` |
-| [23](#bug-23) | A market planned without tiers can never be assigned | Critical | P1, E2, E4, J3 | | `3aeeae03` |
-| [24](#bug-24) | The import requires "Number of dates you want", which most real forms never asked | Critical | P1, P2, G4, H2d | | `cf0a17b9` |
-| [4](#bug-4) | Applicants who chose only rare options lose a required answer | High | P2, G4, H2a | | `9f1ee9ff` |
-| [5](#bug-5) | Skipped import rows are written as empty applications | High | H2i, I1 | | `c086ec13` |
-| [6](#bug-6) | A first-time vendor cannot apply online | High | P3, H3a | | `c1636c89` |
-| [25](#bug-25) | The plan saves itself in a loop and overwrites other editors | High | E1 to E5, J1, J2 | | `1be4550b` |
-| [26](#bug-26) | A tier grid's day headings cannot be matched to dates by hand | High | H2b, H2c, P1, P4 | | `d10ac175` |
-| [27](#bug-27) | Answers are split at every comma, even inside an option | High | G4, H2a, H2b | | `b48afb65` |
-| [28](#bug-28) | Value decisions cannot be seen or changed once made | High | H2a, H2b, P2 | | `6c07070e` |
-| [29](#bug-29) | Editing a custom field turns a switched-off Section preference back on | High | F1, F2, H2d, P2 | | `b1729d47` |
-| [30](#bug-30) | Archived markets can still be edited | High | L1, L2, J6 to J8 | | `00eb8b01` |
-| [7](#bug-7) | "Leave blank for no ceiling" keeps Assign disabled | Medium | J2a | | `74b45c59` |
-| [8](#bug-8) | A market archived after Market Days says it was never published | Medium | L1 | `claims-and-room` 06 | `525d153e` |
-| [9](#bug-9) | Archived check-in pages go offline, contrary to the docs and the deletion preview | Medium | L1, B5b | | `6be7b1b9` |
-| [20](#bug-20) | A vendor cannot see their application or verdict once applications close | Medium | H3c, I7 | | `101d2c16` |
-| [21](#bug-21) | A returning vendor's apply page opens empty | Medium | H3b | | `a94e4d9e` |
-| [31](#bug-31) | An orphaned pin is invisible once the market is in Assignment | Medium | J10, K1 | | `1819ff45` |
-| [32](#bug-32) | A hand placement moves a vendor into a tier they refused without warning | Medium | J6, J7 | `claims-and-room` 05, in part | `328a3da2` |
-| [33](#bug-33) | "Why not placed" ignores the vendor's date limit and the market ceiling | Medium | J12 | | `54f3d5dd` |
-| [34](#bug-34) | An applicant listed more than once in a file loses their approval on every re-import | Medium | H2h | | `c086ec13` |
-| [35](#bug-35) | The import accepts a value that is not an email address as the applicant's email | Medium | H2a | | `c086ec13` |
-| [36](#bug-36) | A vendor's sign-in ends on any reload | Medium | H3a to H3c | | `a94e4d9e` |
-| [37](#bug-37) | Viewers are shown controls they cannot use | Medium | B2, every market page | | `dd4835ec` |
-| [38](#bug-38) | Floorplan beta: Auto-Place places one table, and the calibration result is mislabelled | Medium | E6 | | `7ad0bfae` |
-| [10](#bug-10) | Vendors page counts rejected applications as vendors | Low | J11 | `claims-and-room` 04 | `54f3d5dd` |
-| [11](#bug-11) | The phase rail wraps at 1440 px when it shows the public URL | Low | H1 | `claims-and-room` 07 | `3254eaa9` |
-| [12](#bug-12) | The market frame shifts 32 px on Start from your Google Form | Low | G3 to G5 | | `3254eaa9` |
-| [13](#bug-13) | Assignment Options inputs have no visible border | Low | J2 | | `74b45c59` |
-| [14](#bug-14) | Markets list: long names wrap, and separate days read as a range | Low | C2 | | `edf3cfb1` |
-| [15](#bug-15) | Manage market dialog buttons are undersized | Low | L3, L5 | | `871f9e4f` |
-| [16](#bug-16) | Stale or wrong copy in four places | Low | E8, H2a, H3a | | `4db6088c` |
-| [17](#bug-17) | The essential questions panel omits two questions every form asks | Low | F1 | | `4db6088c` |
-| [18](#bug-18) | A swap gives no warning when it changes a vendor's table size | Question | J7 | `claims-and-room` 05 (placement warnings) | `328a3da2` |
-| [19](#bug-19) | Code and documentation hygiene | Low | none | | `6be7b1b9`, `525d153e`, `d4401703` |
+| [1](#bug-1) | Check-in sends hand-placed vendors to the wrong table | Critical | J6, J7, J8, K2 | | `db16f41a` |
+| [2](#bug-2) | A market started from a Google Form imports 0 rows of that same file | Critical | P2, G5, H2a | | `c69750f9` |
+| [3](#bug-3) | The proposal saves the main table-choice answers as "ignore" | Critical | P2, G5, H2a | | `c69750f9` |
+| [22](#bug-22) | Password-reset and verification links send a signed-out person to sign-in | Critical | A1, A4 | | `09ce232e` |
+| [23](#bug-23) | A market planned without tiers can never be assigned | Critical | P1, E2, E4, J3 | | `20354573` |
+| [24](#bug-24) | The import requires "Number of dates you want", which most real forms never asked | Critical | P1, P2, G4, H2d | | `b6a5efbd` |
+| [4](#bug-4) | Applicants who chose only rare options lose a required answer | High | P2, G4, H2a | | `c80063f9` |
+| [5](#bug-5) | Skipped import rows are written as empty applications | High | H2i, I1 | | `7754d33d` |
+| [6](#bug-6) | A first-time vendor cannot apply online | High | P3, H3a | | `db3f26f7` |
+| [25](#bug-25) | The plan saves itself in a loop and overwrites other editors | High | E1 to E5, J1, J2 | | `64db6b8a` |
+| [26](#bug-26) | A tier grid's day headings cannot be matched to dates by hand | High | H2b, H2c, P1, P4 | | `4c347e20` |
+| [27](#bug-27) | Answers are split at every comma, even inside an option | High | G4, H2a, H2b | | `6d4c93b5` |
+| [28](#bug-28) | Value decisions cannot be seen or changed once made | High | H2a, H2b, P2 | | `0d8640e2` |
+| [29](#bug-29) | Editing a custom field turns a switched-off Section preference back on | High | F1, F2, H2d, P2 | | `e3dbcf9d` |
+| [30](#bug-30) | Archived markets can still be edited | High | L1, L2, J6 to J8 | | `6ba20171` |
+| [7](#bug-7) | "Leave blank for no ceiling" keeps Assign disabled | Medium | J2a | | `81b829da` |
+| [8](#bug-8) | A market archived after Market Days says it was never published | Medium | L1 | `claims-and-room` 06 | `287f06ac` |
+| [9](#bug-9) | Archived check-in pages go offline, contrary to the docs and the deletion preview | Medium | L1, B5b | | `9d93ab29` |
+| [20](#bug-20) | A vendor cannot see their application or verdict once applications close | Medium | H3c, I7 | | `bccb06e6` |
+| [21](#bug-21) | A returning vendor's apply page opens empty | Medium | H3b | | `0cb0a173` |
+| [31](#bug-31) | An orphaned pin is invisible once the market is in Assignment | Medium | J10, K1 | | `0bef8626` |
+| [32](#bug-32) | A hand placement moves a vendor into a tier they refused without warning | Medium | J6, J7 | `claims-and-room` 05, in part | `da4f200d` |
+| [33](#bug-33) | "Why not placed" ignores the vendor's date limit and the market ceiling | Medium | J12 | | `16b182fe` |
+| [34](#bug-34) | An applicant listed more than once in a file loses their approval on every re-import | Medium | H2h | | `7754d33d` |
+| [35](#bug-35) | The import accepts a value that is not an email address as the applicant's email | Medium | H2a | | `7754d33d` |
+| [36](#bug-36) | A vendor's sign-in ends on any reload | Medium | H3a to H3c | | `0cb0a173` |
+| [37](#bug-37) | Viewers are shown controls they cannot use | Medium | B2, every market page | | `93d1e141` |
+| [38](#bug-38) | Floorplan beta: Auto-Place places one table, and the calibration result is mislabelled | Medium | E6 | | `4adf1cb8` |
+| [10](#bug-10) | Vendors page counts rejected applications as vendors | Low | J11 | `claims-and-room` 04 | `16b182fe` |
+| [11](#bug-11) | The phase rail wraps at 1440 px when it shows the public URL | Low | H1 | `claims-and-room` 07 | `e64f25fe` |
+| [12](#bug-12) | The market frame shifts 32 px on Start from your Google Form | Low | G3 to G5 | | `e64f25fe` |
+| [13](#bug-13) | Assignment Options inputs have no visible border | Low | J2 | | `81b829da` |
+| [14](#bug-14) | Markets list: long names wrap, and separate days read as a range | Low | C2 | | `c6a40d40` |
+| [15](#bug-15) | Manage market dialog buttons are undersized | Low | L3, L5 | | `e0d3c514` |
+| [16](#bug-16) | Stale or wrong copy in four places | Low | E8, H2a, H3a | | `4c14c806` |
+| [17](#bug-17) | The essential questions panel omits two questions every form asks | Low | F1 | | `4c14c806` |
+| [18](#bug-18) | A swap gives no warning when it changes a vendor's table size | Question | J7 | `claims-and-room` 05 (placement warnings) | `da4f200d` |
+| [19](#bug-19) | Code and documentation hygiene | Low | none | | `9d93ab29`, `287f06ac`, `3c369840` |
 | [39](#bug-39) | The solver fills market dates in calendar order | Question | J3 | | Known behaviour |
-| [40](#bug-40) | The import misreports its own counts and rows | Low | H2a, H2h, H2i | | `9b290e34` |
-| [41](#bug-41) | The proposal cuts question labels mid-sentence | Low | G4, F2 | | `9f1ee9ff` |
-| [42](#bug-42) | Stale or wrong copy, second batch | Low | C1, D4, H2j, K1, A3, E6 | | `4db6088c` |
-| [43](#bug-43) | Interface polish found on the usage run | Low | many | | `9c7d7362`, `4b19fc95`, `edf3cfb1`, `73ae4682`, `3254eaa9`, `871f9e4f` |
-| [44](#bug-44) | Accessibility gaps | Low | many | | `98e7a17c` |
-| [45](#bug-45) | The applicant form asks a Section preference the market switched off | High | H3a, F2 | | `b1729d47` |
-| [46](#bug-46) | A market can be created owned by someone else, or by nobody | High | C1 | | `69f4b121` |
-| [47](#bug-47) | Deleting a market leaves its applications and check-ins behind | High | L5, B5c | | `f7b21c32` |
-| [48](#bug-48) | The import calls an answer the organizer chose to ignore "required", and lists a reason per question for a blank row | Low | H2i | | `df4e3db6` |
-| [49](#bug-49) | Web addresses in answers are not links | Low | I1, H3c | | `902cac94` |
-| [50](#bug-50) | A priority rule's controls have no names, and removing one needs a mouse | Low | J1, E1 | | `edece8b7` |
-| [51](#bug-51) | The check-in email field shrinks to 22 px on a phone | Medium | K2 | | `aaff3130` |
-| [52](#bug-52) | Links sit off their line, native controls are the browser's blue, "Plan saved" touches the card's corner | Low | many | | `00ad1604` |
-| [53](#bug-53) | The vendor's Full name asks for the preferred name | Low | H3a | | `00ad1604` |
+| [40](#bug-40) | The import misreports its own counts and rows | Low | H2a, H2h, H2i | | `82ca6cba` |
+| [41](#bug-41) | The proposal cuts question labels mid-sentence | Low | G4, F2 | | `c80063f9` |
+| [42](#bug-42) | Stale or wrong copy, second batch | Low | C1, D4, H2j, K1, A3, E6 | | `4c14c806` |
+| [43](#bug-43) | Interface polish found on the usage run | Low | many | | `b1d3f79e`, `633b6766`, `c6a40d40`, `fb5060d0`, `e64f25fe`, `e0d3c514` |
+| [44](#bug-44) | Accessibility gaps | Low | many | | `df6e46fc` |
+| [45](#bug-45) | The applicant form asks a Section preference the market switched off | High | H3a, F2 | | `e3dbcf9d` |
+| [46](#bug-46) | A market can be created owned by someone else, or by nobody | High | C1 | | `d397acaa` |
+| [47](#bug-47) | Deleting a market leaves its applications and check-ins behind | High | L5, B5c | | `877c358f` |
+| [48](#bug-48) | The import calls an answer the organizer chose to ignore "required", and lists a reason per question for a blank row | Low | H2i | | `974607a9` |
+| [49](#bug-49) | Web addresses in answers are not links | Low | I1, H3c | | `155f48e2` |
+| [50](#bug-50) | A priority rule's controls have no names, and removing one needs a mouse | Low | J1, E1 | | `1983b80e` |
+| [51](#bug-51) | The check-in email field shrinks to 22 px on a phone | Medium | K2 | | `f455444d` |
+| [52](#bug-52) | Links sit off their line, native controls are the browser's blue, "Plan saved" touches the card's corner | Low | many | | `fd466188` |
+| [53](#bug-53) | The vendor's Full name asks for the preferred name | Low | H3a | | `fd466188` |
 
 <a id="bug-1"></a>
 ## 1. Check-in sends hand-placed vendors to the wrong table
@@ -780,7 +780,7 @@ A vendor available all week who wants 2 dates always gets the first two.
 Spreading a vendor's dates would cost nothing when there is room.
 
 **Decided (E26): known behaviour, left as it is.** No vendor is placed worse by it, and spreading dates is a choice about what a market wants that nobody has made yet.
-Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](https://github.com/chanjdaniel/Conventioner/blob/84b97f70eb19ec610496dd6e37b28a7d29349097/docs/MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
+Recorded here so the next test run reads it as known rather than as new, and explained, with what changing it would take, in [MVP_KNOWN_GAPS.md](https://github.com/chanjdaniel/Conventioner/blob/4aa7e30429768dbe09bc8037abd115486f6fd7fb/docs/MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
 
 <a id="bug-40"></a>
 ## 40. The import misreports its own counts and rows
