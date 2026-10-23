@@ -4,7 +4,7 @@
 # can run the stack in parallel without colliding. It gives each worktree:
 #   - a unique COMPOSE_PROJECT_NAME (isolates containers, networks, volumes)
 #   - unique container_names
-#   - offset host ports, published on 127.0.0.1 only
+#   - offset host ports, or ports Docker picks (TH_PORTS=auto), on 127.0.0.1 only
 #   - the team's ownership labels, on every container, named volume and network
 #   - no restart by itself, and no bind mount that creates its missing source
 #   - memory, CPU and process limits per service

@@ -182,6 +182,25 @@ def test_every_port_is_published_on_loopback_with_the_ports_host_port(worktree_a
     assert published(config) == expected
 
 
+def test_auto_mode_leaves_every_host_port_empty_for_docker_to_pick():
+    # The caller's own ports are ignored: Docker assigns each one as the container starts.
+    result = subprocess.run(
+        [str(WRAPPER), "--profile", "tools", "config", "--format", "json"],
+        env=clean_env(TH_DIR=str(REPO), COMPOSE_PROJECT_NAME="nmtest-4242", TH_PORTS="auto", TH_BACKEND_PORT="41002"),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    assert published(json.loads(result.stdout)) == {
+        "mongodb": [("127.0.0.1", "", 27017)],
+        "backend": [("127.0.0.1", "", 5000)],
+        "frontend": [("127.0.0.1", "", 5173)],
+        "mongo-express": [("127.0.0.1", "", 8081)],
+    }
+    assert "not set" not in result.stderr
+
+
 def test_mongo_express_starts_only_with_the_tools_profile(worktree_and_env):
     worktree, env = worktree_and_env
 
