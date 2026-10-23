@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-21
+verified: 2026-10-23
 ---
 
 # Conventioner - Development Startup Guide
@@ -38,6 +38,19 @@ The easiest way to get started is using Docker Compose:
   - Backend API: [https://localhost:5000](https://localhost:5000)
   - MongoDB: localhost:27017
   - mongo-express (database browser): [http://localhost:8081](http://localhost:8081), `admin` / `admin`
+
+  Every port is published on `127.0.0.1` only, so the stack is reachable from this machine and
+  not from the local network (it runs with fixed development credentials).
+  To reach it from another device, such as a phone, publish the port you need in an override
+  file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
+  (git-ignored; plain `docker compose` reads it):
+  ```yaml
+  services:
+    frontend:
+      ports: !override
+        - "5173:5173"
+  ```
+  The front end proxies `/api` to the back end inside Docker, so the front end's port is enough.
 3. **Stop all services**:
   ```bash
    docker compose down
@@ -497,6 +510,10 @@ The `docker-compose.yml` defines four services:
 4. **mongo-express**: browser-based database viewer
   - Port: `8081`, basic auth `admin` / `admin`
   - Convenient for reading market and application documents by hand
+  - A worktree's stack starts without it: `scripts/th-compose.sh --profile tools up -d mongo-express`
+    ([the treehouse runbook](../scripts/README-treehouse.md))
+
+Each service publishes its port on `127.0.0.1` only.
 
 ### Environment Variables
 

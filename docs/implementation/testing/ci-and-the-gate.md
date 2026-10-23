@@ -47,8 +47,8 @@ Without it the gate has no way to run the suite, so it is the only workable sett
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
 It runs, in order, the knowledge graph's checker tests and `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
 Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
-Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and four free ports, each found by binding to port 0.
-It labels the stack as a gate run (`TEAM_KIND=gate`, `TEAM_WORKTREE` its repository root, `TEAM_EXPIRES` two hours after its start, and `TEAM_OWNER=agent-team` only when `TEAM_TASK` is set), and the [worktree overlay](../../../scripts/README-treehouse.md) puts those labels on every container, volume and network, with `restart: "no"` and no bind mount that creates its missing source.
+Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`) and three free ports, each found by binding to port 0; mongo-express is not started (it is in the overlay's `tools` profile).
+It labels the stack as a gate run (`TEAM_KIND=gate`, `TEAM_WORKTREE` its repository root, `TEAM_EXPIRES` two hours after its start, and `TEAM_OWNER=agent-team` only when `TEAM_TASK` is set), and the [worktree overlay](../../../scripts/README-treehouse.md) puts those labels on every container, volume and network, with `restart: "no"`, no bind mount that creates its missing source, every port on `127.0.0.1` and each service within its memory, CPU and process limits ([measured](../../TESTING.md#stack-limits)).
 
 **A run's stack is gone within a minute, however the run ends.**
 

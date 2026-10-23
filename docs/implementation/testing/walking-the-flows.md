@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-10-22
+verified: 2026-10-23
 sources:
   - E26
 ---
@@ -22,7 +22,7 @@ How to run the suites is [`TESTING.md`](../../TESTING.md); the seed helpers are 
 
 ### Local stack
 
-1. Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` from a treehouse worktree, or `DISABLE_EMAIL=true docker compose up -d` from the primary checkout.
+1. Bring the stack up with `scripts/th-compose.sh up -d` from a treehouse worktree (email is off there by default), or `DISABLE_EMAIL=true docker compose up -d` from the primary checkout.
 2. Run [`./scripts/seed_fixture.sh`](../../../scripts/seed_fixture.sh).
    It creates two verified organizers, `e2e@example.com` / `e2epassword123` (owns `Seed Test Org`) and `e2e-noorg@example.com` / `e2enoorg123` (in no organization), plus one draft market.
 3. Open the front end printed by the script (5173 on the primary stack, `5173 + slot*10` in a worktree) and sign in.
