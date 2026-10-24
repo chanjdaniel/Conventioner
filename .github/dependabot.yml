@@ -1,0 +1,39 @@
+# Dependabot's version updates, and the titles of its security updates too.
+# Options: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+# Its PRs target the default branch, dev, and skip the no-mistakes gate: CI's required checks are
+# their gate (docs/implementation/testing/ci-and-the-gate.md#dependabot).
+# No pip entry: the back end's locks are written by uv through scripts/lock-backend-requirements.sh,
+# with hashes, and Dependabot is not known to write them as that script does; bump them by hand.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/front-end"
+    schedule:
+      interval: "weekly"
+    # Titles are Conventional Commits release-please reads: fix(deps): for what ships, so it cuts a
+    # patch; chore(deps-dev): for tooling, so it cuts nothing.
+    commit-message:
+      prefix: "fix"
+      prefix-development: "chore"
+      include: "scope"
+    # A week's minor and patch bumps arrive as one PR per dependency type, so CI runs once for each
+    # and a tooling bump never shares a fix(deps): title. A major bump comes on its own.
+    groups:
+      production:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+      development:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # ci(deps): an action bump changes CI, not the product, so release-please cuts nothing.
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions:
+        update-types: ["minor", "patch"]
