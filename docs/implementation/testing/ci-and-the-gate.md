@@ -47,22 +47,24 @@ Within a shard the tests share one database (`workers: 1`); never across shards.
 ## Dependabot
 
 [`.github/dependabot.yml`](../../../.github/dependabot.yml) has Dependabot open version-update pull requests weekly, for `npm` in `front-end/` and for the workflows' `github-actions`.
-It has no `pip` entry: the back end's hashed locks are written by `uv` through `scripts/lock-backend-requirements.sh` ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), and that Dependabot writes them as the script does is unverified, so a back-end bump, a security one included, is made by hand with the script.
-Its alerts cover the back end regardless.
+It has no `pip` entry: the back end's hashed locks are written by `uv` through `scripts/lock-backend-requirements.sh` ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), and that Dependabot writes them as the script does is unverified, so a back-end version bump is made by hand with the script.
+Dependabot alerts, and the security-update toggle, are repository settings, not this file: they follow the dependency graph, so a `pip` security update can still arrive as a pull request; make it with the script rather than merging Dependabot's lock edits.
 
 **Its pull requests target `dev`**, the default branch, and their titles are Conventional Commits that release-please reads:
 
-| Updates | Title | Release |
-| --- | --- | --- |
-| an npm production dependency | `fix(deps): ...` | a patch |
-| an npm development dependency | `chore(deps-dev): ...` | none |
-| a GitHub Action | `ci(deps): ...` | none |
+| Updates | Title |
+| --- | --- |
+| an npm production dependency | `fix(deps): ...` |
+| an npm development dependency | `chore(deps-dev): ...` |
+| a GitHub Action | `ci(deps): ...` |
 
+The release effect of each type is the one in [RELEASING.md](../../RELEASING.md#conventional-commits); the npm split by dependency type keeps a tooling bump from carrying a `fix` title.
 A week's minor and patch bumps come as one pull request per group (npm production, npm development, Actions), so CI runs once for each; a major bump comes on its own.
-Security updates take the same titles, and always target the default branch.
+For these ecosystems, security updates take the same titles, and always target the default branch.
 
 **Dependabot's pull requests bypass the no-mistakes gate**: CI's required checks are their gate, and a person reads each before merging it.
-A bump to `front-end/package.json` turns the non-required `knowledge-graph-drift` job red, since [TECH_STACK.md](../../TECH_STACK.md) describes that file; that is expected, and a reviewer bumps that node's `verified` when the stack it states changed.
+A bump to a described file turns the non-required `knowledge-graph-drift` job red: `front-end/package.json` for [TECH_STACK.md](../../TECH_STACK.md), a workflow for this node and [RELEASING.md](../../RELEASING.md).
+That is expected; a reviewer re-reads each affected node and bumps its `verified`.
 
 ## The no-mistakes gate
 
