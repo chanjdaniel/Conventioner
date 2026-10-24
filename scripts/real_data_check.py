@@ -14,9 +14,9 @@ a pushed branch is public the moment it lands: this runs before anything leaves 
 
 A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
 cells and shared strings, a CSV or TSV in any encoding. One this check cannot read (`.xls`,
-`.xlsb`, `.numbers`) is refused outright outside the test fixtures. A finding names the file and
-line, or the sheet's cell, never the value in full; the exports are read into memory only,
-and nothing derived from them is written or printed. Exits 1 on a finding, 2 when git fails.
+`.xlsb`, `.numbers`, `.et`, `.sxc`) is refused outright outside the test fixtures. A finding names
+the file and line, or the sheet's cell, never the value in full; the exports are read into memory
+only, and nothing derived from them is written or printed. Exits 1 on a finding, 2 when git fails.
 Standard library only, Python 3.8+.
 """
 

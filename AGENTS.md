@@ -36,7 +36,9 @@ This file holds what nearly every session needs; everything else is in the knowl
   Pass it inline to one-off scripts.
   `reset_database.py` refuses whenever `MONGODB_URI` is set.
 - **An operator makes or verifies an account with `back-end/create_account.py`**, never `create_test_user.py` (a fixture script that prints the password).
-- **`.scratch/examples/` holds real applicants' details**: the organizers' Google Form exports, untracked; never commit, quote or paste from them.
+- **Real applicant data never leaves the PC**: `.scratch/examples/` holds the organizers' real Google Form exports, untracked; never commit, quote or paste from them.
+  The committed hooks (`.githooks/`, installed with `git config core.hooksPath .githooks`) refuse a real email, phone or name before a commit or push; the gate and CI check again.
+  Use fixture values, and never `--no-verify`; see [real data never leaves the PC](docs/implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc).
 - **There is no fallback signing secret anywhere in this repository** and there must never be one again - not even "for dev".
   A committed fallback is a published key; see [ADR 0010](docs/adr/0010-no-secret-has-a-fallback.md).
 - Running production, its variables and its incidents: [`docs/OPERATIONS.md`](docs/OPERATIONS.md); rebuilding it from nothing: [`docs/VERCEL_DEPLOYMENT.md`](docs/VERCEL_DEPLOYMENT.md).
@@ -111,7 +113,7 @@ The data and the back end:
 - Before adding a query on a new field, read [lookup indexes](docs/implementation/data/lookup-indexes.md).
 - Before adding or moving a back-end Python dependency, read [Python dependencies are locked](docs/TECH_STACK.md#python-dependencies-are-locked).
 - Before deleting a market or an organization, or adding a collection keyed by market, read [market deletion](docs/implementation/modules/market-deletion.md) and [when an organization may be deleted](docs/business/rules/when-an-organization-may-be-deleted.md).
-- Before changing a secret, a boot check or an environment variable, read [security invariants](docs/implementation/conventions/security-invariants.md) and the environment table in [`docs/RELEASING.md`](docs/RELEASING.md).
+- Before changing a secret, a boot check, an environment variable or the real-data hooks, read [security invariants](docs/implementation/conventions/security-invariants.md) and the environment table in [`docs/RELEASING.md`](docs/RELEASING.md).
 - Before answering a back end that refuses to boot, read [`docs/OPERATIONS.md`](docs/OPERATIONS.md#when-the-back-end-refuses-to-boot).
 
 Tests and CI:
