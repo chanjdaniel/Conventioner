@@ -105,9 +105,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 - [`.nvmrc`](../.nvmrc) pins one Node, 24.19.0 (an LTS line), and with it the npm it bundles, 11.17.0; that npm writes the committed `front-end/package-lock.json`, and npm 10 rewrites it (it drops the `libc` fields)
 - Every place that runs the front end's npm runs that pin: each machine through nvm (`nvm install` in the repository reads `.nvmrc`), every `actions/setup-node` step in CI and the Deploy workflow (`node-version-file: .nvmrc`), and `front-end/Dockerfile` (`node:24.19.0-alpine`)
 - `front-end/package.json`'s `engines` says `node` `24.x` and `npm` `11.17.0`: npm warns (`EBADENGINE`) on an install under another version, and Vercel, which builds the production front end, reads the major from it (Vercel takes a major only, and an exact version there fails its build)
-- Three checks hold the pin:
-  - `scripts/tests/test_node_pin.py` fails when the Dockerfile, a workflow or `engines` stops following `.nvmrc`
-  - CI's `frontend-lint-and-types` job checks the npm it runs is `engines.npm` and that an `npm install --package-lock-only` changes nothing in the lockfile
+- Three checks hold the pin, each where the version is used:
+  - CI's `frontend-lint-and-types` job checks its Node is `.nvmrc`'s, installs with `npm ci --engine-strict` (which refuses an npm other than `engines.npm`), and checks an `npm install --package-lock-only` changes nothing in the lockfile
+  - `front-end/Dockerfile` installs with `npm ci --engine-strict`, so a base image that drifts from the pin fails the build
   - The treehouse pre-warm installs with `npm ci`, which never writes the lockfile, and warns when the machine's Node is not the pin ([the treehouse runbook](../scripts/README-treehouse.md))
 - To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, and regenerate the lockfile with the new npm as its own commit
 

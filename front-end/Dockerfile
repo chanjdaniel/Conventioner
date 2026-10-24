@@ -14,8 +14,9 @@ USER appuser
 # Copy package files
 COPY --chown=appuser:appuser package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies, with the npm package.json's `engines` names: a base image that has
+# drifted from .nvmrc's Node, and so bundles another npm, fails the build here.
+RUN npm ci --engine-strict
 
 # Copy application code
 COPY --chown=appuser:appuser . .

@@ -116,12 +116,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: front-end/package-lock.json
-      - run: npm ci
-      # The lockfile is what the pinned npm (.nvmrc's Node bundles it) writes, so a real
+      # The Node is the one .nvmrc pins, the npm the one it bundles (`--engine-strict` refuses any
+      # other than package.json's `engines`), and the lockfile what that npm writes, so a real
       # dependency change writes the same lockfile on every machine; another npm rewrites fields.
+      - name: Install with the pinned Node and npm
+        run: |
+          test "$(node --version)" = "v$(cat ../.nvmrc)"
+          npm ci --engine-strict
       - name: The pinned npm writes the committed lockfile
         run: |
-          test "$(npm --version)" = "$(node -p 'require("./package.json").engines.npm')"
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json
       - name: Format check (Prettier)
