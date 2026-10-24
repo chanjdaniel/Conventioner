@@ -101,7 +101,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ## Frontend
 
 ### Core Framework
-- **Vue 3.5.13** - Progressive JavaScript framework
+- **Vue 3.5.44** - Progressive JavaScript framework
   - Composition API (`<script setup>`)
   - Reactive data binding
   - Component-based architecture
