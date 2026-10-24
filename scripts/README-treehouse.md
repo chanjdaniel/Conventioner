@@ -170,6 +170,7 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 - **The pre-warm never writes the lockfile.** It installs with `npm ci`, so a warmed
   slot is clean whichever npm the machine has; a `package-lock.json` out of step with
   `package.json` fails the pre-warm (`ERROR: npm ci failed`) instead of being rewritten.
+  `th-lease.sh` still hands out the slot, with its hooks set and no `front-end/node_modules`.
   Fix the lockfile on its branch and commit it.
 - If you `treehouse destroy` or `treehouse prune` a worktree without returning it
   first, its docker stack lingers (only `th-return.sh` tears stacks down) - run
