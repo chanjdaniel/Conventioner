@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# The Node .nvmrc pins, and the npm it bundles (docs/TECH_STACK.md#node-and-npm-are-pinned).
+FROM node:24.19.0-alpine
 
 # Create a non-root user (using 1001 to avoid conflicts with base image)
 RUN addgroup -g 1001 appuser && \
@@ -13,8 +14,9 @@ USER appuser
 # Copy package files
 COPY --chown=appuser:appuser package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies, with the npm package.json's `engines` names: a base image that has
+# drifted from .nvmrc's Node, and so bundles another npm, fails the build here.
+RUN npm ci --engine-strict
 
 # Copy application code
 COPY --chown=appuser:appuser . .

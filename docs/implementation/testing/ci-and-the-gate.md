@@ -27,9 +27,9 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 | Job | Runs |
 | --- | --- |
 | `backend` | Python 3.12, the locks `requirements.txt`, `requirements-floorplan-solver.txt` and `requirements-dev.txt`, a re-lock that fails on any difference ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), then pytest |
-| `frontend-unit` | Node 20, `npm ci`, Vitest |
-| `frontend-lint-and-types` | Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate) and the type-check |
-| `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests and `knowledge_graph.py check` |
+| `frontend-unit` | the Node `.nvmrc` pins, `npm ci`, Vitest |
+| `frontend-lint-and-types` | a check that the Node is `.nvmrc`'s, `npm ci --engine-strict` (the npm is `engines.npm`), and a check that npm writes the committed lockfile unchanged ([Node and npm are pinned](../../TECH_STACK.md#node-and-npm-are-pinned)), then Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate) and the type-check |
+| `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests (on the Node `.nvmrc` pins, since the pre-warm's tests run its npm) and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `real-data` | on a pull request only, [`real_data_check.py`](../../../scripts/real_data_check.py) on the PR's commits since the base branch, then gitleaks 8.28.0 (checksum-verified, fully redacted) on the same commits; the backstop to the git hooks and the gate, which run the checker before anything is pushed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)) |
 | `docker-build` | `docker compose build` |

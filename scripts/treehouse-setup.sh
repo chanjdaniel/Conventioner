@@ -23,7 +23,12 @@ cd "$WORKTREE"
 # Primary checkout = parent of the shared .git dir. Source for git-ignored files.
 MAIN="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
-# 1. Env files (git-ignored, absent in a fresh checkout)
+# 1. The committed git hooks: they refuse a commit or a push that holds a real person's details
+#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
+#    First, before any step that can fail: th-lease.sh hands out a slot whose pre-warm failed.
+git -C "$WORKTREE" config core.hooksPath .githooks
+
+# 2. Env files (git-ignored, absent in a fresh checkout)
 for f in .env front-end/.env back-end/.env; do
   if [ ! -f "$WORKTREE/$f" ] && [ -f "$MAIN/$f" ]; then
     cp "$MAIN/$f" "$WORKTREE/$f"
@@ -31,13 +36,29 @@ for f in .env front-end/.env back-end/.env; do
   fi
 done
 
-# 2. Node dependencies (skip if already present — pool hit)
+# 3. Node dependencies (skip if already present — pool hit). `npm ci` installs exactly the
+#    committed lockfile and never writes it: `npm install` lets an npm other than the one that
+#    wrote the lockfile rewrite it, which leaves the slot dirty and unusable. The repository pins
+#    that npm through the Node in .nvmrc; a machine on another Node still warms cleanly, but its
+#    `npm install` would write a different lockfile, so say so. It runs in front-end/ rather than
+#    with `--prefix`: through a symlinked path, npm 11's `ci --prefix` names the root package after
+#    its folder and so refuses a lockfile that names it after package.json.
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
-  echo "[treehouse]   npm install (front-end)"
-  npm install --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent
+  if [ -f "$WORKTREE/.nvmrc" ]; then
+    pinned="$(cat "$WORKTREE/.nvmrc")"
+    if [ "$(node --version)" != "v$pinned" ]; then
+      echo "[treehouse]   WARNING: node is $(node --version), the repository pins $pinned (.nvmrc); run \`nvm install\` in the repository" >&2
+    fi
+  fi
+  echo "[treehouse]   npm ci (front-end)"
+  if ! (cd "$WORKTREE/front-end" && npm ci --no-audit --no-fund --loglevel=error); then
+    echo "[treehouse]   ERROR: npm ci failed in front-end (npm's error is above); a package-lock.json out of step with package.json is fixed and committed on its branch - the pre-warm never rewrites it" >&2
+    rm -rf "$WORKTREE/front-end/node_modules"
+    exit 1
+  fi
 fi
 
-# 3. Back-end Python venv — OFF by default (see header). Best-effort when opted
+# 4. Back-end Python venv — OFF by default (see header). Best-effort when opted
 #    in; a failure warns but never aborts the pre-warm.
 if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/python" ]; then
   echo "[treehouse]   python venv + pip install (back-end, best-effort)"
@@ -50,9 +71,5 @@ if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/
     rm -rf "$WORKTREE/back-end/env"
   fi
 fi
-
-# 4. The committed git hooks: they refuse a commit or a push that holds a real person's details
-#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
-git -C "$WORKTREE" config core.hooksPath .githooks
 
 echo "[treehouse] ready: $WORKTREE"

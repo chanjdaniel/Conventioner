@@ -57,7 +57,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
 
       # The back end first: a front end that calls an endpoint the old back end lacks would break
       # every organizer for as long as the two deploys are apart, the reverse breaks nothing.

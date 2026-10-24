@@ -89,10 +89,12 @@ def test_a_missing_input_is_refused_by_name(worktree):
 
 @pytest.mark.skipif(shutil.which("shasum") is None, reason="shasum is not installed")
 def test_shasum_gives_the_same_tags_where_there_is_no_sha256sum(worktree, tmp_path):
-    # macOS has shasum and no sha256sum.
+    # macOS has shasum and no sha256sum. Its /usr/bin/shasum and perl pick a version by the name
+    # they are run as and refuse to run through a symlink, so each tool is a script that execs it.
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     for tool in ("bash", "shasum", "perl"):
-        (bin_dir / tool).symlink_to(shutil.which(tool))
+        (bin_dir / tool).write_text(f'#!/bin/sh\nexec {shutil.which(tool)} "$@"\n')
+        (bin_dir / tool).chmod(0o755)
 
     assert tags(worktree, path=str(bin_dir)) == tags(worktree)
