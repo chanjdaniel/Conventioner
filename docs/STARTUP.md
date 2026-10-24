@@ -17,11 +17,13 @@ This guide will help you set up and run the Conventioner application for develop
 Before starting, ensure you have the following installed:
 
 - **Docker** and **Docker Compose v2** (recommended - see Docker Setup below)
-  - OR **Python 3.12**, **Node.js 20.19+** (what Vite 8 needs), and **MongoDB** (for local development)
+  - OR **Python 3.12**, **Node.js 24.19.0** (with the npm 11.17.0 it bundles), and **MongoDB** (for local development)
 
 The versions are the ones the project is built, tested and deployed with: `back-end/.python-version`
 says 3.12 (Vercel reads it), `back-end/Dockerfile` pins `python:3.12-slim`, and
-`.github/workflows/test.yml` runs Python 3.12 and Node 20.
+`.github/workflows/test.yml` runs Python 3.12 and the Node that `.nvmrc` pins.
+Install that Node with [nvm](https://github.com/nvm-sh/nvm): `nvm install` in the repository reads `.nvmrc`, and `nvm alias default 24.19.0` makes it the one every new shell runs.
+Another npm rewrites `front-end/package-lock.json` on `npm install`; see [Node and npm are pinned](TECH_STACK.md#node-and-npm-are-pinned).
 Compose commands here are v2 (`docker compose`, two words); v1 (`docker-compose`) reached end of
 life and is not tested.
 
@@ -214,9 +216,9 @@ docker run -d \
   ```bash
    cd front-end
   ```
-2. Install Node.js dependencies:
+2. Install Node.js dependencies, exactly as the lockfile has them:
   ```bash
-   npm install
+   npm ci
   ```
 3. Create the environment file:
   ```bash

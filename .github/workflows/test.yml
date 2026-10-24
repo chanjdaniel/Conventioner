@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: front-end/package-lock.json
       - run: npm ci
@@ -113,10 +113,17 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: front-end/package-lock.json
       - run: npm ci
+      # The lockfile is what the pinned npm (.nvmrc's Node bundles it) writes, so a real
+      # dependency change writes the same lockfile on every machine; another npm rewrites fields.
+      - name: The pinned npm writes the committed lockfile
+        run: |
+          test "$(npm --version)" = "$(node -p 'require("./package.json").engines.npm')"
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git diff --exit-code package-lock.json
       - name: Format check (Prettier)
         run: npm run format:check
       - name: Lint (full repo)
@@ -153,7 +160,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: front-end/package-lock.json
       # Install front-end deps on the host BEFORE `docker compose up`. Otherwise

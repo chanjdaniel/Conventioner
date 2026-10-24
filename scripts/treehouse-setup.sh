@@ -33,8 +33,14 @@ done
 
 # 2. Node dependencies (skip if already present — pool hit). `npm ci` installs exactly the
 #    committed lockfile and never writes it: `npm install` lets an npm other than the one that
-#    wrote the lockfile rewrite it, which leaves the slot dirty and unusable.
+#    wrote the lockfile rewrite it, which leaves the slot dirty and unusable. The repository pins
+#    that npm through the Node in .nvmrc; a machine on another Node still warms cleanly, but its
+#    `npm install` would write a different lockfile, so say so.
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
+  pinned="$(cat "$WORKTREE/.nvmrc")"
+  if [ "$(node --version)" != "v$pinned" ]; then
+    echo "[treehouse]   WARNING: node is $(node --version), the repository pins $pinned (.nvmrc); run \`nvm install\` in the repository" >&2
+  fi
   echo "[treehouse]   npm ci (front-end)"
   if ! npm ci --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent; then
     echo "[treehouse]   ERROR: npm ci failed in front-end; if package-lock.json is out of step with package.json, fix and commit the lockfile on its branch - the pre-warm never rewrites it" >&2

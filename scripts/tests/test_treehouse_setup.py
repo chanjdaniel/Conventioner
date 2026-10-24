@@ -10,6 +10,12 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SETUP = REPO / "scripts" / "treehouse-setup.sh"
+PIN = (REPO / ".nvmrc").read_text().strip()
+
+# A stub node that reports $NODE_VERSION, the pinned one unless a test says otherwise.
+NODE_STUB = """#!/usr/bin/env bash
+echo "${NODE_VERSION}"
+"""
 
 # A stub npm that logs its arguments, rewrites the lockfile on `install`, fills node_modules on `ci`,
 # and fails as `npm ci` does on a lockfile out of step with package.json when $CI_FAILS is set.
@@ -37,8 +43,9 @@ mkdir -p "$prefix/node_modules"
 def bin_dir(tmp_path):
     stubs = tmp_path / "bin"
     stubs.mkdir()
-    (stubs / "npm").write_text(NPM_STUB)
-    (stubs / "npm").chmod(0o755)
+    for name, body in (("npm", NPM_STUB), ("node", NODE_STUB)):
+        (stubs / name).write_text(body)
+        (stubs / name).chmod(0o755)
     return stubs
 
 
@@ -49,6 +56,7 @@ def slot(tmp_path):
     (worktree / "front-end").mkdir(parents=True)
     for name in ("package.json", "package-lock.json"):
         shutil.copy(REPO / "front-end" / name, worktree / "front-end" / name)
+    shutil.copy(REPO / ".nvmrc", worktree / ".nvmrc")
     (worktree / ".gitignore").write_text("node_modules/\n")
     git = ["git", "-C", str(worktree)]
     subprocess.run([*git, "init", "-q"], check=True)
@@ -61,7 +69,12 @@ def slot(tmp_path):
 
 
 def warm(bin_dir, slot, **extra):
-    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", NPM_LOG=str(bin_dir.parent / "npm.log"))
+    env = dict(
+        os.environ,
+        PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        NPM_LOG=str(bin_dir.parent / "npm.log"),
+        NODE_VERSION=f"v{PIN}",
+    )
     env.update(extra)
     return subprocess.run([str(SETUP)], env=env | {"TREEHOUSE_DIR": str(slot)}, capture_output=True, text=True)
 
@@ -99,3 +112,17 @@ def test_a_warm_slot_is_left_alone(bin_dir, slot):
 
     assert result.returncode == 0, result.stderr
     assert not (bin_dir.parent / "npm.log").exists()
+
+
+def test_a_machine_off_the_pinned_node_is_warned(bin_dir, slot):
+    result = warm(bin_dir, slot, NODE_VERSION="v22.19.0")
+
+    assert result.returncode == 0, result.stderr
+    assert f"[treehouse]   WARNING: node is v22.19.0, the repository pins {PIN} (.nvmrc)" in result.stderr
+
+
+def test_the_pinned_node_warns_of_nothing(bin_dir, slot):
+    result = warm(bin_dir, slot)
+
+    assert result.returncode == 0, result.stderr
+    assert "WARNING" not in result.stderr

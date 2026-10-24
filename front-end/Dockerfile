@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# The Node .nvmrc pins, and the npm it bundles (docs/TECH_STACK.md#node-and-npm-are-pinned).
+FROM node:24.19.0-alpine
 
 # Create a non-root user (using 1001 to avoid conflicts with base image)
 RUN addgroup -g 1001 appuser && \

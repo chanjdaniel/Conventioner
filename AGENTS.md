@@ -5,7 +5,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 
 ## Tech Stack
 
-- Front-end: Vue 3 + Vite + TypeScript (in `front-end/`), PrimeVue UI components, Pinia state management.
+- Front-end: Vue 3 + Vite + TypeScript (in `front-end/`), PrimeVue UI components, Pinia state management; Node 24.19.0 and its npm, pinned in `.nvmrc` (`nvm install`).
 - Back-end: Python 3.12 / Flask + MongoDB (in `back-end/`); `back-end/.python-version`, the Dockerfile and CI agree.
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.
@@ -112,6 +112,7 @@ The data and the back end:
 - Before changing accounts or how an address is compared, read [users, and the one spelling of an address](docs/implementation/data/users-and-email.md).
 - Before adding a query on a new field, read [lookup indexes](docs/implementation/data/lookup-indexes.md).
 - Before adding or moving a back-end Python dependency, read [Python dependencies are locked](docs/TECH_STACK.md#python-dependencies-are-locked).
+- Before changing the Node or npm version, or writing `front-end/package-lock.json`, read [Node and npm are pinned](docs/TECH_STACK.md#node-and-npm-are-pinned).
 - Before deleting a market or an organization, or adding a collection keyed by market, read [market deletion](docs/implementation/modules/market-deletion.md) and [when an organization may be deleted](docs/business/rules/when-an-organization-may-be-deleted.md).
 - Before changing a secret, a boot check, an environment variable or the real-data hooks, read [security invariants](docs/implementation/conventions/security-invariants.md) and the environment table in [`docs/RELEASING.md`](docs/RELEASING.md).
 - Before answering a back end that refuses to boot, read [`docs/OPERATIONS.md`](docs/OPERATIONS.md#when-the-back-end-refuses-to-boot).

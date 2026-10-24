@@ -42,7 +42,7 @@ Both import this repository from GitHub, each with its own root directory:
 | --- | --- | --- |
 | Root directory | `front-end` | `back-end` |
 | Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
-| Runtime | Node (build only) | Python 3.12, from `back-end/.python-version` |
+| Runtime | Node 24.x (build only), from `front-end/package.json`'s `engines` | Python 3.12, from `back-end/.python-version` |
 | Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work | [`back-end/vercel.json`](../back-end/vercel.json) |
 | Custom domain | `conventioner.io` | `api.conventioner.io` |
 
