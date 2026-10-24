@@ -12,7 +12,7 @@ A testing node says what is tested where, the helpers, and the test-only sharp e
 One line per node, sorted by file name.
 
 - [The assignment behaviour suite](assignment-behaviour-suite.md) - `test_assignment_behaviour.py`, the solver's behavioural suite; change placement against it
-- [CI and the gate](ci-and-the-gate.md) - the CI jobs and the five required checks, the no-mistakes gate and `nm-test.sh`, stack identity
+- [CI and the gate](ci-and-the-gate.md) - the CI jobs and the five required checks, Dependabot's update pull requests, the no-mistakes gate and `nm-test.sh`, stack identity
 - [E2E patterns](e2e-patterns.md) - testids, page objects, fixtures, a market opened by URL, `mongoEval`, market dates and plans
 - [E2E seeds](e2e-seeds.md) - verified users, markets in an organization, the seed helpers, reaching a stored assignment
 - [Floorplan E2E](floorplan-e2e.md) - deterministic, no AI to mock; which canvas steps are real gestures, and the coverage gap
