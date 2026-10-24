@@ -35,7 +35,9 @@ done
 #    committed lockfile and never writes it: `npm install` lets an npm other than the one that
 #    wrote the lockfile rewrite it, which leaves the slot dirty and unusable. The repository pins
 #    that npm through the Node in .nvmrc; a machine on another Node still warms cleanly, but its
-#    `npm install` would write a different lockfile, so say so.
+#    `npm install` would write a different lockfile, so say so. It runs in front-end/ rather than
+#    with `--prefix`: through a symlinked path, npm 11's `ci --prefix` names the root package after
+#    its folder and so refuses a lockfile that names it after package.json.
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
   if [ -f "$WORKTREE/.nvmrc" ]; then
     pinned="$(cat "$WORKTREE/.nvmrc")"
@@ -44,7 +46,7 @@ if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
     fi
   fi
   echo "[treehouse]   npm ci (front-end)"
-  if ! npm ci --prefix "$WORKTREE/front-end" --no-audit --no-fund --loglevel=error; then
+  if ! (cd "$WORKTREE/front-end" && npm ci --no-audit --no-fund --loglevel=error); then
     echo "[treehouse]   ERROR: npm ci failed in front-end (npm's error is above); a package-lock.json out of step with package.json is fixed and committed on its branch - the pre-warm never rewrites it" >&2
     rm -rf "$WORKTREE/front-end/node_modules"
     exit 1

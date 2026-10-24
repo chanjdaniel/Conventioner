@@ -143,3 +143,44 @@ def test_a_slot_without_a_pinned_node_still_warms(bin_dir, slot):
     assert result.returncode == 0, result.stderr
     assert (slot / "front-end" / "node_modules").is_dir()
     assert "WARNING" not in result.stderr
+
+
+@pytest.mark.skipif(shutil.which("npm") is None, reason="npm is not installed")
+def test_the_machine_s_own_npm_warms_a_cold_slot(tmp_path):
+    # The real npm, on a front end whose one dependency is a local folder so it installs offline, in
+    # a slot reached through a symlink (macOS's /tmp is one): there npm 11's `ci --prefix` names the
+    # root package after its folder and refuses a lockfile that names it after package.json.
+    worktree = tmp_path / "Conventioner"
+    front_end = worktree / "front-end"
+    (front_end / "local").mkdir(parents=True)
+    (front_end / "local" / "package.json").write_text('{"name": "local", "version": "1.0.0"}\n')
+    (front_end / "package.json").write_text(
+        '{"name": "conventioner-frontend", "version": "0.0.0", "private": true,'
+        ' "dependencies": {"local": "file:./local"}}\n'
+    )
+    subprocess.run(
+        ["npm", "install", "--package-lock-only", "--no-audit", "--no-fund"],
+        cwd=front_end,
+        check=True,
+        capture_output=True,
+    )
+    (worktree / ".gitignore").write_text("node_modules/\n")
+    git = ["git", "-C", str(worktree)]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run(
+        [*git, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--no-verify", "-m", "cold"],
+        check=True,
+    )
+
+    linked = tmp_path / "linked"
+    linked.symlink_to(worktree)
+
+    result = subprocess.run(
+        [str(SETUP)], env=dict(os.environ, TREEHOUSE_DIR=str(linked)), capture_output=True, text=True
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (front_end / "node_modules").is_dir()
+    status = subprocess.run([*git, "status", "--porcelain"], capture_output=True, text=True)
+    assert status.stdout == ""
