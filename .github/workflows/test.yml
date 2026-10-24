@@ -40,6 +40,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      # The pre-warm's tests run the machine's own npm, so they run the pinned one here too.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
       - run: pip install -r back-end/requirements-dev.txt
       - name: Checker tests
         run: python -m pytest scripts/tests -q
