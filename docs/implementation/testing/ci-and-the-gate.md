@@ -73,6 +73,7 @@ That is expected; a reviewer re-reads each affected node and bumps its `verified
 
 [`.no-mistakes.yaml`](../../../.no-mistakes.yaml) sets `allow_repo_commands: true` and one command, `test: ./scripts/nm-test.sh`.
 Without it the gate has no way to run the suite, so it is the only workable setting, and it is safe because **the gate trusts it only from the repository's default branch, `dev`**: it loads the repo's commands from there, not from the pushed branch, so a pushed branch cannot enable a command of its own.
+Which model the gate's agent runs on for each step is set on the machine, in `~/.no-mistakes/config.yaml`, never in this repository.
 
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
 It runs, in order, the real-data check on the branch's commits since `origin/dev` (before anything else, and failing the run on a finding, since the gate pushes the branch), the scripts' tests and the knowledge graph's `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
