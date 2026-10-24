@@ -27,10 +27,10 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 | `backend` | Python 3.12, the locks `requirements.txt`, `requirements-floorplan-solver.txt` and `requirements-dev.txt`, a re-lock that fails on any difference ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), then pytest |
 | `frontend-unit` | Node 20, `npm ci`, Vitest |
 | `frontend-lint-and-types` | Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate) and the type-check |
-| `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the checker's tests and `knowledge_graph.py check` |
+| `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `docker-build` | `docker compose build` |
-| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; the start retries a handful of times because its pull of `mongo:7` and `mongo-express:latest` from Docker Hub fails a shard outright on a transient registry 500; on failure it uploads the report and posts a flaky-test summary |
+| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; on failure it uploads the report and posts a flaky-test summary |
 | `e2e` | passes only when every shard did |
 
 **Branch protection requires five checks** on both `dev` and `main`: `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e`.
@@ -48,8 +48,8 @@ Within a shard the tests share one database (`workers: 1`); never across shards.
 Without it the gate has no way to run the suite, so it is the only workable setting, and it is safe because **the gate trusts it only from the repository's default branch, `dev`**: it loads the repo's commands from there, not from the pushed branch, so a pushed branch cannot enable a command of its own.
 
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
-It runs, in order, the knowledge graph's checker tests and `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
-Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and deletes it on exit, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
+It runs, in order, the scripts' tests and the knowledge graph's `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
+Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and a guard deletes it once the run is gone, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`), and host ports Docker assigns as the stack starts (`TH_PORTS=auto`, [below](#stack-identity)), so two runs started together can never race for one port, as runs that each probed for a free port before starting could.
 Once the stack is up, the run reads its ports back with `th-compose.sh ports` and exports them for `seed_fixture.sh` and Playwright.
 mongo-express is not started (it is in the overlay's `tools` profile).
@@ -69,7 +69,7 @@ The teardown guard is a subshell that `nm-test.sh` starts with job control just 
 It waits for the run's process to be gone, then runs `docker compose -p <project> down -v --remove-orphans` (no compose file, as the gate may already be deleting the worktree), up to three times, until no container, volume or network of the project is left; after a normal exit it finds nothing left.
 It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it holds nothing of the gate's open once the run is over.
 Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
-The guard does not remove the run's virtual environment, which the trap does; a killed run leaves it in `$TMPDIR`.
+A second guard, started the moment the run makes its virtual environment (`$TMPDIR/nmtest-<pid>-venv.*`), removes it once the run is gone, so a run killed in any phase leaves nothing behind.
 
 **Gate runs take turns for their E2E phase, one at a time on a machine.**
 A stack starting or stopping creates or removes a Docker network, which changes the host's networks under every browser on the machine, and another run's Playwright then fails with `net::ERR_NETWORK_CHANGED`.
