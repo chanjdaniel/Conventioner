@@ -12,16 +12,23 @@ outside the fixture domains, a phone number shaped like a real one, and, where `
 holds real exports, an exact email, phone or applicant's name from them. Conventioner is public, so
 a pushed branch is public the moment it lands: this runs before anything leaves the PC.
 
-A finding names the file and line, never the value in full; the exports are read into memory only,
+A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
+cells and shared strings, a CSV or TSV in any encoding. One this check cannot read (`.xls`,
+`.xlsb`, `.numbers`) is refused outright outside the test fixtures. A finding names the file and
+line, or the sheet's cell, never the value in full; the exports are read into memory only,
 and nothing derived from them is written or printed. Exits 1 on a finding, 2 when git fails.
 Standard library only, Python 3.8+.
 """
 
+import codecs
 import csv
+import io
 import re
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
+from xml.etree import ElementTree
 
 # ── What a fixture may use ───────────────────────────────────────────────────
 
@@ -39,6 +46,13 @@ FIXTURE_EXCHANGE = "555"
 
 # Generated files that quote package authors' addresses and hashes, never anyone's details.
 UNREAD_FILES = ("package-lock.json",)
+
+# Spreadsheets, which is what an export is: read for their text, or refused when they cannot be.
+TEXT_SHEETS = (".csv", ".tsv")
+ZIPPED_SHEETS = (".xlsx", ".xlsm", ".ods")
+OPAQUE_SHEETS = (".xls", ".xlsb", ".numbers", ".et", ".sxc")
+# Where a spreadsheet this check cannot read may still be committed: the tests' own inputs.
+FIXTURE_FOLDERS = ("back-end/tests/test_data/", "back-end/tests/fixtures/")
 
 # ── Shapes ───────────────────────────────────────────────────────────────────
 
@@ -81,13 +95,27 @@ class RealValues:
         values = cls()
         givers = {}
         for folder in folders:
-            for path in sorted(folder.rglob("*.csv")) if folder.is_dir() else ():
-                with open(path, newline="", encoding="utf-8-sig", errors="replace") as handle:
-                    rows = list(csv.reader(handle))
-                if rows:
-                    values._add_export(rows, givers)
+            for path in sorted(folder.rglob("*")) if folder.is_dir() else ():
+                if not path.is_file():
+                    continue
+                if path.name.lower().endswith(OPAQUE_SHEETS):
+                    values._add_opaque(path.read_bytes())
+                    continue
+                try:
+                    sheets, _ = tables(path.name, path.read_bytes())
+                except Unreadable:
+                    continue
+                for _, rows in sheets:
+                    if rows:
+                        values._add_export(rows, givers)
         values.names = {name for name, people in givers.items() if len(people) < SHARED_BY}
         return values
+
+    def _add_opaque(self, data):
+        """An export in a format with no reader here: its addresses and numbers, from its bytes."""
+        for text in (data.decode("latin-1"), data.decode("utf-16-le", "replace")):
+            self.emails |= {match.group(0).lower() for match in EMAIL.finditer(text)}
+            self.phones |= phone_numbers(text)
 
     def _add_export(self, rows, givers):
         header = rows[0]
@@ -120,6 +148,161 @@ def phone_numbers(text):
         if len(digits) == 10 and digits[0] in "23456789" and digits[3] in "23456789":
             numbers.add(digits)
     return numbers
+
+
+# ── Spreadsheets ─────────────────────────────────────────────────────────────
+
+# Far beyond any export, and short of what a zip bomb unpacks to.
+MAX_UNZIPPED = 256 * 1024 * 1024
+MAX_COLUMNS = 16384
+OPENDOCUMENT_TABLE = "{urn:oasis:names:tc:opendocument:xmlns:table:1.0}"
+
+
+class Unreadable(Exception):
+    pass
+
+
+def tables(name, data):
+    """The sheets a spreadsheet holds, as (title, rows of cell text), and any text it holds outside
+    them (a workbook's shared strings no cell refers to). Raises Unreadable."""
+    lower = name.lower()
+    if lower.endswith(TEXT_SHEETS):
+        rows = csv.reader(io.StringIO(decoded(data), newline=""), delimiter="\t" if lower.endswith(".tsv") else ",")
+        return [("", list(rows))], []
+    if not lower.endswith(ZIPPED_SHEETS):
+        raise Unreadable(name)
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as book:
+            if sum(entry.file_size for entry in book.infolist()) > MAX_UNZIPPED:
+                raise Unreadable(name)
+            return (opendocument_tables(book), []) if lower.endswith(".ods") else workbook_tables(book)
+    except (zipfile.BadZipFile, ElementTree.ParseError, KeyError, ValueError, IndexError, EOFError) as error:
+        raise Unreadable(name) from error
+
+
+def decoded(data):
+    """A text file's text, in UTF-8 or, as Excel saves "Unicode text", UTF-16 with or without BOM."""
+    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return data.decode("utf-16", "replace")
+    if b"\0" in data[:4096]:
+        return data.decode("utf-16-le" if data[1::2].count(0) > data[0::2].count(0) else "utf-16-be", "replace")
+    return data.decode("utf-8-sig", "replace")
+
+
+def tag(element):
+    return element.tag.rsplit("}", 1)[-1]
+
+
+def shared_text(item):
+    """An Excel string's text: its runs, without the phonetic guide some locales add."""
+    parts = []
+    for child in item:
+        if tag(child) == "t":
+            parts.append(child.text or "")
+        elif tag(child) == "r":
+            parts.extend(t.text or "" for t in child if tag(t) == "t")
+    return "".join(parts)
+
+
+def column_index(ref, default):
+    letters = re.match(r"[A-Z]*", ref or "").group(0)
+    if not letters:
+        return default
+    index = 0
+    for letter in letters:
+        index = index * 26 + ord(letter) - 64
+    return index - 1
+
+
+def workbook_tables(book):
+    """An Excel workbook's sheets, and the shared strings no cell refers to (still text it holds)."""
+    names = book.namelist()
+    shared = []
+    if "xl/sharedStrings.xml" in names:
+        shared = [shared_text(item) for item in ElementTree.fromstring(book.read("xl/sharedStrings.xml"))
+                  if tag(item) == "si"]
+    used = set()
+    sheets = sorted(
+        (int(match.group(1)), name) for name in names
+        for match in [re.fullmatch(r"xl/worksheets/sheet(\d+)\.xml", name)] if match
+    )
+    found = []
+    for number, name in sheets:
+        rows = []
+        for row in ElementTree.fromstring(book.read(name)).iter():
+            if tag(row) != "row":
+                continue
+            cells = []
+            for cell in row:
+                if tag(cell) != "c":
+                    continue
+                kind = cell.get("t")
+                value = next((child.text or "" for child in cell if tag(child) == "v"), "")
+                if kind == "s":
+                    used.add(int(value))
+                    text = shared[int(value)]
+                elif kind == "inlineStr":
+                    text = "".join(shared_text(child) for child in cell if tag(child) == "is")
+                else:
+                    text = value
+                index = min(column_index(cell.get("r"), len(cells)), MAX_COLUMNS)
+                cells.extend([""] * (index - len(cells)))
+                cells[index:index + 1] = [text]
+            rows.append(cells)
+        found.append((f"sheet {number}", rows))
+    return found, [(f"shared string {index + 1}", text) for index, text in enumerate(shared) if index not in used]
+
+
+def opendocument_tables(book):
+    found = []
+    for table in ElementTree.fromstring(book.read("content.xml")).iter():
+        if tag(table) != "table":
+            continue
+        rows = []
+        for row in table.iter():
+            if tag(row) != "table-row":
+                continue
+            cells = []
+            for cell in row:
+                if tag(cell) not in ("table-cell", "covered-table-cell"):
+                    continue
+                text = "\n".join("".join(p.itertext()) for p in cell.iter() if tag(p) == "p")
+                repeat = int(cell.get(OPENDOCUMENT_TABLE + "number-columns-repeated", "1"))
+                cells.extend([text] * max(0, min(repeat, MAX_COLUMNS - len(cells))))
+            while cells and not cells[-1]:
+                cells.pop()
+            rows.append(cells)
+        found.append((table.get(OPENDOCUMENT_TABLE + "name") or f"table {len(found) + 1}", rows))
+    return found
+
+
+class Refusal(str):
+    """A finding about a whole file, in place of a line's text."""
+
+
+def spreadsheet_lines(path, data):
+    """(where, text) of the text a spreadsheet git reads as binary holds, or a Refusal."""
+    lower = path.lower()
+    if lower.endswith(TEXT_SHEETS):
+        for number, text in enumerate(decoded(data).splitlines(), 1):
+            yield f"{path}:{number}", text
+        return
+    if not lower.endswith(ZIPPED_SHEETS + OPAQUE_SHEETS):
+        return  # an image, a font: no export
+    try:
+        sheets, loose = tables(path, data)
+    except Unreadable:
+        if not lower.startswith(FIXTURE_FOLDERS):
+            kind = path[path.rfind("."):]
+            yield path, Refusal(f"a spreadsheet this check cannot read ({kind}): save it as .xlsx, .ods or .csv for the check to read, or keep it out of git")
+        return
+    for title, rows in sheets:
+        for r, row in enumerate(rows, 1):
+            for c, text in enumerate(row, 1):
+                for number, line in enumerate(text.split("\n")):
+                    yield f"{path} [{title}, row {r}, column {c}{f', line {number + 1}' if number else ''}]", line
+    for where, text in loose:
+        yield f"{path} [{where}]", text
 
 
 # ── Judging one line ─────────────────────────────────────────────────────────
@@ -200,13 +383,27 @@ def unquote_path(path):
     return path
 
 
+def header_path(line):
+    """The path a `diff --git a/X b/X` or `diff --cc X` header names (no renames are asked for)."""
+    if line.startswith(("diff --cc ", "diff --combined ")):
+        return unquote_path(line.split(" ", 2)[2])
+    rest = line[len("diff --git "):]
+    if rest.endswith('"'):
+        return unquote_path(rest[rest.rfind(' "b/') + 1:])[2:]
+    return rest[(len(rest) + 1) // 2 + 2:]
+
+
 def added_lines(diff):
-    """(path, line number, text) of each line the diff adds. A combined diff (a merge's) adds a line
-    only when it is new to every parent, so a merge answers for what it resolved, nothing more."""
-    path, parents, number, in_hunk = None, 1, 0, False
+    """(path, line number, text) of each line the diff adds, and (path, None, None) for each binary
+    file it adds or changes. A combined diff (a merge's) adds a line only when it is new to every
+    parent, so a merge answers for what it resolved, nothing more."""
+    path, parents, number, in_hunk, header = None, 1, 0, False, None
     for line in diff.split("\n"):
         if line.startswith("diff "):
-            path, in_hunk = None, False
+            path, in_hunk, header = None, False, header_path(line)
+        elif not in_hunk and line.startswith("Binary files ") and not line.endswith(" and /dev/null differ"):
+            if header and not header.endswith(UNREAD_FILES):
+                yield header, None, None
         elif not in_hunk and line.startswith("+++ "):
             target = unquote_path(line[4:])
             path = None if target == "/dev/null" else target.split("/", 1)[1]
@@ -224,9 +421,19 @@ def added_lines(diff):
             number += 1
 
 
+def blob(spec):
+    result = subprocess.run(["git", "cat-file", "blob", spec], capture_output=True)
+    if result.returncode != 0:
+        raise GitFailed(f"git cat-file blob {spec}: {result.stderr.decode('utf-8', 'replace').strip()}")
+    return result.stdout
+
+
 def staged_lines():
     for path, number, text in added_lines(git("diff", "--cached", *DIFF_OPTIONS)):
-        yield f"{path}:{number}", text
+        if number is None:
+            yield from spreadsheet_lines(path, blob(f":{path}"))
+        else:
+            yield f"{path}:{number}", text
 
 
 def commit_lines(revisions):
@@ -237,7 +444,11 @@ def commit_lines(revisions):
         for number, text in enumerate(message.split("\n"), 1):
             yield f"{sha[:12]} message:{number}", text
         for path, number, text in added_lines(diff):
-            yield f"{sha[:12]} {path}:{number}", text
+            if number is None:
+                for where, found in spreadsheet_lines(path, blob(f"{sha}:{path}")):
+                    yield f"{sha[:12]} {where}", found
+            else:
+                yield f"{sha[:12]} {path}:{number}", text
 
 
 def pushed_revisions(refs):
@@ -280,7 +491,11 @@ def main(argv=None):
             print(__doc__.split("\n\n")[1], file=sys.stderr)
             return 2
         real = RealValues.read(export_folders())
-        found = [f"real-data-check: {where}: {what}" for where, text in lines for what in findings(text, real)]
+        found = [
+            f"real-data-check: {where}: {what}"
+            for where, text in lines
+            for what in ([text] if isinstance(text, Refusal) else findings(text, real))
+        ]
     except GitFailed as error:
         print(f"real-data-check: {error}", file=sys.stderr)
         return 2

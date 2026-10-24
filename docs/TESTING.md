@@ -73,6 +73,7 @@ rather than beside it.
 `test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
 committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
 it, and the leak check refuses output that holds a rarer one.
+A phone number becomes a fictional one, 555-0100 to 555-0199, in the shape it was typed, so the output passes the git hooks' real-data check.
 `test_csv_proposal.py` holds the rules that read a Google Form's responses into a proposal to the
 answer key they were measured against on those five exports, `test_csv_proposal_plan.py` does the
 same for what the file says about the plan, and `test_csv_proposal_api.py` pins that asking for one

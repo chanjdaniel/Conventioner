@@ -2,11 +2,15 @@
 test's own, on fake data only. The "real export" here is a CSV the test writes into that
 repository's ignored .scratch/examples/."""
 
+import csv
+import io
 import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import pytest
 
@@ -84,6 +88,66 @@ def with_fake_export(repo):
     examples = repo / ".scratch" / "examples"
     examples.mkdir(parents=True)
     (examples / "responses.csv").write_text(FAKE_EXPORT)
+
+
+def xlsx(rows, shared=True):
+    """A minimal workbook as Excel writes one: text in xl/sharedStrings.xml, or inline in the
+    sheet's XML when not `shared`."""
+    strings, cells = [], []
+    for r, row in enumerate(rows, 1):
+        out = []
+        for c, value in enumerate(row):
+            ref = f"{chr(65 + c)}{r}"
+            if shared:
+                strings.append(value)
+                out.append(f'<c r="{ref}" t="s"><v>{len(strings) - 1}</v></c>')
+            else:
+                out.append(f'<c r="{ref}" t="inlineStr"><is><t>{escape(value)}</t></is></c>')
+        cells.append(f'<row r="{r}">{"".join(out)}</row>')
+    main = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as book:
+        book.writestr("[Content_Types].xml", "<Types/>")
+        book.writestr("xl/workbook.xml", f"<workbook {main}><sheets/></workbook>")
+        book.writestr("xl/worksheets/sheet1.xml", f"<worksheet {main}><sheetData>{''.join(cells)}</sheetData></worksheet>")
+        if shared:
+            items = "".join(f"<si><t>{escape(v)}</t></si>" for v in strings)
+            book.writestr("xl/sharedStrings.xml", f'<sst {main} count="{len(strings)}">{items}</sst>')
+    return data.getvalue()
+
+
+def ods(rows):
+    """A minimal OpenDocument spreadsheet: its cells in content.xml, an empty run of cells repeated."""
+    table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+    text = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+    body = "".join(
+        "<table:table-row>"
+        + '<table:table-cell table:number-columns-repeated="2"/>'
+        + "".join(f"<table:table-cell><text:p>{escape(v)}</text:p></table:table-cell>" for v in row)
+        + "</table:table-row>"
+        for row in rows
+    )
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as sheet:
+        sheet.writestr("mimetype", "application/vnd.oasis.opendocument.spreadsheet")
+        sheet.writestr(
+            "content.xml",
+            f'<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+            f'xmlns:table="{table}" xmlns:text="{text}"><office:body><office:spreadsheet>'
+            f'<table:table table:name="Responses">{body}</table:table>'
+            "</office:spreadsheet></office:body></office:document-content>",
+        )
+    return data.getvalue()
+
+
+def stage_bytes(repo, name, data):
+    path = repo / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    git(repo, "add", "-f", name)
+
+
+FAKE_ROWS = list(csv.reader(io.StringIO(FAKE_EXPORT)))
 
 
 # --- Shapes ----------------------------------------------------------------------------------------
@@ -265,6 +329,177 @@ def test_nothing_is_written_while_reading_the_exports(repo):
     check(repo, "staged")
 
     assert sorted(p for p in repo.rglob("*") if ".git" not in p.parts) == before
+
+
+# --- Spreadsheets ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("shared", [True, False], ids=["shared strings", "inline strings"])
+def test_a_workbook_holding_a_real_shaped_address_fails(repo, shared):
+    stage_bytes(repo, "notes/vendors.xlsx", xlsx([["Email Address", "Name"], [GMAIL, "Jordan Vance"]], shared))
+
+    result = check(repo, "staged")
+
+    out = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "notes/vendors.xlsx" in result.stdout
+    assert "email address outside the fixture domains" in result.stdout
+    assert "jordan.vance88" not in out and "gmail.com" not in out
+
+
+def test_a_shared_string_no_cell_shows_is_still_read(repo):
+    book = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(xlsx([["Email Address"], ["vendor@example.com"]]))) as source:
+        with zipfile.ZipFile(book, "w") as target:
+            for entry in source.infolist():
+                data = source.read(entry.filename)
+                if entry.filename == "xl/sharedStrings.xml":
+                    data = data.replace(b"</sst>", f"<si><t>{GMAIL}</t></si></sst>".encode())
+                target.writestr(entry, data)
+    stage_bytes(repo, "vendors.xlsx", book.getvalue())
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "vendors.xlsx [shared string 3]" in result.stdout
+
+
+def test_a_workbook_of_fixture_addresses_passes(repo):
+    stage_bytes(repo, "back-end/tests/test_data/vendors.xlsx", xlsx([["Email Address"], ["vendor@example.com"]]))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_an_opendocument_sheet_holding_a_real_shaped_address_fails(repo):
+    stage_bytes(repo, "vendors.ods", ods([["Email Address"], [GMAIL]]))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "vendors.ods" in result.stdout
+
+
+def test_an_opendocument_sheet_of_fixture_addresses_passes(repo):
+    stage_bytes(repo, "vendors.ods", ods([["Email Address"], ["vendor@example.com"]]))
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_a_workbook_holding_an_exact_value_from_a_real_export_fails(repo):
+    with_fake_export(repo)
+    stage_bytes(repo, "notes/copy.xlsx", xlsx([["Who"], ["Wren Okafor"]]))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "real export" in result.stdout
+
+
+@pytest.mark.parametrize("kind", ["xlsx", "ods"])
+def test_a_spreadsheet_export_is_read_for_its_exact_values(repo, kind):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / f"responses.{kind}").write_bytes(xlsx(FAKE_ROWS) if kind == "xlsx" else ods(FAKE_ROWS))
+    stage(repo, "notes.md", "wren.okafor@example.com\nWren Okafor\nphone 6045550142\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    for line in (1, 2, 3):
+        assert f"notes.md:{line}: " in result.stdout, result.stdout
+
+
+@pytest.mark.parametrize("name", ["vendors.xls", "notes/vendors.xlsb", "vendors.numbers"])
+def test_a_spreadsheet_the_check_cannot_read_is_refused_outright(repo, name):
+    stage_bytes(repo, name, b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512)
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"{name}:" in result.stdout
+    assert "cannot read" in result.stdout
+
+
+def test_a_spreadsheet_the_check_cannot_read_passes_under_the_test_fixtures(repo):
+    stage_bytes(repo, "back-end/tests/test_data/legacy.xls", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512)
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_a_broken_workbook_is_refused(repo):
+    stage_bytes(repo, "vendors.xlsx", b"PK\x03\x04 not really a workbook \x00")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "cannot read" in result.stdout
+
+
+def test_a_csv_git_reads_as_binary_is_read_as_text(repo):
+    stage_bytes(repo, "export.csv", f"Email Address\n{GMAIL}\n".encode("utf-16"))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "export.csv:2:" in result.stdout
+
+
+def test_other_binary_files_pass(repo):
+    stage_bytes(repo, "front-end/public/logo.png", b"\x89PNG\r\n\x1a\n\x00\x00" + GMAIL.encode())
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_a_range_reads_a_workbook_a_commit_added(repo):
+    base = git(repo, "rev-parse", "HEAD").stdout.strip()
+    stage_bytes(repo, "vendors.xlsx", xlsx([["Email Address"], [GMAIL]]))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+    sha = git(repo, "rev-parse", "HEAD").stdout.strip()
+
+    result = check(repo, "commits", "HEAD", "--not", base)
+
+    assert result.returncode == 1
+    assert f"{sha[:12]} vendors.xlsx" in result.stdout
+
+
+def test_a_merge_answers_for_a_workbook_it_changed_itself(repo):
+    git(repo, "checkout", "-q", "-b", "side")
+    stage_bytes(repo, "vendors.xlsx", xlsx([["Email Address"], [GMAIL]]))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+    git(repo, "checkout", "-q", "dev")
+    commit(repo, "main.md", "fine\n")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "side")
+
+    result = check(repo, "commits", "HEAD", "--not", "HEAD^1", "HEAD^2")
+
+    assert result.returncode == 0, result.stdout
+
+
+# --- The anonymiser's output -------------------------------------------------------------------
+
+
+def test_the_anonymisers_output_passes_the_check(repo, tmp_path):
+    phone = "({}) {}-{}".format(*REAL_PHONE)
+    source = tmp_path / "export.csv"
+    source.write_text(
+        "Timestamp,Email Address,Full name,Phone number,Comments\n"
+        + "".join(
+            f"9/27/2025 9:0{i}:01,{at(f'vendor.{i}', 'gmail.com')},Wren Okafor{i},{phone[:-1]}{i},Call {phone}\n"
+            for i in range(4)
+        )
+    )
+    anonymiser = REPO / "back-end" / "tests" / "fixtures" / "anonymise_form_export.py"
+    made = subprocess.run(
+        [sys.executable, str(anonymiser), str(source), str(repo / "fixture.csv")], capture_output=True, text=True
+    )
+    assert made.returncode == 0, made.stderr
+    git(repo, "add", "fixture.csv")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
 
 
 # --- Commits -----------------------------------------------------------------------------------
