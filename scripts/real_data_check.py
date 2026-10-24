@@ -8,9 +8,10 @@
 `staged` reads what `git commit` would record (the pre-commit hook); `commits` reads each commit a
 rev-list range names, its message too (the gate and CI); `pre-push` reads the commits a push sends,
 from the refs git gives the pre-push hook on its stdin. Only added lines count: an email address
-outside the fixture domains, a phone number shaped like a real one, and, where `.scratch/examples/`
-holds real exports, an exact email, phone or applicant's name from them. Conventioner is public, so
-a pushed branch is public the moment it lands: this runs before anything leaves the PC.
+outside the fixture domains, a phone number shaped like a real one, a MongoDB Atlas host other than
+a placeholder, and, where `.scratch/examples/` holds real exports, an exact email, phone or
+applicant's name from them. Conventioner is public, so a pushed branch is public the moment it
+lands: this runs before anything leaves the PC.
 
 A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
 cells and shared strings, a CSV or TSV in UTF-8, UTF-16 or Windows-1252 with any common delimiter,
@@ -75,6 +76,10 @@ NOT_A_DOMAIN = re.compile(
 PHONE = re.compile(
     r"(?<![\w.#/+-])(?:\+?1[ .-]?)?(?:\(([2-9]\d\d)\)|([2-9]\d\d))[ .-]?([2-9]\d\d)[ .-](\d{4})(?![\w.])"
 )
+# An Atlas cluster's host, <cluster>.<id>.mongodb.net: its id names the production database. A
+# placeholder's id is `example`, or it is the template's cluster.mongodb.net, a fixture domain.
+ATLAS_HOST = re.compile(r"(?i)(?<![\w.-])(?:[a-z0-9-]+\.)*?([a-z0-9-]+)\.mongodb\.net(?![\w-])")
+ATLAS_PLACEHOLDER_ID = "example"
 # Any run that may spell a phone number, however it is punctuated: only compared with the exports.
 DIGIT_RUN = re.compile(r"(?<![\w.])\+?\d[\d ().-]{8,}\d(?![\w.])")
 WORD = re.compile(r"[^\W\d_]+(?:['’.-][^\W\d_]+)*")
@@ -444,6 +449,9 @@ def findings(line, real):
         exact = bool(phone_numbers(match.group(0)) & real.phones)
         if not fictional and not exact:
             found.append(f"a phone number shaped like a real one (***-***-**{match.group(4)[2:]})")
+    for match in ATLAS_HOST.finditer(line):
+        if match.group(1).lower() != ATLAS_PLACEHOLDER_ID and not is_fixture_domain(match.group(0)):
+            found.append("a MongoDB Atlas host (***.mongodb.net): write it as <cluster>.<id>.mongodb.net")
     if real.names:
         words = [word.lower() for word in WORD.findall(line)]
         if any(
@@ -577,6 +585,8 @@ def pushed_revisions(refs):
 ADVICE = """\
 real-data-check: refused. Conventioner is public: anything pushed is published the moment it lands.
   Use an address at example.com or a .test domain, and a phone number from 555-0100 to 555-0199.
+  A database host is written <cluster>.<id>.mongodb.net: the real one stays in the deployment's
+  environment.
   A real export is never committed, anonymised or not, except through
   back-end/tests/fixtures/anonymise_form_export.py.
   The fixture domains are listed in scripts/real_data_check.py; never skip the hooks to get past this."""
