@@ -17,7 +17,8 @@ The header row stays verbatim, and any value - or option inside a multi-select a
 that at least 3 distinct applicants gave, counted by applicant email rather than by row, so one
 applicant who submitted three times shares nothing. Everything else is invented in the same shape:
 the same length, letter case, punctuation and digit count, an address for an email, a link for a
-link. A list of header words is what let a column be missed before.
+link, and a fictional number from 555-0100 to 555-0199 for a phone number, the only kind the git
+hooks let through. A list of header words is what let a column be missed before.
 
 Blanks, row count and order, ``TEST`` rows, duplicate columns and trailing empty columns are kept as
 they are. Every timestamp moves by one offset, derived from the source so it is not in this file.
@@ -51,6 +52,16 @@ HANDLE = re.compile(r"(?<![\w@])@[A-Za-z0-9_.]{2,}")
 PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
 TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})|(?P<handle>{HANDLE.pattern})"
                    r"|(?P<digits>\d+)|(?P<word>[^\W\d_]+)", re.IGNORECASE)
+# What a value is invented from: TOKEN, with a run that may hold a phone number taken whole. The
+# run never ends inside an address's local part ("604 1234567@..."), which stays an address.
+VALUE_TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})"
+                         rf"|(?P<handle>{HANDLE.pattern})|(?P<phone>{PHONE.pattern}(?![\w.%+'-]*@))"
+                         r"|(?P<digits>\d+)|(?P<word>[^\W\d_]+)", re.IGNORECASE)
+# A North American number, as the git hooks judge one (scripts/real_data_check.py).
+# Its "(" may lie outside a PHONE run, which starts at a digit.
+NANP = re.compile(r"(?<!\d)(?:\+?1[\s.-]?)?\(?[2-9]\d\d\)?[\s.-]?[2-9]\d\d[\s.-]?\d{4}(?!\d)")
+# The fictional numbers, 555-0100 to 555-0199: the only ones a committed file may hold.
+FICTIONAL_EXCHANGE = "555"
 
 
 
@@ -181,7 +192,7 @@ class _Inventor:
         self._owner: Dict[str, str] = {}
 
     def value(self, source: str) -> str:
-        return self._unique("value", source, lambda attempt: TOKEN.sub(
+        return self._unique("value", source, lambda attempt: VALUE_TOKEN.sub(
             lambda match: self._token(match, source, attempt), source))
 
     def _unique(self, kind: str, source: str, make: Callable[[int], str]) -> str:
@@ -212,6 +223,8 @@ class _Inventor:
             return self._unique("url", text, lambda n: self._link(text, n))
         if match.group("handle"):
             return "@" + self._word(text[1:].lower(), f"handle:{text.lower()}", attempt)
+        if match.groupdict().get("phone"):
+            return self._phone_run(text, source, match.start(), attempt)
         if match.group("digits"):
             return self._digits(text, source, match.start(), attempt)
         return _recase(self._word(text.lower(), f"{source.lower()}:{match.start()}", attempt), text)
@@ -252,6 +265,38 @@ class _Inventor:
                 letters.append(pool[seed % len(pool)])
             invented = "".join(letters)
             if self._unheard_of(invented):
+                return invented
+            attempt += 1_000
+
+    def _phone_run(self, text: str, source: str, offset: int, attempt: int) -> str:
+        """Each phone number in the run becomes a fictional one; any other digits are invented as
+        a lone number is, at their own offsets, so a run holding no phone number reads as before."""
+        parts, last = [], 0
+        for number in NANP.finditer(text):
+            before = text[last:number.start()]
+            parts.append(self._digit_runs(before, source, offset + last, attempt))
+            parts.append(self._phone(number.group(0), source, offset + number.start(), attempt))
+            last = number.end()
+        parts.append(self._digit_runs(text[last:], source, offset + last, attempt))
+        return "".join(parts)
+
+    def _digit_runs(self, text: str, source: str, offset: int, attempt: int) -> str:
+        def invent(run: re.Match) -> str:
+            return self._digits(run.group(0), source, offset + run.start(), attempt)
+
+        return re.sub(r"\d+", invent, text)
+
+    def _phone(self, number: str, source: str, offset: int, attempt: int) -> str:
+        """A fictional number in 555-0100 to 555-0199, laid into the source's own punctuation: an
+        invented area code, the 555 exchange, and an invented line from 0100 to 0199. A real-shaped
+        number is refused by the git hooks, so a stand-in in its shape could not be committed."""
+        country = "1" if len(re.sub(r"\D", "", number)) == 11 else ""
+        while True:
+            seed = self._hash(source.lower(), offset, attempt, "phone")
+            area = f"{2 + seed % 8}{seed // 8 % 10}{seed // 80 % 10}"
+            digits = iter(f"{country}{area}{FICTIONAL_EXCHANGE}01{seed // 800 % 100:02d}")
+            invented = re.sub(r"\d", lambda _: next(digits), number)
+            if all(self._unheard_of(run) for run in re.findall(r"\d+", invented)):
                 return invented
             attempt += 1_000
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Store every account's address lowercased (E32/F03/S04).
 
-`users.email` is unique over the lowercased address, so "Dan@x.com" and "dan@x.com" are one account
+`users.email` is unique over the lowercased address, so "Dan@example.com" and "dan@example.com" are one account
 and a double click on Register cannot make two (`api.users.ensure_user_indexes`, which `app.py`
 runs at boot). Register used to store an address as typed, so a database written before then may
 hold capitals; the boot check refuses it, naming this script.

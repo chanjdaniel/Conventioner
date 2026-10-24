@@ -20,7 +20,7 @@ class TestMarketRoleManagement:
         return Market(
             name="Test Market",
             creation_date="2024-01-01",
-            roles={"owner@test.com": MarketRole.OWNER},
+            roles={"owner@example.com": MarketRole.OWNER},
             organization=None,
             theme=None,
             setup_object=None,
@@ -34,11 +34,11 @@ class TestMarketRoleManagement:
         market = Market(
             name="Test",
             creation_date="2024-01-01",
-            roles={"owner@test.com": MarketRole.OWNER},
+            roles={"owner@example.com": MarketRole.OWNER},
             modification_list=[],
             assignment_object=AssignmentObject()
         )
-        assert market.roles["owner@test.com"] == MarketRole.OWNER
+        assert market.roles["owner@example.com"] == MarketRole.OWNER
         
         # Invalid: multiple owners (should be caught by validator)
         with pytest.raises(ValueError, match="exactly one owner"):
@@ -46,8 +46,8 @@ class TestMarketRoleManagement:
                 name="Test",
                 creation_date="2024-01-01",
                 roles={
-                    "owner1@test.com": MarketRole.OWNER,
-                    "owner2@test.com": MarketRole.OWNER
+                    "owner1@example.com": MarketRole.OWNER,
+                    "owner2@example.com": MarketRole.OWNER
                 },
                 modification_list=[],
                 assignment_object=AssignmentObject()
@@ -60,7 +60,7 @@ class TestMarketRoleManagement:
             Market(
                 name="Test",
                 creation_date="2024-01-01",
-                roles={"editor@test.com": MarketRole.EDITOR},
+                roles={"editor@example.com": MarketRole.EDITOR},
                 modification_list=[],
                 assignment_object=AssignmentObject()
             )

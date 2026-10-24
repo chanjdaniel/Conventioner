@@ -25,6 +25,17 @@ says 3.12 (Vercel reads it), `back-end/Dockerfile` pins `python:3.12-slim`, and
 Compose commands here are v2 (`docker compose`, two words); v1 (`docker-compose`) reached end of
 life and is not tested.
 
+## The git hooks
+
+Once per clone, before the first commit:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hooks refuse a commit or a push that holds a real person's email, phone number or name, since the repository is public and a pushed branch is published at once ([real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc)).
+A treehouse worktree gets them from `scripts/treehouse-setup.sh`.
+
 ## Quick Start with Docker (Recommended)
 
 The easiest way to get started is using Docker Compose:

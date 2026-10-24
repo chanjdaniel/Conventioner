@@ -67,8 +67,8 @@ def _csv(*rows: str) -> str:
 
 
 GOOD_ROW = (
-    '2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,'
-    '"2026-08-01, 2026-08-08",2,Gold,half,buddy@ember.ca,"Garden, Main Hall"'
+    '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,'
+    '"2026-08-01, 2026-08-08",2,Gold,half,buddy@ember.test,"Garden, Main Hall"'
 )
 
 
@@ -124,7 +124,7 @@ class TestInspect:
         assert status == 200
         assert body["headers"] == HEADERS
         assert body["rowCount"] == 1
-        assert body["sampleValues"][1] == ["nadia@ember.ca"]
+        assert body["sampleValues"][1] == ["nadia@ember.test"]
 
     def test_the_google_forms_columns_are_offered_without_asking(self, markets):
         body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
@@ -160,7 +160,7 @@ class TestImportApplications:
 
         assert status == 200, body
         assert body["created"] == 1 and body["skipped"] == 0
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["status"] == ApplicationStatus.OPEN.value
 
     def test_an_imported_row_carries_its_real_submission_time(self, markets, applications):
@@ -171,7 +171,7 @@ class TestImportApplications:
         """
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["submitted_at"], "the Timestamp column must reach submitted_at"
         assert stored["submitted_at"].startswith("2026"), (
             f"expected the row's own timestamp, got {stored['submitted_at']!r}"
@@ -179,14 +179,14 @@ class TestImportApplications:
 
     def test_two_rows_keep_distinct_submission_times(self, markets, applications):
         later = GOOD_ROW.replace("2026/05/02 9:14:03", "2026/06/30 17:45:00").replace(
-            "nadia@ember.ca", "second@ember.ca", 1
+            "nadia@ember.test", "second@ember.test", 1
         )
         CsvImport.import_applications(
             markets, markets.doc, _csv(GOOD_ROW, later), MAPPING,
         )
 
-        first = applications.find_one({"applicant_email": "nadia@ember.ca"})["submitted_at"]
-        second = applications.find_one({"applicant_email": "second@ember.ca"})["submitted_at"]
+        first = applications.find_one({"applicant_email": "nadia@ember.test"})["submitted_at"]
+        second = applications.find_one({"applicant_email": "second@ember.test"})["submitted_at"]
         assert first != second, (
             "identical timestamps would make first-come-first-served decide nothing"
         )
@@ -196,14 +196,14 @@ class TestImportApplications:
         """Through the shared write path, so identical to a form submission."""
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["business_name"] == "Ember Ceramics"
         assert data["essential_available_dates"] == DATES
         assert data["essential_max_dates"] == 2
         # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
         assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
         assert data["essential_table_choice"] == "half"
-        assert data["essential_table_share_email"] == "buddy@ember.ca"
+        assert data["essential_table_share_email"] == "buddy@ember.test"
         assert data["essential_section_ranking"] == ["Garden", "Main Hall"]
 
     def test_submission_time_comes_from_the_file_not_the_import(self, markets, applications):
@@ -214,7 +214,7 @@ class TestImportApplications:
         """
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["submitted_at"] == "2026-05-02T09:14:03"
 
     def test_an_unmapped_required_target_imports_nothing(self, markets, applications):
@@ -259,7 +259,7 @@ class TestImportApplications:
         ]
 
     def test_a_row_with_no_email_is_skipped_and_named(self, markets, applications):
-        blank = GOOD_ROW.replace("nadia@ember.ca,Nadia Okonkwo", ",Nadia Okonkwo")
+        blank = GOOD_ROW.replace("nadia@ember.test,Nadia Okonkwo", ",Nadia Okonkwo")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(blank, GOOD_ROW), MAPPING,
@@ -276,7 +276,7 @@ class TestImportApplications:
         A cell value that names nothing the market offers is NOT one of these: it is the same
         decision for every row carrying it, so it is settled before anything is written.
         """
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+        bad = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING,
@@ -284,12 +284,12 @@ class TestImportApplications:
 
         assert body["created"] == 1
         assert body["skipped"] == 1
-        assert body["failures"][0]["email"] == "kai@ember.ca"
+        assert body["failures"][0]["email"] == "kai@ember.test"
         assert "whole number" in body["failures"][0]["error"]
 
     def test_a_skipped_row_names_its_spreadsheet_line(self, markets, applications):
         """Row 1 is the header, so the organizer can find row 3 in their own file."""
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+        bad = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING,
@@ -298,11 +298,11 @@ class TestImportApplications:
         assert body["failures"][0]["row"] == 3
 
     def test_email_is_lowercased_so_one_applicant_is_one_applicant(self, markets, applications):
-        shouty = GOOD_ROW.replace("nadia@ember.ca", "Nadia@Ember.CA")
+        shouty = GOOD_ROW.replace("nadia@ember.test", "Nadia@Ember.TEST")
 
         CsvImport.import_applications(markets, markets.doc, _csv(shouty), MAPPING)
 
-        assert applications.find_one({"applicant_email": "nadia@ember.ca"}) is not None
+        assert applications.find_one({"applicant_email": "nadia@ember.test"}) is not None
 
 
 # A Google Forms CHECKBOX GRID exports one column per option, the header carrying the question
@@ -343,7 +343,7 @@ def _grid_csv(*rows: str) -> str:
 
 # Ticked on both days; ranks Garden first by saying so in the grid's own cells.
 GRID_ROW = (
-    "2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,"
+    "2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"
     "Yes,Yes,2,Gold,half,,2nd choice,1st choice"
 )
 
@@ -374,7 +374,7 @@ class TestTheNameIsAnImportTarget:
         )
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data[EssentialFields.FULL_NAME_KEY] == "Nadia Okonkwo"
 
     def test_a_whole_name_is_never_split(self, markets, applications):
@@ -382,7 +382,7 @@ class TestTheNameIsAnImportTarget:
 
         CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
 
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data[EssentialFields.FULL_NAME_KEY] == "Jan van der Berg"
 
     def test_a_row_with_no_name_is_refused_with_its_line_number(self, markets, applications):
@@ -517,7 +517,7 @@ class TestSplittingAnAnswer:
         )
 
         assert body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_available_dates"] == DATES
 
     def test_one_day_spelled_two_ways_is_one_day(self, markets, applications):
@@ -530,7 +530,7 @@ class TestSplittingAnAnswer:
         )
 
         assert body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_available_dates"] == ["2026-08-01"]
 
 
@@ -538,7 +538,7 @@ class TestTheImportReportsHonestly:
     """Bug 40: what the import said about a file was not what it did with it."""
 
     def test_a_ragged_file_is_refused_with_the_row_and_why(self):
-        text = "Timestamp,Email Address,Name, if any,Business name\n1/1/2026,a@b.ca,Ada,Shop\n\n"
+        text = "Timestamp,Email Address,Name, if any,Business name\n1/1/2026,a@b.test,Ada,Shop\n\n"
 
         error, _headers, _rows = CsvImport.parse_csv(text)
 
@@ -558,8 +558,8 @@ class TestTheImportReportsHonestly:
         assert "'Full name' is required." in error and "'Table choice' is required." in error
 
     def test_the_sample_is_rows_that_will_import_as_they_will_be_stored(self, markets):
-        skipped = GOOD_ROW.replace("nadia@ember.ca", "jan@ember.ca").replace(",2,Gold,", ",x,Gold,")
-        second = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",half,", ",full,")
+        skipped = GOOD_ROW.replace("nadia@ember.test", "jan@ember.test").replace(",2,Gold,", ",x,Gold,")
+        second = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",half,", ",full,")
 
         body, _ = CsvImport.preview_values(markets.doc, _csv(skipped, GOOD_ROW, second), MAPPING)
 
@@ -648,7 +648,7 @@ class TestADayInWords:
     }
 
     def _file(self, *cells):
-        row = '2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,{},{},1,half,"Garden, Main Hall"'
+        row = '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,{},{},1,half,"Garden, Main Hall"'
         return "\n".join([",".join(self.HEADERS), row.format(*cells)])
 
     def test_a_heading_that_names_no_date_is_offered_the_plans_dates(self, markets):
@@ -667,7 +667,7 @@ class TestADayInWords:
         )
 
         assert body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_tier_preference"] == {"2026-08-01": ["Gold"]}
         assert data["essential_available_dates"] == ["2026-08-01"]
 
@@ -694,7 +694,7 @@ class TestAFormThatNeverAskedHowManyDays:
 
         assert preview["validRows"] == 1
         assert status == 200 and body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_max_dates"] is None
 
     def test_a_blank_answer_in_a_mapped_column_is_no_personal_limit_too(self, markets, applications):
@@ -703,7 +703,7 @@ class TestAFormThatNeverAskedHowManyDays:
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
 
         assert body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_max_dates"] is None
 
     def test_an_answer_that_is_not_a_number_is_still_refused(self, markets):
@@ -739,7 +739,7 @@ class TestACheckboxQuestion:
         body, _ = self._import(cell)
 
         assert body["created"] == 1, body
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["form_data"]["certify"] is True
 
     @pytest.mark.parametrize("cell", ["", "No", "FALSE", "0"])
@@ -776,11 +776,11 @@ class TestImportingAGrid:
     def test_both_export_shapes_produce_the_same_answers(self, markets, applications):
         """The point of the story: one question, two spellings, one stored document."""
         CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
-        from_grid = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        from_grid = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
 
         applications.documents.clear()
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        from_single = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        from_single = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
 
         assert from_grid["essential_available_dates"] == from_single["essential_available_dates"]
         assert from_grid["essential_section_ranking"] == from_single["essential_section_ranking"]
@@ -790,14 +790,14 @@ class TestImportingAGrid:
 
         CsvImport.import_applications(markets, markets.doc, _grid_csv(one_day), GRID_MAPPING)
 
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_available_dates"] == ["2026-08-01"]
 
     def test_a_ranking_grid_is_ordered_by_what_the_cells_say(self, markets, applications):
         """A multiple-choice grid records the rank in the cell; column order is only the tiebreak."""
         CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
 
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_section_ranking"] == ["Garden", "Main Hall"]
 
     def test_a_ranking_grid_with_no_ranks_falls_back_to_column_order(self, markets, applications):
@@ -806,7 +806,7 @@ class TestImportingAGrid:
 
         CsvImport.import_applications(markets, markets.doc, _grid_csv(ticked), GRID_MAPPING)
 
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_section_ranking"] == ["Main Hall", "Garden"]
 
     def test_a_grid_column_outside_the_file_is_refused(self, markets, applications):
@@ -837,7 +837,7 @@ class TestMatchingCellValues:
             )
 
             assert status == 200, f"{spelling!r} should have matched: {body}"
-            data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+            data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
             # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
         assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
 
@@ -871,7 +871,7 @@ class TestMatchingCellValues:
     def test_a_resolution_is_applied_to_every_row_carrying_the_value(self, markets, applications):
         rows = [
             GOOD_ROW.replace(",Gold,", ",Gold Tier,"),
-            GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",Gold,", ",Gold Tier,"),
+            GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",Gold,", ",Gold Tier,"),
         ]
         resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
 
@@ -881,7 +881,7 @@ class TestMatchingCellValues:
 
         assert status == 200, body
         assert body["created"] == 2
-        for email in ("nadia@ember.ca", "kai@ember.ca"):
+        for email in ("nadia@ember.test", "kai@ember.test"):
             data = applications.find_one({"applicant_email": email})["form_data"]
             # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
         assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
@@ -896,7 +896,7 @@ class TestMatchingCellValues:
         )
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_available_dates"] == ["2026-08-01"]
 
     @pytest.mark.parametrize("old, new, target, label", [
@@ -939,7 +939,7 @@ class TestMatchingCellValues:
         )
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == "half"
 
     def test_table_choice_matches_the_sentence_the_applicant_read(self, markets, applications):
@@ -954,7 +954,7 @@ class TestMatchingCellValues:
         body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == "full"
 
     def test_a_table_choice_still_resolves_by_the_sentence(self, markets, applications):
@@ -969,7 +969,7 @@ class TestMatchingCellValues:
         )
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == "half"
 
     @pytest.mark.parametrize("answer, code", [
@@ -994,7 +994,7 @@ class TestMatchingCellValues:
 
         assert preview["unmatched"] == []
         assert status == 200 and body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == code
 
     def test_a_stored_ignore_does_not_outrank_a_recognised_choice(self, markets, applications):
@@ -1008,7 +1008,7 @@ class TestMatchingCellValues:
         )
 
         assert body["created"] == 1, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == "full"
 
     def test_an_unmatched_table_choice_is_offered_the_sentences_to_pick_from(self, markets):
@@ -1030,7 +1030,7 @@ class TestMatchingCellValues:
         body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
 
         assert status == 200, body
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["essential_table_choice"] == "full"
 
 
@@ -1043,7 +1043,7 @@ class TestPreviewingRowValidity:
     """
 
     def test_a_clean_file_previews_every_row_as_valid(self, markets):
-        other = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca", 1)
+        other = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test", 1)
 
         body, status = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, other), MAPPING)
 
@@ -1052,7 +1052,7 @@ class TestPreviewingRowValidity:
         assert body["failures"] == []
 
     def test_a_mixed_file_counts_both_and_names_the_bad_lines(self, markets):
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+        bad = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, bad), MAPPING)
 
@@ -1060,12 +1060,12 @@ class TestPreviewingRowValidity:
         assert body["validRows"] == 1
         assert len(body["failures"]) == 1
         assert body["failures"][0]["row"] == 3
-        assert body["failures"][0]["email"] == "kai@ember.ca"
+        assert body["failures"][0]["email"] == "kai@ember.test"
         assert "whole number" in body["failures"][0]["error"]
 
     def test_an_all_invalid_file_previews_nothing_as_valid(self, markets):
         bad = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
-        other = bad.replace("nadia@ember.ca", "kai@ember.ca", 1)
+        other = bad.replace("nadia@ember.test", "kai@ember.test", 1)
 
         body, _ = CsvImport.preview_values(markets.doc, _csv(bad, other), MAPPING)
 
@@ -1102,7 +1102,7 @@ class TestPreviewingRowValidity:
 
     def test_the_preview_agrees_with_what_the_import_then_does(self, markets, applications):
         """Both run the same assembly, so a row cannot pass the preview and fail the import."""
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+        bad = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",2,Gold,", ",lots,Gold,")
 
         preview, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, bad), MAPPING)
         imported, _ = CsvImport.import_applications(
@@ -1215,7 +1215,7 @@ class TestMergingAgainstWhatIsAlreadyHere:
     wholesale replace would destroy review state and rotate ids the review view depends on.
     """
 
-    SECOND = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca")
+    SECOND = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test")
 
     def test_a_re_import_updates_rather_than_colliding(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
@@ -1227,17 +1227,17 @@ class TestMergingAgainstWhatIsAlreadyHere:
 
         assert status == 200, body
         assert body["created"] == 0 and body["updated"] == 1
-        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        data = applications.find_one({"applicant_email": "nadia@ember.test"})["form_data"]
         assert data["business_name"] == "Ember Ceramics Studio"
 
     def test_application_ids_are_stable_across_a_re_import(self, markets, applications):
         """The review view and any future offer reference them."""
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        first_id = applications.find_one({"applicant_email": "nadia@ember.ca"})["id"]
+        first_id = applications.find_one({"applicant_email": "nadia@ember.test"})["id"]
 
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        assert applications.find_one({"applicant_email": "nadia@ember.ca"})["id"] == first_id
+        assert applications.find_one({"applicant_email": "nadia@ember.test"})["id"] == first_id
 
     CHANGED = GOOD_ROW.replace("Ember Ceramics", "Ember Studio")
 
@@ -1265,7 +1265,7 @@ class TestMergingAgainstWhatIsAlreadyHere:
     ):
         """It counted every matching row as updated: "272 updated" when four had changed (bug 40)."""
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
-        before = dict(applications.find_one({"applicant_email": "kai@ember.ca"}))
+        before = dict(applications.find_one({"applicant_email": "kai@ember.test"}))
 
         preview, _ = CsvImport.preview_values(
             markets.doc, _csv(self.CHANGED, self.SECOND), MAPPING,
@@ -1277,7 +1277,7 @@ class TestMergingAgainstWhatIsAlreadyHere:
         assert (preview["updatedRows"], preview["unchangedRows"]) == (1, 1)
         assert (body["updated"], body["unchanged"]) == (1, 1)
         # Nothing to write for the unchanged one, so nothing is written.
-        assert applications.find_one({"applicant_email": "kai@ember.ca"}) == before
+        assert applications.find_one({"applicant_email": "kai@ember.test"}) == before
 
     def test_an_application_absent_from_the_file_is_left_alone_and_counted(
         self, markets, applications,
@@ -1288,26 +1288,26 @@ class TestMergingAgainstWhatIsAlreadyHere:
         body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), MAPPING)
 
         assert body["absentApplications"] == 1
-        assert body["absentEmails"] == ["kai@ember.ca"]
+        assert body["absentEmails"] == ["kai@ember.test"]
 
         # And the import itself leaves them exactly as they were.
-        before = applications.find_one({"applicant_email": "kai@ember.ca"})
+        before = applications.find_one({"applicant_email": "kai@ember.test"})
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
-        after = applications.find_one({"applicant_email": "kai@ember.ca"})
+        after = applications.find_one({"applicant_email": "kai@ember.test"})
         assert after == before
 
     def test_a_file_whose_applicants_are_all_absent_still_imports_nothing_destructive(
         self, markets, applications,
     ):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
-        third = GOOD_ROW.replace("nadia@ember.ca", "wren@ember.ca")
+        third = GOOD_ROW.replace("nadia@ember.test", "wren@ember.test")
 
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(third), MAPPING)
 
         assert body["created"] == 1
         assert body["absentApplications"] == 2
-        assert applications.find_one({"applicant_email": "nadia@ember.ca"}) is not None
-        assert applications.find_one({"applicant_email": "kai@ember.ca"}) is not None
+        assert applications.find_one({"applicant_email": "nadia@ember.test"}) is not None
+        assert applications.find_one({"applicant_email": "kai@ember.test"}) is not None
 
     def test_a_skipped_row_does_not_count_as_present(self, markets, applications):
         """A row that will not import cannot be evidence that its applicant is still in the file."""
@@ -1329,7 +1329,7 @@ class TestReviewsInvalidatedByAReImport:
 
     def _approved(self, markets, applications, row=GOOD_ROW):
         CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         applications.update_one(
             {"id": stored["id"]},
             {"$set": {"status": ApplicationStatus.REVIEWER_APPROVED.value}},
@@ -1390,7 +1390,7 @@ class TestReviewsInvalidatedByAReImport:
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(changed), MAPPING)
 
         assert body["returnedToReview"] == 0
-        assert applications.find_one({"applicant_email": "nadia@ember.ca"})["status"] == (
+        assert applications.find_one({"applicant_email": "nadia@ember.test"})["status"] == (
             ApplicationStatus.OPEN.value
         )
 
@@ -1403,7 +1403,7 @@ class TestReviewsInvalidatedByAReImport:
         body, _ = CsvImport.preview_values(markets.doc, _csv(changed), MAPPING)
 
         assert body["returningToReview"] == 1
-        assert body["returningEmails"] == ["nadia@ember.ca"]
+        assert body["returningEmails"] == ["nadia@ember.test"]
         # Still approved: the preview wrote nothing.
         assert applications.find_one({"id": app_id})["status"] == (
             ApplicationStatus.REVIEWER_APPROVED.value
@@ -1419,16 +1419,16 @@ class TestImportingOnlyWhatItImports:
     """
 
     def test_a_skipped_row_leaves_no_application_behind(self, markets, applications):
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+        bad = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING)
 
         assert body["created"] == 1 and body["skipped"] == 1
-        assert [doc["applicant_email"] for doc in applications.documents] == ["nadia@ember.ca"]
+        assert [doc["applicant_email"] for doc in applications.documents] == ["nadia@ember.test"]
 
     @pytest.mark.parametrize("address", ["not-an-email", "9/12/2025 18:22:56", "nadia@ember"])
     def test_an_address_that_is_not_one_is_refused_by_name(self, markets, applications, address):
-        row = GOOD_ROW.replace("nadia@ember.ca", address, 1)
+        row = GOOD_ROW.replace("nadia@ember.test", address, 1)
 
         preview, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
@@ -1452,7 +1452,7 @@ class TestImportingOnlyWhatItImports:
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
         assert body["created"] == 0
-        assert body["failures"] == [{"row": 2, "email": "nadia@ember.ca", "error": "Refused."}]
+        assert body["failures"] == [{"row": 2, "email": "nadia@ember.test", "error": "Refused."}]
         assert applications.documents == []
 
 
@@ -1469,10 +1469,10 @@ class TestAnApplicantListedMoreThanOnce:
         .replace("Ember Ceramics", "Ember")
         .replace('"2026-08-01, 2026-08-08",2', "2026-08-01,1")
     )
-    OTHER = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca", 1)
+    OTHER = GOOD_ROW.replace("nadia@ember.test", "kai@ember.test", 1)
 
     def _one(self, applications):
-        matching = [d for d in applications.documents if d["applicant_email"] == "nadia@ember.ca"]
+        matching = [d for d in applications.documents if d["applicant_email"] == "nadia@ember.test"]
         assert len(matching) == 1
         return matching[0]
 
@@ -1507,7 +1507,7 @@ class TestAnApplicantListedMoreThanOnce:
 
         assert body["rowCount"] == 3
         assert body["validRows"] == 2
-        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.ca", "latestRow": 3}]
+        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.test", "latestRow": 3}]
         assert body["newRows"] == 2
 
     def test_an_unchanged_repeat_keeps_its_approval_on_re_import(self, markets, applications):
@@ -1538,7 +1538,7 @@ class TestAnApplicantListedMoreThanOnce:
 
         assert body["created"] == 0
         assert [failure["row"] for failure in body["failures"]] == [3]
-        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.ca", "latestRow": 3}]
+        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.test", "latestRow": 3}]
         assert applications.documents == []
 
     def test_an_unreadable_time_on_the_latest_row_is_still_refused(self, markets, applications):
@@ -1650,9 +1650,9 @@ class TestWhatTheImportBringsBesideTheAnswers:
         body, status = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), mapping)
 
         assert status == 200, body
-        assert VendorNotes.notes_for_market("market-123")["nadia@ember.ca"]["fromSheet"] == \
+        assert VendorNotes.notes_for_market("market-123")["nadia@ember.test"]["fromSheet"] == \
             "Ember Ceramics"
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert CsvImport.SHEET_NOTE_TARGET not in stored["form_data"]
 
     def test_unmapped_it_stores_nothing(self, markets, applications):

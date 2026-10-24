@@ -466,7 +466,7 @@ function errorFor(key: string): string {
         class="essential-text-input"
         type="email"
         autocomplete="off"
-        placeholder="their@email.com"
+        placeholder="their@example.com"
         :value="tableShareEmail"
         :disabled="disabled"
         :data-testid="`${prefix}-essential-table-share-email-input`"

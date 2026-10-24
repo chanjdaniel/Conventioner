@@ -62,7 +62,7 @@ def test_strip_persisted_assignment_statistics_removes_stats_field():
 def test_get_assignment_statistics_returns_404_when_market_missing(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: None)
 
-    result, status = MarketsApi.get_assignment_statistics("missing-market", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_statistics("missing-market", "viewer@example.com")
 
     assert status == 404
     assert result["error"] == "Market not found"
@@ -72,7 +72,7 @@ def test_get_assignment_statistics_returns_403_when_user_cannot_view(monkeypatch
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: False)
 
-    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@example.com")
 
     assert status == 403
     assert "does not have permission" in result["error"]
@@ -149,7 +149,7 @@ def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
         ],
     )
 
-    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@example.com")
 
     assert status == 200
     assert result["totalVendors"] == 4
@@ -220,7 +220,7 @@ def test_derive_unassigned_tables_from_rows_includes_partial_half_table():
 def test_get_market_tables_returns_404_when_market_missing(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: None)
 
-    result, status = MarketsApi.get_market_tables("missing-market", "viewer@test.com")
+    result, status = MarketsApi.get_market_tables("missing-market", "viewer@example.com")
 
     assert status == 404
     assert result["error"] == "Market not found"
@@ -234,7 +234,7 @@ def test_get_market_tables_returns_403_when_user_cannot_view(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: False)
 
-    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert status == 403
     assert "does not have permission" in result["error"]
@@ -278,7 +278,7 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
         lambda _id: {"a@example.com": "Ana Rivera"},
     )
 
-    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert status == 200
     rows = result["rows"]
@@ -320,7 +320,7 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
     monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [vendor])
     monkeypatch.setattr(MarketsApi, "outside_solver_vendors", lambda *_args: [])
 
-    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert status == 200
     assert result["vendors"] == [
@@ -363,7 +363,7 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
     monkeypatch.setattr(
         MarketsApi, "outside_solver_vendors", lambda *_args: [(rejected, application)])
 
-    result, _status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+    result, _status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert result["vendors"] == [{
         "email": "dev@example.com",
@@ -424,7 +424,7 @@ def test_derive_market_table_rows_includes_unassigned_tables():
 def test_get_assignment_csv_returns_404_when_market_missing(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: None)
 
-    result, status = MarketsApi.get_assignment_csv("missing-market", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_csv("missing-market", "viewer@example.com")
 
     assert status == 404
     assert result["error"] == "Market not found"
@@ -438,7 +438,7 @@ def test_get_assignment_csv_returns_403_when_user_cannot_view(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: False)
 
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
 
     assert status == 403
     assert "does not have permission" in result["error"]
@@ -448,7 +448,7 @@ def test_get_assignment_csv_returns_400_when_setup_missing(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
 
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
 
     assert status == 400
     assert result["error"] == "Market has no setup configured"
@@ -474,7 +474,7 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi, "not_approved_vendors", lambda *_args: [])
 
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
 
     assert status == 200
     assert result["filename"] == "Test_Market_assigned.csv"
@@ -501,7 +501,7 @@ def test_get_assignment_csv_surfaces_csv_value_error(monkeypatch):
 
     monkeypatch.setattr(MarketsApi, "market_csv_to_string", _raise_value_error)
 
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
 
     assert status == 400
     assert "nothing to export" in result["error"]
@@ -569,7 +569,7 @@ def _a_fresh_draft(monkeypatch):
 def test_a_market_with_no_plan_has_no_tables_rather_than_an_error(monkeypatch):
     _a_fresh_draft(monkeypatch)
 
-    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert status == 200
     assert result["rows"] == []
@@ -578,7 +578,7 @@ def test_a_market_with_no_plan_has_no_tables_rather_than_an_error(monkeypatch):
 def test_a_market_with_no_plan_has_empty_statistics_rather_than_an_error(monkeypatch):
     _a_fresh_draft(monkeypatch)
 
-    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@test.com")
+    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@example.com")
 
     assert status == 200
     assert result["totalVendors"] == 0

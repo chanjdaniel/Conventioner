@@ -73,6 +73,7 @@ rather than beside it.
 `test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
 committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
 it, and the leak check refuses output that holds a rarer one.
+A phone number becomes a fictional one, 555-0100 to 555-0199, in the shape it was typed, so the output passes the git hooks' real-data check.
 `test_csv_proposal.py` holds the rules that read a Google Form's responses into a proposal to the
 answer key they were measured against on those five exports, `test_csv_proposal_plan.py` does the
 same for what the file says about the plan, and `test_csv_proposal_api.py` pins that asking for one
@@ -303,9 +304,7 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ## CI Pipeline
 
-Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`: back-end pytest, front-end unit
-tests, format, lint, style lint and type-check, the knowledge graph's checks, a Docker build, and
-the E2E suite in four shards.
+Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
 checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh`.
@@ -353,6 +352,10 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   before it wrote its own short single-line headers.
   `back-end/tests/test_data/README.md` lists the six properties it must preserve, and
   `test_real_export_shapes.py` asserts those before it asserts anything else.
+- **A real export is never committed, anonymised or not, except through `back-end/tests/fixtures/anonymise_form_export.py`.**
+  A fixture's addresses are at `example.com` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
+  The git hooks refuse anything else before it is committed or pushed, and the gate and CI refuse it again; install the hooks once per clone with `git config core.hooksPath .githooks` (a treehouse worktree gets them from `scripts/treehouse-setup.sh`).
+  See [real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc).
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
   Alpine Docker container, install Playwright and browsers on the host instead.
 - **`nm-test.sh` never runs `sudo`**: it installs Chromium with

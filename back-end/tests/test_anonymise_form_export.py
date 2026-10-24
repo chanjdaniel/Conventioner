@@ -161,6 +161,59 @@ class TestWhatIsInvented:
         assert after.count(" ") == before.count(" ")
 
 
+# Phone numbers in the shapes applicants type them. Built at run time: written out, a real-shaped
+# number would be refused by the git hooks (scripts/real_data_check.py) like a real one.
+PHONE_SHAPES = ("({}) {}-{}", "{}-{}-{}", "+1 {} {} {}", "{}.{}.{}", "{}{}{}")
+
+
+def _with_phones():
+    rows = _export()
+    for index, (row, shape) in enumerate(zip(rows[1:6], PHONE_SHAPES)):
+        row[COMMENT] = "Text me at " + shape.format("604", "382", f"77{index}9")
+    return rows
+
+
+def _skeleton(text):
+    """The shape alone: every letter an "a", every digit a "0"."""
+    return re.sub(r"\d", "0", re.sub(r"[^\W\d_]", "a", text))
+
+
+class TestPhones:
+    """A phone number becomes a fictional one, 555-0100 to 555-0199, in the shape it was typed: the
+    fixture range the git hooks let through, so an anonymised export can be committed."""
+
+    def test_a_phone_becomes_a_fictional_one_in_its_own_shape(self):
+        source = _with_phones()
+        out = anonymiser.anonymise(source)
+        for before, after in zip(_column(source, COMMENT)[:5], _column(out, COMMENT)[:5]):
+            number = re.sub(r"\D", "", after)
+            assert re.fullmatch(r"1?[2-9]\d\d55501\d\d", number), after
+            assert _skeleton(after) == _skeleton(before)
+            assert not after.startswith("Text me at")  # the words around it are invented as ever
+
+    def test_one_applicant_keeps_one_invented_phone_and_others_get_their_own(self):
+        source = _with_phones()
+        source[5][COMMENT] = source[4][COMMENT]  # Juniper again, the same number
+        out = anonymiser.anonymise(source)
+        comments = _column(out, COMMENT)[:5]
+        assert comments[3] == comments[4]
+        assert len(set(comments[:4])) == 4
+
+    @pytest.mark.parametrize("value", ["604 1234567@example.org", "604 555 0142 1234.jo@example.org"])
+    def test_an_address_after_digits_stays_an_address(self, value):
+        source = _export()
+        source[1][COMMENT] = value
+        out = anonymiser.anonymise(source)
+        assert re.search(r"\s[\w.]+@example\.com$", _column(out, COMMENT)[0]), _column(out, COMMENT)[0]
+
+    def test_digits_that_are_no_phone_number_are_invented_as_before(self):
+        source = _export()
+        source[1][COMMENT] = "Booth 12 - 14 (2024), id 0123456789"
+        out = anonymiser.anonymise(source)
+        assert "555" not in _column(out, COMMENT)[0]
+        assert _skeleton(_column(out, COMMENT)[0]) == _skeleton(source[1][COMMENT])
+
+
 def _parse(stamp):
     return datetime.strptime(stamp, "%m/%d/%Y %H:%M:%S")
 

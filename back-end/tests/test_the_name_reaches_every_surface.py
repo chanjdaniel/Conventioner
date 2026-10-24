@@ -128,7 +128,7 @@ class TestTheCheckInLookup:
                     "priority": [], "marketDates": [{"date": "2026-08-01"}], "tiers": [],
                     "locations": [], "sections": [], "assignmentOptions": {},
                 },
-                "creationDate": "2026-01-01T00:00:00Z", "roles": {"o@t.com": "owner"},
+                "creationDate": "2026-01-01T00:00:00Z", "roles": {"o@example.com": "owner"},
                 "modificationList": [],
                 "assignmentObject": {"vendorAssignments": [{
                     "email": "nadia@ember.test", "date": "2026-08-01",

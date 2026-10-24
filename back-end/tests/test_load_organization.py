@@ -115,7 +115,7 @@ class TestCallSitesAdoptTheHelpersFailurePath:
 
         with caplog.at_level("WARNING"):
             market = MarketsApi._load_market_for(
-                "market-123", "owner@test.com", MarketsApi.MarketRole.VIEWER, "view"
+                "market-123", "owner@example.com", MarketsApi.MarketRole.VIEWER, "view"
             )
 
         assert market.id == "market-123"

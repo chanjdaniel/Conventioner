@@ -201,7 +201,7 @@ class TestTheyApplyWhen:
         body, status = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
         assert status == 200 and body["rejectedByRules"] == 1
-        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        stored = applications.find_one({"applicant_email": "nadia@ember.test"})
         assert stored["status"] == ApplicationStatus.REVIEWER_REJECTED.value
         assert stored["verdict_reason"] == "Answered “Half a table, shared” to “Table choice”"
 

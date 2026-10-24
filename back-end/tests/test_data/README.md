@@ -5,7 +5,7 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/google_forms_export.csv
   - back-end/tests/fixtures/anonymise_form_export.py
-verified: 2026-10-22
+verified: 2026-10-24
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/the-form-started-from-a-csv/01
@@ -40,7 +40,7 @@ Submission dates are read from the anonymised timestamps, which the anonymiser m
 The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
 An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email, and it holds no email address, link, handle or phone number, however many share it.
 That is the rule for what the CSV proposal may treat as shared, so the fixtures keep exactly what the proposal reads; it is decided by the count, never by a list of header words, which is what let a column be missed before.
-Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email and a link for a link.
+Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email, a link for a link, and a fictional 555-0100 to 555-0199 number for a phone number, so the output passes the git hooks' real-data check.
 A link keeps its scheme and each part at least 3 applicants' links share, so a Drive upload still reads `https://drive.google.com/open?id=` and an Instagram link still names Instagram, while the file id, the handle and anyone's own site are invented.
 One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
 Blanks, row order, the `TEST` row, organizer columns, duplicate columns and trailing empty columns are as the export had them.

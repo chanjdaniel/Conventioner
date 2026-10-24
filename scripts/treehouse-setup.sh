@@ -7,6 +7,7 @@
 # A fresh git checkout has no git-ignored files, so we recreate:
 #   - .env files (copied from the primary checkout)
 #   - front-end/node_modules           -> front-end / JS tooling works locally
+# and points git at the committed hooks (.githooks/), which keep real people's details off GitHub.
 #
 # Back-end Python is intentionally NOT set up as a local venv: the project runs
 # the back-end via Docker (python:3.12-slim, see back-end/Dockerfile), and this
@@ -49,5 +50,9 @@ if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/
     rm -rf "$WORKTREE/back-end/env"
   fi
 fi
+
+# 4. The committed git hooks: they refuse a commit or a push that holds a real person's details
+#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
+git -C "$WORKTREE" config core.hooksPath .githooks
 
 echo "[treehouse] ready: $WORKTREE"
