@@ -133,7 +133,7 @@ A spreadsheet or archive it cannot read (`.xls`, `.xlsb`, `.numbers`, `.et`, `.s
 It reads no other binary file, and not `package-lock.json`.
 When `.scratch/examples/` holds a file it read nothing from, it says so on stderr, by count and kind only (`read nothing from 2 files in .scratch/examples/ (.gz, .pdf)`), since a file's name may be an applicant's: no value of such a file is checked until it is saved in a format the check reads.
 
-**The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree, and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
+**The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree as its first step, before any that can fail (`th-lease.sh` hands out a slot whose pre-warm failed), and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
 The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.
 Each committed hook also runs the hook of its name in the git directory's `hooks/`, so a hook installed there is not skipped.
 **Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.

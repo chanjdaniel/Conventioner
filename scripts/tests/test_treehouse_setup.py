@@ -112,6 +112,17 @@ def test_a_lockfile_out_of_step_fails_the_pre_warm_loudly(bin_dir, slot):
     assert not (slot / "front-end" / "node_modules").exists()
 
 
+def test_a_failed_install_still_leaves_the_real_data_hooks_on(bin_dir, slot):
+    # th-lease.sh hands out the slot even when the pre-warm fails, so the hooks come first.
+    result = warm(bin_dir, slot, CI_FAILS="1")
+
+    assert result.returncode != 0
+    hooks = subprocess.run(
+        ["git", "-C", str(slot), "config", "--get", "core.hooksPath"], capture_output=True, text=True
+    )
+    assert hooks.stdout.strip() == ".githooks"
+
+
 def test_a_warm_slot_is_left_alone(bin_dir, slot):
     (slot / "front-end" / "node_modules").mkdir()
 

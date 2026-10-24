@@ -23,7 +23,12 @@ cd "$WORKTREE"
 # Primary checkout = parent of the shared .git dir. Source for git-ignored files.
 MAIN="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
-# 1. Env files (git-ignored, absent in a fresh checkout)
+# 1. The committed git hooks: they refuse a commit or a push that holds a real person's details
+#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
+#    First, before any step that can fail: th-lease.sh hands out a slot whose pre-warm failed.
+git -C "$WORKTREE" config core.hooksPath .githooks
+
+# 2. Env files (git-ignored, absent in a fresh checkout)
 for f in .env front-end/.env back-end/.env; do
   if [ ! -f "$WORKTREE/$f" ] && [ -f "$MAIN/$f" ]; then
     cp "$MAIN/$f" "$WORKTREE/$f"
@@ -31,7 +36,7 @@ for f in .env front-end/.env back-end/.env; do
   fi
 done
 
-# 2. Node dependencies (skip if already present — pool hit). `npm ci` installs exactly the
+# 3. Node dependencies (skip if already present — pool hit). `npm ci` installs exactly the
 #    committed lockfile and never writes it: `npm install` lets an npm other than the one that
 #    wrote the lockfile rewrite it, which leaves the slot dirty and unusable. The repository pins
 #    that npm through the Node in .nvmrc; a machine on another Node still warms cleanly, but its
@@ -53,7 +58,7 @@ if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
   fi
 fi
 
-# 3. Back-end Python venv — OFF by default (see header). Best-effort when opted
+# 4. Back-end Python venv — OFF by default (see header). Best-effort when opted
 #    in; a failure warns but never aborts the pre-warm.
 if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/python" ]; then
   echo "[treehouse]   python venv + pip install (back-end, best-effort)"
@@ -66,9 +71,5 @@ if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/
     rm -rf "$WORKTREE/back-end/env"
   fi
 fi
-
-# 4. The committed git hooks: they refuse a commit or a push that holds a real person's details
-#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
-git -C "$WORKTREE" config core.hooksPath .githooks
 
 echo "[treehouse] ready: $WORKTREE"
