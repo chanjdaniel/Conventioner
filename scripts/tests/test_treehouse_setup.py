@@ -18,24 +18,30 @@ echo "${NODE_VERSION}"
 """
 
 # A stub npm that logs its arguments, rewrites the lockfile on `install`, fills node_modules on `ci`,
-# and fails as `npm ci` does on a lockfile out of step with package.json when $CI_FAILS is set.
+# and, when $CI_FAILS is set, fails part-way through `npm ci` as it does on a lockfile out of step with
+# package.json, printing its error unless its loglevel is silent.
 NPM_STUB = """#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$NPM_LOG"
-prefix=. command=
+prefix=. command= loglevel=notice
 while [ $# -gt 0 ]; do
   case "$1" in
     --prefix) prefix="$2"; shift 2 ;;
+    --silent) loglevel=silent; shift ;;
+    --loglevel=*) loglevel="${1#--loglevel=}"; shift ;;
     install | ci) command="$1"; shift ;;
     *) shift ;;
   esac
 done
 if [ "$command" = install ]; then
   echo '{"rewritten": true}' > "$prefix/package-lock.json"
-elif [ -n "${CI_FAILS:-}" ]; then
-  echo "npm error \\`npm ci\\` can only install packages when your package.json and package-lock.json are in sync." >&2
-  exit 1
 fi
 mkdir -p "$prefix/node_modules"
+if [ "$command" = ci ] && [ -n "${CI_FAILS:-}" ]; then
+  if [ "$loglevel" != silent ]; then
+    echo "npm error \\`npm ci\\` can only install packages when your package.json and package-lock.json are in sync." >&2
+  fi
+  exit 1
+fi
 """
 
 
@@ -102,6 +108,7 @@ def test_a_lockfile_out_of_step_fails_the_pre_warm_loudly(bin_dir, slot):
 
     assert result.returncode != 0
     assert "[treehouse]   ERROR: npm ci failed" in result.stderr
+    assert "npm error `npm ci` can only install packages" in result.stderr
     assert not (slot / "front-end" / "node_modules").exists()
 
 
@@ -125,4 +132,14 @@ def test_the_pinned_node_warns_of_nothing(bin_dir, slot):
     result = warm(bin_dir, slot)
 
     assert result.returncode == 0, result.stderr
+    assert "WARNING" not in result.stderr
+
+
+def test_a_slot_without_a_pinned_node_still_warms(bin_dir, slot):
+    (slot / ".nvmrc").unlink()
+
+    result = warm(bin_dir, slot, NODE_VERSION="v22.19.0")
+
+    assert result.returncode == 0, result.stderr
+    assert (slot / "front-end" / "node_modules").is_dir()
     assert "WARNING" not in result.stderr

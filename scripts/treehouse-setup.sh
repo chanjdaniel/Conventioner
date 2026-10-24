@@ -37,13 +37,15 @@ done
 #    that npm through the Node in .nvmrc; a machine on another Node still warms cleanly, but its
 #    `npm install` would write a different lockfile, so say so.
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
-  pinned="$(cat "$WORKTREE/.nvmrc")"
-  if [ "$(node --version)" != "v$pinned" ]; then
-    echo "[treehouse]   WARNING: node is $(node --version), the repository pins $pinned (.nvmrc); run \`nvm install\` in the repository" >&2
+  if [ -f "$WORKTREE/.nvmrc" ]; then
+    pinned="$(cat "$WORKTREE/.nvmrc")"
+    if [ "$(node --version)" != "v$pinned" ]; then
+      echo "[treehouse]   WARNING: node is $(node --version), the repository pins $pinned (.nvmrc); run \`nvm install\` in the repository" >&2
+    fi
   fi
   echo "[treehouse]   npm ci (front-end)"
-  if ! npm ci --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent; then
-    echo "[treehouse]   ERROR: npm ci failed in front-end; if package-lock.json is out of step with package.json, fix and commit the lockfile on its branch - the pre-warm never rewrites it" >&2
+  if ! npm ci --prefix "$WORKTREE/front-end" --no-audit --no-fund --loglevel=error; then
+    echo "[treehouse]   ERROR: npm ci failed in front-end (npm's error is above); a package-lock.json out of step with package.json is fixed and committed on its branch - the pre-warm never rewrites it" >&2
     rm -rf "$WORKTREE/front-end/node_modules"
     exit 1
   fi
