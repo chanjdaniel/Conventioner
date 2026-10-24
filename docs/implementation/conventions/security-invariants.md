@@ -123,13 +123,14 @@ The exports are read into memory at each run: nothing derived from them is writt
 The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
 Only added lines count, and a merge answers only for the lines new to every parent.
 A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in any encoding, and the exports themselves in any of those formats.
-One it cannot read (`.xls`, `.xlsb`, `.numbers`, or a broken workbook) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
+One it cannot read (`.xls`, `.xlsb`, `.numbers`, `.et`, `.sxc`, or a broken workbook) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
 It reads no other binary file, and not `package-lock.json`.
 
 **The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree, and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
 The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.
 Each committed hook also runs the hook of its name in the git directory's `hooks/`, so a hook installed there is not skipped.
 **Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
+A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) instead of writing it out, or the hooks refuse the test file itself.
 
 ## How it is enforced
 

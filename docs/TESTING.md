@@ -304,9 +304,7 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ## CI Pipeline
 
-Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`: back-end pytest, front-end unit
-tests, format, lint, style lint and type-check, the knowledge graph's checks, a Docker build, and
-the E2E suite in four shards.
+Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
 checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh`.
