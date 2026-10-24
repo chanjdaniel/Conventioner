@@ -41,7 +41,7 @@ async function advisory(): Promise<string> {
 
 describe('the triage advisory', () => {
   beforeEach(() => {
-    fetchMarketApplications.mockResolvedValue([application('nadia@ember.ca')]);
+    fetchMarketApplications.mockResolvedValue([application('nadia@ember.test')]);
   });
 
   /**

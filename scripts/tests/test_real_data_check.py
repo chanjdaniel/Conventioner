@@ -159,6 +159,10 @@ FAKE_ROWS = list(csv.reader(io.StringIO(FAKE_EXPORT)))
         f'email = "{GMAIL}"',
         f"Contact: Jordan <{at('jordan.vance88', 'hotmail.ca')}>",
         f"{at('jordan', 'kilnandco.ca')} wrote in",
+        # Registrable domains a fixture once used: each is somebody's real inbox.
+        f"write to {at('their', 'email.com')}",
+        f"{at('nadia', 'ember.ca')}",
+        f"{at('dan', 'x.com')}",
     ],
 )
 def test_an_address_outside_the_fixture_domains_fails(repo, line):
@@ -201,7 +205,10 @@ def test_what_only_looks_like_an_address_passes(repo, text):
 
 
 @pytest.mark.parametrize(
-    "phone", [shape.format(*REAL_PHONE) for shape in ("({}) {}-{}", "{}-{}-{}", "+1 {} {} {}", "{}.{}.{}")]
+    "phone",
+    [shape.format(*REAL_PHONE) for shape in ("({}) {}-{}", "{}-{}-{}", "+1 {} {} {}", "{}.{}.{}")]
+    # The 555 exchange outside 0100 to 0199 can be assigned.
+    + ["{}-{}-{}".format("778", "555", "1234"), "({}) {}-{}".format("604", "555", "0200")],
 )
 def test_a_phone_number_shaped_like_a_real_one_fails(repo, phone):
     stage(repo, "notes.md", f"Call {phone} after six\n")
@@ -477,6 +484,131 @@ def test_a_merge_answers_for_a_workbook_it_changed_itself(repo):
     assert result.returncode == 0, result.stdout
 
 
+def zipped(members):
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    return data.getvalue()
+
+
+# --- Archives -----------------------------------------------------------------------------------
+
+
+def test_a_zip_is_read_for_the_spreadsheets_it_holds(repo):
+    # Google Forms' "Download responses" saves exactly this: a zip holding the CSV.
+    stage_bytes(repo, "notes/responses.zip", zipped({"Form (Responses).csv": f"Email Address\n{GMAIL}\n"}))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "notes/responses.zip > Form (Responses).csv:2:" in result.stdout
+
+
+def test_a_zip_of_fixture_data_or_of_no_spreadsheet_passes(repo):
+    stage_bytes(repo, "a.zip", zipped({"Form (Responses).csv": "Email Address\nvendor@example.com\n"}))
+    stage_bytes(repo, "icons.zip", zipped({"logo.png": b"\x89PNG\r\n\x1a\n" + GMAIL.encode()}))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_a_zip_holding_a_spreadsheet_the_check_cannot_read_is_refused(repo):
+    stage_bytes(repo, "old.zip", zipped({"responses.xls": b"\xd0\xcf\x11\xe0" + b"\x00" * 64}))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "old.zip > responses.xls" in result.stdout and "cannot read" in result.stdout
+
+
+@pytest.mark.parametrize("name", ["responses.csv.gz", "backup.tar.gz", "responses.7z", "dump.tgz"])
+def test_an_archive_the_check_cannot_read_is_refused_outright(repo, name):
+    stage_bytes(repo, name, b"\x1f\x8b\x08\x00" + b"\x00" * 64)
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"{name}:" in result.stdout and "cannot read" in result.stdout
+
+
+def test_an_archive_the_check_cannot_read_passes_under_the_test_fixtures(repo):
+    stage_bytes(repo, "back-end/tests/fixtures/sample.csv.gz", b"\x1f\x8b\x08\x00" + b"\x00" * 64)
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_a_zipped_export_is_read_for_its_exact_values(repo):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "responses.zip").write_bytes(zipped({"Form (Responses).csv": FAKE_EXPORT}))
+    stage(repo, "notes.md", "Wren Okafor\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "notes.md:1:" in result.stdout
+
+
+def test_an_export_the_check_read_nothing_from_is_named_on_stderr_by_kind_only(repo):
+    with_fake_export(repo)
+    examples = repo / ".scratch" / "examples"
+    (examples / "Wren Okafor answers.pdf").write_bytes(b"%PDF-1.4 " + b"\x00" * 64)
+    (examples / "older responses.csv.gz").write_bytes(b"\x1f\x8b\x08\x00" + b"\x00" * 64)
+    stage(repo, "notes.md", "fine\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0
+    assert "read nothing from 2 files in .scratch/examples/ (.gz, .pdf)" in result.stderr
+    assert "wren" not in result.stderr.lower() and "older" not in result.stderr
+
+
+def test_exports_it_reads_say_nothing(repo):
+    with_fake_export(repo)
+    stage(repo, "notes.md", "fine\n")
+
+    assert check(repo, "staged").stderr == ""
+
+
+# --- Exports re-saved by a spreadsheet app --------------------------------------------------
+
+
+def test_a_semicolon_delimited_export_is_read_for_names(repo):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "responses.csv").write_text(FAKE_EXPORT.replace(",", ";"))
+    stage(repo, "notes.md", "Wren Okafor\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "applicant's name" in result.stdout
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
+def test_a_cp1252_export_keeps_its_accented_names_whole(repo, encoding):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "responses.csv").write_bytes(FAKE_EXPORT.replace("Wren Okafor", "Hésketty Marlow").encode("cp1252"))
+    stage_bytes(repo, "notes.md", "Hésketty Marlow\n".encode(encoding))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "notes.md:1: an applicant's name" in result.stdout
+
+
+def test_an_accented_name_is_not_matched_by_a_part_of_it(repo):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "responses.csv").write_bytes(FAKE_EXPORT.replace("Wren Okafor", "Hésketty Marlow").encode("cp1252"))
+    stage(repo, "notes.md", "sketty Marlow\n")
+
+    assert check(repo, "staged").returncode == 0
+
+
 # --- The anonymiser's output -------------------------------------------------------------------
 
 
@@ -646,6 +778,27 @@ def test_a_hook_in_the_git_directory_still_runs(hooked):
     git(hooked, "commit", "-q", "-m", "docs: notes")
 
     assert marker.exists()
+
+
+@pytest.mark.parametrize("code", [0, 1])
+def test_a_pre_push_hook_in_the_git_directory_gets_the_refs_and_decides(hooked, code):
+    got = hooked / "got"
+    own = Path(git(hooked, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
+    hook = own / "hooks" / "pre-push"
+    hook.write_text(f'#!/bin/sh\necho "$1 $2" >{got}\ncat >>{got}\nexit {code}\n')
+    hook.chmod(0o755)
+    stage(hooked, "notes.md", "fine\n")
+    git(hooked, "commit", "-q", "-m", "docs: notes")
+    head = git(hooked, "rev-parse", "HEAD").stdout.strip()
+
+    result = git(hooked, "push", "-q", "origin", "HEAD:refs/heads/feature", check=False)
+
+    arguments, refs = got.read_text().split("\n", 1)
+    assert arguments.split()[0] == "origin"
+    assert "refs/heads/feature" in refs and head in refs
+    assert (result.returncode == 0) == (code == 0)
+    pushed = git(hooked, "ls-remote", "origin", "refs/heads/feature").stdout
+    assert (head in pushed) == (code == 0)
 
 
 # --- The gate and CI ---------------------------------------------------------------------------

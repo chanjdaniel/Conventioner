@@ -199,6 +199,13 @@ class TestPhones:
         assert comments[3] == comments[4]
         assert len(set(comments[:4])) == 4
 
+    @pytest.mark.parametrize("value", ["604 1234567@example.org", "604 555 0142 1234.jo@example.org"])
+    def test_an_address_after_digits_stays_an_address(self, value):
+        source = _export()
+        source[1][COMMENT] = value
+        out = anonymiser.anonymise(source)
+        assert re.search(r"\s[\w.]+@example\.com$", _column(out, COMMENT)[0]), _column(out, COMMENT)[0]
+
     def test_digits_that_are_no_phone_number_are_invented_as_before(self):
         source = _export()
         source[1][COMMENT] = "Booth 12 - 14 (2024), id 0123456789"

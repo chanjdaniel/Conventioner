@@ -18,7 +18,7 @@ def _market_doc():
         "id": "market-123",
         "name": "Test Market",
         "creationDate": "2026-01-01T00:00:00Z",
-        "roles": {"organizer@test.com": "owner"},
+        "roles": {"organizer@example.com": "owner"},
         "modificationList": [],
         "phase": "assignment",
         "isDraft": False,

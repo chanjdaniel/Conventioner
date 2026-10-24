@@ -17,7 +17,8 @@ The header row stays verbatim, and any value - or option inside a multi-select a
 that at least 3 distinct applicants gave, counted by applicant email rather than by row, so one
 applicant who submitted three times shares nothing. Everything else is invented in the same shape:
 the same length, letter case, punctuation and digit count, an address for an email, a link for a
-link, and a fictional 555-01xx number for a phone number, the only kind the git hooks let through. A list of header words is what let a column be missed before.
+link, and a fictional number from 555-0100 to 555-0199 for a phone number, the only kind the git
+hooks let through. A list of header words is what let a column be missed before.
 
 Blanks, row count and order, ``TEST`` rows, duplicate columns and trailing empty columns are kept as
 they are. Every timestamp moves by one offset, derived from the source so it is not in this file.
@@ -51,10 +52,11 @@ HANDLE = re.compile(r"(?<![\w@])@[A-Za-z0-9_.]{2,}")
 PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
 TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})|(?P<handle>{HANDLE.pattern})"
                    r"|(?P<digits>\d+)|(?P<word>[^\W\d_]+)", re.IGNORECASE)
-# What a value is invented from: TOKEN, with a run that may hold a phone number taken whole.
-VALUE_TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})|(?P<handle>{HANDLE.pattern})"
-                         rf"|(?P<phone>{PHONE.pattern})|(?P<digits>\d+)|(?P<word>[^\W\d_]+)",
-                         re.IGNORECASE)
+# What a value is invented from: TOKEN, with a run that may hold a phone number taken whole. The
+# run never ends inside an address's local part ("604 1234567@..."), which stays an address.
+VALUE_TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})"
+                         rf"|(?P<handle>{HANDLE.pattern})|(?P<phone>{PHONE.pattern}(?![\w.%+'-]*@))"
+                         r"|(?P<digits>\d+)|(?P<word>[^\W\d_]+)", re.IGNORECASE)
 # A North American number, as the git hooks judge one (scripts/real_data_check.py).
 # Its "(" may lie outside a PHONE run, which starts at a digit.
 NANP = re.compile(r"(?<!\d)(?:\+?1[\s.-]?)?\(?[2-9]\d\d\)?[\s.-]?[2-9]\d\d[\s.-]?\d{4}(?!\d)")
@@ -271,14 +273,18 @@ class _Inventor:
         a lone number is, at their own offsets, so a run holding no phone number reads as before."""
         parts, last = [], 0
         for number in NANP.finditer(text):
-            parts.append(self._digit_runs(text[last:number.start()], source, offset + last, attempt))
+            before = text[last:number.start()]
+            parts.append(self._digit_runs(before, source, offset + last, attempt))
             parts.append(self._phone(number.group(0), source, offset + number.start(), attempt))
             last = number.end()
         parts.append(self._digit_runs(text[last:], source, offset + last, attempt))
         return "".join(parts)
 
     def _digit_runs(self, text: str, source: str, offset: int, attempt: int) -> str:
-        return re.sub(r"\d+", lambda m: self._digits(m.group(0), source, offset + m.start(), attempt), text)
+        def invent(run: re.Match) -> str:
+            return self._digits(run.group(0), source, offset + run.start(), attempt)
+
+        return re.sub(r"\d+", invent, text)
 
     def _phone(self, number: str, source: str, offset: int, attempt: int) -> str:
         """A fictional number in 555-0100 to 555-0199, laid into the source's own punctuation: an

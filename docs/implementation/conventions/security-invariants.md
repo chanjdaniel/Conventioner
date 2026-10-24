@@ -115,16 +115,22 @@ So the check runs on the PC, before anything leaves it, and CI is only the backs
 | the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, before any suite, since the gate pushes the branch |
 | CI's `real-data` job | the pull request's commits, plus gitleaks for secrets; it blocks a merge, and is not the protection |
 
+**The gate's own commits are CI's to check.**
+Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.
+
 All four run one checker, [`scripts/real_data_check.py`](../../../scripts/real_data_check.py).
-It fails an added line holding an email address outside the fixture domains (`example.com`, `example.org`, `example.net` and their subdomains, `*.test`, `*.example`, `*.invalid`, `*.localhost`, and the few in its `FIXTURE_DOMAINS`), or a North American phone number written with separators outside the fictional 555 exchange.
+It fails an added line holding an email address outside the fixture domains (`example.com`, `example.org`, `example.net` and their subdomains, `*.test`, `*.example`, `*.invalid`, `*.localhost`, and the services' own in its `FIXTURE_DOMAINS`: the project's, Resend's test sender, the placeholder MongoDB host and commit trailers'), or a North American phone number written with separators outside the fictional 555-0100 to 555-0199.
+No registrable domain is a fixture domain, however unlikely an inbox there seems: `email.com` is free webmail and `ember.ca` is somebody's, so the tests that once used them use `example.com` and `.test` names.
 Where `.scratch/examples/` holds real exports (the checkout's own, or the primary checkout's when run from a worktree), it also fails an exact email, phone number or applicant's name from them, however the line punctuates or cases it.
 A name counts when it stands in a person's-name column of a row that gives an email, has two to five words, and fewer than three applicants gave it, the anonymiser's own rule for what identifies nobody.
 The exports are read into memory at each run: nothing derived from them is written or printed, and a finding names the file and line with at most a masked hint (`j***@g***.com`, `***-***-**19`), never the value.
 The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
 Only added lines count, and a merge answers only for the lines new to every parent.
-A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in any encoding, and the exports themselves in any of those formats.
-One it cannot read (`.xls`, `.xlsb`, `.numbers`, `.et`, `.sxc`, or a broken workbook) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
+A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in UTF-8, UTF-16 or Windows-1252 with its delimiter found from its first record (a comma, or the semicolon a European-locale Excel saves), and each of these inside a `.zip`, which is what Google Forms' "Download responses" saves.
+The exports are read the same way, a zipped one included.
+A spreadsheet or archive it cannot read (`.xls`, `.xlsb`, `.numbers`, `.et`, `.sxc`, a `.gz`, `.7z`, `.rar`, `.tar` and the like, or a broken workbook or zip) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
 It reads no other binary file, and not `package-lock.json`.
+When `.scratch/examples/` holds a file it read nothing from, it says so on stderr, by count and kind only (`read nothing from 2 files in .scratch/examples/ (.gz, .pdf)`), since a file's name may be an applicant's: no value of such a file is checked until it is saved in a format the check reads.
 
 **The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree, and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
 The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.

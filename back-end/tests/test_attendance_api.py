@@ -121,7 +121,7 @@ def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
 
 def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
     market = _market_with_assignment()
-    market["assignmentObject"]["vendorAssignments"][0]["email"] = "someone@else.com"
+    market["assignmentObject"]["vendorAssignments"][0]["email"] = "someone@else.test"
     monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
 
     result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")

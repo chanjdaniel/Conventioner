@@ -5,7 +5,7 @@ on Register reproduced it: two accounts for one address. Register checked for th
 inserted it, two steps a second request could fall between, and nothing in the database forbade a
 second document - the email index was not unique. It is now, built at boot like the applications'
 identity index, so the database is the referee; and every address is stored and looked up lowercased,
-so "Dan@x.com" and "dan@x.com" are one account, as `create_account.py` already stored them.
+so "Dan@example.com" and "dan@example.com" are one account, as `create_account.py` already stored them.
 """
 import os
 import sys

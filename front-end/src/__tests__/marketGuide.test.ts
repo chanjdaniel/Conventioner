@@ -122,7 +122,7 @@ describe('the next step', () => {
       page: 'assignment',
     });
     const run = market(MarketPhase.Assignment, {
-      assignmentObject: { vendorAssignments: [{ email: 'a@x.com' }] },
+      assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
     } as Partial<Market>);
     expect(nextStep(run, TODAY)).toMatchObject({ page: 'result' });
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
@@ -130,7 +130,7 @@ describe('the next step', () => {
 
   it('once the results are published, says the result is settled (E36/F04/S02)', () => {
     const told = market(MarketPhase.Assignment, {
-      assignmentObject: { vendorAssignments: [{ email: 'a@x.com' }] },
+      assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
       resultsPublished: true,
     } as Partial<Market>);
 
@@ -194,7 +194,7 @@ describe('the next step', () => {
             phase as MarketPhase,
             {
               intakeMode,
-              assignmentObject: { vendorAssignments: assigned ? [{ email: 'a@x.com' }] : [] },
+              assignmentObject: { vendorAssignments: assigned ? [{ email: 'a@example.com' }] : [] },
             } as Partial<Market>,
           );
           expect(nextStep(m, TODAY).page, `${intakeMode} ${phase} ${assigned}`).toBe(
