@@ -250,6 +250,54 @@ def test_a_fixture_phone_or_a_bare_number_passes(repo, text):
     assert check(repo, "staged").returncode == 0, check(repo, "staged").stdout
 
 
+def atlas(*labels):
+    """A MongoDB Atlas host, built at run time: written out, the hooks would refuse this file."""
+    return ".".join((*labels, "mongodb", "net"))
+
+
+# Invented, in the shape of a real cluster's: its id is what names it.
+ATLAS_ID = "q7x2kd"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"| Database | cluster `market-prod` | `{atlas('market-prod', ATLAS_ID)}` |",
+        f"MONGODB_URI=mongodb+srv://{atlas('market-prod', ATLAS_ID)}/conventioner",
+        f"{atlas('ac-m3pz9qe-shard-00-01', ATLAS_ID)}:27017",
+        atlas("Market-Prod", ATLAS_ID.upper()),
+        # A placeholder name keeps nothing back when the id beside it is real.
+        atlas("cluster", ATLAS_ID),
+    ],
+)
+def test_a_mongodb_atlas_host_fails(repo, line):
+    stage(repo, "docs/ops.md", f"first\n{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "docs/ops.md:2:" in result.stdout
+    assert "MongoDB Atlas host" in result.stdout
+    assert ATLAS_ID not in result.stdout.lower() and "market-prod" not in result.stdout.lower()
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "| Database | `<cluster>.<id>.mongodb.net` |",
+        "# Format: mongodb+srv://username:password@cluster.mongodb.net/conventioner",
+        "mongodb+srv://cluster0.example.mongodb.net/conventioner",
+        "Atlas serves every cluster under *.mongodb.net, and mongodb.net is MongoDB's.",
+    ],
+)
+def test_a_placeholder_mongodb_host_passes(repo, line):
+    stage(repo, "docs/ops.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
 def test_no_matched_value_is_printed_in_full(repo):
     stage(repo, "notes.md", "{}\n({}) {}-{}\n".format(GMAIL, *REAL_PHONE))
 
