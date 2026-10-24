@@ -104,7 +104,7 @@ Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.ex
 
 ## Real data never leaves the PC
 
-**A real export is never committed, anonymised or not, except through [`anonymise_form_export.py`](../../../back-end/tests/fixtures/anonymise_form_export.py).**
+**A real export is never committed, anonymised or not, except through [`anonymise_form_export.py`](../../../back-end/tests/fixtures/anonymise_form_export.py)**, whose stand-ins pass the check: an address at `example.com`, and a phone number in the fictional 555-0100 to 555-0199, in the shape the applicant typed.
 Conventioner's repository is public, so a branch is published the moment it is pushed: a check on GitHub can stop a merge, never the exposure, and taking applicants' details back out once took a rewrite of the whole history.
 So the check runs on the PC, before anything leaves it, and CI is only the backstop.
 
@@ -122,7 +122,9 @@ A name counts when it stands in a person's-name column of a row that gives an em
 The exports are read into memory at each run: nothing derived from them is written or printed, and a finding names the file and line with at most a masked hint (`j***@g***.com`, `***-***-**19`), never the value.
 The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
 Only added lines count, and a merge answers only for the lines new to every parent.
-It does not read binary files or `package-lock.json`.
+A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in any encoding, and the exports themselves in any of those formats.
+One it cannot read (`.xls`, `.xlsb`, `.numbers`, or a broken workbook) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
+It reads no other binary file, and not `package-lock.json`.
 
 **The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree, and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
 The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.
@@ -133,5 +135,5 @@ Each committed hook also runs the hook of its name in the git directory's `hooks
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
-- `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address and a real-shaped phone fail, a fixture one passes, an exact value of a fake export fails, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
+- `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address and a real-shaped phone fail, a fixture one passes, an exact value of a fake export fails, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the anonymiser's output passes, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
 - What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.
