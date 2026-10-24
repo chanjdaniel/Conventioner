@@ -66,9 +66,10 @@ FIXTURE_FOLDERS = ("back-end/tests/test_data/", "back-end/tests/fixtures/")
 # ── Shapes ───────────────────────────────────────────────────────────────────
 
 EMAIL = re.compile(r"(?<![\w.%+'-])[A-Za-z0-9._%+'-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,24})(?![A-Za-z0-9-])")
-# Asset and source names that read like an address: logo@2x.png.
+# Asset and source names that read like an address: logo@2x.png. Every extension kept here is not
+# a delegated TLD; check IANA's root-zone list before one is added.
 NOT_A_DOMAIN = re.compile(
-    r"(?i)\.(?:png|jpe?g|gif|svg|webp|ico|js|mjs|cjs|ts|vue|css|scss|py|json|md|html|map|lock|txt)$"
+    r"(?i)\.(?:png|jpe?g|gif|svg|webp|ico|js|mjs|cjs|ts|vue|css|scss|json|html|lock|txt)$"
 )
 # North American, with separators: (604) 555-0123, 604-555-0123, +1 604 555 0123, 604.555.0123.
 PHONE = re.compile(

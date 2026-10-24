@@ -177,6 +177,17 @@ def test_an_address_outside_the_fixture_domains_fails(repo, line):
     assert "email address outside the fixture domains" in result.stdout
 
 
+@pytest.mark.parametrize("domain", ["company.md", "company.py", "company.map"])
+def test_an_address_at_a_real_tld_fails(repo, domain):
+    stage(repo, "notes/contacts.txt", f"first\n{at('person', domain)}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "notes/contacts.txt:2:" in result.stdout
+    assert "email address outside the fixture domains" in result.stdout
+
+
 @pytest.mark.parametrize(
     "address",
     [
