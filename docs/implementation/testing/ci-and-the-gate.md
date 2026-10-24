@@ -63,6 +63,8 @@ Dependabot alerts, and the security-update toggle, are repository settings, not 
 
 The release effect of each type is the one in [RELEASING.md](../../RELEASING.md#conventional-commits); the npm split by dependency type keeps a tooling bump from carrying a `fix` title.
 A week's minor and patch bumps come as one pull request per group (npm production, npm development, Actions), so CI runs once for each; a major bump comes on its own.
+A major the project cannot take yet is held with an `ignore` entry in the file, whose comment gives the reason, the upstream issues and when to try again, so next week's batch does not reopen it.
+The one hold today is `typescript` 7: 7.0 ships no JavaScript API, so `vue-tsc` and typescript-eslint cannot run on it.
 For these ecosystems, security updates take the same titles, and always target the default branch.
 
 **Dependabot's pull requests bypass the no-mistakes gate**: CI's required checks are their gate, and a person reads each before merging it.

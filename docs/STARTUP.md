@@ -17,7 +17,7 @@ This guide will help you set up and run the Conventioner application for develop
 Before starting, ensure you have the following installed:
 
 - **Docker** and **Docker Compose v2** (recommended - see Docker Setup below)
-  - OR **Python 3.12**, **Node.js 20+**, and **MongoDB** (for local development)
+  - OR **Python 3.12**, **Node.js 20.19+** (what Vite 8 needs), and **MongoDB** (for local development)
 
 The versions are the ones the project is built, tested and deployed with: `back-end/.python-version`
 says 3.12 (Vercel reads it), `back-end/Dockerfile` pins `python:3.12-slim`, and

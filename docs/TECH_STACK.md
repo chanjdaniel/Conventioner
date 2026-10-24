@@ -107,13 +107,14 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Component-based architecture
 
 ### Build Tool
-- **Vite 6.4.5** - Next-generation frontend build tool
+- **Vite 8.3.5** - Next-generation frontend build tool, bundling with Rolldown
   - Fast development server with HMR
   - Production build optimization
   - Proxy configuration for API requests
 
 ### Language
-- **TypeScript 5.7.3** - Typed JavaScript
+- **TypeScript 5.9.3** - Typed JavaScript
+  - Held below 7 (see [Dependabot](implementation/testing/ci-and-the-gate.md#dependabot)): 7.0 has no JavaScript API for `vue-tsc` and typescript-eslint
   - Type safety
   - Better IDE support
   - Compile-time error checking
@@ -152,7 +153,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **ESLint 9.18.0** - JavaScript/TypeScript linter
   - Code quality enforcement
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set)
-- **Prettier 3.4.2** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
+- **Prettier 3.9.10** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
   - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
   - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
 - **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `.stylelintrc.json`
@@ -164,7 +165,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Runs component and utility unit tests (`npm run test:unit`)
   - Uses the `happy-dom` environment (configured in `vitest.config.ts`)
 - **@vue/test-utils 2** - Vue component testing utilities
-- **Playwright 1.61** - End-to-end browser testing
+- **Playwright 1.64** - End-to-end browser testing
   - Drives Chromium against the running Docker stack (`npm run test:e2e`)
   - Configured in `playwright.config.ts`
   - Page Object Model + fixtures under `front-end/e2e/`; selectors use
@@ -373,7 +374,7 @@ Conventioner/
 ## Version Information
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
-- **Node.js**: 20 (the front-end Dockerfile and CI)
+- **Node.js**: 20.19+ (the floor Vite 8 sets; the front-end Dockerfile and CI run Node 20)
 - **MongoDB**: 7
 - **Docker**: Latest stable version
 

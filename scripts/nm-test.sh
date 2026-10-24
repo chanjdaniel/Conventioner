@@ -11,7 +11,7 @@
 #     ./scripts/nm-test.sh
 #     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
-# Requires: Docker, Node.js 20+, Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
+# Requires: Docker, Node.js 20.19+ (Vite 8), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
