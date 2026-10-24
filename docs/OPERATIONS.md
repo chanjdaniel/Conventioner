@@ -13,6 +13,7 @@ verified: 2026-10-24
 sources:
   - E32/F03/S03
   - T15
+  - T24
   - decision/2026-10-20
 ---
 
@@ -30,7 +31,7 @@ Production went live on 2026-10-18 as v1.0.0.
 | Front end (Vue) | Vercel project `makers-market-management-front-end` (`prj_uWBC9BJyAmG3KITC5y23AHtq7eyN`), root `front-end/` | `https://conventioner.io` |
 | Back end (Flask) | Vercel project `makers-market-management-back-end` (`prj_KlG2FlrqAxbX7afm7xuYEcBzqPeg`), root `back-end/`, Python 3.12 (`back-end/.python-version`) | `https://api.conventioner.io` |
 | Vercel team | `chanjdaniels-projects` (`team_Gbd0cUxeyRWKRqeIhkta9F8Q`), Hobby plan | |
-| Database | MongoDB Atlas project `conventioner-prod`, cluster `conventioner-prod` (Flex, AWS us-east-1, MongoDB 8.0), database `conventioner` | `conventioner-prod.ool6hjl.mongodb.net` |
+| Database | MongoDB Atlas project `conventioner-prod`, cluster `conventioner-prod` (Flex, AWS us-east-1, MongoDB 8.0), database `conventioner` | `<cluster>.<id>.mongodb.net`; the real host is in the back end's `MONGODB_URI` (its Vercel environment) and in 1Password |
 | Email | Resend, sending domain `conventioner.io`, sender `registration@conventioner.io` | verification links, password resets, sign-in codes |
 | Captcha | Google reCAPTCHA v3, one property listing `conventioner.io` | organizer sign-up only |
 | CSV help | Hosted TypeSafe (optional) | reading a Google Form export's columns |
