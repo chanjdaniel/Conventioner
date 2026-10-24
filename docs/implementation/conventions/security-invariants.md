@@ -113,7 +113,7 @@ So the check runs on the PC, before anything leaves it, and CI is only the backs
 | [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused |
 | [`.githooks/pre-push`](../../../.githooks/pre-push) | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped |
 | the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, before any suite, since the gate pushes the branch |
-| CI's `real-data` job | the pull request's commits, plus gitleaks for secrets; it blocks a merge, and is not the protection |
+| CI's `real-data` job | the pull request's commits, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
 
 **The gate's own commits are CI's to check.**
 Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.

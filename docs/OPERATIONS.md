@@ -9,7 +9,7 @@ describes:
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-22
+verified: 2026-10-24
 sources:
   - E32/F03/S03
   - T15
