@@ -107,7 +107,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Component-based architecture
 
 ### Build Tool
-- **Vite 6.0.11** - Next-generation frontend build tool
+- **Vite 6.4.5** - Next-generation frontend build tool
   - Fast development server with HMR
   - Production build optimization
   - Proxy configuration for API requests
