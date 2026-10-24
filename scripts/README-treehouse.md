@@ -30,8 +30,8 @@ The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) 
 
 ```sh
 # 1. Acquire an isolated, pre-warmed worktree (leases it, copies .env files,
-#    installs node_modules for root + front-end, and sets core.hooksPath to the
-#    committed .githooks/). Prints the worktree path.
+#    installs front-end/node_modules from the committed lockfile with npm ci, and
+#    sets core.hooksPath to the committed .githooks/). Prints the worktree path.
 path=$(scripts/th-lease.sh my-agent-label)
 cd "$path"
 
@@ -166,7 +166,11 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 - **Back-end has no local Python venv** - it runs via Docker (`python:3.12-slim`).
   The pinned deps don't build on the Python versions installed here.
 - Reused worktrees don't auto-update node deps when a lockfile changes - run
-  `npm install` yourself, or `treehouse destroy` the tree to force a fresh warm.
+  `npm ci` in `front-end/` yourself, or `treehouse destroy` the tree to force a fresh warm.
+- **The pre-warm never writes the lockfile.** It installs with `npm ci`, so a warmed
+  slot is clean whichever npm the machine has; a `package-lock.json` out of step with
+  `package.json` fails the pre-warm (`ERROR: npm ci failed`) instead of being rewritten.
+  Fix the lockfile on its branch and commit it.
 - If you `treehouse destroy` or `treehouse prune` a worktree without returning it
   first, its docker stack lingers (only `th-return.sh` tears stacks down) - run
   `scripts/th-compose.sh down -v` in the worktree beforehand, or see

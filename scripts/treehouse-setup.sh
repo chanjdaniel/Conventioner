@@ -31,10 +31,16 @@ for f in .env front-end/.env back-end/.env; do
   fi
 done
 
-# 2. Node dependencies (skip if already present — pool hit)
+# 2. Node dependencies (skip if already present — pool hit). `npm ci` installs exactly the
+#    committed lockfile and never writes it: `npm install` lets an npm other than the one that
+#    wrote the lockfile rewrite it, which leaves the slot dirty and unusable.
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
-  echo "[treehouse]   npm install (front-end)"
-  npm install --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent
+  echo "[treehouse]   npm ci (front-end)"
+  if ! npm ci --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent; then
+    echo "[treehouse]   ERROR: npm ci failed in front-end; if package-lock.json is out of step with package.json, fix and commit the lockfile on its branch - the pre-warm never rewrites it" >&2
+    rm -rf "$WORKTREE/front-end/node_modules"
+    exit 1
+  fi
 fi
 
 # 3. Back-end Python venv — OFF by default (see header). Best-effort when opted
