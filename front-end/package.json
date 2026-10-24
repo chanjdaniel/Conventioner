@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "run-p type-check \"build-only {@}\" --",
+    "build": "run-p type-check \"build-only -- {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
@@ -23,7 +23,7 @@
     "pinia": "^2.3.1",
     "primeicons": "^7.0.0",
     "primevue": "^4.3.0",
-    "vue": "^3.5.13",
+    "vue": "^3.5.44",
     "vue-konva": "^3.4.0",
     "vue-router": "^4.5.0",
     "vuedraggable": "^4.1.0"
@@ -39,8 +39,8 @@
     "@vue/test-utils": "^2.4.11",
     "@vue/tsconfig": "^0.7.0",
     "eslint": "^9.18.0",
-    "eslint-plugin-vue": "^9.32.0",
-    "happy-dom": "^20.10.6",
+    "eslint-plugin-vue": "^10.11.1",
+    "happy-dom": "^21.0.4",
     "jiti": "^2.4.2",
     "npm-run-all2": "^7.0.2",
     "postcss-html": "^2.0.0",
@@ -48,9 +48,9 @@
     "stylelint": "^17.15.0",
     "stylelint-config-html": "^2.0.0",
     "typescript": "~5.7.3",
-    "vite": "^6.0.11",
+    "vite": "^6.4.5",
     "vite-plugin-vue-devtools": "^7.7.0",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.12",
     "vue-tsc": "^2.2.0"
   }
 }

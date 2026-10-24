@@ -101,13 +101,13 @@ How each part of the code works is in the implementation layer of the [knowledge
 ## Frontend
 
 ### Core Framework
-- **Vue 3.5.13** - Progressive JavaScript framework
+- **Vue 3.5.44** - Progressive JavaScript framework
   - Composition API (`<script setup>`)
   - Reactive data binding
   - Component-based architecture
 
 ### Build Tool
-- **Vite 6.0.11** - Next-generation frontend build tool
+- **Vite 6.4.5** - Next-generation frontend build tool
   - Fast development server with HMR
   - Production build optimization
   - Proxy configuration for API requests
@@ -151,7 +151,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Development Tools
 - **ESLint 9.18.0** - JavaScript/TypeScript linter
   - Code quality enforcement
-  - Vue-specific linting rules
+  - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set)
 - **Prettier 3.4.2** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
   - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
   - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
