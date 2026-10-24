@@ -163,6 +163,8 @@ FAKE_ROWS = list(csv.reader(io.StringIO(FAKE_EXPORT)))
         f"write to {at('their', 'email.com')}",
         f"{at('nadia', 'ember.ca')}",
         f"{at('dan', 'x.com')}",
+        f"{at('user', '3m.com')}",
+        f"{at('user', '1password.com')}",
     ],
 )
 def test_an_address_outside_the_fixture_domains_fails(repo, line):
@@ -286,6 +288,17 @@ def test_an_exact_value_from_a_real_export_fails(repo, line):
     assert "real export" in result.stdout
     for value in ("wren", "okafor", "0142"):
         assert value not in out.lower()
+
+
+def test_a_line_with_an_exact_phone_still_reports_another_real_shaped_phone(repo):
+    with_fake_export(repo)
+    stage(repo, "notes.md", "Call (604) 555-0142 or ({}) {}-{}\n".format(*REAL_PHONE))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "real export" in result.stdout
+    assert "phone number shaped like a real one" in result.stdout
 
 
 @pytest.mark.parametrize(
@@ -442,6 +455,25 @@ def test_a_broken_workbook_is_refused(repo):
 
     assert result.returncode == 1
     assert "cannot read" in result.stdout
+
+
+def test_a_workbook_with_a_corrupt_member_is_refused(repo):
+    book = bytearray(xlsx([["Email Address"], ["vendor@example.com"]]))
+    with zipfile.ZipFile(io.BytesIO(bytes(book))) as source:
+        info = source.getinfo("xl/sharedStrings.xml")
+        name_len = int.from_bytes(book[info.header_offset + 26:info.header_offset + 28], "little")
+        extra_len = int.from_bytes(book[info.header_offset + 28:info.header_offset + 30], "little")
+        size = int.from_bytes(book[info.header_offset + 18:info.header_offset + 22], "little")
+        start = info.header_offset + 30 + name_len + extra_len
+        for i in range(start + 4, start + size - 1, 3):
+            book[i] ^= 0xFF
+    stage_bytes(repo, "vendors.xlsx", bytes(book))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "cannot read" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
 
 
 def test_a_csv_git_reads_as_binary_is_read_as_text(repo):

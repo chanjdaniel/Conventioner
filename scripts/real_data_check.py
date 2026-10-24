@@ -29,6 +29,7 @@ import re
 import subprocess
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -67,7 +68,7 @@ FIXTURE_FOLDERS = ("back-end/tests/test_data/", "back-end/tests/fixtures/")
 EMAIL = re.compile(r"(?<![\w.%+'-])[A-Za-z0-9._%+'-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,24})(?![A-Za-z0-9-])")
 # Asset and source names that read like an address: logo@2x.png.
 NOT_A_DOMAIN = re.compile(
-    r"(?i)(?:^\d|\.(?:png|jpe?g|gif|svg|webp|ico|js|mjs|cjs|ts|vue|css|scss|py|json|md|html|map|lock|txt)$)"
+    r"(?i)\.(?:png|jpe?g|gif|svg|webp|ico|js|mjs|cjs|ts|vue|css|scss|py|json|md|html|map|lock|txt)$"
 )
 # North American, with separators: (604) 555-0123, 604-555-0123, +1 604 555 0123, 604.555.0123.
 PHONE = re.compile(
@@ -218,7 +219,10 @@ def tables(name, data):
             if sum(entry.file_size for entry in book.infolist()) > MAX_UNZIPPED:
                 raise Unreadable(name)
             return (opendocument_tables(book), []) if lower.endswith(".ods") else workbook_tables(book)
-    except (zipfile.BadZipFile, ElementTree.ParseError, KeyError, ValueError, IndexError, EOFError) as error:
+    except (
+        zipfile.BadZipFile, ElementTree.ParseError, KeyError, ValueError, IndexError, EOFError,
+        NotImplementedError, RuntimeError, zlib.error,
+    ) as error:
         raise Unreadable(name) from error
 
 
@@ -262,7 +266,7 @@ def zip_members(data):
             if sum(entry.file_size for entry in entries) > MAX_UNZIPPED:
                 return None
             return [(entry.filename, archive.read(entry)) for entry in entries]
-    except (zipfile.BadZipFile, ValueError, EOFError, NotImplementedError, RuntimeError):
+    except (zipfile.BadZipFile, ValueError, EOFError, NotImplementedError, RuntimeError, zlib.error):
         return None
 
 
@@ -436,7 +440,8 @@ def findings(line, real):
         found.append("an exact phone number from a real export in .scratch/examples/")
     for match in PHONE.finditer(line):
         fictional = match.group(3) == FIXTURE_EXCHANGE and match.group(4).startswith(FIXTURE_LINE_PREFIX)
-        if not fictional and not real_phones:
+        exact = bool(phone_numbers(match.group(0)) & real.phones)
+        if not fictional and not exact:
             found.append(f"a phone number shaped like a real one (***-***-**{match.group(4)[2:]})")
     if real.names:
         words = [word.lower() for word in WORD.findall(line)]
