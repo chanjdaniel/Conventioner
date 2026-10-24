@@ -15,7 +15,9 @@ describes:
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
-verified: 2026-10-22
+  - scripts/real_data_check.py
+  - .githooks/
+verified: 2026-10-24
 ---
 
 # Security invariants
@@ -100,8 +102,36 @@ A keyless bundle built without the hatch throws rather than sending it.
 A defense on only one side of the wire is not one.
 Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so `cp .env.example .env` is a step in `front-end/` too; [STARTUP.md](../../STARTUP.md) names both copies.
 
+## Real data never leaves the PC
+
+**A real export is never committed, anonymised or not, except through [`anonymise_form_export.py`](../../../back-end/tests/fixtures/anonymise_form_export.py).**
+Conventioner's repository is public, so a branch is published the moment it is pushed: a check on GitHub can stop a merge, never the exposure, and taking applicants' details back out once took a rewrite of the whole history.
+So the check runs on the PC, before anything leaves it, and CI is only the backstop.
+
+| Where | What it reads |
+| --- | --- |
+| [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused |
+| [`.githooks/pre-push`](../../../.githooks/pre-push) | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped |
+| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, before any suite, since the gate pushes the branch |
+| CI's `real-data` job | the pull request's commits, plus gitleaks for secrets; it blocks a merge, and is not the protection |
+
+All four run one checker, [`scripts/real_data_check.py`](../../../scripts/real_data_check.py).
+It fails an added line holding an email address outside the fixture domains (`example.com`, `example.org`, `example.net` and their subdomains, `*.test`, `*.example`, `*.invalid`, `*.localhost`, and the few in its `FIXTURE_DOMAINS`), or a North American phone number written with separators outside the fictional 555 exchange.
+Where `.scratch/examples/` holds real exports (the checkout's own, or the primary checkout's when run from a worktree), it also fails an exact email, phone number or applicant's name from them, however the line punctuates or cases it.
+A name counts when it stands in a person's-name column of a row that gives an email, has two to five words, and fewer than three applicants gave it, the anonymiser's own rule for what identifies nobody.
+The exports are read into memory at each run: nothing derived from them is written or printed, and a finding names the file and line with at most a masked hint (`j***@g***.com`, `***-***-**19`), never the value.
+The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
+Only added lines count, and a merge answers only for the lines new to every parent.
+It does not read binary files or `package-lock.json`.
+
+**The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree, and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
+The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.
+Each committed hook also runs the hook of its name in the git directory's `hooks/`, so a hook installed there is not skipped.
+**Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
+
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
+- `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address and a real-shaped phone fail, a fixture one passes, an exact value of a fake export fails, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
 - What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.

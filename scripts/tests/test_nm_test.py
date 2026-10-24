@@ -16,14 +16,27 @@ REPO = Path(__file__).resolve().parents[2]
 BASH = shutil.which("bash")
 
 
+def repo_with_scripts(tmp_path):
+    """A git repository holding the scripts, whose dev is on GitHub as origin/dev."""
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    for script in ("nm-test.sh", "e2e-lock.sh", "real_data_check.py"):
+        shutil.copy(REPO / "scripts" / script, root / "scripts")
+    for args in (
+        ["init", "-q", "-b", "dev"],
+        ["add", "."],
+        ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "--no-verify", "-m", "chore: start"],
+        ["update-ref", "refs/remotes/origin/dev", "HEAD"],
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    return root
+
+
 @pytest.fixture
 def run(tmp_path):
     """A run of nm-test.sh in a process group of its own, with $TMPDIR the test's own, that has made
     its virtual environment and waits in its first `pip install`; killed whatever is left at the end."""
-    root = tmp_path / "repo"
-    (root / "scripts").mkdir(parents=True)
-    for script in ("nm-test.sh", "e2e-lock.sh"):
-        shutil.copy(REPO / "scripts" / script, root / "scripts")
+    root = repo_with_scripts(tmp_path)
     python = tmp_path / "python"
     python.write_text(
         textwrap.dedent(
@@ -85,3 +98,25 @@ def test_a_killed_run_leaves_no_virtual_environment(run):
     process.wait(timeout=10)
 
     assert gone_within(10, venv), sorted(p.name for p in tmp.iterdir())
+
+
+def test_a_branch_adding_real_data_fails_the_run_before_anything_else(tmp_path):
+    root = repo_with_scripts(tmp_path)
+    (root / "notes.md").write_text("jordan.vance88@" + "gmail.com\n")  # whole, the hooks would refuse this file
+    for args in (
+        ["add", "notes.md"],
+        ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "--no-verify", "-m", "docs: notes"],
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COMPOSE_", "TH_", "TEAM_"))}
+    env.update(PYTHON_CMD=sys.executable, TMPDIR=str(tmp_path))
+
+    result = subprocess.run(
+        [BASH, str(root / "scripts" / "nm-test.sh")], env=env, capture_output=True, text=True, timeout=60
+    )
+
+    assert result.returncode != 0
+    assert "notes.md:1:" in result.stdout
+    assert "jordan.vance88" not in result.stdout + result.stderr
+    assert "venv" not in result.stdout + result.stderr
+    assert not list(tmp_path.glob("nmtest-*"))

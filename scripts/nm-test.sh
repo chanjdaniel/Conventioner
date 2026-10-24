@@ -29,6 +29,15 @@ if ! command -v "$PYTHON" &>/dev/null; then
   fail "Python not found on PATH. Install Python 3.12 or set PYTHON_CMD."
 fi
 
+# ── Real data (before anything else) ─────────────────────────────────────────
+
+# The gate pushes the branch to GitHub, and the repository is public, so the branch's commits are
+# checked for a real person's details before anything runs (the git hooks run the same check).
+cd "$REPO_ROOT"
+echo "nm-test: checking the branch's commits since origin/dev for real data..."
+"$PYTHON" "$SCRIPT_DIR/real_data_check.py" commits HEAD --not origin/dev
+echo "Real data: OK"
+
 # ── Stack identity ───────────────────────────────────────────────────────────
 
 # Docker assigns every host port as the stack starts (th-compose.sh's auto mode), so two runs can

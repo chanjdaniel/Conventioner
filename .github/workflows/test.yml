@@ -63,6 +63,32 @@ jobs:
       - name: Drift against the base branch
         run: python scripts/knowledge_graph.py drift --base origin/${{ github.base_ref }}
 
+  # A backstop, not the protection: the repository is public, so a pushed branch is published
+  # before any job runs. The protection is the same checker in the git hooks and the gate, before
+  # anything leaves the PC (docs/implementation/conventions/security-invariants.md). This job only
+  # keeps a PR that got past them from merging.
+  real-data:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      BASE_REF: ${{ github.base_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: No real data in the PR's commits
+        run: python scripts/real_data_check.py commits "$HEAD_SHA" --not "origin/$BASE_REF"
+      - name: No secret in the PR's commits (gitleaks)
+        run: |
+          curl -fsSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz
+          echo "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --verbose --log-opts="origin/$BASE_REF..$HEAD_SHA" .
+
   frontend-unit:
     runs-on: ubuntu-latest
     defaults:

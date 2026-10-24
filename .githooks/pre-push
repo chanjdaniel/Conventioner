@@ -1,0 +1,12 @@
+#!/bin/sh
+# Refuses a push whose commits hold a real person's email, phone or name, in a line or a message
+# (scripts/real_data_check.py): the second net, for a commit made with the hooks skipped. Then runs
+# any pre-push hook installed in the git directory, which core.hooksPath would otherwise skip.
+top=$(git rev-parse --show-toplevel) || exit 1
+refs=$(cat)
+printf '%s\n' "$refs" | python3 "$top/scripts/real_data_check.py" pre-push "$@" || exit 1
+own="$(git rev-parse --path-format=absolute --git-common-dir)/hooks/pre-push"
+if [ -x "$own" ]; then
+  printf '%s\n' "$refs" | "$own" "$@"
+  exit
+fi
