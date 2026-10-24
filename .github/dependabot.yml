@@ -25,6 +25,15 @@ updates:
       development:
         dependency-type: "development"
         update-types: ["minor", "patch"]
+    ignore:
+      # Held 2026-10-24: TypeScript 7.0 ships no JavaScript API, so vue-tsc (`type-check`) and
+      # typescript-eslint (`lint`) cannot run on it; Microsoft's 7.0 announcement tells Vue projects
+      # to stay on 6.0 (https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/).
+      # Retry once TypeScript 7.1 ships its API and both support it:
+      # typescript-eslint/typescript-eslint#10940, vuejs/language-tools#5381 and #6167.
+      # 6.0 still arrives as its own PR.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
