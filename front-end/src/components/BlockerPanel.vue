@@ -64,14 +64,17 @@ const rows = computed(() =>
 .blocker-panel {
   padding: 1rem;
   border-radius: var(--radius-control);
-  background: var(--p-red-50, rgba(192, 57, 43, 0.14));
-  border: 1px solid var(--p-red-200, rgba(192, 57, 43, 0.14));
+  /* The destructive chip's ground: the 14% red the panel always drew, laid over the rail's white.
+     Its ink is the chip's too, since --mm-red, which the panel used to read, is 4.41 on it. The
+     lines are the same 14% over that ground, as they always were. */
+  background: var(--mm-chip-destructive);
+  border: 1px solid color-mix(in srgb, var(--mm-red) 14%, transparent);
 }
 
 .blocker-heading {
   margin: 0 0 0.5rem 0;
   font-weight: 600;
-  color: var(--p-red-700, var(--mm-red));
+  color: var(--mm-text-red-on-tint);
 }
 
 .blocker-list {
@@ -85,11 +88,11 @@ const rows = computed(() =>
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.25rem 0;
-  color: var(--p-red-600, var(--mm-red));
+  color: var(--mm-text-red-on-tint);
 }
 
 .blocker-item + .blocker-item {
-  border-top: 1px solid var(--p-red-200, rgba(192, 57, 43, 0.14));
+  border-top: 1px solid color-mix(in srgb, var(--mm-red) 14%, transparent);
 }
 
 .blocker-message {
@@ -99,7 +102,7 @@ const rows = computed(() =>
 .blocker-link {
   flex-shrink: 0;
   font-weight: 400;
-  color: var(--p-red-700, var(--mm-red));
+  color: var(--mm-text-red-on-tint);
   text-decoration: underline;
 }
 </style>

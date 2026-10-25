@@ -1,11 +1,10 @@
 /**
  * The floorplan's template dialogs, on the product's own dialog (T45).
  *
- * Save Template and Load Template were PrimeVue dialogs with no theme installed, so both drew with
- * no window and no scrim, and the overrides meant to style them never reached the teleported markup.
+ * Save Template and Load Template were a component library's dialogs with no theme installed
+ * (ADR 0015), so both drew with no window and no scrim, and the overrides meant to style them never
+ * reached the teleported markup.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
@@ -23,11 +22,6 @@ vi.mock('@/utils/api', async (importOriginal) => ({
 
 import TemplatePanel from '@/components/floorplan/TemplatePanel.vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-
-const SOURCE = readFileSync(
-  resolve(__dirname, '../components/floorplan/TemplatePanel.vue'),
-  'utf-8',
-);
 
 const SIX_FOOT: TableTypeObject = {
   id: 'six-foot',
@@ -76,10 +70,6 @@ const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-test
 function panel(): VueWrapper {
   return mount(TemplatePanel, { attachTo: document.body });
 }
-
-it('uses nothing from PrimeVue', () => {
-  expect(SOURCE).not.toMatch(/from ['"]primevue/);
-});
 
 describe('Save Template', () => {
   async function opened(): Promise<VueWrapper> {

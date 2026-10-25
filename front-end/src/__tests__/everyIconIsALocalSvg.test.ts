@@ -1,12 +1,13 @@
 /**
  * Every icon is a local SVG component, and the copied ones carry their licence (T45).
  *
- * Five floorplan icons were glyphs of the PrimeIcons font (`<i class="pi pi-*">`), whose next major
- * is proprietary and whose repository is archived. They are now Lucide icons (ISC), copied into
- * `components/icons/` beside the app's other icons. Two things are asserted, because either alone
- * lets the problem back:
+ * Five floorplan icons were glyphs of an icon font (`<i class="pi pi-*">`), whose next major is
+ * proprietary and whose repository is archived (ADR 0015). They are now Lucide icons (ISC), copied
+ * into `components/icons/` beside the app's other icons. Two things are asserted, because either
+ * alone lets the problem back:
  *
- *   1. Nothing names the icon font: no `pi pi-` class, no `primeicons` import or dependency.
+ *   1. Nothing uses the font's classes, which with the font gone draw nothing at all; the font
+ *      itself, as a dependency, is `theAppOwnsItsComponents.test.ts`'s.
  *   2. Each copied Lucide icon draws at `1em` in `currentColor`, hidden from assistive technology,
  *      so the `font-size` and `color` rules written for the font size and colour it the same way;
  *      and ISC's notice travels with the copies, as the licence asks.
@@ -47,22 +48,12 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-describe('nothing names the PrimeIcons font', () => {
+describe('nothing uses the icon font', () => {
   const files = sourceFiles(SRC).filter((f) => !f.endsWith('everyIconIsALocalSvg.test.ts'));
 
   it('no source uses a `pi pi-` class', () => {
     const offenders = files.filter((f) => /\bpi pi-/.test(readFileSync(f, 'utf8')));
     expect(offenders.map((f) => relative(ROOT, f))).toEqual([]);
-  });
-
-  it('no source imports primeicons', () => {
-    const offenders = files.filter((f) => /['"]primeicons\b/.test(readFileSync(f, 'utf8')));
-    expect(offenders.map((f) => relative(ROOT, f))).toEqual([]);
-  });
-
-  it('the front end does not depend on primeicons', () => {
-    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-    expect({ ...pkg.dependencies, ...pkg.devDependencies }).not.toHaveProperty('primeicons');
   });
 });
 

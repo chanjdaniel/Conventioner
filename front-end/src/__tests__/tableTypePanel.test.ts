@@ -1,22 +1,16 @@
 /**
  * The floorplan's table types, on the product's own primitives (T45).
  *
- * The panel was built on PrimeVue with no theme installed, so its Edit Table Type dialog drew with
- * no window and no scrim, Max Capacity showed no selected value, and Save stayed disabled until a
- * dimension field lost focus, because PrimeVue's number field committed on blur.
+ * The panel was built on a component library with no theme installed (ADR 0015), so its Edit Table
+ * Type dialog drew with no window and no scrim, Max Capacity showed no selected value, and Save
+ * stayed disabled until a dimension field lost focus, because the library's number field committed
+ * on blur.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import TableTypePanel from '@/components/floorplan/TableTypePanel.vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-
-const SOURCE = readFileSync(
-  resolve(__dirname, '../components/floorplan/TableTypePanel.vue'),
-  'utf-8',
-);
 
 const SIX_FOOT = {
   id: 'six-foot',
@@ -61,10 +55,6 @@ beforeEach(() => {
   setActivePinia(createPinia());
   store = useFloorplanStore();
   document.body.innerHTML = '';
-});
-
-it('uses nothing from PrimeVue', () => {
-  expect(SOURCE).not.toMatch(/from ['"]primevue/);
 });
 
 describe('the add form', () => {

@@ -22,8 +22,8 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  * What it does NOT see, so that the next reader does not assume otherwise:
  *
  * - Only `.vue` files, and only their own `<style>`. A cover painted from a shared stylesheet, or
- *   by a component library, is invisible here - which is why PrimeVue's modal `Dialog` is matched
- *   by markup below instead.
+ *   by a component library, is invisible here. The app installs no component library: its
+ *   dialogs are `AppDialog` (ADR 0015), so there is no library modal left to match by markup.
  * - `\{[^{}]*\}` matches innermost blocks only, so a rule containing a nested block (CSS nesting,
  *   which this repo does not use yet) would hide the declarations around it.
  * - Wiring is counted per FILE, not per modal. `PhaseRail` holds two dialogs and would pass on one
@@ -42,17 +42,6 @@ function coversTheViewport(block: string): boolean {
     names.every((n) => new RegExp(`\\b${n}:\\s*0\\b`).test(block));
   if (sides('top', 'right', 'bottom', 'left')) return true;
   return sides('top', 'left') && /\bwidth:\s*100%/.test(block) && /\bheight:\s*100%/.test(block);
-}
-
-/**
- * A PrimeVue `<Dialog :modal="true">` is a modal too, and it is invisible to the rule above: its
- * full-viewport mask is painted by the library's own stylesheet, never by the component's scoped
- * `<style>`. It does not need `useInertBehind` - PrimeVue applies its own focus trap on exactly that
- * prop (`[_directive_focustrap, { disabled: !modal }]` in `primevue/dialog`) - but it does need to
- * be recognised, or the rule below would be claiming something it had not checked.
- */
-function usesALibraryModal(source: string): boolean {
-  return /<Dialog\b[^>]*:modal="true"/s.test(source);
 }
 
 function vueFiles(dir: string): string[] {
@@ -104,21 +93,6 @@ describe('every modal holds the page inert', () => {
     const shell = fullViewportCovers().find((entry) => entry.file.endsWith('AppDialog.vue'));
     expect(shell, 'AppDialog no longer paints a full-viewport cover').toBeDefined();
     expect(shell!.wired, 'AppDialog paints a cover without holding the page inert').toBe(true);
-  });
-
-  /**
-   * The one shape the CSS rule cannot see, so it is pinned by name instead. A new library modal
-   * fails this and has to be looked at. There is none since the floorplan's template dialogs moved
-   * onto `AppDialog` (T45): with no PrimeVue theme installed, its dialogs drew with no window and no
-   * scrim.
-   */
-  it('accounts for the modals whose mask is painted from outside the component', () => {
-    const libraryModals = vueFiles(SRC)
-      .filter((file) => usesALibraryModal(readFileSync(file, 'utf-8')))
-      .map((file) => relative(SRC, file))
-      .sort();
-
-    expect(libraryModals).toEqual([]);
   });
 
   it('has no full-viewport cover that leaves the page behind it reachable', () => {

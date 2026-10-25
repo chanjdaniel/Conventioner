@@ -8,7 +8,6 @@ import VueKonva from 'vue-konva';
 
 import App from './App.vue';
 import router from './router';
-import { PrimeVue } from '@primevue/core';
 import { routerSettled } from '@/utils/routerReady';
 import { installApplicantSessionExpiry } from '@/utils/applicantSessionExpiry';
 
@@ -16,7 +15,6 @@ const app = createApp(App);
 
 app.use(createPinia());
 app.use(router);
-app.use(PrimeVue);
 app.use(VueKonva);
 
 installApplicantSessionExpiry(router);

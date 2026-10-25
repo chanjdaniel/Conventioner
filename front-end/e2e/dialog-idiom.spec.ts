@@ -451,8 +451,8 @@ test.describe('A dialog opened from a dialog can be used', () => {
 /**
  * The floorplan's Edit Table Type dialog is the product's dialog (T45).
  *
- * It was PrimeVue's, with no theme installed: the form floated over the table list with no window
- * and no scrim, and its Update sat in a footer outside the form, tied to it by `form="..."`.
+ * It was a component library's, with no theme installed (ADR 0015): the form floated over the table
+ * list with no window and no scrim, and its Update sat in a footer outside the form, tied to it by `form="..."`.
  */
 test.describe('The Edit Table Type dialog', () => {
   async function openTheDialog(
@@ -568,8 +568,8 @@ test.describe('The Edit Table Type dialog', () => {
 /**
  * The floorplan's Save Template and Load Template dialogs are the product's dialog (T45).
  *
- * They were PrimeVue's, with no theme installed: both drew with no window and no scrim, over the
- * save step's own controls.
+ * They were a component library's, with no theme installed (ADR 0015): both drew with no window
+ * and no scrim, over the save step's own controls.
  */
 test.describe('The template dialogs', () => {
   const ROUND = {
