@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 #
-# The machine's end-to-end lock, sourced by nm-test.sh: one gate run at a time holds it, from just
+# The machine's end-to-end lock, sourced by nm-test.sh: one run with Playwright at a time holds it, from just
 # before its stack starts until its teardown is done, because a stack starting or stopping changes
 # the host's networks under another run's browser, which fails with net::ERR_NETWORK_CHANGED.
 #

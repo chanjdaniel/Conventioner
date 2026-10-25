@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deterministic full-suite test runner for the no-mistakes gate.
+# Deterministic full-suite test runner; the no-mistakes gate runs it with --skip-e2e.
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
 # so it runs safely alongside the primary stack and other runs, and takes turns with other runs for
@@ -9,9 +9,14 @@
 #
 # Usage:
 #     ./scripts/nm-test.sh
+#     ./scripts/nm-test.sh --skip-e2e
 #     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
-# Requires: Docker, Node.js 24.19.0 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
+# --skip-e2e runs every suite but Playwright, and so starts no stack and takes no end-to-end lock:
+# the gate passes it, leaving Playwright to CI's required e2e shards
+# (docs/implementation/testing/ci-and-the-gate.md).
+#
+# Requires: Docker (not with --skip-e2e), Node.js 24.19.0 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
@@ -20,6 +25,14 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 RUN_ID="nmtest-$$"
 
 fail() { echo "nm-test: ERROR: $*" >&2; exit 1; }
+
+E2E=run
+for arg in "$@"; do
+  case "$arg" in
+    --skip-e2e) E2E=skip ;;
+    *) fail "unknown argument: $arg (usage: nm-test.sh [--skip-e2e])" ;;
+  esac
+done
 
 PYTHON="${PYTHON_CMD:-python3.12}"
 if ! command -v "$PYTHON" &>/dev/null; then
@@ -47,7 +60,9 @@ unset TH_MONGO_PORT TH_BACKEND_PORT TH_FRONTEND_PORT TH_MONGO_EXPRESS_PORT
 
 # The team's labels, which the overlay puts on every container, volume and network of the stack,
 # so whatever is left of it says what it is (docs/implementation/testing/ci-and-the-gate.md).
-# A gate run is the team's only when the team started it, which it says by setting TEAM_TASK.
+# TEAM_KIND=gate is the value the team's reaper knows, kept although the gate passes --skip-e2e
+# and so starts no stack: only a run without it does. A run is the team's only when the team
+# started it, which it says by setting TEAM_TASK.
 export TEAM_KIND=gate
 export TEAM_WORKTREE="$REPO_ROOT"
 if [[ -n "${TEAM_TASK:-}" ]]; then
@@ -59,7 +74,9 @@ fi
 TEAM_EXPIRES="$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
 export TEAM_EXPIRES
 
-echo "nm-test: project=$COMPOSE_PROJECT_NAME"
+if [[ "$E2E" == run ]]; then
+  echo "nm-test: project=$COMPOSE_PROJECT_NAME"
+fi
 
 # ── Teardown ─────────────────────────────────────────────────────────────────
 
@@ -85,15 +102,18 @@ cleanup() {
     echo "nm-test: ERROR: tearing down $COMPOSE_PROJECT_NAME failed (above); the teardown guard retries it." >&2
   fi
 }
-trap cleanup EXIT
+if [[ "$E2E" == run ]]; then
+  trap cleanup EXIT
+fi
 
-# The trap above runs on a normal exit and on SIGTERM, but the gate aborts a run by sending SIGTERM
-# and then SIGKILL to this script's whole process group: the SIGKILL kills the trap's own docker
-# commands, and nothing at all runs after a SIGKILL to this script. So the stack's teardown also
-# rests on a guard in a process group of its own, which outlives this script, waits for it to be
-# gone, and removes whatever of the stack is left. It needs no compose file, since the gate may be
-# deleting this worktree by then. After a normal exit it finds nothing left and exits. Another guard
-# removes the run's virtual environment, from the moment it exists.
+# The trap above is set only when the run starts a stack (not with --skip-e2e). It runs on a normal
+# exit and on SIGTERM, but the gate aborts a run by sending SIGTERM and then SIGKILL to this
+# script's whole process group: the SIGKILL kills the trap's own docker commands, and nothing at
+# all runs after a SIGKILL to this script. So the stack's teardown also rests on a guard in a
+# process group of its own, which outlives this script, waits for it to be gone, and removes
+# whatever of the stack is left. It needs no compose file, since the gate may be deleting this
+# worktree by then. After a normal exit it finds nothing left and exits. Another guard removes the
+# run's virtual environment, from the moment it exists.
 alive() {
   local state
   state="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
@@ -190,6 +210,12 @@ echo "Frontend unit tests: OK"
 # ── E2E tests (needs the stack) ──────────────────────────────────────────────
 
 echo ""
+if [[ "$E2E" == skip ]]; then
+  echo "nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started."
+  echo ""
+  echo "===== All tests passed ====="
+  exit 0
+fi
 echo "===== E2E Tests ====="
 
 echo "nm-test: installing Playwright browsers..."

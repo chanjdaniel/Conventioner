@@ -1,4 +1,4 @@
-"""The worktree overlay as Compose renders it through th-compose.sh: what every agent and gate stack gets."""
+"""The worktree overlay as Compose renders it through th-compose.sh: what every agent and nm-test.sh stack gets."""
 
 import json
 import os

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Print the tag of each image a worktree or gate stack runs, as TH_BACKEND_TAG= and TH_FRONTEND_TAG=
+# Print the tag of each image a worktree or nm-test.sh stack runs, as TH_BACKEND_TAG= and TH_FRONTEND_TAG=
 # lines: a short hash of the files the image is built from, so every stack with the same
 # dependencies shares one image, and a change to the source alone, which reaches the containers
 # through their bind mounts, needs no build.
