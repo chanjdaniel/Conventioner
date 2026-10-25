@@ -1,4 +1,4 @@
-# flask run --cert=adhoc > error.log 2>&1
+# flask run --port=5001 --cert=adhoc > error.log 2>&1
 # First, before the imports below build their Mongo clients from it. Nothing reads a *secret* at
 # import any more - the three that used to are now read on call, so the boot check answers for the
 # environment as it stands rather than for the import order that produced it. See utils.env_file.
