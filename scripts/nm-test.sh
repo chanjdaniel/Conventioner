@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deterministic full-suite test runner for the no-mistakes gate.
+# Deterministic full-suite test runner; the no-mistakes gate runs it with --skip-e2e.
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
 # so it runs safely alongside the primary stack and other runs, and takes turns with other runs for

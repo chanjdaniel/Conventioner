@@ -313,7 +313,7 @@ runs through `scripts/nm-test.sh` (every suite but Playwright, which only CI run
 
 ## Stack limits
 
-Every worktree and gate stack runs within the limits that [`docker-compose.worktree.yml`](../docker-compose.worktree.yml) sets per service (`mem_limit`, `cpus`, `pids_limit`), and MongoDB sizes its cache for its limit (`--wiredTigerCacheSizeGB 0.25`).
+Every worktree and `nm-test.sh` stack runs within the limits that [`docker-compose.worktree.yml`](../docker-compose.worktree.yml) sets per service (`mem_limit`, `cpus`, `pids_limit`), and MongoDB sizes its cache for its limit (`--wiredTigerCacheSizeGB 0.25`).
 Each limit sits well above that service's peak in a full `scripts/nm-test.sh` run, read from `docker stats` throughout the run; a limit the peak comes within 20% of is raised and the run repeated.
 
 Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one gate run at a time, `docker stats` read about twice a second per service over the stack's whole life (22.6 minutes, 375 E2E tests); CPU is in cores, as `docker stats` gives it (100% is one core):
@@ -323,7 +323,7 @@ Measured on 2026-10-23 on a 12-core, 31 GiB Linux machine (Compose 5.6.1), one g
 | mongodb | 1g / 2 / 512 | 479 MiB (47%) | 119% (59%) | 62 (12%) |
 | backend | 768m / 1 / 256 | 134 MiB (17%) | 59% (59%) | 19 (7%) |
 | frontend | 1g / 2 / 256 | 471 MiB (46%) | 151% (75%) | 38 (15%) |
-| mongo-express | 256m / 0.5 / 64 | not started by a gate run | | |
+| mongo-express | 256m / 0.5 / 64 | not started by an `nm-test.sh` run | | |
 
 MongoDB started at 768m and 1 CPU: the first run took it to 630 MiB (82%) and 101% of its one core, so it was raised and the run repeated.
 Neither run had a container killed for memory (`docker events --filter event=oom` over each run).
@@ -372,17 +372,17 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
   every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
   has the lock's rules. A dev stack or a hand-run Playwright takes no turn and can still meet it.
-- **An agent or gate stack never restarts by itself**: every stack started through
+- **An agent or `nm-test.sh` stack never restarts by itself**: every stack started through
   `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
   Its bind mounts never create a missing source either, so a stack whose worktree is gone fails to
   start instead of re-creating the worktree's folders as root.
 - **Every stack listens on `127.0.0.1` only**: the primary stack (`docker-compose.yml`) and every
-  worktree and gate stack publish their ports on loopback, so `localhost` reaches them and
+  worktree and `nm-test.sh` stack publish their ports on loopback, so `localhost` reaches them and
   another machine on the network does not.
-  mongo-express is not part of a worktree or gate stack unless asked for:
+  mongo-express is not part of a worktree or `nm-test.sh` stack unless asked for:
   `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
-- **Worktree and gate stacks share their images**: every slot stack and gate run with the same
+- **Worktree and `nm-test.sh` stacks share their images**: every slot stack and `nm-test.sh` run with the same
   dependencies runs the same `conventioner/backend:<tag>` and `conventioner/frontend:<tag>`, each
   tag a hash of the files its image is built from (`scripts/image-tags.sh`: the back end's
   Dockerfile, entrypoint and two requirements files; the front end's Dockerfile, `package.json`

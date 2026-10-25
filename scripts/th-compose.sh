@@ -15,8 +15,8 @@
 #     COMPOSE_PROJECT_NAME=my-stack  TH_BACKEND_PORT=...  TH_FRONTEND_PORT=...
 #     TH_MONGO_PORT=...  th-compose.sh up -d
 #
-# Or name the project and let Docker pick every host port (the no-mistakes gate
-# does, so two runs never race for one port):
+# Or name the project and let Docker pick every host port (nm-test.sh does,
+# so two runs never race for one port):
 #     COMPOSE_PROJECT_NAME=nmtest-12345  TH_PORTS=auto  th-compose.sh up -d
 # The `up` prints the assigned ports on stderr as TH_*_PORT= lines, and
 #     eval "$(th-compose.sh ports)"

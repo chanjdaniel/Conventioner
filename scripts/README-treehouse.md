@@ -84,8 +84,8 @@ The **primary checkout** uses plain `docker compose` (default ports, container
 names `conventioner-*-1`, auto-named by Compose). `th-compose.sh` also supports
 an explicit stack identity via `COMPOSE_PROJECT_NAME`, `TH_MONGO_PORT`,
 `TH_BACKEND_PORT` and `TH_FRONTEND_PORT`, and Docker-picked ports via
-`COMPOSE_PROJECT_NAME` with `TH_PORTS=auto` (used by `scripts/nm-test.sh` for the
-no-mistakes gate): every host port is left empty, an `up` prints the ports Docker
+`COMPOSE_PROJECT_NAME` with `TH_PORTS=auto` (used by `scripts/nm-test.sh` for its
+Playwright stack): every host port is left empty, an `up` prints the ports Docker
 assigned on stderr, and `th-compose.sh ports` prints any running stack's project
 and ports as `export` lines (`eval "$(scripts/th-compose.sh ports)"`).
 
