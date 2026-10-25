@@ -80,14 +80,15 @@ That is expected; a reviewer re-reads each affected node and bumps its `verified
 ## The no-mistakes gate
 
 [`.no-mistakes.yaml`](../../../.no-mistakes.yaml) sets `allow_repo_commands: true` and one command, `test: ./scripts/nm-test.sh --skip-e2e`.
-Without it the gate has no way to run the suite, so it is the only workable setting, and it is safe because **the gate trusts it only from the repository's default branch, `dev`**: it loads the repo's commands from there, not from the pushed branch, so a pushed branch cannot enable a command of its own.
+**The gate reads `allow_repo_commands` only from the repository's default branch, `dev`**, so a pushed branch cannot turn it on for itself; with it on, as `dev` has it, the gate runs the pushed branch's own `commands`, not `dev`'s.
+That is safe here only because every branch pushed through the gate is the team's own: the no-mistakes [repo config reference](https://kunchenguid.github.io/no-mistakes/reference/repo-config/) says to leave it `false` for a repository that accepts contributions.
 
 **The gate leaves Playwright to CI.**
 Its test step runs every suite but Playwright, and Playwright runs before a merge only in CI's four `e2e-shard` jobs, which branch protection requires as `e2e` and the gate's CI step waits for and can fix.
 On the laptop, Playwright was about 90% of the gate's test step (22 minutes on a quiet machine, 46 to 65 under the team's load, and red on load alone in 3 of 8 runs), and CI then ran the same specs again in 6 to 7.5 minutes a shard (T47's report).
 So a pull request opens before its Playwright has passed, and CI reports an E2E failure a few minutes later; nothing merges red, because `e2e` is required, and a red `e2e` is the gate's red to fix.
 CI's run is also the stricter one: there `failOnFlakyTests` fails a test that passes only on a retry ([above](#ci)).
-The gate's commands come from `dev`, so a change to `.no-mistakes.yaml` takes effect for gate runs only once it has merged.
+The first gate run with `--skip-e2e`, on the branch that added it, took 6.4 minutes for its test step, and its CI step waited for all four shards (6 to 6.5 minutes each) before it passed.
 
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
 With `--skip-e2e`, as the gate runs it, it stops after Vitest with one line, `nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started.`, and starts no stack, sets no teardown trap and takes no end-to-end lock; without it, it runs everything below.
