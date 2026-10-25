@@ -10,6 +10,8 @@ repository has published. `re_xxxxx` is truthy, so a copied template *passed* th
 Resend reject every send. A check that can be satisfied with garbage is not a check.
 """
 
+from urllib.parse import urlsplit
+
 import pytest
 
 from conftest import skip_without_real_dependencies
@@ -22,6 +24,7 @@ from utils.email import (
     RESEND_API_KEY_VAR,
     MailerNotConfiguredError,
     assert_mailer_configured,
+    frontend_url,
     sendable_key,
 )
 
@@ -118,3 +121,23 @@ class TestABlankKeyIsNoKey:
 
         assert sendable_key() == A_REAL_KEY
         assert email_mod.ready_mailer()
+
+
+class TestALocalLinkPointsAt127001:
+    """With no FRONTEND_URL, the links point at the local stack's front end where it listens.
+
+    Every stack publishes on 127.0.0.1 only, and `localhost` is tried as ::1 first, where macOS lets
+    another program hold the same port (T48).
+    """
+
+    @pytest.mark.parametrize("unset", [None, ""], ids=["absent", "blank"])
+    def test_an_unset_frontend_url_is_127_0_0_1(self, monkeypatch, unset):
+        if unset is None:
+            monkeypatch.delenv("FRONTEND_URL", raising=False)
+        else:
+            monkeypatch.setenv("FRONTEND_URL", unset)
+        assert urlsplit(frontend_url()).hostname == "127.0.0.1"
+
+    def test_a_deployment_s_own_is_kept(self, monkeypatch):
+        monkeypatch.setenv("FRONTEND_URL", "https://conventioner.io")
+        assert frontend_url() == "https://conventioner.io"

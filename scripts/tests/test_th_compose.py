@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from build_inputs import copy_build_inputs
+from stacks import slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "scripts" / "th-compose.sh"
@@ -56,7 +57,7 @@ def docker_calls(tmp_path):
 
 @pytest.fixture
 def slot(tmp_path):
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+    worktree = slot_path(tmp_path, 3)
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
     return copy_build_inputs(worktree)
@@ -105,7 +106,7 @@ def test_the_volumes_nested_in_a_bind_mount_get_their_mountpoints_from_the_user(
 def test_a_missing_bind_source_is_never_created(tmp_path, docker_calls):
     # A worktree whose sources are gone must fail to start, not start on empty directories.
     bin_dir, log = docker_calls
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+    worktree = slot_path(tmp_path, 3)
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
 

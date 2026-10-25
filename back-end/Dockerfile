@@ -36,7 +36,7 @@ RUN mkdir -p flask_session && \
     chown -R appuser:appuser flask_session
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5001
 
 # Set environment variables
 # FLASK_APP only. There is deliberately no FLASK_ENV: nothing in this codebase reads it and Flask
@@ -50,4 +50,4 @@ ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Run Flask with HTTPS (entrypoint will switch to appuser)
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000", "--cert=adhoc"]
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5001", "--cert=adhoc"]

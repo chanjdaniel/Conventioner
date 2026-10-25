@@ -1,4 +1,4 @@
-# flask run --cert=adhoc > error.log 2>&1
+# flask run --port=5001 --cert=adhoc > error.log 2>&1
 # First, before the imports below build their Mongo clients from it. Nothing reads a *secret* at
 # import any more - the three that used to are now read on call, so the boot check answers for the
 # environment as it stands rather than for the import order that produced it. See utils.env_file.
@@ -387,7 +387,7 @@ def get_user(email: str) -> Any:
 
 
 
-# curl -k -X POST https://127.0.0.1:5000/register-user \
+# curl -k -X POST https://127.0.0.1:5001/register-user \
 #   -H "Content-Type: application/json" \
 #   -d '{"email": "testemail@example.com", "password": "testpassword", "organizations": []}'
 @app.route("/register-user", methods=["POST"])
@@ -2225,4 +2225,5 @@ cleanup_sessions()
 # The app instance will be used by Vercel's Python runtime
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # 5001 as every other way the back end starts, not Flask's 5000: docs/TESTING.md says why.
+    app.run(debug=True, port=5001)

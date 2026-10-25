@@ -47,13 +47,16 @@ The easiest way to get started is using Docker Compose:
    docker compose up
   ```
 2. **Access the application**:
-  - Frontend: [http://localhost:5173](http://localhost:5173)
-  - Backend API: [https://localhost:5000](https://localhost:5000)
-  - MongoDB: localhost:27017
-  - mongo-express (database browser): [http://localhost:8081](http://localhost:8081), `admin` / `admin`
+  - Frontend: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+  - Backend API: [https://127.0.0.1:5001](https://127.0.0.1:5001)
+  - MongoDB: 127.0.0.1:27017
+  - mongo-express (database browser): [http://127.0.0.1:8081](http://127.0.0.1:8081), `admin` / `admin`
 
   Every port is published on `127.0.0.1` only, so the stack is reachable from this machine and
   not from the local network (it runs with fixed development credentials).
+  Open it at `127.0.0.1`, not `localhost`, which is tried as `::1` first (see
+  [`docs/TESTING.md`](TESTING.md#testing-gotchas)).
+  The back end is on 5001, not Flask's default 5000 ([why](TESTING.md#testing-gotchas)).
   To reach it from another device, such as a phone, publish the port you need in an override
   file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
   (git-ignored; plain `docker compose` reads it):
@@ -122,7 +125,7 @@ Conventioner/
 
 The application requires MongoDB to be running. The backend connects to:
 
-- **Host**: `localhost:27017` (or `mongodb` in Docker)
+- **Host**: `127.0.0.1:27017` (or `mongodb` in Docker)
 - **Database**: `conventioner`
 - **Authentication**: `admin:secret` (default development credentials)
 
@@ -251,14 +254,14 @@ cd back-end
 # Activate virtual environment if using one
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Run Flask with HTTPS (adhoc certificate)
-flask run --cert=adhoc
+# Run Flask with HTTPS (adhoc certificate), on 5001, not Flask's default 5000 (docs/TESTING.md says why)
+flask run --port=5001 --cert=adhoc
 
 # Or redirect errors to log file
-flask run --cert=adhoc > error.log 2>&1
+flask run --port=5001 --cert=adhoc > error.log 2>&1
 ```
 
-The backend will start on: **[https://127.0.0.1:5000](https://127.0.0.1:5000)**
+The backend will start on: **[https://127.0.0.1:5001](https://127.0.0.1:5001)**
 
 **Note**: The app uses HTTPS with an adhoc (self-signed) certificate. Your browser will show a security warning - this is expected in development. Click "Advanced" → "Proceed to 127.0.0.1" to continue.
 
@@ -269,11 +272,11 @@ cd front-end
 npm run dev
 ```
 
-The frontend will start on: **[http://localhost:5173](http://localhost:5173)** (or another port if 5173 is busy)
+The frontend will start on: **[http://127.0.0.1:5173](http://127.0.0.1:5173)** (or another port if 5173 is busy)
 
 ## Step 5: Access the Application
 
-1. Open your browser and navigate to: **[http://localhost:5173](http://localhost:5173)**
+1. Open your browser and navigate to: **[http://127.0.0.1:5173](http://127.0.0.1:5173)**
 2. Accept the SSL certificate warning if prompted (for the backend HTTPS connection)
 3. You should see the login page
 
@@ -345,7 +348,7 @@ question your market asks.
 ```bash
 # Check if ports are already in use
 docker compose ps
-lsof -i :5000  # Check port 5000
+lsof -i :5001  # Check port 5001
 lsof -i :5173  # Check port 5173
 lsof -i :27017 # Check port 27017
 
@@ -449,18 +452,24 @@ It is idempotent, and `--dry-run` previews the changes without applying them.
 - Verify MongoDB is running: `mongosh --eval "db.adminCommand('ping')"`
 - Check connection configuration in `back-end/db_config.py`
 - Environment variables (or defaults): `MONGODB_HOST`, `MONGODB_PORT`, `MONGODB_USER`, `MONGODB_PASSWORD`
-- Default: `mongodb://admin:secret@localhost:27017/admin`
+- Default: `mongodb://admin:secret@127.0.0.1:27017/admin`
 
-**Port 5000 Already in Use**:
+**Port 5001 Already in Use**:
 
 ```bash
-# Find process using port 5000
-lsof -i :5000  # macOS/Linux
-netstat -ano | findstr :5000  # Windows
+# Find process using port 5001
+lsof -i :5001  # macOS/Linux
+netstat -ano | findstr :5001  # Windows
 
-# Kill the process or use a different port
-flask run --cert=adhoc --port=5001
+# Kill the process, or use a different port
+flask run --cert=adhoc --port=5002
+
+# and start the front end with its proxy pointed there, from front-end/: the proxy reads the
+# shell's VITE_BACKEND_URL, not front-end/.env's
+VITE_BACKEND_URL=https://127.0.0.1:5002 npm run dev
 ```
+
+Not 5000 ([why](TESTING.md#testing-gotchas)).
 
 **SSL Certificate Warnings**:
 
@@ -477,7 +486,7 @@ mkdir -p flask_session
 
 **Cannot Connect to Backend**:
 
-- Verify backend is running on `https://127.0.0.1:5000`
+- Verify backend is running on `https://127.0.0.1:5001`
 - Check `front-end/vite.config.ts` proxy configuration
 - Verify `.env` file has `VITE_FLASK_HOST=/api`
 
@@ -514,7 +523,7 @@ The `docker-compose.yml` defines four services:
   - Data persisted in Docker volume `mongodb_data`
   - Credentials: `admin:secret`
 2. **backend**: Flask API server
-  - Port: `5000` (HTTPS with adhoc certificate)
+  - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
   - Hot-reload enabled via volume mount
   - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server
@@ -541,7 +550,7 @@ Each service publishes its port on `127.0.0.1` only.
 **Frontend** (set in docker-compose.yml):
 
 - `VITE_FLASK_HOST`: API base path (default: `/api`)
-- `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://backend:5000`)
+- `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://backend:5001`)
 
 ### Vision AI Setup (Optional)
 

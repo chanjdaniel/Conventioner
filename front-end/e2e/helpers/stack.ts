@@ -7,7 +7,7 @@
  *
  * Three consumers import from here instead of maintaining their own detection
  * or hard-coded defaults:
- *   - `playwright.config.ts`                 (frontend port)
+ *   - `playwright.config.ts`                 (frontend port and URL)
  *   - `e2e/fixtures.ts`                      (BACKEND_URL)
  *   - `e2e/helpers/containerNames.ts`        (DB/backend container names)
  *
@@ -30,12 +30,16 @@
  * ## Conventions
  *
  * Primary-checkout / CI (no worktree slot, no container_name in compose):
- *   ports:     mongo=27017  backend=5000  frontend=5173
+ *   ports:     mongo=27017  backend=5001  frontend=5173
  *   containers: <project>-mongodb-1  <project>-backend-1  (auto-named by Compose)
  *
  * Worktree slot N (offset = N * 10):
- *   ports:     mongo=27017+N*10  backend=5000+N*10  frontend=5173+N*10
+ *   ports:     mongo=27017+N*10  backend=5001+N*10  frontend=5173+N*10
  *   containers: conventioner-N-mongodb  conventioner-N-backend
+ *
+ * The back end is on 5001, not Flask's 5000: docs/TESTING.md ("Testing gotchas") says why.
+ * Every URL dials 127.0.0.1, never `localhost`: a stack publishes on 127.0.0.1 only, and
+ * `localhost` is tried as ::1 first, where macOS lets another program take the same port.
  */
 
 import fs from 'fs';
@@ -46,7 +50,7 @@ export interface StackIdentity {
   slot: number | null;
   /** docker compose project name (e.g. "conventioner-2" or "conventioner"). */
   projectName: string;
-  /** Host-facing backend port (e.g. 5020). */
+  /** Host-facing backend port (e.g. 5021). */
   backendPort: number;
   /** Host-facing frontend port (e.g. 5193). */
   frontendPort: number;
@@ -58,6 +62,16 @@ export interface StackIdentity {
   mongoContainerName: string;
   /** Full backend URL including scheme and port. */
   backendURL: string;
+}
+
+/** The front end a browser opens, at `port` on 127.0.0.1, never `localhost` (see above). */
+export function frontendURL(port: number): string {
+  return `http://127.0.0.1:${port}`;
+}
+
+/** The back end the suite calls, at `port` on 127.0.0.1, never `localhost` (see above). */
+export function backendURL(port: number): string {
+  return `https://127.0.0.1:${port}`;
 }
 
 function detectSlotFromCwd(): number | null {
@@ -72,12 +86,12 @@ function worktreeIdentity(slot: number): StackIdentity {
   return {
     slot,
     projectName,
-    backendPort: 5000 + offset,
+    backendPort: 5001 + offset,
     frontendPort: 5173 + offset,
     mongoPort: 27017 + offset,
     backendContainerName: `${projectName}-backend`,
     mongoContainerName: `${projectName}-mongodb`,
-    backendURL: `https://localhost:${5000 + offset}`,
+    backendURL: backendURL(5001 + offset),
   };
 }
 
@@ -106,12 +120,12 @@ function ciIdentity(): StackIdentity {
   return {
     slot: null,
     projectName,
-    backendPort: 5000,
+    backendPort: 5001,
     frontendPort: 5173,
     mongoPort: 27017,
     backendContainerName: `${projectName}-backend-1`,
     mongoContainerName: `${projectName}-mongodb-1`,
-    backendURL: 'https://localhost:5000',
+    backendURL: backendURL(5001),
   };
 }
 
@@ -119,8 +133,8 @@ const FAIL_LOUD_MESSAGE =
   'E2E stack identity could not be determined - refusing to guess.\n' +
   'In a treehouse worktree, run tests via `scripts/th-compose.sh` which\n' +
   'exports TH_BACKEND_PORT, TH_FRONTEND_PORT, and COMPOSE_PROJECT_NAME.\n' +
-  'Otherwise, set FRONTEND_PORT, BACKEND_URL (e.g. https://localhost:5173,\n' +
-  'https://localhost:5000) and E2E_BACKEND_CONTAINER /\n' +
+  'Otherwise, set FRONTEND_PORT (e.g. 5173), BACKEND_URL (e.g.\n' +
+  'https://127.0.0.1:5001) and E2E_BACKEND_CONTAINER /\n' +
   'E2E_MONGO_CONTAINER explicitly.\n' +
   'A silent fallback to the primary stack corrupts shared databases\n' +
   'and produces meaningless test results.';
@@ -136,7 +150,7 @@ export function detectStack(): StackIdentity {
     const slotMatch = composeProject.match(/^conventioner-(\d+)$/);
     const slot = slotMatch ? parseInt(slotMatch[1], 10) : null;
     // Derive from the authoritative vars, filling gaps with slot offset.
-    const offset = slot !== null ? slot * 10 : backendPort - 5000;
+    const offset = slot !== null ? slot * 10 : backendPort - 5001;
     return {
       slot,
       projectName: composeProject,
@@ -145,7 +159,7 @@ export function detectStack(): StackIdentity {
       mongoPort: mongoPort || 27017 + offset,
       backendContainerName: `${composeProject}-backend`,
       mongoContainerName: `${composeProject}-mongodb`,
-      backendURL: `https://localhost:${backendPort}`,
+      backendURL: backendURL(backendPort),
     };
   }
 

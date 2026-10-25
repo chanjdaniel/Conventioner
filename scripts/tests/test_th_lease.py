@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from stacks import slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 LEASE = REPO / "scripts" / "th-lease.sh"
@@ -56,7 +57,7 @@ def primary(tmp_path):
 @pytest.fixture
 def slot(tmp_path):
     """The leased slot, cut from the latest base branch, whose pre-warm differs from the primary's."""
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "2" / "Conventioner"
+    worktree = slot_path(tmp_path, 2)
     worktree.mkdir(parents=True)
     write_setup(worktree, "slot")
     return worktree

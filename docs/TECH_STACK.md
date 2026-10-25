@@ -205,7 +205,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
    - Health checks configured
 
 2. **Backend** - Flask API service
-   - Port: 5000 (HTTPS with adhoc certificate)
+   - Port: 5001 (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
    - Hot-reload enabled
    - `back-end/` is bind-mounted into the container, so a `back-end/.env` is read by the running stack
 
@@ -276,7 +276,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Backend
 - `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
-- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://localhost:5173`). Has no say in CORS
+- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://127.0.0.1:5173`). Has no say in CORS
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
 - `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused
@@ -286,7 +286,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `MONGODB_URI` - A full MongoDB connection string (production's Atlas cluster); when set, the five below are not read
-- `MONGODB_HOST` - MongoDB hostname (default: `localhost`; the compose file sets `mongodb`)
+- `MONGODB_HOST` - MongoDB hostname (default: `127.0.0.1`; the compose file sets `mongodb`)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)
@@ -296,7 +296,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Frontend
 - `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
-- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5000`; the compose file sets `https://backend:5000`)
+- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
 - `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`). Opt-in, warns on every build it allows, and must never be set on a deployed build
 

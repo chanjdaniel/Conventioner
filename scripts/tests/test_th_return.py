@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from build_inputs import copy_build_inputs
+from stacks import slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 RETURN = REPO / "scripts" / "th-return.sh"
@@ -55,7 +56,7 @@ TEARDOWN_FILES = ("docker-compose.yml", "docker-compose.worktree.yml", "scripts/
 
 @pytest.fixture
 def slot(tmp_path):
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+    worktree = slot_path(tmp_path, 3)
     for name in TEARDOWN_FILES:
         (worktree / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(REPO / name, worktree / name)
@@ -126,7 +127,7 @@ def test_a_successful_teardown_returns_the_lease_quietly(slot, bin_dir):
 
 
 def test_a_worktree_with_no_compose_file_is_returned_without_a_teardown(tmp_path, bin_dir):
-    worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
+    worktree = slot_path(tmp_path, 3)
     worktree.mkdir(parents=True)
 
     result = run_return(bin_dir, worktree, DOWN_FAILS="1")

@@ -1,13 +1,13 @@
 """The worktree overlay as Compose renders it through th-compose.sh: what every agent and nm-test.sh stack gets."""
 
 import json
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 from build_inputs import copy_build_inputs
+from stacks import clean_env, compose_available, slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "scripts" / "th-compose.sh"
@@ -15,24 +15,7 @@ PREFIX = "io.github.chanjdaniel.team."
 LABELS = ("owner", "task", "kind", "worktree", "expires")
 
 
-def compose_available():
-    if shutil.which("docker") is None:
-        return False
-    return subprocess.run(["docker", "compose", "version"], capture_output=True).returncode == 0
-
-
 pytestmark = pytest.mark.skipif(not compose_available(), reason="docker compose is not installed")
-
-
-def clean_env(**extra):
-    """The caller's environment without any stack identity or team label: the gate exports both."""
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if not k.startswith(("COMPOSE_", "TH_", "TEAM_")) and k not in {"DISABLE_EMAIL", "DISABLE_CAPTCHA"}
-    }
-    env.update(extra)
-    return env
 
 
 def render(worktree, *args, **env):
@@ -48,7 +31,7 @@ def render(worktree, *args, **env):
 
 def slot_worktree(root, number):
     """A treehouse slot's worktree, as the wrapper reads it from the path: the base file and the images' build inputs."""
-    worktree = root / ".treehouse" / "Conventioner-abc123" / str(number) / "Conventioner"
+    worktree = slot_path(root, number)
     worktree.mkdir(parents=True)
     shutil.copy(REPO / "docker-compose.yml", worktree)
     return copy_build_inputs(worktree)
@@ -183,7 +166,7 @@ def test_every_port_is_published_on_loopback_with_the_ports_host_port(worktree_a
     if env:
         expected = {
             "mongodb": [("127.0.0.1", "41001", 27017)],
-            "backend": [("127.0.0.1", "41002", 5000)],
+            "backend": [("127.0.0.1", "41002", 5001)],
             "frontend": [("127.0.0.1", "41003", 5173)],
             # Docker picks a free host port when none is named.
             "mongo-express": [("127.0.0.1", "", 8081)],
@@ -191,7 +174,7 @@ def test_every_port_is_published_on_loopback_with_the_ports_host_port(worktree_a
     else:  # slot 3: offset 30
         expected = {
             "mongodb": [("127.0.0.1", "27047", 27017)],
-            "backend": [("127.0.0.1", "5030", 5000)],
+            "backend": [("127.0.0.1", "5031", 5001)],
             "frontend": [("127.0.0.1", "5203", 5173)],
             "mongo-express": [("127.0.0.1", "8111", 8081)],
         }
@@ -210,7 +193,7 @@ def test_auto_mode_leaves_every_host_port_empty_for_docker_to_pick():
 
     assert published(json.loads(result.stdout)) == {
         "mongodb": [("127.0.0.1", "", 27017)],
-        "backend": [("127.0.0.1", "", 5000)],
+        "backend": [("127.0.0.1", "", 5001)],
         "frontend": [("127.0.0.1", "", 5173)],
         "mongo-express": [("127.0.0.1", "", 8081)],
     }
@@ -275,7 +258,7 @@ def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
 
     assert published(json.loads(result.stdout)) == {
         "mongodb": [("127.0.0.1", "27017", 27017)],
-        "backend": [("127.0.0.1", "5000", 5000)],
+        "backend": [("127.0.0.1", "5001", 5001)],
         "frontend": [("127.0.0.1", "5173", 5173)],
         "mongo-express": [("127.0.0.1", "8081", 8081)],
     }

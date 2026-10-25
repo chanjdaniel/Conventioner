@@ -69,12 +69,16 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | Service       | main (primary checkout) | slot 1 | slot 2 |
 |---------------|-------------------------|--------|--------|
 | mongodb       | 27017                   | 27027  | 27037  |
-| backend       | 5000                    | 5010   | 5020   |
+| backend       | 5001                    | 5011   | 5021   |
 | frontend      | 5173                    | 5183   | 5193   |
 | mongo-express | 8081                    | 8091   | 8101   |
 
-Every port, the primary checkout's included, is published on `127.0.0.1` only: `localhost`
-reaches a stack, another machine on the network does not.
+The back end's base is 5001, not Flask's 5000 ([why](../docs/TESTING.md#testing-gotchas)).
+
+Every port, the primary checkout's included, is published on `127.0.0.1` only, so another
+machine on the network does not reach a stack.
+Dial it at `127.0.0.1`, never `localhost`, which is tried as `::1` first: see
+[`docs/TESTING.md`](../docs/TESTING.md#testing-gotchas).
 mongo-express is in the overlay's `tools` profile, so a worktree's stack starts without it;
 start it with `scripts/th-compose.sh --profile tools up -d mongo-express`.
 In the explicit mode below, `TH_MONGO_EXPRESS_PORT` is optional: unset, Docker picks a free

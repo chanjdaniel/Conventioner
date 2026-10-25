@@ -377,11 +377,26 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
   Its bind mounts never create a missing source either, so a stack whose worktree is gone fails to
   start instead of re-creating the worktree's folders as root.
-- **Every stack listens on `127.0.0.1` only**: the primary stack (`docker-compose.yml`) and every
-  worktree and `nm-test.sh` stack publish their ports on loopback, so `localhost` reaches them and
-  another machine on the network does not.
+- **Every stack listens on `127.0.0.1` only, so every client dials `127.0.0.1`, never `localhost`**:
+  the primary stack (`docker-compose.yml`) and every worktree and `nm-test.sh` stack publish their
+  ports on IPv4 loopback, so another machine on the network does not reach them.
+  Node and Chromium try `localhost` as `::1` first, and macOS gives a port held on `127.0.0.1` to
+  any program that listens on IPv6, so for as long as one does, `localhost:<port>` reaches it
+  instead of the stack: a gate run failed twice that way, for a few seconds, with EPROTO
+  "unexpected message" and `ERR_INVALID_HTTP_RESPONSE`.
+  A native `npm run dev` listens there too: `vite.config.ts` binds it to `127.0.0.1` (the
+  container's `--host 0.0.0.0` overrides that), since left to `localhost` it listens on `::1` alone.
+  The guards run the clients themselves: `scripts/tests/test_local_addresses.py` runs `stack.ts`
+  and `seed_fixture.sh` and renders the compose files, and
+  `front-end/src/__tests__/theLocalStackIsDialledAt127001.test.ts` loads Playwright's config, the
+  suite's fixtures and Vite's config and starts the dev server.
   mongo-express is not part of a worktree or `nm-test.sh` stack unless asked for:
   `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
+- **The back end is on 5001, not Flask's default 5000**: macOS's AirPlay Receiver (System
+  Settings, General, AirDrop & Handoff) listens on 5000 on both address families, so a client
+  dialling 5000 can reach AirPlay instead of the back end.
+  A slot's back end is on `5001 + slot * 10`, so no stack lands on 5000, and
+  `scripts/tests/test_local_addresses.py` fails on a published port that a macOS service holds.
 - **Worktree and `nm-test.sh` stacks share their images**: every slot stack and `nm-test.sh` run with the same
   dependencies runs the same `conventioner/backend:<tag>` and `conventioner/frontend:<tag>`, each
   tag a hash of the files its image is built from (`scripts/image-tags.sh`: the back end's
