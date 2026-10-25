@@ -36,6 +36,13 @@ const SLOT_7 = {
   TH_MONGO_PORT: '27087',
 };
 
+/**
+ * Each of these imports a whole config (Playwright's with `@playwright/test`, the suite's fixtures,
+ * Vite's through `loadConfigFromFile`), which outlasts the 5 s default on a loaded machine, as the
+ * Lucide build test does.
+ */
+const LOADS_A_CONFIG = 60_000;
+
 const saved = Object.fromEntries(STACK_VARS.map((name) => [name, process.env[name]]));
 
 /** Load modules fresh with only `env` naming the stack: `stack()` is computed once per process. */
@@ -54,42 +61,58 @@ afterEach(() => {
 });
 
 describe('the clients of a local stack dial 127.0.0.1', () => {
-  it("Playwright browses the stack's front end there", async () => {
-    const config = await withStack(
-      SLOT_7,
-      async () => (await import('../../playwright.config')).default,
-    );
-    expect(config.use?.baseURL).toBe('http://127.0.0.1:5243');
-  });
-
-  it("the suite calls the stack's back end there", async () => {
-    const { BACKEND_URL } = await withStack(SLOT_7, () => import('../../e2e/fixtures'));
-    expect(BACKEND_URL).toBe('https://127.0.0.1:5071');
-  });
-
-  it("CI's single stack is reached there too", async () => {
-    const config = await withStack(
-      { CI: 'true' },
-      async () => (await import('../../playwright.config')).default,
-    );
-    const { BACKEND_URL } = await withStack({ CI: 'true' }, () => import('../../e2e/fixtures'));
-    expect(new URL(String(config.use?.baseURL)).hostname).toBe('127.0.0.1');
-    expect(new URL(BACKEND_URL).hostname).toBe('127.0.0.1');
-  });
-
-  it("Vite's proxy sends /api to a native back end there", async () => {
-    const proxy = await withStack({}, async () => {
-      const loaded = await loadConfigFromFile(
-        { command: 'serve', mode: 'development' },
-        resolve(ROOT, 'vite.config.ts'),
-        ROOT,
-        'silent',
+  it(
+    "Playwright browses the stack's front end there",
+    async () => {
+      const config = await withStack(
+        SLOT_7,
+        async () => (await import('../../playwright.config')).default,
       );
-      return loaded!.config.server?.proxy?.['/api'];
-    });
-    const target = typeof proxy === 'object' ? proxy.target : undefined;
-    expect(new URL(String(target)).hostname).toBe('127.0.0.1');
-  });
+      expect(config.use?.baseURL).toBe('http://127.0.0.1:5243');
+    },
+    LOADS_A_CONFIG,
+  );
+
+  it(
+    "the suite calls the stack's back end there",
+    async () => {
+      const { BACKEND_URL } = await withStack(SLOT_7, () => import('../../e2e/fixtures'));
+      expect(BACKEND_URL).toBe('https://127.0.0.1:5071');
+    },
+    LOADS_A_CONFIG,
+  );
+
+  it(
+    "CI's single stack is reached there too",
+    async () => {
+      const config = await withStack(
+        { CI: 'true' },
+        async () => (await import('../../playwright.config')).default,
+      );
+      const { BACKEND_URL } = await withStack({ CI: 'true' }, () => import('../../e2e/fixtures'));
+      expect(new URL(String(config.use?.baseURL)).hostname).toBe('127.0.0.1');
+      expect(new URL(BACKEND_URL).hostname).toBe('127.0.0.1');
+    },
+    LOADS_A_CONFIG,
+  );
+
+  it(
+    "Vite's proxy sends /api to a native back end there",
+    async () => {
+      const proxy = await withStack({}, async () => {
+        const loaded = await loadConfigFromFile(
+          { command: 'serve', mode: 'development' },
+          resolve(ROOT, 'vite.config.ts'),
+          ROOT,
+          'silent',
+        );
+        return loaded!.config.server?.proxy?.['/api'];
+      });
+      const target = typeof proxy === 'object' ? proxy.target : undefined;
+      expect(new URL(String(target)).hostname).toBe('127.0.0.1');
+    },
+    LOADS_A_CONFIG,
+  );
 });
 
 describe('the dev server', () => {
