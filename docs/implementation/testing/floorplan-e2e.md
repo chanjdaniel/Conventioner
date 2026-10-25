@@ -6,11 +6,12 @@ describes:
   - front-end/e2e/the-floorplan-beta-places-tables.spec.ts
   - front-end/e2e/pages/FloorplanWorkflowPage.ts
   - front-end/e2e/fixtures/test-floorplan.png
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - bug/38
   - E26/F09/S01
   - E21/F02/S03
+  - T45
 ---
 
 # Floorplan E2E
@@ -25,6 +26,8 @@ The fixture is [`front-end/e2e/fixtures/test-floorplan.png`](../../../front-end/
 - [`the-floorplan-beta-places-tables.spec.ts`](../../../front-end/e2e/the-floorplan-beta-places-tables.spec.ts) pins bug 38's fixes: the path choice promises nothing the wizard does not do, a calibration line drawn from beside the image still draws, the scale reads the right way round, a new table type seats two, and Auto-Place asked for twenty places twenty and says so.
 
 [`FloorplanWorkflowPage`](../../../front-end/e2e/pages/FloorplanWorkflowPage.ts) is their page object, and `completeFloorplanWorkflow()` walks every step.
+`reachTableTypes()` stops at the table types (upload and calibrate), which is where [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives the Edit Table Type dialog and [`every-control-is-named.spec.ts`](../../../front-end/e2e/every-control-is-named.spec.ts) walks the add form and that dialog (T45).
+The table-type fields are native inputs, found by their test ids.
 
 ## Which canvas steps are real gestures
 

@@ -4,10 +4,7 @@ import { useFloorplanStore } from '@/stores/floorplan';
 import type { TableTypeObject } from '@/assets/types/datatypes';
 import IconPencil from '@/components/icons/IconPencil.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
-import InputText from 'primevue/inputtext';
-import InputNumber from 'primevue/inputnumber';
-import SelectButton from 'primevue/selectbutton';
-import Dialog from 'primevue/dialog';
+import AppDialog from '@/components/AppDialog.vue';
 
 // ── Store ──────────────────────────────────────────────────────────
 const store = useFloorplanStore();
@@ -53,6 +50,32 @@ const UNIT_OPTIONS = [
   { value: 'ft', label: 'ft' },
 ];
 
+const CAPACITIES = [1, 2] as const;
+
+// ── Number fields ──────────────────────────────────────────────────
+/*
+ * A dimension field holds its text as typed, and the number is read from that text. Drawn back from
+ * the parsed number instead, "1.0" would be redrawn as "1" mid-typing and the next "5" would make
+ * it 15.
+ */
+
+function typed(event: Event): string {
+  return (event.target as HTMLInputElement).value;
+}
+
+/** A cleared or half-typed field ("1.", which the browser reports as empty) reads as no value. */
+function numberIn(text: string): number | null {
+  return text === '' ? null : Number(text);
+}
+
+/**
+ * At most three decimals, for a value that was converted rather than typed: six feet is
+ * 1828.8000000000002 mm in floating point, and a unit change divides by 25.4 or 304.8.
+ */
+function shown(value: number): string {
+  return String(Math.round(value * 1000) / 1000);
+}
+
 // ── Inline add form ────────────────────────────────────────────────
 const showForm = ref(false);
 
@@ -63,16 +86,17 @@ const form = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
   maxCapacity: DEFAULT_CAPACITY,
 });
-const formWidthMm = ref<number | null>(null);
-const formHeightMm = ref<number | null>(null);
+/** The dimensions as typed, in `selectedUnit`. */
+const formWidth = ref('');
+const formHeight = ref('');
 
 const selectedUnit = ref('mm');
 const formError = ref('');
 
 function resetForm() {
   form.name = '';
-  formWidthMm.value = null;
-  formHeightMm.value = null;
+  formWidth.value = '';
+  formHeight.value = '';
   form.maxCapacity = DEFAULT_CAPACITY;
   selectedUnit.value = 'mm';
   formError.value = '';
@@ -95,18 +119,20 @@ function saveType() {
     formError.value = 'Name is required.';
     return;
   }
-  if (formWidthMm.value === null || formWidthMm.value <= 0) {
+  const width = numberIn(formWidth.value);
+  const height = numberIn(formHeight.value);
+  if (width === null || width <= 0) {
     formError.value = 'Width must be a positive number.';
     return;
   }
-  if (formHeightMm.value === null || formHeightMm.value <= 0) {
+  if (height === null || height <= 0) {
     formError.value = 'Height must be a positive number.';
     return;
   }
 
   const factor = UNIT_TO_MM[selectedUnit.value];
-  const widthMm = formWidthMm.value * factor;
-  const heightMm = formHeightMm.value * factor;
+  const widthMm = width * factor;
+  const heightMm = height * factor;
 
   const tt: TableTypeObject = {
     id: crypto.randomUUID(),
@@ -130,11 +156,30 @@ const editForm = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
   maxCapacity: 1,
 });
+/*
+ * Millimetres are the truth here, and the fields show them in `editUnit`. Converting the fields'
+ * own values on a unit change instead lost precision at every change, so Update with nothing
+ * touched in feet saved 1800.0000000000002 for 1800.
+ */
 const editWidthMm = ref<number | null>(null);
 const editHeightMm = ref<number | null>(null);
+const editWidth = ref('');
+const editHeight = ref('');
 
 const editUnit = ref('mm');
 const editError = ref('');
+
+function typeEditWidth(text: string) {
+  editWidth.value = text;
+  const value = numberIn(text);
+  editWidthMm.value = value === null ? null : value * UNIT_TO_MM[editUnit.value];
+}
+
+function typeEditHeight(text: string) {
+  editHeight.value = text;
+  const value = numberIn(text);
+  editHeightMm.value = value === null ? null : value * UNIT_TO_MM[editUnit.value];
+}
 
 function editType(tt: TableTypeObject) {
   editingId.value = tt.id;
@@ -142,6 +187,8 @@ function editType(tt: TableTypeObject) {
   editForm.name = tt.name;
   editWidthMm.value = tt.widthMm;
   editHeightMm.value = tt.heightMm;
+  editWidth.value = shown(tt.widthMm);
+  editHeight.value = shown(tt.heightMm);
   editForm.maxCapacity = tt.maxCapacity as 1 | 2;
   editError.value = '';
   editVisible.value = true;
@@ -163,15 +210,13 @@ function saveEdit() {
     return;
   }
 
-  const factor = UNIT_TO_MM[editUnit.value];
-
   const idx = store.tableTypes.findIndex((t) => t.id === editingId.value);
   if (idx >= 0) {
     store.tableTypes[idx] = {
       ...store.tableTypes[idx],
       name: editForm.name.trim(),
-      widthMm: editWidthMm.value * factor,
-      heightMm: editHeightMm.value * factor,
+      widthMm: editWidthMm.value,
+      heightMm: editHeightMm.value,
       maxCapacity: editForm.maxCapacity,
     };
     store.markDirty();
@@ -188,17 +233,11 @@ function cancelEdit() {
   editError.value = '';
 }
 
-// When the user changes units in the edit dialog, convert the displayed values
-watch(editUnit, (newUnit, oldUnit) => {
-  if (!editingId.value) return;
-  const oldFactor = UNIT_TO_MM[oldUnit] ?? 1;
-  const newFactor = UNIT_TO_MM[newUnit] ?? 1;
-  if (editWidthMm.value !== null) {
-    editWidthMm.value = (editWidthMm.value * oldFactor) / newFactor;
-  }
-  if (editHeightMm.value !== null) {
-    editHeightMm.value = (editHeightMm.value * oldFactor) / newFactor;
-  }
+// A unit change redraws the fields from the millimetres, which it leaves alone.
+watch(editUnit, (unit) => {
+  const factor = UNIT_TO_MM[unit];
+  if (editWidthMm.value !== null) editWidth.value = shown(editWidthMm.value / factor);
+  if (editHeightMm.value !== null) editHeight.value = shown(editHeightMm.value / factor);
 });
 
 // ── Delete ─────────────────────────────────────────────────────────
@@ -206,13 +245,6 @@ function deleteType(tt: TableTypeObject) {
   store.removeTableType(tt.id);
   emit('types-changed');
 }
-
-// ── Computed ───────────────────────────────────────────────────────
-
-const selectOptions = [
-  { label: '1', value: 1 },
-  { label: '2', value: 2 },
-];
 </script>
 
 <template>
@@ -227,7 +259,7 @@ const selectOptions = [
           <div class="tt-type-info">
             <strong class="tt-type-name">{{ tt.name }}</strong>
             <span class="tt-type-dims">
-              {{ tt.widthMm }}&times;{{ tt.heightMm }} mm
+              {{ shown(tt.widthMm) }}&times;{{ shown(tt.heightMm) }} mm
               <span class="tt-type-sep">&middot;</span>
               {{ tt.maxCapacity }}p
             </span>
@@ -270,9 +302,10 @@ const selectOptions = [
       <form v-if="showForm" class="tt-inline-form" @submit.prevent="saveType">
         <div class="tt-field">
           <label class="tt-label" for="tt-name">Name</label>
-          <InputText
+          <input
             id="tt-name"
             v-model="form.name"
+            type="text"
             class="tt-input"
             placeholder="e.g. 6ft Rectangle"
             data-testid="floorplan-table-type-name-input"
@@ -283,27 +316,33 @@ const selectOptions = [
         <div class="tt-field-row">
           <div class="tt-field tt-field--half">
             <label class="tt-label" for="tt-width">Width ({{ selectedUnit }})</label>
-            <InputNumber
+            <input
               id="tt-width"
-              v-model="formWidthMm"
+              type="number"
+              min="1"
+              max="10000"
+              step="any"
               class="tt-input"
               placeholder="Width"
               data-testid="floorplan-table-type-width-input"
-              :min="1"
-              :max="10000"
+              :value="formWidth"
+              @input="formWidth = typed($event)"
               :class="{ 'tt-input--error': !!formError }"
             />
           </div>
           <div class="tt-field tt-field--half">
             <label class="tt-label" for="tt-height">Height ({{ selectedUnit }})</label>
-            <InputNumber
+            <input
               id="tt-height"
-              v-model="formHeightMm"
+              type="number"
+              min="1"
+              max="10000"
+              step="any"
               class="tt-input"
               placeholder="Height"
               data-testid="floorplan-table-type-height-input"
-              :min="1"
-              :max="10000"
+              :value="formHeight"
+              @input="formHeight = typed($event)"
               :class="{ 'tt-input--error': !!formError }"
             />
           </div>
@@ -318,17 +357,13 @@ const selectOptions = [
           </select>
         </div>
 
-        <div class="tt-field">
-          <label class="tt-label">Max Capacity</label>
-          <SelectButton
-            v-model="form.maxCapacity"
-            :options="selectOptions"
-            option-label="label"
-            option-value="value"
-            class="tt-select-btn"
-            data-testid="floorplan-table-type-capacity"
-          />
-        </div>
+        <fieldset class="tt-capacity" data-testid="floorplan-table-type-capacity">
+          <legend class="tt-label">Max Capacity</legend>
+          <label v-for="n in CAPACITIES" :key="n" class="tt-capacity-option">
+            <input v-model="form.maxCapacity" type="radio" name="tt-capacity" :value="n" />
+            {{ n }}
+          </label>
+        </fieldset>
 
         <p v-if="formError" class="tt-error">{{ formError }}</p>
 
@@ -344,7 +379,7 @@ const selectOptions = [
           <button
             type="submit"
             class="tt-btn tt-btn--primary"
-            :disabled="!form.name.trim() || !formWidthMm || !formHeightMm"
+            :disabled="!form.name.trim() || !numberIn(formWidth) || !numberIn(formHeight)"
             data-testid="floorplan-table-type-save-btn"
           >
             Save
@@ -354,94 +389,83 @@ const selectOptions = [
     </Transition>
 
     <!-- ── Edit dialog ──────────────────────────────────────────── -->
-    <Dialog
-      v-model:visible="editVisible"
-      header="Edit Table Type"
-      class="tt-dialog"
-      :modal="true"
-      :closable="true"
-      :draggable="false"
+    <AppDialog
+      :open="editVisible"
+      title="Edit Table Type"
+      testid="floorplan-table-type-edit"
+      confirm-label="Update"
+      :confirm-disabled="!editForm.name.trim() || !editWidthMm || !editHeightMm"
+      :error="editError"
+      @submit="saveEdit"
+      @close="cancelEdit"
     >
-      <!--
-        The footer is PrimeVue's own slot, so Update cannot sit inside this form. `form="..."`
-        on the button is what ties them together - the same submit, from outside (E20/F01/S03).
-      -->
-      <form id="tt-edit-form" class="tt-dialog-body" @submit.prevent="saveEdit">
-        <div class="tt-field">
-          <label class="tt-label" for="tt-edit-name">Name</label>
-          <InputText
-            id="tt-edit-name"
-            v-model="editForm.name"
-            class="tt-input"
-            placeholder="Table type name"
-            :class="{ 'tt-input--error': !!editError }"
+      <div class="tt-field">
+        <label class="field-label" for="tt-edit-name">Name</label>
+        <input
+          id="tt-edit-name"
+          v-model="editForm.name"
+          type="text"
+          class="field"
+          placeholder="Table type name"
+          data-testid="floorplan-table-type-edit-name-input"
+        />
+      </div>
+
+      <div class="tt-field-row">
+        <div class="tt-field tt-field--half">
+          <label class="field-label" for="tt-edit-width">Width ({{ editUnit }})</label>
+          <input
+            id="tt-edit-width"
+            type="number"
+            min="1"
+            max="10000"
+            step="any"
+            class="field"
+            placeholder="Width"
+            data-testid="floorplan-table-type-edit-width-input"
+            :value="editWidth"
+            @input="typeEditWidth(typed($event))"
           />
         </div>
-
-        <div class="tt-field-row">
-          <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-edit-width">Width ({{ editUnit }})</label>
-            <InputNumber
-              id="tt-edit-width"
-              v-model="editWidthMm"
-              class="tt-input"
-              placeholder="Width"
-              :min="1"
-              :max="10000"
-              :class="{ 'tt-input--error': !!editError }"
-            />
-          </div>
-          <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-edit-height">Height ({{ editUnit }})</label>
-            <InputNumber
-              id="tt-edit-height"
-              v-model="editHeightMm"
-              class="tt-input"
-              placeholder="Height"
-              :min="1"
-              :max="10000"
-              :class="{ 'tt-input--error': !!editError }"
-            />
-          </div>
-        </div>
-
-        <div class="tt-field">
-          <label class="tt-label" for="tt-edit-unit">Unit</label>
-          <select id="tt-edit-unit" v-model="editUnit" class="tt-input">
-            <option v-for="u in UNIT_OPTIONS" :key="u.value" :value="u.value">
-              {{ u.label }}
-            </option>
-          </select>
-        </div>
-
-        <div class="tt-field">
-          <label class="tt-label">Max Capacity</label>
-          <SelectButton
-            v-model="editForm.maxCapacity"
-            :options="selectOptions"
-            option-label="label"
-            option-value="value"
-            class="tt-select-btn"
+        <div class="tt-field tt-field--half">
+          <label class="field-label" for="tt-edit-height">Height ({{ editUnit }})</label>
+          <input
+            id="tt-edit-height"
+            type="number"
+            min="1"
+            max="10000"
+            step="any"
+            class="field"
+            placeholder="Height"
+            data-testid="floorplan-table-type-edit-height-input"
+            :value="editHeight"
+            @input="typeEditHeight(typed($event))"
           />
         </div>
+      </div>
 
-        <p v-if="editError" class="tt-error">{{ editError }}</p>
-      </form>
+      <div class="tt-field">
+        <label class="field-label" for="tt-edit-unit">Unit</label>
+        <select
+          id="tt-edit-unit"
+          v-model="editUnit"
+          class="field field--select"
+          data-testid="floorplan-table-type-edit-unit-select"
+        >
+          <option v-for="u in UNIT_OPTIONS" :key="u.value" :value="u.value">
+            {{ u.label }}
+          </option>
+        </select>
+      </div>
 
-      <template #footer>
-        <div class="tt-dialog-actions">
-          <button type="button" class="tt-btn tt-btn--secondary" @click="cancelEdit">Cancel</button>
-          <button
-            type="submit"
-            form="tt-edit-form"
-            class="tt-btn tt-btn--primary"
-            :disabled="!editForm.name.trim() || !editWidthMm || !editHeightMm"
-          >
-            Update
-          </button>
-        </div>
-      </template>
-    </Dialog>
+      <fieldset class="tt-capacity" data-testid="floorplan-table-type-edit-capacity">
+        <legend class="field-label">Max Capacity</legend>
+        <label v-for="n in CAPACITIES" :key="n" class="tt-capacity-option">
+          <input v-model="editForm.maxCapacity" type="radio" name="tt-edit-capacity" :value="n" />
+          {{ n }}
+        </label>
+      </fieldset>
+    </AppDialog>
   </div>
 </template>
 
@@ -651,18 +675,29 @@ const selectOptions = [
   border-color: var(--mm-red);
 }
 
-/* ── SelectButton overrides ──────────────────────────────────── */
-.tt-select-btn {
-  width: 100%;
+/* ── Capacity: native radios, as the calibration's unit choice ─ */
+.tt-capacity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
-.tt-select-btn :deep(.p-selectbutton) {
-  width: 100%;
+.tt-capacity legend {
+  float: left;
+  margin: 0 8px 0 0;
+  padding: 0;
 }
 
-.tt-select-btn :deep(.p-togglebutton) {
-  flex: 1;
+.tt-capacity-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--text-sm);
+  color: var(--mm-black);
+  cursor: pointer;
 }
 
 /* ── Error message ───────────────────────────────────────────── */
@@ -719,19 +754,6 @@ const selectOptions = [
 .tt-btn--secondary {
   background: var(--mm-border);
   color: var(--mm-black);
-}
-
-/* ── Dialog ──────────────────────────────────────────────────── */
-.tt-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tt-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 /* ── Transitions ─────────────────────────────────────────────── */

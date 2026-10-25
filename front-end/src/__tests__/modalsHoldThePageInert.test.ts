@@ -117,10 +117,7 @@ describe('every modal holds the page inert', () => {
       .map((file) => relative(SRC, file))
       .sort();
 
-    expect(libraryModals).toEqual([
-      'components/floorplan/TableTypePanel.vue',
-      'components/floorplan/TemplatePanel.vue',
-    ]);
+    expect(libraryModals).toEqual(['components/floorplan/TemplatePanel.vue']);
   });
 
   it('has no full-viewport cover that leaves the page behind it reachable', () => {

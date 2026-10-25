@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/useModalRoot.ts
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/e2e/dialog-idiom.spec.ts
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -17,6 +17,7 @@ sources:
   - E20/F01/S01
   - E31/F03/S01
   - E20
+  - T45
 ---
 
 # Dialogs
@@ -77,7 +78,8 @@ With exactly one organization it names it rather than offering a select with one
   It keeps a floor of cover-painting files that falls on purpose as dialogs adopt the shell, since a dialog on `AppDialog` stops painting its own cover.
   `AppDialog` itself is pinned by name, because without that every dialog built on it would leave the rule's sight at once.
   PrimeVue's modal `Dialog` is listed by name too: its mask is painted from the library's stylesheet, and its own focus trap covers it.
-- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, and a dialog opened from a dialog.
+  `TemplatePanel.vue` is the one file left on it; the Edit Table Type dialog moved onto `AppDialog` (T45), since with no PrimeVue theme installed its dialogs drew with no window and no scrim.
+- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, a dialog opened from a dialog, and the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres).
 
 ## What breaks it
 
