@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from stacks import clean_env, compose_available, slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 STACK_TS = REPO / "front-end" / "e2e" / "helpers" / "stack.ts"
@@ -35,17 +36,6 @@ MACOS_PORTS = {
     631: "Printer Sharing",
     3689: "Music Sharing",
 }
-
-
-def clean_env(**extra):
-    """The caller's environment without any stack identity: the gate and a slot's shell export one."""
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if not k.startswith(("COMPOSE_", "TH_", "TEAM_")) and k not in {"CI", "BACKEND_URL", "FRONTEND_PORT", "FRONTEND_URL"}
-    }
-    env.update(extra)
-    return env
 
 
 def stack_identity(cwd, **env):
@@ -73,7 +63,7 @@ node_available = pytest.mark.skipif(shutil.which("node") is None, reason="node i
 
 
 def slot_dir(root, number):
-    worktree = root / ".treehouse" / "Conventioner-abc123" / str(number) / "Conventioner"
+    worktree = slot_path(root, number)
     worktree.mkdir(parents=True)
     return worktree
 
@@ -136,12 +126,6 @@ def test_seed_fixture_dials_127_0_0_1(tmp_path, where):
     checkout = slot_dir(tmp_path, 3) if where == "slot" else tmp_path / "Conventioner"
     dialled = seed_dials(checkout, tmp_path)
     assert dialled and all(url.startswith("https://127.0.0.1:") for url in dialled), dialled
-
-
-def compose_available():
-    if shutil.which("docker") is None:
-        return False
-    return subprocess.run(["docker", "compose", "version"], capture_output=True).returncode == 0
 
 
 compose = pytest.mark.skipif(not compose_available(), reason="docker compose is not installed")
