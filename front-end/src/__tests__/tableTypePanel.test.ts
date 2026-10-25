@@ -109,6 +109,19 @@ describe('the add form', () => {
     expect(radios.map((r) => r.element.value)).toEqual(['1', '2']);
     expect(radios.map((r) => r.element.checked)).toEqual([false, true]);
   });
+  it.each(['0', '-5'])(
+    'refuses a width of %s with its own message, and saves nothing',
+    async (text) => {
+      const wrapper = await opened();
+      await type(wrapper, '[data-testid="floorplan-table-type-name-input"]', 'Six-foot');
+      await type(wrapper, '[data-testid="floorplan-table-type-width-input"]', text);
+      await type(wrapper, '[data-testid="floorplan-table-type-height-input"]', '750');
+      await wrapper.find('form.tt-inline-form').trigger('submit');
+
+      expect(wrapper.find('.tt-error').text()).toBe('Width must be a positive number.');
+      expect(store.tableTypes).toHaveLength(0);
+    },
+  );
 });
 
 describe('the edit dialog', () => {
@@ -209,6 +222,61 @@ describe('the edit dialog', () => {
     expect(wrapper.find('[data-testid="floorplan-table-type-edit-window"]').exists()).toBe(false);
     expect(store.tableTypes[0].name).toBe('Six-foot');
   });
+
+  it('opens a 40 ft type in millimetres the browser accepts, and Update saves it untouched', async () => {
+    store.tableTypes.push({ ...SIX_FOOT, widthMm: 12192, heightMm: 750 });
+    const wrapper = panel();
+    await wrapper.find('button[aria-label="Edit table type"]').trigger('click');
+    await flushPromises();
+    const form = wrapper.find<HTMLFormElement>(
+      '[data-testid="floorplan-table-type-edit-window"] form',
+    );
+
+    expect(
+      wrapper.find<HTMLSelectElement>('[data-testid="floorplan-table-type-edit-unit-select"]')
+        .element.value,
+    ).toBe('mm');
+    expect(width(wrapper).element.value).toBe('12192');
+    expect(form.element.checkValidity()).toBe(true);
+    await form.trigger('submit');
+
+    expect(store.tableTypes[0]).toMatchObject({ widthMm: 12192, heightMm: 750 });
+  });
+
+  it('shows 250 mm as 0.82 ft, which the browser accepts, and Update saves 250 mm', async () => {
+    store.tableTypes.push({ ...SIX_FOOT, widthMm: 250, heightMm: 250 });
+    const wrapper = panel();
+    await wrapper.find('button[aria-label="Edit table type"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="floorplan-table-type-edit-unit-select"]').setValue('ft');
+    const form = wrapper.find<HTMLFormElement>(
+      '[data-testid="floorplan-table-type-edit-window"] form',
+    );
+
+    expect(width(wrapper).element.value).toBe('0.82');
+    expect(height(wrapper).element.value).toBe('0.82');
+    expect(form.element.checkValidity()).toBe(true);
+    await form.trigger('submit');
+
+    expect(store.tableTypes[0]).toMatchObject({ widthMm: 250, heightMm: 250 });
+  });
+
+  it.each(['0', '-5'])(
+    'refuses a width of %s with its own message, and saves nothing',
+    async (text) => {
+      const wrapper = await editing();
+      width(wrapper).element.value = '';
+      await width(wrapper).trigger('input');
+      await type(wrapper, '[data-testid="floorplan-table-type-edit-width-input"]', text);
+      await wrapper.find('[data-testid="floorplan-table-type-edit-window"] form').trigger('submit');
+
+      expect(wrapper.find('[data-testid="floorplan-table-type-edit-error"]').text()).toBe(
+        'Width must be a positive number.',
+      );
+      expect(wrapper.find('[data-testid="floorplan-table-type-edit-window"]').exists()).toBe(true);
+      expect(store.tableTypes[0]).toMatchObject({ widthMm: 1800, heightMm: 750 });
+    },
+  );
 
   it('cannot Update with a dimension cleared', async () => {
     const wrapper = await editing();

@@ -319,8 +319,6 @@ function deleteType(tt: TableTypeObject) {
             <input
               id="tt-width"
               type="number"
-              min="1"
-              max="10000"
               step="any"
               class="tt-input"
               placeholder="Width"
@@ -335,8 +333,6 @@ function deleteType(tt: TableTypeObject) {
             <input
               id="tt-height"
               type="number"
-              min="1"
-              max="10000"
               step="any"
               class="tt-input"
               placeholder="Height"
@@ -417,8 +413,6 @@ function deleteType(tt: TableTypeObject) {
           <input
             id="tt-edit-width"
             type="number"
-            min="1"
-            max="10000"
             step="any"
             class="field"
             placeholder="Width"
@@ -432,8 +426,6 @@ function deleteType(tt: TableTypeObject) {
           <input
             id="tt-edit-height"
             type="number"
-            min="1"
-            max="10000"
             step="any"
             class="field"
             placeholder="Height"
