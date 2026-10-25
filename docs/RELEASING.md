@@ -20,7 +20,7 @@ This project uses a **dev → main promotion flow**:
   All feature branches and bugfix PRs target `dev`.
   CI (`.github/workflows/test.yml`) runs on every push and PR to `dev`.
 - **`main`** is the deploy-only branch.
-  It deploys through the Deploy workflow once CI passes on it, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
+  It is deployed only by hand, through the Deploy workflow, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
   Never commit or open PRs directly against `main` (the release-please Release PR and a `hotfix/` PR are the exceptions, [below](#hotfixes)).
 
 **Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e` checks to pass (`e2e` passes only when all four shards do), and a push to `main` is accepted only for a commit that has passed them.
@@ -29,7 +29,7 @@ Branches need not be up to date before merging, because a promotion is only ever
 Admins can override, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
 
 ```
-feature/* ──PR──▶ dev ──promotion──▶ main (versioned release + deploy)
+feature/* ──PR──▶ dev ──promotion──▶ main (versioned release) ──by hand──▶ deploy
 ```
 
 ## Conventional Commits
@@ -63,11 +63,14 @@ Release management is handled by [release-please](https://github.com/googleapis/
    Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
    This is the **only** way code reaches `main`.
    A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
-3. **The Deploy workflow ships `main` once CI passes on it** ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)).
-   Vercel's own deploys of `main` are switched off (`git.deploymentEnabled.main: false` in each project's `vercel.json`), so a push to `main` runs the Test workflow, and only a green run deploys: the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then `/healthz` is checked, then the front end (`makers-market-management-front-end`, `conventioner.io`) and a deep link.
-   The promotion is what starts a deploy; the tag below is bookkeeping.
+3. **Daniel deploys `main` by hand, once the Test workflow has passed on it**, with the Deploy workflow ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): Actions tab, Deploy, Run workflow on `main`, or `gh workflow run deploy.yml --ref main`.
+   Nothing else deploys: no push, merge or PR, to any branch, creates or cancels a Vercel deployment, because each project's `vercel.json` switches Vercel's Git integration off for every branch (`git.deploymentEnabled: false`).
+   Even a deployment the Ignored Build Step cancelled counted against the Hobby plan's daily deployment quota, which is why Git builds are off rather than cancelled.
+   `scripts/tests/test_deploys_by_hand.py` fails if either `vercel.json` loses that setting or the workflow gains a trigger other than `workflow_dispatch`.
+   The workflow deploys the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then checks `/healthz`, then deploys the front end (`makers-market-management-front-end`, `conventioner.io`) and checks a deep link.
+   It deploys whatever `main` points at when it starts, and a run started from any other branch deploys nothing.
    It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
-   To redeploy a commit by hand (after changing an environment variable, say), run the Deploy workflow from `main` in the Actions tab.
+   The same run redeploys a commit after an environment variable changes.
 4. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
    This PR contains:
    - A version bump in `.release-please-manifest.json`
@@ -78,7 +81,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
    - Creates a **git tag** (e.g., `v1.0.0`)
    - Creates a **GitHub Release** with the changelog content
 
-   Merging it is another push to `main`, so the same code is deployed again with only the changelog changed.
+   Merging it changes only the changelog and the manifest, so it needs no deploy.
 6. **Merge `main` back into `dev`**: open a PR from `main` to `dev` and merge it once green.
    The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward and is refused.
 
@@ -94,8 +97,8 @@ Check, in this order:
 
 `dev` is the hotfix lane, because promotion is a fast-forward: a fix merged to `dev` and promoted ships exactly what CI tested, and nothing else, **as long as nothing else is waiting on `dev`**.
 
-- **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev` and promote it as soon as its `dev` push is green.
-- **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, and once it is merged, merge `main` back into `dev` so the next promotion is still a fast-forward.
+- **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev`, promote it as soon as its `dev` push is green, and run the Deploy workflow once its `main` run is green.
+- **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, run the Deploy workflow once it is merged and green, and merge `main` back into `dev` so the next promotion is still a fast-forward.
 - **Weigh a migration in a hotfix.**
   A migration is forward-only, so it makes the release behind it impossible to roll back to.
 
@@ -244,5 +247,5 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 | [`release-please-config.json`](../release-please-config.json) | Configures release-please: release type `simple` (driven by conventional commits alone, no language's package file parsed), tags `vX.Y.Z` |
 | [`.release-please-manifest.json`](../.release-please-manifest.json) | Tracks the current version per package, auto-updated by release-please |
 | [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | GitHub Actions workflow that runs release-please on pushes to `main` |
-| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | GitHub Actions workflow that deploys `main` once its Test run passes |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | GitHub Actions workflow, started by hand, that deploys `main` |
 | `CHANGELOG.md` | Auto-generated changelog, written by release-please and never by hand |

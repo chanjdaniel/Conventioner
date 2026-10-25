@@ -4,7 +4,7 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 
 # Building Production on Vercel
@@ -46,8 +46,9 @@ Both import this repository from GitHub, each with its own root directory:
 | Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work | [`back-end/vercel.json`](../back-end/vercel.json) |
 | Custom domain | `conventioner.io` | `api.conventioner.io` |
 
-Both `vercel.json` files set `git.deploymentEnabled.main: false`: Vercel does not build `main` by itself, because the Deploy workflow does once CI passes (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
-Pushes to other branches still reach Vercel and are cancelled by each project's Ignored Build Step, so there are no preview deployments.
+Both `vercel.json` files set `git.deploymentEnabled: false`: Vercel's Git integration builds no branch, so no push, merge or PR creates a deployment, preview or production, and production moves only when the Deploy workflow is started by hand (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
+Each project's Ignored Build Step used to cancel the builds of other branches instead, but a cancelled build still counts against the Hobby plan's daily deployment quota; with Git builds off, that setting is never reached and can be left empty.
+If Vercel still creates deployments from Git, disconnect the project's Git repository (Settings, Git) rather than turning the setting back on.
 
 `back-end/requirements.txt` must install on Vercel's build image, Amazon Linux 2023 (glibc 2.34): a package that ships only newer wheels fails the whole build.
 That is why the floorplan solver `pyckingsolver` lives in `requirements-floorplan-solver.txt`, installed by Docker, CI and local setups but not by Vercel; production's Auto-Place uses its grid fallback.
@@ -89,7 +90,7 @@ The back end no longer waves that through - it has a real secret now, and Google
 ## 5. Deploying
 
 1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
-2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow), or promote a commit (see [RELEASING.md](RELEASING.md)).
+2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow, or `gh workflow run deploy.yml --ref main`); it is the only way production moves (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
    It deploys the back end, waits for `/healthz`, then deploys the front end and checks a deep link.
 3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
 
