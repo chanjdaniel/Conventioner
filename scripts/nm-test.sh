@@ -109,11 +109,11 @@ fi
 # The trap above is set only when the run starts a stack (not with --skip-e2e). It runs on a normal
 # exit and on SIGTERM, but the gate aborts a run by sending SIGTERM and then SIGKILL to this
 # script's whole process group: the SIGKILL kills the trap's own docker commands, and nothing at
-# all runs after a SIGKILL to this script. So the stack's teardown also
-# rests on a guard in a process group of its own, which outlives this script, waits for it to be
-# gone, and removes whatever of the stack is left. It needs no compose file, since the gate may be
-# deleting this worktree by then. After a normal exit it finds nothing left and exits. Another guard
-# removes the run's virtual environment, from the moment it exists.
+# all runs after a SIGKILL to this script. So the stack's teardown also rests on a guard in a
+# process group of its own, which outlives this script, waits for it to be gone, and removes
+# whatever of the stack is left. It needs no compose file, since the gate may be deleting this
+# worktree by then. After a normal exit it finds nothing left and exits. Another guard removes the
+# run's virtual environment, from the moment it exists.
 alive() {
   local state
   state="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
