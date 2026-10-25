@@ -7,7 +7,7 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 
 # Release Process
