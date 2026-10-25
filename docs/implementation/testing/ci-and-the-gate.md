@@ -12,6 +12,8 @@ describes:
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
 verified: 2026-10-25
+sources:
+  - T47
 ---
 
 # CI and the gate
@@ -77,10 +79,18 @@ That is expected; a reviewer re-reads each affected node and bumps its `verified
 
 ## The no-mistakes gate
 
-[`.no-mistakes.yaml`](../../../.no-mistakes.yaml) sets `allow_repo_commands: true` and one command, `test: ./scripts/nm-test.sh`.
+[`.no-mistakes.yaml`](../../../.no-mistakes.yaml) sets `allow_repo_commands: true` and one command, `test: ./scripts/nm-test.sh --skip-e2e`.
 Without it the gate has no way to run the suite, so it is the only workable setting, and it is safe because **the gate trusts it only from the repository's default branch, `dev`**: it loads the repo's commands from there, not from the pushed branch, so a pushed branch cannot enable a command of its own.
 
+**The gate leaves Playwright to CI.**
+Its test step runs every suite but Playwright, and Playwright runs before a merge only in CI's four `e2e-shard` jobs, which branch protection requires as `e2e` and the gate's CI step waits for and can fix.
+On the laptop, Playwright was about 90% of the gate's test step (22 minutes on a quiet machine, 46 to 65 under the team's load, and red on load alone in 3 of 8 runs), and CI then ran the same specs again in 6 to 7.5 minutes a shard (T47's report).
+So a pull request opens before its Playwright has passed, and CI reports an E2E failure a few minutes later; nothing merges red, because `e2e` is required, and a red `e2e` is the gate's red to fix.
+CI's run is also the stricter one: there `failOnFlakyTests` fails a test that passes only on a retry ([above](#ci)).
+The gate's commands come from `dev`, so a change to `.no-mistakes.yaml` takes effect for gate runs only once it has merged.
+
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
+With `--skip-e2e`, as the gate runs it, it stops after Vitest with one line, `nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started.`, and starts no stack, sets no teardown trap and takes no end-to-end lock; without it, it runs everything below.
 It runs, in order, the real-data check on the branch's commits since `origin/dev` (before anything else, and failing the run on a finding, since the gate pushes the branch), the scripts' tests and the knowledge graph's `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
 Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and a guard deletes it once the run is gone, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`), and host ports Docker assigns as the stack starts (`TH_PORTS=auto`, [below](#stack-identity)), so two runs started together can never race for one port, as runs that each probed for a free port before starting could.
@@ -104,7 +114,7 @@ It writes to `.stack-logs/<project>-guard.log`, not to the run's output, so it h
 Should both fail, the stack's `expires` label tells the team's reaper it may remove it.
 A second guard, started the moment the run makes its virtual environment (`$TMPDIR/nmtest-<pid>-venv.*`), removes it once the run is gone, so a run killed in any phase leaves nothing behind.
 
-**Gate runs take turns for their E2E phase, one at a time on a machine.**
+**Runs take turns for their E2E phase, one at a time on a machine.**
 A stack starting or stopping creates or removes a Docker network, which changes the host's networks under every browser on the machine, and another run's Playwright then fails with `net::ERR_NETWORK_CHANGED`.
 So from just after its images are built until its teardown is done, `nm-test.sh` holds an exclusive kernel lock on `${XDG_STATE_HOME:-$HOME/.local/state}/conventioner/e2e.lock` ([`scripts/e2e-lock.sh`](../../../scripts/e2e-lock.sh)), taken with `flock` on one of its file descriptors, or with Python's `fcntl` where `flock` is missing.
 The kernel releases it when the last process holding that descriptor is gone: the run, and the teardown guard it starts just after taking it, so a killed run keeps the lock until its stack is down and a waiting run never starts beside a stack still being removed.

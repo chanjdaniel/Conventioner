@@ -5,10 +5,11 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-24
+verified: 2026-10-25
 sources:
   - E34/F03/S02
   - E35/F02/S01
+  - T47
 ---
 
 # Testing Conventioner
@@ -16,7 +17,8 @@ sources:
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
 The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md) and [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md).
-The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs everything through [`scripts/nm-test.sh`](../scripts/nm-test.sh).
+The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs every suite but Playwright through [`scripts/nm-test.sh --skip-e2e`](../scripts/nm-test.sh).
+Before a merge, Playwright runs only in CI's four required `e2e` shards: on the laptop it was most of every gate run and the heaviest load the machine saw, and CI ran it again anyway ([CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 
 ## Quick Start: Seed Fixture
 
@@ -307,7 +309,7 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
 [CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
 checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
-runs through `scripts/nm-test.sh`.
+runs through `scripts/nm-test.sh` (every suite but Playwright, which only CI runs before a merge).
 
 ## Stack limits
 
@@ -363,7 +365,7 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `sudo` with no terminal, and each failed attempt counts toward the account's
   `pam_faillock` lockout. The machine's own package manager provides the system libraries;
   CI's workflow keeps `--with-deps`, which is right on GitHub's Ubuntu runners.
-- **Gate runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs on one machine
+- **`nm-test.sh` runs take turns for their E2E phase**: two `scripts/nm-test.sh` runs (without `--skip-e2e`) on one machine
   run their unit suites side by side, but the second waits, saying `nm-test: waiting for the
   end-to-end lock since ...` and naming the run it waits for, until the first's stack is down,
   because a stack starting or stopping breaks another run's browser with

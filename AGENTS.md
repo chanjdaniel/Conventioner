@@ -54,7 +54,8 @@ This file holds what nearly every session needs; everything else is in the knowl
 - Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
   Front-end unit tests: `cd front-end && npm run test:unit`.
 - **Run `npm run format` in `front-end/` before committing**: CI's `format:check` fails unformatted front-end code.
-- `scripts/nm-test.sh` runs everything the no-mistakes gate runs, on an isolated stack of its own.
+- `scripts/nm-test.sh --skip-e2e` runs everything the no-mistakes gate runs; without the flag it adds Playwright, on an isolated stack of its own.
+  Before a merge, Playwright runs only in CI's required `e2e` shards ([CI and the gate](docs/implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)).
 - Setting up a machine: [`docs/STARTUP.md`](docs/STARTUP.md); every suite and its gotchas: [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Knowledge graph
