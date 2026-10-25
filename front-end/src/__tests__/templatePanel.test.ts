@@ -279,16 +279,26 @@ describe('Load Template', () => {
     expect(document.activeElement).toBe(cards()[1]);
   });
 
+  // AppDialog's own return of focus, through this dialog's two views (aDialogGivesFocusBack.test.ts).
   it('gives focus back to Load Template once it closes, by Replace or by a close', async () => {
-    const wrapper = await opened();
-    const opener = wrapper.get('button.tp-btn--load').element;
+    get.mockResolvedValue({ data: { templates: [STANDARD] } });
+    const wrapper = panel();
+    const opener = wrapper.get<HTMLButtonElement>('button.tp-btn--load').element;
+    const openFromTheButton = async () => {
+      opener.focus();
+      opener.click();
+      await flushPromises();
+    };
+
+    await openFromTheButton();
     cards()[0].click();
     await flushPromises();
     button('Replace Table Types').click();
     await flushPromises();
     expect(document.activeElement).toBe(opener);
 
-    await wrapper.get('button.tp-btn--load').trigger('click');
+    await openFromTheButton();
+    cards()[0].click();
     await flushPromises();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await flushPromises();

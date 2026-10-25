@@ -93,10 +93,9 @@ async function fetchTemplates() {
 }
 
 // ── Focus across the Load dialog's views ───────────────────
-// AppDialog moves focus in only when it opens. Swapping the list for the confirm view, and back,
-// unmounts the button that had focus, which drops it to <body>; closing unmounts the window.
-// Each move below puts focus where the keyboard user just was, or on the safe choice.
-const loadOpenBtn = ref<HTMLButtonElement | null>(null);
+// AppDialog moves focus in when it opens and back to Load Template when it closes. Between those,
+// swapping the list for the confirm view, and back, unmounts the button that had focus, which drops
+// it to <body>; each swap below puts focus where the keyboard user just was, or on the safe choice.
 const confirmCancelBtn = ref<HTMLButtonElement | null>(null);
 const templateCards = new Map<string, HTMLButtonElement>();
 
@@ -107,7 +106,7 @@ function templateCardRef(id: string) {
   };
 }
 
-/** After the DOM updates, which is also when the page behind stops being inert. */
+/** Once the swapped-in view is in the DOM. */
 async function focusAfterUpdate(target: () => HTMLElement | null | undefined) {
   await nextTick();
   target()?.focus();
@@ -135,7 +134,6 @@ function confirmLoad() {
   confirmOpen.value = false;
   loadDialog.value = false;
   selectedTemplate.value = null;
-  focusAfterUpdate(() => loadOpenBtn.value);
 }
 
 function cancelConfirm() {
@@ -158,7 +156,6 @@ function closeLoadDialog() {
   loadError.value = '';
   confirmOpen.value = false;
   selectedTemplate.value = null;
-  focusAfterUpdate(() => loadOpenBtn.value);
 }
 
 // ── Date formatting ─────────────────────────────────────────
@@ -191,12 +188,7 @@ function formatDate(dateStr: string): string {
       >
         Save as Template
       </button>
-      <button
-        ref="loadOpenBtn"
-        class="tp-btn tp-btn--load"
-        title="Load a saved template"
-        @click="openLoadDialog"
-      >
+      <button class="tp-btn tp-btn--load" title="Load a saved template" @click="openLoadDialog">
         Load Template
       </button>
     </div>

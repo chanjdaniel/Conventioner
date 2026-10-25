@@ -58,6 +58,29 @@ test.describe('The create-market dialog is the dialog idiom', () => {
     await expect(dialog.nameInput).toBeFocused();
   });
 
+  test('closing gives focus back to the button that opened it, whichever way it closes', async ({
+    authenticatedPage: page,
+  }) => {
+    // Closing unmounts the window, which dropped focus to <body>: the next Tab started at the top
+    // of the page (T45).
+    const opener = page.getByTestId('markets-create-button');
+    const dialog = await openTheDialog(page);
+    await page.keyboard.press('Escape');
+    await expect(dialog.nameInput).toBeHidden();
+    await expect(opener).toBeFocused();
+
+    await opener.click();
+    await dialog.waitForOverlay();
+    await dialog.cancelButton.click();
+    await expect(opener).toBeFocused();
+
+    await opener.click();
+    await dialog.waitForOverlay();
+    // A corner: the dialog is centred in the scrim, so a default click lands on the dialog.
+    await dialog.overlayBackground.click({ position: { x: 8, y: 8 } });
+    await expect(opener).toBeFocused();
+  });
+
   test('Enter creates the market, through the same guard the button has', async ({
     authenticatedPage: page,
   }) => {
@@ -435,6 +458,8 @@ test.describe('A dialog opened from a dialog can be used', () => {
     await orgs.deleteCancelButton.click();
     await expect(orgs.deleteWindow).toBeHidden({ timeout: 5000 });
     await expect(orgs.manageWindow).toBeVisible();
+    // And focus is back on Delete, in the dialog beneath, rather than on <body> behind both.
+    await expect(orgs.deleteButton).toBeFocused();
 
     /*
      * Asserted on a control the page HOLDS, not on the page container: the dialogs render inside
@@ -497,15 +522,18 @@ test.describe('The Edit Table Type dialog', () => {
     expect(behindIsInert, 'the table list behind the dialog is still reachable').toBe(true);
   });
 
-  test('Escape, the backdrop and the close control each close it without saving', async ({
+  test('Escape, the backdrop and the close control each close it without saving, focus given back', async ({
     authenticatedPage: page,
     request,
   }) => {
     const floorplan = await openTheDialog(page, request);
+    // Each close gives focus back to the card's edit button, which opened it.
+    const editButton = card(page).getByRole('button', { name: 'Edit table type' });
 
     await floorplan.tableTypeEditNameInput.fill('Renamed');
     await page.keyboard.press('Escape');
     await expect(floorplan.tableTypeEditWindow).toBeHidden();
+    await expect(editButton).toBeFocused();
 
     await floorplan.openTableTypeEdit('Six-foot');
     // A corner: the dialog is centred in the scrim, so a default click lands on the dialog.
@@ -513,10 +541,12 @@ test.describe('The Edit Table Type dialog', () => {
       .getByTestId('floorplan-table-type-edit-background')
       .click({ position: { x: 8, y: 8 } });
     await expect(floorplan.tableTypeEditWindow).toBeHidden();
+    await expect(editButton).toBeFocused();
 
     await floorplan.openTableTypeEdit('Six-foot');
     await page.getByTestId('floorplan-table-type-edit-close-button').click();
     await expect(floorplan.tableTypeEditWindow).toBeHidden();
+    await expect(editButton).toBeFocused();
     await expect(card(page)).toContainText('Six-foot');
   });
 
