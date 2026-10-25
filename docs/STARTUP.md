@@ -56,8 +56,7 @@ The easiest way to get started is using Docker Compose:
   not from the local network (it runs with fixed development credentials).
   Open it at `127.0.0.1`, not `localhost`, which is tried as `::1` first (see
   [`docs/TESTING.md`](TESTING.md#testing-gotchas)).
-  The back end is on 5001, not Flask's default 5000: macOS's AirPlay Receiver listens on 5000,
-  so a client dialling port 5000 can reach AirPlay instead of the back end.
+  The back end is on 5001, not Flask's default 5000 ([why](TESTING.md#testing-gotchas)).
   To reach it from another device, such as a phone, publish the port you need in an override
   file of your own, for example a `docker-compose.override.yml` beside `docker-compose.yml`
   (git-ignored; plain `docker compose` reads it):
@@ -255,7 +254,7 @@ cd back-end
 # Activate virtual environment if using one
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Run Flask with HTTPS (adhoc certificate), on 5001: macOS's AirPlay Receiver holds Flask's default 5000
+# Run Flask with HTTPS (adhoc certificate), on 5001, not Flask's default 5000 (docs/TESTING.md says why)
 flask run --port=5001 --cert=adhoc
 
 # Or redirect errors to log file
@@ -466,7 +465,7 @@ netstat -ano | findstr :5001  # Windows
 flask run --cert=adhoc --port=5002
 ```
 
-Not 5000: on macOS, AirPlay Receiver (System Settings, General, AirDrop & Handoff) listens there.
+Not 5000 ([why](TESTING.md#testing-gotchas)).
 
 **SSL Certificate Warnings**:
 
@@ -520,7 +519,7 @@ The `docker-compose.yml` defines four services:
   - Data persisted in Docker volume `mongodb_data`
   - Credentials: `admin:secret`
 2. **backend**: Flask API server
-  - Port: `5001` (HTTPS with adhoc certificate; not 5000, which macOS's AirPlay Receiver holds)
+  - Port: `5001` (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
   - Hot-reload enabled via volume mount
   - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server

@@ -73,7 +73,7 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | frontend      | 5173                    | 5183   | 5193   |
 | mongo-express | 8081                    | 8091   | 8101   |
 
-The back end's base is 5001, not Flask's 5000, which macOS's AirPlay Receiver holds.
+The back end's base is 5001, not Flask's 5000 ([why](../docs/TESTING.md#testing-gotchas)).
 
 Every port, the primary checkout's included, is published on `127.0.0.1` only, so another
 machine on the network does not reach a stack.

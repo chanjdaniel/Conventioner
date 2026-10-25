@@ -205,7 +205,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
    - Health checks configured
 
 2. **Backend** - Flask API service
-   - Port: 5001 (HTTPS with adhoc certificate; not 5000, which macOS's AirPlay Receiver holds)
+   - Port: 5001 (HTTPS with adhoc certificate; not 5000, [why](TESTING.md#testing-gotchas))
    - Hot-reload enabled
    - `back-end/` is bind-mounted into the container, so a `back-end/.env` is read by the running stack
 

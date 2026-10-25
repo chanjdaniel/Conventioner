@@ -70,8 +70,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Optional: hosted TypeSafe helps read a Google Form's CSV. Unset means the rules alone.
       - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
-    # 5001, not Flask's 5000: macOS's AirPlay Receiver listens on 5000, so a client dialling it there
-    # can reach AirPlay instead of this stack.
+    # 5001, not Flask's 5000: docs/TESTING.md ("Testing gotchas") says why.
     ports:
       - "127.0.0.1:5001:5001"
     volumes:

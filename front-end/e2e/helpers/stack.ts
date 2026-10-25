@@ -37,7 +37,7 @@
  *   ports:     mongo=27017+N*10  backend=5001+N*10  frontend=5173+N*10
  *   containers: conventioner-N-mongodb  conventioner-N-backend
  *
- * The back end is on 5001, not Flask's 5000: macOS's AirPlay Receiver listens on 5000.
+ * The back end is on 5001, not Flask's 5000: docs/TESTING.md ("Testing gotchas") says why.
  * Every URL dials 127.0.0.1, never `localhost`: a stack publishes on 127.0.0.1 only, and
  * `localhost` is tried as ::1 first, where macOS lets another program take the same port.
  */
