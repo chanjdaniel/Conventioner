@@ -461,8 +461,12 @@ It is idempotent, and `--dry-run` previews the changes without applying them.
 lsof -i :5001  # macOS/Linux
 netstat -ano | findstr :5001  # Windows
 
-# Kill the process, or use a different port and point VITE_BACKEND_URL at it
+# Kill the process, or use a different port
 flask run --cert=adhoc --port=5002
+
+# and start the front end with its proxy pointed there, from front-end/: the proxy reads the
+# shell's VITE_BACKEND_URL, not front-end/.env's
+VITE_BACKEND_URL=https://127.0.0.1:5002 npm run dev
 ```
 
 Not 5000 ([why](TESTING.md#testing-gotchas)).
