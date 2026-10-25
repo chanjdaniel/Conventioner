@@ -2,6 +2,8 @@
 import { ref, reactive, watch } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import type { TableTypeObject } from '@/assets/types/datatypes';
+import IconPencil from '@/components/icons/IconPencil.vue';
+import IconTrash from '@/components/icons/IconTrash.vue';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import SelectButton from 'primevue/selectbutton';
@@ -236,7 +238,7 @@ const selectOptions = [
             aria-label="Edit table type"
             @click="editType(tt)"
           >
-            <i class="pi pi-pencil" />
+            <IconPencil />
           </button>
           <button
             class="tt-icon-btn tt-icon-btn--delete"
@@ -244,7 +246,7 @@ const selectOptions = [
             aria-label="Delete table type"
             @click="deleteType(tt)"
           >
-            <i class="pi pi-trash" />
+            <IconTrash />
           </button>
         </div>
       </TransitionGroup>

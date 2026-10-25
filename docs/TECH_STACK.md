@@ -8,7 +8,7 @@ describes:
   - front-end/package.json
   - .nvmrc
   - docker-compose.yml
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 # Technology Stack
 
@@ -134,8 +134,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **PrimeVue 4.3.0** - Vue UI component library
   - Rich component set
   - Theming support
-- **PrimeIcons 7.0.0** - Icon library
-  - Comprehensive icon set
+- **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
+  - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt`
+  - They replaced PrimeIcons, whose 8.x is proprietary and whose repository is archived (T45); `everyIconIsALocalSvg.test.ts` keeps `pi pi-` classes and `primeicons` out
 
 ### State Management
 - **Pinia 2.3.1** - Vue state management
