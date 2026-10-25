@@ -28,12 +28,12 @@
 #
 # The limits are service-level keys, which plain `docker compose up` honours
 # (`deploy.resources` is for Swarm). Each sits well above the service's peak in
-# a full gate run, as measured in docs/TESTING.md ("Stack limits"); a limit
+# a full nm-test.sh run, as measured in docs/TESTING.md ("Stack limits"); a limit
 # within 20% of a measured peak is raised.
 #
 # The back end's and front end's images are named by a hash of the files each is
 # built from (scripts/image-tags.sh), not by the project, so every slot stack and
-# gate run with the same dependencies shares one image, and the source reaches
+# nm-test.sh stack with the same dependencies shares one image, and the source reaches
 # the containers through the bind mounts. `pull_policy: never` builds a missing
 # image from the worktree instead of pulling it: conventioner/* on Docker Hub is
 # not ours.

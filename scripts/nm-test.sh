@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deterministic full-suite test runner for the no-mistakes gate.
+# Deterministic full-suite test runner; the no-mistakes gate runs it with --skip-e2e.
 #
 # Runs its E2E stack under a project name of its own, on host ports Docker picks,
 # so it runs safely alongside the primary stack and other runs, and takes turns with other runs for
@@ -9,9 +9,14 @@
 #
 # Usage:
 #     ./scripts/nm-test.sh
+#     ./scripts/nm-test.sh --skip-e2e
 #     PYTHON_CMD=/path/to/python3.12 ./scripts/nm-test.sh
 #
-# Requires: Docker, Node.js 24.19.0 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
+# --skip-e2e runs every suite but Playwright, and so starts no stack and takes no end-to-end lock:
+# the gate passes it, leaving Playwright to CI's required e2e shards
+# (docs/implementation/testing/ci-and-the-gate.md).
+#
+# Requires: Docker (not with --skip-e2e), Node.js 24.19.0 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
@@ -20,6 +25,14 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 RUN_ID="nmtest-$$"
 
 fail() { echo "nm-test: ERROR: $*" >&2; exit 1; }
+
+E2E=run
+for arg in "$@"; do
+  case "$arg" in
+    --skip-e2e) E2E=skip ;;
+    *) fail "unknown argument: $arg (usage: nm-test.sh [--skip-e2e])" ;;
+  esac
+done
 
 PYTHON="${PYTHON_CMD:-python3.12}"
 if ! command -v "$PYTHON" &>/dev/null; then
@@ -59,7 +72,9 @@ fi
 TEAM_EXPIRES="$("$PYTHON" -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
 export TEAM_EXPIRES
 
-echo "nm-test: project=$COMPOSE_PROJECT_NAME"
+if [[ "$E2E" == run ]]; then
+  echo "nm-test: project=$COMPOSE_PROJECT_NAME"
+fi
 
 # ── Teardown ─────────────────────────────────────────────────────────────────
 
@@ -85,7 +100,9 @@ cleanup() {
     echo "nm-test: ERROR: tearing down $COMPOSE_PROJECT_NAME failed (above); the teardown guard retries it." >&2
   fi
 }
-trap cleanup EXIT
+if [[ "$E2E" == run ]]; then
+  trap cleanup EXIT
+fi
 
 # The trap above runs on a normal exit and on SIGTERM, but the gate aborts a run by sending SIGTERM
 # and then SIGKILL to this script's whole process group: the SIGKILL kills the trap's own docker
@@ -190,6 +207,12 @@ echo "Frontend unit tests: OK"
 # ── E2E tests (needs the stack) ──────────────────────────────────────────────
 
 echo ""
+if [[ "$E2E" == skip ]]; then
+  echo "nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started."
+  echo ""
+  echo "===== All tests passed ====="
+  exit 0
+fi
 echo "===== E2E Tests ====="
 
 echo "nm-test: installing Playwright browsers..."
