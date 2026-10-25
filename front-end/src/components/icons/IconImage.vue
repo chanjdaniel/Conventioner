@@ -6,7 +6,7 @@
 </script>
 
 <template>
-  <!-- 1em, so the font-size around it sizes it; the licence is in the comment above, which the build keeps. -->
+  <!-- 1em, so the font-size around it sizes it. -->
   <svg
     width="1em"
     height="1em"
