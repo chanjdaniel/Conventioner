@@ -3,10 +3,11 @@
 # Run the Conventioner docker-compose stack for a specific worktree, isolated so
 # multiple worktrees can run in parallel.
 #
-# Usage (from inside a leased worktree):
-#     /path/to/main/Conventioner/scripts/th-compose.sh up -d
-#     /path/to/main/Conventioner/scripts/th-compose.sh logs -f backend
-#     /path/to/main/Conventioner/scripts/th-compose.sh down -v
+# Usage (from inside a leased worktree, with the worktree's own copy, whose overlay is the one
+# beside the worktree's compose file; another checkout's copy brings its own overlay):
+#     scripts/th-compose.sh up -d
+#     scripts/th-compose.sh logs -f backend
+#     scripts/th-compose.sh down -v
 #
 # Or target a worktree explicitly:  TH_DIR=<worktree> th-compose.sh up -d
 #

@@ -6,7 +6,7 @@ describes:
   - scripts/th-compose.sh
   - scripts/th-return.sh
   - docker-compose.worktree.yml
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 
 # Treehouse worktrees for agents
@@ -163,6 +163,16 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
   the user's `~/.config/treehouse/config.toml`, never from this repository's
   `treehouse.toml`, so a raw worktree would be missing `.env` and `node_modules`.
   All pre-warming is driven by the wrapper.
+- **A slot is warmed and torn down by its own scripts.** `th-lease.sh` and `th-return.sh`
+  run from the checkout that calls them, often the primary checkout, which may be behind
+  the slot: treehouse cuts the slot from the latest base branch.
+  So `th-lease.sh` runs the slot's own `scripts/treehouse-setup.sh`, and `th-return.sh`
+  tears the stack down with the slot's own `scripts/th-compose.sh`, whose overlay is the
+  one beside the slot's compose file; a fix to either reaches the next lease or return
+  once it is on the base branch.
+  A slot without its own copy is warmed or torn down with the caller's, and the script
+  says so on stderr.
+  Only `th-lease.sh` and `th-return.sh` themselves are the caller's own.
 - **Back-end has no local Python venv** - it runs via Docker (`python:3.12-slim`).
   The pinned deps don't build on the Python versions installed here.
 - Reused worktrees don't auto-update node deps when a lockfile changes - run

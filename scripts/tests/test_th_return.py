@@ -32,6 +32,11 @@ printf '%s\\n' "$*" >> "$TREEHOUSE_LOG"
 exit "${TREEHOUSE_STATUS:-0}"
 """
 
+# A stub of the slot's own th-compose.sh that logs its arguments and the worktree it was pointed at.
+SLOT_WRAPPER_STUB = """#!/usr/bin/env bash
+printf 'slot %s | TH_DIR=%s\\n' "$*" "$TH_DIR" >> "$DOCKER_LOG"
+"""
+
 
 @pytest.fixture
 def bin_dir(tmp_path):
@@ -44,11 +49,16 @@ def bin_dir(tmp_path):
     return stubs
 
 
+# The files the slot's own teardown runs, beside its compose file.
+TEARDOWN_FILES = ("docker-compose.yml", "docker-compose.worktree.yml", "scripts/th-compose.sh", "scripts/image-tags.sh")
+
+
 @pytest.fixture
 def slot(tmp_path):
     worktree = tmp_path / ".treehouse" / "Conventioner-abc123" / "3" / "Conventioner"
-    worktree.mkdir(parents=True)
-    shutil.copy(REPO / "docker-compose.yml", worktree)
+    for name in TEARDOWN_FILES:
+        (worktree / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(REPO / name, worktree / name)
     return copy_build_inputs(worktree)
 
 
@@ -147,4 +157,29 @@ def test_treehouse_returns_exit_status_is_passed_on(slot, bin_dir):
     result = run_return(bin_dir, slot, TREEHOUSE_STATUS="3")
 
     assert result.returncode == 3
+    assert treehouse_calls(bin_dir) == [f"return {slot}"]
+
+
+def test_the_teardown_is_the_slots_own_wrapper_not_the_callers(slot, bin_dir):
+    # th-return.sh runs from the primary checkout, which may be behind the slot.
+    wrapper = slot / "scripts" / "th-compose.sh"
+    wrapper.write_text(SLOT_WRAPPER_STUB)
+
+    result = run_return(bin_dir, slot)
+
+    assert result.returncode == 0, result.stderr
+    assert docker_calls(bin_dir) == [f"slot down -v --remove-orphans | TH_DIR={slot}"]
+    assert treehouse_calls(bin_dir) == [f"return {slot}"]
+
+
+def test_a_slot_with_no_wrapper_of_its_own_is_torn_down_by_the_callers_and_says_so(slot, bin_dir):
+    (slot / "scripts" / "th-compose.sh").unlink()
+
+    result = run_return(bin_dir, slot)
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        f"th-return: {slot} has no scripts/th-compose.sh of its own; tearing it down with {REPO}/scripts/th-compose.sh"
+    ) in result.stderr
+    assert teardowns(bin_dir) == ["down -v --remove-orphans | project=conventioner-3"]
     assert treehouse_calls(bin_dir) == [f"return {slot}"]
