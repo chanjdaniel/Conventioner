@@ -14,10 +14,11 @@ describes:
   - front-end/e2e/helpers/seedDraftMarket.ts
   - front-end/e2e/helpers/seedApplicantMarket.ts
   - front-end/e2e/helpers/seedApplication.ts#seedApprovedVendor
+  - front-end/e2e/helpers/seedFloorplanTemplate.ts
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - E02
   - E11/F01/S01
@@ -26,6 +27,7 @@ sources:
   - E35/F02/S02
   - E36/F04/S02
   - T15
+  - T45
 ---
 
 # E2E seeds
@@ -64,6 +66,7 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
 | `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
+| `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | templates are the user's and outlive every market, so a spec finds its own by the unique name returned |
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).

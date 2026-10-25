@@ -34,15 +34,6 @@ updates:
       # 6.0 still arrives as its own PR.
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
-      # Held 2026-10-25: PrimeVue 5 and PrimeIcons 8 left MIT for the proprietary PrimeUI License
-      # (https://primeui.dev/licenses), which needs a licence key renewed yearly; without one,
-      # PrimeVue 5 puts an "Invalid PrimeUI License" banner on every page. Daniel declined it, so
-      # the app stays on PrimeVue 4 and PrimeIcons 7, both MIT. Revisit after T45's decision on a
-      # free replacement or a custom path.
-      - dependency-name: "primevue"
-        versions: [">=5.0.0"]
-      - dependency-name: "primeicons"
-        versions: [">=8.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

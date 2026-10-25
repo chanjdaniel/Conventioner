@@ -3,6 +3,7 @@
 import { ref, watch, onUnmounted } from 'vue';
 import { useDropZone, useFileDialog } from '@vueuse/core';
 import { api } from '@/utils/api';
+import IconCloudUpload from '@/components/icons/IconCloudUpload.vue';
 
 type UploadResult = {
   gridfs_id: string;
@@ -118,7 +119,7 @@ onUnmounted(() => {
     >
       <!-- Empty state: prompt to upload -->
       <div v-if="!uploadedFile" class="drop-zone-content">
-        <i class="pi pi-cloud-upload drop-zone-icon" />
+        <IconCloudUpload class="drop-zone-icon" />
         <p class="drop-zone-text">Drag &amp; drop a floorplan image or PDF here</p>
         <p class="drop-zone-subtitle">or</p>
         <button

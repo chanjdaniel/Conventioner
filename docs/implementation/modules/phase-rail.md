@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -12,6 +12,7 @@ sources:
   - wayfinding/the-order-of-the-work/09
   - E10/F01
   - E10/F01/S02
+  - T45
   - E26/F06/S03
   - E26/F10/S01
   - E31/F02/S01
@@ -50,6 +51,7 @@ A second list beside the table would be the drift `_validate_registry()` refuses
 
 **Forward, back and destructive are read off the spine** (`transitionDirection`), never special-cased per phase.
 Only the one forward step is on the rail; every other move is in the "More…" menu behind `phase-rail-menu-button`, a real menu whose arrow keys walk its items and whose Escape or an outside press closes it.
+Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
 Someone below ADMIN (`adminActionsReason`) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).

@@ -58,6 +58,14 @@ export class FloorplanWorkflowPage {
   readonly autoPlaceBtn: Locator;
   readonly autoPlaceError: Locator;
 
+  // Step 2: the Edit Table Type dialog
+  readonly tableTypeEditWindow: Locator;
+  readonly tableTypeEditNameInput: Locator;
+  readonly tableTypeEditWidthInput: Locator;
+  readonly tableTypeEditHeightInput: Locator;
+  readonly tableTypeEditUnitSelect: Locator;
+  readonly tableTypeEditSubmitBtn: Locator;
+
   // Step 3: Section Grouping
   readonly sectionGroupToggle: Locator;
   readonly sectionDialogNameInput: Locator;
@@ -80,6 +88,14 @@ export class FloorplanWorkflowPage {
   readonly saveConfirmBtn: Locator;
   readonly saveSuccess: Locator;
   readonly saveError: Locator;
+
+  // Step 4: the template dialogs
+  readonly templateSaveOpenBtn: Locator;
+  readonly templateLoadOpenBtn: Locator;
+  readonly templateSaveWindow: Locator;
+  readonly templateNameInput: Locator;
+  readonly templateSaveSubmitBtn: Locator;
+  readonly templateLoadWindow: Locator;
 
   // Path choice (in MarketSetupView)
   readonly choosePathFloorplanCard: Locator;
@@ -107,18 +123,20 @@ export class FloorplanWorkflowPage {
     // Step 2: Table Types
     this.tableTypeAddBtn = page.getByTestId('floorplan-table-type-add-btn');
     this.tableTypeNameInput = page.getByTestId('floorplan-table-type-name-input');
-    this.tableTypeWidthInput = page
-      .getByTestId('floorplan-table-type-width-input')
-      .locator('input.p-inputtext')
-      .first();
-    this.tableTypeHeightInput = page
-      .getByTestId('floorplan-table-type-height-input')
-      .locator('input.p-inputtext')
-      .first();
+    this.tableTypeWidthInput = page.getByTestId('floorplan-table-type-width-input');
+    this.tableTypeHeightInput = page.getByTestId('floorplan-table-type-height-input');
     this.tableTypeSaveBtn = page.getByTestId('floorplan-table-type-save-btn');
     this.tableTypeCancelBtn = page.getByTestId('floorplan-table-type-cancel-btn');
     this.autoPlaceBtn = page.getByTestId('floorplan-auto-place-btn');
     this.autoPlaceError = page.getByTestId('floorplan-auto-place-error');
+
+    // Step 2: the Edit Table Type dialog
+    this.tableTypeEditWindow = page.getByTestId('floorplan-table-type-edit-window');
+    this.tableTypeEditNameInput = page.getByTestId('floorplan-table-type-edit-name-input');
+    this.tableTypeEditWidthInput = page.getByTestId('floorplan-table-type-edit-width-input');
+    this.tableTypeEditHeightInput = page.getByTestId('floorplan-table-type-edit-height-input');
+    this.tableTypeEditUnitSelect = page.getByTestId('floorplan-table-type-edit-unit-select');
+    this.tableTypeEditSubmitBtn = page.getByTestId('floorplan-table-type-edit-submit-button');
 
     // Step 3: Section Grouping
     this.sectionGroupToggle = page.getByTestId('floorplan-section-group-toggle');
@@ -142,6 +160,14 @@ export class FloorplanWorkflowPage {
     this.saveConfirmBtn = page.getByTestId('floorplan-save-confirm-btn');
     this.saveSuccess = page.getByTestId('floorplan-save-success');
     this.saveError = page.getByTestId('floorplan-save-error');
+
+    // Step 4: the template dialogs
+    this.templateSaveOpenBtn = page.getByRole('button', { name: 'Save as Template' });
+    this.templateLoadOpenBtn = page.getByRole('button', { name: 'Load Template' });
+    this.templateSaveWindow = page.getByTestId('floorplan-template-save-window');
+    this.templateNameInput = page.getByLabel('Template name');
+    this.templateSaveSubmitBtn = page.getByTestId('floorplan-template-save-submit-button');
+    this.templateLoadWindow = page.getByTestId('floorplan-template-load-window');
 
     // Path choice
     this.choosePathFloorplanCard = page.getByTestId('choose-path-floorplan');
@@ -256,9 +282,7 @@ export class FloorplanWorkflowPage {
     await this.tableTypeNameInput.fill(name);
 
     await this.tableTypeWidthInput.fill(width);
-    await this.tableTypeWidthInput.blur();
     await this.tableTypeHeightInput.fill(height);
-    await this.tableTypeHeightInput.blur();
 
     await this.tableTypeSaveBtn.waitFor({ state: 'attached', timeout: 3000 });
     await this.page.waitForFunction(
@@ -272,6 +296,16 @@ export class FloorplanWorkflowPage {
     );
     await this.tableTypeSaveBtn.click();
     await this.tableTypeSaveBtn.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+  }
+
+  /** Open the Edit Table Type dialog for the type card that says `name`. */
+  async openTableTypeEdit(name: string): Promise<void> {
+    await this.page
+      .locator('.tt-type-card')
+      .filter({ hasText: name })
+      .getByRole('button', { name: 'Edit table type' })
+      .click();
+    await this.tableTypeEditWindow.waitFor({ state: 'visible', timeout: 5000 });
   }
 
   /** Say how many of the (first) table type Auto-Place should place (bug 38: it never asked). */
@@ -353,20 +387,8 @@ export class FloorplanWorkflowPage {
 
   // ─── Helpers ────────────────────────────────────────────────────
 
-  /**
-   * Full floorplan workflow: upload, calibrate, add table type,
-   * auto-place, group sections, and save.
-   *
-   * Returns once the save has completed and navigated back to the market's setup screen.
-   */
-  async completeFloorplanWorkflow(
-    fixturePath: string,
-    tableTypeName: string = '6ft Table',
-    tableWidth: string = '1800',
-    tableHeight: string = '900',
-    sectionName: string = 'Main',
-    sectionLocation: string = 'Main Hall',
-  ): Promise<void> {
+  /** From the wizard's first step to its table types: upload the plan and calibrate it. */
+  async reachTableTypes(fixturePath: string): Promise<void> {
     await this.waitForWizard();
 
     // Step 0: Upload
@@ -381,9 +403,24 @@ export class FloorplanWorkflowPage {
     // too small to hold four tables with their aisles - which Auto-Place would rightly report.
     await this.completeCalibration('30');
     // Auto-advances to step 2
+    await this.tableTypeAddBtn.waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /**
+   * From the wizard's first step to its last: upload, calibrate, add a table type, auto-place and
+   * group the tables into a section. Returns on the save step, where the template dialogs are.
+   */
+  async reachSaveStep(
+    fixturePath: string,
+    tableTypeName: string = '6ft Table',
+    tableWidth: string = '1800',
+    tableHeight: string = '900',
+    sectionName: string = 'Main',
+    sectionLocation: string = 'Main Hall',
+  ): Promise<void> {
+    await this.reachTableTypes(fixturePath);
 
     // Step 2: Table Types + Auto-Place
-    await this.tableTypeAddBtn.waitFor({ state: 'visible', timeout: 5000 });
     await this.addTableType(tableTypeName, tableWidth, tableHeight);
     await this.setAutoPlaceCount(4);
     await this.autoPlaceTables();
@@ -396,8 +433,33 @@ export class FloorplanWorkflowPage {
     await this.waitForNextEnabled();
     await this.clickNext();
 
-    // Step 4: Save
     await this.saveOpenBtn.waitFor({ state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Full floorplan workflow: upload, calibrate, add table type,
+   * auto-place, group sections, and save.
+   *
+   * Returns once the save has completed and navigated back to the market's setup screen.
+   */
+  async completeFloorplanWorkflow(
+    fixturePath: string,
+    tableTypeName: string = '6ft Table',
+    tableWidth: string = '1800',
+    tableHeight: string = '900',
+    sectionName: string = 'Main',
+    sectionLocation: string = 'Main Hall',
+  ): Promise<void> {
+    await this.reachSaveStep(
+      fixturePath,
+      tableTypeName,
+      tableWidth,
+      tableHeight,
+      sectionName,
+      sectionLocation,
+    );
+
+    // Step 4: Save
     await this.openSaveDialog();
     await this.confirmSave();
     await this.waitForSaveComplete();

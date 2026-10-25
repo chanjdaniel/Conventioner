@@ -410,6 +410,10 @@ async function doTransition(toPhase: string) {
 }
 
 function handleTransitionClick(toPhase: string) {
+  // A choice closes the menu and hands focus back to its button, as Escape does, and now rather than
+  // after the update: the item goes with the menu, and a confirm dialog opened below returns focus
+  // to whatever held it as it opened.
+  if (menuOpen.value) menuButton.value?.focus();
   menuOpen.value = false;
   if (!transitionNeedsConfirmation(toPhase)) {
     doTransition(toPhase);

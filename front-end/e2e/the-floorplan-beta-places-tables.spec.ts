@@ -89,8 +89,8 @@ test('a floorplan is calibrated the right way round and Auto-Place places what i
   // A new table type seats two, as a table does everywhere else.
   await floorplan.tableTypeAddBtn.click();
   await expect(
-    page.getByTestId('floorplan-table-type-capacity').getByRole('button', { pressed: true }),
-  ).toHaveText('2');
+    page.getByTestId('floorplan-table-type-capacity').getByRole('radio', { name: '2' }),
+  ).toBeChecked();
   await floorplan.tableTypeCancelBtn.click();
   await floorplan.addTableType('Six-foot', '1800', '750');
 
