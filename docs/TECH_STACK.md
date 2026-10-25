@@ -8,7 +8,7 @@ describes:
   - front-end/package.json
   - .nvmrc
   - docker-compose.yml
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 # Technology Stack
 
@@ -132,18 +132,20 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### UI Framework & Components
 - **PrimeVue 4.3.0** - Vue UI component library
+  - Held below 5 (see [Dependabot](implementation/testing/ci-and-the-gate.md#dependabot)): 5 is under the proprietary PrimeUI License
   - Rich component set
   - Theming support
 - **PrimeIcons 7.0.0** - Icon library
+  - Held below 8, for the same licence
   - Comprehensive icon set
 
 ### State Management
-- **Pinia 2.3.1** - Vue state management
+- **Pinia 4.1.0** - Vue state management
   - Stores in `src/stores/`: the open market (`market.ts`), the applicant's application and the floorplan wizard
   - The signed-in user is held by `App.vue` and handed down with provide/inject
 
 ### Routing
-- **Vue Router 4.5.0** - Official router for Vue.js
+- **Vue Router 5.4.0** - Official router for Vue.js
   - Client-side routing
   - Route guards for authentication
   - Public and protected routes
@@ -154,11 +156,11 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Cookie-based authentication support
 
 ### Utilities
-- **VueUse 12.5.0** - Collection of Vue composition utilities
+- **VueUse 15.0.0** - Collection of Vue composition utilities
   - Reusable composition functions
 - **VueDraggable 4.1.0** - Drag and drop component
   - Drag-and-drop functionality for UI elements
-- **Konva 10** and **vue-konva 3** - The floorplan wizard's canvas
+- **Konva 10** and **vue-konva 4** - The floorplan wizard's canvas
 
 ### Development Tools
 - **ESLint 9.18.0** - JavaScript/TypeScript linter
