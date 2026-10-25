@@ -384,7 +384,7 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   any program that listens on IPv6, so for as long as one does, `localhost:<port>` reaches it
   instead of the stack: a gate run failed twice that way, for a few seconds, with EPROTO
   "unexpected message" and `ERR_INVALID_HTTP_RESPONSE`.
-  `scripts/tests/test_local_addresses.py` fails on a URL that names `localhost`.
+  `scripts/tests/test_local_addresses.py` runs `stack.ts` and `seed_fixture.sh` and fails on one that dials `localhost`.
   mongo-express is not part of a worktree or `nm-test.sh` stack unless asked for:
   `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
 - **Worktree and `nm-test.sh` stacks share their images**: every slot stack and `nm-test.sh` run with the same

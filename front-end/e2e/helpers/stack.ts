@@ -7,7 +7,7 @@
  *
  * Three consumers import from here instead of maintaining their own detection
  * or hard-coded defaults:
- *   - `playwright.config.ts`                 (frontend port)
+ *   - `playwright.config.ts`                 (frontend port and URL)
  *   - `e2e/fixtures.ts`                      (BACKEND_URL)
  *   - `e2e/helpers/containerNames.ts`        (DB/backend container names)
  *
@@ -64,6 +64,16 @@ export interface StackIdentity {
   backendURL: string;
 }
 
+/** The front end a browser opens, at `port` on 127.0.0.1, never `localhost` (see above). */
+export function frontendURL(port: number): string {
+  return `http://127.0.0.1:${port}`;
+}
+
+/** The back end the suite calls, at `port` on 127.0.0.1, never `localhost` (see above). */
+export function backendURL(port: number): string {
+  return `https://127.0.0.1:${port}`;
+}
+
 function detectSlotFromCwd(): number | null {
   const cwd = process.cwd();
   const match = cwd.match(/\.treehouse\/[^/]+\/(\d+)\//);
@@ -81,7 +91,7 @@ function worktreeIdentity(slot: number): StackIdentity {
     mongoPort: 27017 + offset,
     backendContainerName: `${projectName}-backend`,
     mongoContainerName: `${projectName}-mongodb`,
-    backendURL: `https://127.0.0.1:${5001 + offset}`,
+    backendURL: backendURL(5001 + offset),
   };
 }
 
@@ -115,7 +125,7 @@ function ciIdentity(): StackIdentity {
     mongoPort: 27017,
     backendContainerName: `${projectName}-backend-1`,
     mongoContainerName: `${projectName}-mongodb-1`,
-    backendURL: 'https://127.0.0.1:5001',
+    backendURL: backendURL(5001),
   };
 }
 
@@ -149,7 +159,7 @@ export function detectStack(): StackIdentity {
       mongoPort: mongoPort || 27017 + offset,
       backendContainerName: `${composeProject}-backend`,
       mongoContainerName: `${composeProject}-mongodb`,
-      backendURL: `https://127.0.0.1:${backendPort}`,
+      backendURL: backendURL(backendPort),
     };
   }
 

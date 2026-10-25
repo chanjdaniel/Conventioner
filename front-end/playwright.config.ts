@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { stack } from './e2e/helpers/stack';
+import { frontendURL, stack } from './e2e/helpers/stack';
 
 const BASE_PORT = parseInt(process.env.FRONTEND_PORT ?? '', 10) || stack().frontendPort;
 
@@ -23,7 +23,7 @@ export default defineConfig({
     ? ciReporters
     : [['list'] as const, ['html', { open: 'never' }] as const],
   use: {
-    baseURL: `http://127.0.0.1:${BASE_PORT}`,
+    baseURL: frontendURL(BASE_PORT),
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'on',

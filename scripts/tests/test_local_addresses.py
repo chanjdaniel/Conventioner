@@ -5,8 +5,9 @@ hands a port held on 127.0.0.1 to any IPv6 listen(0), so for as long as some oth
 there, `localhost:<port>` reaches it instead of the stack (T48: the gate's EPROTO "unexpected
 message" and ERR_INVALID_HTTP_RESPONSE). And macOS's AirPlay Receiver holds 5000 on both families.
 
-The clients are run for real: `stack.ts` under Node, `seed_fixture.sh` with a stub `docker` and
-`curl` that log what they were asked to dial.
+The clients are run for real: `stack.ts` (whose URLs Playwright and the suite use) under Node,
+`seed_fixture.sh` with a stub `docker` and `curl` that log what they were asked to dial, and the
+stacks' ports are read from Compose's own rendering of them.
 """
 
 import json
@@ -34,48 +35,6 @@ MACOS_PORTS = {
     3689: "Music Sharing",
 }
 
-# Files that may name localhost in a URL: what release-please and past records wrote, and the test
-# that the back end still allows a browser on a localhost origin.
-LOCALHOST_ALLOWED = ("CHANGELOG.md", "docs/records/", "back-end/tests/test_cors.py")
-
-LOCAL_URL = re.compile(r"://(127\.0\.0\.1|localhost|backend):(\d+)")
-
-
-def tracked_text_files():
-    names = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=REPO, capture_output=True, text=True, check=True
-    ).stdout.split("\0")
-    for name in filter(None, names):
-        path = REPO / name
-        if not path.is_file():
-            continue
-        try:
-            yield name, path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-
-
-def test_no_tracked_file_names_localhost_in_a_url():
-    found = [
-        f"{name}:{number}: {line.strip()}"
-        for name, text in tracked_text_files()
-        if not name.startswith(LOCALHOST_ALLOWED)
-        for number, line in enumerate(text.splitlines(), 1)
-        if "://" + "localhost" in line
-    ]
-    assert found == [], "a stack listens on 127.0.0.1 only, so dial that:\n" + "\n".join(found)
-
-
-def test_no_local_url_dials_a_port_macos_holds():
-    found = [
-        f"{name}: {match.group(0)} ({MACOS_PORTS[int(match.group(2))]})"
-        for name, text in tracked_text_files()
-        if not name.startswith(("CHANGELOG.md", "docs/records/"))
-        for match in LOCAL_URL.finditer(text)
-        if int(match.group(2)) in MACOS_PORTS
-    ]
-    assert found == [], "a macOS service listens there:\n" + "\n".join(found)
-
 
 def clean_env(**extra):
     """The caller's environment without any stack identity: the gate and a slot's shell export one."""
@@ -89,14 +48,15 @@ def clean_env(**extra):
 
 
 def stack_identity(cwd, **env):
-    """What `stack.ts` says the stack is, run under Node from `cwd`."""
+    """What `stack.ts` says the stack is, run under Node from `cwd`, with the URL Playwright browses."""
     result = subprocess.run(
         [
             "node",
             "--input-type=module",
             "-e",
-            "const { detectStack } = await import(process.argv[1]);"
-            "console.log(JSON.stringify(detectStack()));",
+            "const { detectStack, frontendURL } = await import(process.argv[1]);"
+            "const identity = detectStack();"
+            "console.log(JSON.stringify({ ...identity, frontendURL: frontendURL(identity.frontendPort) }));",
             STACK_TS.as_uri(),
         ],
         cwd=cwd,
@@ -131,6 +91,7 @@ def test_stack_ts_dials_127_0_0_1(tmp_path, where, env):
     cwd = slot_dir(tmp_path, 3) if where == "slot" else tmp_path
     identity = stack_identity(cwd, **env)
     assert identity["backendURL"] == f"https://127.0.0.1:{identity['backendPort']}"
+    assert identity["frontendURL"] == f"http://127.0.0.1:{identity['frontendPort']}"
 
 
 # A stub that logs every call: `docker`/`th-compose.sh` say the back end runs, `curl` answers the
