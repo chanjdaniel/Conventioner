@@ -106,7 +106,7 @@ def _insert_unless_taken(user_doc: dict):
         return None
 
 
-# curl -k -X POST https://127.0.0.1:5000/register-user \
+# curl -k -X POST https://127.0.0.1:5001/register-user \
 #      -H "Content-Type: application/json" \
 #      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!", "organizations": []}'
 def register_user(bcrypt, request):

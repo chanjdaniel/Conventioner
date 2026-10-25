@@ -387,7 +387,7 @@ def get_user(email: str) -> Any:
 
 
 
-# curl -k -X POST https://127.0.0.1:5000/register-user \
+# curl -k -X POST https://127.0.0.1:5001/register-user \
 #   -H "Content-Type: application/json" \
 #   -d '{"email": "testemail@example.com", "password": "testpassword", "organizations": []}'
 @app.route("/register-user", methods=["POST"])

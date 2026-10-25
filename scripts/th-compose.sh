@@ -42,9 +42,9 @@
 #   4. Fail loud
 #
 # Port map per slot (offset = slot * 10):
-#   slot 1 -> mongo 27027  backend 5010  frontend 5183  mongo-express 8091
-#   slot 2 -> mongo 27037  backend 5020  frontend 5193  mongo-express 8101
-#   main   -> defaults     27017 / 5000 / 5173 / 8081
+#   slot 1 -> mongo 27027  backend 5011  frontend 5183  mongo-express 8091
+#   slot 2 -> mongo 27037  backend 5021  frontend 5193  mongo-express 8101
+#   main   -> defaults     27017 / 5001 / 5173 / 8081
 #
 set -euo pipefail
 
@@ -84,7 +84,7 @@ elif SLOT="$(printf '%s' "$WT" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#
   OFF=$((SLOT * 10))
   export COMPOSE_PROJECT_NAME="conventioner-$SLOT"
   export TH_MONGO_PORT=$((27017 + OFF))
-  export TH_BACKEND_PORT=$((5000 + OFF))
+  export TH_BACKEND_PORT=$((5001 + OFF))
   export TH_FRONTEND_PORT=$((5173 + OFF))
   export TH_MONGO_EXPRESS_PORT=$((8081 + OFF))
 else
@@ -135,7 +135,7 @@ running_ports() {
     fi
   done <<'PORTS'
 TH_MONGO_PORT mongodb 27017
-TH_BACKEND_PORT backend 5000
+TH_BACKEND_PORT backend 5001
 TH_FRONTEND_PORT frontend 5173
 TH_MONGO_EXPRESS_PORT mongo-express 8081
 PORTS

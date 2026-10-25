@@ -47,7 +47,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 
 - **Bring a worktree's stack up with `scripts/th-compose.sh up -d`**: email is off in it unless you pass `DISABLE_EMAIL=false`; mongo-express starts only with `--profile tools`.
   The primary checkout's plain `docker compose up -d` needs `DISABLE_EMAIL=true`, or the password-reset E2E 500s on the missing `RESEND_API_KEY`.
-  Every stack listens on `127.0.0.1` only.
+  Every stack listens on `127.0.0.1` only, so dial it there, never at `localhost` ([why](docs/TESTING.md#testing-gotchas)).
   A worktree's stack and ports come from its treehouse slot: [`scripts/README-treehouse.md`](scripts/README-treehouse.md).
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.

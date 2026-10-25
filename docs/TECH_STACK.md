@@ -205,7 +205,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
    - Health checks configured
 
 2. **Backend** - Flask API service
-   - Port: 5000 (HTTPS with adhoc certificate)
+   - Port: 5001 (HTTPS with adhoc certificate; not 5000, which macOS's AirPlay Receiver holds)
    - Hot-reload enabled
    - `back-end/` is bind-mounted into the container, so a `back-end/.env` is read by the running stack
 
@@ -296,7 +296,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Frontend
 - `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
-- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5000`; the compose file sets `https://backend:5000`)
+- `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
 - `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`). Opt-in, warns on every build it allows, and must never be set on a deployed build
 

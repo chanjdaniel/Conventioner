@@ -70,8 +70,10 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Optional: hosted TypeSafe helps read a Google Form's CSV. Unset means the rules alone.
       - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
+    # 5001, not Flask's 5000: macOS's AirPlay Receiver listens on 5000, so a client dialling it there
+    # can reach AirPlay instead of this stack.
     ports:
-      - "127.0.0.1:5000:5000"
+      - "127.0.0.1:5001:5001"
     volumes:
       - ./back-end:/app
       - backend_sessions:/app/flask_session
@@ -80,7 +82,7 @@ services:
         condition: service_healthy
     networks:
       - conventioner_network
-    command: flask run --host=0.0.0.0 --port=5000 --cert=adhoc
+    command: flask run --host=0.0.0.0 --port=5001 --cert=adhoc
 
   frontend:
     build:
@@ -89,7 +91,7 @@ services:
     restart: unless-stopped
     environment:
       - VITE_FLASK_HOST=/api
-      - VITE_BACKEND_URL=https://backend:5000
+      - VITE_BACKEND_URL=https://backend:5001
       - VITE_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY:-}
       # This stack is a local development one, and it says so - the same declaration the back end
       # makes with ALLOW_INSECURE_LOCAL_DEV. It is what lets the front end run with no reCAPTCHA

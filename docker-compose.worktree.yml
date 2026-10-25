@@ -77,7 +77,7 @@ services:
     restart: "no"
     labels: *team-labels
     ports: !override
-      - "127.0.0.1:${TH_BACKEND_PORT}:5000"
+      - "127.0.0.1:${TH_BACKEND_PORT}:5001"
     mem_limit: 768m
     cpus: 1
     pids_limit: 256

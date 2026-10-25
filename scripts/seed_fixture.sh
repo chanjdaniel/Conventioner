@@ -22,12 +22,12 @@ else
   SLOT="$(printf '%s' "$PROJECT_DIR" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#p')"
   if [[ "$SLOT" =~ ^[0-9]+$ ]] && [ -x "$PROJECT_DIR/scripts/th-compose.sh" ]; then
     DOCKER_CMD=("$PROJECT_DIR/scripts/th-compose.sh")
-    BACKEND_PORT=$((5000 + SLOT * 10))
+    BACKEND_PORT=$((5001 + SLOT * 10))
     FRONTEND_PORT=$((5173 + SLOT * 10))
     echo "Worktree slot: $SLOT (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
   else
     DOCKER_CMD=(docker compose)
-    BACKEND_PORT=5000
+    BACKEND_PORT=5001
     FRONTEND_PORT=5173
     echo "Primary checkout (default ports)"
   fi

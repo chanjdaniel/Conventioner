@@ -183,7 +183,7 @@ def test_every_port_is_published_on_loopback_with_the_ports_host_port(worktree_a
     if env:
         expected = {
             "mongodb": [("127.0.0.1", "41001", 27017)],
-            "backend": [("127.0.0.1", "41002", 5000)],
+            "backend": [("127.0.0.1", "41002", 5001)],
             "frontend": [("127.0.0.1", "41003", 5173)],
             # Docker picks a free host port when none is named.
             "mongo-express": [("127.0.0.1", "", 8081)],
@@ -191,7 +191,7 @@ def test_every_port_is_published_on_loopback_with_the_ports_host_port(worktree_a
     else:  # slot 3: offset 30
         expected = {
             "mongodb": [("127.0.0.1", "27047", 27017)],
-            "backend": [("127.0.0.1", "5030", 5000)],
+            "backend": [("127.0.0.1", "5031", 5001)],
             "frontend": [("127.0.0.1", "5203", 5173)],
             "mongo-express": [("127.0.0.1", "8111", 8081)],
         }
@@ -210,7 +210,7 @@ def test_auto_mode_leaves_every_host_port_empty_for_docker_to_pick():
 
     assert published(json.loads(result.stdout)) == {
         "mongodb": [("127.0.0.1", "", 27017)],
-        "backend": [("127.0.0.1", "", 5000)],
+        "backend": [("127.0.0.1", "", 5001)],
         "frontend": [("127.0.0.1", "", 5173)],
         "mongo-express": [("127.0.0.1", "", 8081)],
     }
@@ -275,7 +275,7 @@ def test_the_primary_stack_publishes_its_fixed_ports_on_loopback():
 
     assert published(json.loads(result.stdout)) == {
         "mongodb": [("127.0.0.1", "27017", 27017)],
-        "backend": [("127.0.0.1", "5000", 5000)],
+        "backend": [("127.0.0.1", "5001", 5001)],
         "frontend": [("127.0.0.1", "5173", 5173)],
         "mongo-express": [("127.0.0.1", "8081", 8081)],
     }
