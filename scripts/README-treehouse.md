@@ -137,13 +137,13 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
   `pids_limit` per service (mongodb 1g / 2 / 512, backend 768m / 1 / 256, frontend
   1g / 2 / 256, mongo-express 256m / 0.5 / 64), and MongoDB runs with
   `--wiredTigerCacheSizeGB 0.25`, since by default it sizes its cache from the host's
-  memory, not the container's. A full gate run's peaks are in
+  memory, not the container's. A full `nm-test.sh` run's peaks are in
   [`docs/TESTING.md`](../docs/TESTING.md#stack-limits); raise a limit there, with a
   measurement, if a stack is OOM-killed (`docker inspect -f '{{.State.OOMKilled}}'`).
 - **Every worktree shares its images.** The overlay runs `conventioner/backend:<tag>`
   and `conventioner/frontend:<tag>`, tagged by `scripts/image-tags.sh` with a hash of
-  the files each is built from, so every slot stack and gate run with the same
-  dependencies uses one image, and the source comes from the bind mounts.
+  the files each is built from, so every slot stack and `nm-test.sh` stack with the
+  same dependencies uses one image, and the source comes from the bind mounts.
   `th-compose.sh` builds an image only when none has its tag yet (`th-compose.sh
   ensure-images` does just that, starting nothing); `th-compose.sh build` always
   builds. The overlay never pulls them (`pull_policy: never`): `conventioner/*` on
