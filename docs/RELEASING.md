@@ -66,7 +66,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
 3. **Daniel deploys `main` by hand, once the Test workflow has passed on it**, with the Deploy workflow ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): Actions tab, Deploy, Run workflow on `main`, or `gh workflow run deploy.yml --ref main`.
    Nothing else deploys: no push, merge or PR, to any branch, creates or cancels a Vercel deployment, because each project's `vercel.json` switches Vercel's Git integration off for every branch (`git.deploymentEnabled: false`).
    Even a deployment the Ignored Build Step cancelled counted against the Hobby plan's daily deployment quota, which is why Git builds are off rather than cancelled.
-   `scripts/tests/test_deploys_by_hand.py` fails if either `vercel.json` loses that setting or the workflow gains a trigger other than `workflow_dispatch`.
+   `scripts/tests/test_deploys_by_hand.py` fails if either `vercel.json` loses that setting.
    The workflow deploys the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then checks `/healthz`, then deploys the front end (`makers-market-management-front-end`, `conventioner.io`) and checks a deep link.
    It deploys whatever `main` points at when it starts, and a run started from any other branch deploys nothing.
    It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
