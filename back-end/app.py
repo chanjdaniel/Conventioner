@@ -2225,4 +2225,5 @@ cleanup_sessions()
 # The app instance will be used by Vercel's Python runtime
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # 5001 as every other way the back end starts, not Flask's 5000: docs/TESTING.md says why.
+    app.run(debug=True, port=5001)
