@@ -738,13 +738,16 @@ test.describe('The template dialogs', () => {
     await expect(confirm).toContainText(
       `Replace the current 1 table type with 2 from “${template}”?`,
     );
+    // Each view change unmounts the focused button; focus follows the view, never to <body>.
+    await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused();
     await confirm.getByRole('button', { name: 'Cancel' }).click();
-    await expect(dialog.getByRole('button', { name: new RegExp(template) })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: new RegExp(template) })).toBeFocused();
     expect(await tableTypeNames(page)).toEqual(['Six-foot']);
 
     await dialog.getByRole('button', { name: new RegExp(template) }).click();
     await confirm.getByRole('button', { name: 'Replace Table Types' }).click();
     await expect(floorplan.templateLoadWindow).toBeHidden();
+    await expect(floorplan.templateLoadOpenBtn).toBeFocused();
     await expect(page.locator('.feedback-toast')).toHaveText(`Template “${template}” loaded.`);
     expect(await tableTypeNames(page)).toEqual(['Round', 'Eight-foot']);
   });
@@ -760,6 +763,7 @@ test.describe('The template dialogs', () => {
 
     await page.keyboard.press('Escape');
     await expect(floorplan.templateLoadWindow).toBeHidden();
+    await expect(floorplan.templateLoadOpenBtn).toBeFocused();
     expect(await tableTypeNames(page)).toEqual(['Six-foot']);
 
     await floorplan.templateLoadOpenBtn.click();

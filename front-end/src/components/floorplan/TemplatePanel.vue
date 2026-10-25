@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick, type ComponentPublicInstance } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import AppDialog from '@/components/AppDialog.vue';
@@ -92,6 +92,27 @@ async function fetchTemplates() {
   }
 }
 
+// ── Focus across the Load dialog's views ───────────────────
+// AppDialog moves focus in only when it opens. Swapping the list for the confirm view, and back,
+// unmounts the button that had focus, which drops it to <body>; closing unmounts the window.
+// Each move below puts focus where the keyboard user just was, or on the safe choice.
+const loadOpenBtn = ref<HTMLButtonElement | null>(null);
+const confirmCancelBtn = ref<HTMLButtonElement | null>(null);
+const templateCards = new Map<string, HTMLButtonElement>();
+
+function templateCardRef(id: string) {
+  return (el: Element | ComponentPublicInstance | null) => {
+    if (el instanceof HTMLButtonElement) templateCards.set(id, el);
+    else templateCards.delete(id);
+  };
+}
+
+/** After the DOM updates, which is also when the page behind stops being inert. */
+async function focusAfterUpdate(target: () => HTMLElement | null | undefined) {
+  await nextTick();
+  target()?.focus();
+}
+
 function openLoadDialog() {
   loadDialog.value = true;
   confirmOpen.value = false;
@@ -103,6 +124,8 @@ function openLoadDialog() {
 function selectTemplate(tpl: FloorplanTemplate) {
   selectedTemplate.value = tpl;
   confirmOpen.value = true;
+  // Cancel, not Replace: the replace cannot be undone, as AppDialog's destructive dialogs open.
+  focusAfterUpdate(() => confirmCancelBtn.value);
 }
 
 function confirmLoad() {
@@ -112,11 +135,14 @@ function confirmLoad() {
   confirmOpen.value = false;
   loadDialog.value = false;
   selectedTemplate.value = null;
+  focusAfterUpdate(() => loadOpenBtn.value);
 }
 
 function cancelConfirm() {
+  const chosen = selectedTemplate.value?.id;
   selectedTemplate.value = null;
   confirmOpen.value = false;
+  focusAfterUpdate(() => (chosen ? templateCards.get(chosen) : null));
 }
 
 function closeSaveDialog() {
@@ -132,6 +158,7 @@ function closeLoadDialog() {
   loadError.value = '';
   confirmOpen.value = false;
   selectedTemplate.value = null;
+  focusAfterUpdate(() => loadOpenBtn.value);
 }
 
 // ── Date formatting ─────────────────────────────────────────
@@ -164,7 +191,12 @@ function formatDate(dateStr: string): string {
       >
         Save as Template
       </button>
-      <button class="tp-btn tp-btn--load" title="Load a saved template" @click="openLoadDialog">
+      <button
+        ref="loadOpenBtn"
+        class="tp-btn tp-btn--load"
+        title="Load a saved template"
+        @click="openLoadDialog"
+      >
         Load Template
       </button>
     </div>
@@ -228,6 +260,7 @@ function formatDate(dateStr: string): string {
           <button
             v-for="tpl in templates"
             :key="tpl.id"
+            :ref="templateCardRef(tpl.id)"
             type="button"
             class="tp-template-card"
             @click="selectTemplate(tpl)"
@@ -260,7 +293,14 @@ function formatDate(dateStr: string): string {
           This will replace all existing table types. This action cannot be undone.
         </p>
         <div class="tp-dialog-actions">
-          <button type="button" class="btn btn--secondary" @click="cancelConfirm">Cancel</button>
+          <button
+            ref="confirmCancelBtn"
+            type="button"
+            class="btn btn--secondary"
+            @click="cancelConfirm"
+          >
+            Cancel
+          </button>
           <button type="button" class="btn btn--destructive" @click="confirmLoad">
             Replace Table Types
           </button>

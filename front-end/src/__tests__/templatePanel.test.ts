@@ -261,6 +261,41 @@ describe('Load Template', () => {
     expect(wrapper.get('.feedback-toast').text()).toBe('Template “Standard layout” loaded.');
   });
 
+  /*
+   * Each view change unmounts the button that had focus, and AppDialog moves focus in only when it
+   * opens; the library dialog's focus trap had hidden that. Without these moves a keyboard user is
+   * left on <body> after every choice.
+   */
+  it('keeps focus on the view: Cancel on confirm, the chosen card back on the list', async () => {
+    const OTHER: FloorplanTemplate = { ...STANDARD, id: 'tpl-other', name: 'Other layout' };
+    await opened([STANDARD, OTHER]);
+
+    cards()[1].click();
+    await flushPromises();
+    expect(document.activeElement).toBe(button('Cancel'));
+
+    button('Cancel').click();
+    await flushPromises();
+    expect(document.activeElement).toBe(cards()[1]);
+  });
+
+  it('gives focus back to Load Template once it closes, by Replace or by a close', async () => {
+    const wrapper = await opened();
+    const opener = wrapper.get('button.tp-btn--load').element;
+    cards()[0].click();
+    await flushPromises();
+    button('Replace Table Types').click();
+    await flushPromises();
+    expect(document.activeElement).toBe(opener);
+
+    await wrapper.get('button.tp-btn--load').trigger('click');
+    await flushPromises();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flushPromises();
+    expect(byTestId('floorplan-template-load-window')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('closes from the confirm view without replacing anything, and reopens on the list', async () => {
     const wrapper = await opened();
     cards()[0].click();

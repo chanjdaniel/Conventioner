@@ -45,6 +45,8 @@ The parent learns about a save through its own event, never through `close`: `Or
 **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be the whole irreversible action, and Cancel is a `type="button"`, so Enter there cancels.
 Any other dialog focuses its first enabled control, else its window.
 Focus skips `:disabled` controls, because `focus()` on a disabled element is a silent no-op; that left the create-market dialog opening with focus on `<body>` while its organization select loaded.
+`AppDialog` moves focus in only when it opens, and holds no focus trap, so a dialog that swaps one view for another moves focus itself: swapping unmounts the focused button and drops focus to `<body>`.
+Load Template focuses its confirm view's Cancel, then the chosen card again on Cancel, and gives focus back to its Load Template button when it closes ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)).
 
 **A field looks like a field.**
 A dialog's text input is the `.field` primitive ([the design language](../../design-system.md#the-primitive-layer)), which owns its height, padding, corners, type, focus and disabled state; nothing resets it (`all: unset` once left the market name as bare text).
@@ -78,7 +80,7 @@ With exactly one organization it names it rather than offering a select with one
   It keeps a floor of cover-painting files that falls on purpose as dialogs adopt the shell, since a dialog on `AppDialog` stops painting its own cover.
   `AppDialog` itself is pinned by name, because without that every dialog built on it would leave the rule's sight at once.
   It cannot see a cover painted from outside the component, by a shared stylesheet or a component library, and need not: the app installs no component library ([ADR 0015](../../adr/0015-the-app-owns-its-components.md)), since the floorplan's Edit Table Type, Save Template and Load Template dialogs, which were a library's and drew with no window and no scrim, moved onto `AppDialog` (T45).
-- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, a dialog opened from a dialog, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace).
+- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, a dialog opened from a dialog, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace, with focus following each view).
 
 ## What breaks it
 
