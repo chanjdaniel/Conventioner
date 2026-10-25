@@ -8,6 +8,7 @@ describes:
   - front-end/package.json
   - .nvmrc
   - docker-compose.yml
+  - front-end/vite.config.ts
 verified: 2026-10-25
 ---
 # Technology Stack
@@ -119,6 +120,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Build Tool
 - **Vite 8.3.5** - Next-generation frontend build tool, bundling with Rolldown
+  - Minifying keeps legal comments (`/*!` and `@license`, in [`vite.config.ts`](../front-end/vite.config.ts)), so the licence notices of copied icons and bundled libraries reach the shipped bundle ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - Fast development server with HMR
   - Production build optimization
   - Proxy configuration for API requests
@@ -135,7 +137,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - A dialog is [`AppDialog`](../front-end/src/components/AppDialog.vue) ([dialogs](implementation/conventions/dialogs.md)); controls are the primitives of [the design language](design-system.md#the-primitive-layer), `.btn`, `.field` and `.chip`, over native inputs
   - A widget that is hard to get right, a combobox, a date picker or a menu, would start from a headless library such as Reka UI; `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
-  - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt`
+  - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
 
 ### State Management

@@ -17,7 +17,7 @@ describes:
   - docker-compose.yml
   - scripts/real_data_check.py
   - .githooks/
-verified: 2026-10-24
+verified: 2026-10-25
 ---
 
 # Security invariants
