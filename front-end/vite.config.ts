@@ -59,6 +59,16 @@ export default defineConfig(({ command, mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
+    build: {
+      rolldownOptions: {
+        output: {
+          // Licence notices survive minifying, which drops every comment by default: the copied
+          // Lucide icons carry ISC's notice as a `/*! @license */` comment, and that licence (like
+          // the MIT notices of the libraries bundled here) asks for it in all copies.
+          comments: { legal: true, annotation: false, jsdoc: false },
+        },
+      },
+    },
     server: {
       hmr: true,
       watch: {

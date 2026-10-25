@@ -1,5 +1,12 @@
+<script setup lang="ts">
+/*! @license lucide-static v1.61.0 - ISC
+ * Lucide `list`, Copyright (c) 2026 Lucide Icons and Contributors.
+ * This source code is licensed under the ISC license; the full texts are in LICENSE-lucide.txt.
+ */
+</script>
+
 <template>
-  <!-- Lucide `list` (ISC, see LICENSE-lucide.txt), from lucide-static 1.61.0; 1em, so the font-size around it sizes it. -->
+  <!-- 1em, so the font-size around it sizes it; the licence is in the comment above, which the build keeps. -->
   <svg
     width="1em"
     height="1em"

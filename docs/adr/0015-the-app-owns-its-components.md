@@ -7,6 +7,7 @@ describes:
   - front-end/src/components/AppDialog.vue
   - front-end/src/components/icons/
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
+  - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
 verified: 2026-10-25
 sources:
   - T45
@@ -32,7 +33,8 @@ And the app already owned every one of those pieces: `AppDialog` is the product'
 The app owns its components and its icons, and depends on no component library or icon font.
 
 - A dialog is [`AppDialog`](../../front-end/src/components/AppDialog.vue); a text field is `.field`; a number is a native `<input type="number">`; a choice of a few is native radios in a `<fieldset>` with a `<legend>`.
-- An icon is a local SVG component in [`src/components/icons/`](../../front-end/src/components/icons/), drawing in `currentColor`; one copied from an icon set keeps that set's licence beside it, as the five Lucide icons (ISC) keep `LICENSE-lucide.txt`.
+- An icon is a local SVG component in [`src/components/icons/`](../../front-end/src/components/icons/), drawing in `currentColor`; one copied from an icon set keeps that set's licence beside it and in the bundle the app ships.
+  The five Lucide icons (ISC; `trash` also Feather's MIT) keep the full texts in `LICENSE-lucide.txt`, and each carries a `/*! @license` banner, as Lucide's own packages do, which the build keeps because [`vite.config.ts`](../../front-end/vite.config.ts) keeps legal comments when it minifies; [`theLucideNoticeReachesTheBundle.test.ts`](../../front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts) builds them with that configuration and reads the notice in the output.
 - PrimeVue, PrimeIcons and every `@primevue/*` and `@primeuix/*` package are gone: [`main.ts`](../../front-end/src/main.ts) installs no UI plugin, [`package.json`](../../front-end/package.json) names no UI kit, and [`theAppOwnsItsComponents.test.ts`](../../front-end/src/__tests__/theAppOwnsItsComponents.test.ts) fails if `package.json` or the lockfile brings one back.
 - If a screen ever needs a widget that is hard to get right, a combobox, a date picker or a popover menu, the first stop is a headless library such as Reka UI (MIT), styled with the app's own tokens; a data table would be TanStack Table.
   That is a decision for the day a screen needs one, and a styled kit, which brings its own design language, is not.
@@ -40,7 +42,8 @@ The app owns its components and its icons, and depends on no component library o
 ## Consequences
 
 - No licence or vendor exposure in the UI layer, and 43 kB less gzipped JavaScript and the 633 kB of icon-font files gone from the build.
-- Every dialog in the product follows the one dialog rule: Enter submits, Escape and the backdrop close, the page behind is inert, focus lands in the dialog.
+- Every dialog in the product follows the one dialog rule: Enter submits, Escape and the backdrop close, the page behind is inert, focus lands in the dialog and goes back to what opened it when it closes.
+- Keeping legal comments puts the bundled libraries' own `@license` banners (Vue's and others', MIT) back in the bundle too, about 2 kB more gzipped JavaScript in all; their licences ask for that as well.
 - The app keeps up nothing but its own code; the cost is that a new kind of control is the app's to build, held to its primitives and the [contrast contract](../design-system.md#the-contrast-contract).
 - The dimension fields lost thousands grouping ("1,800" is "1800"), which only PrimeVue's number field gave.
 - `everyTokenResolves.test.ts` exempts no library prefix any more: every `var(--x)` is the app's and must resolve.
