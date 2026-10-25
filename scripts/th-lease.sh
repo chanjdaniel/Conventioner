@@ -21,9 +21,18 @@ HOLDER="${1:-${TREEHOUSE_LEASE_HOLDER:-agent}}"
 # Lease a worktree (path -> stdout, banners -> stderr).
 path="$(cd "$REPO" && treehouse get --lease --lease-holder "$HOLDER")"
 
-# Pre-warm it (idempotent; fast on pool hits). Progress -> stderr. A pre-warm
-# hiccup must not lose the lease path - warn but still return it.
-if ! TREEHOUSE_DIR="$path" "$REPO/scripts/treehouse-setup.sh" 1>&2; then
+# Pre-warm it with the slot's own treehouse-setup.sh: the slot is cut from the latest base branch,
+# while this script runs from the checkout that called it (often the primary), which may be behind
+# and so hold an older pre-warm. A slot with no setup script of its own falls back to the caller's.
+setup="$path/scripts/treehouse-setup.sh"
+if [ ! -x "$setup" ]; then
+  echo "[treehouse] WARNING: $path has no scripts/treehouse-setup.sh of its own; pre-warming it with $REPO/scripts/treehouse-setup.sh" >&2
+  setup="$REPO/scripts/treehouse-setup.sh"
+fi
+
+# Idempotent; fast on pool hits. Progress -> stderr. A pre-warm hiccup must not lose the lease
+# path - warn but still return it.
+if ! TREEHOUSE_DIR="$path" "$setup" 1>&2; then
   echo "[treehouse] WARNING: pre-warm reported an error; worktree is leased at $path" >&2
 fi
 

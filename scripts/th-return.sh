@@ -30,10 +30,17 @@ done
 # Tear down only if a worktree path was given and it looks like a treehouse worktree with a
 # compose file. The slot's identity comes from its path alone: a stack identity the caller's
 # shell exported (`eval "$(th-compose.sh ports)"` for another stack) must not redirect it.
+# The teardown is the slot's own th-compose.sh, whose overlay is the one beside the slot's compose
+# file; this script runs from the checkout that called it (often the primary), which may be behind.
 if [ -n "$WT" ] && [ -f "$WT/docker-compose.yml" ] && command -v docker >/dev/null 2>&1; then
+  compose="$WT/scripts/th-compose.sh"
+  if [ ! -x "$compose" ]; then
+    echo "th-return: $WT has no scripts/th-compose.sh of its own; tearing it down with $REPO/scripts/th-compose.sh" >&2
+    compose="$REPO/scripts/th-compose.sh"
+  fi
   if ! err="$(env -u COMPOSE_PROJECT_NAME -u TH_PORTS -u TH_MONGO_PORT -u TH_BACKEND_PORT \
     -u TH_FRONTEND_PORT -u TH_MONGO_EXPRESS_PORT TH_DIR="$WT" \
-    "$REPO/scripts/th-compose.sh" down -v --remove-orphans 2>&1 >/dev/null)"; then
+    "$compose" down -v --remove-orphans 2>&1 >/dev/null)"; then
     printf '%s\n' "$err" >&2
     if [ -z "$FORCE" ]; then
       echo "th-return: teardown failed for $WT; the lease is kept (use --force to return it anyway)" >&2
