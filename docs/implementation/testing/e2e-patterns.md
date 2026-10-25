@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/e2e/global-setup.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -23,6 +23,7 @@ sources:
   - E34/F01/S01
   - E06/F01/S01
   - E33/F01/S01
+  - T45
 ---
 
 # E2E patterns

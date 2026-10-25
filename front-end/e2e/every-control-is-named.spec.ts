@@ -1,5 +1,7 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
-import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, LoginPage, FloorplanWorkflowPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { TablesPage } from './pages/TablesPage';
 import { namelessControls } from './helpers/accessibleNames';
@@ -13,6 +15,7 @@ import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { mongoEval } from './helpers/mongo';
+import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
 
 /**
  * Every control can be reached and named by assistive technology (bug 44; E26/F10/S03).
@@ -274,6 +277,68 @@ test('the floorplan choice is a dialog', async ({ authenticatedPage: page, reque
   await expect(dialog).toHaveAttribute('aria-modal', 'true');
   await expect(dialog.getByTestId('choose-path-manual')).toBeVisible();
   await expect(dialog.getByTestId('choose-path-floorplan')).toBeVisible();
+});
+
+test('every field of the floorplan table types has a name, in the form and the dialog', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Max Capacity was a `<label>` tied to no control, so its choice had no name (T45).
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const floorplan = new FloorplanWorkflowPage(page);
+  await floorplan.goto(marketId);
+  await floorplan.reachTableTypes(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'test-floorplan.png'),
+  );
+  await floorplan.tableTypeAddBtn.click();
+  await expect(page.getByRole('group', { name: 'Max Capacity' })).toBeVisible();
+  expect(await namelessControls(page), 'the add form').toEqual([]);
+  await floorplan.tableTypeCancelBtn.click();
+
+  await floorplan.addTableType('Six-foot', '1800', '750');
+  await floorplan.openTableTypeEdit('Six-foot');
+  const dialog = page.getByRole('dialog', { name: 'Edit Table Type' });
+  await expect(dialog.getByRole('group', { name: 'Max Capacity' })).toBeVisible();
+  expect(await namelessControls(page), 'the Edit Table Type dialog').toEqual([]);
+});
+
+test('every control of the floorplan template dialogs has a name, the list and the confirm too', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // One saved template, so Load Template has a list and a confirm view to walk (T45).
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const template = await seedFloorplanTemplate(request, BACKEND_URL, [
+    { id: 'round', name: 'Round', widthMm: 1500, heightMm: 1500, maxCapacity: 2, color: '#4A90D9' },
+  ]);
+  const floorplan = new FloorplanWorkflowPage(page);
+  await floorplan.goto(marketId);
+  await floorplan.reachSaveStep(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'test-floorplan.png'),
+  );
+
+  await floorplan.templateSaveOpenBtn.click();
+  await expect(floorplan.templateNameInput).toBeVisible();
+  expect(await namelessControls(page), 'Save Template').toEqual([]);
+  await page.keyboard.press('Escape');
+
+  await floorplan.templateLoadOpenBtn.click();
+  const card = floorplan.templateLoadWindow.getByRole('button', { name: new RegExp(template) });
+  await expect(card).toBeVisible();
+  expect(await namelessControls(page), 'Load Template, its list').toEqual([]);
+  await card.click();
+  await expect(page.getByRole('dialog', { name: 'Confirm Load' })).toBeVisible();
+  expect(await namelessControls(page), 'Load Template, its confirm view').toEqual([]);
 });
 
 test('every control of a vendor notes panel has a name, wherever it opens', async ({

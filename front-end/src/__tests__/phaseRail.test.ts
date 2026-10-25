@@ -6,7 +6,7 @@
  * unambiguously backwards edge in the machine.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
@@ -119,6 +119,40 @@ describe('the actions', () => {
         rail.get('[data-testid="phase-transition-archived"]').attributes('data-direction'),
       ).toBe('end');
     }
+  });
+
+  it('gives focus back to the menu button when a move it opened a confirm for is cancelled', async () => {
+    // The menu item that opened the confirm goes with the menu, so the dialog had nowhere to give
+    // focus back to (T45).
+    const rail = mount(PhaseRail, {
+      props: {
+        market: {
+          id: 'market-1',
+          name: 'Riverside',
+          phase: MarketPhase.Draft,
+          transitionBlockers: movesServedFrom(MarketPhase.Draft),
+        } as Market,
+      },
+      global: { stubs: { BlockerPanel: true } },
+      attachTo: document.body,
+    });
+    const more = rail.get<HTMLButtonElement>('[data-testid="phase-rail-menu-button"]').element;
+    more.focus();
+    more.click();
+    await flushPromises();
+    expect(document.activeElement?.getAttribute('role')).toBe('menuitem');
+
+    rail.get<HTMLButtonElement>('[data-testid="phase-transition-archived"]').element.click();
+    await flushPromises();
+    expect(document.querySelector('[data-testid="archive-confirm-window"]')).not.toBeNull();
+
+    document
+      .querySelector<HTMLButtonElement>('[data-testid="archive-confirm-cancel-button"]')!
+      .click();
+    await flushPromises();
+    expect(document.querySelector('[data-testid="archive-confirm-window"]')).toBeNull();
+    expect(document.activeElement).toBe(more);
+    rail.unmount();
   });
 
   it('offers nothing onward from the end', () => {

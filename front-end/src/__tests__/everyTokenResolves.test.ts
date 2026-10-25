@@ -40,14 +40,6 @@ const GLOBAL_CSS = ['assets/base.css', 'assets/main.css']
  */
 const LOCALLY_DEFINED = new Set(['--priority-columns', '--section-columns', '--tier-columns']);
 
-/**
- * PrimeVue's own theme tokens, defined by the library's stylesheet at runtime.
- *
- * Matched by prefix rather than listed: the set is the library's to change, and a list of them
- * here would be a second copy of someone else's palette. What this test owns is `--mm-*`.
- */
-const LIBRARY_PREFIX = /^--p-/;
-
 function sourceFiles(dir: string, extensions: string[]): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry);
@@ -81,9 +73,7 @@ describe('every custom property a rule reads is a property something defines', (
   it('resolves every reference', () => {
     const defined = definedProperties(GLOBAL_CSS);
     const dangling = references()
-      .filter(
-        (r) => !defined.has(r.name) && !LOCALLY_DEFINED.has(r.name) && !LIBRARY_PREFIX.test(r.name),
-      )
+      .filter((r) => !defined.has(r.name) && !LOCALLY_DEFINED.has(r.name))
       .map((r) => `${r.file} reads ${r.name}`);
 
     expect([...new Set(dangling)].sort()).toEqual([]);
@@ -93,10 +83,7 @@ describe('every custom property a rule reads is a property something defines', (
     // `var(--mm-red, #cc0000)` is how an undefined token rendered for months without anyone
     // noticing, and how `#cc0000` became the product's most-used red without being chosen.
     const withFallback = references()
-      // A library token legitimately takes one: it is defined by someone else's stylesheet, and
-      // the fallback is what renders before that stylesheet arrives. `--mm-*` is ours, and ours
-      // are defined in `base.css` unconditionally.
-      .filter((r) => r.hasFallback && !LIBRARY_PREFIX.test(r.name))
+      .filter((r) => r.hasFallback)
       .map((r) => `${r.file} falls back on ${r.name}`);
 
     expect([...new Set(withFallback)].sort()).toEqual([]);

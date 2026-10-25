@@ -6,7 +6,7 @@ describes:
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
   - front-end/.stylelintrc.json
-verified: 2026-10-22
+verified: 2026-10-25
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -34,6 +34,7 @@ sources:
   - E28/F04/S02
   - E15/F01/S02
   - T15
+  - T45
 ---
 
 # Conventioner's design language
@@ -264,6 +265,7 @@ Tokens alone cannot fix what is actually wrong. A `--radius-control` does not st
 
 Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Reach for a primitive rather than deciding again.
+They and `AppDialog` are the app's components: it installs no component library, and a widget too hard to own starts from a headless one styled with these tokens ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 
 | | Variants | Notes |
@@ -284,7 +286,7 @@ A convention nothing enforces is how the product got here. Three checks, in `E16
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
-   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 128 remaining warnings are the floorplan GUI, a beta.
+   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 118 remaining warnings are the floorplan GUI, a beta.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, `e2e/contrast-sweep.spec.ts`, walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".

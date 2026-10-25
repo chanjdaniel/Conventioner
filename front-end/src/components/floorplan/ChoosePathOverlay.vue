@@ -10,6 +10,8 @@
  * `handlePathChoice('manual')` does nothing but hide this.
  */
 import AppDialog from '@/components/AppDialog.vue';
+import IconImage from '@/components/icons/IconImage.vue';
+import IconList from '@/components/icons/IconList.vue';
 
 const emit = defineEmits<{
   select: [path: 'manual' | 'floorplan'];
@@ -31,7 +33,7 @@ const emit = defineEmits<{
            reaches each path as itself. -->
       <div class="path-card" data-testid="choose-path-manual" @click="emit('select', 'manual')">
         <span class="chip chip--positive path-badge">Recommended</span>
-        <i class="pi pi-list card-icon" aria-hidden="true" />
+        <IconList class="card-icon" />
         <h3 class="card-title">Manual setup</h3>
         <p class="card-desc">
           Name your sections, tiers and locations, and how many tables each holds.
@@ -54,7 +56,7 @@ const emit = defineEmits<{
         @click="emit('select', 'floorplan')"
       >
         <span class="chip chip--attention path-badge">Beta</span>
-        <i class="pi pi-image card-icon" aria-hidden="true" />
+        <IconImage class="card-icon" />
         <h3 class="card-title">From a floorplan</h3>
         <p class="card-desc">Upload your floor plan, set its scale, and place tables on it.</p>
         <ul class="card-features">

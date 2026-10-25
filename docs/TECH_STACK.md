@@ -131,13 +131,12 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Compile-time error checking
 
 ### UI Framework & Components
-- **PrimeVue 4.3.0** - Vue UI component library
-  - Held below 5 (see [Dependabot](implementation/testing/ci-and-the-gate.md#dependabot)): 5 is under the proprietary PrimeUI License
-  - Rich component set
-  - Theming support
-- **PrimeIcons 7.0.0** - Icon library
-  - Held below 8, for the same licence
-  - Comprehensive icon set
+- **The app's own components, on no component library** ([ADR 0015](adr/0015-the-app-owns-its-components.md))
+  - A dialog is [`AppDialog`](../front-end/src/components/AppDialog.vue) ([dialogs](implementation/conventions/dialogs.md)); controls are the primitives of [the design language](design-system.md#the-primitive-layer), `.btn`, `.field` and `.chip`, over native inputs
+  - A widget that is hard to get right, a combobox, a date picker or a menu, would start from a headless library such as Reka UI; `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
+- **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
+  - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt`
+  - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
 
 ### State Management
 - **Pinia 4.1.0** - Vue state management
