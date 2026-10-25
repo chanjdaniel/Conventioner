@@ -70,6 +70,9 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
+      // Where every local URL points (T48). Left to `localhost`, Vite listens on ::1 alone, which
+      // nothing dialling 127.0.0.1 reaches. The container's `--host 0.0.0.0` overrides it.
+      host: '127.0.0.1',
       hmr: true,
       watch: {
         usePolling: true,

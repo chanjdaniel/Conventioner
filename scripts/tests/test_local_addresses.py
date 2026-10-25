@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -41,7 +42,7 @@ def clean_env(**extra):
     env = {
         k: v
         for k, v in os.environ.items()
-        if not k.startswith(("COMPOSE_", "TH_", "TEAM_")) and k not in {"CI", "BACKEND_URL", "FRONTEND_PORT"}
+        if not k.startswith(("COMPOSE_", "TH_", "TEAM_")) and k not in {"CI", "BACKEND_URL", "FRONTEND_PORT", "FRONTEND_URL"}
     }
     env.update(extra)
     return env
@@ -146,8 +147,12 @@ def compose_available():
 compose = pytest.mark.skipif(not compose_available(), reason="docker compose is not installed")
 
 
-def published_ports(*compose_args, env=None):
-    """Each service's published host ports, as Compose renders the stack."""
+# The primary stack as a fresh checkout renders it: a developer's own untracked .env left out.
+PRIMARY = ("docker", "compose", "--env-file", os.devnull, "-f", "docker-compose.yml")
+
+
+def rendered(*compose_args, env=None):
+    """Each service as Compose renders the stack."""
     result = subprocess.run(
         [*compose_args, "config", "--format", "json"],
         cwd=REPO,
@@ -156,13 +161,18 @@ def published_ports(*compose_args, env=None):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    services = json.loads(result.stdout)["services"]
+    return json.loads(result.stdout)["services"]
+
+
+def published_ports(*compose_args, env=None):
+    """Each service's published host ports, as Compose renders the stack."""
+    services = rendered(*compose_args, env=env)
     return {name: [int(p["published"]) for p in svc.get("ports", []) if p.get("published")] for name, svc in services.items()}
 
 
 @compose
 def test_the_primary_stack_publishes_no_port_macos_holds():
-    ports = published_ports("docker", "compose", "-f", "docker-compose.yml", "--profile", "tools")
+    ports = published_ports(*PRIMARY, "--profile", "tools")
     held = {name: [p for p in published if p in MACOS_PORTS] for name, published in ports.items()}
     assert {name: p for name, p in held.items() if p} == {}
 
@@ -170,10 +180,16 @@ def test_the_primary_stack_publishes_no_port_macos_holds():
 @compose
 @node_available
 def test_the_clients_dial_the_ports_the_primary_stack_publishes(tmp_path):
-    ports = published_ports("docker", "compose", "-f", "docker-compose.yml")
+    ports = published_ports(*PRIMARY)
     identity = stack_identity(tmp_path, CI="1")
     assert (identity["backendPort"], identity["frontendPort"]) == (ports["backend"][0], ports["frontend"][0])
     assert seed_dials(tmp_path / "Conventioner", tmp_path) == {f"https://127.0.0.1:{ports['backend'][0]}"}
+
+
+@compose
+def test_the_primary_stack_s_email_links_point_at_127_0_0_1():
+    frontend_url = rendered(*PRIMARY)["backend"]["environment"]["FRONTEND_URL"]
+    assert urlsplit(frontend_url).hostname == "127.0.0.1", frontend_url
 
 
 @compose
