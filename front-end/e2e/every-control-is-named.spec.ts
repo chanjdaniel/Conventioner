@@ -15,6 +15,7 @@ import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
 import { mongoEval } from './helpers/mongo';
+import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
 
 /**
  * Every control can be reached and named by assistive technology (bug 44; E26/F10/S03).
@@ -304,6 +305,40 @@ test('every field of the floorplan table types has a name, in the form and the d
   const dialog = page.getByRole('dialog', { name: 'Edit Table Type' });
   await expect(dialog.getByRole('group', { name: 'Max Capacity' })).toBeVisible();
   expect(await namelessControls(page), 'the Edit Table Type dialog').toEqual([]);
+});
+
+test('every control of the floorplan template dialogs has a name, the list and the confirm too', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // One saved template, so Load Template has a list and a confirm view to walk (T45).
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const template = await seedFloorplanTemplate(request, BACKEND_URL, [
+    { id: 'round', name: 'Round', widthMm: 1500, heightMm: 1500, maxCapacity: 2, color: '#4A90D9' },
+  ]);
+  const floorplan = new FloorplanWorkflowPage(page);
+  await floorplan.goto(marketId);
+  await floorplan.reachSaveStep(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'test-floorplan.png'),
+  );
+
+  await floorplan.templateSaveOpenBtn.click();
+  await expect(floorplan.templateNameInput).toBeVisible();
+  expect(await namelessControls(page), 'Save Template').toEqual([]);
+  await page.keyboard.press('Escape');
+
+  await floorplan.templateLoadOpenBtn.click();
+  const card = floorplan.templateLoadWindow.getByRole('button', { name: new RegExp(template) });
+  await expect(card).toBeVisible();
+  expect(await namelessControls(page), 'Load Template, its list').toEqual([]);
+  await card.click();
+  await expect(page.getByRole('dialog', { name: 'Confirm Load' })).toBeVisible();
+  expect(await namelessControls(page), 'Load Template, its confirm view').toEqual([]);
 });
 
 test('every control of a vendor notes panel has a name, wherever it opens', async ({

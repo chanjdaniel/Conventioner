@@ -77,9 +77,8 @@ With exactly one organization it names it rather than offering a select with one
 - [`modalsHoldThePageInert.test.ts`](../../../front-end/src/__tests__/modalsHoldThePageInert.test.ts) finds every component whose own CSS paints a full-viewport cover and fails if one does not call `useInertBehind` or [`useModalRoot`](../../../front-end/src/utils/useModalRoot.ts).
   It keeps a floor of cover-painting files that falls on purpose as dialogs adopt the shell, since a dialog on `AppDialog` stops painting its own cover.
   `AppDialog` itself is pinned by name, because without that every dialog built on it would leave the rule's sight at once.
-  PrimeVue's modal `Dialog` is listed by name too: its mask is painted from the library's stylesheet, and its own focus trap covers it.
-  `TemplatePanel.vue` is the one file left on it; the Edit Table Type dialog moved onto `AppDialog` (T45), since with no PrimeVue theme installed its dialogs drew with no window and no scrim.
-- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, a dialog opened from a dialog, and the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres).
+  A library modal, whose mask is painted from the library's stylesheet, is pinned by name too, and the list is empty: the floorplan's Edit Table Type, Save Template and Load Template dialogs were PrimeVue's, and moved onto `AppDialog` (T45), since with no PrimeVue theme installed they drew with no window and no scrim.
+- [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives, in a browser, Enter in every dialog, focus on open, Manage organization staying open through saves and closing by its close control, the backdrop and Escape, a dialog opened from a dialog, the floorplan's Edit Table Type dialog (its window and scrim, Enter from any field, and a unit change that saves the same millimetres), and its template dialogs (Save Template's Enter through its guard, its three closes, and staying open through a save in flight; Load Template's list, its confirm view, Cancel back to the list, and Replace).
 
 ## What breaks it
 

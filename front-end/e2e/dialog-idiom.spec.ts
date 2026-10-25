@@ -13,6 +13,7 @@ import { ensureTestOrg, ensureTestOrgs, loginViaApi } from './helpers/seeds';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
+import { seedFloorplanTemplate } from './helpers/seedFloorplanTemplate';
 
 const FLOORPLAN_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -561,5 +562,207 @@ test.describe('The Edit Table Type dialog', () => {
 
     await expect(floorplan.tableTypeEditWindow).toBeHidden();
     await expect(card(page)).toContainText('1800×750 mm');
+  });
+});
+
+/**
+ * The floorplan's Save Template and Load Template dialogs are the product's dialog (T45).
+ *
+ * They were PrimeVue's, with no theme installed: both drew with no window and no scrim, over the
+ * save step's own controls.
+ */
+test.describe('The template dialogs', () => {
+  const ROUND = {
+    id: 'round',
+    name: 'Round',
+    widthMm: 1500,
+    heightMm: 1500,
+    maxCapacity: 2,
+    color: '#4A90D9',
+  };
+  const EIGHT_FOOT = {
+    ...ROUND,
+    id: 'eight-foot',
+    name: 'Eight-foot',
+    widthMm: 2400,
+    heightMm: 750,
+  };
+
+  async function reachTheSaveStep(
+    page: import('@playwright/test').Page,
+    request: import('@playwright/test').APIRequestContext,
+  ) {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const template = await seedFloorplanTemplate(request, BACKEND_URL, [ROUND, EIGHT_FOOT]);
+    const floorplan = new FloorplanWorkflowPage(page);
+    await floorplan.goto(marketId);
+    await floorplan.reachSaveStep(FLOORPLAN_PATH, 'Six-foot', '1800', '750');
+    return { floorplan, template };
+  }
+
+  /** The table types the workflow holds, by name. */
+  function tableTypeNames(page: import('@playwright/test').Page) {
+    return page.evaluate(() => {
+      type Store = { tableTypes: { name: string }[] };
+      const app = (
+        document.querySelector('#app') as unknown as {
+          __vue_app__: { config: { globalProperties: { $pinia: { _s: Map<string, Store> } } } };
+        }
+      ).__vue_app__;
+      return app.config.globalProperties.$pinia._s.get('floorplan')!.tableTypes.map((t) => t.name);
+    });
+  }
+
+  test('Save Template has a window and a scrim, and Enter saves through its guard', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { floorplan } = await reachTheSaveStep(page, request);
+    await floorplan.templateSaveOpenBtn.click();
+    const dialog = page.getByRole('dialog', { name: 'Save Template' });
+
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await expect(dialog.getByRole('heading', { name: 'Save Template' })).toBeVisible();
+    await expect(floorplan.templateNameInput).toBeFocused();
+    const painted = (el: Element) => getComputedStyle(el).backgroundColor;
+    expect(await floorplan.templateSaveWindow.evaluate(painted)).toBe('rgb(255, 255, 255)');
+    expect(await page.getByTestId('floorplan-template-save-background').evaluate(painted)).not.toBe(
+      'rgba(0, 0, 0, 0)',
+    );
+    const behindIsInert = await floorplan.saveOpenBtn.evaluate(
+      (el) => el.closest('[inert]') !== null,
+    );
+    expect(behindIsInert, 'the save step behind the dialog is still reachable').toBe(true);
+
+    // No name: Save is disabled, so Enter does nothing.
+    await expect(floorplan.templateSaveSubmitBtn).toBeDisabled();
+    await floorplan.templateNameInput.press('Enter');
+    await expect(floorplan.templateSaveWindow).toBeVisible();
+
+    const name = `Standard layout ${Date.now()}`;
+    await floorplan.templateNameInput.pressSequentially(name);
+    await floorplan.templateNameInput.press('Enter');
+    await expect(floorplan.templateSaveWindow).toBeHidden();
+    await expect(page.locator('.feedback-toast')).toHaveText(`Template “${name}” saved.`);
+
+    await floorplan.templateLoadOpenBtn.click();
+    await expect(
+      floorplan.templateLoadWindow.locator('.tp-template-card', { hasText: name }),
+    ).toContainText('1 table type');
+  });
+
+  test('Escape, the backdrop and the close control each close Save Template without saving', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { floorplan } = await reachTheSaveStep(page, request);
+
+    await floorplan.templateSaveOpenBtn.click();
+    await floorplan.templateNameInput.fill('Never saved');
+    await page.keyboard.press('Escape');
+    await expect(floorplan.templateSaveWindow).toBeHidden();
+
+    await floorplan.templateSaveOpenBtn.click();
+    await expect(floorplan.templateNameInput).toHaveValue('');
+    // A corner: the dialog is centred in the scrim, so a default click lands on the dialog.
+    await page
+      .getByTestId('floorplan-template-save-background')
+      .click({ position: { x: 8, y: 8 } });
+    await expect(floorplan.templateSaveWindow).toBeHidden();
+
+    await floorplan.templateSaveOpenBtn.click();
+    await page.getByTestId('floorplan-template-save-close-button').click();
+    await expect(floorplan.templateSaveWindow).toBeHidden();
+    await expect(page.locator('.feedback-toast')).toHaveCount(0);
+  });
+
+  test('Save Template stays open while its save is in flight, whatever closes it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { floorplan } = await reachTheSaveStep(page, request);
+    // The save is held until every close has been tried.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/floorplans/templates', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      await held;
+      await route.fallback();
+    });
+
+    await floorplan.templateSaveOpenBtn.click();
+    const name = `Held layout ${Date.now()}`;
+    await floorplan.templateNameInput.fill(name);
+    await floorplan.templateSaveSubmitBtn.click();
+    await expect(floorplan.templateSaveSubmitBtn).toHaveText('Saving…');
+    await expect(floorplan.templateSaveSubmitBtn).toBeDisabled();
+    await expect(floorplan.templateNameInput).toBeDisabled();
+
+    await page.keyboard.press('Escape');
+    await page
+      .getByTestId('floorplan-template-save-background')
+      .click({ position: { x: 8, y: 8 } });
+    await page.getByTestId('floorplan-template-save-close-button').click();
+    await page.getByTestId('floorplan-template-save-cancel-button').click();
+    await expect(floorplan.templateSaveWindow).toBeVisible();
+
+    release();
+    await expect(floorplan.templateSaveWindow).toBeHidden();
+    await expect(page.locator('.feedback-toast')).toHaveText(`Template “${name}” saved.`);
+  });
+
+  test('Load Template confirms a choice, Cancel goes back, and Replace replaces the types', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { floorplan, template } = await reachTheSaveStep(page, request);
+    await floorplan.templateLoadOpenBtn.click();
+    const dialog = page.getByRole('dialog', { name: 'Load Template' });
+
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    const card = dialog.getByRole('button', { name: new RegExp(template) });
+    await expect(card).toContainText('2 table types');
+    // The list loads after the dialog opens, so focus is on the window or what it now holds.
+    const focusInside = await floorplan.templateLoadWindow.evaluate((el) =>
+      el.contains(document.activeElement),
+    );
+    expect(focusInside, 'focus stayed on the page behind the dialog').toBe(true);
+
+    await card.click();
+    const confirm = page.getByRole('dialog', { name: 'Confirm Load' });
+    await expect(confirm).toContainText(
+      `Replace the current 1 table type with 2 from “${template}”?`,
+    );
+    await confirm.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog.getByRole('button', { name: new RegExp(template) })).toBeVisible();
+    expect(await tableTypeNames(page)).toEqual(['Six-foot']);
+
+    await dialog.getByRole('button', { name: new RegExp(template) }).click();
+    await confirm.getByRole('button', { name: 'Replace Table Types' }).click();
+    await expect(floorplan.templateLoadWindow).toBeHidden();
+    await expect(page.locator('.feedback-toast')).toHaveText(`Template “${template}” loaded.`);
+    expect(await tableTypeNames(page)).toEqual(['Round', 'Eight-foot']);
+  });
+
+  test('Escape closes Load Template from its confirm view without replacing anything', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { floorplan, template } = await reachTheSaveStep(page, request);
+    await floorplan.templateLoadOpenBtn.click();
+    await floorplan.templateLoadWindow.getByRole('button', { name: new RegExp(template) }).click();
+    await expect(page.getByRole('dialog', { name: 'Confirm Load' })).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(floorplan.templateLoadWindow).toBeHidden();
+    expect(await tableTypeNames(page)).toEqual(['Six-foot']);
+
+    await floorplan.templateLoadOpenBtn.click();
+    await expect(page.getByRole('dialog', { name: 'Load Template' })).toBeVisible();
   });
 });

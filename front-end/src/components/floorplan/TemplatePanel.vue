@@ -2,8 +2,7 @@
 import { ref, computed } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
-import Dialog from 'primevue/dialog';
-import InputText from 'primevue/inputtext';
+import AppDialog from '@/components/AppDialog.vue';
 import type { FloorplanTemplate } from '@/assets/types/datatypes';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -63,7 +62,7 @@ async function saveTemplate() {
         walkwayWidthMm: 2000,
       },
     });
-    showFeedback(`Template &ldquo;${templateName.value.trim()}&rdquo; saved.`, 'success');
+    showFeedback(`Template “${templateName.value.trim()}” saved.`, 'success');
     templateName.value = '';
     saveDialog.value = false;
   } catch (_e: unknown) {
@@ -109,7 +108,7 @@ function selectTemplate(tpl: FloorplanTemplate) {
 function confirmLoad() {
   if (!selectedTemplate.value) return;
   store.tableTypes = selectedTemplate.value.tableTypes.map((tt) => ({ ...tt }));
-  showFeedback(`Template &ldquo;${selectedTemplate.value.name}&rdquo; loaded.`, 'success');
+  showFeedback(`Template “${selectedTemplate.value.name}” loaded.`, 'success');
   confirmOpen.value = false;
   loadDialog.value = false;
   selectedTemplate.value = null;
@@ -121,6 +120,8 @@ function cancelConfirm() {
 }
 
 function closeSaveDialog() {
+  // A save in flight finishes before the dialog can go.
+  if (saving.value) return;
   saveDialog.value = false;
   saveError.value = '';
   templateName.value = '';
@@ -169,126 +170,103 @@ function formatDate(dateStr: string): string {
     </div>
 
     <!-- ── Save Dialog ─────────────────────────────────────── -->
-    <Dialog
-      v-model:visible="saveDialog"
-      header="Save Template"
-      :modal="true"
-      :closable="!saving"
-      :style="{ width: '420px' }"
-      class="tp-dialog"
-      @hide="closeSaveDialog"
+    <AppDialog
+      :open="saveDialog"
+      title="Save Template"
+      testid="floorplan-template-save"
+      :confirm-label="saving ? 'Saving…' : 'Save'"
+      :confirm-disabled="saving || !templateName.trim()"
+      :error="saveError"
+      @submit="saveTemplate"
+      @close="closeSaveDialog"
     >
-      <!-- A native form, the product's one Enter pattern (E20/F01/S03): Enter runs the same
-           handler the Save button does and is inert while that button is disabled. -->
-      <form class="tp-dialog-body" @submit.prevent="saveTemplate">
-        <p class="tp-dialog-desc">
-          Save the current <strong>{{ store.tableTypes.length }}</strong> table type{{
-            store.tableTypes.length === 1 ? '' : 's'
-          }}
-          as a reusable template.
-        </p>
+      <p class="tp-dialog-desc">
+        Save the current <strong>{{ store.tableTypes.length }}</strong> table type{{
+          store.tableTypes.length === 1 ? '' : 's'
+        }}
+        as a reusable template.
+      </p>
 
-        <div class="tp-field">
-          <label class="tp-label" for="template-name">Template name</label>
-          <InputText
-            id="template-name"
-            v-model="templateName"
-            class="tp-input"
-            placeholder="e.g. Standard Layout"
-            :maxlength="100"
-            :disabled="saving"
-          />
-        </div>
-
-        <p v-if="saveError" class="tp-error">{{ saveError }}</p>
-
-        <div class="tp-dialog-actions">
-          <button
-            type="button"
-            class="tp-btn tp-btn--secondary"
-            :disabled="saving"
-            @click="saveDialog = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="tp-btn tp-btn--primary"
-            :disabled="saving || !templateName.trim()"
-          >
-            <span v-if="saving" class="tp-spinner" />
-            {{ saving ? 'Saving&hellip;' : 'Save' }}
-          </button>
-        </div>
-      </form>
-    </Dialog>
+      <div>
+        <label class="field-label" for="template-name">Template name</label>
+        <input
+          id="template-name"
+          v-model="templateName"
+          type="text"
+          class="field"
+          placeholder="e.g. Standard Layout"
+          maxlength="100"
+          :disabled="saving"
+        />
+      </div>
+    </AppDialog>
 
     <!-- ── Load Dialog ─────────────────────────────────────── -->
-    <Dialog
-      v-model:visible="loadDialog"
-      :header="confirmOpen ? 'Confirm Load' : 'Load Template'"
-      :modal="true"
-      :style="{ width: '520px' }"
-      class="tp-dialog"
-      @hide="closeLoadDialog"
+    <AppDialog
+      :open="loadDialog"
+      :title="confirmOpen ? 'Confirm Load' : 'Load Template'"
+      testid="floorplan-template-load"
+      wide
+      :error="loadError"
+      @close="closeLoadDialog"
     >
-      <div class="tp-dialog-body">
-        <!-- Template list view -->
-        <template v-if="!confirmOpen">
-          <!-- Loading -->
-          <div v-if="loading" class="tp-loading">
-            <span class="tp-spinner-dark" />
-            Loading templates&hellip;
-          </div>
+      <!-- Template list view -->
+      <template v-if="!confirmOpen">
+        <!-- Loading -->
+        <div v-if="loading" class="tp-loading">
+          <span class="tp-spinner" />
+          Loading templates&hellip;
+        </div>
 
-          <!-- Error -->
-          <p v-else-if="loadError" class="tp-error">{{ loadError }}</p>
+        <!-- Empty -->
+        <p v-else-if="!loadError && templates.length === 0" class="tp-empty">
+          No templates saved yet.
+        </p>
 
-          <!-- Empty -->
-          <p v-else-if="templates.length === 0" class="tp-empty">No templates saved yet.</p>
+        <!-- Template list -->
+        <div v-else-if="!loadError" class="tp-template-list">
+          <button
+            v-for="tpl in templates"
+            :key="tpl.id"
+            type="button"
+            class="tp-template-card"
+            @click="selectTemplate(tpl)"
+          >
+            <div class="tp-template-card-main">
+              <span class="tp-template-name">{{ tpl.name }}</span>
+              <span class="tp-template-meta">
+                {{ tpl.tableTypes.length }} table type{{ tpl.tableTypes.length === 1 ? '' : 's' }}
+                <span class="tp-template-sep">&middot;</span>
+                {{ formatDate(tpl.createdAt) }}
+              </span>
+            </div>
+            <span class="tp-template-arrow">&rarr;</span>
+          </button>
+        </div>
+      </template>
 
-          <!-- Template list -->
-          <div v-else class="tp-template-list">
-            <button
-              v-for="tpl in templates"
-              :key="tpl.id"
-              class="tp-template-card"
-              @click="selectTemplate(tpl)"
-            >
-              <div class="tp-template-card-main">
-                <span class="tp-template-name">{{ tpl.name }}</span>
-                <span class="tp-template-meta">
-                  {{ tpl.tableTypes.length }} table type{{ tpl.tableTypes.length === 1 ? '' : 's' }}
-                  <span class="tp-template-sep">&middot;</span>
-                  {{ formatDate(tpl.createdAt) }}
-                </span>
-              </div>
-              <span class="tp-template-arrow">&rarr;</span>
-            </button>
-          </div>
-        </template>
-
-        <!-- Confirm replace view -->
-        <template v-else>
-          <p class="tp-confirm-text">
-            Replace the current <strong>{{ store.tableTypes.length }}</strong> table type{{
-              store.tableTypes.length === 1 ? '' : 's'
-            }}
-            with
-            <strong>{{ selectedTemplate?.tableTypes.length ?? 0 }}</strong>
-            from &ldquo;<strong>{{ selectedTemplate?.name }}</strong
-            >&rdquo;?
-          </p>
-          <p class="tp-confirm-warning">
-            This will replace all existing table types. This action cannot be undone.
-          </p>
-          <div class="tp-dialog-actions">
-            <button class="tp-btn tp-btn--secondary" @click="cancelConfirm">Cancel</button>
-            <button class="tp-btn tp-btn--danger" @click="confirmLoad">Replace Table Types</button>
-          </div>
-        </template>
-      </div>
-    </Dialog>
+      <!-- Confirm replace view -->
+      <template v-else>
+        <p class="tp-confirm-text">
+          Replace the current <strong>{{ store.tableTypes.length }}</strong> table type{{
+            store.tableTypes.length === 1 ? '' : 's'
+          }}
+          with
+          <strong>{{ selectedTemplate?.tableTypes.length ?? 0 }}</strong>
+          from &ldquo;<strong>{{ selectedTemplate?.name }}</strong
+          >&rdquo;?
+        </p>
+        <p class="tp-confirm-warning">
+          This will replace all existing table types. This action cannot be undone.
+        </p>
+        <div class="tp-dialog-actions">
+          <button type="button" class="btn btn--secondary" @click="cancelConfirm">Cancel</button>
+          <button type="button" class="btn btn--destructive" @click="confirmLoad">
+            Replace Table Types
+          </button>
+        </div>
+      </template>
+    </AppDialog>
   </div>
 </template>
 
@@ -344,23 +322,6 @@ function formatDate(dateStr: string): string {
   background: var(--mm-black);
 }
 
-.tp-btn--primary {
-  background: var(--mm-green);
-}
-
-.tp-btn--secondary {
-  background: var(--mm-border);
-  color: var(--mm-black);
-}
-
-.tp-btn--danger {
-  background: var(--mm-red);
-}
-
-.tp-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--mm-red) 85%, black);
-}
-
 /* ── Feedback toast ────────────────────────────────────────── */
 .feedback-toast {
   position: fixed;
@@ -400,127 +361,22 @@ function formatDate(dateStr: string): string {
   transform: translateX(-50%) translateY(12px);
 }
 
-/* ── PrimeVue Dialog overrides ─────────────────────────────── */
-:deep(.tp-dialog.p-dialog) {
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  border: 1px solid rgba(39, 35, 35, 0.18);
-}
-
-:deep(.tp-dialog .p-dialog-header) {
-  background: var(--mm-black);
-  color: #ffffff;
-  padding: 10px 16px;
-  min-height: 52px;
-  border-bottom: none;
-  border-radius: 0;
-}
-
-:deep(.tp-dialog .p-dialog-title) {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: #ffffff;
-}
-
-:deep(.tp-dialog .p-dialog-header-actions) {
-  display: flex;
-  align-items: center;
-}
-
-:deep(.tp-dialog .p-dialog-close-button) {
-  color: #ffffff;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  transition: background-color 0.15s ease;
-}
-
-:deep(.tp-dialog .p-dialog-close-button:hover) {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-:deep(.tp-dialog .p-dialog-content) {
-  padding: 20px;
-  background: #ffffff;
-  border-radius: 0;
-}
-
 /* ── Dialog body ───────────────────────────────────────────── */
-.tp-dialog-body {
-  display: flex;
-  flex-direction: column;
-}
-
+/* The dialog spaces its body; these carry no margins of their own. */
 .tp-dialog-desc {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
   line-height: 1.5;
 }
 
-/* ── Form field ────────────────────────────────────────────── */
-.tp-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.tp-label {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--mm-black);
-}
-
-:deep(.tp-input.p-inputtext) {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: 8px;
-  background: var(--mm-beige);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  box-shadow: none;
-  transition: border-color 0.15s ease-in-out;
-}
-
-:deep(.tp-input.p-inputtext:enabled:focus) {
-  border-color: var(--mm-green);
-  background: #ffffff;
-  box-shadow: none;
-}
-
-:deep(.tp-input.p-inputtext:disabled) {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-:deep(.tp-input.p-inputtext::placeholder) {
-  color: rgba(39, 35, 35, 0.4);
-}
-
-/* ── Dialog actions row ────────────────────────────────────── */
 .tp-dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--space-2);
 }
 
-/* ── Error / empty / loading ───────────────────────────────── */
-.tp-error {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
-  border: 1px solid var(--mm-yellow);
-  border-radius: 8px;
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-}
-
+/* ── Empty / loading ───────────────────────────────────────── */
 .tp-empty {
   margin: 0;
   font-size: var(--text-sm);
@@ -539,18 +395,8 @@ function formatDate(dateStr: string): string {
   color: var(--mm-black);
 }
 
-/* ── Spinners ──────────────────────────────────────────────── */
+/* ── Spinner ───────────────────────────────────────────────── */
 .tp-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: tp-spin 0.7s linear infinite;
-}
-
-.tp-spinner-dark {
   display: inline-block;
   width: 14px;
   height: 14px;
@@ -646,14 +492,14 @@ function formatDate(dateStr: string): string {
 
 /* ── Confirm view ──────────────────────────────────────────── */
 .tp-confirm-text {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
   line-height: 1.55;
 }
 
 .tp-confirm-warning {
-  margin: 0 0 4px;
+  margin: 0;
   padding: 10px 14px;
   background: color-mix(in srgb, var(--mm-yellow) 15%, transparent);
   border: 1px solid var(--mm-yellow);

@@ -89,6 +89,14 @@ export class FloorplanWorkflowPage {
   readonly saveSuccess: Locator;
   readonly saveError: Locator;
 
+  // Step 4: the template dialogs
+  readonly templateSaveOpenBtn: Locator;
+  readonly templateLoadOpenBtn: Locator;
+  readonly templateSaveWindow: Locator;
+  readonly templateNameInput: Locator;
+  readonly templateSaveSubmitBtn: Locator;
+  readonly templateLoadWindow: Locator;
+
   // Path choice (in MarketSetupView)
   readonly choosePathFloorplanCard: Locator;
 
@@ -152,6 +160,14 @@ export class FloorplanWorkflowPage {
     this.saveConfirmBtn = page.getByTestId('floorplan-save-confirm-btn');
     this.saveSuccess = page.getByTestId('floorplan-save-success');
     this.saveError = page.getByTestId('floorplan-save-error');
+
+    // Step 4: the template dialogs
+    this.templateSaveOpenBtn = page.getByRole('button', { name: 'Save as Template' });
+    this.templateLoadOpenBtn = page.getByRole('button', { name: 'Load Template' });
+    this.templateSaveWindow = page.getByTestId('floorplan-template-save-window');
+    this.templateNameInput = page.getByLabel('Template name');
+    this.templateSaveSubmitBtn = page.getByTestId('floorplan-template-save-submit-button');
+    this.templateLoadWindow = page.getByTestId('floorplan-template-load-window');
 
     // Path choice
     this.choosePathFloorplanCard = page.getByTestId('choose-path-floorplan');
@@ -391,12 +407,10 @@ export class FloorplanWorkflowPage {
   }
 
   /**
-   * Full floorplan workflow: upload, calibrate, add table type,
-   * auto-place, group sections, and save.
-   *
-   * Returns once the save has completed and navigated back to the market's setup screen.
+   * From the wizard's first step to its last: upload, calibrate, add a table type, auto-place and
+   * group the tables into a section. Returns on the save step, where the template dialogs are.
    */
-  async completeFloorplanWorkflow(
+  async reachSaveStep(
     fixturePath: string,
     tableTypeName: string = '6ft Table',
     tableWidth: string = '1800',
@@ -419,8 +433,33 @@ export class FloorplanWorkflowPage {
     await this.waitForNextEnabled();
     await this.clickNext();
 
-    // Step 4: Save
     await this.saveOpenBtn.waitFor({ state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Full floorplan workflow: upload, calibrate, add table type,
+   * auto-place, group sections, and save.
+   *
+   * Returns once the save has completed and navigated back to the market's setup screen.
+   */
+  async completeFloorplanWorkflow(
+    fixturePath: string,
+    tableTypeName: string = '6ft Table',
+    tableWidth: string = '1800',
+    tableHeight: string = '900',
+    sectionName: string = 'Main',
+    sectionLocation: string = 'Main Hall',
+  ): Promise<void> {
+    await this.reachSaveStep(
+      fixturePath,
+      tableTypeName,
+      tableWidth,
+      tableHeight,
+      sectionName,
+      sectionLocation,
+    );
+
+    // Step 4: Save
     await this.openSaveDialog();
     await this.confirmSave();
     await this.waitForSaveComplete();

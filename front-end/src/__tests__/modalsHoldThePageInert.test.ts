@@ -108,8 +108,9 @@ describe('every modal holds the page inert', () => {
 
   /**
    * The one shape the CSS rule cannot see, so it is pinned by name instead. A new library modal
-   * fails this and has to be looked at: today the answer is that PrimeVue's own focus trap covers
-   * it, and that answer should be re-checked rather than assumed for whatever arrives next.
+   * fails this and has to be looked at. There is none since the floorplan's template dialogs moved
+   * onto `AppDialog` (T45): with no PrimeVue theme installed, its dialogs drew with no window and no
+   * scrim.
    */
   it('accounts for the modals whose mask is painted from outside the component', () => {
     const libraryModals = vueFiles(SRC)
@@ -117,7 +118,7 @@ describe('every modal holds the page inert', () => {
       .map((file) => relative(SRC, file))
       .sort();
 
-    expect(libraryModals).toEqual(['components/floorplan/TemplatePanel.vue']);
+    expect(libraryModals).toEqual([]);
   });
 
   it('has no full-viewport cover that leaves the page behind it reachable', () => {

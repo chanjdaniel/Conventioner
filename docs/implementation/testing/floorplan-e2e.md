@@ -27,6 +27,8 @@ The fixture is [`front-end/e2e/fixtures/test-floorplan.png`](../../../front-end/
 
 [`FloorplanWorkflowPage`](../../../front-end/e2e/pages/FloorplanWorkflowPage.ts) is their page object, and `completeFloorplanWorkflow()` walks every step.
 `reachTableTypes()` stops at the table types (upload and calibrate), which is where [`dialog-idiom.spec.ts`](../../../front-end/e2e/dialog-idiom.spec.ts) drives the Edit Table Type dialog and [`every-control-is-named.spec.ts`](../../../front-end/e2e/every-control-is-named.spec.ts) walks the add form and that dialog (T45).
+`reachSaveStep()` goes on to the save step, with a table type placed and grouped, where the same two specs drive and walk the Save Template and Load Template dialogs; `completeFloorplanWorkflow()` is it plus the save.
+A template belongs to the user, not the market, and the suite shares one user, so Load Template's list grows with every run: a spec seeds its own with `seedFloorplanTemplate()` ([E2E seeds](e2e-seeds.md)) and finds it by the unique name that returns.
 The table-type fields are native inputs, found by their test ids.
 
 ## Which canvas steps are real gestures
