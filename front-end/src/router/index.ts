@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory, type NavigationGuard } from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
 import InitView from '@/views/InitView.vue';
@@ -210,27 +210,20 @@ const router = createRouter({
  * disagreed, so a signed-out person opening a password-reset or verification link was let in by
  * this guard and then sent to `/login` by the shell's failed probe before the page could be used.
  */
-router.beforeEach((to, _from, next) => {
+export const requireSignIn: NavigationGuard = (to) => {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
   // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
   // hop, since the dashboard's session probe clears it and comes back here.
-  if (user && to.path === '/login') {
-    next('/dashboard');
-    return;
-  }
+  if (user && to.path === '/login') return '/dashboard';
 
-  if (to.matched.some((record) => record.meta.public === true)) {
-    next();
-    return;
-  }
+  if (to.matched.some((record) => record.meta.public === true)) return true;
 
-  if (!user) {
-    next('/login');
-    return;
-  }
+  if (!user) return '/login';
 
-  next();
-});
+  return true;
+};
+
+router.beforeEach(requireSignIn);
 
 export default router;
