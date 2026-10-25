@@ -276,7 +276,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Backend
 - `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
-- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://localhost:5173`). Has no say in CORS
+- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://127.0.0.1:5173`). Has no say in CORS
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
 - `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused
@@ -286,7 +286,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `MONGODB_URI` - A full MongoDB connection string (production's Atlas cluster); when set, the five below are not read
-- `MONGODB_HOST` - MongoDB hostname (default: `localhost`; the compose file sets `mongodb`)
+- `MONGODB_HOST` - MongoDB hostname (default: `127.0.0.1`; the compose file sets `mongodb`)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)

@@ -23,7 +23,7 @@ def get_mongodb_client(server_selection_timeout_ms=None):
         return MongoClient(mongodb_uri, **options)
 
     # Fall back to individual connection parameters
-    mongodb_host = os.getenv('MONGODB_HOST', 'localhost')
+    mongodb_host = os.getenv('MONGODB_HOST', '127.0.0.1')
     mongodb_port = os.getenv('MONGODB_PORT', '27017')
     mongodb_user = os.getenv('MONGODB_USER', 'admin')
     mongodb_password = os.getenv('MONGODB_PASSWORD', 'secret')

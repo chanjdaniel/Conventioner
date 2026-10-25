@@ -77,7 +77,7 @@ function worktreeIdentity(slot: number): StackIdentity {
     mongoPort: 27017 + offset,
     backendContainerName: `${projectName}-backend`,
     mongoContainerName: `${projectName}-mongodb`,
-    backendURL: `https://localhost:${5000 + offset}`,
+    backendURL: `https://127.0.0.1:${5000 + offset}`,
   };
 }
 
@@ -111,7 +111,7 @@ function ciIdentity(): StackIdentity {
     mongoPort: 27017,
     backendContainerName: `${projectName}-backend-1`,
     mongoContainerName: `${projectName}-mongodb-1`,
-    backendURL: 'https://localhost:5000',
+    backendURL: 'https://127.0.0.1:5000',
   };
 }
 
@@ -119,8 +119,8 @@ const FAIL_LOUD_MESSAGE =
   'E2E stack identity could not be determined - refusing to guess.\n' +
   'In a treehouse worktree, run tests via `scripts/th-compose.sh` which\n' +
   'exports TH_BACKEND_PORT, TH_FRONTEND_PORT, and COMPOSE_PROJECT_NAME.\n' +
-  'Otherwise, set FRONTEND_PORT, BACKEND_URL (e.g. https://localhost:5173,\n' +
-  'https://localhost:5000) and E2E_BACKEND_CONTAINER /\n' +
+  'Otherwise, set FRONTEND_PORT, BACKEND_URL (e.g. https://127.0.0.1:5173,\n' +
+  'https://127.0.0.1:5000) and E2E_BACKEND_CONTAINER /\n' +
   'E2E_MONGO_CONTAINER explicitly.\n' +
   'A silent fallback to the primary stack corrupts shared databases\n' +
   'and produces meaningless test results.';
@@ -145,7 +145,7 @@ export function detectStack(): StackIdentity {
       mongoPort: mongoPort || 27017 + offset,
       backendContainerName: `${composeProject}-backend`,
       mongoContainerName: `${composeProject}-mongodb`,
-      backendURL: `https://localhost:${backendPort}`,
+      backendURL: `https://127.0.0.1:${backendPort}`,
     };
   }
 

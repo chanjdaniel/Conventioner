@@ -73,8 +73,10 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | frontend      | 5173                    | 5183   | 5193   |
 | mongo-express | 8081                    | 8091   | 8101   |
 
-Every port, the primary checkout's included, is published on `127.0.0.1` only: `localhost`
-reaches a stack, another machine on the network does not.
+Every port, the primary checkout's included, is published on `127.0.0.1` only, so another
+machine on the network does not reach a stack.
+Dial it at `127.0.0.1`, never `localhost`, which is tried as `::1` first: see
+[`docs/TESTING.md`](../docs/TESTING.md).
 mongo-express is in the overlay's `tools` profile, so a worktree's stack starts without it;
 start it with `scripts/th-compose.sh --profile tools up -d mongo-express`.
 In the explicit mode below, `TH_MONGO_EXPRESS_PORT` is optional: unset, Docker picks a free

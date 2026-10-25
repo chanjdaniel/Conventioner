@@ -377,9 +377,14 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.
   Its bind mounts never create a missing source either, so a stack whose worktree is gone fails to
   start instead of re-creating the worktree's folders as root.
-- **Every stack listens on `127.0.0.1` only**: the primary stack (`docker-compose.yml`) and every
-  worktree and `nm-test.sh` stack publish their ports on loopback, so `localhost` reaches them and
-  another machine on the network does not.
+- **Every stack listens on `127.0.0.1` only, so every client dials `127.0.0.1`, never `localhost`**:
+  the primary stack (`docker-compose.yml`) and every worktree and `nm-test.sh` stack publish their
+  ports on IPv4 loopback, so another machine on the network does not reach them.
+  Node and Chromium try `localhost` as `::1` first, and macOS gives a port held on `127.0.0.1` to
+  any program that listens on IPv6, so for as long as one does, `localhost:<port>` reaches it
+  instead of the stack: a gate run failed twice that way, for a few seconds, with EPROTO
+  "unexpected message" and `ERR_INVALID_HTTP_RESPONSE`.
+  `scripts/tests/test_local_addresses.py` fails on a URL that names `localhost`.
   mongo-express is not part of a worktree or `nm-test.sh` stack unless asked for:
   `scripts/th-compose.sh --profile tools up -d mongo-express` (the primary stack still starts it).
 - **Worktree and `nm-test.sh` stacks share their images**: every slot stack and `nm-test.sh` run with the same

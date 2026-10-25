@@ -61,7 +61,7 @@ services:
       - MONGODB_PASSWORD=secret
       - MONGODB_DB=conventioner
       - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - FRONTEND_URL=${FRONTEND_URL:-http://127.0.0.1:5173}
       - FROM_EMAIL=${FROM_EMAIL:-onboarding@resend.dev}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
       - DISABLE_CAPTCHA=${DISABLE_CAPTCHA:-}

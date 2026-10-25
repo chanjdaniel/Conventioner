@@ -23,7 +23,7 @@ export default defineConfig({
     ? ciReporters
     : [['list'] as const, ['html', { open: 'never' }] as const],
   use: {
-    baseURL: `http://localhost:${BASE_PORT}`,
+    baseURL: `http://127.0.0.1:${BASE_PORT}`,
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'on',

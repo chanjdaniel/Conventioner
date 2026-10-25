@@ -47,10 +47,10 @@ The easiest way to get started is using Docker Compose:
    docker compose up
   ```
 2. **Access the application**:
-  - Frontend: [http://localhost:5173](http://localhost:5173)
-  - Backend API: [https://localhost:5000](https://localhost:5000)
-  - MongoDB: localhost:27017
-  - mongo-express (database browser): [http://localhost:8081](http://localhost:8081), `admin` / `admin`
+  - Frontend: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+  - Backend API: [https://127.0.0.1:5000](https://127.0.0.1:5000)
+  - MongoDB: 127.0.0.1:27017
+  - mongo-express (database browser): [http://127.0.0.1:8081](http://127.0.0.1:8081), `admin` / `admin`
 
   Every port is published on `127.0.0.1` only, so the stack is reachable from this machine and
   not from the local network (it runs with fixed development credentials).
@@ -122,7 +122,7 @@ Conventioner/
 
 The application requires MongoDB to be running. The backend connects to:
 
-- **Host**: `localhost:27017` (or `mongodb` in Docker)
+- **Host**: `127.0.0.1:27017` (or `mongodb` in Docker)
 - **Database**: `conventioner`
 - **Authentication**: `admin:secret` (default development credentials)
 
@@ -269,11 +269,11 @@ cd front-end
 npm run dev
 ```
 
-The frontend will start on: **[http://localhost:5173](http://localhost:5173)** (or another port if 5173 is busy)
+The frontend will start on: **[http://127.0.0.1:5173](http://127.0.0.1:5173)** (or another port if 5173 is busy)
 
 ## Step 5: Access the Application
 
-1. Open your browser and navigate to: **[http://localhost:5173](http://localhost:5173)**
+1. Open your browser and navigate to: **[http://127.0.0.1:5173](http://127.0.0.1:5173)**
 2. Accept the SSL certificate warning if prompted (for the backend HTTPS connection)
 3. You should see the login page
 
@@ -449,7 +449,7 @@ It is idempotent, and `--dry-run` previews the changes without applying them.
 - Verify MongoDB is running: `mongosh --eval "db.adminCommand('ping')"`
 - Check connection configuration in `back-end/db_config.py`
 - Environment variables (or defaults): `MONGODB_HOST`, `MONGODB_PORT`, `MONGODB_USER`, `MONGODB_PASSWORD`
-- Default: `mongodb://admin:secret@localhost:27017/admin`
+- Default: `mongodb://admin:secret@127.0.0.1:27017/admin`
 
 **Port 5000 Already in Use**:
 

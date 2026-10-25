@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 RESEND_API_KEY_VAR = "RESEND_API_KEY"
 
-DEFAULT_FRONTEND_URL = "http://localhost:5173"
+DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
 DEFAULT_FROM_EMAIL = "onboarding@resend.dev"  # Default Resend email
 
 

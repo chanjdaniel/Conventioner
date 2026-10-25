@@ -33,8 +33,8 @@ else
   fi
 fi
 
-BACKEND_URL="https://localhost:${BACKEND_PORT}"
-FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
+BACKEND_URL="https://127.0.0.1:${BACKEND_PORT}"
+FRONTEND_URL="http://127.0.0.1:${FRONTEND_PORT}"
 
 cleanup() {
   rm -f "$COOKIE_JAR"
