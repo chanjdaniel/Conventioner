@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-10-26
+verified: 2026-10-27
 ---
 # Technology Stack
 
@@ -103,12 +103,12 @@ How each part of the code works is in the implementation layer of the [knowledge
 ## Frontend
 
 ### Node and npm are pinned
-- [`.nvmrc`](../.nvmrc) pins one Node, 24.19.0 (an LTS line), and with it the npm it bundles, 11.17.0; that npm writes the committed `front-end/package-lock.json`, and npm 10 rewrites it (it drops the `libc` fields)
-- Every place that runs the front end's npm runs that pin: each machine through nvm (`nvm install` in the repository reads `.nvmrc`), every `actions/setup-node` step in CI and the Deploy workflow (`node-version-file: .nvmrc`), and `front-end/Dockerfile` (`node:24.19.0-alpine`)
-- `front-end/package.json`'s `engines` says `node` `24.x` and `npm` `11.17.0`: npm warns (`EBADENGINE`) on an install under another version, and Vercel, which builds the production front end, reads the major from it (Vercel takes a major only, and an exact version there fails its build)
+- [`.nvmrc`](../.nvmrc) pins one Node, 24.22.1 (an LTS line), and with it the npm it bundles, 11.19.1; that npm writes the committed `front-end/package-lock.json`, and npm 10 rewrites it (it drops the `libc` fields)
+- Every place that runs the front end's npm runs that pin: each machine through nvm (`nvm install` in the repository reads `.nvmrc`), every `actions/setup-node` step in CI and the Deploy workflow (`node-version-file: .nvmrc`), and `front-end/Dockerfile` (`node:24.22.1-alpine`)
+- `front-end/package.json`'s `engines` says `node` `24.x` and `npm` `11.19.1`: npm warns (`EBADENGINE`) on an install under another version, and Vercel, which builds the production front end, reads the major from it (Vercel takes a major only, and an exact version there fails its build)
 - Three checks hold the pin, each where the version is used:
   - CI's `frontend-lint-and-types` job checks its Node is `.nvmrc`'s, installs with `npm ci --engine-strict` (which refuses an npm other than `engines.npm`), and checks an `npm install --package-lock-only` changes nothing in the lockfile
-  - `front-end/Dockerfile` installs with `npm ci --engine-strict`, which refuses a Node outside `24.x` or an npm other than `11.17.0`, so a base image that drifts from the pin and so bundles another npm fails the build
+  - `front-end/Dockerfile` installs with `npm ci --engine-strict`, which refuses a Node outside `24.x` or an npm other than `11.19.1`, so a base image that drifts from the pin and so bundles another npm fails the build
   - The treehouse pre-warm installs with `npm ci`, which never writes the lockfile, and warns when the machine's Node is not the pin ([the treehouse runbook](../scripts/README-treehouse.md))
 - `@types/node` follows the same Node major (`^24`), so a type check never accepts an API the running Node lacks; Dependabot holds its later majors ([Dependabot](implementation/testing/ci-and-the-gate.md#dependabot))
 - To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, with `@types/node`'s major when the Node major moves, and regenerate the lockfile with the new npm as its own commit
@@ -389,7 +389,7 @@ Conventioner/
 ## Version Information
 
 - **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
-- **Node.js**: 24.19.0, with npm 11.17.0 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
+- **Node.js**: 24.22.1, with npm 11.19.1 (`.nvmrc`; machines, CI and the front-end Dockerfile all run it, and Vercel the latest 24.x: [Node and npm are pinned](#node-and-npm-are-pinned))
 - **MongoDB**: 7
 - **Docker**: Latest stable version
 
