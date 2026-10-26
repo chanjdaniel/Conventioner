@@ -22,7 +22,7 @@ The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) 
 - `treehouse` on your PATH, at the version the team home pins in `machine/tools.lock`
   (not treehouse's `install.sh`, which installs the latest release, not the pin):
   `team-doctor` checks it, and its `tool treehouse` line's fix is the pinned install command.
-- Node 24.19.0, the one `.nvmrc` pins (`nvm install` in the repository), for the front-end, and Docker for the back-end
+- Node 24.22.1, the one `.nvmrc` pins (`nvm install` in the repository), for the front-end, and Docker for the back-end
 - Your own `.env`, `front-end/.env`, `back-end/.env` in the primary checkout
   (git-ignored; the pre-warm copies them into each worktree)
 

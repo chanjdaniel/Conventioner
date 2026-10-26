@@ -5,7 +5,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 
 ## Tech Stack
 
-- Front-end: Vue 3 + Vite + TypeScript (in `front-end/`), the app's own components and SVG icons with no component library ([ADR 0015](docs/adr/0015-the-app-owns-its-components.md)), Pinia state management; Node 24.19.0 and its npm, pinned in `.nvmrc` (`nvm install`).
+- Front-end: Vue 3 + Vite + TypeScript (in `front-end/`), the app's own components and SVG icons with no component library ([ADR 0015](docs/adr/0015-the-app-owns-its-components.md)), Pinia state management; Node 24.22.1 and its npm, pinned in `.nvmrc` (`nvm install`).
 - Back-end: Python 3.12 / Flask + MongoDB (in `back-end/`); `back-end/.python-version`, the Dockerfile and CI agree.
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.

@@ -16,7 +16,7 @@
 # the gate passes it, leaving Playwright to CI's required e2e shards
 # (docs/implementation/testing/ci-and-the-gate.md).
 #
-# Requires: Docker (not with --skip-e2e), Node.js 24.19.0 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
+# Requires: Docker (not with --skip-e2e), Node.js 24.22.1 (.nvmrc), Python 3.12 (back-end/.python-version; or set PYTHON_CMD).
 #
 set -euo pipefail
 
