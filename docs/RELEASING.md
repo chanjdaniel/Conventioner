@@ -62,7 +62,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
 2. **A maintainer promotes `dev` → `main`** as a fast-forward of a commit whose `dev` CI run passed: `git fetch origin && git push origin <sha>:main`.
    Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
    This is the **only** way code reaches `main`.
-   A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
+   A fast-forward puts exactly the commit CI tested on `dev` onto `main`; a merge or rebase would make a new commit nobody tested.
 3. **Daniel deploys `main` by hand, once the Test workflow has passed on it**, with the Deploy workflow ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)): Actions tab, Deploy, Run workflow on `main`, or `gh workflow run deploy.yml --ref main`.
    Nothing else deploys: no push, merge or PR, to any branch, creates or cancels a Vercel deployment, because each project's `vercel.json` switches Vercel's Git integration off for every branch (`git.deploymentEnabled: false`).
    Even a deployment the Ignored Build Step cancelled counted against the Hobby plan's daily deployment quota, which is why Git builds are off rather than cancelled.
@@ -125,14 +125,14 @@ Each version is now derived from the accumulated commits (`feat:` → minor, `fi
 The back end **refuses to start** unless all six of these are set, and it fails at import, so a deployment that is missing one serves nothing at all.
 The check is `check_public_endpoint_defenses()` in [`back-end/app.py`](../back-end/app.py); keep this table in step with it, because a deploy checklist that is wrong is worse than none: it will be trusted.
 Why each is required, and the rules around them, are the [security invariants](implementation/conventions/security-invariants.md).
-Set them in the hosting environment **before** promoting `dev` → `main`.
+Set them in the hosting environment **before** starting the Deploy workflow.
 The startup log names every variable that is missing, all of them at once.
 
-Two consequences of that are worth knowing before you promote, because both are easier to meet head-on than to be ambushed by:
+Two consequences of that are worth knowing before you deploy, because both are easier to meet head-on than to be ambushed by:
 
 1. **The app does not degrade without these - it does not boot.**
    The check runs at import, which on a serverless host (Vercel) means on *every cold start*.
-   A promotion that lands before the variables are set takes the deployment down rather than serving a weakened version of it.
+   A deploy started before the variables are set takes the deployment down rather than serving a weakened version of it.
    That is deliberate: each of these fails silently or unhelpfully when unset, and a deployment that half-works with its defenses off is the thing this check exists to prevent.
 2. **The first deploy necessarily signs with a new `SECRET_KEY`, which ends every organizer session that exists today.**
    There is no fallback key any more, and the old committed one is refused by name, so the key cannot be the one production is signing with right now.
@@ -210,7 +210,7 @@ Migrations are never run automatically - rewriting stored documents is a deliber
 Production was started that way on 2026-10-18, so the list below matters only for a database older than its code.
 Every script in `back-end/migrations/` is idempotent; the ones not described here (`migrate_roles`, `migrate_publishing_to_market_days`, `migrate_submitted_at_to_iso`, `migrate_tier_preference_per_date`, `migrate_table_code_separator`, `migrate_table_share_answer`) each say in their own docstring what they repair and when.
 
-Before a promotion reaches an older production database, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
+Before a deploy reaches an older production database, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
 
 ```bash
 python migrations/migrate_phase.py                    # backfills `phase` on existing markets
