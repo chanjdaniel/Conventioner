@@ -14,11 +14,12 @@ This file holds what nearly every session needs; everything else is in the knowl
 ## Branch Model
 
 - `dev` is the default/integration branch: all feature PRs target `dev`.
-- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and a green CI run on it deploys.
+- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and deployed from by hand only.
   Both branches require the five CI checks; after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
 - Never commit directly to `main`.
   Never open PRs targeting `main` (except the release-please Release PR, which is automated).
-- **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml` ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`); Vercel's own deploys of `main` are off.
+- **Promotion is a fast-forward, and only Daniel deploys, by hand**: `.github/workflows/deploy.yml` runs only on `workflow_dispatch` from `main`, shipping the back end, checking `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`).
+  No push, merge or PR deploys: both `vercel.json` files set `git.deploymentEnabled: false`; never start a deploy yourself.
   After an Instant Rollback, promote a build again or no deploy reaches the domain.
   A hotfix goes through `dev` when nothing unreleased waits there, else through a `hotfix/` branch from `main`.
   See [`docs/RELEASING.md#hotfixes`](docs/RELEASING.md#hotfixes).

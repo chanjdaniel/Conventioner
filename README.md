@@ -31,4 +31,4 @@ It runs in production at [conventioner.io](https://conventioner.io), first for t
 ## Contributing
 
 Work happens on branches into `dev` by pull request, with [Conventional Commits](https://www.conventionalcommits.org/); `dev` and `main` require CI to pass.
-`main` is reached only by promoting a green `dev` commit, and that is what deploys.
+`main` is reached only by promoting a green `dev` commit, and production is deployed from it only by hand, with the Deploy workflow.

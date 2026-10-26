@@ -1,9 +1,10 @@
 name: Deploy
 
-# Production moves only after the Test workflow passed on the very commit `main` now points at.
-# Vercel used to build every push to `main` itself, with nothing gating it on CI; both projects'
-# vercel.json now switch that off (`git.deploymentEnabled.main: false`), so this is the only way a
-# commit reaches conventioner.io.
+# Production moves only when Daniel starts this workflow by hand, from `main`: in the Actions tab
+# (Deploy, Run workflow) or with `gh workflow run deploy.yml --ref main`. No push, merge or PR
+# deploys anything. Vercel's Git integration is switched off for every branch in both projects'
+# vercel.json (`git.deploymentEnabled: false`), because each deployment it made, even one its
+# Ignored Build Step cancelled, counted against the Hobby plan's daily deployment quota.
 #
 # The builds still run on Vercel (`vercel deploy`, never `--prebuilt`): a bundle built on this
 # Ubuntu runner could carry Python wheels for a newer glibc than Vercel's runtime has, which is how
@@ -13,11 +14,6 @@ name: Deploy
 # could expose applicants' data; the production cluster's own daily snapshots are the backup.
 
 on:
-  workflow_run:
-    workflows: [Test]
-    types: [completed]
-    branches: [main]
-  # Redeploy a commit by hand, e.g. after rotating an environment variable.
   workflow_dispatch:
 
 # One production deploy at a time, in order; never cancel one halfway.
@@ -32,19 +28,14 @@ env:
 
 jobs:
   deploy:
-    # A Test run that went green on a push to main, or a hand-started run.
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+    # Only `main` is production; a run started from any other branch deploys nothing.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://conventioner.io
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Refuse to run half-configured
         run: |
