@@ -34,6 +34,12 @@ updates:
       # 6.0 still arrives as its own PR.
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
+      # Held 2026-10-26: @types/node describes one Node major, and .nvmrc pins Node 24, which every
+      # machine, CI and the front-end image run. Types for a later Node would let a config file or an
+      # E2E spec call an API that Node 24 lacks and still pass `type-check`. Not an upstream issue:
+      # move this major together with the Node pin (docs/TECH_STACK.md#node-and-npm-are-pinned).
+      - dependency-name: "@types/node"
+        versions: [">=25.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
