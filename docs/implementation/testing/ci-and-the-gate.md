@@ -11,7 +11,7 @@ describes:
   - scripts/th-compose.sh
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
-verified: 2026-10-26
+verified: 2026-10-27
 sources:
   - T47
   - T53
