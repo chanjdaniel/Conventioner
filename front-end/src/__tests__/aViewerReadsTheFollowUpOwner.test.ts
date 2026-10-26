@@ -15,6 +15,14 @@ import { ApplicationStatus, type Application, type Market } from '@/assets/types
 
 const fetchMarketApplications = vi.fn();
 
+// The review's own calls - a claim on the next card, the vendor's notes - answer nothing here,
+// rather than reaching for a server a unit test does not have.
+vi.mock('@/utils/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/api')>();
+  const answered = () => Promise.resolve({ data: {} });
+  return { ...actual, api: { get: answered, post: answered, put: answered, delete: answered } };
+});
+
 vi.mock('@/utils/applicantApi', () => ({
   fetchMarketApplications: (id: string) => fetchMarketApplications(id),
   reviewApplication: vi.fn(),
