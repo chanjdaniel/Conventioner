@@ -33,14 +33,14 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@tsconfig/node22": "^22.0.6",
-    "@types/node": "^22.10.7",
+    "@types/node": "^24.19.2",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vitejs/plugin-vue-jsx": "^5.1.6",
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.3.0",
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",
-    "eslint": "^9.18.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-vue": "^10.11.1",
     "happy-dom": "^21.0.4",
     "jiti": "^2.4.2",
@@ -49,10 +49,10 @@
     "prettier": "^3.9.10",
     "stylelint": "^17.15.0",
     "stylelint-config-html": "^2.0.0",
-    "typescript": "~5.9.3",
+    "typescript": "~6.0.3",
     "vite": "^8.3.5",
     "vite-plugin-vue-devtools": "^8.2.1",
-    "vitest": "^4.1.12",
-    "vue-tsc": "^2.2.0"
+    "vitest": "^5.0.5",
+    "vue-tsc": "^3.3.13"
   }
 }

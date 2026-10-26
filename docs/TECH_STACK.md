@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-10-25
+verified: 2026-10-26
 ---
 # Technology Stack
 
@@ -110,7 +110,8 @@ How each part of the code works is in the implementation layer of the [knowledge
   - CI's `frontend-lint-and-types` job checks its Node is `.nvmrc`'s, installs with `npm ci --engine-strict` (which refuses an npm other than `engines.npm`), and checks an `npm install --package-lock-only` changes nothing in the lockfile
   - `front-end/Dockerfile` installs with `npm ci --engine-strict`, which refuses a Node outside `24.x` or an npm other than `11.17.0`, so a base image that drifts from the pin and so bundles another npm fails the build
   - The treehouse pre-warm installs with `npm ci`, which never writes the lockfile, and warns when the machine's Node is not the pin ([the treehouse runbook](../scripts/README-treehouse.md))
-- To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, and regenerate the lockfile with the new npm as its own commit
+- `@types/node` follows the same Node major (`^24`), so a type check never accepts an API the running Node lacks; Dependabot holds its later majors ([Dependabot](implementation/testing/ci-and-the-gate.md#dependabot))
+- To move the pin, change `.nvmrc`, the Dockerfile's `FROM` and `engines` together, with `@types/node`'s major when the Node major moves, and regenerate the lockfile with the new npm as its own commit
 
 ### Core Framework
 - **Vue 3.5.44** - Progressive JavaScript framework
@@ -126,7 +127,7 @@ How each part of the code works is in the implementation layer of the [knowledge
   - Proxy configuration for API requests
 
 ### Language
-- **TypeScript 5.9.3** - Typed JavaScript
+- **TypeScript 6.0.3** - Typed JavaScript
   - Held below 7 (see [Dependabot](implementation/testing/ci-and-the-gate.md#dependabot)): 7.0 has no JavaScript API for `vue-tsc` and typescript-eslint
   - Type safety
   - Better IDE support
@@ -164,18 +165,18 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Konva 10** and **vue-konva 4** - The floorplan wizard's canvas
 
 ### Development Tools
-- **ESLint 9.18.0** - JavaScript/TypeScript linter
+- **ESLint 10.13.0** - JavaScript/TypeScript linter
   - Code quality enforcement
   - Vue-specific linting rules from `eslint-plugin-vue` 10 (its `flat/essential` set)
 - **Prettier 3.9.10** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
   - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
   - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
 - **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `.stylelintrc.json`
-- **Vue TSC 2.2.0** - TypeScript type checker for Vue
+- **Vue TSC 3.3.13** - TypeScript type checker for Vue
   - Type checking for Vue components
 
 ### Testing Tools
-- **Vitest 4** - Unit test runner
+- **Vitest 5** - Unit test runner
   - Runs component and utility unit tests (`npm run test:unit`)
   - Uses the `happy-dom` environment (configured in `vitest.config.ts`)
 - **@vue/test-utils 2** - Vue component testing utilities
