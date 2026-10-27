@@ -1,6 +1,14 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import {
+  Circle as VCircle,
+  Image as VImage,
+  Layer as VLayer,
+  Line as VLine,
+  Stage as VStage,
+  Text as VText,
+} from 'vue-konva';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import { canvasColor } from '@/utils/canvasColor';

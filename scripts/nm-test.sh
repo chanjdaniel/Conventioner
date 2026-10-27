@@ -207,6 +207,17 @@ npm ci
 npm run test:unit
 echo "Frontend unit tests: OK"
 
+# ── Bundle budget (hermetic) ─────────────────────────────────────────────────
+
+echo ""
+echo "===== Bundle Budget ====="
+
+# As CI's frontend-lint-and-types does: the entry JavaScript of a build with no captcha site key,
+# measured and never deployed (front-end/scripts/bundle-budget.ts).
+VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only
+npm run bundle-budget
+echo "Bundle budget: OK"
+
 # ── E2E tests (needs the stack) ──────────────────────────────────────────────
 
 echo ""

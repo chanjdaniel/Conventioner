@@ -205,6 +205,15 @@ jobs:
         run: npm run lint:css
       - name: Type-check (full repo)
         run: npm run type-check
+      # The JavaScript a first visit loads before any page paints stays under a gzipped limit,
+      # printed every run; scripts/bundle-budget.ts holds the limit and says how to raise it on
+      # purpose. This bundle is measured, never deployed, so it is built without a captcha site key.
+      - name: Build
+        env:
+          VITE_ALLOW_INSECURE_LOCAL_DEV: "true"
+        run: npm run build-only
+      - name: Bundle budget
+        run: npm run bundle-budget
 
   docker-build:
     runs-on: ubuntu-latest
