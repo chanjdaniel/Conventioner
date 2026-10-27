@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import AuthCard from '@/components/AuthCard.vue';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
@@ -64,69 +65,67 @@ const submitRequest = async () => {
 </script>
 
 <template>
-  <div class="container">
-    <div class="reset-window">
-      <h1>Reset your password</h1>
-      <p class="description">
-        Enter your email address and we'll send you a link to reset your password.
+  <AuthCard>
+    <h1>Reset your password</h1>
+    <p class="description">
+      Enter your email address and we'll send you a link to reset your password.
+    </p>
+
+    <form
+      @submit.prevent="submitRequest"
+      class="reset-form"
+      data-testid="password-reset-request-form"
+    >
+      <label class="field-label" for="reset-email">Email</label>
+      <input
+        id="reset-email"
+        type="email"
+        v-model="email"
+        placeholder="you@example.com"
+        class="field"
+        autocomplete="email"
+        required
+        :disabled="isLoading"
+        data-testid="password-reset-request-email-input"
+      />
+
+      <p
+        class="error-message"
+        role="alert"
+        v-show="errorMessage"
+        data-testid="password-reset-request-error-message"
+      >
+        {{ errorMessage }}
+      </p>
+      <p
+        class="success-message"
+        role="status"
+        v-show="successMessage"
+        data-testid="password-reset-request-success-message"
+      >
+        {{ successMessage }}
       </p>
 
-      <form
-        @submit.prevent="submitRequest"
-        class="reset-form"
-        data-testid="password-reset-request-form"
+      <button
+        type="submit"
+        class="btn btn--primary submit-button"
+        :disabled="isLoading"
+        data-testid="password-reset-request-submit-button"
       >
-        <label class="field-label" for="reset-email">Email</label>
-        <input
-          id="reset-email"
-          type="email"
-          v-model="email"
-          placeholder="you@example.com"
-          class="field"
-          autocomplete="email"
-          required
-          :disabled="isLoading"
-          data-testid="password-reset-request-email-input"
-        />
+        {{ isLoading ? 'Sending…' : 'Send reset link' }}
+      </button>
 
-        <p
-          class="error-message"
-          role="alert"
-          v-show="errorMessage"
-          data-testid="password-reset-request-error-message"
+      <div class="form-links">
+        <a
+          href="#"
+          @click.prevent="router.push('/login')"
+          class="link"
+          data-testid="password-reset-request-back-link"
+          >Back to sign in</a
         >
-          {{ errorMessage }}
-        </p>
-        <p
-          class="success-message"
-          role="status"
-          v-show="successMessage"
-          data-testid="password-reset-request-success-message"
-        >
-          {{ successMessage }}
-        </p>
-
-        <button
-          type="submit"
-          class="btn btn--primary submit-button"
-          :disabled="isLoading"
-          data-testid="password-reset-request-submit-button"
-        >
-          {{ isLoading ? 'Sending…' : 'Send reset link' }}
-        </button>
-
-        <div class="form-links">
-          <a
-            href="#"
-            @click.prevent="router.push('/login')"
-            class="link"
-            data-testid="password-reset-request-back-link"
-            >Back to sign in</a
-          >
-        </div>
-      </form>
-    </div>
-  </div>
+      </div>
+    </form>
+  </AuthCard>
 </template>
 
 <style scoped>
@@ -137,23 +136,6 @@ const submitRequest = async () => {
  * band of nothing in it, and an input 10px wider than its box, which painted over the box's right
  * border.
  */
-.container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.reset-window {
-  width: 600px;
-  background-color: white;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-8);
-}
-
 h1 {
   margin: 0;
 }
