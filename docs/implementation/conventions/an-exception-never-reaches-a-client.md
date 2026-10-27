@@ -89,6 +89,8 @@ It never names the path, the query string, the body or the view argument `vendor
 
 The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still their 400 with its own message, and anything else reaches the handler.
 
+Only those four reads have lost their own catch so far: every other route keeps its `except` ladder, and answers what it caught, until the next two changes migrate them.
+
 ## How it is enforced
 
 - [`test_an_exception_never_reaches_a_client.py`](../../../back-end/tests/test_an_exception_never_reaches_a_client.py) calls the real routes through the test client.
