@@ -33,6 +33,14 @@ describes:
   - back-end/app.py#save_review_highlights
   - back-end/app.py#save_rejection_rules
   - back-end/app.py#delete_market
+  - back-end/app.py#application_form_amendment_availability
+  - back-end/app.py#amend_application_form
+  - back-end/app.py#resume_application_form_amendment
+  - back-end/app.py#save_application_form
+  - back-end/app.py#get_application_form
+  - back-end/app.py#_named_phase
+  - back-end/app.py#transition_market
+  - back-end/app.py#pending_offers_count
   - back-end/api/markets.py#_load_market_for
   - back-end/api/markets.py#parsed_application_form
   - back-end/api/markets.py#create_owned_market
@@ -125,6 +133,11 @@ None catches anything, and each keeps its literal answers (`No data provided`, `
 Creating a market answers a body the model refuses with its field-named 400, a refusal the markets API decides (no organization, an address another market holds) with that refusal's status, and anything else, its one-owner invariant included, with the generic 500.
 Deleting a market that does not exist answers 404.
 
+So do the application form, amendment and phase routes: reading and saving the form, the amendment's availability, the amendment and its resume, the phase move and the pending-offers count.
+None catches anything, and each keeps its literal answers (`No data provided`, `applicationForm is required`, `to_phase is required`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
+A form saved in a phase that has fixed it answers its lock reason, 409; the amendment answers its blockers and a stall its resume offer from `body()`; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`.
+A stall is the one refusal logged: `_walk` in [`back-end/api/form_amendment.py`](../../../back-end/api/form_amendment.py) logs the market's id and where it stopped before it raises, because a market left between phases is worth a line for whoever is on call, and the handler logs no client error.
+
 Every other route keeps its `except` ladder, and answers what it caught, until the later changes migrate it.
 
 ## How it is enforced
@@ -134,6 +147,7 @@ Every other route keeps its `except` ladder, and answers what it caught, until t
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
   Each organization and market role route answers a refusal with its status and copy, an organization or market that does not exist with 404, and an injected exception with exactly the generic 500, logged with the organization or market id and no address.
   So does each market setup route, and creating a market answers its one-owner invariant with the generic 500 too.
+  So does each application form, amendment and phase route; a resume on a market that cannot be read answers `Invalid market data`, 400, a stall is logged with its market id and answered with its resume offer, and a phase that is not a name is unknown.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.

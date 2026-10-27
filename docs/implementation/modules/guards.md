@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -80,6 +80,7 @@ The registry is validated against the transition table and is for transitions, s
 **`Market.phase` is server-owned.**
 `create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft` and the form's `publishedAt` (`finalization_update`) and pushes the [phase record](phase-record.md)'s entry.
 A request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
+The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
 `walk_route` raises it naming the whole move, from the phase the walk began in to the last on its route, never the step it stopped at.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
 
