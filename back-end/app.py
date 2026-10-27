@@ -76,6 +76,7 @@ from utils.secret_key import (
     signing_secret,
 )
 from utils.identity import authenticated_email
+from utils.request_body import string_field
 from utils.session_storage import (
     ON_DISK,
     SESSION_FOLDER,
@@ -1608,9 +1609,9 @@ def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
 def public_attendance_undo(market_slug: str) -> Response:
     """Undo a check-in made on the wrong day, by slug + vendor email + date."""
     try:
-        data = request.json or {}
-        vendor_email = data.get('vendorEmail') or data.get('vendor_email') or ''
-        date = data.get('date') or ''
+        data = request.get_json(silent=True)
+        vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
+        date = string_field(data, 'date') or ''
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:
@@ -1630,9 +1631,9 @@ def public_attendance_undo(market_slug: str) -> Response:
 def public_attendance_checkin(market_slug: str) -> Response:
     """Public attendance check-in by slug + vendor email + date."""
     try:
-        data = request.json or {}
-        vendor_email = data.get('vendorEmail') or data.get('vendor_email') or ''
-        date = data.get('date') or ''
+        data = request.get_json(silent=True)
+        vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
+        date = string_field(data, 'date') or ''
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:

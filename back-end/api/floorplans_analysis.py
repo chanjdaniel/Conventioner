@@ -16,6 +16,7 @@ from flask_login import login_required
 from PIL import Image as PILImage
 
 from services.gridfs_service import get_image
+from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ def analyze_floorplan():
         if not data:
             return jsonify({"error": "No JSON body provided"}), 400
 
-        gridfs_id = data.get("gridfs_id")
+        gridfs_id = string_field(data, "gridfs_id")
         if not gridfs_id:
             return jsonify({"error": "gridfs_id is required"}), 400
 

@@ -15,6 +15,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from utils.identity import authenticated_email
+from utils.request_body import string_field
 
 from db_config import get_database
 from datatypes import MarketRole
@@ -68,7 +69,7 @@ def save_floorplan_to_market():
         if not data:
             return jsonify({"error": "Request body must be valid JSON"}), 400
 
-        market_id = data.get("market_id")
+        market_id = string_field(data, "market_id")
         floorplan = data.get("floorplan")
 
         if not market_id:
