@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# The one place zizmor's version and checksum live, for both zizmor jobs: a bump moves them together.
+env:
+  ZIZMOR_VERSION: 1.31.1
+  ZIZMOR_SHA256: d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -107,9 +112,6 @@ jobs:
   # fails the job; an accepted one is ignored on its own line with its audit and reason.
   zizmor:
     runs-on: ubuntu-latest
-    env:
-      ZIZMOR_VERSION: 1.31.1
-      ZIZMOR_SHA256: d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,9 +135,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      ZIZMOR_VERSION: 1.31.1
-      ZIZMOR_SHA256: d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -287,7 +286,7 @@ jobs:
               {
                 echo ""
                 echo ':warning: **'"$FLAKY"' test(s) passed only after retry.**'
-                echo "These tests failed on their first attempt and recovered on a retry —"
+                echo "These tests failed on their first attempt and recovered on a retry -"
                 echo "a genuine intermittent failure, not a clean pass. Each flaky test is"
                 echo "listed with its error in the Playwright run output above."
               } >> "$GITHUB_STEP_SUMMARY"
