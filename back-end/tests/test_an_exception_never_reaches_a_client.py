@@ -26,6 +26,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.added_vendors as AddedVendorsApi
+import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
@@ -748,6 +749,132 @@ class TestTheMarketSetupRoutes:
         assert method.upper() in record.getMessage()
         if "/markets/" in path:
             assert "market-123" in record.getMessage()
+        assert "example.com" not in caplog.text
+
+
+# Each application form, amendment and phase route, with a body it accepts and the function it
+# answers through.
+FORM_AND_PHASE_ROUTES = [
+    ("get", "/markets/market-123/application-form/amendment", None,
+     FormAmendmentApi, "amendment_availability"),
+    ("post", "/markets/market-123/application-form/amendment", {"applicationForm": {"fields": []}},
+     FormAmendmentApi, "amend_application_form"),
+    ("post", "/markets/market-123/application-form/amendment/resume", None,
+     FormAmendmentApi, "resume_amendment"),
+    ("put", "/markets/market-123/application-form", {"fields": []},
+     MarketsApi, "save_application_form"),
+    ("get", "/markets/market-123/application-form", None, MarketsApi, "get_application_form"),
+    ("post", "/markets/market-123/transition", {"toPhase": "offers"}, MarketsApi, "take_move"),
+    ("get", "/markets/market-123/pending-offers-count", None,
+     ApplicationsApi, "count_applications_with_status"),
+]
+
+
+class TestTheFormAndPhaseRoutes:
+    """Reading and saving the application form, amending it, moving the phase and counting the
+    pending offers answer through the handler: each refusal with the status and copy an organizer
+    reads, and anything else as the generic 500."""
+
+    def test_amending_the_form_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/application-form/amendment")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_an_amendment_needs_a_form(self, client):
+        response = client.post(
+            "/markets/market-123/application-form/amendment", json={"applicationForm": []},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "applicationForm is required"}
+
+    def test_resuming_on_a_market_that_cannot_be_read(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        response = client.post("/markets/market-123/application-form/amendment/resume")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+
+    def test_a_stalled_amendment_is_logged_with_its_market_and_answered_with_its_offer(
+        self, client, monkeypatch, caplog,
+    ):
+        use_market(monkeypatch, stored_market(
+            phase=MarketPhase.DRAFT,
+            formAmendment={"returnPhase": "applications_open", "startedAt": "2026-09-24T00:00:00Z"},
+        ))
+        monkeypatch.setattr(MarketsApi, "apply_phase_transition", fail_with(
+            MarketsApi.PhaseChangedUnderRequest("review", "draft", "applications_open"),
+        ))
+        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "resume_amendment")
+
+        with caplog.at_level(logging.WARNING):
+            response = client.post("/markets/market-123/application-form/amendment/resume")
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json()["canResume"] is True
+        [record] = [r for r in caplog.records if "stalled" in r.getMessage()]
+        assert "market-123" in record.getMessage()
+        assert "review" in record.getMessage()
+        assert [r for r in caplog.records if r.name == "client_errors"] == []
+
+    def test_a_form_past_draft_is_locked(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, MarketsApi, "save_application_form")
+
+        response = client.put("/markets/market-123/application-form", json={"fields": []})
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_a_form_saved_with_no_json_body_is_refused_in_words(self, client):
+        response = client.put(
+            "/markets/market-123/application-form",
+            data="fields=[]", content_type="text/plain",
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No data provided"}
+
+    def test_the_form_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/application-form")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    @pytest.mark.parametrize("to_phase", [7, ["offers"], {"phase": "offers"}])
+    def test_a_phase_that_is_not_a_name_is_unknown(self, client, to_phase):
+        response = client.post("/markets/market-123/transition", json={"toPhase": to_phase})
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith("Unknown phase: ")
+
+    def test_the_pending_offers_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/pending-offers-count")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    @pytest.mark.parametrize("method, path, body, api, function", FORM_AND_PHASE_ROUTES)
+    def test_an_unexpected_failure_answers_only_internal_server_error(
+        self, client, monkeypatch, caplog, method, path, body, api, function,
+    ):
+        monkeypatch.setattr(api, function, fail_with(RuntimeError(SECRET)))
+
+        with caplog.at_level(logging.ERROR):
+            response = call(client, method, path, body)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+        assert SECRET not in response.get_data(as_text=True)
+        assert "RuntimeError" not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert method.upper() in record.getMessage()
+        assert "market-123" in record.getMessage()
+        assert [r for r in caplog.records if SECRET in r.getMessage()] == []
         assert "example.com" not in caplog.text
 
 
