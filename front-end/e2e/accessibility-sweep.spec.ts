@@ -1,5 +1,5 @@
 import { test } from './fixtures';
-import { walkTheSweptStates, type Check } from './helpers/theSweptStates';
+import { walkTheScreens, type Check } from './helpers/screens';
 
 /**
  * Nothing axe can see fails WCAG A or AA, on any screen or state the sweeps walk.
@@ -15,5 +15,5 @@ const accessibilityTest = test.extend<{ check: Check }>({
 });
 
 test.describe('Nothing axe can see fails WCAG A or AA', () => {
-  walkTheSweptStates(accessibilityTest);
+  walkTheScreens(accessibilityTest, { everySize: false });
 });
