@@ -14,6 +14,7 @@ import api.form_amendment as Amend
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from conftest import stored_market
+from client_errors import BadRequestError, ForbiddenError
 from datatypes import MarketPhase
 
 FORM_WITH_A_FIELD = {
@@ -178,7 +179,7 @@ class TestItRefusesBeforeMovingAnything:
         fake = markets(MarketPhase.APPLICATIONS_OPEN)
         wrong = {"fields": [{**FORM_WITH_A_FIELD["fields"][0], "order": "first-of-all"}]}
 
-        with pytest.raises(ValueError) as refusal:
+        with pytest.raises(BadRequestError) as refusal:
             Amend.amend_application_form("market-123", wrong, "user-1")
 
         assert str(refusal.value).startswith("Invalid application form data: fields.0.order: ")
@@ -352,5 +353,5 @@ class TestPermission:
             lambda _u, _m, role, *_a, **_kw: role != MarketRole.ADMIN,
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             Amend.amend_application_form("market-123", FORM_WITH_A_FIELD, "user-1")

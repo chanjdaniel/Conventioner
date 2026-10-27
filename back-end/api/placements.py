@@ -56,11 +56,11 @@ class PlacementError(BadRequestError):
     """
 
 
-class AssignPhaseError(ConflictError, ValueError):
+class AssignPhaseError(ConflictError):
     """The assignment may not be run in this market's phase. A 409.
 
     A conflict with the market's state rather than a malformed request: the same call is correct
-    one transition earlier or later. Still a ``ValueError`` until no route catches one to answer it.
+    one transition earlier or later.
     """
 
 

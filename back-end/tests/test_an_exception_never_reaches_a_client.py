@@ -102,7 +102,7 @@ def fail_with(exception):
 
 
 class TestTheTypes:
-    """What a raise site gets to say, and which builtin refusals the unmigrated routes still catch."""
+    """What a raise site gets to say, and that a refusal is never mistaken for a builtin one."""
 
     def test_each_type_carries_its_status_and_its_copy(self):
         for error_type, status in (
@@ -114,37 +114,32 @@ class TestTheTypes:
             assert error.message == "Organization name required"
             assert error.body() == {"error": "Organization name required"}
 
-    def test_the_expand_keeps_the_builtin_bases_the_raise_sites_had(self):
-        assert issubclass(BadRequestError, ValueError)
-        assert issubclass(NotFoundError, ValueError)
-        assert issubclass(ForbiddenError, PermissionError)
-        assert not issubclass(ConflictError, (ValueError, PermissionError))
-
-    @pytest.mark.parametrize("refusal, client_error, builtin", [
-        (MarketsApi.MarketNotFoundError, NotFoundError, ValueError),
-        (MarketsApi.MarketArchivedError, ForbiddenError, PermissionError),
-        (MarketsApi.MoveUnavailable, BadRequestError, ValueError),
-        (MarketsApi.ApplicationFormLockedError, ConflictError, None),
-        (MarketsApi.PhaseChangedUnderRequest, ConflictError, None),
-        (PlacementsApi.PlacementError, BadRequestError, ValueError),
-        (PlacementsApi.SeatTakenError, BadRequestError, ValueError),
-        (PlacementsApi.AssignPhaseError, ConflictError, ValueError),
-        (AddedVendorsApi.AddVendorRefused, ConflictError, ValueError),
-        (AddedVendorsApi.AddVendorInvalid, BadRequestError, ValueError),
-        (FormAmendmentApi.AmendmentUnavailable, ConflictError, None),
-        (FormAmendmentApi.AmendmentRefused, ConflictError, None),
-        (FormAmendmentApi.AmendmentStalled, ConflictError, None),
-        (CsvStart.ConfirmRefused, ConflictError, ValueError),
-        (OrgsApi.OrganizationHasLiveMarkets, ConflictError, None),
+    @pytest.mark.parametrize("error_type", [
+        ClientError, BadRequestError, ForbiddenError, NotFoundError, ConflictError,
     ])
-    def test_the_domain_refusals_are_client_errors_with_their_old_bases(
-        self, refusal, client_error, builtin,
-    ):
+    def test_a_client_error_is_no_builtin_refusal(self, error_type):
+        assert not issubclass(error_type, (ValueError, PermissionError))
+
+    @pytest.mark.parametrize("refusal, client_error", [
+        (MarketsApi.MarketNotFoundError, NotFoundError),
+        (MarketsApi.MarketArchivedError, ForbiddenError),
+        (MarketsApi.MoveUnavailable, BadRequestError),
+        (MarketsApi.ApplicationFormLockedError, ConflictError),
+        (MarketsApi.PhaseChangedUnderRequest, ConflictError),
+        (PlacementsApi.PlacementError, BadRequestError),
+        (PlacementsApi.SeatTakenError, BadRequestError),
+        (PlacementsApi.AssignPhaseError, ConflictError),
+        (AddedVendorsApi.AddVendorRefused, ConflictError),
+        (AddedVendorsApi.AddVendorInvalid, BadRequestError),
+        (FormAmendmentApi.AmendmentUnavailable, ConflictError),
+        (FormAmendmentApi.AmendmentRefused, ConflictError),
+        (FormAmendmentApi.AmendmentStalled, ConflictError),
+        (CsvStart.ConfirmRefused, ConflictError),
+        (OrgsApi.OrganizationHasLiveMarkets, ConflictError),
+    ])
+    def test_the_domain_refusals_are_client_errors_and_nothing_else(self, refusal, client_error):
         assert issubclass(refusal, client_error)
-        if builtin is None:
-            assert not issubclass(refusal, (ValueError, PermissionError))
-        else:
-            assert issubclass(refusal, builtin)
+        assert not issubclass(refusal, (ValueError, PermissionError))
 
 
 class TestAMarketsApiRefusal:
@@ -1444,6 +1439,100 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         assert logged_as in record.getMessage()
         assert [r for r in caplog.records if SECRET in r.getMessage()] == []
         assert "example.com" not in caplog.text
+
+
+# Each organization and market role route that reads a body, with a body it accepts.
+ORGANIZATION_AND_ROLE_BODIES = [
+    ("post", "/organizations", {"name": "Night Market Co"}),
+    ("put", f"/organizations/{ORG_ID}", {"name": "Renamed"}),
+    ("post", f"/organizations/{ORG_ID}/admins", {"user_email": "admin@example.com"}),
+    ("post", f"/organizations/{ORG_ID}/members", {"user_email": "member@example.com"}),
+    ("post", f"/organizations/{ORG_ID}/transfer", {"new_owner_email": "next@example.com"}),
+    ("post", "/markets/market-123/roles", {"user_email": "editor@example.com", "role": "editor"}),
+    ("put", "/markets/market-123/roles/user-2", {"role": "viewer"}),
+]
+
+# Each route that reads an optional body as `{}` when there is none, with a body it accepts.
+OPTIONAL_BODIES = [
+    ("put", "/markets/market-123/name", {"name": "Autumn Market"}),
+    ("put", "/markets/market-123/vendor-notes/vendor@example.com", {"note": "Extra chair"}),
+    ("put", "/markets/market-123/vendor-notes/vendor@example.com/request-handled",
+     {"handled": True}),
+    ("put", "/markets/market-123/review-highlights", {"keys": ["business_name"]}),
+    ("put", "/markets/market-123/rejection-rules", {"rules": []}),
+    ("post", "/markets/market-123/application-form/amendment", {"applicationForm": {"fields": []}}),
+    ("post", "/markets/market-123/applications/verdicts",
+     {"status": "reviewer_approved", "applications": [{"id": "app-1"}]}),
+    ("post", "/markets/market-123/review/next", {}),
+    ("put", "/markets/market-123/applications/app-1/follow-up-owner",
+     {"ownerEmail": "editor@example.com"}),
+]
+
+
+class TestABodyThatIsNotAnObject:
+    """A route that reads a JSON object refuses anything else in words, 400: no body, a body that
+    is not JSON, or JSON that is a list, a string or a number. Never Werkzeug's HTML 415, and never
+    the generic 500 of an ``AttributeError``."""
+
+    @pytest.mark.parametrize("method, path, _body", ORGANIZATION_AND_ROLE_BODIES)
+    def test_an_organization_or_role_write_with_no_json_body(self, client, method, path, _body):
+        response = getattr(client, method)(path, data="name=Renamed", content_type="text/plain")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No data provided"}
+
+    @pytest.mark.parametrize("not_an_object", [["Renamed"], "Renamed", 7])
+    @pytest.mark.parametrize("method, path, _body", ORGANIZATION_AND_ROLE_BODIES)
+    def test_an_organization_or_role_write_whose_body_is_not_an_object(
+        self, client, method, path, _body, not_an_object,
+    ):
+        response = call(client, method, path, not_an_object)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    @pytest.mark.parametrize("not_an_object", [["Autumn Market"], "Autumn Market", 7])
+    @pytest.mark.parametrize("method, path, _body", OPTIONAL_BODIES)
+    def test_a_write_whose_body_is_not_an_object(
+        self, client, monkeypatch, method, path, _body, not_an_object,
+    ):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+
+        response = call(client, method, path, not_an_object)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    @pytest.mark.parametrize("name", [["Autumn Market"], {"en": "Autumn Market"}, 7])
+    def test_a_name_that_is_not_a_string_is_no_name(self, client, monkeypatch, name):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.DRAFT))
+
+        response = client.put("/markets/market-123/name", json={"name": name})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A market needs a name."}
+
+    @pytest.mark.parametrize("keys", ["business_name", {"business_name": True}, [7], 7])
+    def test_highlights_that_are_not_a_list_of_keys(self, client, keys):
+        response = client.put("/markets/market-123/review-highlights", json={"keys": keys})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "keys is required"}
+
+    def test_a_ticked_application_that_is_not_an_object_is_not_one_here(
+        self, client, monkeypatch,
+    ):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(ApplicationsApi, "find_application_by_id", lambda _id: None)
+
+        response = client.post("/markets/market-123/applications/verdicts", json={
+            "status": "reviewer_approved", "applications": ["app-1", 7, None],
+        })
+
+        assert response.status_code == 200
+        assert response.get_json() == {"written": [], "skipped": [
+            {"id": "", "email": None, "reason": "Not an application here."},
+        ] * 3}
 
 
 class TestAClientError:

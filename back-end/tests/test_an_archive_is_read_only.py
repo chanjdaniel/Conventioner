@@ -15,6 +15,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
+from client_errors import ForbiddenError
 from datatypes import MarketPhase
 
 OWNER_EMAIL = "owner@example.com"
@@ -60,9 +61,10 @@ def test_every_write_is_refused_and_nothing_is_written(archived, write):
     assert archived.last_update is None
 
 
-def test_the_refusal_is_a_permission_error_so_every_route_answers_403():
-    """Each write route already maps ``PermissionError`` to a 403 carrying its words."""
-    assert issubclass(MarketsApi.MarketArchivedError, PermissionError)
+def test_the_refusal_is_a_forbidden_error_so_every_route_answers_403():
+    """The error handler answers a ``ForbiddenError`` 403 with its own words, on every route."""
+    assert issubclass(MarketsApi.MarketArchivedError, ForbiddenError)
+    assert MarketsApi.MarketArchivedError.status == 403
 
 
 @pytest.mark.parametrize("phase", [p for p in MarketPhase if p is not MarketPhase.ARCHIVED])

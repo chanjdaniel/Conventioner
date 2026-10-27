@@ -40,10 +40,8 @@ IGNORE_VALUE = "__ignore__"
 CHOICE_TYPES = ("select", "multi_select")
 
 
-class ConfirmRefused(ConflictError, ValueError):
-    """The request cannot be written as it stands; the message says why. A 409.
-
-    Still a ``ValueError`` until no caller catches one to answer it."""
+class ConfirmRefused(ConflictError):
+    """The request cannot be written as it stands; the message says why. A 409."""
 
 
 def _ledger_rows(columns: List[Dict[str, Any]]) -> Dict[int, List[int]]:

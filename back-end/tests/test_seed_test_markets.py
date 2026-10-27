@@ -12,8 +12,10 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from assignment.utils import convert_keys_to_snake_case  # noqa: E402
+from client_errors import BadRequestError, ForbiddenError  # noqa: E402
 from datatypes import ApplicationForm, IntakeMode, MarketPhase, SetupObject  # noqa: E402
 from guards import evaluate_transition  # noqa: E402
+import pytest  # noqa: E402
 import seed_test_markets as seeder  # noqa: E402
 from conftest import client_market  # noqa: E402
 
@@ -52,3 +54,30 @@ def test_nothing_it_writes_names_a_person():
                     seeder.TEST_FORM_FIELDS))
 
     assert "@" not in written
+
+
+@pytest.mark.parametrize("refusal", [
+    BadRequestError("Invalid plan: sections: Field required"),
+    ForbiddenError("User does not have permission to edit this market"),
+    seeder.SeedError("No account for someone. Make one with create_account.py first."),
+])
+def test_a_refused_write_is_said_as_not_done(monkeypatch, capsys, refusal):
+    """The operator reads the refusal's own words, never a traceback."""
+    def refuse(_owner):
+        raise refusal
+
+    monkeypatch.setattr(seeder, "seed_test_markets", refuse)
+
+    assert seeder.main(["--owner", "owner@example.test"]) == 1
+    assert capsys.readouterr().err == f"Not done: {refusal}\n"
+
+
+def test_anything_else_is_a_bug_and_escapes(monkeypatch):
+    """A library's ``ValueError`` is not one of the product's refusals, so it is not said as one."""
+    def fail(_owner):
+        raise ValueError("a library's own words")
+
+    monkeypatch.setattr(seeder, "seed_test_markets", fail)
+
+    with pytest.raises(ValueError):
+        seeder.main(["--owner", "owner@example.test"])

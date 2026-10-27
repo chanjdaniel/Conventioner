@@ -97,6 +97,7 @@ class TestWhoMayReadAndWrite:
         return install
 
     def test_a_viewer_reads_and_cannot_write(self, market):
+        from client_errors import ForbiddenError
         from datatypes import MarketRole
 
         api = market(role=MarketRole.VIEWER)
@@ -104,9 +105,9 @@ class TestWhoMayReadAndWrite:
 
         assert api.get_vendor_notes("market-123", "viewer@example.com")["ana@example.com"]["note"] \
             == "Chair"
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             api.save_vendor_note("market-123", "ana@example.com", "Mine", "viewer@example.com")
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             api.mark_vendor_request_handled("market-123", "ana@example.com", True, "v@example.com")
 
     def test_an_editor_writes(self, market):
@@ -118,10 +119,11 @@ class TestWhoMayReadAndWrite:
         assert (note["note"], note["requestHandledBy"]) == ("Chair given", "door@example.com")
 
     def test_an_archived_market_refuses_a_write(self, market):
+        from client_errors import ForbiddenError
         from datatypes import MarketPhase
 
         api = market(phase=MarketPhase.ARCHIVED)
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             api.save_vendor_note("market-123", "ana@example.com", "Late", "org@example.com")
 
 

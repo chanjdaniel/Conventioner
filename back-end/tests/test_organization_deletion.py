@@ -16,6 +16,7 @@ import pytest
 
 import api.organizations as OrgsApi
 import deletion_trail as DeletionTrail
+from client_errors import ForbiddenError
 from datatypes import MarketPhase
 
 OWNER_ID = "user-1"
@@ -254,7 +255,7 @@ class TestTheConfirmationCanSayWhatItDestroys:
             lambda _email: SimpleNamespace(id="somebody-else", email="other@example.com"),
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             OrgsApi.organization_deletion_preview(ORG_ID, "other@example.com")
 
 

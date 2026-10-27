@@ -42,20 +42,19 @@ class ClientError(Exception):
         return {"error": self.message}
 
 
-# During the expand each type also keeps the builtin base its raise sites raised before, so a route
-# ladder not yet migrated (`except ValueError`, `except PermissionError`) still catches it and answers
-# as it did. The contract drops them once no route catches to answer.
+# No client error is a builtin refusal too: an `except ValueError` meant for a library's failure never
+# catches one, and a library's `ValueError` is never answered as one.
 
 
-class BadRequestError(ClientError, ValueError):
+class BadRequestError(ClientError):
     status = 400
 
 
-class ForbiddenError(ClientError, PermissionError):
+class ForbiddenError(ClientError):
     status = 403
 
 
-class NotFoundError(ClientError, ValueError):
+class NotFoundError(ClientError):
     status = 404
 
 

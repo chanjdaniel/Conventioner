@@ -471,9 +471,11 @@ def get_organizations() -> Response:
 @login_required
 def create_organization() -> Response:
     """Create a new organization."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     name = (string_field(data, 'name') or '').strip()
     if not name:
@@ -498,9 +500,11 @@ def get_organization(org_id: str) -> Response:
 @login_required
 def update_organization(org_id: str) -> Response:
     """Update an organization. Only owner can update."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     result = OrgsApi.update_organization(org_id, authenticated_email(), data)
     return jsonify({
@@ -539,9 +543,11 @@ def delete_organization(org_id: str) -> Response:
 @login_required
 def add_org_admin(org_id: str) -> Response:
     """Add an admin to an organization. Only owner can add admins."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     user_email = string_field(data, 'user_email')
     if not user_email:
@@ -555,9 +561,11 @@ def add_org_admin(org_id: str) -> Response:
 @login_required
 def add_org_member(org_id: str) -> Response:
     """Add a member to an organization. Owner or admin can add members."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     user_email = string_field(data, 'user_email')
     if not user_email:
@@ -579,9 +587,11 @@ def remove_org_user(org_id: str, user_id: str) -> Response:
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
     """Transfer organization ownership."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     new_owner_email = string_field(data, 'new_owner_email')
     if not new_owner_email:
@@ -601,9 +611,11 @@ def _named_market_role(name: str) -> Optional[MarketRole]:
 @login_required
 def add_market_role(market_id: str) -> Response:
     """Add a user role to a market."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     user_email = string_field(data, 'user_email')
     role_str = string_field(data, 'role')
@@ -630,9 +642,11 @@ def remove_market_role(market_id: str, user_id: str) -> Response:
 @login_required
 def update_market_role(market_id: str, user_id: str) -> Response:
     """Update a user's role in a market."""
-    data = request.json
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
     role_str = string_field(data, 'role')
     if not role_str:
@@ -711,7 +725,9 @@ def create_market() -> Response:
 def rename_market(market_id: str) -> Response:
     """Rename a market while it is a draft (E21/F03/S04). Body: { "name": "..." }."""
     data = request.get_json(silent=True) or {}
-    MarketsApi.rename_market(market_id, data.get("name", ""), authenticated_email())
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    MarketsApi.rename_market(market_id, string_field(data, "name") or "", authenticated_email())
     return jsonify({"message": "Market renamed"}), 200
 
 
@@ -742,6 +758,8 @@ def get_vendor_notes(market_id: str) -> Response:
 def save_vendor_note(market_id: str, vendor_email: str) -> Response:
     """Replace the organizer's note on one vendor. Body: { "note": "Promised an extra chair" }"""
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     if not isinstance(data.get("note"), str):
         return jsonify({"error": "note is required"}), 400
     MarketsApi.save_vendor_note(market_id, vendor_email, data["note"], authenticated_email())
@@ -753,6 +771,8 @@ def save_vendor_note(market_id: str, vendor_email: str) -> Response:
 def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
     """Mark a vendor's request handled, or take the mark back. Body: { "handled": true }"""
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     if not isinstance(data.get("handled"), bool):
         return jsonify({"error": "handled is required"}), 400
     MarketsApi.mark_vendor_request_handled(
@@ -774,8 +794,10 @@ def save_review_highlights(market_id: str) -> Response:
     needed while reviewing, which is after that lock closes.
     """
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     keys = data.get("keys")
-    if keys is None:
+    if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
         return jsonify({"error": "keys is required"}), 400
 
     stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
@@ -793,6 +815,8 @@ def save_rejection_rules(market_id: str) -> Response:
     the market has reached Assignment.
     """
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     if "rules" not in data:
         return jsonify({"error": "rules is required"}), 400
     stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
@@ -835,6 +859,8 @@ def amend_application_form(market_id: str) -> Response:
     before the market leaves its phase, so a refusal leaves nothing to undo.
     """
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     form_data = data.get("applicationForm") or data.get("application_form")
     if not isinstance(form_data, dict):
         return jsonify({"error": "applicationForm is required"}), 400
@@ -1380,16 +1406,19 @@ def review_selection(market_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     new_status = _named_status(data.get('status'))
     if new_status is None:
         return jsonify({"error": f"Invalid status: {data.get('status')}"}), 400
     selection = data.get('applications')
     if not isinstance(selection, list) or not selection:
         return jsonify({"error": "Tick the applications to decide."}), 400
+    # A ticked entry that is not an object names no application, and is skipped as not one here.
+    ticked = [item if isinstance(item, dict) else {} for item in selection]
     result, status_code = ApplicantsApi.review_selection(
         market_id,
-        [(str((item or {}).get('id') or ''), ApplicantsApi.seen_from((item or {}).get('seen')))
-         for item in selection],
+        [(str(item.get('id') or ''), ApplicantsApi.seen_from(item.get('seen'))) for item in ticked],
         new_status, by=person.as_giver())
     return jsonify(result), status_code
 
@@ -1408,6 +1437,8 @@ def next_for_review(market_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     doc = ApplicationsApi.claim_next_for_review(
         market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
         want=data.get('want'))
@@ -1442,6 +1473,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
     owner = MarketsApi.follow_up_owner(
         context.market, context.organization, person, data.get('ownerEmail'))
     result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
