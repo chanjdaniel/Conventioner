@@ -339,12 +339,16 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable: a SameSite=None cookie is one the browser attaches to cross-site requests, and
-# browsers only accept such a cookie when it is also Secure - so an environment variable that could
-# turn this off would not "allow plain HTTP", it would ship a session cookie the browser drops, or
-# sends in the clear where it does not. Loopback counts as a secure context, so local dev is unaffected.
+# Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
+# is one the browser attaches to cross-site requests, and browsers only accept such a cookie when it
+# is also Secure - so an environment variable that could turn this off would not "allow plain HTTP",
+# it would ship a cookie the browser drops, or sends in the clear where it does not. Loopback counts
+# as a secure context, so local dev is unaffected. The remember-me cookie is HttpOnly by Flask-Login's
+# default.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["REMEMBER_COOKIE_SECURE"] = True
+app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 

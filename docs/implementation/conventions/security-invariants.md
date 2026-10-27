@@ -12,12 +12,13 @@ describes:
   - back-end/utils/captcha.py
   - back-end/utils/email.py
   - back-end/tests/test_public_endpoint_defenses.py
+  - back-end/tests/test_the_remember_cookie.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
   - scripts/real_data_check.py
   - .githooks/
-verified: 2026-10-25
+verified: 2026-10-27
 ---
 
 # Security invariants
@@ -68,9 +69,6 @@ Reaching the primary stack from another device takes an override file of one's o
 It is gone from the Dockerfile, `docker-compose.yml` and the env templates, so the invariant is structural: a variable nobody sets is one nobody can key on.
 Do not reintroduce it.
 The image used to export `development`, so anything keyed on it read the same on a deployment as on a laptop: that is how the CORS hole survived, and how `SESSION_TYPE` came to default to `filesystem` on serverless hosts that have no disk.
-
-**`SESSION_COOKIE_SECURE` is not configurable at all**: a `SameSite=None` cookie is accepted by a browser only when it is Secure, so a switch could only ship a cookie the browser drops.
-Loopback counts as a secure context, so local development is unaffected.
 
 **`SESSION_TYPE=null` installs no session store.**
 flask-session has no `null` backend and raises on one; Flask's own interface signs the session into the cookie, the only store a serverless function has.
@@ -139,6 +137,13 @@ Each committed hook also runs the hook of its name in the git directory's `hooks
 **Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
 A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) instead of writing it out, or the hooks refuse the test file itself.
 
+## The cookies
+
+**Both cookies sign-in sets, the session and the remember-me cookie, are `Secure`, `SameSite=None` and `HttpOnly`, and none of it is configurable.**
+The app and the API are on different hosts, so the browser must attach the cookies to the app's requests to the API, which takes `SameSite=None`; a browser accepts a `SameSite=None` cookie only when it is Secure, so a switch could only ship a cookie the browser drops, or sends in the clear where it does not.
+Loopback counts as a secure context, so local development is unaffected.
+The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
+
 ## Each request
 
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
@@ -147,6 +152,7 @@ The checks above make the process boot safe; that one makes safe each lookup a r
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
+- [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and reads both cookies' `Set-Cookie` settings.
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
 - `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the anonymiser's output passes, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
 - What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.
