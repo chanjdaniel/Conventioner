@@ -6,7 +6,7 @@ the caller was asked for. So every endpoint that looks something up by a value f
 refuses one that is not a string: the same 400 a missing value gets, or the endpoint's own
 oracle-free answer where it has one, and never a query.
 
-The users collection here matches the way the database does, operators included, so a lookup
+The collections here match the way the database does, operators included, so a lookup
 that lets a non-string through finds what the database would find.
 """
 import os
@@ -24,6 +24,7 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.markets as MarketsApi
+import api.organizations as OrgsApi
 import api.users as UsersApi
 from datatypes import MarketPhase
 
@@ -46,8 +47,8 @@ def _matches(value, condition):
     return value == condition
 
 
-class UsersLikeTheDatabase:
-    """The users collection, matching equality and ``$ne`` as the database does."""
+class CollectionLikeTheDatabase:
+    """A collection matching equality and ``$ne`` as the database does."""
 
     def __init__(self, docs):
         self.docs = [dict(doc) for doc in docs]
@@ -94,7 +95,7 @@ def users(monkeypatch):
             "otp_attempts": 0,
         }
         doc.update(fields)
-        collection = UsersLikeTheDatabase([doc])
+        collection = CollectionLikeTheDatabase([doc])
         monkeypatch.setattr(UsersApi, "users_collection", collection)
         return collection
     return _install
@@ -253,6 +254,27 @@ class TestDeletingYourAccount:
 
         assert response.status_code == 400
         assert collection.by_email(FIXTURE_EMAIL)
+
+
+class TestCreatingAnOrganization:
+    """A new organization's name is looked up first, to refuse one that is taken."""
+
+    @pytest.fixture
+    def organizations(self, monkeypatch):
+        collection = CollectionLikeTheDatabase([{"id": "an-org-id", "name": "Another Organization"}])
+        collection.insert_one = collection.docs.append
+        monkeypatch.setattr(OrgsApi, "organizations_collection", collection)
+        return collection
+
+    @pytest.mark.parametrize("name", [*NOT_STRINGS, "   "])
+    def test_a_name_that_is_not_a_string_is_refused_and_creates_nothing(
+        self, signed_in, organizations, name,
+    ):
+        response = signed_in.post("/organizations", json={"name": name})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Organization name required"}
+        assert len(organizations.docs) == 1
 
 
 class TestRegistration:

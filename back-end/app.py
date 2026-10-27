@@ -475,7 +475,7 @@ def create_organization() -> Response:
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        name = data.get('name')
+        name = (string_field(data, 'name') or '').strip()
         if not name:
             return jsonify({"error": "Organization name required"}), 400
         
