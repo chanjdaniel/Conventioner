@@ -46,7 +46,6 @@ import json
 import os
 import glob
 import time
-import traceback
 import logging
 
 from utils.captcha import (
@@ -1159,25 +1158,15 @@ def get_market_tables(market_id: str) -> Response:
 @app.route('/public/markets/<market_slug>/vendors/<path:vendor_email>/assignments', methods=['GET'])
 def public_get_vendor_assignments(market_slug: str, vendor_email: str) -> Response:
     """Public vendor assignment lookup by slug + email."""
-    try:
-        result, status_code = AttendanceApi.get_vendor_assignment_summary(market_slug, vendor_email)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_get_vendor_assignments {market_slug} {vendor_email}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = AttendanceApi.get_vendor_assignment_summary(market_slug, vendor_email)
+    return jsonify(result), status_code
 
 
 @app.route('/public/markets/<market_slug>/check-in', methods=['GET'])
 def public_checkin_page(market_slug: str) -> Response:
     """What the check-in page can say before a vendor types anything: which market this is."""
-    try:
-        result, status_code = AttendanceApi.get_checkin_page(market_slug)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_checkin_page {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = AttendanceApi.get_checkin_page(market_slug)
+    return jsonify(result), status_code
 
 
 def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
@@ -1194,45 +1183,35 @@ def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
 @app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
 def public_attendance_undo(market_slug: str) -> Response:
     """Undo a check-in made on the wrong day, by slug + vendor email + date."""
-    try:
-        data = request.get_json(silent=True)
-        vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-        date = string_field(data, 'date') or ''
+    data = request.get_json(silent=True)
+    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
+    date = string_field(data, 'date') or ''
 
-        market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-        if not market_doc:
-            return _no_check_in_at(market_slug)
+    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
+    if not market_doc:
+        return _no_check_in_at(market_slug)
 
-        result, status_code = AttendanceApi.undo_attendance(
-            market_doc.get("id", ""), vendor_email, date,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_attendance_undo {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = AttendanceApi.undo_attendance(
+        market_doc.get("id", ""), vendor_email, date,
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/public/markets/<market_slug>/attendance/checkin', methods=['POST'])
 def public_attendance_checkin(market_slug: str) -> Response:
     """Public attendance check-in by slug + vendor email + date."""
-    try:
-        data = request.get_json(silent=True)
-        vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
-        date = string_field(data, 'date') or ''
+    data = request.get_json(silent=True)
+    vendor_email = string_field(data, 'vendorEmail') or string_field(data, 'vendor_email') or ''
+    date = string_field(data, 'date') or ''
 
-        market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
-        if not market_doc:
-            return _no_check_in_at(market_slug)
+    market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
+    if not market_doc:
+        return _no_check_in_at(market_slug)
 
-        result, status_code = AttendanceApi.record_attendance(
-            market_doc.get("id", ""), vendor_email, date,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_attendance_checkin {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = AttendanceApi.record_attendance(
+        market_doc.get("id", ""), vendor_email, date,
+    )
+    return jsonify(result), status_code
 
 
 # applicant login - public, unauthenticated, attacker-facing
@@ -1245,13 +1224,8 @@ def applicant_login_request_code(market_slug: str) -> Response:
     to this market. The login challenge is created for every request so its
     existence leaks nothing.
     """
-    try:
-        result, status_code = ApplicantAuthApi.request_login_code(market_slug)
-        return result, status_code
-    except Exception as e:
-        logger.error("Error in applicant_login_request_code %s: %s", market_slug, e)
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantAuthApi.request_login_code(market_slug)
+    return result, status_code
 
 
 @app.route('/public/markets/<market_slug>/applicant-login/verify-code', methods=['POST'])
@@ -1262,13 +1236,8 @@ def applicant_login_verify_code(market_slug: str) -> Response:
     response. The caller cannot distinguish "no such address", "no code issued",
     "expired", "already consumed", or "wrong code".
     """
-    try:
-        result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
-        return result, status_code
-    except Exception as e:
-        logger.error("Error in applicant_login_verify_code %s: %s", market_slug, e)
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
+    return result, status_code
 
 
 # applicant application endpoints - public, JWT-authenticated
@@ -1277,57 +1246,44 @@ def applicant_login_verify_code(market_slug: str) -> Response:
 @app.route('/public/markets/<market_slug>/application-form', methods=['GET'])
 def public_get_application_form(market_slug: str) -> Response:
     """Public: return the market's application form. No authentication required."""
-    try:
-        result, status_code = ApplicantsApi.get_public_application_form(market_slug)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_get_application_form {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantsApi.get_public_application_form(market_slug)
+    return jsonify(result), status_code
 
 
 @app.route('/public/markets/<market_slug>/applicant/application', methods=['GET'])
 def public_get_applicant_application(market_slug: str) -> Response:
     """Return the authenticated applicant's application. Bearer token required."""
-    try:
-        token_payload = ApplicantsApi.authenticate_request(
-            request.headers.get('Authorization')
-        )
-        if not token_payload:
-            return jsonify({"error": "Authentication required. Your session may have expired. "
-                                     "Please sign in again."}), 401
+    token_payload = ApplicantsApi.authenticate_request(
+        request.headers.get('Authorization')
+    )
+    if not token_payload:
+        return jsonify({"error": "Authentication required. Your session may have expired. "
+                                 "Please sign in again."}), 401
 
-        result, status_code = ApplicantsApi.get_applicant_application(
-            market_slug, token_payload,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_get_applicant_application {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantsApi.get_applicant_application(
+        market_slug, token_payload,
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/public/markets/<market_slug>/applicant/application', methods=['PUT'])
 def public_save_applicant_application(market_slug: str) -> Response:
     """Save or update the authenticated applicant's application. Bearer token required."""
-    try:
-        token_payload = ApplicantsApi.authenticate_request(
-            request.headers.get('Authorization')
-        )
-        if not token_payload:
-            return jsonify({"error": "Authentication required. Your session may have expired. "
-                                     "Please sign in again."}), 401
+    token_payload = ApplicantsApi.authenticate_request(
+        request.headers.get('Authorization')
+    )
+    if not token_payload:
+        return jsonify({"error": "Authentication required. Your session may have expired. "
+                                 "Please sign in again."}), 401
 
-        data = request.json or {}
-        form_data = data.get('formData') or data.get('form_data') or {}
-        result, status_code = ApplicantsApi.save_applicant_application(
-            market_slug, token_payload, form_data,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in public_save_applicant_application {market_slug}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    form_data = data.get('formData') or data.get('form_data') or {}
+    result, status_code = ApplicantsApi.save_applicant_application(
+        market_slug, token_payload, form_data,
+    )
+    return jsonify(result), status_code
 
 
 # organizer application monitoring and review endpoints
@@ -1337,26 +1293,21 @@ def public_save_applicant_application(market_slug: str) -> Response:
 @login_required
 def list_market_applications(market_id: str) -> Response:
     """List all applications for a market. Requires VIEWER+ permission."""
-    try:
-        requesting_user = authenticated_email()
+    requesting_user = authenticated_email()
 
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
 
-        if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.VIEWER, context.organization
-        ):
-            return jsonify({"error": "User does not have permission to view this market"}), 403
+    if not PermissionsApi.user_has_permission(
+        requesting_user, context.market, MarketRole.VIEWER, context.organization
+    ):
+        return jsonify({"error": "User does not have permission to view this market"}), 403
 
-        result, status_code = ApplicantsApi.list_market_applications(market_id)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in list_market_applications {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantsApi.list_market_applications(market_id)
+    return jsonify(result), status_code
 
 
 def _reviewer_on(market_id: str):
@@ -1378,22 +1329,13 @@ def _reviewer_on(market_id: str):
     return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
 
 
-def _review_endpoint(handler):
-    """Map a review endpoint's unexpected failure as its neighbours do: logged, a 500 in words."""
-    def wrapped(*args, **kwargs):
-        try:
-            return handler(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error in {handler.__name__} {kwargs}: {e}")
-            logger.error(traceback.format_exc())
-            return jsonify({"error": "Internal server error"}), 500
-    wrapped.__name__ = handler.__name__
-    return wrapped
+def _named_status(name: Any) -> Optional[ApplicationStatus]:
+    """The application status a request names, or None when it names none."""
+    return next((status for status in ApplicationStatus if status.value == name), None)
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/review', methods=['PUT'])
 @login_required
-@_review_endpoint
 def review_application(market_id: str, application_id: str) -> Response:
     """Record a review verdict, or a follow-up, on an application, and its giver (E34/F01/S01).
 
@@ -1409,19 +1351,15 @@ def review_application(market_id: str, application_id: str) -> Response:
     status_raw = data.get('status') or data.get('statusRaw')
     if not status_raw:
         return jsonify({"error": "status is required"}), 400
-    try:
-        new_status = ApplicationStatus(status_raw)
-    except ValueError:
+    new_status = _named_status(status_raw)
+    if new_status is None:
         return jsonify({"error": f"Invalid status: {status_raw}"}), 400
     # A follow-up is owned by whoever marked it, or by the person named, who must be one of the
     # people the market read offered them (E34/F02/S01, T15).
     owner = None
     if new_status is ApplicationStatus.NEEDS_FOLLOW_UP and data.get('ownerEmail'):
-        try:
-            owner = MarketsApi.follow_up_owner(
-                context.market, context.organization, person, data['ownerEmail'])
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
+        owner = MarketsApi.follow_up_owner(
+            context.market, context.organization, person, data['ownerEmail'])
     result, status_code = ApplicantsApi.review_application(
         market_id, application_id, new_status, by=person.as_giver(), owner=owner,
         seen=ApplicantsApi.seen_from(data.get('seen')),
@@ -1431,7 +1369,6 @@ def review_application(market_id: str, application_id: str) -> Response:
 
 @app.route('/markets/<market_id>/applications/verdicts', methods=['POST'])
 @login_required
-@_review_endpoint
 def review_selection(market_id: str) -> Response:
     """One verdict for a ticked selection (E34/F04/S02).
 
@@ -1443,9 +1380,8 @@ def review_selection(market_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
-    try:
-        new_status = ApplicationStatus(data.get('status'))
-    except ValueError:
+    new_status = _named_status(data.get('status'))
+    if new_status is None:
         return jsonify({"error": f"Invalid status: {data.get('status')}"}), 400
     selection = data.get('applications')
     if not isinstance(selection, list) or not selection:
@@ -1460,7 +1396,6 @@ def review_selection(market_id: str) -> Response:
 
 @app.route('/markets/<market_id>/review/next', methods=['POST'])
 @login_required
-@_review_endpoint
 def next_for_review(market_id: str) -> Response:
     """The next card to review, claimed for the reviewer (E34/F03/S02).
 
@@ -1481,7 +1416,6 @@ def next_for_review(market_id: str) -> Response:
 
 @app.route('/markets/<market_id>/applications/<application_id>/claim', methods=['PUT', 'DELETE'])
 @login_required
-@_review_endpoint
 def hold_for_review(market_id: str, application_id: str) -> Response:
     """Keep holding the open card (PUT, every minute while it stays open) or let it go (DELETE, on
     leaving the review) (E34/F03/S02). PUT answers { "held": false } once someone else has it."""
@@ -1499,7 +1433,6 @@ def hold_for_review(market_id: str, application_id: str) -> Response:
 
 @app.route('/markets/<market_id>/applications/<application_id>/follow-up-owner', methods=['PUT'])
 @login_required
-@_review_endpoint
 def reassign_follow_up(market_id: str, application_id: str) -> Response:
     """Hand a follow-up to someone else with a role on the market (E34/F02/S01).
 
@@ -1509,11 +1442,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     if refused:
         return refused
     data = request.get_json(silent=True) or {}
-    try:
-        owner = MarketsApi.follow_up_owner(
-            context.market, context.organization, person, data.get('ownerEmail'))
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+    owner = MarketsApi.follow_up_owner(
+        context.market, context.organization, person, data.get('ownerEmail'))
     result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
     return jsonify(result), status_code
 
@@ -1574,23 +1504,18 @@ def csv_proposal_typesafe() -> Response:
 def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
     nothing: the file is read and let go. Requires ADMIN+, as the import it prepares does."""
-    try:
-        market_doc, error, status_code = _admin_market_document(
-            market_id, authenticated_email(),
-            "User does not have permission to set up this market")
-        if error:
-            return jsonify(error), status_code
+    market_doc, error, status_code = _admin_market_document(
+        market_id, authenticated_email(),
+        "User does not have permission to set up this market")
+    if error:
+        return jsonify(error), status_code
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
-            return jsonify({"error": "csvContent is required"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+        return jsonify({"error": "csvContent is required"}), 400
 
-        result, status_code = CsvProposal.propose(market_doc, data['csvContent'])
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in propose_from_csv {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = CsvProposal.propose(market_doc, data['csvContent'])
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/csv-proposal/confirm', methods=['POST'])
@@ -1598,137 +1523,112 @@ def propose_from_csv(market_id: str) -> Response:
 def confirm_csv_proposal(market_id: str) -> Response:
     """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
     or nothing. The file is sent again and not kept. Requires ADMIN+, as the proposal does."""
-    try:
-        market_doc, error, status_code = _admin_market_document(
-            market_id, authenticated_email(),
-            "User does not have permission to set up this market")
-        if error:
-            return jsonify(error), status_code
+    market_doc, error, status_code = _admin_market_document(
+        market_id, authenticated_email(),
+        "User does not have permission to set up this market")
+    if error:
+        return jsonify(error), status_code
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "A JSON body is required"}), 400
-        result, status_code = CsvStart.confirm(market_doc, data)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in confirm_csv_proposal {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON body is required"}), 400
+    result, status_code = CsvStart.confirm(market_doc, data)
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/applications/import/inspect', methods=['POST'])
 @login_required
 def inspect_application_import(market_id: str) -> Response:
     """Read a CSV's columns and say what they can be mapped to. Writes nothing. Requires ADMIN+."""
-    try:
-        market_doc, error, status_code = _import_context(
-            market_id, authenticated_email(),
-        )
-        if error:
-            return jsonify(error), status_code
+    market_doc, error, status_code = _import_context(
+        market_id, authenticated_email(),
+    )
+    if error:
+        return jsonify(error), status_code
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
-            return jsonify({"error": "csvContent is required"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+        return jsonify({"error": "csvContent is required"}), 400
 
-        result, status_code = CsvImport.inspect(market_doc, data['csvContent'])
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in inspect_application_import {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = CsvImport.inspect(market_doc, data['csvContent'])
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/applications/import/preview', methods=['POST'])
 @login_required
 def preview_application_import(market_id: str) -> Response:
     """Report cell values that name nothing this market offers. Writes nothing. Requires ADMIN+."""
-    try:
-        market_doc, error, status_code = _import_context(
-            market_id, authenticated_email(),
-        )
-        if error:
-            return jsonify(error), status_code
+    market_doc, error, status_code = _import_context(
+        market_id, authenticated_email(),
+    )
+    if error:
+        return jsonify(error), status_code
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
-            return jsonify({"error": "csvContent is required"}), 400
-        mapping = data.get('mapping')
-        if not isinstance(mapping, dict):
-            return jsonify({"error": "mapping is required"}), 400
-        resolutions = data.get('resolutions')
-        if resolutions is not None and not isinstance(resolutions, dict):
-            return jsonify({"error": "resolutions must be an object"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+        return jsonify({"error": "csvContent is required"}), 400
+    mapping = data.get('mapping')
+    if not isinstance(mapping, dict):
+        return jsonify({"error": "mapping is required"}), 400
+    resolutions = data.get('resolutions')
+    if resolutions is not None and not isinstance(resolutions, dict):
+        return jsonify({"error": "resolutions must be an object"}), 400
 
-        result, status_code = CsvImport.preview_values(
-            market_doc, data['csvContent'], mapping, resolutions,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in preview_application_import {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = CsvImport.preview_values(
+        market_doc, data['csvContent'], mapping, resolutions,
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/applications/import', methods=['POST'])
 @login_required
 def import_applications(market_id: str) -> Response:
     """Import the mapped CSV rows as applications awaiting review. Requires ADMIN+."""
-    try:
-        market_doc, error, status_code = _import_context(
-            market_id, authenticated_email(),
-        )
-        if error:
-            return jsonify(error), status_code
+    market_doc, error, status_code = _import_context(
+        market_id, authenticated_email(),
+    )
+    if error:
+        return jsonify(error), status_code
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
-            return jsonify({"error": "csvContent is required"}), 400
-        mapping = data.get('mapping')
-        if not isinstance(mapping, dict):
-            return jsonify({"error": "mapping is required"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+        return jsonify({"error": "csvContent is required"}), 400
+    mapping = data.get('mapping')
+    if not isinstance(mapping, dict):
+        return jsonify({"error": "mapping is required"}), 400
 
-        resolutions = data.get('resolutions')
-        if resolutions is not None and not isinstance(resolutions, dict):
-            return jsonify({"error": "resolutions must be an object"}), 400
+    resolutions = data.get('resolutions')
+    if resolutions is not None and not isinstance(resolutions, dict):
+        return jsonify({"error": "resolutions must be an object"}), 400
 
-        result, status_code = CsvImport.import_applications(
-            MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in import_applications {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = CsvImport.import_applications(
+        MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/publish-results', methods=['POST'])
 @login_required
 def publish_market_results(market_id: str) -> Response:
     """Publish review results, making verdicts visible to applicants. Requires ADMIN+."""
-    try:
-        requesting_user = authenticated_email()
+    requesting_user = authenticated_email()
 
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
 
-        if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.ADMIN, context.organization
-        ):
-            return jsonify({"error": "User does not have permission to publish results"}), 403
-        refusal = MarketsApi.archived_refusal(context.market)
-        if refusal:
-            return jsonify({"error": refusal}), 403
+    if not PermissionsApi.user_has_permission(
+        requesting_user, context.market, MarketRole.ADMIN, context.organization
+    ):
+        return jsonify({"error": "User does not have permission to publish results"}), 403
+    refusal = MarketsApi.archived_refusal(context.market)
+    if refusal:
+        return jsonify({"error": refusal}), 403
 
-        result, status_code = ApplicantsApi.publish_results(market_id)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in publish_market_results {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    result, status_code = ApplicantsApi.publish_results(market_id)
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/attendance', methods=['GET'])
@@ -1739,47 +1639,35 @@ def get_market_attendance(market_id: str) -> Response:
     ``{dates, roster}``: every vendor the stored assignment places, per date, with when they
     checked in and which organizer did it, if one did.
     """
-    try:
-        requesting_user = authenticated_email()
+    requesting_user = authenticated_email()
 
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
 
-        if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.VIEWER, context.organization
-        ):
-            return jsonify({"error": "User does not have permission to view this market"}), 403
+    if not PermissionsApi.user_has_permission(
+        requesting_user, context.market, MarketRole.VIEWER, context.organization
+    ):
+        return jsonify({"error": "User does not have permission to view this market"}), 403
 
-        market_doc = AttendanceApi.markets_collection.find_one({"id": market_id})
-        return jsonify(AttendanceApi.attendance_roster(market_doc)), 200
-    except Exception as e:
-        logger.error(f"Error in get_market_attendance {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    market_doc = AttendanceApi.markets_collection.find_one({"id": market_id})
+    return jsonify(AttendanceApi.attendance_roster(market_doc)), 200
 
 
 def _door_write(market_id: str, write) -> Response:
     """An organizer's check-in or its undo: body ``{vendorEmail, date}``, EDITOR (E29/F01/S02)."""
-    try:
-        data = request.json or {}
-        result, status_code = write(
-            market_id,
-            str(data.get("vendorEmail") or ""),
-            str(data.get("date") or ""),
-            authenticated_email(),
-        )
-        return jsonify(result), status_code
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except Exception as e:
-        logger.error(f"Error in an organizer check-in at {market_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    result, status_code = write(
+        market_id,
+        str(data.get("vendorEmail") or ""),
+        str(data.get("date") or ""),
+        authenticated_email(),
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/attendance', methods=['POST'])

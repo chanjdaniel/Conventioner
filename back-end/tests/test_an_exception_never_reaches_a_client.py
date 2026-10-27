@@ -6,8 +6,8 @@ code wrote. Anything else is the server's fault: logged once with its traceback,
 answers (an unknown URL, a wrong method, Flask-Login's 401) pass through untouched.
 
 Pinned through the test client against the real app: the assignment reads, the organization and
-market role routes, the market setup routes, the application form, amendment and phase routes, and
-the assignment and placement routes.
+market role routes, the market setup routes, the application form, amendment and phase routes, the
+assignment and placement routes, and the applicant, review, import and door routes.
 """
 import logging
 from types import SimpleNamespace
@@ -27,14 +27,19 @@ skip_without_real_dependencies()
 
 import app as app_module
 import api.added_vendors as AddedVendorsApi
+import api.applicant_auth as ApplicantAuthApi
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
+import api.attendance as AttendanceApi
+import api.door as DoorApi
 import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
+import csv_import as CsvImport
+import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import db_config
 import rejection_rules as RejectionRules
@@ -1080,6 +1085,365 @@ class TestTheAssignmentAndPlacementRoutes:
 
         assert response.status_code == 500
         assert response.get_json() == {"error": "Internal server error"}
+
+
+SLUG = market_name_slug("Test Market")
+CSV = "Timestamp,Email Address,Full Name\n1/5/2026 9:00:00,p1@mail.test,Wren Okafor\n"
+APPLICANT_SESSION_EXPIRED = (
+    "Authentication required. Your session may have expired. Please sign in again."
+)
+
+# Each applicant, review, import and door route, with a body it accepts, the function it answers
+# through, and the view argument its failure is logged with.
+APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
+    ("get", f"/public/markets/{SLUG}/vendors/ana@example.com/assignments", None,
+     AttendanceApi, "get_vendor_assignment_summary", SLUG),
+    ("get", f"/public/markets/{SLUG}/check-in", None, AttendanceApi, "get_checkin_page", SLUG),
+    ("delete", f"/public/markets/{SLUG}/attendance/checkin",
+     {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+     AttendanceApi, "get_published_market_by_slug", SLUG),
+    ("post", f"/public/markets/{SLUG}/attendance/checkin",
+     {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+     AttendanceApi, "get_published_market_by_slug", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/request-code", {"email": "ana@example.com"},
+     ApplicantAuthApi, "request_login_code", SLUG),
+    ("post", f"/public/markets/{SLUG}/applicant-login/verify-code",
+     {"email": "ana@example.com", "code": "123456"},
+     ApplicantAuthApi, "verify_login_code", SLUG),
+    ("get", f"/public/markets/{SLUG}/application-form", None,
+     ApplicantsApi, "get_public_application_form", SLUG),
+    ("get", f"/public/markets/{SLUG}/applicant/application", None,
+     ApplicantsApi, "authenticate_request", SLUG),
+    ("put", f"/public/markets/{SLUG}/applicant/application", {"formData": {}},
+     ApplicantsApi, "authenticate_request", SLUG),
+    ("get", "/markets/market-123/applications", None,
+     ApplicantsApi, "list_market_applications", "market-123"),
+    ("put", "/markets/market-123/applications/app-1/review", {"status": "reviewer_approved"},
+     MarketsApi, "verdict_refusal", "market-123"),
+    ("post", "/markets/market-123/applications/verdicts",
+     {"status": "reviewer_approved", "applications": [{"id": "app-1"}]},
+     MarketsApi, "verdict_refusal", "market-123"),
+    ("post", "/markets/market-123/review/next", {}, MarketsApi, "verdict_refusal", "market-123"),
+    ("put", "/markets/market-123/applications/app-1/claim", None,
+     MarketsApi, "verdict_refusal", "market-123"),
+    ("put", "/markets/market-123/applications/app-1/follow-up-owner",
+     {"ownerEmail": "ana@example.com"}, MarketsApi, "verdict_refusal", "market-123"),
+    ("post", "/markets/market-123/publish-results", None,
+     ApplicantsApi, "publish_results", "market-123"),
+    ("post", "/markets/market-123/csv-proposal", {"csvContent": CSV},
+     CsvProposal, "propose", "market-123"),
+    ("post", "/markets/market-123/csv-proposal/confirm", {"csvContent": CSV, "year": 2026},
+     CsvStart, "confirm", "market-123"),
+    ("post", "/markets/market-123/applications/import/inspect", {"csvContent": CSV},
+     CsvImport, "import_refusal", "market-123"),
+    ("post", "/markets/market-123/applications/import/preview", {"csvContent": CSV, "mapping": {}},
+     CsvImport, "import_refusal", "market-123"),
+    ("post", "/markets/market-123/applications/import", {"csvContent": CSV, "mapping": {}},
+     CsvImport, "import_refusal", "market-123"),
+    ("get", "/markets/market-123/attendance", None,
+     AttendanceApi, "attendance_roster", "market-123"),
+    ("post", "/markets/market-123/attendance",
+     {"vendorEmail": "ana@example.com", "date": "2099-08-01"}, DoorApi, "check_in", "market-123"),
+    ("delete", "/markets/market-123/attendance",
+     {"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+     DoorApi, "undo_check_in", "market-123"),
+]
+
+
+class TestTheApplicantReviewImportAndDoorRoutes:
+    """The public applicant and check-in routes, the application list and review routes, the CSV
+    start and the application import, Publish Results, attendance and the organizer's door answer
+    through the handler: each refusal with the status and copy its reader reads, and anything else
+    as the generic 500."""
+
+    # Public
+
+    def test_a_check_in_where_there_is_no_market(self, monkeypatch):
+        monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
+        monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
+
+        response = app_module.app.test_client().post(
+            f"/public/markets/{SLUG}/attendance/checkin",
+            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    @pytest.mark.parametrize("method", ["get", "put"])
+    def test_an_applicant_whose_session_expired_is_asked_to_sign_in_again(self, method):
+        response = call(
+            app_module.app.test_client(), method,
+            f"/public/markets/{SLUG}/applicant/application", {"formData": {}},
+        )
+
+        assert response.status_code == 401
+        assert response.get_json() == {"error": APPLICANT_SESSION_EXPIRED}
+
+    @pytest.mark.parametrize("body", [None, ["ana@example.com"], "answers"])
+    def test_an_application_saved_without_an_object_is_refused_as_one(self, monkeypatch, body):
+        monkeypatch.setattr(
+            ApplicantsApi, "authenticate_request",
+            lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},
+        )
+        kwargs = {} if body is None else {"json": body}
+
+        response = app_module.app.test_client().put(
+            f"/public/markets/{SLUG}/applicant/application",
+            headers={"Authorization": "Bearer token"}, **kwargs,
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    def test_an_application_that_loses_every_race_names_the_market_not_the_applicant(
+        self, applications, monkeypatch,
+    ):
+        from pymongo.errors import DuplicateKeyError, PyMongoError
+        from datatypes import Application, ApplicationStatus, ApplicationType
+
+        monkeypatch.setattr(
+            applications, "find_one_and_update", fail_with(DuplicateKeyError("E11000")),
+        )
+        monkeypatch.setattr(applications, "find_one", lambda *_a, **_kw: None)
+
+        with pytest.raises(PyMongoError) as raised:
+            ApplicationsApi.find_or_create_application(Application(
+                market_id="market-123", applicant_email="vendor@example.com",
+                application_type=ApplicationType.MAIN, form_data={},
+                status=ApplicationStatus.OPEN,
+            ))
+
+        assert "market-123" in str(raised.value)
+        assert "example.com" not in str(raised.value)
+
+    # Review
+
+    def test_a_verdict_that_names_no_status(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+
+        response = client.put(
+            "/markets/market-123/applications/app-1/review", json={"status": "maybe-later"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid status: maybe-later"}
+
+    @pytest.mark.parametrize("status", [["reviewer_approved"], {"status": "x"}, 7])
+    def test_a_selection_whose_status_is_not_a_name(self, client, monkeypatch, status):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+
+        response = client.post("/markets/market-123/applications/verdicts", json={
+            "status": status, "applications": [{"id": "app-1"}],
+        })
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith("Invalid status: ")
+
+    def test_a_follow_up_handed_to_someone_off_the_market(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+
+        response = client.put("/markets/market-123/applications/app-1/review", json={
+            "status": "needs_follow_up", "ownerEmail": "stranger@example.com",
+        })
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "A follow-up's owner must have a role on this market.",
+        }
+
+    def test_a_follow_up_reassigned_to_nobody(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+
+        response = client.put("/markets/market-123/applications/app-1/follow-up-owner", json={})
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "A follow-up's owner must have a role on this market.",
+        }
+
+    def test_a_verdict_after_the_review_closed(self, client):
+        response = client.put(
+            "/markets/market-123/applications/app-1/review", json={"status": "reviewer_approved"},
+        )
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.VERDICTS_SETTLED}
+
+    def test_the_applications_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/applications")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_an_application_that_cannot_be_read_is_logged_without_its_answers(
+        self, client, monkeypatch, caplog,
+    ):
+        unreadable = {
+            "id": "app-9", "market_id": "market-123", "applicant_email": "ana@example.com",
+            "application_type": "main", "status": "open", "form_data": "ana@example.com",
+        }
+        monkeypatch.setattr(
+            ApplicationsApi, "list_applications_for_market", lambda _market: [unreadable],
+        )
+
+        with caplog.at_level(logging.WARNING):
+            response = client.get("/markets/market-123/applications")
+
+        assert response.status_code == 200
+        assert "app-9" in caplog.text
+        assert "form_data (dict_type)" in caplog.text
+        assert "example.com" not in caplog.text
+
+    def test_results_published_for_a_market_that_does_not_exist(self, client):
+        response = client.post("/markets/market-missing/publish-results")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    # The CSV start and the import
+
+    def test_a_start_confirmed_past_draft_is_refused_in_its_words(self, client):
+        response = client.post(
+            "/markets/market-123/csv-proposal/confirm", json={"csvContent": CSV, "year": 2026},
+        )
+
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "error": "Only a draft market can be started from a Google Form's responses.",
+        }
+
+    @pytest.mark.parametrize("raised", [
+        BadRequestError("Invalid plan: sections.0.count: Input should be a valid integer"),
+        MarketsApi.ApplicationFormLockedError("The form is locked."),
+        CsvStart.ConfirmRefused("Say which year the file's dates are in."),
+    ])
+    def test_a_start_the_plan_or_the_form_refuses_answers_as_raised(
+        self, client, monkeypatch, raised,
+    ):
+        use_market(monkeypatch, stored_market(setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(CsvStart, "confirmed_update", fail_with(raised))
+
+        response = client.post(
+            "/markets/market-123/csv-proposal/confirm", json={"csvContent": CSV},
+        )
+
+        assert_answered_as_raised(response, [raised])
+
+    def test_a_builtin_value_error_in_the_start_is_the_servers_fault(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(setupObject=COMPLETE_PLAN))
+        monkeypatch.setattr(CsvStart, "confirmed_update", fail_with(ValueError(SECRET)))
+
+        response = client.post(
+            "/markets/market-123/csv-proposal/confirm", json={"csvContent": CSV},
+        )
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+
+    def test_an_import_past_its_phases_says_which_phase(self, client):
+        response = client.post(
+            "/markets/market-123/applications/import/inspect", json={"csvContent": CSV},
+        )
+
+        assert response.status_code == 409
+        assert response.get_json() == {
+            "error": CsvImport.import_refusal(stored_market(phase=MarketPhase.ASSIGNMENT)),
+            "phase": "assignment",
+        }
+
+    @pytest.mark.parametrize("path", [
+        "/markets/market-123/applications/import/inspect",
+        "/markets/market-123/applications/import/preview",
+        "/markets/market-123/applications/import",
+        "/markets/market-123/csv-proposal",
+    ])
+    def test_a_file_that_is_not_sent(self, client, monkeypatch, path):
+        use_market(monkeypatch, stored_market(phase=(
+            MarketPhase.DRAFT if path.endswith("csv-proposal") else MarketPhase.APPLICATIONS_OPEN
+        )))
+
+        response = client.post(path, json={"csvContent": ["Name"]})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "csvContent is required"}
+
+    # The door
+
+    def test_a_check_in_at_a_market_that_does_not_exist(self, client):
+        response = client.post(
+            "/markets/market-missing/attendance",
+            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_a_check_in_before_the_market_days(self, client):
+        response = client.post(
+            "/markets/market-123/attendance",
+            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 409
+        assert response.get_json() == {"error": DoorApi.NOT_PUBLISHED}
+
+    def test_a_check_in_on_an_archived_market(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.ARCHIVED, setupObject=COMPLETE_PLAN))
+
+        response = client.delete(
+            "/markets/market-123/attendance",
+            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+
+    def test_a_check_in_on_a_market_that_cannot_be_read(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        response = client.post(
+            "/markets/market-123/attendance",
+            json={"vendorEmail": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+
+    @pytest.mark.parametrize("method", ["post", "delete"])
+    def test_a_check_in_whose_body_is_not_an_object(self, client, method):
+        response = call(
+            client, method, "/markets/market-123/attendance", ["ana@example.com", "2099-08-01"],
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    @pytest.mark.parametrize(
+        "method, path, body, api, function, logged_as", APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES,
+    )
+    def test_an_unexpected_failure_answers_only_internal_server_error(
+        self, client, monkeypatch, caplog, method, path, body, api, function, logged_as,
+    ):
+        # The attendance read finds the market's document through its own module's collection.
+        monkeypatch.setattr(AttendanceApi, "markets_collection", MarketsApi.markets_collection)
+        monkeypatch.setattr(api, function, fail_with(RuntimeError(SECRET)))
+
+        with caplog.at_level(logging.ERROR):
+            response = call(client, method, path, body)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+        assert SECRET not in response.get_data(as_text=True)
+        assert "RuntimeError" not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert method.upper() in record.getMessage()
+        assert logged_as in record.getMessage()
+        assert [r for r in caplog.records if SECRET in r.getMessage()] == []
+        assert "example.com" not in caplog.text
 
 
 class TestAClientError:
