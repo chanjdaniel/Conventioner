@@ -75,6 +75,7 @@ const countTables = () => {
         :key="index"
         @mouseover="hoverIndex = index"
         @mouseleave="hoverIndex = null"
+        :data-testid="'setup-section-row-' + index"
       >
         <div class="row-item">
           <div class="input-container">
@@ -162,7 +163,7 @@ const countTables = () => {
         <IconAddRound class="add-row__icon" />
       </button>
     </div>
-    <p class="table-count">Total tables: {{ countTables() }}</p>
+    <p class="table-count" data-testid="setup-section-total">Total tables: {{ countTables() }}</p>
   </div>
 </template>
 
@@ -185,10 +186,12 @@ const countTables = () => {
 
 /* In the flow, under the rows. It was positioned absolutely below the card, and cleared the last
    row only because the add button happened to sit between them - so on a plan with no add button
-   (an archived one, bug 30) it sat on top of the row. */
+   (an archived one, bug 30) it sat on top of the row. Inset as far as the rows are, by
+   ElementSettingContainer's `.rows` padding, so it starts on their left edge: a 5px inset left it
+   3px short of them (T73). */
 .table-count {
   align-self: flex-start;
-  margin: var(--space-2) 0 0 5px;
+  margin: var(--space-2) 0 0 var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
