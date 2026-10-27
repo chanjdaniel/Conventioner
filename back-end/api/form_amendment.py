@@ -23,18 +23,20 @@ hops. ``Market.form_amendment`` records where the chain was going before it take
 so that market can be told where it stopped and offered the rest of the walk, rather than leaving
 the organizer to infer it from the phase rail.
 """
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
 import api.markets as MarketsApi
-import api.permissions as PermissionsApi
 from client_errors import ConflictError
 from datatypes import ApplicationForm, Market, MarketPhase, MarketRole, phase_label
 from guards import PreconditionResult, judge_route, route_between
 from market_documents import market_doc_key, market_doc_set
 from assignment.utils import convert_keys_to_camel_case
+
+logger = logging.getLogger(__name__)
 
 # The only two phases the import wizard runs in, and therefore the only two an amendment can
 # return a market to. Derived from the wizard's own rule rather than restated: importing is
@@ -218,7 +220,7 @@ def _walk(market_id: str, steps: List[str], plan: AmendmentPlan, by: str) -> Non
         try:
             MarketsApi.apply_phase_transition(market_id, document, target, by=by)
         except MarketsApi.PhaseChangedUnderRequest as conflict:
-            raise AmendmentStalled(
+            stalled = AmendmentStalled(
                 (
                     f"This market moved to '{conflict.actual_phase}' while the amendment was "
                     "running, so the rest of the chain was not taken. Nothing else was changed."
@@ -226,7 +228,11 @@ def _walk(market_id: str, steps: List[str], plan: AmendmentPlan, by: str) -> Non
                 at_phase=conflict.actual_phase,
                 remaining=steps[index:],
                 return_phase=plan.return_phase,
-            ) from conflict
+            )
+            # Answered as a 409 the organizer can resume from, so the handler does not log it; a
+            # market left between phases is worth a line for whoever is on call.
+            logger.error("Form amendment stalled for market %s: %s", market_id, stalled.message)
+            raise stalled from conflict
 
 
 def amend_application_form(
@@ -298,9 +304,3 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     _walk(market_id, steps, plan, requesting_user)
     _clear_intent(market_id)
     return {"phase": target, "hops": len(steps)}
-
-
-def stall_payload(error: AmendmentStalled) -> Dict[str, Any]:
-    """What a stalled chain tells the organizer. The routes' name for ``AmendmentStalled.body``,
-    until they stop catching it."""
-    return error.body()

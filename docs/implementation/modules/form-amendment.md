@@ -7,7 +7,7 @@ describes:
   - back-end/app.py#amend_application_form
   - back-end/app.py#resume_application_form_amendment
   - front-end/src/components/application/AmendFormDialog.vue
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - wayfinding/the-order-of-the-work/07
   - wayfinding/the-order-of-the-work/map
@@ -32,6 +32,7 @@ When the column mapping shows the form asked the wrong thing, the organizer used
 | `POST /markets/:id/application-form/amendment/resume` | finishes a stalled walk from wherever the market now is |
 
 All three are in [`back-end/app.py`](../../../back-end/app.py) and ask ADMIN.
+None catches anything: `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are client errors, answered from their own `body()` ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 ## Sharp edges
 
@@ -49,6 +50,7 @@ There is nothing to roll back, because nothing moved.
 **A stalled walk says where it stopped.**
 Pre-flight cannot prevent a transport failure or a concurrent move between two hops, so `Market.form_amendment` records the destination (`returnPhase`, `startedAt`) before the first step and is cleared after the last.
 A hop that finds the market moved stops with `AmendmentStalled`, naming the phase it is in and the steps left; resume re-plans from the market's current phase rather than replaying the old walk.
+`_walk` logs the stall with the market's id before it raises, on the amendment and the resume alike.
 
 **The form is still written by `save_application_form` in `draft`**, the ordinary writer meeting the ordinary lock, so the D9 lock stays unbypassable ([the form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md)).
 

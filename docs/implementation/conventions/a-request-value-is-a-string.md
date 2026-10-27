@@ -4,7 +4,7 @@ kind: convention
 describes:
   - back-end/utils/request_body.py
   - back-end/tests/test_a_request_value_is_a_string.py
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - T66
   - T74
@@ -26,6 +26,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - the applicant sign-in (`back-end/api/applicant_auth.py`) answers its one same 200 for a code request and its one same 401 for a verify, so a wrong type tells a caller nothing a missing value does not;
 - the public check-in and its undo (`back-end/app.py`) answer 400 for an address or a date;
 - creating an organization (`back-end/app.py`) answers 400 for a name that is not a string or is blank;
+- adding an organization's admin or member, handing on its ownership, and adding or changing someone's market role (`back-end/app.py`) answer their "required" 400 for an address or a role that is not a string;
 - saving a floorplan to a market, placing its tables, and analysing, calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_analysis.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 

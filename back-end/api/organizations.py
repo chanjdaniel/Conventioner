@@ -4,10 +4,9 @@ Organization API functions for CRUD operations and role management.
 import uuid
 from typing import Optional, Dict, Any, List
 from pymongo.results import UpdateResult, DeleteResult
-from bson import ObjectId
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
-from datatypes import MarketPhase, Organization, market_name_slug, phase_from_market_document, phase_label
+from datatypes import MarketPhase, market_name_slug, phase_from_market_document, phase_label
 from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail

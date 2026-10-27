@@ -126,7 +126,9 @@ def _load_organization_context(
     try:
         return Organization(**org_dict), org_dict
     except Exception as e:
-        logger.warning(f"Failed to parse organization {organization_id}: {e}")
+        logger.warning(
+            "Stored organization %s failed validation: %s", organization_id, parse_failure_detail(e),
+        )
         return None, org_dict
 
 
