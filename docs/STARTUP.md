@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-24
+verified: 2026-10-27
 ---
 
 # Conventioner - Development Startup Guide
