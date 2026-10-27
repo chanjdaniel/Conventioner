@@ -6,7 +6,8 @@ code wrote. Anything else is the server's fault: logged once with its traceback,
 answers (an unknown URL, a wrong method, Flask-Login's 401) pass through untouched.
 
 Pinned through the test client against the real app: the assignment reads, the organization and
-market role routes, the market setup routes, and the application form, amendment and phase routes.
+market role routes, the market setup routes, the application form, amendment and phase routes, and
+the assignment and placement routes.
 """
 import logging
 from types import SimpleNamespace
@@ -187,7 +188,8 @@ def organization(monkeypatch):
     """One organization, owned by whoever ``owner`` names, holding the markets given."""
     def install(owner=OWNER_ID, markets=()):
         monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations({
-            "id": ORG_ID, "name": ORG_NAME, "owner": owner, "admins": [], "members": [],
+            "_id": "org-object-id", "id": ORG_ID, "name": ORG_NAME, "owner": owner,
+            "admins": [], "members": [],
         }))
         monkeypatch.setattr(OrgsApi, "markets_collection", FakeOrganizationMarkets(*markets))
     return install
@@ -633,17 +635,21 @@ class TestTheMarketSetupRoutes:
         assert response.get_json() == {"error": "Organization not found"}
 
     def test_a_new_market_that_breaks_an_invariant_is_the_servers_fault(
-        self, client, monkeypatch, organization,
+        self, client, monkeypatch, caplog, organization,
     ):
         organization()
-        monkeypatch.setattr(MarketsApi, "create_market", fail_with(
-            ValueError("Market must have exactly one owner in roles dict"),
-        ))
+        invariant = "Market must have exactly one owner in roles dict"
+        monkeypatch.setattr(MarketsApi, "create_market", fail_with(ValueError(invariant)))
 
-        response = client.post("/markets", json=NEW_MARKET)
+        with caplog.at_level(logging.ERROR):
+            response = client.post("/markets", json=NEW_MARKET)
 
         assert response.status_code == 500
         assert response.get_json() == {"error": "Internal server error"}
+        assert invariant not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is ValueError
+        assert str(record.exc_info[1]) == invariant
 
     def test_a_market_needs_a_name(self, client):
         response = client.put("/markets/market-123/name", json={"name": "  "})
@@ -876,6 +882,204 @@ class TestTheFormAndPhaseRoutes:
         assert "market-123" in record.getMessage()
         assert [r for r in caplog.records if SECRET in r.getMessage()] == []
         assert "example.com" not in caplog.text
+
+
+# Each assignment write and placement route, with a body it accepts and the function it answers
+# through.
+ASSIGNMENT_AND_PLACEMENT_ROUTES = [
+    ("post", "/markets/market-123/assignment", None, PlacementsApi, "run_assignment"),
+    ("post", "/markets/market-123/vendors", {"name": "Ana", "email": "ana@example.com"},
+     AddedVendorsApi, "add_vendor"),
+    ("put", "/markets/market-123/placements",
+     {"email": "ana@example.com", "date": "2099-08-01", "tableCode": "Main Hall 1",
+      "tableChoice": "Full Table"},
+     PlacementsApi, "write_placement"),
+    ("get", "/markets/market-123/placement-history", None, MarketsApi, "get_placement_history"),
+    ("post", "/markets/market-123/placements/swap",
+     {"date": "2099-08-01", "emails": ["ana@example.com", "ben@example.com"]},
+     PlacementsApi, "swap_placements"),
+    ("delete", "/markets/market-123/placements", {"email": "ana@example.com", "date": "2099-08-01"},
+     PlacementsApi, "remove_placement"),
+]
+
+
+class TestTheAssignmentAndPlacementRoutes:
+    """Running the assignment, adding a vendor, and writing, swapping and freeing a placement, and
+    reading their history, answer through the handler: each refusal with the status and copy an
+    organizer reads, and anything else as the generic 500."""
+
+    def test_an_assignment_run_on_a_market_that_does_not_exist(self, client):
+        response = client.post("/markets/market-missing/assignment")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_an_assignment_run_over_incomplete_answers_names_them(self, client, monkeypatch):
+        from assignment.assignment import IncompleteApplicationsError
+        from assignment.vendor_input import IncompleteApplication
+
+        incomplete = IncompleteApplicationsError(
+            [IncompleteApplication("app-1", "ana@example.com", ("Table choice",))]
+        )
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", fail_with(incomplete))
+
+        response = client.post("/markets/market-123/assignment")
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": incomplete.message(), "incomplete": incomplete.applicants(),
+        }
+
+    def test_a_vendor_added_with_no_body(self, client):
+        response = client.post("/markets/market-123/vendors", json=["Ana"])
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No data provided"}
+
+    def test_a_vendor_added_to_a_market_that_does_not_exist(self, client):
+        response = client.post(
+            "/markets/market-missing/vendors", json={"name": "Ana", "email": "ana@example.com"},
+        )
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_a_vendor_who_already_applied_is_not_added_twice(self, client, monkeypatch):
+        monkeypatch.setattr(
+            ApplicationsApi, "find_application_by_email", lambda _market, _address: object(),
+        )
+
+        response = client.post(
+            "/markets/market-123/vendors", json={"name": "Ana", "email": "ana@example.com"},
+        )
+
+        assert response.status_code == 409
+        assert response.get_json() == {"error": (
+            "ana@example.com already has an application in this market. "
+            "Seat them on the Result page."
+        )}
+
+    @pytest.mark.parametrize("body", [None, ["ana@example.com"], {}])
+    def test_a_placement_with_no_body(self, client, body):
+        kwargs = {} if body is None else {"json": body}
+
+        response = client.put("/markets/market-123/placements", **kwargs)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No data provided"}
+
+    def test_a_placement_for_someone_who_never_applied(self, client):
+        response = client.put("/markets/market-123/placements", json={
+            "email": "ana@example.com", "date": "2099-08-01", "tableCode": "Main Hall 1",
+            "tableChoice": "Full Table",
+        })
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": (
+            "ana@example.com has no application in this market, so they cannot be given a seat. "
+            "Add them as a vendor first."
+        )}
+
+    def test_a_placement_on_an_archived_market(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.ARCHIVED, setupObject=COMPLETE_PLAN))
+
+        response = client.put("/markets/market-123/placements", json={
+            "email": "ana@example.com", "date": "2099-08-01", "tableCode": "Main Hall 1",
+            "tableChoice": "Full Table",
+        })
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+
+    def test_the_history_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/placement-history")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_the_history_of_a_market_that_cannot_be_read(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        response = client.get("/markets/market-123/placement-history")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+
+    def test_a_vendor_cannot_swap_with_themselves(self, client):
+        response = client.post("/markets/market-123/placements/swap", json={
+            "date": "2099-08-01", "emails": ["ana@example.com", "ana@example.com"],
+        })
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A vendor cannot swap seats with themselves."}
+
+    @pytest.mark.parametrize("emails", ["ana@example.com", {"ana": "ben"}, 2])
+    def test_a_swap_whose_vendors_are_not_a_list_names_none(self, client, emails):
+        response = client.post(
+            "/markets/market-123/placements/swap", json={"date": "2099-08-01", "emails": emails},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A swap must name a date and two vendors."}
+
+    @pytest.mark.parametrize("method, path", [
+        ("post", "/markets/market-123/placements/swap"),
+        ("delete", "/markets/market-123/placements"),
+    ])
+    def test_a_body_that_is_not_an_object_is_refused_as_one(self, client, method, path):
+        response = call(client, method, path, ["ana@example.com", "2099-08-01"])
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    def test_freeing_a_seat_with_no_body_says_what_it_needs(self, client):
+        response = client.delete("/markets/market-123/placements")
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "Removing a placement must name the vendor and the date.",
+        }
+
+    def test_freeing_a_seat_on_a_market_that_does_not_exist(self, client):
+        response = client.delete(
+            "/markets/market-missing/placements",
+            json={"email": "ana@example.com", "date": "2099-08-01"},
+        )
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    @pytest.mark.parametrize("method, path, body, api, function", ASSIGNMENT_AND_PLACEMENT_ROUTES)
+    def test_an_unexpected_failure_answers_only_internal_server_error(
+        self, client, monkeypatch, caplog, method, path, body, api, function,
+    ):
+        monkeypatch.setattr(api, function, fail_with(RuntimeError(SECRET)))
+
+        with caplog.at_level(logging.ERROR):
+            response = call(client, method, path, body)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+        assert SECRET not in response.get_data(as_text=True)
+        assert "RuntimeError" not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert method.upper() in record.getMessage()
+        assert "market-123" in record.getMessage()
+        assert [r for r in caplog.records if SECRET in r.getMessage()] == []
+        assert "example.com" not in caplog.text
+
+    def test_a_builtin_permission_error_is_the_servers_fault(self, client, monkeypatch):
+        monkeypatch.setattr(
+            PlacementsApi, "write_placement", fail_with(PermissionError(SECRET)),
+        )
+
+        response = client.put("/markets/market-123/placements", json={"date": "2099-08-01"})
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
 
 
 class TestAClientError:

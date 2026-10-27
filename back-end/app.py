@@ -34,7 +34,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from datetime import timedelta, datetime, timezone
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from market_documents import (
@@ -1033,24 +1032,8 @@ def run_assignment(market_id: str) -> Response:
     back with the assignment it had just been handed; ``assignmentObject`` is server-owned now,
     so a PUT stores nothing and this is the only way a solver run is kept.
     """
-    try:
-        result, status_code = PlacementsApi.run_assignment(market_id, authenticated_email())
-        return jsonify(result), status_code
-    except PlacementsApi.AssignPhaseError as e:
-        return jsonify({"error": str(e)}), 409
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except Exception as e:
-        logger.error(f"Error in run_assignment for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/assignment",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = PlacementsApi.run_assignment(market_id, authenticated_email())
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/vendors', methods=['POST'])
@@ -1060,27 +1043,14 @@ def add_vendor(market_id: str) -> Response:
 
     Body: { "name": "...", "email": "..." }
     """
-    try:
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "No data provided"}), 400
-        requesting_user = authenticated_email()
-        user = UsersApi.get_user(requesting_user)
-        adder = MarketPerson(user_id=user.id if user else None, email=requesting_user)
-        result, status_code = AddedVendorsApi.add_vendor(market_id, data, adder)
-        return jsonify(result), status_code
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except AddedVendorsApi.AddVendorRefused as e:
-        return jsonify({"error": str(e)}), 409
-    except AddedVendorsApi.AddVendorInvalid as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in add_vendor for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({"error": "Internal server error"}), 500
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "No data provided"}), 400
+    requesting_user = authenticated_email()
+    user = UsersApi.get_user(requesting_user)
+    adder = MarketPerson(user_id=user.id if user else None, email=requesting_user)
+    result, status_code = AddedVendorsApi.add_vendor(market_id, data, adder)
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/placements', methods=['PUT'])
@@ -1091,32 +1061,14 @@ def write_placement(market_id: str) -> Response:
     The same bar as every other market write: an EDITOR can already rewrite the tiers, sections
     and table counts the whole assignment is computed from.
     """
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data:
+        return jsonify({"error": "No data provided"}), 400
 
-        result, status_code = PlacementsApi.write_placement(
-            market_id, convert_keys_to_snake_case(data), authenticated_email()
-        )
-        return jsonify(result), status_code
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except PlacementsApi.SeatTakenError as e:
-        return jsonify({"error": str(e)}), 409
-    except PlacementsApi.PlacementError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in write_placement for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/placements",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = PlacementsApi.write_placement(
+        market_id, convert_keys_to_snake_case(data), authenticated_email()
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/placement-history', methods=['GET'])
@@ -1126,51 +1078,30 @@ def get_placement_history(market_id: str) -> Response:
 
     ``?vendor=`` narrows it to the entries about one person, for their detail panel.
     """
-    try:
-        result, status_code = MarketsApi.get_placement_history(
-            market_id, authenticated_email(), request.args.get("vendor"),
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in get_placement_history for {market_id}: {str(e)}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/placement-history",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = MarketsApi.get_placement_history(
+        market_id, authenticated_email(), request.args.get("vendor"),
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/placements/swap', methods=['POST'])
 @login_required
 def swap_placements(market_id: str) -> Response:
     """Trade two vendors' seats on one date, atomically. Requires EDIT permission."""
-    try:
-        data = request.json or {}
-        emails = data.get("emails") or []
-        result, status_code = PlacementsApi.swap_placements(
-            market_id,
-            str(data.get("date") or ""),
-            str(emails[0]) if len(emails) > 0 else "",
-            str(emails[1]) if len(emails) > 1 else "",
-            authenticated_email(),
-        )
-        return jsonify(result), status_code
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except PlacementsApi.PlacementError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in swap_placements for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/placements/swap",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    emails = data.get("emails")
+    if not isinstance(emails, list):
+        emails = []
+    result, status_code = PlacementsApi.swap_placements(
+        market_id,
+        str(data.get("date") or ""),
+        str(emails[0]) if len(emails) > 0 else "",
+        str(emails[1]) if len(emails) > 1 else "",
+        authenticated_email(),
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/placements', methods=['DELETE'])
@@ -1181,30 +1112,16 @@ def remove_placement(market_id: str) -> Response:
     The counterpart of the PUT above, and the reason no operation displaces an occupant:
     freeing a seat first is safe, and mirrors what an organizer physically does.
     """
-    try:
-        data = request.json or {}
-        result, status_code = PlacementsApi.remove_placement(
-            market_id,
-            str(data.get("email") or ""),
-            str(data.get("date") or ""),
-            authenticated_email(),
-        )
-        return jsonify(result), status_code
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except PlacementsApi.PlacementError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in remove_placement for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/placements",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    result, status_code = PlacementsApi.remove_placement(
+        market_id,
+        str(data.get("email") or ""),
+        str(data.get("date") or ""),
+        authenticated_email(),
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/assignment-statistics', methods=['GET'])
