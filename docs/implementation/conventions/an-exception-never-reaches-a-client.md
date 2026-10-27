@@ -47,6 +47,30 @@ describes:
   - back-end/app.py#get_placement_history
   - back-end/app.py#swap_placements
   - back-end/app.py#remove_placement
+  - back-end/app.py#public_get_vendor_assignments
+  - back-end/app.py#public_checkin_page
+  - back-end/app.py#public_attendance_undo
+  - back-end/app.py#public_attendance_checkin
+  - back-end/app.py#applicant_login_request_code
+  - back-end/app.py#applicant_login_verify_code
+  - back-end/app.py#public_get_application_form
+  - back-end/app.py#public_get_applicant_application
+  - back-end/app.py#public_save_applicant_application
+  - back-end/app.py#list_market_applications
+  - back-end/app.py#_named_status
+  - back-end/app.py#review_application
+  - back-end/app.py#review_selection
+  - back-end/app.py#next_for_review
+  - back-end/app.py#hold_for_review
+  - back-end/app.py#reassign_follow_up
+  - back-end/app.py#propose_from_csv
+  - back-end/app.py#confirm_csv_proposal
+  - back-end/app.py#inspect_application_import
+  - back-end/app.py#preview_application_import
+  - back-end/app.py#import_applications
+  - back-end/app.py#publish_market_results
+  - back-end/app.py#get_market_attendance
+  - back-end/app.py#_door_write
   - back-end/api/markets.py#_load_market_for
   - back-end/api/markets.py#parsed_application_form
   - back-end/api/markets.py#create_owned_market
@@ -54,6 +78,9 @@ describes:
   - back-end/api/markets.py#_load_organization_context
   - back-end/application_write.py#_field_answer
   - back-end/csv_import.py#parse_csv
+  - back-end/csv_start.py#confirm
+  - back-end/api/applicants.py#list_market_applications
+  - back-end/api/applications.py#find_or_create_application
 verified: 2026-10-28
 sources:
   - T74
@@ -149,7 +176,13 @@ None catches anything, and each keeps its literal answers (`No data provided`, `
 A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
 
-Every other route keeps its `except` ladder, and answers what it caught, until the later changes migrate it.
+So do the applicant, review, import and door routes: every public route an applicant or a vendor at the door calls, the application list, the review's verdicts, selections, next card, claims and follow-up owners, the [CSV start](../modules/csv-proposal-and-start.md)'s proposal and confirm, the [application import](../modules/csv-import.md)'s inspect, preview and import, Publish Results, and [attendance and the door](../modules/attendance-and-door.md).
+None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, `A JSON object is required` for a door write or an applicant's save whose body is not an object, and the permission 403s the routes ask themselves.
+A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
+A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
+Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
+
+No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
 ## How it is enforced
 
@@ -160,6 +193,7 @@ Every other route keeps its `except` ladder, and answers what it caught, until t
   So does each market setup route, and creating a market answers its one-owner invariant with the generic 500 too, logged with its traceback.
   So does each application form, amendment and phase route; a resume on a market that cannot be read answers `Invalid market data`, 400, a stall is logged with its market id and answered with its resume offer, and a phase that is not a name is unknown.
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
+  So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
