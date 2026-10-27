@@ -1,18 +1,20 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - E26/F01/S01
   - E32/F03/S04
   - bug/22
   - bug/44
+  - T73
 ---
 
 # Accounts
 
 **Who:** an organizer, or someone about to become one; vendors have no account (they sign in per market with a code, [H3](applying-online.md#h3-vendors-apply-online)).
 **Where they start:** `/login`, which has three tabs: Sign in, Register and Sign-in code.
+Every page of this flow fits a phone, since the door on market day sits behind sign-in ([the design language](../../design-system.md#layout); `sign-in-fits-a-phone.spec.ts`).
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 An account is one email address: an address differing only in case or spacing is the same account ([users, and the one spelling of an address](../../implementation/data/users-and-email.md#one-address-is-one-account)).
@@ -31,7 +33,7 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 
 Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link.
 Depends on: reCAPTCHA (bypassed locally), Resend.
-Covered by: `auth.spec.ts` ("Register new user"), `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`.
+Covered by: `auth.spec.ts` ("Register new user"), `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
 
 ## A1a. Resend the verification email
 
@@ -49,7 +51,7 @@ From the verification page, ask for another link.
 
 Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`), visiting `/login` while signed in (redirects to the dashboard).
 A market link opened while signed out lands on the dashboard after sign-in, not on the market.
-Covered by: `auth.spec.ts`, `smoke.spec.ts`.
+Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
 
 ## A3. Sign in with an emailed code
 
@@ -70,7 +72,7 @@ Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the
 2. Follow the emailed link to `/reset-password`, set a new password.
 3. Sign in with the new password.
 
-Covered by: `auth.spec.ts` ("Password reset"), `account-links.spec.ts`.
+Covered by: `auth.spec.ts` ("Password reset"), `account-links.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
 
 ## A5. Delete my account
 

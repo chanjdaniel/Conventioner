@@ -62,7 +62,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | Flows | Specs that walk them | Gap worth a spec |
 | --- | --- | --- |
 | [The lifecycle](../../business/flows/lifecycle.md) | `phase-rail.spec.ts`, `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`, `market-remembers-phases.spec.ts`, `the-rail-addresses.spec.ts` | none noted |
-| [A Accounts](../../business/flows/accounts.md) | `auth.spec.ts`, `smoke.spec.ts`, `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `the-way-in-lines-up.spec.ts` | A3 organizer sign-in code, beyond a wrong code |
+| [A Accounts](../../business/flows/accounts.md) | `auth.spec.ts`, `smoke.spec.ts`, `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `the-way-in-lines-up.spec.ts`, `sign-in-fits-a-phone.spec.ts` | A3 organizer sign-in code, beyond a wrong code |
 | [B Organizations](../../business/flows/organizations.md) | `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `org-deletion.spec.ts` | none noted |
 | [C Finding markets](../../business/flows/finding-a-market.md) | `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `every-market-page-has-an-address.spec.ts`, `one-market-from-the-server.spec.ts`, `the-frame-stays-put.spec.ts` | none noted |
 | [D Creating](../../business/flows/creating-a-market.md) | `new-market-org.spec.ts`, `dialog-idiom.spec.ts`, `public-address.spec.ts`, `where-a-form-starts.spec.ts`, `market-owner.spec.ts` | none noted |
