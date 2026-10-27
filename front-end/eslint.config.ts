@@ -19,6 +19,12 @@ export default defineConfigWithVueTs(
   },
 
   pluginVue.configs['flat/essential'],
+  {
+    // No template renders raw HTML, so an applicant's text always reaches the page escaped;
+    // this keeps it that way. `flat/recommended` would only warn, and would bring other rules.
+    name: 'app/no-raw-html',
+    rules: { 'vue/no-v-html': 'error' },
+  },
   vueTsConfigs.recommended,
   skipFormatting,
 );

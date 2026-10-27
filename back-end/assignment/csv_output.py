@@ -21,6 +21,19 @@ EMAIL_COLUMN = "Email"
 # Whether the review approved them: a seat given by hand to someone it left out is said (E36/F02/S03).
 APPROVAL_COLUMN = "Approval"
 
+# What a spreadsheet reads as the start of a formula (OWASP, CSV injection).
+FORMULA_LEADS = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def as_text_cell(value: str) -> str:
+    """The applicant's own text as a cell no spreadsheet runs: a value beginning with a formula
+    character gets a leading single quote, which Excel and Sheets show as text; any other value,
+    a blank one included, is written exactly as it is.
+
+    A name is the applicant's own text, so it is written as text.
+    """
+    return "'" + value if value.startswith(FORMULA_LEADS) else value
+
 
 def build_market_csv_rows(
     market_dict: Dict[str, Any], vendor_names: Optional[Dict[str, str]] = None,
@@ -37,6 +50,9 @@ def build_market_csv_rows(
     unique, is what check-in matches on, and is what ties a row back to the vendor's application.
     A vendor with no stored name gets a blank cell rather than a placeholder, which is how this
     file read before names existed.
+
+    The name, full name and address are the applicant's own text, so each goes through
+    ``as_text_cell``; the date cells are the organizer's plan and are written as they are.
 
     One row per placed vendor, ordered by first appearance in the assignment, so a re-run of the
     same assignment produces the same file.
@@ -62,9 +78,9 @@ def build_market_csv_rows(
     fieldnames = [NAME_COLUMN, FULL_NAME_COLUMN, EMAIL_COLUMN, APPROVAL_COLUMN] + dates
     rows = [
         {
-            NAME_COLUMN: names.get(email.strip().lower(), ""),
-            FULL_NAME_COLUMN: full.get(email.strip().lower(), ""),
-            EMAIL_COLUMN: email,
+            NAME_COLUMN: as_text_cell(names.get(email.strip().lower(), "")),
+            FULL_NAME_COLUMN: as_text_cell(full.get(email.strip().lower(), "")),
+            EMAIL_COLUMN: as_text_cell(email),
             APPROVAL_COLUMN: "Not approved" if email.strip().lower() in outside else "Approved",
             **{date: by_date.get(date, "") for date in dates},
         }

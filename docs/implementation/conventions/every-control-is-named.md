@@ -43,6 +43,7 @@ The answer is the applicant's own text, so that line is what keeps a `javascript
 ## How it is enforced
 
 The walk is part of the Playwright suite; the visual side of the same idea (focus rings, the one disabled state) is owned by the primitives in [the design language](../../design-system.md#the-primitive-layer).
+The front end's lint refuses `v-html` anywhere (`vue/no-v-html` as an error in [`eslint.config.ts`](../../../front-end/eslint.config.ts)), so no template can render an answer, or any other text, as raw HTML.
 
 ## What breaks it
 
