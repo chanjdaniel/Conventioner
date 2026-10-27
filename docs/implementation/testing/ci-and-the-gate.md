@@ -15,6 +15,7 @@ verified: 2026-10-27
 sources:
   - T47
   - T53
+  - T74
 ---
 
 # CI and the gate
@@ -54,6 +55,13 @@ It is the only real-data check the gate's own commits get: the document, lint an
 **A flaky test fails the build.**
 Under `CI`, Playwright retries twice and sets `failOnFlakyTests` ([`front-end/playwright.config.ts`](../../../front-end/playwright.config.ts)), so a test that passes only on a retry still fails its shard.
 Within a shard the tests share one database (`workers: 1`); never across shards.
+
+## CodeQL
+
+GitHub's CodeQL default setup, a repository setting with no workflow file here, analyses `actions`, `javascript-typescript` and `python` with the default suite, on every pull request to `dev` and weekly on `dev`.
+Each pull request gets an `Analyze (actions)`, an `Analyze (javascript-typescript)` and an `Analyze (python)` check, and a `CodeQL` check from `github-advanced-security` that reports the alerts new in the code it changed.
+It is the automated backstop for [a request value is a string](../conventions/a-request-value-is-a-string.md) (`py/nosql-injection`) and [an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md) (`py/stack-trace-exposure`).
+**None of these checks is required**: branch protection names only the checks [above](#ci).
 
 ## Dependabot
 

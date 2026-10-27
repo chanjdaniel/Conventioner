@@ -7,6 +7,7 @@ describes:
 verified: 2026-10-27
 sources:
   - T66
+  - T74
 ---
 
 # A request value is a string before it reaches a query
@@ -42,5 +43,8 @@ An address read this way still goes through `normalized_email()` ([users, and th
 Each is refused, and nothing changes: no password, no verified flag, no counted try, no check-in, no organization.
 Its users collection matches as the database does, an operator included, so a lookup that let a non-string through would find what the database finds.
 A reset, a verification and a sign-in with the right string still work.
+
+CodeQL's `py/nosql-injection` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a request value that reaches a MongoDB filter unchecked.
+The test is the net for the endpoints above; the rule catches the endpoint nobody listed.
 
 What breaks it: `data.get(key)` handed to a filter, or to anything that builds one, without `string_field()`.

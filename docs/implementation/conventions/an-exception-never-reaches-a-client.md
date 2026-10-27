@@ -98,7 +98,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
-- CodeQL's `py/stack-trace-exposure`, run on every pull request, flags a route that catches an exception and answers its text.
-  It stops following a flow at a `raise`, so the client copy rule and these tests keep the guarantee where the tool cannot see.
+- CodeQL's `py/stack-trace-exposure` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a route that catches an exception and answers its text.
+  It stops following a flow at a `raise`, so the client copy rule and these route tests hold the rest: a library's message carried into a client error's copy is invisible to it.
 
 What breaks it: a route `except` that answers what it caught, a library's message in client copy, or a 500 body with more than `error` in it.
