@@ -7,8 +7,8 @@
  * smearing the regular outline, which is why emphasis across the product read as muddy rather than
  * crisp. `document.fonts` confirmed it: one face per family, both `weight: normal`.
  *
- * Nothing needed downloading. `public/fonts/Outfit/static/` had shipped Medium, SemiBold and Bold
- * all along, and the variable Outfit (now `public/fonts/Outfit-VariableFont_wght.woff2`) covers the
+ * Nothing needed downloading. Static Medium, SemiBold and Bold files had shipped all along (unused,
+ * and removed in T76), and the variable Outfit (now `public/fonts/Outfit-VariableFont_wght.woff2`) covers the
  * whole axis for the same 108KB, as TTF, that two static weights would have cost.
  *
  * Two things are asserted, because either alone lets the bug back:
