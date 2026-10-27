@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -67,7 +67,7 @@ Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the
 **Status:** Works; a signed-out person reaches the form at step 2 since bug 22 was fixed (`auth.spec.ts`, `account-links.spec.ts`).
 
 1. At `/login`, choose "Forgot password?"; enter email on `/reset-password-request`.
-2. Follow the emailed link to `/reset-password`, set a new password.
+2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
 Covered by: `auth.spec.ts` ("Password reset"), `account-links.spec.ts`.

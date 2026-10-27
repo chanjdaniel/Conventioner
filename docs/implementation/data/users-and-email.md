@@ -41,11 +41,11 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 
 ## The session names the account by its login id
 
-The session and the remember-me cookie name the account by its `login_id` (`AuthUser.get_id`), not its address, and every request loads the account by it (`get_user_by_login_id`, the app's user loader); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
+The session and the remember-me cookie name the account by its `login_id` (`AuthUser.get_id`), not its address, and each signed-in request loads the account by it (`get_user_by_login_id`, the app's user loader); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
 **A password reset replaces the login id**, in the same write as the new password, so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
 An organizer who resets a password because a device was lost or shared is signed out on it.
 A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in for its year.
-So every organizer signed in once more after the release that brought login ids, whose sessions had named the account by its address.
+So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address.
 
 **Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
 The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py).

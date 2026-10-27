@@ -25,7 +25,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | --- | --- |
 | `markets` | `id`; `organizationId`; `roles.$**` |
 | `organizations` | `id`; `owner`; `admins`; `members` |
-| `users` | `id`; `verification_token`; `password_reset_token`; `login_id` (every request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id)) |
+| `users` | `id`; `verification_token`; `password_reset_token`; `login_id` (each signed-in request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id)) |
 | `applications` | `id` |
 | `attendance` | `market_id, vendor_email` |
 | `placement_history` | `market_id` |
