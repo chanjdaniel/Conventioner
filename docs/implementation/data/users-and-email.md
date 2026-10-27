@@ -5,9 +5,14 @@ describes:
   - back-end/utils/email_address.py
   - back-end/datatypes.py#User
   - back-end/api/users.py#ensure_user_indexes
+  - back-end/api/users.py#AuthUser
+  - back-end/api/users.py#get_user_by_login_id
+  - back-end/api/users.py#_sign_in
+  - back-end/api/users.py#reset_password
   - back-end/app.py#verify_user_indexes
   - back-end/migrations/migrate_user_emails.py
-verified: 2026-10-24
+  - back-end/tests/test_the_remember_cookie.py
+verified: 2026-10-27
 sources:
   - E32/F03/S04
 ---
@@ -32,9 +37,23 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `verification_token`, `verification_token_expires` | the email-verification link, valid an hour |
 | `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour |
 | `otp`, `otp_expires`, `otp_attempts` | a sign-in code, valid five minutes, cleared by the fifth wrong attempt |
+| `login_id` | what the session and the remember-me cookie name the account by: a random value, made at the first sign-in and replaced by a password reset |
 
-The session names the account by its address (`AuthUser.get_id`), and every endpoint loads the account by it (`get_user`); permissions are then decided by the account's id.
-The two token fields are [lookup indexes](lookup-indexes.md), so following a link is one indexed read.
+## The session names the account by its login id
+
+The session and the remember-me cookie name the account by its `login_id` (`AuthUser.get_id`), not its address, and each signed-in request loads the account by it (`get_user_by_login_id`, the app's user loader); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
+**A password reset replaces the login id**, in the same write as the new password, so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
+An organizer who resets a password because a device was lost or shared is signed out on it.
+A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in for its year.
+So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address.
+
+**Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
+The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py).
+A route test that signs in by writing the session with an address points the loader at its own fake account with conftest's `sessions_load_through_get_user`.
+
+## Lookups
+
+`login_id` and the two token fields are [lookup indexes](lookup-indexes.md), so loading the account on each request, and following a link, is one indexed read.
 Accounts are made by sign-up, by `back-end/create_account.py` for an operator, and by `create_test_user.py` for the test fixtures; `/register-user` makes an unverified account that cannot sign in.
 
 ## One address is one account

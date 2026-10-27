@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import skip_without_real_dependencies
+from conftest import sessions_load_through_get_user, skip_without_real_dependencies
 
 skip_without_real_dependencies()
 
@@ -23,6 +23,7 @@ OWNER_EMAIL = "owner@example.com"
 def created(monkeypatch):
     """Sign in, and capture the market ``create_market`` is handed instead of storing it."""
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(

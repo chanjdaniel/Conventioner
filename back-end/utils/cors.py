@@ -103,6 +103,23 @@ def allowed_origins() -> List[AllowedOrigin]:
     )
 
 
+def origin_is_allowed(origin: str, origins: List[AllowedOrigin]) -> bool:
+    """Whether a browser's ``Origin`` is one of the list's.
+
+    A string entry must equal the origin, case aside, as flask-cors compares one. A pattern entry
+    must match the whole origin (``fullmatch``), which is at least as strict as flask-cors's
+    ``pattern.match``. The request-origin check reads the list through this, so every origin it
+    takes is one CORS takes too.
+    """
+    for allowed in origins:
+        if isinstance(allowed, re.Pattern):
+            if allowed.fullmatch(origin):
+                return True
+        elif allowed.casefold() == origin.casefold():
+            return True
+    return False
+
+
 def install_cors(app, origins: List[AllowedOrigin]) -> None:
     """Install the credentialed CORS policy for an already-validated origin list.
 

@@ -37,7 +37,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Login 0.6.3** - User session management
   - Handles user authentication state
   - Session-based authentication (not JWT)
-  - Email-based user identification
+  - A login id identifies the account, not its address ([users and email](implementation/data/users-and-email.md#the-session-names-the-account-by-its-login-id))
 - **Flask-Bcrypt 1.0.1** - Password hashing
   - Secure password storage using bcrypt
   - Password verification for login
@@ -92,7 +92,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Flask-Session 0.8.0** - Server-side session storage
   - Session store selected by `SESSION_TYPE`, which has no default: `filesystem` (local disk) on a container or VM, `null` (signed cookie only, no server-side store) on a serverless host
   - Session lifetime: 2 hours (7200 seconds)
-  - The cookie is `SameSite=None`, so it is always `Secure` and `HttpOnly` - not configurable
+  - The session and remember-me cookies are `SameSite=None`, so they are always `Secure` and `HttpOnly` - not configurable ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
 
 ### Testing
 - **pytest 9.1** - Python test framework

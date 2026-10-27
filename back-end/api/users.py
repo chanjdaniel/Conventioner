@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from typing import Optional
 from flask import request, jsonify
@@ -75,13 +76,67 @@ def ensure_user_indexes() -> None:
 
 # users
 class AuthUser(UserMixin):
+    """A signed-in account.
+
+    The session and the remember-me cookie name it by its login id, not its address: a password
+    reset replaces the login id, so every session and remember-me cookie issued before the reset
+    stops loading the account.
+    """
+
     def __init__(self, user: User):
         self.id = user.id
         self.email = user.email
         self.organizations = user.organizations
+        self.login_id = user.login_id
 
     def get_id(self):
-        return self.email
+        return self.login_id
+
+
+def _new_login_id() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def get_user_by_login_id(login_id):
+    """The account a session or remember-me cookie names, or None.
+
+    There is no fallback to the address a session named before login ids: that would keep every
+    remember-me cookie issued before them, and before a reset, signing in.
+    """
+    if not isinstance(login_id, str) or not login_id:
+        return None
+    user_doc = users_collection.find_one({"login_id": login_id})
+    if user_doc:
+        user_doc.pop('_id', None)
+        return AuthUser(User(**user_doc))
+    return None
+
+
+def _sign_in(login_user, user_doc):
+    """Sign the account in, giving it a login id at its first sign-in.
+
+    The login id is written only where none is stored, then read back, so two first sign-ins at
+    once agree on one.
+    """
+    if not user_doc.get("login_id"):
+        users_collection.update_one(
+            {"id": user_doc["id"], "login_id": None}, {"$set": {"login_id": _new_login_id()}}
+        )
+        stored = users_collection.find_one({"id": user_doc["id"]})
+        if not stored or not stored.get("login_id"):
+            return jsonify({"message": "Invalid credentials"}), 401
+        user_doc["login_id"] = stored["login_id"]
+
+    user_doc.pop('_id', None)
+    auth_user = AuthUser(User(**user_doc))
+    login_user(auth_user, remember=True)
+
+    user_data = {
+        "id": auth_user.id,
+        "email": auth_user.email,
+        "organizations": auth_user.organizations
+    }
+    return jsonify({"message": "Login successful", "user_data": user_data}), 200
 
 def get_user(email):
     """Load user from MongoDB using email as the key"""
@@ -155,18 +210,8 @@ def login(bcrypt, login_user, request):
         # Check if email is verified
         if not user_doc.get("email_verified", False):
             return jsonify({"message": "Please verify your email before logging in"}), 403
-        
-        # Remove MongoDB's _id field before creating User object
-        user_doc.pop('_id', None)
-        auth_user = AuthUser(User(**user_doc))
-        login_user(auth_user, remember=True)
 
-        user_data = {
-            "id": auth_user.id,
-            "email": auth_user.email,
-            "organizations": auth_user.organizations
-        }
-        return jsonify({"message": "Login successful", "user_data": user_data}), 200
+        return _sign_in(login_user, user_doc)
 
     return jsonify({"message": "Invalid credentials"}), 401
 
@@ -415,14 +460,16 @@ def reset_password(bcrypt, request):
     # Hash new password
     hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-    # Update user password and clear reset token
+    # Update user password and clear reset token. A new login id signs out every session and
+    # remember-me cookie issued before the reset.
     users_collection.update_one(
         {"email": user_doc["email"]},
         {
             "$set": {
                 "password": hashed_password,
                 "password_reset_token": None,
-                "password_reset_token_expires": None
+                "password_reset_token_expires": None,
+                "login_id": _new_login_id(),
             }
         }
     )
@@ -543,17 +590,7 @@ def login_with_otp(login_user, request):
         }
     )
 
-    # Create auth user and login
-    user_doc.pop('_id', None)
-    auth_user = AuthUser(User(**user_doc))
-    login_user(auth_user, remember=True)
-
-    user_data = {
-        "id": auth_user.id,
-        "email": auth_user.email,
-        "organizations": auth_user.organizations
-    }
-    return jsonify({"message": "Login successful", "user_data": user_data}), 200
+    return _sign_in(login_user, user_doc)
 
 
 def get_user_by_id(user_id: str):

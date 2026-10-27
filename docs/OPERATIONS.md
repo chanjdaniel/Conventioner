@@ -9,7 +9,7 @@ describes:
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
-verified: 2026-10-24
+verified: 2026-10-27
 sources:
   - E32/F03/S03
   - T15
@@ -253,6 +253,7 @@ Vercel's Hobby plan keeps runtime logs for about an hour, so read them while the
 | A deploy broke something | | Roll back each affected project in Vercel (Deployments, Instant Rollback), then revert on `dev`, promote the revert, and promote the fixed build so later deploys reach the domain again. See [RELEASING.md](RELEASING.md#rolling-back). |
 | Organizers cannot sign up (400) | The captcha site key and secret are from different properties, or `conventioner.io` is not on the property's domain list | Check both keys in the reCAPTCHA console; a changed site key needs a front-end rebuild. Meanwhile, make the account by hand. |
 | No verification, reset or sign-in email arrives | Resend refused or the domain lost verification | Resend dashboard, Emails and Domains. Meanwhile, `create_account.py verify` the account. |
-| The browser reports a CORS error | The page's origin is not `CORS_ALLOWED_ORIGINS` | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added. |
+| The browser reports a CORS error | The page's origin is not in `CORS_ALLOWED_ORIGINS` | It must be exactly `https://conventioner.io`, no trailing slash; a new front-end domain must be added. |
+| A write answers 403 `Request origin not allowed` | The page's origin is not in `CORS_ALLOWED_ORIGINS`, which also decides which origins a browser's write is taken from ([where a write comes from](implementation/conventions/security-invariants.md#where-a-write-comes-from)) | The same fix as the CORS error: list the page's origin exactly. This refusal names only a write; CORS still blocks that page's reads, so one listed origin fixes both. |
 | The Deploy workflow fails at "Refuse to run half-configured" or "Deploy the back end" | A GitHub variable is missing, or `VERCEL_TOKEN` expired | Set it again (see [Configuration](#configuration-and-secrets)) and re-run. |
 | Vendors cannot find themselves at check-in | The market is not published (`market_days`), or they use another address | The check-in page serves only a published market, by the address they applied with; an editor can check them in from Attendance. |

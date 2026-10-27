@@ -71,6 +71,7 @@ from utils.proxy import (
     install_trusted_proxy_fix,
     trusted_proxy_hops,
 )
+from utils.request_origin import install_request_origin_check
 from utils.secret_key import (
     SecretKeyNotConfiguredError,
     signing_secret,
@@ -317,8 +318,9 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
 def configure_public_endpoint_defenses(
     flask_app: Flask, defenses: PublicEndpointDefenses,
 ) -> None:
-    """Install what the check confirmed: the signing key, the origins it may be spent from, the store
-    it is kept in, and the hops a caller's address may be read back through.
+    """Install what the check confirmed: the signing key, the origins it may be spent from (which
+    are also the origins a write is taken from), the store it is kept in, and the hops a caller's
+    address may be read back through.
 
     The session store goes on last, because a cookie-only session *is* the signed cookie: the
     interface is built against the app's ``SECRET_KEY``, which the first line here is what puts
@@ -326,6 +328,7 @@ def configure_public_endpoint_defenses(
     """
     flask_app.config["SECRET_KEY"] = defenses.signing_secret
     install_cors(flask_app, defenses.origins)
+    install_request_origin_check(flask_app, defenses.origins)
     logger.info(
         "Allowing credentialed browser requests from: %s", describe_origins(defenses.origins),
     )
@@ -339,12 +342,16 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Not configurable: a SameSite=None cookie is one the browser attaches to cross-site requests, and
-# browsers only accept such a cookie when it is also Secure - so an environment variable that could
-# turn this off would not "allow plain HTTP", it would ship a session cookie the browser drops, or
-# sends in the clear where it does not. Loopback counts as a secure context, so local dev is unaffected.
+# Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
+# is one the browser attaches to cross-site requests, and browsers only accept such a cookie when it
+# is also Secure - so an environment variable that could turn this off would not "allow plain HTTP",
+# it would ship a cookie the browser drops, or sends in the clear where it does not. Loopback counts
+# as a secure context, so local dev is unaffected. The remember-me cookie is HttpOnly by Flask-Login's
+# default.
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["REMEMBER_COOKIE_SECURE"] = True
+app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 
@@ -383,8 +390,8 @@ def healthz() -> Response:
 # users
 
 @login_manager.user_loader
-def get_user(email: str) -> Any:
-    return UsersApi.get_user(email)
+def get_user(login_id: str) -> Any:
+    return UsersApi.get_user_by_login_id(login_id)
 
 
 
