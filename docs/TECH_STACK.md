@@ -121,6 +121,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Build Tool
 - **Vite 8.3.5** - Next-generation frontend build tool, bundling with Rolldown
+  - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget)
   - Minifying keeps legal comments (`/*!` and `@license`, in [`vite.config.ts`](../front-end/vite.config.ts)), so the licence notices of copied icons and bundled libraries reach the shipped bundle ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - Fast development server with HMR
   - Production build optimization
@@ -302,7 +303,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `VITE_FLASK_HOST` - API base path (`/api` in the template and the compose file; no default)
 - `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 - `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
-- `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`). Opt-in, warns on every build it allows, and must never be set on a deployed build
+- `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`, and the bundle budget's build in CI and `nm-test.sh`, which is measured and never deployed). Opt-in, warns on every build it allows, and must never be set on a deployed build
 
 ## Project Structure
 
