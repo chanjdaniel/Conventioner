@@ -45,6 +45,7 @@ The zone is the room less a wall buffer (1500 mm unless configured) and the obst
 ## Who may use the floorplan routes
 
 Every floorplan action is checked against the caller's role on the floorplan's market, the way saving a floorplan to a market always was.
+The roles are [what each role may do](../../business/rules/what-each-role-may-do.md) says, and a route that changes the floorplan keeps [an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md).
 [`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, role, edits=...)` checks a market the request names, `image_refusal(gridfs_id, role, edits=...)` checks the market an image was uploaded for, and each answers None or the refusal the route returns.
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a role below the one asked 403, and, for a route that changes the floorplan (`edits`), an archived market 403.
 A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
