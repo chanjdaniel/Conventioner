@@ -431,6 +431,147 @@ class TestEveryOtherModulesRefusals:
             )
 
 
+# Each organization and market role route, with a body it accepts and the API function it answers
+# through. The list of a user's organizations has no refusal of its own, so it is here only to fail.
+ORGANIZATION_AND_ROLE_ROUTES = [
+    ("get", "/organizations", None, OrgsApi, "get_organizations_for_user"),
+    ("post", "/organizations", {"name": "Spring Collective"}, OrgsApi, "create_organization"),
+    ("get", f"/organizations/{ORG_ID}", None, OrgsApi, "get_organization"),
+    ("put", f"/organizations/{ORG_ID}", {"name": "Renamed"}, OrgsApi, "update_organization"),
+    ("get", f"/organizations/{ORG_ID}/deletion-preview", None,
+     OrgsApi, "organization_deletion_preview"),
+    ("delete", f"/organizations/{ORG_ID}", None, OrgsApi, "delete_organization"),
+    ("post", f"/organizations/{ORG_ID}/admins", {"user_email": "admin@example.com"},
+     OrgsApi, "add_org_admin"),
+    ("post", f"/organizations/{ORG_ID}/members", {"user_email": "member@example.com"},
+     OrgsApi, "add_org_member"),
+    ("delete", f"/organizations/{ORG_ID}/users/user-2", None, OrgsApi, "remove_org_user"),
+    ("post", f"/organizations/{ORG_ID}/transfer", {"new_owner_email": "next@example.com"},
+     OrgsApi, "transfer_org_ownership"),
+    ("post", "/markets/market-123/roles", {"user_email": "editor@example.com", "role": "editor"},
+     MarketsApi, "add_market_role"),
+    ("delete", "/markets/market-123/roles/user-2", None, MarketsApi, "remove_market_role"),
+    ("put", "/markets/market-123/roles/user-2", {"role": "viewer"},
+     MarketsApi, "update_market_role"),
+]
+
+
+def call(client, method, path, body=None):
+    kwargs = {} if body is None else {"json": body}
+    return getattr(client, method)(path, **kwargs)
+
+
+class TestTheOrganizationAndRoleRoutes:
+    """The organization and market role routes answer through the handler: each refusal with the
+    status and copy an organizer reads, and anything else as the generic 500."""
+
+    def test_an_organization_needs_a_name(self, client):
+        response = client.post("/organizations", json={"name": "   "})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Organization name required"}
+
+    def test_reading_an_organization_that_does_not_exist(self, client, organization):
+        organization()
+
+        response = client.get("/organizations/org-missing")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Organization not found"}
+
+    @pytest.mark.parametrize("method, path, body", [
+        ("put", "/organizations/org-missing", {"name": "Renamed"}),
+        ("delete", "/organizations/org-missing", None),
+        ("post", "/organizations/org-missing/admins", {"user_email": "admin@example.com"}),
+        ("post", "/organizations/org-missing/members", {"user_email": "member@example.com"}),
+        ("delete", "/organizations/org-missing/users/user-2", None),
+        ("post", "/organizations/org-missing/transfer", {"new_owner_email": "next@example.com"}),
+    ])
+    def test_an_organization_that_does_not_exist_is_not_found(
+        self, client, organization, method, path, body,
+    ):
+        organization()
+
+        response = call(client, method, path, body)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Organization not found"}
+
+    def test_the_owner_cannot_be_added_as_a_member(self, client, organization):
+        organization()
+
+        response = client.post(
+            f"/organizations/{ORG_ID}/members", json={"user_email": OWNER_EMAIL},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Owner cannot be added as member"}
+
+    def test_ownership_handed_to_no_account(self, client, organization):
+        organization()
+
+        response = client.post(
+            f"/organizations/{ORG_ID}/transfer", json={"new_owner_email": "nobody@example.com"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "New owner user not found"}
+
+    @pytest.mark.parametrize("method, path, body", [
+        ("post", "/markets/market-missing/roles", {"user_email": OWNER_EMAIL, "role": "editor"}),
+        ("delete", "/markets/market-missing/roles/user-2", None),
+        ("put", "/markets/market-missing/roles/user-2", {"role": "viewer"}),
+    ])
+    def test_a_role_on_a_market_that_does_not_exist_is_not_found(self, client, method, path, body):
+        response = call(client, method, path, body)
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_a_role_that_does_not_exist(self, client):
+        response = client.post(
+            "/markets/market-123/roles", json={"user_email": OWNER_EMAIL, "role": "Wizard"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid role: Wizard"}
+
+    def test_removing_a_role_nobody_holds(self, client):
+        response = client.delete("/markets/market-123/roles/user-9")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "User does not have a role in this market"}
+
+    def test_the_owners_role_cannot_be_changed(self, client):
+        response = client.put(f"/markets/market-123/roles/{OWNER_ID}", json={"role": "viewer"})
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": "Cannot change owner's role"}
+
+    @pytest.mark.parametrize("method, path, body, api, function", ORGANIZATION_AND_ROLE_ROUTES)
+    def test_an_unexpected_failure_answers_only_internal_server_error(
+        self, client, monkeypatch, caplog, organization, method, path, body, api, function,
+    ):
+        organization()
+        monkeypatch.setattr(api, function, fail_with(RuntimeError(SECRET)))
+
+        with caplog.at_level(logging.ERROR):
+            response = call(client, method, path, body)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+        assert SECRET not in response.get_data(as_text=True)
+        assert "RuntimeError" not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert method.upper() in record.getMessage()
+        if "/markets/" in path:
+            assert "market-123" in record.getMessage()
+        elif ORG_ID in path:
+            assert ORG_ID in record.getMessage()
+        assert "example.com" not in caplog.text
+
+
 class TestAClientError:
     def test_is_answered_with_its_status_and_copy(self, client, monkeypatch):
         monkeypatch.setattr(

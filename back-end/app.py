@@ -467,74 +467,49 @@ def delete_user() -> Response:
 @login_required
 def get_organizations() -> Response:
     """Get all organizations for the current user."""
-    try:
-        user_email = authenticated_email()
-        
-        organizations = OrgsApi.get_organizations_for_user(user_email)
-        return jsonify({"organizations": organizations}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    organizations = OrgsApi.get_organizations_for_user(authenticated_email())
+    return jsonify({"organizations": organizations}), 200
 
 @app.route('/organizations', methods=['POST'])
 @login_required
 def create_organization() -> Response:
     """Create a new organization."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        name = (string_field(data, 'name') or '').strip()
-        if not name:
-            return jsonify({"error": "Organization name required"}), 400
-        
-        owner_email = authenticated_email()
-        
-        org_id = OrgsApi.create_organization(owner_email, name)
-        return jsonify({
-            "message": "Organization created successfully",
-            "organization_id": org_id
-        }), 201
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    name = (string_field(data, 'name') or '').strip()
+    if not name:
+        return jsonify({"error": "Organization name required"}), 400
+
+    org_id = OrgsApi.create_organization(authenticated_email(), name)
+    return jsonify({
+        "message": "Organization created successfully",
+        "organization_id": org_id
+    }), 201
 
 @app.route('/organizations/<org_id>', methods=['GET'])
 @login_required
 def get_organization(org_id: str) -> Response:
     """Get an organization by id."""
-    try:
-        org = OrgsApi.get_organization(org_id)
-        if org:
-            return jsonify({"organization": org}), 200
-        else:
-            return jsonify({"error": "Organization not found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    org = OrgsApi.get_organization(org_id)
+    if not org:
+        return jsonify({"error": "Organization not found"}), 404
+    return jsonify({"organization": org}), 200
 
 @app.route('/organizations/<org_id>', methods=['PUT'])
 @login_required
 def update_organization(org_id: str) -> Response:
     """Update an organization. Only owner can update."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        requesting_user = authenticated_email()
-        
-        result = OrgsApi.update_organization(org_id, requesting_user, data)
-        return jsonify({
-            "message": "Organization updated successfully",
-            "modified_count": result.modified_count
-        }), 200
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    result = OrgsApi.update_organization(org_id, authenticated_email(), data)
+    return jsonify({
+        "message": "Organization updated successfully",
+        "modified_count": result.modified_count
+    }), 200
 
 @app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
 @login_required
@@ -545,16 +520,8 @@ def organization_deletion_preview(org_id: str) -> Response:
     so this names each one: its name, its phase, whether it ran, how many placements it holds and
     the public URL that stops resolving.
     """
-    try:
-        preview = OrgsApi.organization_deletion_preview(org_id, authenticated_email())
-        return jsonify(convert_keys_to_camel_case(preview)), 200
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 404
-    except Exception as e:
-        logger.error(f"Error in organization_deletion_preview {org_id}: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    preview = OrgsApi.organization_deletion_preview(org_id, authenticated_email())
+    return jsonify(convert_keys_to_camel_case(preview)), 200
 
 
 @app.route('/organizations/<org_id>', methods=['DELETE'])
@@ -564,214 +531,123 @@ def delete_organization(org_id: str) -> Response:
 
     Refused while it holds a market that is mid-lifecycle, and the refusal NAMES them: "you cannot
     delete this" without saying which market is a refusal an organizer can only answer by guessing.
+    That refusal is ``OrganizationHasLiveMarkets``, a 409 whose body carries the blocking markets.
     """
-    try:
-        requesting_user = authenticated_email()
-        
-        result = OrgsApi.delete_organization(org_id, requesting_user)
-        if result.deleted_count > 0:
-            return jsonify({"message": "Organization deleted successfully"}), 200
-        else:
-            return jsonify({"error": "Organization not found"}), 404
-    except OrgsApi.OrganizationHasLiveMarkets as e:
-        return jsonify(convert_keys_to_camel_case({
-            "error": "organization_has_live_markets",
-            "message": str(e),
-            "blocking_markets": e.blocking,
-        })), 409
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in delete_organization {org_id}: {e}")
-        return jsonify({"error": str(e)}), 500
+    result = OrgsApi.delete_organization(org_id, authenticated_email())
+    if result.deleted_count == 0:
+        return jsonify({"error": "Organization not found"}), 404
+    return jsonify({"message": "Organization deleted successfully"}), 200
 
 @app.route('/organizations/<org_id>/admins', methods=['POST'])
 @login_required
 def add_org_admin(org_id: str) -> Response:
     """Add an admin to an organization. Only owner can add admins."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        user_email = data.get('user_email')
-        if not user_email:
-            return jsonify({"error": "user_email required"}), 400
-        
-        requesting_user = authenticated_email()
-        
-        success = OrgsApi.add_org_admin(org_id, user_email, requesting_user)
-        if success:
-            return jsonify({"message": "Admin added successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to add admin"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    user_email = string_field(data, 'user_email')
+    if not user_email:
+        return jsonify({"error": "user_email required"}), 400
+
+    if not OrgsApi.add_org_admin(org_id, user_email, authenticated_email()):
+        return jsonify({"error": "Failed to add admin"}), 400
+    return jsonify({"message": "Admin added successfully"}), 200
 
 @app.route('/organizations/<org_id>/members', methods=['POST'])
 @login_required
 def add_org_member(org_id: str) -> Response:
     """Add a member to an organization. Owner or admin can add members."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        user_email = data.get('user_email')
-        if not user_email:
-            return jsonify({"error": "user_email required"}), 400
-        
-        requesting_user = authenticated_email()
-        
-        success = OrgsApi.add_org_member(org_id, user_email, requesting_user)
-        if success:
-            return jsonify({"message": "Member added successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to add member"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    user_email = string_field(data, 'user_email')
+    if not user_email:
+        return jsonify({"error": "user_email required"}), 400
+
+    if not OrgsApi.add_org_member(org_id, user_email, authenticated_email()):
+        return jsonify({"error": "Failed to add member"}), 400
+    return jsonify({"message": "Member added successfully"}), 200
 
 @app.route('/organizations/<org_id>/users/<user_id>', methods=['DELETE'])
 @login_required
 def remove_org_user(org_id: str, user_id: str) -> Response:
     """Remove a user from an organization."""
-    try:
-        requesting_user = authenticated_email()
-        
-        success = OrgsApi.remove_org_user(org_id, user_id, requesting_user)
-        if success:
-            return jsonify({"message": "User removed successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to remove user"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not OrgsApi.remove_org_user(org_id, user_id, authenticated_email()):
+        return jsonify({"error": "Failed to remove user"}), 400
+    return jsonify({"message": "User removed successfully"}), 200
 
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
 @login_required
 def transfer_org_ownership(org_id: str) -> Response:
     """Transfer organization ownership."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        new_owner_email = data.get('new_owner_email')
-        if not new_owner_email:
-            return jsonify({"error": "new_owner_email required"}), 400
-        
-        current_owner = authenticated_email()
-        
-        success = OrgsApi.transfer_org_ownership(org_id, current_owner, new_owner_email)
-        if success:
-            return jsonify({"message": "Ownership transferred successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to transfer ownership"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    new_owner_email = string_field(data, 'new_owner_email')
+    if not new_owner_email:
+        return jsonify({"error": "new_owner_email required"}), 400
+
+    if not OrgsApi.transfer_org_ownership(org_id, authenticated_email(), new_owner_email):
+        return jsonify({"error": "Failed to transfer ownership"}), 400
+    return jsonify({"message": "Ownership transferred successfully"}), 200
 
 # Market role management
+
+def _named_market_role(name: str) -> Optional[MarketRole]:
+    """The market role a request names, in any case, or None when it names none."""
+    return next((role for role in MarketRole if role.value == name.lower()), None)
 
 @app.route('/markets/<market_id>/roles', methods=['POST'])
 @login_required
 def add_market_role(market_id: str) -> Response:
     """Add a user role to a market."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        user_email = data.get('user_email')
-        role_str = data.get('role')
-        if not user_email or not role_str:
-            return jsonify({"error": "user_email and role required"}), 400
-        
-        try:
-            role = MarketRole(role_str.lower())
-        except ValueError:
-            return jsonify({"error": f"Invalid role: {role_str}"}), 400
-        
-        requesting_user = authenticated_email()
-        
-        success = MarketsApi.add_market_role(market_id, user_email, role, requesting_user)
-        if success:
-            return jsonify({"message": "Role added successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to add role"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    user_email = string_field(data, 'user_email')
+    role_str = string_field(data, 'role')
+    if not user_email or not role_str:
+        return jsonify({"error": "user_email and role required"}), 400
+
+    role = _named_market_role(role_str)
+    if role is None:
+        return jsonify({"error": f"Invalid role: {role_str}"}), 400
+
+    if not MarketsApi.add_market_role(market_id, user_email, role, authenticated_email()):
+        return jsonify({"error": "Failed to add role"}), 400
+    return jsonify({"message": "Role added successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['DELETE'])
 @login_required
 def remove_market_role(market_id: str, user_id: str) -> Response:
     """Remove a user role from a market."""
-    try:
-        requesting_user = authenticated_email()
-        
-        success = MarketsApi.remove_market_role(market_id, user_id, requesting_user)
-        if success:
-            return jsonify({"message": "Role removed successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to remove role"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not MarketsApi.remove_market_role(market_id, user_id, authenticated_email()):
+        return jsonify({"error": "Failed to remove role"}), 400
+    return jsonify({"message": "Role removed successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['PUT'])
 @login_required
 def update_market_role(market_id: str, user_id: str) -> Response:
     """Update a user's role in a market."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        role_str = data.get('role')
-        if not role_str:
-            return jsonify({"error": "role required"}), 400
-        
-        try:
-            role = MarketRole(role_str.lower())
-        except ValueError:
-            return jsonify({"error": f"Invalid role: {role_str}"}), 400
-        
-        requesting_user = authenticated_email()
-        
-        success = MarketsApi.update_market_role(market_id, user_id, role, requesting_user)
-        if success:
-            return jsonify({"message": "Role updated successfully"}), 200
-        else:
-            return jsonify({"error": "Failed to update role"}), 400
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    role_str = string_field(data, 'role')
+    if not role_str:
+        return jsonify({"error": "role required"}), 400
+
+    role = _named_market_role(role_str)
+    if role is None:
+        return jsonify({"error": f"Invalid role: {role_str}"}), 400
+
+    if not MarketsApi.update_market_role(market_id, user_id, role, authenticated_email()):
+        return jsonify({"error": "Failed to update role"}), 400
+    return jsonify({"message": "Role updated successfully"}), 200
 
 # source data
 

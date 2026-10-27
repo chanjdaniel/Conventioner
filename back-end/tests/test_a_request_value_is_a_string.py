@@ -278,6 +278,54 @@ class TestCreatingAnOrganization:
         assert len(organizations.docs) == 1
 
 
+class TestNamingSomeoneForARole:
+    """An organization's admin, member or new owner, and a market role and who holds it, are refused
+    as missing when they are not strings, before anyone is looked up."""
+
+    ADDRESSED = [
+        ("/organizations/an-org-id/admins", "user_email", {}, OrgsApi, "add_org_admin"),
+        ("/organizations/an-org-id/members", "user_email", {}, OrgsApi, "add_org_member"),
+        ("/organizations/an-org-id/transfer", "new_owner_email", {},
+         OrgsApi, "transfer_org_ownership"),
+        ("/markets/a-market-id/roles", "user_email", {"role": "editor"},
+         MarketsApi, "add_market_role"),
+    ]
+
+    @pytest.fixture
+    def asked(self, monkeypatch):
+        calls = []
+        for *_route, api, function in self.ADDRESSED:
+            monkeypatch.setattr(api, function, lambda *args, **kwargs: calls.append(args))
+        monkeypatch.setattr(
+            MarketsApi, "update_market_role", lambda *args, **kwargs: calls.append(args),
+        )
+        return calls
+
+    @pytest.mark.parametrize("path, field, rest, _api, _function", ADDRESSED)
+    @pytest.mark.parametrize("address", NOT_AN_ADDRESS)
+    def test_an_address_that_is_not_a_string_is_refused(
+        self, signed_in, asked, path, field, rest, _api, _function, address,
+    ):
+        response = signed_in.post(path, json={**rest, field: address})
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].endswith("required")
+        assert asked == []
+
+    @pytest.mark.parametrize("role", NOT_STRINGS)
+    def test_a_role_that_is_not_a_string_is_refused(self, signed_in, asked, role):
+        added = signed_in.post(
+            "/markets/a-market-id/roles", json={"user_email": FIXTURE_EMAIL, "role": role},
+        )
+        changed = signed_in.put("/markets/a-market-id/roles/a-user-id", json={"role": role})
+
+        assert (added.status_code, added.get_json()) == (
+            400, {"error": "user_email and role required"},
+        )
+        assert (changed.status_code, changed.get_json()) == (400, {"error": "role required"})
+        assert asked == []
+
+
 class TestRegistration:
     @pytest.mark.parametrize("path", ["/register-user", "/register"])
     @pytest.mark.parametrize("field", ["email", "password"])
