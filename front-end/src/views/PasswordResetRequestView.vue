@@ -188,7 +188,12 @@ h1 {
   text-align: center;
 }
 
+/* A link on a line of its own is a 24px target (WCAG 2.5.8, T79): a line box that tall, with no
+   padding, so it still sits on its text. */
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--space-6);
   color: var(--mm-text-link);
   text-decoration: none;
   font-size: var(--text-sm);

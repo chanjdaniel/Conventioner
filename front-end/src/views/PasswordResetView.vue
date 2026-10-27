@@ -210,7 +210,9 @@ h1 {
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
   display: flex;
-  align-items: center;
+  /* Stretched, so the input and its Show button fill the box drawn around them: centred, they were
+     20px and 15px tall, under the 24px a phone's tap needs (WCAG 2.5.8, T79). */
+  align-items: stretch;
   background-color: white;
 }
 
@@ -270,7 +272,12 @@ h1 {
   text-align: center;
 }
 
+/* A link on a line of its own is a 24px target (WCAG 2.5.8, T79): a line box that tall, with no
+   padding, so it still sits on its text. */
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--space-6);
   color: var(--mm-text-link);
   text-decoration: none;
   font-size: var(--text-sm);
