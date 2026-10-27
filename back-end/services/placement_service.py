@@ -16,6 +16,7 @@ from shapely import affinity
 from shapely.geometry import Polygon, box, Point
 from shapely.ops import unary_union
 
+from client_errors import BadRequestError
 from datatypes import (
     WallSegment,
     ObstacleZone,
@@ -128,6 +129,7 @@ def _build_room_polygon(
     """
     if not walls:
         if room_mm is None:
+            # The route refuses a request with neither before it gets here, so this is a bug.
             raise ValueError("A room needs its walls or the floor plan's size.")
         return box(0, 0, room_mm["width_mm"], room_mm["height_mm"])
 
@@ -158,7 +160,7 @@ def _build_room_polygon(
     # The walls enclose nothing: fall back to the floor plan's extent when it is known.
     if room_mm is not None:
         return box(0, 0, room_mm["width_mm"], room_mm["height_mm"])
-    raise ValueError("The walls drawn do not enclose a room.")
+    raise BadRequestError("The walls drawn do not enclose a room.")
 
 
 # ── placement zone ─────────────────────────────────────────────────────────────

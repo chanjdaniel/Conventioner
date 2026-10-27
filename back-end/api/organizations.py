@@ -5,6 +5,8 @@ import uuid
 from typing import Optional, Dict, Any, List
 from pymongo.results import UpdateResult, DeleteResult
 from bson import ObjectId
+from assignment.utils import convert_keys_to_camel_case
+from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from datatypes import MarketPhase, Organization, market_name_slug, phase_from_market_document, phase_label
 from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
@@ -25,12 +27,12 @@ def create_organization(owner_email: str, name: str) -> str:
     # Check if organization already exists
     existing_org = organizations_collection.find_one({"name": name})
     if existing_org:
-        raise ValueError("Organization already exists")
+        raise BadRequestError("Organization already exists")
     
     # Verify owner exists and get user id
     owner = UsersApi.get_user(owner_email)
     if not owner:
-        raise ValueError("Owner user not found")
+        raise BadRequestError("Owner user not found")
     owner_id = owner.id
     
     org_id = str(uuid.uuid4())
@@ -122,13 +124,13 @@ def update_organization(org_id: str, requesting_user_email: str, updates: Dict[s
     """Update an organization. Only owner can update."""
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
     
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
-        raise PermissionError("User not found")
+        raise ForbiddenError("User not found")
     if org.get("owner") != requesting_user.id:
-        raise PermissionError("Only organization owner can update organization")
+        raise ForbiddenError("Only organization owner can update organization")
     
     updates.pop("id", None)
     updates.pop("owner", None)
@@ -201,13 +203,13 @@ def organization_deletion_preview(org_id: str, requesting_user_email: str) -> Di
     """
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
 
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
-        raise PermissionError("User not found")
+        raise ForbiddenError("User not found")
     if org.get("owner") != requesting_user.id:
-        raise PermissionError("Only organization owner can delete organization")
+        raise ForbiddenError("Only organization owner can delete organization")
 
     summaries = [
         _market_summary(document)
@@ -225,8 +227,8 @@ def organization_deletion_preview(org_id: str, requesting_user_email: str) -> Di
     }
 
 
-class OrganizationHasLiveMarkets(Exception):
-    """Deletion refused: the organization holds markets that are mid-lifecycle.
+class OrganizationHasLiveMarkets(ConflictError):
+    """Deletion refused: the organization holds markets that are mid-lifecycle. A 409.
 
     Carries them, because "you cannot delete this" without saying which markets is a refusal an
     organizer can only answer by guessing.
@@ -240,6 +242,13 @@ class OrganizationHasLiveMarkets(Exception):
             f"{'' if len(blocking) == 1 else 's'} that {'is' if len(blocking) == 1 else 'are'} "
             f"under way: {names}. Archive or delete them first."
         )
+
+    def body(self) -> Dict[str, Any]:
+        return convert_keys_to_camel_case({
+            "error": "organization_has_live_markets",
+            "message": self.message,
+            "blocking_markets": self.blocking,
+        })
 
 
 def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult:
@@ -277,20 +286,20 @@ def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> b
     """Add a user as admin to organization. Only owner can add admins."""
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
     
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
-        raise PermissionError("User not found")
+        raise ForbiddenError("User not found")
     if org.get("owner") != requesting_user.id:
-        raise PermissionError("Only organization owner can add admins")
+        raise ForbiddenError("Only organization owner can add admins")
     
     user = UsersApi.get_user(user_email)
     if not user:
-        raise ValueError("User not found")
+        raise BadRequestError("User not found")
     
     if org.get("owner") == user.id:
-        raise ValueError("Owner cannot be added as admin")
+        raise BadRequestError("Owner cannot be added as admin")
     
     result = organizations_collection.update_one(
         {"id": org_id},
@@ -309,23 +318,23 @@ def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> 
     """Add a user as member to organization. Owner or admin can add members."""
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
     
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
-        raise PermissionError("User not found")
+        raise ForbiddenError("User not found")
     if (org.get("owner") != requesting_user.id and
             requesting_user.id not in org.get("admins", [])):
-        raise PermissionError("Only organization owner or admin can add members")
+        raise ForbiddenError("Only organization owner or admin can add members")
     
     user = UsersApi.get_user(user_email)
     if not user:
-        raise ValueError("User not found")
+        raise BadRequestError("User not found")
     
     if org.get("owner") == user.id:
-        raise ValueError("Owner cannot be added as member")
+        raise BadRequestError("Owner cannot be added as member")
     if user.id in org.get("admins", []):
-        raise ValueError("Admin cannot be added as member")
+        raise BadRequestError("Admin cannot be added as member")
     
     result = organizations_collection.update_one(
         {"id": org_id},
@@ -344,24 +353,24 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> bo
     """Remove a user from organization. Owner can remove anyone, admin can remove members."""
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
     
     requesting_user = UsersApi.get_user(requesting_user_email)
     if not requesting_user:
-        raise PermissionError("User not found")
+        raise ForbiddenError("User not found")
     is_owner = org.get("owner") == requesting_user.id
     is_admin = requesting_user.id in org.get("admins", [])
     
     if not is_owner and not is_admin:
-        raise PermissionError("Only organization owner or admin can remove users")
+        raise ForbiddenError("Only organization owner or admin can remove users")
     
     if org.get("owner") == user_id:
-        raise ValueError("Cannot remove organization owner. Transfer ownership first.")
+        raise BadRequestError("Cannot remove organization owner. Transfer ownership first.")
     
     removed = False
     if user_id in org.get("admins", []):
         if not is_owner:
-            raise PermissionError("Only owner can remove admins")
+            raise ForbiddenError("Only owner can remove admins")
         result = organizations_collection.update_one(
             {"id": org_id},
             {"$pull": {"admins": user_id}}
@@ -387,15 +396,15 @@ def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_emai
     """Transfer organization ownership. Only current owner can transfer."""
     org = organizations_collection.find_one({"id": org_id})
     if not org:
-        raise ValueError("Organization not found")
+        raise NotFoundError("Organization not found")
     
     current_owner = UsersApi.get_user(current_owner_email)
     if not current_owner or org.get("owner") != current_owner.id:
-        raise PermissionError("Only current owner can transfer ownership")
+        raise ForbiddenError("Only current owner can transfer ownership")
     
     new_owner = UsersApi.get_user(new_owner_email)
     if not new_owner:
-        raise ValueError("New owner user not found")
+        raise BadRequestError("New owner user not found")
     
     pull_updates = {}
     if new_owner.id in org.get("admins", []):

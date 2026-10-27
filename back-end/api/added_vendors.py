@@ -16,14 +16,17 @@ import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import essential_fields as EssentialFields
 from assignment.utils import convert_keys_to_camel_case
+from client_errors import BadRequestError, ConflictError
 from datatypes import Application, ApplicationStatus, MarketPerson, MarketRole
 from utils.email_address import normalized_email
 
-class AddVendorRefused(ValueError):
-    """The market cannot take this vendor now: its phase, or an address it already holds. A 409."""
+class AddVendorRefused(ConflictError, ValueError):
+    """The market cannot take this vendor now: its phase, or an address it already holds. A 409.
+
+    Still a ``ValueError`` until no route catches one to answer it."""
 
 
-class AddVendorInvalid(ValueError):
+class AddVendorInvalid(BadRequestError):
     """The request names no vendor that could be recorded. A 400."""
 
 

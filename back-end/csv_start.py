@@ -28,6 +28,7 @@ import api.markets as MarketsApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
+from client_errors import ConflictError
 from datatypes import MappingAuthor
 from market_documents import (
     market_doc_field, market_doc_filter, market_doc_key, market_from_document,
@@ -39,8 +40,10 @@ IGNORE_VALUE = "__ignore__"
 CHOICE_TYPES = ("select", "multi_select")
 
 
-class ConfirmRefused(ValueError):
-    """The request cannot be written as it stands; the message says why."""
+class ConfirmRefused(ConflictError, ValueError):
+    """The request cannot be written as it stands; the message says why. A 409.
+
+    Still a ``ValueError`` until no caller catches one to answer it."""
 
 
 def _ledger_rows(columns: List[Dict[str, Any]]) -> Dict[int, List[int]]:

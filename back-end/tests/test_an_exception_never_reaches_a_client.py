@@ -25,10 +25,17 @@ from conftest import (
 skip_without_real_dependencies()
 
 import app as app_module
+import api.added_vendors as AddedVendorsApi
 import api.applicants as ApplicantsApi
+import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
+import api.organizations as OrgsApi
+import api.placements as PlacementsApi
 import api.users as UsersApi
+import csv_start as CsvStart
 import db_config
+import rejection_rules as RejectionRules
+import services.placement_service as PlacementService
 from client_errors import (
     BadRequestError,
     ClientError,
@@ -37,6 +44,7 @@ from client_errors import (
     NotFoundError,
 )
 from datatypes import MarketPhase, market_name_slug
+from guards import PreconditionResult
 
 
 OWNER_EMAIL = "owner@example.com"
@@ -104,12 +112,31 @@ class TestTheTypes:
         assert issubclass(ForbiddenError, PermissionError)
         assert not issubclass(ConflictError, (ValueError, PermissionError))
 
-    def test_the_markets_apis_own_refusals_are_client_errors_with_their_old_bases(self):
-        assert issubclass(MarketsApi.MarketNotFoundError, (NotFoundError, ValueError))
-        assert issubclass(MarketsApi.MarketArchivedError, (ForbiddenError, PermissionError))
-        assert issubclass(MarketsApi.MoveUnavailable, (BadRequestError, ValueError))
-        assert issubclass(MarketsApi.ApplicationFormLockedError, ConflictError)
-        assert issubclass(MarketsApi.PhaseChangedUnderRequest, ConflictError)
+    @pytest.mark.parametrize("refusal, client_error, builtin", [
+        (MarketsApi.MarketNotFoundError, NotFoundError, ValueError),
+        (MarketsApi.MarketArchivedError, ForbiddenError, PermissionError),
+        (MarketsApi.MoveUnavailable, BadRequestError, ValueError),
+        (MarketsApi.ApplicationFormLockedError, ConflictError, None),
+        (MarketsApi.PhaseChangedUnderRequest, ConflictError, None),
+        (PlacementsApi.PlacementError, BadRequestError, ValueError),
+        (PlacementsApi.SeatTakenError, BadRequestError, ValueError),
+        (PlacementsApi.AssignPhaseError, ConflictError, ValueError),
+        (AddedVendorsApi.AddVendorRefused, ConflictError, ValueError),
+        (AddedVendorsApi.AddVendorInvalid, BadRequestError, ValueError),
+        (FormAmendmentApi.AmendmentUnavailable, ConflictError, None),
+        (FormAmendmentApi.AmendmentRefused, ConflictError, None),
+        (FormAmendmentApi.AmendmentStalled, ConflictError, None),
+        (CsvStart.ConfirmRefused, ConflictError, ValueError),
+        (OrgsApi.OrganizationHasLiveMarkets, ConflictError, None),
+    ])
+    def test_the_domain_refusals_are_client_errors_with_their_old_bases(
+        self, refusal, client_error, builtin,
+    ):
+        assert issubclass(refusal, client_error)
+        if builtin is None:
+            assert not issubclass(refusal, (ValueError, PermissionError))
+        else:
+            assert issubclass(refusal, builtin)
 
 
 class TestAMarketsApiRefusal:
@@ -129,6 +156,279 @@ class TestAMarketsApiRefusal:
         assert response.status_code == 400
         assert response.get_json() == {"error": "Invalid market data"}
         assert "unreadable-sections" not in response.get_data(as_text=True)
+
+
+ORG_ID = "org-1"
+ORG_NAME = "Night Market Society"
+
+
+class FakeOrganizations:
+    def __init__(self, *docs):
+        self.docs = list(docs)
+
+    def find_one(self, query):
+        return next(
+            (dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())), None,
+        )
+
+
+class FakeOrganizationMarkets:
+    def __init__(self, *docs):
+        self.docs = list(docs)
+
+    def find(self, query):
+        return iter([dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())])
+
+
+@pytest.fixture
+def organization(monkeypatch):
+    """One organization, owned by whoever ``owner`` names, holding the markets given."""
+    def install(owner=OWNER_ID, markets=()):
+        monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations({
+            "id": ORG_ID, "name": ORG_NAME, "owner": owner, "admins": [], "members": [],
+        }))
+        monkeypatch.setattr(OrgsApi, "markets_collection", FakeOrganizationMarkets(*markets))
+    return install
+
+
+def refusals_raised_by(monkeypatch, owner, name):
+    """Every client error the real function raises, kept as it passes to the route."""
+    raised = []
+    real = getattr(owner, name)
+
+    def spying(*args, **kwargs):
+        try:
+            return real(*args, **kwargs)
+        except ClientError as refusal:
+            raised.append(refusal)
+            raise
+    monkeypatch.setattr(owner, name, spying)
+    return raised
+
+
+def assert_answered_as_raised(response, raised):
+    """The route answers exactly what the client error says it will, so the migration that lets it
+    reach the handler changes nothing a client reads."""
+    [refusal] = raised
+    assert response.status_code == refusal.status
+    assert response.get_json() == refusal.body()
+
+
+class TestEveryOtherModulesRefusals:
+    """A refusal decided outside the markets API carries the status and body its route answers today.
+
+    Each is raised for real where it can be reached through a route, and spied on as it passes."""
+
+    def test_a_placement_that_names_no_vendor(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, PlacementsApi, "write_placement")
+
+        response = client.put("/markets/market-123/placements", json={"date": "2026-08-01"})
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "A placement must name the vendor it places."}
+
+    def test_a_seat_someone_else_holds(self, client, monkeypatch):
+        taken = PlacementsApi.SeatTakenError("ana@example.com already holds Hall A 1.")
+        monkeypatch.setattr(PlacementsApi, "write_placement", fail_with(taken))
+
+        response = client.put("/markets/market-123/placements", json={"date": "2026-08-01"})
+
+        assert_answered_as_raised(response, [taken])
+        assert response.status_code == 409
+
+    def test_freeing_a_seat_without_naming_it(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, PlacementsApi, "remove_placement")
+
+        response = client.delete("/markets/market-123/placements", json={})
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 400
+
+    def test_a_swap_without_two_vendors(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, PlacementsApi, "swap_placements")
+
+        response = client.post("/markets/market-123/placements/swap", json={"date": "2026-08-01"})
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 400
+
+    def test_an_assignment_run_in_a_draft(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.DRAFT, setupObject=COMPLETE_PLAN))
+        raised = refusals_raised_by(monkeypatch, PlacementsApi, "run_assignment")
+
+        response = client.post("/markets/market-123/assignment")
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_a_vendor_added_with_no_name(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, AddedVendorsApi, "add_vendor")
+
+        response = client.post(
+            "/markets/market-123/vendors", json={"name": "", "email": "ana@example.com"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "Give the vendor's name."}
+
+    def test_a_vendor_added_to_a_draft(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.DRAFT, setupObject=COMPLETE_PLAN))
+        raised = refusals_raised_by(monkeypatch, AddedVendorsApi, "add_vendor")
+
+        response = client.post(
+            "/markets/market-123/vendors", json={"name": "Ana", "email": "ana@example.com"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_an_amendment_outside_the_import_phases(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "amend_application_form")
+
+        response = client.post(
+            "/markets/market-123/application-form/amendment",
+            json={"applicationForm": {"fields": []}},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_an_amendment_the_preflight_refuses_keeps_its_blockers(self, client, monkeypatch):
+        refused = FormAmendmentApi.AmendmentRefused(
+            "The form as edited would not let this market reopen applications.",
+            [PreconditionResult(
+                id="form_has_fields", passed=False, message="The form asks nothing.",
+                resolution_link="application-form", resolution_label="Add a question",
+            )],
+        )
+        monkeypatch.setattr(FormAmendmentApi, "amend_application_form", fail_with(refused))
+
+        response = client.post(
+            "/markets/market-123/application-form/amendment",
+            json={"applicationForm": {"fields": []}},
+        )
+
+        assert_answered_as_raised(response, [refused])
+        assert response.get_json()["blockers"][0]["resolutionLabel"] == "Add a question"
+
+    @pytest.mark.parametrize("path, function", [
+        ("/markets/market-123/application-form/amendment", "amend_application_form"),
+        ("/markets/market-123/application-form/amendment/resume", "resume_amendment"),
+    ])
+    def test_a_stalled_amendment_keeps_its_resume_offer(self, client, monkeypatch, path, function):
+        stalled = FormAmendmentApi.AmendmentStalled(
+            "This market moved to 'review' while the amendment was running.",
+            at_phase="review", remaining=["applications_open"], return_phase="applications_open",
+        )
+        monkeypatch.setattr(FormAmendmentApi, function, fail_with(stalled))
+
+        response = client.post(path, json={"applicationForm": {"fields": []}})
+
+        assert_answered_as_raised(response, [stalled])
+        assert response.get_json()["canResume"] is True
+
+    def test_resuming_with_nothing_unfinished(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS_OPEN))
+        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "resume_amendment")
+
+        response = client.post("/markets/market-123/application-form/amendment/resume")
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_rejection_rules_that_are_not_a_list(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        raised = refusals_raised_by(monkeypatch, RejectionRules.Rulebook, "prepared")
+
+        response = client.put("/markets/market-123/rejection-rules", json={"rules": "all of them"})
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "rules must be a list."}
+
+    def test_a_csv_start_confirmed_on_a_market_past_draft(self, client, monkeypatch):
+        raised = refusals_raised_by(monkeypatch, CsvStart, "confirmed_update")
+
+        response = client.post(
+            "/markets/market-123/csv-proposal/confirm", json={"csvContent": "Name\nAna\n"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+
+    def test_an_organization_that_already_exists(self, client, monkeypatch, organization):
+        organization()
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "create_organization")
+
+        response = client.post("/organizations", json={"name": ORG_NAME})
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "Organization already exists"}
+
+    def test_an_organization_changed_by_someone_not_its_owner(
+        self, client, monkeypatch, organization,
+    ):
+        organization(owner="user-2")
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "update_organization")
+
+        response = client.put(f"/organizations/{ORG_ID}", json={"name": "Renamed"})
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 403
+
+    def test_an_admin_with_no_account(self, client, monkeypatch, organization):
+        organization()
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "add_org_admin")
+
+        response = client.post(
+            f"/organizations/{ORG_ID}/admins", json={"user_email": "nobody@example.com"},
+        )
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "User not found"}
+
+    def test_removing_the_organizations_owner(self, client, monkeypatch, organization):
+        organization()
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "remove_org_user")
+
+        response = client.delete(f"/organizations/{ORG_ID}/users/{OWNER_ID}")
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 400
+
+    def test_the_deletion_preview_of_no_organization(self, client, monkeypatch, organization):
+        organization()
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "organization_deletion_preview")
+
+        response = client.get("/organizations/org-missing/deletion-preview")
+
+        assert_answered_as_raised(response, raised)
+        assert response.get_json() == {"error": "Organization not found"}
+
+    def test_deleting_an_organization_with_a_market_under_way_names_it(
+        self, client, monkeypatch, organization,
+    ):
+        organization(markets=[stored_market(
+            phase=MarketPhase.REVIEW, name="Spring Fair", organizationId=ORG_ID,
+        )])
+        raised = refusals_raised_by(monkeypatch, OrgsApi, "delete_organization")
+
+        response = client.delete(f"/organizations/{ORG_ID}")
+
+        assert_answered_as_raised(response, raised)
+        assert response.status_code == 409
+        assert response.get_json()["blockingMarkets"][0]["name"] == "Spring Fair"
+
+    def test_walls_that_enclose_no_room_are_refused_in_our_words(self):
+        along_one_line = [
+            {"start": (0, 0), "end": (1000, 0), "thickness_mm": 100},
+            {"start": (1000, 0), "end": (2000, 0), "thickness_mm": 100},
+        ]
+
+        with pytest.raises(BadRequestError, match="do not enclose a room"):
+            PlacementService.auto_place_tables(
+                walls=along_one_line, obstacles=[], table_types=[], counts={},
+                scale_px_per_mm=1.0,
+            )
 
 
 class TestAClientError:

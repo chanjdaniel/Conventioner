@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import ConflictError
 from datatypes import ApplicationForm, Market, MarketPhase, MarketRole, phase_label
 from guards import PreconditionResult, judge_route, route_between
 from market_documents import market_doc_key, market_doc_set
@@ -44,19 +45,26 @@ AMENDABLE_FROM: tuple[str, ...] = (
 )
 
 
-class AmendmentUnavailable(Exception):
+class AmendmentUnavailable(ConflictError):
     """The chain cannot be offered at all, and the organizer is told why rather than shown it fail."""
 
 
-class AmendmentRefused(Exception):
+class AmendmentRefused(ConflictError):
     """Pre-flight refused the proposed form. Carries the blockers, so the dialog can say which."""
 
     def __init__(self, message: str, blockers: List[PreconditionResult]):
         self.blockers = blockers
         super().__init__(message)
 
+    def body(self) -> Dict[str, Any]:
+        return convert_keys_to_camel_case({
+            "error": "preconditions_not_met",
+            "message": self.message,
+            "blockers": [blocker.payload() for blocker in self.blockers],
+        })
 
-class AmendmentStalled(Exception):
+
+class AmendmentStalled(ConflictError):
     """The walk stopped between hops. Says where it stopped and what is left to do."""
 
     def __init__(self, message: str, at_phase: str, remaining: List[str], return_phase: str):
@@ -64,6 +72,17 @@ class AmendmentStalled(Exception):
         self.remaining = remaining
         self.return_phase = return_phase
         super().__init__(message)
+
+    def body(self) -> Dict[str, Any]:
+        """Where the chain stopped, and that it can be finished."""
+        return convert_keys_to_camel_case({
+            "error": "amendment_stalled",
+            "message": self.message,
+            "current_phase": self.at_phase,
+            "return_phase": self.return_phase,
+            "remaining": self.remaining,
+            "can_resume": True,
+        })
 
 
 @dataclass(frozen=True)
@@ -142,7 +161,7 @@ def amendment_availability(market: Market) -> Dict[str, Any]:
     try:
         plan = plan_for(market)
     except AmendmentUnavailable as refusal:
-        return {"available": False, "reason": str(refusal), "hops": 0, "return_phase": None}
+        return {"available": False, "reason": refusal.message, "hops": 0, "return_phase": None}
 
     applications = ApplicationsApi.count_applications_for_market(market.id)
     if applications:
@@ -282,12 +301,6 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
 
 
 def stall_payload(error: AmendmentStalled) -> Dict[str, Any]:
-    """What a stalled chain tells the organizer: where it stopped, and that it can be finished."""
-    return convert_keys_to_camel_case({
-        "error": "amendment_stalled",
-        "message": str(error),
-        "current_phase": error.at_phase,
-        "return_phase": error.return_phase,
-        "remaining": error.remaining,
-        "can_resume": True,
-    })
+    """What a stalled chain tells the organizer. The routes' name for ``AmendmentStalled.body``,
+    until they stop catching it."""
+    return error.body()
