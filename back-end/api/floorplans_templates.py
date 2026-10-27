@@ -200,7 +200,7 @@ def list_templates():
 @floorplans_templates_bp.route("/templates/<template_id>", methods=["GET"])
 @login_required
 def get_template(template_id: str):
-    """Get a single template by its UUID id. Requires ownership or org membership."""
+    """Get a single template by its id. Requires its creator or the organization's owner."""
     try:
         doc = templates_collection.find_one({"id": template_id})
         if not doc:

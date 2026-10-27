@@ -15,6 +15,7 @@ describes:
   - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
   - front-end/src/components/floorplan/FloorplanUploader.vue
+  - front-end/src/components/floorplan/FloorplanWorkflow.vue
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
