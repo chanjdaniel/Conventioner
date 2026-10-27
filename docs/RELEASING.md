@@ -23,7 +23,7 @@ This project uses a **dev → main promotion flow**:
   It is deployed only by hand, through the Deploy workflow, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
   Never commit or open PRs directly against `main` (the release-please Release PR and a `hotfix/` PR are the exceptions, [below](#hotfixes)).
 
-**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e` checks to pass (`e2e` passes only when all four shards do), and a push to `main` is accepted only for a commit that has passed them.
+**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor` checks to pass (`e2e` passes only when all four shards do), and a push to `main` is accepted only for a commit that has passed them.
 Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
 `main` keeps a linear history; force pushes are blocked on both.
 Admins can override, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.

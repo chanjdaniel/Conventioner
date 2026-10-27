@@ -10,6 +10,10 @@ updates:
     directory: "/front-end"
     schedule:
       interval: "weekly"
+    # A new release waits a week before Dependabot proposes it, so a bad one has time to be pulled
+    # before CI runs it. Security updates are not delayed: GitHub applies no cooldown to them.
+    cooldown:
+      default-days: 7
     # Titles are Conventional Commits release-please reads: fix(deps): for what ships, so it cuts a
     # patch; chore(deps-dev): for tooling, so it cuts nothing.
     commit-message:
@@ -45,6 +49,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # The same week's wait as npm's, for the same reason.
+    cooldown:
+      default-days: 7
     # ci(deps): an action bump changes CI, not the product, so release-please cuts nothing.
     commit-message:
       prefix: "ci"
