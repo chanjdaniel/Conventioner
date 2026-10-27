@@ -105,6 +105,24 @@ def client():
     return app_module.app.test_client()
 
 
+@pytest.fixture
+def signed_in(monkeypatch):
+    """A client signed in as the fixture user, for the endpoints that need a session."""
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    monkeypatch.setattr(
+        UsersApi, "get_user",
+        lambda email: SimpleNamespace(
+            id="fixture-user-id", email=email, is_active=True, is_authenticated=True,
+            is_anonymous=False, get_id=lambda e=email: e,
+        ),
+    )
+    client = app_module.app.test_client()
+    with client.session_transaction() as session:
+        session["_user_id"] = FIXTURE_EMAIL
+        session["_fresh"] = True
+    return client
+
+
 def _password_is(collection, password):
     stored = collection.by_email(FIXTURE_EMAIL)["password"]
     return app_module.bcrypt.check_password_hash(stored, password)
@@ -224,6 +242,19 @@ class TestALookupByAddress:
         assert response.status_code == 400
 
 
+class TestDeletingYourAccount:
+    @pytest.mark.parametrize("email", NOT_AN_ADDRESS)
+    def test_an_address_that_is_not_a_string_is_refused_and_deletes_nobody(
+        self, signed_in, users, email,
+    ):
+        collection = users()
+
+        response = signed_in.post("/delete-user", json={"email": email})
+
+        assert response.status_code == 400
+        assert collection.by_email(FIXTURE_EMAIL)
+
+
 class TestRegistration:
     @pytest.mark.parametrize("path", ["/register-user", "/register"])
     @pytest.mark.parametrize("field", ["email", "password"])
@@ -317,24 +348,11 @@ class TestTheCheckInPage:
 class TestTheFloorplanTools:
     """Two floorplan writes name what they act on by an id in the body."""
 
-    @pytest.fixture
-    def signed_in(self, monkeypatch):
-        monkeypatch.setattr(app_module.login_manager, "session_protection", None)
-        monkeypatch.setattr(
-            UsersApi, "get_user",
-            lambda email: SimpleNamespace(
-                id="fixture-user-id", email=email, is_active=True, is_authenticated=True,
-                is_anonymous=False, get_id=lambda e=email: e,
-            ),
-        )
+    @pytest.fixture(autouse=True)
+    def a_market(self, monkeypatch):
         monkeypatch.setattr(
             MarketsApi, "markets_collection", FakeMarketsCollection(stored_market(MarketPhase.DRAFT)),
         )
-        client = app_module.app.test_client()
-        with client.session_transaction() as session:
-            session["_user_id"] = FIXTURE_EMAIL
-            session["_fresh"] = True
-        return client
 
     @pytest.mark.parametrize("market_id", NOT_STRINGS)
     def test_saving_to_a_market_named_by_anything_but_a_string_is_refused(
