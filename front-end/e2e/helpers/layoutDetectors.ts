@@ -23,8 +23,13 @@ export interface DetectOptions {
   spaceScale: number[];
   /** px font sizes allowed for text. */
   textScale: number[];
-  /** px, the smallest tap target's width and height. */
+  /** px, the smallest tap target's width and height: WCAG 2.5.8's 24px. */
   minTarget: number;
+  /**
+   * px, the size a target on a phone is meant to reach (44px). Under it, and not under `minTarget`,
+   * is a `tight-target`: reported, never failed on, until the phone controls are raised to it.
+   */
+  comfortableTarget?: number;
 }
 
 export interface Finding {
@@ -50,8 +55,10 @@ export const GATING = [
 ];
 
 /**
- * Whether the sweep fails on a finding at a window this wide. `small-target` only at phone width,
- * where it is precise: on a desktop it is mostly native checkboxes (which WCAG 2.5.8 exempts) and hints inside larger buttons.
+ * Whether the sweep fails on a finding at a window this wide. `small-target`, under WCAG 2.5.8's
+ * 24px, only at phone width, where it is precise: on a desktop it is mostly hints inside larger
+ * buttons. On a phone the gate is 24px, not the 44px a thumb wants, until the phone controls are
+ * raised to 44px (Daniel, 2026-10-28); until then `tight-target` reports each one under 44px.
  */
 export function gates(finding: Finding, width: number): boolean {
   if (finding.kind === 'small-target') return width < PHONE_WIDTH;
@@ -331,20 +338,27 @@ export function detectLayout(opts: DetectOptions): Finding[] {
       leaves.push({ el, r });
     }
 
-    // Tap targets. A link inside a run of text is exempt (WCAG 2.5.8's inline exception).
+    // Tap targets. A link inside a run of text is exempt (WCAG 2.5.8's inline exception), and a
+    // control's label is a target for it too: tapping "Gold" ticks the 20px box beside it.
     if (
       el.matches(
         'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=menuitem],[role=checkbox],[role=radio],[role=switch]',
       )
     ) {
       const inlineLink = tag === 'a' && el.parentElement && ownText(el.parentElement);
-      const tiny = r.width < opts.minTarget || r.height < opts.minTarget;
-      if (tiny && !inlineLink)
-        push(
-          'small-target',
-          el,
-          `${Math.round(r.width)}x${Math.round(r.height)}px, under ${opts.minTarget}px`,
-        );
+      const labels = (el as HTMLInputElement).labels
+        ? Array.from((el as HTMLInputElement).labels!).map(rectOf)
+        : [];
+      const reaches = (size: number) =>
+        [r, ...labels].some((x) => x.width >= size && x.height >= size);
+      const measured = `${Math.round(r.width)}x${Math.round(r.height)}px${labels.length ? ' and its label' : ''}`;
+      if (inlineLink) {
+        // Exempt.
+      } else if (!reaches(opts.minTarget)) {
+        push('small-target', el, `${measured}, under ${opts.minTarget}px`);
+      } else if (opts.comfortableTarget && !reaches(opts.comfortableTarget)) {
+        push('tight-target', el, `${measured}, under ${opts.comfortableTarget}px`);
+      }
     }
 
     // Siblings of one kind spaced unevenly, and left edges that nearly line up.

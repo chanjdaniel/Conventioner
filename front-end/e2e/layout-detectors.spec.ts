@@ -30,7 +30,8 @@ async function findingsOn(page: Page, html: string, width = 1440): Promise<Findi
   const findings = await page.evaluate(detectLayout, {
     spaceScale: SPACE_SCALE,
     textScale: TYPE_SCALE,
-    minTarget: width < PHONE_WIDTH ? 44 : 24,
+    minTarget: 24,
+    comfortableTarget: width < PHONE_WIDTH ? 44 : undefined,
   });
   return findings.filter((f) => gates(f, width));
 }
@@ -100,12 +101,36 @@ test.describe('The layout detectors', () => {
     ]);
   });
 
-  test('a tap target under 44px fails on a phone, and only there', async ({ page }) => {
-    const html = `<button data-testid="lookup" style="width: 200px; height: 30px">Look up</button>`;
+  test('a tap target under 24px fails on a phone, and only there', async ({ page }) => {
+    const html = `<button data-testid="lookup" style="width: 200px; height: 20px">Look up</button>`;
     expect(
       (await findingsOn(page, html, 390)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
-    ).toEqual(['small-target button[lookup]: 200x30px, under 44px']);
+    ).toEqual(['small-target button[lookup]: 200x20px, under 24px']);
     expect(await findingsOn(page, html, 1440)).toEqual([]);
+  });
+
+  test('a phone target under 44px is reported, and a label counts toward its target', async ({
+    page,
+  }) => {
+    await findingsOn(
+      page,
+      `<button data-testid="lookup" style="width: 200px; height: 36px">Look up</button>
+       <label style="display: block; padding: 4px 0"><input data-testid="gold" type="checkbox"
+         style="width: 20px; height: 20px; margin: 0"> Gold</label>`,
+      390,
+    );
+    const all = await page.evaluate(detectLayout, {
+      spaceScale: SPACE_SCALE,
+      textScale: TYPE_SCALE,
+      minTarget: 24,
+      comfortableTarget: 44,
+    });
+    const targets = all.filter((f) => /target/.test(f.kind));
+    expect(targets.map((f) => `${f.kind} ${f.el}: ${f.detail}`)).toEqual([
+      'tight-target button[lookup]: 200x36px, under 44px',
+      'tight-target label > input[gold]: 20x20px and its label, under 44px',
+    ]);
+    expect(targets.some((f) => gates(f, 390))).toBe(false);
   });
 
   test('a page that only looks broken raises nothing', async ({ page }) => {

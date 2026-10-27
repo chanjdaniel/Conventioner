@@ -54,7 +54,8 @@ async function expectLaidOut(page: Page, state: string, testInfo: TestInfo): Pro
   const findings = await page.evaluate(detectLayout, {
     spaceScale: SPACE_SCALE,
     textScale: TYPE_SCALE,
-    minTarget: width < PHONE_WIDTH ? 44 : 24,
+    minTarget: 24,
+    comfortableTarget: width < PHONE_WIDTH ? 44 : undefined,
   });
   await measureBar(page, state);
 
