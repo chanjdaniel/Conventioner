@@ -877,14 +877,14 @@ function submittedOn(app: Application): string {
 
 <style scoped>
 .monitor-panel {
-  padding: 20px 0;
+  padding: var(--space-6) 0;
 }
 
 .monitor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .monitor-header h2 {
@@ -896,7 +896,7 @@ function submittedOn(app: Application): string {
 .monitor-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .publish-button {
@@ -904,7 +904,7 @@ function submittedOn(app: Application): string {
   color: white;
   border: none;
   border-radius: var(--radius-control);
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
   font-family: 'Merge One';
   font-size: var(--text-sm);
@@ -930,7 +930,7 @@ function submittedOn(app: Application): string {
 .published-badge {
   background: rgba(54, 130, 111, 0.16);
   color: var(--mm-green);
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-control);
   font-size: var(--text-xs);
   font-weight: 400;
@@ -940,7 +940,7 @@ function submittedOn(app: Application): string {
 .empty-state,
 .done-state {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
@@ -948,16 +948,16 @@ function submittedOn(app: Application): string {
 .error-state {
   color: var(--mm-red);
   font-size: var(--text-sm);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .progress-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .progress {
@@ -975,10 +975,10 @@ function submittedOn(app: Application): string {
   background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-card);
-  padding: 10px 14px;
+  padding: var(--space-2) var(--space-3);
   font-size: var(--text-xs);
   line-height: 1.5;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
 }
 
 .review-card {
@@ -991,9 +991,9 @@ function submittedOn(app: Application): string {
 .card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3);
 }
 
 .app-email {
@@ -1072,7 +1072,7 @@ function submittedOn(app: Application): string {
 .answers {
   display: grid;
   grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
-  gap: 6px 16px;
+  gap: var(--space-2) var(--space-4);
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
 }
@@ -1108,7 +1108,7 @@ function submittedOn(app: Application): string {
 .answers-rest {
   margin: 0 0 var(--space-4);
   border-top: 1px solid var(--mm-border);
-  padding-top: 12px;
+  padding-top: var(--space-3);
 }
 
 .answers-rest summary {
@@ -1118,7 +1118,7 @@ function submittedOn(app: Application): string {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .answers-rest summary::-webkit-details-marker {
@@ -1141,7 +1141,7 @@ function submittedOn(app: Application): string {
 }
 
 .answers-rest .answers {
-  margin: 12px 0 0;
+  margin: var(--space-3) 0 0;
 }
 
 /* Changing what leads the card, from the queue. Quiet by default: the reviewer came here to
@@ -1165,15 +1165,15 @@ function submittedOn(app: Application): string {
 }
 
 .choose-highlights-body {
-  margin-top: 12px;
-  padding: 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: var(--mm-beige);
 }
 
 .choose-highlights-error {
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
 }
@@ -1200,12 +1200,12 @@ function submittedOn(app: Application): string {
   font-size: var(--text-xs);
   border: 1px solid color-mix(in srgb, currentColor 60%, transparent);
   border-radius: var(--radius-control);
-  padding: 0 4px;
-  margin-left: 6px;
+  padding: 0 var(--space-1);
+  margin-left: var(--space-1);
 }
 
 .decided {
-  margin-top: 20px;
+  margin-top: var(--space-6);
 }
 
 .decided-toggle {
@@ -1220,19 +1220,19 @@ function submittedOn(app: Application): string {
 
 .decided-list {
   list-style: none;
-  margin: 12px 0 0;
+  margin: var(--space-3) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .decided-list li {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
 }
@@ -1251,11 +1251,11 @@ function submittedOn(app: Application): string {
 @media (max-width: 640px) {
   .answers {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px 0;
+    gap: var(--space-hairline) 0;
   }
 
   .answers dd {
-    margin-bottom: 10px;
+    margin-bottom: var(--space-3);
   }
 }
 </style>

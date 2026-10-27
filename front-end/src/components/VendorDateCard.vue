@@ -113,11 +113,11 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 .vendor-date-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   border: 1px solid var(--mm-border);
   border-left: 4px solid var(--mm-border);
   border-radius: var(--radius-card);
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   background: white;
   box-shadow: var(--shadow-card);
 }
@@ -159,7 +159,7 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 
 .vendor-date-card-flag {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-hairline);
   font-size: var(--text-xs);
   font-style: italic;
   color: var(--mm-text-yellow);
@@ -167,7 +167,7 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 
 .vendor-date-card-action {
   display: inline-block;
-  margin-left: 8px;
+  margin-left: var(--space-2);
   color: var(--mm-text-link);
   font-style: normal;
   text-decoration: underline;

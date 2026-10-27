@@ -292,10 +292,10 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 }
 
 .vendors-body {
-  padding: 24px;
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-4);
   flex: 1;
   color: var(--mm-black);
 }
@@ -307,8 +307,8 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -326,7 +326,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 .filter-input {
   flex: 1 1 16rem;
   min-width: 0;
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -353,7 +353,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   color: var(--mm-green);
-  margin: 0 2px;
+  margin: 0 var(--space-hairline);
 }
 
 .error-text {
@@ -366,8 +366,8 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 60px 0;
+  gap: var(--space-3);
+  padding: var(--space-12) 0;
   color: var(--mm-black);
   opacity: 0.75;
 }
@@ -392,14 +392,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 48px 16px;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-4);
   text-align: center;
   color: var(--mm-text-muted);
 }
 
 .empty-state--inline {
-  padding: 32px 16px;
+  padding: var(--space-8) var(--space-4);
 }
 
 .vendor-list {
@@ -408,11 +408,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   /* No max-height and no overflow of its own: .vendors-body is the one scroller on this page.
      Two nested scrollers meant the wheel did different things depending on where the pointer
      was - the page scrolled 945/900 while the list scrolled 14,374/540. */
-  padding-right: 4px;
+  padding-right: var(--space-1);
 }
 
 .vendor-row {
@@ -424,8 +424,8 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 18px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: white;
@@ -464,14 +464,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 .vendor-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-shrink: 0;
 }
 
 .vendor-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
@@ -510,7 +510,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   .vendor-row-button {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .vendor-meta {

@@ -192,8 +192,8 @@ function updateOption(idx: number, value: string) {
 .field-editor {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: var(--mm-beige);
@@ -203,7 +203,7 @@ function updateOption(idx: number, value: string) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .field-row-checkbox {
@@ -254,7 +254,7 @@ function updateOption(idx: number, value: string) {
 .field-input {
   flex: 1;
   height: 28px;
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -276,21 +276,21 @@ function updateOption(idx: number, value: string) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .option-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .icon-button {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px;
+  padding: var(--space-hairline);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -303,11 +303,11 @@ function updateOption(idx: number, value: string) {
 .add-option-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   background: none;
   border: 1px dashed var(--mm-border);
   border-radius: var(--radius-control);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font-size: var(--text-xs);
   color: var(--mm-black);

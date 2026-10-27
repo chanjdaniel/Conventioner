@@ -333,7 +333,7 @@ async function undoCheckIn(date: string): Promise<void> {
      `VendorsView.vue`, which carries the same note; this view was missed at the time. */
   height: 100%;
   min-height: 0;
-  padding: 40px 20px;
+  padding: var(--space-8) var(--space-4);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -353,11 +353,11 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .attendance-header {
   background-color: var(--mm-black);
-  padding: 18px 24px;
+  padding: var(--space-4) var(--space-6);
 }
 
 .attendance-eyebrow {
-  margin: 0 0 2px;
+  margin: 0 0 var(--space-hairline);
   color: var(--mm-text-muted-on-dark);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
@@ -392,16 +392,16 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .attendance-body {
-  padding: 24px;
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .lookup-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .lookup-form label {
@@ -411,7 +411,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .lookup-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -422,7 +422,7 @@ async function undoCheckIn(date: string): Promise<void> {
      against the button's 40, so the button's bottom edge sat 2px proud of the field's own
      (E15/F01/S03). */
   height: 40px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   font-size: var(--text-md);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -433,7 +433,7 @@ async function undoCheckIn(date: string): Promise<void> {
   color: white;
   border: none;
   border-radius: var(--radius-control);
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   height: 40px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-md);
@@ -457,7 +457,7 @@ async function undoCheckIn(date: string): Promise<void> {
   color: var(--mm-black);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   height: 40px;
   font-size: var(--text-sm);
   cursor: pointer;
@@ -470,7 +470,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .undo-button {
   background: none;
   border: none;
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-text-link);
   text-decoration: underline;
@@ -486,7 +486,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .assignments-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .looked-up-as {
@@ -506,10 +506,10 @@ async function undoCheckIn(date: string): Promise<void> {
 .assignment-card {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
-  padding: 16px;
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   box-shadow: var(--shadow-card);
 }
 
@@ -522,7 +522,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .assignment-date {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-lg);
@@ -532,7 +532,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .today-pill {
   background: var(--mm-green);
   color: white;
-  padding: 2px 10px;
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
@@ -544,21 +544,21 @@ async function undoCheckIn(date: string): Promise<void> {
   color: var(--mm-black);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 16px;
+  gap: var(--space-1) var(--space-4);
 }
 
 .assignment-action {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .checked-in-pill {
   background: rgba(54, 130, 111, 0.16);
   color: var(--mm-text-green);
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);
 }
@@ -568,12 +568,12 @@ async function undoCheckIn(date: string): Promise<void> {
    row both stop fitting: the email truncates mid-address, which is the one field someone types. */
 @media (max-width: 520px) {
   .attendance-view {
-    padding: 12px;
+    padding: var(--space-3);
   }
 
   .attendance-body {
-    padding: 16px;
-    gap: 16px;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .lookup-row {

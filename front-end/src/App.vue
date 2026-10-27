@@ -140,8 +140,8 @@ watch(isLogin, (newValue) => {
   min-height: 100vh;
   min-width: 1000px;
   background-color: white;
-  padding: 0px;
-  margin: 0px;
+  padding: 0;
+  margin: 0;
 
   display: flex;
   flex-direction: column;
@@ -172,7 +172,7 @@ header {
 
 .logo {
   display: block;
-  margin: 0 auto 2rem;
+  margin: 0 auto var(--space-8);
 }
 
 .nav-bar {

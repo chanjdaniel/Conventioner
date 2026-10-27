@@ -192,7 +192,7 @@ function canManage(org: Organization): boolean {
   width: 100%;
   max-width: var(--list-max);
   margin: 0 auto;
-  padding: 32px 40px;
+  padding: var(--space-8);
 }
 
 .header {
@@ -200,7 +200,7 @@ function canManage(org: Organization): boolean {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 24px;
+  padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -212,7 +212,7 @@ function canManage(org: Organization): boolean {
 }
 
 .new-button {
-  padding: 10px 24px;
+  padding: var(--space-2) var(--space-6);
   background: var(--mm-green);
   color: white;
   border: none;
@@ -232,7 +232,7 @@ function canManage(org: Organization): boolean {
 .content-block {
   flex: 1;
   overflow-y: auto;
-  padding-top: 24px;
+  padding-top: var(--space-6);
 }
 
 .empty-state,
@@ -248,12 +248,12 @@ function canManage(org: Organization): boolean {
 .cards-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-6);
 }
 
 .role-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-control);
   font-weight: 400;
   font-size: var(--text-xs);

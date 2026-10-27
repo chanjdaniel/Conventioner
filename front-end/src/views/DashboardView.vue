@@ -215,7 +215,7 @@ const handleSignOut = async () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 48px;
+  gap: var(--space-12);
   height: 100%;
   width: 100%;
   margin: 0;
@@ -225,7 +225,7 @@ const handleSignOut = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .last-market-section {
@@ -233,7 +233,7 @@ const handleSignOut = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   /* Holds the space the answer will fill. Without it the section is empty until the markets
      request returns and then shoves the whole centred column down as it appears. 119px is the
      height of both states a returning organizer sees - the remembered card and the count - so
@@ -252,7 +252,7 @@ const handleSignOut = async () => {
 .button-row {
   display: flex;
   flex-direction: row;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .button {
@@ -260,7 +260,7 @@ const handleSignOut = async () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   background: var(--mm-black);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-card);
@@ -285,14 +285,14 @@ const handleSignOut = async () => {
 
 .last-market-card {
   width: 716px;
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   border: 1.5px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: white;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
   box-shadow: var(--shadow-card);
   cursor: pointer;
   transition:
@@ -317,9 +317,9 @@ const handleSignOut = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: var(--space-3);
   text-align: center;
-  padding: 22px 24px;
+  padding: var(--space-6);
 }
 
 .welcome-text {
@@ -333,7 +333,7 @@ const handleSignOut = async () => {
   color: white;
   border: none;
   border-radius: var(--radius-control);
-  padding: 10px 20px;
+  padding: var(--space-2) var(--space-6);
   cursor: pointer;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -348,7 +348,7 @@ const handleSignOut = async () => {
 .button-small {
   width: auto;
   height: auto;
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   background: none;
   box-shadow: none;
   border-radius: var(--radius-control);
@@ -384,7 +384,7 @@ h4 {
 .secondary-buttons {
   display: flex;
   flex-direction: row;
-  gap: 24px;
+  gap: var(--space-6);
   align-items: center;
   justify-content: center;
   width: 716px;

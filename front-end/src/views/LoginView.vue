@@ -604,7 +604,7 @@ const submitOTPLogin = async () => {
 .login-form {
   display: flex;
   flex-direction: column;
-  padding-top: 20px;
+  padding-top: var(--space-4);
 }
 
 /* Persistent labels. Every field was placeholder-only, so its identity - and the password rule -

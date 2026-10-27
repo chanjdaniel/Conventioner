@@ -26,25 +26,25 @@ const router = useRouter();
 
 <style scoped>
 .not-found {
-  padding: 48px 40px;
+  padding: var(--space-12) var(--space-8);
   color: var(--mm-black);
 }
 
 h1 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-xl);
   font-weight: 600;
 }
 
 p {
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-6);
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 
 .not-found-action {
   height: 38px;
-  padding: 0 18px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);

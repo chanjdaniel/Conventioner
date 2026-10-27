@@ -28,7 +28,7 @@ defineProps<{
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 0px;
+  padding: 0;
 
   width: 100%;
   height: 36px;
@@ -49,6 +49,6 @@ defineProps<{
 h3 {
   font-size: var(--text-lg);
   font-weight: 400;
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--space-2);
 }
 </style>

@@ -538,14 +538,14 @@ function errorFor(key: string): string {
 .essential-fields {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-6);
 }
 
 .essential-email {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 14px;
+  gap: var(--space-hairline);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: var(--mm-beige);
@@ -575,7 +575,7 @@ function errorFor(key: string): string {
 .essential-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .essential-label {
@@ -597,8 +597,8 @@ function errorFor(key: string): string {
 .essential-choice-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
+  gap: var(--space-hairline);
+  padding: var(--space-1);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -612,8 +612,8 @@ function errorFor(key: string): string {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
@@ -640,7 +640,7 @@ function errorFor(key: string): string {
 
 .essential-text-input {
   height: 36px;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -655,7 +655,7 @@ function errorFor(key: string): string {
 .essential-request-input {
   height: auto;
   min-height: 72px;
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
   font-size: var(--text-sm);
   line-height: 1.4;
@@ -665,7 +665,7 @@ function errorFor(key: string): string {
 .essential-max-input {
   height: 36px;
   width: 120px;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -679,16 +679,16 @@ function errorFor(key: string): string {
 .essential-error {
   font-size: var(--text-xs);
   color: var(--mm-red);
-  margin: 2px 0 0;
+  margin: var(--space-hairline) 0 0;
 }
 .essential-tier-day {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-2);
 }
 
 .essential-tier-day-label {
   display: block;
   font-size: var(--text-xs);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
   color: var(--mm-black);
 }
 </style>

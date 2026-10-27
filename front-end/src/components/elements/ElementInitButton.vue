@@ -16,7 +16,7 @@
   width: 346px;
   height: 95px;
 
-  gap: 10px;
+  gap: var(--space-2);
 
   /* MMBlack */
   background: var(--mm-black);
