@@ -15,7 +15,7 @@ const newOpen = ref(false);
     <ElementInitButton @click="newOpen = true" data-testid="init-setup-new-market-button">
       <h3>
         <span>Set Up </span>
-        <span class="text-new">New </span>
+        <span>New </span>
         <span>Market</span>
       </h3>
       <template #icon>
@@ -26,7 +26,7 @@ const newOpen = ref(false);
     <ElementInitButton @click="loadOpen = true" data-testid="init-load-existing-market-button">
       <h3>
         <span>Load </span>
-        <span class="text-existing">Existing </span>
+        <span>Existing </span>
         <span>Market</span>
       </h3>
       <template #icon>
@@ -61,14 +61,6 @@ h3 {
   font-size: var(--text-lg);
 
   color: white;
-}
-
-.text-new {
-  color: var(--mm-green);
-}
-
-.text-existing {
-  color: var(--mm-text-yellow);
 }
 
 .nav-icon {

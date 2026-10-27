@@ -155,7 +155,7 @@ const resendVerification = async () => {
 }
 
 .error-message {
-  color: red;
+  color: var(--mm-red);
   font-size: var(--text-lg);
   margin-bottom: var(--space-4);
 }
