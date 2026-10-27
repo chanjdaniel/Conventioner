@@ -12,8 +12,9 @@ describes:
   - front-end/e2e/helpers/seeds.ts#completePlan
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/e2e/global-setup.ts
+  - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-25
+verified: 2026-10-27
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -24,6 +25,7 @@ sources:
   - E06/F01/S01
   - E33/F01/S01
   - T45
+  - T75
 ---
 
 # E2E patterns
@@ -49,6 +51,8 @@ A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, 
 It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls, and re-exports of the page objects.
 A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
 Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
+`expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
+`settle(page)` ([`helpers/settle.ts`](../../../front-end/e2e/helpers/settle.ts)) waits, bounded, for CSS transitions to end, since a control mid-transition reports its passing paint rather than its own; both sweeps call it before they look.
 The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-container__`) that the dev server injects: it overlays the app and intercepts clicks aimed at it, so a test failed on a click that hit that button instead of its own target.
 
 ## Opening a market, and shelling into Mongo

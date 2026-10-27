@@ -6,13 +6,14 @@ describes:
   - front-end/e2e/helpers/accessibleNames.ts
   - front-end/src/components/AnswerValue.vue
   - front-end/src/utils/answerLinks.ts
-verified: 2026-10-25
+verified: 2026-10-27
 sources:
   - E26/F10/S03
   - bug/44
   - bug/50
   - bug/52
   - T45
+  - T75
 ---
 
 # Every control is named
@@ -25,6 +26,11 @@ A placeholder goes the moment someone types, which is how the plan's name fields
 **A new screen or dialog joins the walk.**
 [`every-control-is-named.spec.ts`](../../../front-end/e2e/every-control-is-named.spec.ts) walks the screens and dialogs with `namelessControls()` ([`e2e/helpers/accessibleNames.ts`](../../../front-end/e2e/helpers/accessibleNames.ts)), which lists every drawn, non-inert form control whose `aria-labelledby` text, `aria-label`, `<label>` or `title` is empty.
 **The walk only sees the rows it seeds**: the rules page walked with no rule on it saw the card's "Add a rule" and missed every control inside one (bug 50), so a spec seeds one row of each kind before it walks.
+
+**A control is named by the words it shows, and an `aria-label` that replaces them is a defect** (WCAG 2.5.3): a voice user says what they see.
+Words a screen reader needs beyond those go beside them in a `.visually-hidden` span, as a vendor's name says ": their details" and a statistics row says what its count is a share of.
+**A control holds no control**: a market row was a `role="button"` around its own Manage button, so the row is now a click target for the pointer only, and its name is the real button the keyboard and a screen reader reach it by ([`SummaryCard.vue`](../../../front-end/src/components/SummaryCard.vue)).
+Both are caught by the accessibility sweep ([the design language](../../design-system.md#what-keeps-this-true)), which this walk does not replace: it names what axe cannot judge, a control whose name is empty by intent.
 
 **A field styled `all: unset` loses its focus ring with everything else, so its container draws one** (`:focus-within`), as the plan's tier, section and location cards do.
 
