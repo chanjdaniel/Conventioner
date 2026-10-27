@@ -4,6 +4,12 @@ import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import type { PlacedTableObject } from '@/assets/types/datatypes';
 
+// ── Props ──────────────────────────────────────────────────────────
+const props = defineProps<{
+  /** The market the tables are placed for: the server checks the caller's role on it. */
+  marketId: string;
+}>();
+
 // ── Emits ──────────────────────────────────────────────────────────
 const emit = defineEmits<{
   placed: [count: number];
@@ -85,6 +91,7 @@ function buildRequestBody() {
   }));
 
   return {
+    market_id: props.marketId,
     walls,
     obstacles,
     table_types: tableTypes,

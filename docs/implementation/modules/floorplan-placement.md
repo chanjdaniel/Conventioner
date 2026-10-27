@@ -38,6 +38,7 @@ So the flow can be exercised end to end in CI with no API keys and no stubbing (
 
 `auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm)` returns placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`).
 The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed.
+`POST /floorplans/place-tables` takes the `market_id` the wizard is open on beside the geometry, read with `string_field()`, and places only for an editor of that market on a market that is not archived; `AutoPlaceButton.vue` sends the `marketId` [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) gives it.
 The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
 
 ## Who may use the floorplan routes
@@ -50,6 +51,7 @@ A route checks access right after it has read the id it is checked by, before th
 | Route | Needs | Archived market |
 | --- | --- | --- |
 | `POST /floorplans/upload` | EDITOR on the `market_id` sent | refused |
+| `POST /floorplans/place-tables` | EDITOR on the `market_id` sent | refused |
 | `DELETE /floorplans/<id>` | EDITOR on the image's market | refused |
 | `POST /floorplans/analyze` | EDITOR on the image's market | refused |
 | `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | EDITOR on the image's market | refused |
@@ -61,6 +63,7 @@ The wizard's steps are an editor's work on a market that can still change, which
 **The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
 The raw image read stays public by its opaque id, so pages that show a floorplan image need no session; it is the one route that does not check a market.
 The settled-setup refusal stays on save alone, since only save writes the sections.
+**Every floorplan route but the image read needs a sign-in**, and `TestEveryFloorplanRouteNeedsASignIn` in [`back-end/tests/test_floorplan_access.py`](../../../back-end/tests/test_floorplan_access.py) keeps it so: it asks each route the floorplan blueprints register without a session and expects a 401, so a new route, or one whose `@login_required` is missing or above its `@route`, fails it.
 
 **An image belongs to the market it was uploaded for.**
 `POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.

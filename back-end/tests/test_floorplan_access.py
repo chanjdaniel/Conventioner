@@ -24,6 +24,7 @@ skip_without_real_dependencies()
 import app as app_module
 import api.floorplans as FloorplansApi
 import api.floorplans_analysis as FloorplansAnalysisApi
+import api.floorplans_placement as FloorplansPlacementApi
 import api.markets as MarketsApi
 import api.users as UsersApi
 import services.gridfs_service as GridfsService
@@ -414,3 +415,155 @@ class TestTheRoutesThatTakeAnImage:
 
         assert response.status_code == 200
         assert response.data == _hall_png()
+
+
+# ── Auto-Place, which names its market ───────────────────────────────────────
+
+
+@pytest.fixture
+def placements(monkeypatch):
+    """The placement service's calls, faked: each places one table of the first type."""
+    calls = []
+
+    def placed(**geometry):
+        calls.append(geometry)
+        return [{
+            "x_mm": 1500.0, "y_mm": 1500.0, "rotation": 0.0, "width_mm": 1800, "height_mm": 900,
+            "table_type_id": "type_6ft",
+        }]
+
+    monkeypatch.setattr(FloorplansPlacementApi, "auto_place_tables", placed)
+    return calls
+
+
+def _place(client, *, market_id=MARKET_ID):
+    body = {
+        "walls": [],
+        "obstacles": [],
+        "table_types": [{
+            "id": "type_6ft", "name": "6ft Table", "width_mm": 1800, "height_mm": 900,
+            "max_capacity": 2,
+        }],
+        "counts": {"type_6ft": 1},
+        "scale_px_per_mm": 0.05,
+        "room_mm": {"width_mm": 8000, "height_mm": 6000},
+    }
+    if market_id is not None:
+        body["market_id"] = market_id
+    return client.post("/floorplans/place-tables", json=body)
+
+
+class TestPlacingTables:
+    """Auto-Place is an editor's work on the market it names, while the market can still change."""
+
+    @pytest.mark.parametrize("email", ["owner@example.com", "editor@example.com"])
+    def test_an_editor_places_tables(self, sign_in, market, placements, email):
+        response = _place(sign_in(email))
+
+        assert response.status_code == 200
+        assert [t["table_type_id"] for t in response.get_json()["placed_tables"]] == ["type_6ft"]
+        assert len(placements) == 1
+
+    @pytest.mark.parametrize("email", ["outsider@example.com", "viewer@example.com"])
+    def test_anyone_but_an_editor_is_refused(self, sign_in, market, placements, email):
+        response = _place(sign_in(email))
+
+        assert response.status_code == 403
+        assert response.get_json() == {
+            "error": "User does not have permission to edit this market"
+        }
+        assert placements == []
+
+    def test_an_archived_market_is_refused(self, sign_in, market, placements):
+        market.doc = stored_market(MarketPhase.ARCHIVED, roles=dict(ROLES))
+
+        response = _place(sign_in("owner@example.com"))
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+        assert placements == []
+
+    @pytest.mark.parametrize("market_id", [None, "", 42, {"$ne": None}, ["market-123"]])
+    def test_a_request_that_names_no_market_is_refused(
+        self, sign_in, market, placements, market_id,
+    ):
+        response = _place(sign_in("owner@example.com"), market_id=market_id)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "market_id is required"}
+        assert placements == []
+
+    def test_an_unknown_market_is_not_found(self, sign_in, market, placements):
+        response = _place(sign_in("owner@example.com"), market_id="market-unknown")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+        assert placements == []
+
+    def test_the_market_is_checked_before_the_geometry(self, sign_in, market, placements):
+        """A caller with no role on the market learns nothing about what the route accepts."""
+        response = sign_in("outsider@example.com").post(
+            "/floorplans/place-tables", json={"market_id": MARKET_ID},
+        )
+
+        assert response.status_code == 403
+
+    def test_a_request_without_a_session_is_asked_to_sign_in(self, market, placements):
+        response = _place(app_module.app.test_client())
+
+        assert response.status_code == 401
+        assert placements == []
+
+
+# ── Every floorplan route but the image read needs a sign-in ─────────────────
+
+FLOORPLAN_BLUEPRINTS = {
+    "floorplans", "floorplans_placement", "floorplans_templates", "floorplans_analysis",
+    "floorplans_calibrate", "floorplans_export", "floorplans_save",
+}
+PUBLIC_ROUTES = {("GET", "/floorplans/<gridfs_id>")}
+
+
+def _floorplan_routes():
+    """Each (method, rule) the floorplan blueprints register, as the app serves them."""
+    return sorted(
+        ((method, rule) for rule in app_module.app.url_map.iter_rules()
+         if rule.endpoint.partition(".")[0] in FLOORPLAN_BLUEPRINTS
+         for method in rule.methods - {"HEAD", "OPTIONS"}),
+        key=lambda route: (route[1].rule, route[0]),
+    )
+
+
+class TestEveryFloorplanRouteNeedsASignIn:
+    """The regression guard: a floorplan route without ``@login_required`` fails here, new or old.
+
+    It asks each registered route without a session, so it also catches a decorator in the wrong
+    order, which a route's source would still show.
+    """
+
+    def test_the_floorplan_blueprints_are_all_registered(self):
+        registered = {endpoint.partition(".")[0] for endpoint in app_module.app.view_functions}
+
+        assert FLOORPLAN_BLUEPRINTS <= registered
+
+    def test_every_route_but_the_image_read_asks_for_a_sign_in(self, market, images):
+        client = app_module.app.test_client()
+        open_routes = []
+        for method, rule in _floorplan_routes():
+            if (method, rule.rule) in PUBLIC_ROUTES:
+                continue
+            values = {arg: str(ObjectId()) for arg in rule.arguments}
+            path = rule.build(values, append_unknown=False)[1]
+            if client.open(path, method=method, json={}).status_code != 401:
+                open_routes.append(f"{method} {rule.rule}")
+
+        assert open_routes == [], (
+            f"These floorplan routes answer without a sign-in: {', '.join(open_routes)}. "
+            "Give each @login_required, under its @route."
+        )
+
+    def test_the_public_image_read_is_still_served(self):
+        """The exemption names a route that exists, so it cannot outlive the route it excused."""
+        served = {(method, rule.rule) for method, rule in _floorplan_routes()}
+
+        assert PUBLIC_ROUTES <= served

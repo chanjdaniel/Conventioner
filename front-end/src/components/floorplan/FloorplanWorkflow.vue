@@ -124,7 +124,7 @@ function onSaved(payload: { market_id: string }) {
     <!-- ── Step 2: Define Tables + Auto-Place ─────────────────── -->
     <div v-if="step === 2" class="step-place">
       <TableTypePanel />
-      <AutoPlaceButton @placed="onPlaced" />
+      <AutoPlaceButton :market-id="props.marketId" @placed="onPlaced" />
       <!-- Where the tables went, before moving on (bug 38): the step showed no plan, so nothing
            said Auto-Place had worked. Read-only here; the next step is where they are moved. -->
       <FloorplanEditor
