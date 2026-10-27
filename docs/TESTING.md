@@ -307,7 +307,7 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 ## CI Pipeline
 
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
-[CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
+[CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which six
 checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh` (every suite but Playwright, which only CI runs before a merge).
 

@@ -26,6 +26,8 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 ## CI
 
 [`.github/workflows/test.yml`](../../../.github/workflows/test.yml) runs on pushes and pull requests to `dev` and `main`.
+Its token is read-only (`permissions: contents: read`), every action is pinned by its full commit SHA with the version in a comment beside it, which [Dependabot](#dependabot) bumps together, and no checkout keeps its git credentials (`persist-credentials: false`), since no job pushes.
+No `${{ }}` expression is written inside a `run:` script: a value reaches the shell through the step's `env:` and is read as a variable.
 
 | Job | Runs |
 | --- | --- |
@@ -35,14 +37,17 @@ What each suite covers is [TESTING.md](../../TESTING.md); how a commit reaches p
 | `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests (on the Node `.nvmrc` pins, since the pre-warm's tests run its npm) and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `real-data` | on a pull request only, [`real_data_check.py`](../../../scripts/real_data_check.py) on the PR's commits since the base branch, then gitleaks 8.28.0 (checksum-verified, fully redacted) on the same commits; the backstop to the git hooks and the gate, which run the checker before anything is pushed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)) |
+| `zizmor` | [zizmor](https://docs.zizmor.sh/) 1.31.1 (checksum-verified) with `--offline` over the repository, which audits the three workflows and `dependabot.yml` without a token; any finding fails the job, and its log names the audit, file and line; an accepted finding is ignored on its own line as `# zizmor: ignore[<audit>] <reason>`, and there is no zizmor config file, so nothing is ignored wholesale |
+| `zizmor-online` | on a pull request only, the same zizmor without `--offline`, given the run's read-only token, so it adds the audits that look actions up on GitHub: an impostor commit, a known-vulnerable action or a confused ref behind a pin; information, not a required check, because it depends on GitHub's API |
 | `docker-build` | `docker compose build` |
 | `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; on failure it uploads the report and posts a flaky-test summary |
 | `e2e` | passes only when every shard did |
 
-**Branch protection requires five checks** on both `dev` and `main`: `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e`.
+**Branch protection requires six checks** on both `dev` and `main`: `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor`.
 `e2e` is a job of its own so protection names one check whatever the shard count becomes.
 `knowledge-graph` is a required check on `dev` as well.
 `knowledge-graph-drift` is its own job and not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay.
+`zizmor-online` is never required: a rate limit or outage of GitHub's API would otherwise block a merge, and `zizmor` already holds the workflows to the offline audits.
 `real-data` blocks a merge once branch protection requires it, a repository setting.
 It is the only real-data check the gate's own commits get: the document, lint and CI-fix steps commit after `nm-test.sh` has run, and the gate pushes them from its repository, which has no hooks installed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)).
 
@@ -66,6 +71,9 @@ Dependabot alerts, and the security-update toggle, are repository settings, not 
 
 The release effect of each type is the one in [RELEASING.md](../../RELEASING.md#conventional-commits); the npm split by dependency type keeps a tooling bump from carrying a `fix` title.
 A week's minor and patch bumps come as one pull request per group (npm production, npm development, Actions), so CI runs once for each; a major bump comes on its own.
+**A new release waits a week** (`cooldown: default-days: 7` on both updaters) before Dependabot proposes it, so a bad release has time to be pulled before CI runs it.
+Security updates are not delayed: GitHub applies no cooldown to them.
+The Actions updater bumps the workflows' SHA pins and the version comments beside them.
 A major the project cannot take yet is held with an `ignore` entry in the file, whose comment gives the reason, any upstream issues and when to try again, so next week's batch does not reopen it.
 The holds today:
 

@@ -223,7 +223,7 @@ A configuration refusal, not a database one: set each variable it names ([RELEAS
 
 In short (the detail is [RELEASING.md](RELEASING.md)):
 
-- Changes reach `dev` by PR; `dev` and `main` both require the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e` checks.
+- Changes reach `dev` by PR; `dev` and `main` both require the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor` checks.
 - Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
   The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which deploys the back end, checks `/healthz`, deploys the front end, and checks a deep link.
   Nothing deploys by itself: no push, merge or PR reaches Vercel.

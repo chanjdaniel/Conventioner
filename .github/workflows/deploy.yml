@@ -21,9 +21,12 @@ concurrency:
   group: production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
+# VERCEL_TOKEN is not here: only the two steps that deploy hold it, in their own `env`.
 env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   VERCEL_CLI: vercel@64.5.0
 
 jobs:
@@ -35,26 +38,35 @@ jobs:
       name: production
       url: https://conventioner.io
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      # HAS_VERCEL_TOKEN is `true` or `false`, never the token itself.
       - name: Refuse to run half-configured
+        env:
+          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
+          VERCEL_FRONTEND_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
         run: |
-          for name in VERCEL_TOKEN VERCEL_ORG_ID; do
-            if [ -z "${!name}" ]; then echo "::error::$name is not set"; exit 1; fi
-          done
-          if [ -z "${{ vars.VERCEL_BACKEND_PROJECT_ID }}" ] || [ -z "${{ vars.VERCEL_FRONTEND_PROJECT_ID }}" ]; then
+          if [ "$HAS_VERCEL_TOKEN" != true ]; then echo "::error::VERCEL_TOKEN is not set"; exit 1; fi
+          if [ -z "$VERCEL_ORG_ID" ]; then echo "::error::VERCEL_ORG_ID is not set"; exit 1; fi
+          if [ -z "$VERCEL_BACKEND_PROJECT_ID" ] || [ -z "$VERCEL_FRONTEND_PROJECT_ID" ]; then
             echo "::error::VERCEL_BACKEND_PROJECT_ID and VERCEL_FRONTEND_PROJECT_ID must be set"; exit 1
           fi
 
-      - uses: actions/setup-node@v7
+      # The deploy restores and saves no GitHub Actions cache, so no cached file reaches it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          package-manager-cache: false
 
       # The back end first: a front end that calls an endpoint the old back end lacks would break
       # every organizer for as long as the two deploys are apart, the reverse breaks nothing.
       - name: Deploy the back end
         env:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
 
       - name: The back end serves
@@ -69,6 +81,7 @@ jobs:
       - name: Deploy the front end
         env:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
 
       - name: The front end serves a deep link

@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main, dev]
 
+permissions:
+  contents: read
+
+# The one place zizmor's version and checksum live, for both zizmor jobs: a bump moves them together.
+env:
+  ZIZMOR_VERSION: 1.31.1
+  ZIZMOR_SHA256: d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -13,8 +21,10 @@ jobs:
       run:
         working-directory: back-end
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
@@ -34,14 +44,15 @@ jobs:
   knowledge-graph:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       # The pre-warm's tests run the machine's own npm, so they run the pinned one here too.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: pip install -r back-end/requirements-dev.txt
@@ -58,14 +69,17 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Drift against the base branch
-        run: python scripts/knowledge_graph.py drift --base origin/${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python scripts/knowledge_graph.py drift --base "origin/$BASE_REF"
 
   # A backstop, not the protection: the repository is public, so a pushed branch is published
   # before any job runs. The protection is the same checker in the git hooks and the gate, before
@@ -78,10 +92,11 @@ jobs:
       BASE_REF: ${{ github.base_ref }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: No real data in the PR's commits
@@ -93,14 +108,59 @@ jobs:
           tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact=100 --no-banner --verbose --log-opts="origin/$BASE_REF..$HEAD_SHA" .
 
+  # The repository's workflows and Dependabot config, offline, so it needs no token. Every finding
+  # fails the job; an accepted one is ignored on its own line with its audit and reason.
+  zizmor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install zizmor ${{ env.ZIZMOR_VERSION }}
+        run: |
+          archive=zizmor-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSLO "https://github.com/zizmorcore/zizmor/releases/download/v$ZIZMOR_VERSION/$archive"
+          echo "$ZIZMOR_SHA256  $archive" | sha256sum -c -
+          mkdir zizmor-bin
+          tar -xzf "$archive" -C zizmor-bin zizmor
+          echo "$PWD/zizmor-bin" >>"$GITHUB_PATH"
+      - run: zizmor --offline .
+
+  # Information, not a required check: zizmor's online audits (an impostor commit, a known-vulnerable
+  # action or a confused ref behind a pin) look each action up through GitHub's API, so a rate
+  # limit or an outage there must not block a merge. Pull requests only, with the run's read-only
+  # token.
+  zizmor-online:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install zizmor ${{ env.ZIZMOR_VERSION }}
+        run: |
+          archive=zizmor-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSLO "https://github.com/zizmorcore/zizmor/releases/download/v$ZIZMOR_VERSION/$archive"
+          echo "$ZIZMOR_SHA256  $archive" | sha256sum -c -
+          mkdir zizmor-bin
+          tar -xzf "$archive" -C zizmor-bin zizmor
+          echo "$PWD/zizmor-bin" >>"$GITHUB_PATH"
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor .
+
   frontend-unit:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: front-end
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -114,8 +174,10 @@ jobs:
       run:
         working-directory: front-end
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -147,7 +209,9 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: docker compose build
 
   # Split by spec file across four runners, each with its own Docker stack, so a hotfix waits
@@ -164,8 +228,10 @@ jobs:
       DISABLE_CAPTCHA: "true"
       DISABLE_EMAIL: "true"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -195,17 +261,21 @@ jobs:
       - run: ./scripts/seed_fixture.sh
       - name: Run Playwright tests
         working-directory: front-end
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: npx playwright test "--shard=$SHARD/4"
       - name: Report flaky tests
         if: always()
         working-directory: front-end
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           if [ -f test-results/results.json ]; then
             FLAKY=$(jq -r '.stats.flaky // 0' test-results/results.json)
             PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
             FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
             {
-              echo "### E2E Test Results (shard ${{ matrix.shard }}/4)"
+              echo "### E2E Test Results (shard $SHARD/4)"
               echo "| Outcome | Count |"
               echo "|---------|-------|"
               echo "| Passed  | $PASSED |"
@@ -216,7 +286,7 @@ jobs:
               {
                 echo ""
                 echo ':warning: **'"$FLAKY"' test(s) passed only after retry.**'
-                echo "These tests failed on their first attempt and recovered on a retry —"
+                echo "These tests failed on their first attempt and recovered on a retry -"
                 echo "a genuine intermittent failure, not a clean pass. Each flaky test is"
                 echo "listed with its error in the Playwright run output above."
               } >> "$GITHUB_STEP_SUMMARY"
@@ -225,7 +295,7 @@ jobs:
       - name: Docker compose logs
         if: always()
         run: docker compose logs
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-artifacts-shard-${{ matrix.shard }}
@@ -242,4 +312,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Every shard passed
-        run: test "${{ needs.e2e-shard.result }}" = "success"
+        env:
+          SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+        run: test "$SHARDS_RESULT" = "success"
