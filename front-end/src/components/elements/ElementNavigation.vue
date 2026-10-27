@@ -36,7 +36,7 @@ const { marketId } = storeToRefs(useMarketStore());
 
 <template>
   <div class="nav-bar" ref="root" data-testid="app-nav">
-    <button class="close-button" @click="$emit('menuClose')">
+    <button class="close-button" aria-label="Close navigation" @click="$emit('menuClose')">
       <IconCloseRound class="close-icon" />
     </button>
 

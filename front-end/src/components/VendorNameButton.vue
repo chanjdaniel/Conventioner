@@ -4,30 +4,24 @@
  * at the door. It reads as the name it is, underlined when pointed at, and does nothing else - the
  * seat's change and the door's check-in stay controls of their own beside it.
  */
-import { computed } from 'vue';
 import VendorIdentity from '@/components/VendorIdentity.vue';
-import { vendorHeadline, type VendorNames } from '@/utils/vendorIdentity';
+import type { VendorNames } from '@/utils/vendorIdentity';
 
-const props = defineProps<{
+defineProps<{
   email: string;
   names: VendorNames;
   testid: string;
 }>();
 
 const emit = defineEmits<{ open: [] }>();
-
-const label = computed(() => `${vendorHeadline(props.email, props.names)}: their details`);
 </script>
 
 <template>
-  <button
-    type="button"
-    class="vendor-name-button"
-    :aria-label="label"
-    :data-testid="testid"
-    @click="emit('open')"
-  >
+  <!-- Named by what it shows, then what it does: a voice user says the name they see, so the
+       accessible name starts with it rather than replacing it (WCAG 2.5.3). -->
+  <button type="button" class="vendor-name-button" :data-testid="testid" @click="emit('open')">
     <VendorIdentity :email="email" :names="names" />
+    <span class="visually-hidden">: their details</span>
   </button>
 </template>
 
