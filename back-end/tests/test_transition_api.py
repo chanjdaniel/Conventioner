@@ -143,6 +143,21 @@ def _post(client, body, email=OWNER_EMAIL):
     return client.post("/markets/market-1/transition", json=body)
 
 
+def _spy_on_the_conflict(monkeypatch):
+    """Every ``PhaseChangedUnderRequest`` the move raises, kept as it passes to the route."""
+    raised = []
+    take_move = MarketsApi.take_move
+
+    def spying(*args, **kwargs):
+        try:
+            return take_move(*args, **kwargs)
+        except MarketsApi.PhaseChangedUnderRequest as changed:
+            raised.append(changed)
+            raise
+    monkeypatch.setattr(MarketsApi, "take_move", spying)
+    return raised
+
+
 class TestTransitionSuccess:
     def test_draft_to_applications_open_when_form_has_fields(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
@@ -340,6 +355,24 @@ class TestTransitionBlocked:
         assert body["blockers"][0]["id"] == "phase_changed"
         assert body["blockers"][0]["passed"] is False
 
+    def test_the_conflict_raised_carries_the_answer_the_route_gives(
+        self, client, markets, monkeypatch,
+    ):
+        """The conflict can answer for itself once a route stops building its payload."""
+        raised = _spy_on_the_conflict(monkeypatch)
+        collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
+        original_update_one = collection.update_one
+
+        def racing_update_one(filter_query, update):
+            collection.doc["phase"] = "applications_open"
+            return original_update_one(filter_query, update)
+        collection.update_one = racing_update_one
+
+        response = _post(client, {"toPhase": "applications_open"})
+
+        assert response.status_code == raised[0].status == 409
+        assert response.get_json() == raised[0].body()
+
     def test_market_deleted_underneath_returns_not_found(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
@@ -498,3 +531,24 @@ class TestTheGoogleFormPath:
         assert response.get_json()["error"] == "phase_changed"
         assert [u["$set"]["phase"] for _, u in collection.updates] == ["applications_closed"]
         assert collection.doc["phase"] == "applications_open"
+
+    def test_a_conflict_between_the_steps_names_the_move_asked_for(
+        self, client, markets, imported, monkeypatch,
+    ):
+        """Not the step it stopped at: the organizer asked for review, from applications open."""
+        raised = _spy_on_the_conflict(monkeypatch)
+        imported(2)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+        first_step = collection.update_one
+
+        def and_then_someone_reopens(filter_query, update):
+            result = first_step(filter_query, update)
+            collection.doc["phase"] = "applications_open"
+            return result
+        collection.update_one = and_then_someone_reopens
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.get_json() == raised[0].body()
+        assert raised[0].body()["targetPhase"] == "review"
+        assert "to 'review' from 'applications_open'" in raised[0].message

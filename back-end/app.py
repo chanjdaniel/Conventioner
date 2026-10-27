@@ -72,6 +72,7 @@ from utils.proxy import (
     trusted_proxy_hops,
 )
 from utils.request_origin import install_request_origin_check
+from client_errors import install_error_answers
 from utils.secret_key import (
     SecretKeyNotConfiguredError,
     signing_secret,
@@ -354,6 +355,7 @@ app.config["REMEMBER_COOKIE_SECURE"] = True
 app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
+install_error_answers(app)
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
 
@@ -1304,25 +1306,8 @@ def pending_offers_count(market_id: str) -> Response:
 @login_required
 def get_assigned_market(market_id: str) -> Response:
     """Get an assigned market. Requires VIEW permission."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.get_assigned_market(market_id, requesting_user)
-        
-        return jsonify(result), status_code
-    
-    except Exception as e:
-        # Log the full error with traceback
-        logger.error(f"Error in get_assigned_market for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        
-        # Return more detailed error information
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/assignment",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = MarketsApi.get_assigned_market(market_id, authenticated_email())
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/assignment', methods=['POST'])
@@ -1512,67 +1497,30 @@ def remove_placement(market_id: str) -> Response:
 @login_required
 def get_assignment_statistics(market_id: str) -> Response:
     """Get assignment statistics derived on-demand. Requires VIEW permission."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.get_assignment_statistics(market_id, requesting_user)
-        return jsonify(result), status_code
-
-    except Exception as e:
-        logger.error(f"Error in get_assignment_statistics for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/assignment-statistics",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = MarketsApi.get_assignment_statistics(market_id, authenticated_email())
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/assignment-csv', methods=['GET'])
 @login_required
 def get_assignment_csv(market_id: str) -> Response:
     """Download assignment results as a CSV file. Requires VIEW permission."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.get_assignment_csv(market_id, requesting_user)
-        if status_code == 200:
-            from flask import make_response
-            response = make_response(result["csv_content"])
-            response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-            response.headers['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
-            return response
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in get_assignment_csv for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/assignment-csv",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = MarketsApi.get_assignment_csv(market_id, authenticated_email())
+    if status_code == 200:
+        from flask import make_response
+        response = make_response(result["csv_content"])
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
+        return response
+    return jsonify(result), status_code
 
 
 @app.route('/markets/<market_id>/tables', methods=['GET'])
 @login_required
 def get_market_tables(market_id: str) -> Response:
     """Get table-level assignments derived on-demand. Requires VIEW permission."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.get_market_tables(market_id, requesting_user)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in get_market_tables for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/tables",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
+    result, status_code = MarketsApi.get_market_tables(market_id, authenticated_email())
+    return jsonify(result), status_code
 
 
 # attendance
@@ -2229,9 +2177,6 @@ def cleanup_sessions() -> None:
 
 cleanup_sessions()
 
-# Vercel automatically detects Flask apps, but we can export the app instance
-# The app instance will be used by Vercel's Python runtime
-
-if __name__ == '__main__':
-    # 5001 as every other way the back end starts, not Flask's 5000: docs/TESTING.md says why.
-    app.run(debug=True, port=5001)
+# No `__main__` block: the back end starts with `flask run` (the Dockerfile, docs/STARTUP.md) or is
+# imported by Vercel's Python runtime, so the Werkzeug debugger runs only when asked for by name
+# (`flask run --debug`).

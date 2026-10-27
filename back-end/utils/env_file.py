@@ -13,8 +13,8 @@ to set the variable they just set. So the file is loaded here, which is what mak
 The real environment wins (``override=False``). A deployment's variables are set on the host, and a
 ``.env`` that found its way into an image - the Docker stack bind-mounts ``back-end/`` straight into
 the container - must never be able to quietly replace them. The path is anchored to this file rather
-than searched from the working directory, so ``flask run`` from ``back-end/`` and ``python app.py``
-from anywhere read the same file.
+than searched from the working directory, so ``flask run`` from ``back-end/`` and an import of
+``app`` from anywhere (Vercel's runtime, the test suite) read the same file.
 
 ``ENV_FILE`` is read on every call rather than bound as a default argument, so a process that must
 not read a developer's file can say so by pointing it elsewhere. The test suite does exactly that

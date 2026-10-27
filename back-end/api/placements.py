@@ -36,6 +36,7 @@ from datatypes import (
 import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import assignment.made_from as MadeFrom
+from client_errors import BadRequestError, ConflictError
 import placement_history as PlacementHistory
 from utils.email_address import normalized_email
 
@@ -47,28 +48,30 @@ HALF_TABLE_RIGHT = "Half Table (Right)"
 TABLE_CHOICES = (FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT)
 
 
-class PlacementError(ValueError):
-    """The requested placement does not describe a seat this market has. Callers map this to 400.
+class PlacementError(BadRequestError):
+    """The requested placement does not describe a seat this market has. A 400.
 
     A dedicated type rather than a bare ``ValueError``: anything else escaping a placement write
     is a bug, and reporting a bug to the client as a bad request hides it.
     """
 
 
-class AssignPhaseError(ValueError):
-    """The assignment may not be run in this market's phase. Callers map this to 409.
+class AssignPhaseError(ConflictError, ValueError):
+    """The assignment may not be run in this market's phase. A 409.
 
     A conflict with the market's state rather than a malformed request: the same call is correct
-    one transition earlier or later.
+    one transition earlier or later. Still a ``ValueError`` until no route catches one to answer it.
     """
 
 
 class SeatTakenError(PlacementError):
-    """Someone else already holds the seat. Callers map this to 409.
+    """Someone else already holds the seat. A 409.
 
     Separate from its parent because it is a conflict rather than a malformed request: the
     placement describes a real seat, and would have been written a moment earlier.
     """
+
+    status = 409
 
 
 def _seat_section(setup_object: SetupObject, table_code: str) -> Optional[SectionObject]:

@@ -483,30 +483,6 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     assert result["market_id"] == "market-123"
 
 
-def test_get_assignment_csv_surfaces_csv_value_error(monkeypatch):
-    monkeypatch.setattr(
-        MarketsApi.markets_collection,
-        "find_one",
-        lambda query: _sample_market_doc_with_setup(),
-    )
-    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi,
-        "assign_market",
-        lambda market, vendors=None: SimpleNamespace(model_dump=lambda: {}),
-    )
-
-    def _raise_value_error(*_args, **_kwargs):
-        raise ValueError("the market has nothing to export")
-
-    monkeypatch.setattr(MarketsApi, "market_csv_to_string", _raise_value_error)
-
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
-
-    assert status == 400
-    assert "nothing to export" in result["error"]
-
-
 def test_market_csv_filename_sanitizes_unsafe_characters():
     assert MarketsApi._market_csv_filename("My / Weird * Market", "market-id") == "My_Weird_Market_assigned.csv"
     assert MarketsApi._market_csv_filename(None, "market-id") == "market-id_assigned.csv"

@@ -8,7 +8,7 @@ describes:
   - back-end/api/permissions.py#follow_up_owners_for
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#21

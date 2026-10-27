@@ -405,7 +405,9 @@ def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str
     try:
         parsed = list(csv.reader(io.StringIO(csv_content)))
     except csv.Error as exc:
-        return f"That file could not be read as CSV: {exc}", [], []
+        # The reader's own words ("field larger than field limit") name a limit, never a cell.
+        logger.warning("A CSV could not be parsed: %s", exc)
+        return "That file could not be read as CSV.", [], []
     if not parsed:
         return "That file is empty.", [], []
 

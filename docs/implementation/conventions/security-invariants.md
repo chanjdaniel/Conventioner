@@ -21,6 +21,8 @@ describes:
   - scripts/real_data_check.py
   - .githooks/
 verified: 2026-10-27
+sources:
+  - T74
 ---
 
 # Security invariants
@@ -168,6 +170,11 @@ A 403 with these words on a deployment means the page's origin is not in `CORS_A
 
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
 The checks above make the process boot safe; that one makes safe each lookup a request then asks of it.
+
+**An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the two handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
+
+**The front end has no DOM or HTML sink today** (no `v-html`, no `innerHTML`), and its lint refuses `v-html` anywhere ([every control is named](every-control-is-named.md#how-it-is-enforced)).
+If one is ever introduced, lifting that rule is the decision, and the chosen tools are DOMPurify for `v-html` and Trusted Types (`require-trusted-types-for 'script'`) for the page.
 
 ## How it is enforced
 

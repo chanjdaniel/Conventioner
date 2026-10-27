@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05
@@ -44,6 +44,7 @@ An essential question no column answers is proposed as not asked, which is what 
 **Only a draft whose form has no questions of its own** (`refusal`): the plan and the form it writes are a draft's to change, and the proposal never has to merge with questions already written.
 
 **The proposal writes nothing; confirm writes in ONE conditioned update, or nothing.**
+A request confirm cannot write is a `ConfirmRefused`, a 409 [client error](../conventions/an-exception-never-reaches-a-client.md) saying why.
 Confirm judges the plan and the form through the plan's and the form's own writes (`prepared_plan`, `prepared_application_form`, so [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) above all), then writes them as one `$set` filtered on the market as it was read: its phase as stored and its form still without questions (`still_startable`).
 A market that changed since is written nothing, and told to start again.
 **The plan's own values win**: the file's dates (in the year the organizer confirms) and tiers fill a plan that has none, and its ceiling a plan with none set.

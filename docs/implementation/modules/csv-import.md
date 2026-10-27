@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#inspect_application_import
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map

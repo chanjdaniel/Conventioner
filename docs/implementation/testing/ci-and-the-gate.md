@@ -16,6 +16,7 @@ verified: 2026-10-27
 sources:
   - T47
   - T53
+  - T74
 ---
 
 # CI and the gate
@@ -67,6 +68,13 @@ The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total mea
 It landed because nothing noticed `main.ts` installing vue-konva for the whole app, which put the floorplan canvas library on every page, `/login` included, for about 60 KB gzipped.
 **Raise the limit only on purpose**: in the same pull request as the code that needs it, saying there what the extra bytes buy, and still a few KB above the new total so the next unplanned growth fails.
 The first fix to try is a lazily loaded route or component, which keeps the code out of the entry.
+
+## CodeQL
+
+GitHub's CodeQL default setup, a repository setting with no workflow file here, analyses `actions`, `javascript-typescript` and `python` with the default suite, on every pull request to `dev` and weekly on `dev`.
+Each pull request gets an `Analyze (actions)`, an `Analyze (javascript-typescript)` and an `Analyze (python)` check, and a `CodeQL` check from `github-advanced-security` that reports the alerts new in the code it changed.
+It is the automated backstop for [a request value is a string](../conventions/a-request-value-is-a-string.md) (`py/nosql-injection`) and [an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md) (`py/stack-trace-exposure`).
+**None of these checks is required**: branch protection names only the checks [above](#ci).
 
 ## Dependabot
 

@@ -19,7 +19,7 @@ describes:
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -57,6 +57,7 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 **All four are gated on `MarketRole.EDITOR`**, the bar every other market write sets, and deliberately not stricter: an EDITOR already owns the tiers, sections and table counts the whole assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
 A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409).
+Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
 
 **There is no other door.**
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).

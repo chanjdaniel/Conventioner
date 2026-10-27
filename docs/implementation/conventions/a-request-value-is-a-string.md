@@ -7,6 +7,7 @@ describes:
 verified: 2026-10-27
 sources:
   - T66
+  - T74
 ---
 
 # A request value is a string before it reaches a query
@@ -25,7 +26,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - the applicant sign-in (`back-end/api/applicant_auth.py`) answers its one same 200 for a code request and its one same 401 for a verify, so a wrong type tells a caller nothing a missing value does not;
 - the public check-in and its undo (`back-end/app.py`) answer 400 for an address or a date;
 - creating an organization (`back-end/app.py`) answers 400 for a name that is not a string or is blank;
-- saving a floorplan to a market, placing its tables, and analysing, calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_analysis.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name.
+- saving a floorplan to a market, placing its tables, and analysing, calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_analysis.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
@@ -42,5 +43,8 @@ An address read this way still goes through `normalized_email()` ([users, and th
 Each is refused, and nothing changes: no password, no verified flag, no counted try, no check-in, no organization.
 Its users collection matches as the database does, an operator included, so a lookup that let a non-string through would find what the database finds.
 A reset, a verification and a sign-in with the right string still work.
+
+CodeQL's `py/nosql-injection` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a request value that reaches a MongoDB filter unchecked.
+The test is the net for the endpoints above; the rule catches the endpoint nobody listed.
 
 What breaks it: `data.get(key)` handed to a filter, or to anything that builds one, without `string_field()`.

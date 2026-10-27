@@ -5,6 +5,14 @@ from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
+from client_errors import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    field_named_copy,
+    parse_failure_detail,
+)
 from datatypes import (
     Application,
     ApplicationForm,
@@ -59,7 +67,6 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import rejection_rules as RejectionRules
-import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
@@ -89,12 +96,12 @@ VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox"
 FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
-class MarketNotFoundError(ValueError):
-    """No market exists with the requested id. Callers map this to HTTP 404."""
+class MarketNotFoundError(NotFoundError):
+    """No market exists with the requested id: a 404."""
 
 
-class ApplicationFormLockedError(Exception):
-    """The application form may no longer be edited. Callers map this to HTTP 409.
+class ApplicationFormLockedError(ConflictError):
+    """The application form may no longer be edited: a 409.
 
     A dedicated type rather than a builtin: a ``RuntimeError`` escaping any other part of an
     update is a bug, not a conflict, and must not be reported to the client as one.
@@ -138,11 +145,12 @@ def _load_market_for(market_id: str, requesting_user: str, role: MarketRole, act
     try:
         market = market_from_document(market_dict)
     except Exception as e:
-        raise ValueError(f"Invalid market data: {e}")
+        _log_unreadable_market(market_id, e)
+        raise BadRequestError("Invalid market data") from e
 
     organization = _load_organization(market.organization_id)
     if not PermissionsApi.user_has_permission(requesting_user, market, role, organization):
-        raise PermissionError(f"User does not have permission to {action} this market")
+        raise ForbiddenError(f"User does not have permission to {action} this market")
 
     return market
 
@@ -153,12 +161,12 @@ ARCHIVED_REFUSAL = (
 )
 
 
-class MarketArchivedError(PermissionError):
+class MarketArchivedError(ForbiddenError):
     """A write to an archived market (bug 30, E26/F06/S01).
 
-    A ``PermissionError``, because that is what it is - nobody, whatever their role, may change a
-    market's record - and because every write route already answers one with a 403 carrying its
-    words. A refusal that needed a new branch in each route would be one forgotten branch from a 500.
+    Forbidden, because that is what it is - nobody, whatever their role, may change a market's
+    record - and so a 403 carrying its words wherever it is raised. A refusal that needed a new
+    branch in each route would be one forgotten branch from a 500.
     """
 
 
@@ -462,7 +470,7 @@ def _normalized_select_options(field: FormField, key: str) -> List[str]:
     same burden as field keys: a duplicate is an ambiguous answer, a blank is an unselectable
     row in the applicant's form, and stray whitespace would ride along into every answer."""
     if not field.options:
-        raise ValueError(
+        raise BadRequestError(
             f"Field '{key}' is type '{field.type}' but has no options defined"
         )
 
@@ -470,9 +478,9 @@ def _normalized_select_options(field: FormField, key: str) -> List[str]:
     for option in field.options:
         option_value = (option or "").strip()
         if not option_value:
-            raise ValueError(f"Field '{key}' has a blank option. Options must be non-empty.")
+            raise BadRequestError(f"Field '{key}' has a blank option. Options must be non-empty.")
         if option_value in options:
-            raise ValueError(
+            raise BadRequestError(
                 f"Duplicate option '{option_value}' in field '{key}'. Options must be unique."
             )
         options.append(option_value)
@@ -515,37 +523,37 @@ def _normalized_application_form(
     unasked = [str(key).strip() for key in application_form.unasked_essentials or [] if str(key).strip()]
     unaskable_error = EssentialFields.unaskable_essential_error(unasked)
     if unaskable_error:
-        raise ValueError(unaskable_error)
+        raise BadRequestError(unaskable_error)
 
     fields: List[FormField] = []
     seen_keys = set()
     for index, field in enumerate(application_form.fields):
         key = (field.key or "").strip()
         if not key:
-            raise ValueError(
+            raise BadRequestError(
                 f"Field '{field.label or '(untitled)'}' must have a non-empty key"
             )
         if not FORM_FIELD_KEY_PATTERN.match(key):
-            raise ValueError(
+            raise BadRequestError(
                 f"Invalid field key '{key}'. Keys may only contain lowercase letters, "
                 "numbers, and underscores."
             )
         if key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX):
-            raise ValueError(
+            raise BadRequestError(
                 f"Field key '{key}' uses the reserved "
                 f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
                 "essential questions every form already asks."
             )
         if key in seen_keys:
-            raise ValueError(f"Duplicate field key '{key}'. Field keys must be unique.")
+            raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")
         seen_keys.add(key)
 
         label = (field.label or "").strip()
         if not label:
-            raise ValueError(f"Field '{key}' must have a non-empty label")
+            raise BadRequestError(f"Field '{key}' must have a non-empty label")
 
         if field.type not in VALID_FORM_FIELD_TYPES:
-            raise ValueError(
+            raise BadRequestError(
                 f"Unrecognized field type '{field.type}' for field '{key}'. "
                 f"Valid types: {', '.join(sorted(VALID_FORM_FIELD_TYPES))}"
             )
@@ -734,6 +742,12 @@ class MarketContext(NamedTuple):
     organization_dict: Optional[Dict[str, Any]]
 
 
+def _log_unreadable_market(market_id: str, error: Exception) -> None:
+    """A stored market the model refuses is answered "Invalid market data"; why is logged, never
+    what the document held."""
+    logger.warning("Stored market %s failed validation: %s", market_id, parse_failure_detail(error))
+
+
 def load_market_context(market_id: str) -> Optional[MarketContext]:
     """Load a market with its parsed model and owning organization, or None if absent."""
     market_dict = markets_collection.find_one({"id": market_id})
@@ -743,7 +757,7 @@ def load_market_context(market_id: str) -> Optional[MarketContext]:
     try:
         market = market_from_document(market_dict)
     except Exception as e:
-        logger.warning("Stored market %s failed validation: %s", market_id, e)
+        _log_unreadable_market(market_id, e)
         return MarketContext(market_dict, None, None, None)
 
     organization, org_dict = _load_organization_context(market.organization_id)
@@ -1048,6 +1062,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER.value)
     if owner_count != 1:
+        # A builtin: ``create_owned_market`` sets the one owner, so this escaping is a bug, a 500.
         raise ValueError("Market must have exactly one owner in roles dict")
     
     market_id = str(uuid.uuid4())
@@ -1056,14 +1071,14 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     refusal = public_address_refusal(market.name)
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
     
     try:
         result = markets_collection.insert_one(market_dict)
     except DuplicateKeyError as e:
         # Two creations passed the check above and raced; the unique `market_slug` index refused
         # the second. It is the same clash, so it reads the same (code review of E21).
-        raise ValueError(_address_taken(market.name)) from e
+        raise BadRequestError(_address_taken(market.name)) from e
     
     if market.organization_id:
         try:
@@ -1118,12 +1133,16 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     or by an id that is nobody, which then sat in the organization with no one able to manage it
     (bug 46). Anyone else is added afterwards, through the endpoints that manage a market's people.
 
-    Raises ValueError, in words for the organizer, when the market may not be made.
+    Raises a ``BadRequestError``, in words for the organizer, when the market may not be made.
     """
-    market = Market(**{**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    try:
+        market = Market.model_validate({**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    except ValidationError as e:
+        logger.warning("Refused a new market: %s", parse_failure_detail(e))
+        raise BadRequestError(field_named_copy("Invalid market", e)) from e
     refusal = organization_refusal(owner.email, data.get("organization_id"))
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
     _result, market_id = create_market(market, owner.email)
     return market_id
 
@@ -1156,172 +1175,126 @@ def organization_refusal(user_email: str, organization_id: Optional[str]) -> Opt
 
 def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Get an assigned market. Requires VIEW permission."""
-    try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
 
-        if requesting_user:
-            if context.market is None:
-                return {"error": "Invalid market data"}, 400
+    if requesting_user:
+        if context.market is None:
+            return {"error": "Invalid market data"}, 400
 
-            if not PermissionsApi.user_has_permission(requesting_user, context.market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
+        if not PermissionsApi.user_has_permission(requesting_user, context.market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
 
-        market_dict = convert_keys_to_snake_case(context.document)
+    market_dict = convert_keys_to_snake_case(context.document)
 
-        # Fix missing assignment_options in setup_object
-        if "setup_object" in market_dict and market_dict["setup_object"]:
-            if "assignment_options" not in market_dict["setup_object"]:
-                market_dict["setup_object"]["assignment_options"] = {
-                    "max_assignments_per_vendor": None,
-                    "max_half_table_proportion_per_section": None,
-                }
-        
-        # Fix None assignment_object
-        # temp reset
-        # if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
-        market_dict["assignment_object"] = {
-            "vendor_assignments": [],
-            "assignment_date": "",
-            "assignment_statistics": None
-        }
-
-        # Convert dictionary to Market object
-        try:
-            market = market_from_document(context.document, market_dict)
-            try:
-                vendors = solver_vendors_for(market)
-            except IncompleteApplicationsError as incomplete:
-                # The organizer has to go and fix something, so say who.
-                return {"error": incomplete.message()}, 400
-
-            # Running the solver over nobody produced a screen that looked exactly like a
-            # completed run - 0 assignments, 0/24 tables, 0/0 vendors - which reads as a market
-            # that failed rather than one that was never asked anything. Refused HERE rather than
-            # inside the solver, because the read-only views of an assignment (statistics, the
-            # tables grid, the CSV) are right to show an empty market's empty picture; it is
-            # *asking for an assignment* that has nothing to do.
-            if not vendors:
-                return {"error": NOTHING_TO_ASSIGN}, 400
-
-            assigned_market = assign_market(market, vendors)
-            assigned_market_dict = assigned_market.model_dump()
-
-            assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
-            if context.organization_dict:
-                assigned_market_dict['organizationName'] = context.organization_dict.get('name')
-            return assigned_market_dict, 200
-
-        except Exception as validation_error:
-            logger.error(f"Market validation error: {validation_error}")
-            logger.error(f"Validation error type: {type(validation_error)}")
-            logger.error(f"Full traceback: {traceback.format_exc()}")  # Add this line
-            if hasattr(validation_error, 'errors'):
-                logger.error(f"Validation errors: {validation_error.errors()}")
-            
-            # Return more detailed validation error
-            error_details = {
-                "error": "Market validation failed",
-                "message": str(validation_error),
-                "error_type": type(validation_error).__name__,
-                "market_id": market_id
+    # Fix missing assignment_options in setup_object
+    if "setup_object" in market_dict and market_dict["setup_object"]:
+        if "assignment_options" not in market_dict["setup_object"]:
+            market_dict["setup_object"]["assignment_options"] = {
+                "max_assignments_per_vendor": None,
+                "max_half_table_proportion_per_section": None,
             }
-            
-            if hasattr(validation_error, 'errors'):
-                error_details["validation_errors"] = validation_error.errors()
-            
-            return error_details, 400
 
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assigned_market: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        
-        # Return detailed error information
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assigned_market"
-        }, 500
+    # Fix None assignment_object
+    # temp reset
+    # if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
+    market_dict["assignment_object"] = {
+        "vendor_assignments": [],
+        "assignment_date": "",
+        "assignment_statistics": None
+    }
+
+    # Convert dictionary to Market object
+    market = market_from_document(context.document, market_dict)
+    try:
+        vendors = solver_vendors_for(market)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+
+    # Running the solver over nobody produced a screen that looked exactly like a
+    # completed run - 0 assignments, 0/24 tables, 0/0 vendors - which reads as a market
+    # that failed rather than one that was never asked anything. Refused HERE rather than
+    # inside the solver, because the read-only views of an assignment (statistics, the
+    # tables grid, the CSV) are right to show an empty market's empty picture; it is
+    # *asking for an assignment* that has nothing to do.
+    if not vendors:
+        return {"error": NOTHING_TO_ASSIGN}, 400
+
+    assigned_market = assign_market(market, vendors)
+    assigned_market_dict = assigned_market.model_dump()
+
+    assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
+    if context.organization_dict:
+        assigned_market_dict['organizationName'] = context.organization_dict.get('name')
+    return assigned_market_dict, 200
 
 
 def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Derive and return assignment statistics for a market."""
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    # Keep persisted schema free of assignment statistics, then derive fresh.
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        # The vendors are read once and handed to both: the solver places them, and the
+        # reasons below are computed against the same set, so the two can never disagree
+        # about who applied.
+        vendors = solver_vendors_for(market)
+        assigned_market = assignment_to_show(market, vendors)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+    stats = assigned_market.assignment_object.assignment_statistics
+    if stats is None:
+        return {"error": "Unable to derive assignment statistics"}, 500
 
-        market = context.market
+    rows = derive_market_table_rows(assigned_market)
+    stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        # Keep persisted schema free of assignment statistics, then derive fresh.
-        market.assignment_object.assignment_statistics = None
-        try:
-            # The vendors are read once and handed to both: the solver places them, and the
-            # reasons below are computed against the same set, so the two can never disagree
-            # about who applied.
-            vendors = solver_vendors_for(market)
-            assigned_market = assignment_to_show(market, vendors)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-        stats = assigned_market.assignment_object.assignment_statistics
-        if stats is None:
-            return {"error": "Unable to derive assignment statistics"}, 500
-
-        rows = derive_market_table_rows(assigned_market)
-        stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
-
-        payload = convert_keys_to_camel_case(stats.model_dump())
-        # Why each vendor holds no table, computed from the plan, the applications and the
-        # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
-        # unplaced, so the panel listing them can say why without a second request.
-        placed_rows = assigned_market.assignment_object.vendor_assignments or []
-        payload["unplacedDates"] = [
-            {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
-            for entry in unplaced_dates(
-                assigned_market.setup_object, vendors, placed_rows,
-            )
-        ]
-        # A hand placement that contradicts what the vendor asked for stands - admins edit
-        # without restriction - but it is never silent: tier sets the price, and someone will be
-        # charged for a table they did not choose (E11/F02/S02). Computed on read beside the
-        # reasons above, because "why is this vendor here" and "why is this vendor nowhere" are
-        # one question asked twice.
-        payload["overriddenPlacements"] = [
-            {
-                "email": entry.email,
-                "date": entry.date,
-                "tableCode": entry.table_code,
-                "overrides": [override.value for override in entry.overrides],
-            }
-            for entry in overridden_placements(
-                vendors, placed_rows,
-                not_approved_vendors(market, {vendor.email for vendor in vendors}),
-            )
-        ]
-        # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
-        # name them. A vendor with no stored name has no entry and renders as they did before.
-        payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)
-        return payload, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assignment_statistics: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assignment_statistics"
-        }, 500
+    payload = convert_keys_to_camel_case(stats.model_dump())
+    # Why each vendor holds no table, computed from the plan, the applications and the
+    # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
+    # unplaced, so the panel listing them can say why without a second request.
+    placed_rows = assigned_market.assignment_object.vendor_assignments or []
+    payload["unplacedDates"] = [
+        {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
+        for entry in unplaced_dates(
+            assigned_market.setup_object, vendors, placed_rows,
+        )
+    ]
+    # A hand placement that contradicts what the vendor asked for stands - admins edit
+    # without restriction - but it is never silent: tier sets the price, and someone will be
+    # charged for a table they did not choose (E11/F02/S02). Computed on read beside the
+    # reasons above, because "why is this vendor here" and "why is this vendor nowhere" are
+    # one question asked twice.
+    payload["overriddenPlacements"] = [
+        {
+            "email": entry.email,
+            "date": entry.date,
+            "tableCode": entry.table_code,
+            "overrides": [override.value for override in entry.overrides],
+        }
+        for entry in overridden_placements(
+            vendors, placed_rows,
+            not_approved_vendors(market, {vendor.email for vendor in vendors}),
+        )
+    ]
+    # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
+    # name them. A vendor with no stored name has no entry and renders as they did before.
+    payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)
+    return payload, 200
 
 
 def get_placement_history(
@@ -1366,53 +1339,39 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
     Returns either ({"csv_content": str, "filename": str}, 200) on success or
     an error dict with the appropriate HTTP status code.
     """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    if market.setup_object is None:
+        return {"error": "Market has no setup configured"}, 400
+
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        vendors = solver_vendors_for(market)
+        assigned_market = assignment_to_show(market, vendors)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+    assigned_market_dict = assigned_market.model_dump()
 
-        market = context.market
+    csv_content = market_csv_to_string(
+        assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
+        ApplicationsApi.vendor_full_names_for_market(market_id),
+        {vendor.email for vendor in not_approved_vendors(
+            market, {vendor.email for vendor in vendors})},
+    )
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        if market.setup_object is None:
-            return {"error": "Market has no setup configured"}, 400
-
-        market.assignment_object.assignment_statistics = None
-        try:
-            vendors = solver_vendors_for(market)
-            assigned_market = assignment_to_show(market, vendors)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-        assigned_market_dict = assigned_market.model_dump()
-
-        try:
-            csv_content = market_csv_to_string(
-                assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
-                ApplicationsApi.vendor_full_names_for_market(market_id),
-                {vendor.email for vendor in not_approved_vendors(
-                    market, {vendor.email for vendor in vendors})},
-            )
-        except ValueError as e:
-            return {"error": str(e)}, 400
-
-        filename = _market_csv_filename(context.document.get("name"), market_id)
-        return {"csv_content": csv_content, "filename": filename, "market_id": market_id}, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assignment_csv: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assignment_csv",
-        }, 500
+    filename = _market_csv_filename(context.document.get("name"), market_id)
+    return {"csv_content": csv_content, "filename": filename, "market_id": market_id}, 200
 
 
 def is_not_approved(application: Application) -> bool:
@@ -1465,70 +1424,59 @@ def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str
 
 def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
     """Derive and return table rows for a market."""
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        vendors = solver_vendors_for(market)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
 
-        market = context.market
+    # The STORED assignment, when the market has one. This is the screen an organizer edits
+    # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
+    # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
+    # they pressed Assign, and every seat they moved a vendor into would be a seat they had
+    # never actually seen. A market with nothing stored still shows the run it would get.
+    assigned_market = assignment_to_show(market, vendors)
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        market.assignment_object.assignment_statistics = None
-        try:
-            vendors = solver_vendors_for(market)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-
-        # The STORED assignment, when the market has one. This is the screen an organizer edits
-        # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
-        # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
-        # they pressed Assign, and every seat they moved a vendor into would be a seat they had
-        # never actually seen. A market with nothing stored still shows the run it would get.
-        assigned_market = assignment_to_show(market, vendors)
-
-        rows = derive_market_table_rows(assigned_market)
-        return {
-            "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
-            # Name against address, for the surfaces that only ever knew the address. Sent with
-            # the rows rather than fetched separately so the grid and its occupants' names can
-            # never be a request apart.
-            "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-            # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
-            "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
+    rows = derive_market_table_rows(assigned_market)
+    return {
+        "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
+        # Name against address, for the surfaces that only ever knew the address. Sent with
+        # the rows rather than fetched separately so the grid and its occupants' names can
+        # never be a request apart.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+        # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+        "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
+            market_id,
+            market.application_form.fields if market.application_form else [],
+            {email for row in rows for email in row.assignment_slots if email},
+        ),
+        # Who may be put in a seat, and what they asked for. Sent with the grid because the
+        # view has to warn - before the change, not after - when a placement would alter a
+        # vendor's table choice away from their own answer (E11/F03/S01).
+        # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
+        # seat anyone by hand, warned, and the run's own vendors come first.
+        "vendors": [_placeable(vendor, None) for vendor in vendors] + [
+            _placeable(vendor, application)
+            for vendor, application in outside_solver_vendors(
                 market_id,
-                market.application_form.fields if market.application_form else [],
-                {email for row in rows for email in row.assignment_slots if email},
-            ),
-            # Who may be put in a seat, and what they asked for. Sent with the grid because the
-            # view has to warn - before the change, not after - when a placement would alter a
-            # vendor's table choice away from their own answer (E11/F03/S01).
-            # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
-            # seat anyone by hand, warned, and the run's own vendors come first.
-            "vendors": [_placeable(vendor, None) for vendor in vendors] + [
-                _placeable(vendor, application)
-                for vendor, application in outside_solver_vendors(
-                    market_id,
-                    EssentialFields.effective_essential_options_for_market(market),
-                    {vendor.email for vendor in vendors},
-                )
-            ],
-        }, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_market_tables: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_market_tables"
-        }, 500
+                EssentialFields.effective_essential_options_for_market(market),
+                {vendor.email for vendor in vendors},
+            )
+        ],
+    }, 200
 
 
 def finalization_update(
@@ -1574,15 +1522,32 @@ def finalization_update(
     return {}
 
 
-class PhaseChangedUnderRequest(Exception):
-    """The market's stored phase was not what this write expected.
+class PhaseChangedUnderRequest(ConflictError):
+    """The market's stored phase was not what this write expected: a 409.
 
-    Carries the phase it actually holds, so a caller can say so rather than retrying blindly.
+    Carries the phase it actually holds, and the move that was asked for, so the organizer is told
+    to reload rather than the request retrying blindly.
     """
 
-    def __init__(self, actual_phase: str):
+    def __init__(self, actual_phase: str, from_phase: str, target_phase: str):
         self.actual_phase = actual_phase
-        super().__init__(f"Market is in '{actual_phase}'")
+        self.from_phase = from_phase
+        self.target_phase = target_phase
+        super().__init__(
+            f"This market moved to the '{actual_phase}' phase while the request was in flight, so "
+            f"it can no longer move to '{target_phase}' from '{from_phase}'. "
+            "Reload the market and try again."
+        )
+
+    def body(self) -> Dict[str, Any]:
+        """Read as a move's blockers are, so the rail shows the conflict where it shows a guard."""
+        conflict = PreconditionResult(id="phase_changed", passed=False, message=self.message)
+        return convert_keys_to_camel_case({
+            "error": "phase_changed",
+            "current_phase": self.actual_phase,
+            "target_phase": self.target_phase,
+            "blockers": [conflict.payload()],
+        })
 
 
 def apply_phase_transition(
@@ -1627,7 +1592,7 @@ def apply_phase_transition(
     latest = markets_collection.find_one({"id": market_id})
     if latest is None:
         raise MarketNotFoundError("Market not found")
-    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
+    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
 
 
 def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
@@ -1637,8 +1602,10 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
     if the market still stands where the step before left it - a request that moved it in between
     stops the walk there rather than being carried over.
 
-    Raises what ``apply_phase_transition`` raises, at the step where it happened.
+    Raises what ``apply_phase_transition`` raises, at the step where it happened; a conflict names
+    the whole move, from where the walk began to where it was headed, not the step it stopped at.
     """
+    origin = phase_from_market_document(document).value
     for index, target in enumerate(route):
         if index:
             document = markets_collection.find_one({"id": market_id})
@@ -1646,12 +1613,15 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
                 raise MarketNotFoundError("Market not found")
             standing = phase_from_market_document(document).value
             if standing != route[index - 1]:
-                raise PhaseChangedUnderRequest(standing)
-        apply_phase_transition(market_id, document, target, by=by)
+                raise PhaseChangedUnderRequest(standing, origin, route[-1])
+        try:
+            apply_phase_transition(market_id, document, target, by=by)
+        except PhaseChangedUnderRequest as changed:
+            raise PhaseChangedUnderRequest(changed.actual_phase, origin, route[-1]) from changed
 
 
-class MoveUnavailable(ValueError):
-    """The move is not open from the phase the market stands in. Callers map this to HTTP 400."""
+class MoveUnavailable(BadRequestError):
+    """The move is not open from the phase the market stands in: a 400."""
 
 
 def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
@@ -1702,31 +1672,31 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     """Add a user role to a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
 
     if not PermissionsApi.can_manage_roles(requesting_user, market, role, context.organization):
-        raise PermissionError("User does not have permission to manage this role")
+        raise ForbiddenError("User does not have permission to manage this role")
 
     if role == MarketRole.OWNER:
         current_roles = market_dict.get('roles', {})
         for uid, existing_role in current_roles.items():
             if existing_role == MarketRole.OWNER.value:
-                raise ValueError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError("Market already has an owner. Transfer ownership first.")
     
     user = UsersApi.get_user(user_email)
     if not user:
-        raise ValueError("User not found")
+        raise BadRequestError("User not found")
 
     roles = market_dict.get('roles', {})
     # Adding never changes a role: overwriting one here would skip update_market_role's guards and
     # let an Admin demote the Owner.
     if user.id in roles:
-        raise ValueError(
+        raise BadRequestError(
             f"{user.email} already has a role on this market. Change it in their row under Users with access."
         )
     roles[user.id] = role.value
@@ -1743,9 +1713,9 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
     """Remove a user role from a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
@@ -1753,13 +1723,13 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
 
     roles = market_dict.get('roles', {})
     if user_id not in roles:
-        raise ValueError("User does not have a role in this market")
+        raise BadRequestError("User does not have a role in this market")
     
     if roles.get(user_id) == MarketRole.OWNER.value:
         # Count how many owners there are
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
-            raise ValueError("Cannot remove the only owner. Transfer ownership first.")
+            raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
     
     user_role_value = roles.get(user_id)
     if user_role_value:
@@ -1768,7 +1738,7 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         except ValueError:
             user_role = MarketRole.VIEWER
         if not PermissionsApi.can_manage_roles(requesting_user, market, user_role, organization):
-            raise PermissionError("User does not have permission to remove this role")
+            raise ForbiddenError("User does not have permission to remove this role")
     
     del roles[user_id]
     
@@ -1784,9 +1754,9 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     """Update a user's role in a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
@@ -1795,7 +1765,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     roles = market_dict.get('roles', {})
     current_role_value = roles.get(user_id)
     if not current_role_value:
-        raise ValueError("User does not have a role in this market")
+        raise BadRequestError("User does not have a role in this market")
 
     try:
         current_role = MarketRole(current_role_value)
@@ -1804,22 +1774,22 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
 
     # Owners cannot have their role changed
     if current_role == MarketRole.OWNER:
-        raise PermissionError("Cannot change owner's role")
+        raise ForbiddenError("Cannot change owner's role")
 
     # Admins can only be changed by owners
     if current_role == MarketRole.ADMIN:
         requesting_role = PermissionsApi.get_user_market_role(requesting_user, market, organization)
         if requesting_role != MarketRole.OWNER:
-            raise PermissionError("Only owners can change admin roles")
+            raise ForbiddenError("Only owners can change admin roles")
 
     # Check requesting user can manage this role
     if not PermissionsApi.can_manage_roles(requesting_user, market, new_role, organization):
-        raise PermissionError("User does not have permission to manage this role")
+        raise ForbiddenError("User does not have permission to manage this role")
     
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
-                raise ValueError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError("Market already has an owner. Transfer ownership first.")
     
     roles[user_id] = new_role.value
     
@@ -1835,15 +1805,15 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
     """Delete a market. Only owner can delete."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market = context.market
 
     user_role = PermissionsApi.get_user_market_role(requesting_user, market, context.organization)
     if user_role != MarketRole.OWNER:
-        raise PermissionError("Only the market owner can delete this market")
+        raise ForbiddenError("Only the market owner can delete this market")
 
     if market.organization_id:
         try:
@@ -1879,17 +1849,17 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     """
     name = (name or "").strip()
     if not name:
-        raise ValueError("A market needs a name.")
+        raise BadRequestError("A market needs a name.")
 
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "rename")
     if market.phase is not MarketPhase.DRAFT:
-        raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
+        raise BadRequestError(RENAME_REFUSED_AFTER_DRAFT)
     if name == market.name:
         return
 
     refusal = public_address_refusal(name, market_id)
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
 
     try:
         markets_collection.update_one(
@@ -1898,7 +1868,7 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
         )
     except DuplicateKeyError as e:
         # A rename that raced another write to the same address, refused by the unique index.
-        raise ValueError(_address_taken(name)) from e
+        raise BadRequestError(_address_taken(name)) from e
 
 
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
@@ -1921,9 +1891,9 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
-        raise ValueError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
+        raise BadRequestError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
     if "setupObject" not in body:
-        raise ValueError("setupObject is required.")
+        raise BadRequestError("setupObject is required.")
 
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     markets_collection.update_one(market_doc_filter("id", market_id),
@@ -1937,12 +1907,13 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     CSV start writes it in the same update as the form and the mapping it makes.
     """
     try:
-        plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
+        plan = SetupObject.model_validate(convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
-        raise ValueError(f"Invalid plan: {e}") from e
+        logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
+        raise BadRequestError(field_named_copy("Invalid plan", e)) from e
     share = plan.assignment_options.max_half_table_proportion_per_section
     if share is not None and not 0 <= share <= 100:
-        raise ValueError(
+        raise BadRequestError(
             "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
             "default."
         )
@@ -1952,10 +1923,10 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
         try:
             intake = IntakeMode(body["intakeMode"])
         except ValueError as e:
-            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
+            raise BadRequestError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
         if intake is not market.intake_mode:
             if market.phase is not MarketPhase.DRAFT:
-                raise ValueError(
+                raise BadRequestError(
                     "How vendors reach a market can only be changed while it is a draft."
                 )
             update[market_doc_key("intake_mode")] = intake.value
@@ -1963,14 +1934,14 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     # And the setup the same way, from leaving draft on (E31/F01/S02): restating it is not a change.
     setup_settled = setup_lock_reason(market)
     if setup_settled and setup_part(plan) != setup_part(market.setup_object):
-        raise ValueError(setup_settled)
+        raise BadRequestError(setup_settled)
 
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
-        raise ValueError(settled)
+        raise BadRequestError(settled)
     return update
 
 
@@ -2011,7 +1982,7 @@ def follow_up_owner(
     gives a role, named in its roles or reached through its organization (T15), as far as the
     requester is offered them (``follow_up_owners_for``). Asked of the same list the market read
     serves this requester as ``peopleOnMarket``, so the server takes exactly whom the dialog offers.
-    Raises ``ValueError`` with the refusal's words otherwise; to someone outside the organization
+    Raises a ``BadRequestError`` with the refusal's words otherwise; to someone outside the organization
     they never tell an organization address from a stranger's.
     """
     offered = PermissionsApi.follow_up_owners_for(market, organization, requester.user_id)
@@ -2020,8 +1991,8 @@ def follow_up_owner(
         return MarketPerson(user_id=user.id, email=user.email)
     if market.organization_id and not PermissionsApi.in_market_organization(
             market, organization, requester.user_id):
-        raise ValueError("You can hand a follow-up only to someone named in this market's roles.")
-    raise ValueError("A follow-up's owner must have a role on this market.")
+        raise BadRequestError("You can hand a follow-up only to someone named in this market's roles.")
+    raise BadRequestError("A follow-up's owner must have a role on this market.")
 
 
 def save_rejection_rules(
@@ -2036,7 +2007,7 @@ def save_rejection_rules(
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     settled = rejection_rules_lock_reason(market.phase)
     if settled:
-        raise ValueError(settled)
+        raise BadRequestError(settled)
     prepared = RejectionRules.Rulebook(market).prepared(rules)
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
@@ -2055,8 +2026,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
 
     Raises:
         MarketNotFoundError: no such market
-        ValueError: validation failure
-        PermissionError: user lacks EDITOR+ permission
+        BadRequestError: validation failure
+        ForbiddenError: user lacks EDITOR+ permission
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
@@ -2083,10 +2054,7 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
     """
     _assert_application_form_editable(market)
 
-    try:
-        application_form = ApplicationForm(**application_form_data)
-    except Exception as e:
-        raise ValueError(f"Invalid application form data: {e}")
+    application_form = parsed_application_form(market.id, application_form_data)
 
     stored_form = market.application_form
     application_form = _normalized_application_form(
@@ -2095,6 +2063,20 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
         essential_options=stored_form.essential_options if stored_form else None,
     )
     return convert_keys_to_camel_case(application_form.model_dump())
+
+
+def parsed_application_form(market_id: str, application_form_data: Any) -> ApplicationForm:
+    """The form a request body proposes, or a ``BadRequestError`` naming each field it gets wrong.
+
+    The one parse of a proposed form, for the form write and the amendment alike.
+    """
+    try:
+        return ApplicationForm.model_validate(application_form_data)
+    except ValidationError as e:
+        logger.warning(
+            "Refused an application form for market %s: %s", market_id, parse_failure_detail(e),
+        )
+        raise BadRequestError(field_named_copy("Invalid application form data", e)) from e
 
 
 def get_application_form(market_id: str, requesting_user: str) -> dict:

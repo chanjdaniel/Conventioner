@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
+from client_errors import BadRequestError
 from datatypes import ApplicationStatus, Market, RejectionRule, VerdictGiver
 
 #: A checkbox's two answers, as a rule names them.
@@ -87,35 +88,35 @@ class Rulebook:
         return [rule.model_dump() for rule in self.rules]
 
     def prepared(self, raw: Any) -> List[Dict[str, Any]]:
-        """The rules a write may store. Raises ValueError, in words for the organizer, for a rule on
-        a question that is not a choice, an answer the question does not offer, or two rules on one
-        question.
+        """The rules a write may store. Raises BadRequestError, in words for the organizer, for a
+        rule on a question that is not a choice, an answer the question does not offer, or two rules
+        on one question.
 
         A rule with no answer yet is kept: the organizer picks the question first, then the answers,
         and it rejects nothing until they do.
         """
         if not isinstance(raw, list):
-            raise ValueError("rules must be a list.")
+            raise BadRequestError("rules must be a list.")
         rules: List[Dict[str, Any]] = []
         for rule in raw:
             key = str((rule or {}).get("key") or "").strip()
             question = self.by_key.get(key)
             if question is None:
                 if key in self.labels:
-                    raise ValueError(
+                    raise BadRequestError(
                         f"'{self.labels[key]}' is answered in the applicant's own words, so no "
                         "answer to it can reject an application automatically.")
-                raise ValueError(
+                raise BadRequestError(
                     f"This market's form has no question {key!r} with answers to choose.")
             if any(existing["key"] == key for existing in rules):
-                raise ValueError(f"'{question['label']}' has one rule, which names every answer "
+                raise BadRequestError(f"'{question['label']}' has one rule, which names every answer "
                                  "that rejects.")
             values = [a["value"] for a in question["answers"]]
             answers: List[str] = []
             for answer in (rule.get("answers") or []):
                 answer = str(answer)
                 if answer not in values:
-                    raise ValueError(
+                    raise BadRequestError(
                         f"'{question['label']}' does not offer the answer {answer!r}.")
                 if answer not in answers:
                     answers.append(answer)
