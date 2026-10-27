@@ -81,6 +81,10 @@ describes:
   - back-end/csv_start.py#confirm
   - back-end/api/applicants.py#list_market_applications
   - back-end/api/applications.py#find_or_create_application
+  - back-end/api/added_vendors.py#AddVendorRefused
+  - back-end/api/placements.py#AssignPhaseError
+  - back-end/csv_start.py#ConfirmRefused
+  - back-end/seed_test_markets.py#main
 verified: 2026-10-28
 sources:
   - T74
@@ -122,7 +126,8 @@ A parse that fails says what was wrong in our words, with the status it always h
 - `BadRequestError` 400, `ForbiddenError` 403, `NotFoundError` 404 and `ConflictError` 409 are the statuses a refusal raises.
   The `Error` suffix keeps them apart from Werkzeug's `BadRequest`, `Forbidden`, `NotFound` and `Conflict`.
 - A refusal with more to say than a sentence overrides `body()`, its keys camelCased as the front end reads them.
-- While routes still catch builtins to answer them, `BadRequestError` and `NotFoundError` also subclass `ValueError` and `ForbiddenError` also subclasses `PermissionError`, so an `except ValueError` or `except PermissionError` that has not been removed yet still answers as it did.
+- No client error is a builtin refusal too: none subclasses `ValueError` or `PermissionError`, nor does any refusal built on one.
+  So an `except ValueError` or `except PermissionError` catches only a builtin's failure (a date that does not parse, a role a stored document names wrongly) and never a refusal, and a library's `ValueError` is never answered as one.
 
 A raise site decides a refusal and raises the type for it; the route writes no `try`/`except` to answer it.
 An internal invariant (a guard's own consistency check, a model validator) stays a builtin: escaping is a bug, and it answers 500.
@@ -136,12 +141,11 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
-- `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError` ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
+- `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The [form amendment](../modules/form-amendment.md)'s `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are `ConflictError`s; the last two answer their blockers and their resume offer from `body()`.
 - `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
 - `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
 
-A `ConflictError` subclasses no builtin, so `AssignPhaseError`, `AddVendorRefused` and `ConfirmRefused` also keep the `ValueError` they were, until no route or caller catches one to answer it.
 What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
 
 ## The two handlers
@@ -184,6 +188,13 @@ Two lines these routes reach are kept free of an applicant's address for the 500
 
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
+**A body that is not an object is refused in words.**
+Every route in `app.py` that reads a JSON body reads it with `request.get_json(silent=True)`, so a body that is not JSON is no body rather than Werkzeug's HTML 415, and it answers a body that is not an object (a list, a string, a number) `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError`.
+A route whose body is required answers no body `No data provided`; one whose body is optional reads none as `{}`.
+A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
+
+The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches the same way: it says a client error as `Not done: <its copy>` and lets anything else raise with its traceback, which is what the operator needs for a bug.
+
 ## How it is enforced
 
 - [`test_an_exception_never_reaches_a_client.py`](../../../back-end/tests/test_an_exception_never_reaches_a_client.py) calls the real routes through the test client.
@@ -195,6 +206,8 @@ No route in `app.py` answers what it caught: `healthz` alone catches, to answer 
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
+  Each route that reads a body refuses no body, a body that is not JSON, a list, a string and a number in words, and a market name, review highlights or a ticked entry of the wrong type as a missing one.
+  No client error, nor any refusal built on one, is a `ValueError` or a `PermissionError`, and the seeder says each as `Not done` while a library's `ValueError` escapes it.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.

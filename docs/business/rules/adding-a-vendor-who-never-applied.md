@@ -6,7 +6,7 @@ describes:
   - back-end/api/markets.py#adding_refusal
   - back-end/api/markets.py#add_vendor_refusal
   - back-end/assignment/vendor_input.py#approved_solver_vendors
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01
