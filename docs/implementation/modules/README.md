@@ -12,7 +12,7 @@ It ends with `## Why`, linking up to the rules and concepts it implements.
 One line per node, sorted by file name.
 
 - [The assignment solver](assignment-solver.md) - `assign_market` over the approved applications, the one seam `vendor_input.py`, vendor-driven placement
-- [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the one phone-sized screen
+- [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the one phone-sized organizer market screen
 - [The CSV import](csv-import.md) - a Google Form's responses as applications: the CSV path's in every phase, one row per applicant, one mapping format
 - [The CSV proposal and start](csv-proposal-and-start.md) - a draft started from its Google Form's responses: a proposal that writes nothing, a confirm that writes all or nothing
 - [Essential fields](essential-fields.md) - the questions every form asks: asked, required, the offering and its freeze, the reserved prefix

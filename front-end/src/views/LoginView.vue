@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ref, inject, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
+import AuthCard from '@/components/AuthCard.vue';
 import { executeRecaptcha } from '@/utils/captcha';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
@@ -284,306 +285,284 @@ const submitOTPLogin = async () => {
 </script>
 
 <template>
-  <div class="container">
-    <div class="login-window">
-      <!--
+  <AuthCard>
+    <!--
         A tab list, not a row of buttons (bug 44): the three ways in are announced as tabs of one
         set, the open one as selected, and the arrow keys move between them as on any tab list.
       -->
-      <div class="mode-tabs" role="tablist" aria-label="How to sign in">
-        <button
-          v-for="tab in MODE_TABS"
-          :id="`login-tab-${tab.mode}`"
-          :key="tab.mode"
-          type="button"
-          role="tab"
-          class="mode-tab"
-          :class="{ active: mode === tab.mode }"
-          :aria-selected="mode === tab.mode"
-          :aria-controls="`login-panel-${tab.mode}`"
-          :tabindex="mode === tab.mode ? 0 : -1"
-          :data-testid="`login-tab-${tab.testid}`"
-          @click="selectMode(tab.mode)"
-          @keydown="onTabKey"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <!-- Login Form -->
-      <div
-        v-if="mode === 'login'"
-        id="login-panel-login"
-        class="form-container"
-        role="tabpanel"
-        aria-labelledby="login-tab-login"
+    <div class="mode-tabs" role="tablist" aria-label="How to sign in">
+      <button
+        v-for="tab in MODE_TABS"
+        :id="`login-tab-${tab.mode}`"
+        :key="tab.mode"
+        type="button"
+        role="tab"
+        class="mode-tab"
+        :class="{ active: mode === tab.mode }"
+        :aria-selected="mode === tab.mode"
+        :aria-controls="`login-panel-${tab.mode}`"
+        :tabindex="mode === tab.mode ? 0 : -1"
+        :data-testid="`login-tab-${tab.testid}`"
+        @click="selectMode(tab.mode)"
+        @keydown="onTabKey"
       >
-        <h1>Sign in</h1>
-        <form
-          id="login-form"
-          class="login-form"
-          @submit.prevent="submitLogin"
-          data-testid="login-form"
-        >
-          <label class="field-label" for="email">Email</label>
-          <div class="login-input">
-            <input
-              id="email"
-              type="email"
-              v-model="email"
-              placeholder="you@example.com"
-              class="email-input"
-              required
-              data-testid="login-email-input"
-            />
-          </div>
-          <label class="field-label" for="password">Password</label>
-          <div class="login-input">
-            <input
-              id="password"
-              :type="showPassword ? 'text' : 'password'"
-              v-model="password"
-              placeholder=""
-              class="password-input"
-              required
-              data-testid="login-password-input"
-            />
-            <button
-              type="button"
-              id="toggle-password"
-              class="show-button"
-              @click="showPassword = !showPassword"
-              data-testid="login-toggle-password"
-            >
-              {{ showPassword ? 'Hide' : 'Show' }}
-            </button>
-          </div>
-          <p
-            class="error-message"
-            role="alert"
-            v-show="errorMessage"
-            data-testid="login-error-message"
-          >
-            {{ errorMessage }}
-          </p>
-          <button
-            type="submit"
-            class="btn btn--primary submit-button"
-            data-testid="login-submit-button"
-          >
-            Sign in
-          </button>
-          <div class="form-links">
-            <a
-              href="#"
-              @click.prevent="router.push('/reset-password-request')"
-              class="link"
-              data-testid="login-forgot-password-link"
-              >Forgot password?</a
-            >
-          </div>
-        </form>
-      </div>
-
-      <!-- Registration Form -->
-      <div
-        v-if="mode === 'register'"
-        id="login-panel-register"
-        class="form-container"
-        role="tabpanel"
-        aria-labelledby="login-tab-register"
-      >
-        <h1>Create account</h1>
-        <form
-          id="register-form"
-          class="login-form"
-          @submit.prevent="submitRegister"
-          data-testid="login-register-form"
-        >
-          <label class="field-label" for="register-email">Email</label>
-          <div class="login-input">
-            <input
-              id="register-email"
-              type="email"
-              v-model="registerEmail"
-              placeholder="you@example.com"
-              class="email-input"
-              required
-              data-testid="login-register-email-input"
-            />
-          </div>
-          <label class="field-label" for="register-password">Password</label>
-          <div class="login-input">
-            <input
-              id="register-password"
-              :type="showRegisterPassword ? 'text' : 'password'"
-              v-model="registerPassword"
-              placeholder=""
-              class="password-input"
-              required
-              data-testid="login-register-password-input"
-            />
-            <button
-              type="button"
-              class="show-button"
-              @click="showRegisterPassword = !showRegisterPassword"
-              data-testid="login-register-toggle-password"
-            >
-              {{ showRegisterPassword ? 'Hide' : 'Show' }}
-            </button>
-          </div>
-          <p class="field-help">At least 8 characters.</p>
-          <label class="field-label" for="register-password-confirm">Confirm password</label>
-          <div class="login-input">
-            <input
-              id="register-password-confirm"
-              :type="showRegisterPassword ? 'text' : 'password'"
-              v-model="registerPasswordConfirm"
-              placeholder=""
-              class="password-input"
-              required
-              data-testid="login-register-password-confirm-input"
-            />
-          </div>
-          <p
-            class="error-message"
-            role="alert"
-            v-show="registerErrorMessage"
-            data-testid="login-register-error-message"
-          >
-            {{ registerErrorMessage }}
-          </p>
-          <p
-            class="success-message"
-            role="status"
-            v-show="registerSuccessMessage"
-            data-testid="login-register-success-message"
-          >
-            {{ registerSuccessMessage }}
-          </p>
-          <button
-            type="submit"
-            class="btn btn--primary submit-button"
-            :disabled="registering"
-            data-testid="login-register-submit-button"
-          >
-            Create account
-          </button>
-          <p class="field-help">
-            We will email you a link to verify this address. You cannot sign in until you have
-            followed it.
-          </p>
-        </form>
-      </div>
-
-      <!-- OTP Login Form -->
-      <div
-        v-if="mode === 'otp'"
-        id="login-panel-otp"
-        class="form-container"
-        role="tabpanel"
-        aria-labelledby="login-tab-otp"
-      >
-        <h1>Sign in with a code</h1>
-        <form
-          id="otp-form"
-          class="login-form"
-          @submit.prevent="otpRequested ? submitOTPLogin() : requestOTP()"
-          data-testid="login-otp-form"
-        >
-          <label class="field-label" for="otp-email">Email</label>
-          <div class="login-input">
-            <input
-              id="otp-email"
-              type="email"
-              v-model="otpEmail"
-              placeholder="you@example.com"
-              class="email-input"
-              required
-              :disabled="otpRequested"
-              data-testid="login-otp-email-input"
-            />
-          </div>
-          <!-- Named, not only hinted: the placeholder went the moment typing started (bug 44). -->
-          <label v-if="otpRequested" class="field-label" for="otp-code">Sign-in code</label>
-          <div v-if="otpRequested" class="login-input">
-            <input
-              id="otp-code"
-              type="text"
-              v-model="otpCode"
-              placeholder="6 digits"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              class="email-input"
-              required
-              maxlength="6"
-              pattern="[0-9]{6}"
-              data-testid="login-otp-code-input"
-            />
-          </div>
-          <p
-            class="error-message"
-            role="alert"
-            v-show="otpErrorMessage"
-            data-testid="login-otp-error-message"
-          >
-            {{ otpErrorMessage }}
-          </p>
-          <p
-            class="success-message"
-            role="status"
-            v-show="otpSuccessMessage"
-            data-testid="login-otp-success-message"
-          >
-            {{ otpSuccessMessage }}
-          </p>
-          <button
-            type="submit"
-            class="btn btn--primary submit-button"
-            data-testid="login-otp-submit-button"
-          >
-            {{ otpRequested ? 'Sign in' : 'Send code' }}
-          </button>
-          <div v-if="otpRequested" class="form-links">
-            <a
-              href="#"
-              @click.prevent="
-                otpRequested = false;
-                otpCode = '';
-                otpSuccessMessage = '';
-              "
-              class="link"
-              data-testid="login-otp-different-email-link"
-              >Use a different email</a
-            >
-          </div>
-        </form>
-      </div>
+        {{ tab.label }}
+      </button>
     </div>
-  </div>
+
+    <!-- Login Form -->
+    <div
+      v-if="mode === 'login'"
+      id="login-panel-login"
+      class="form-container"
+      role="tabpanel"
+      aria-labelledby="login-tab-login"
+    >
+      <h1>Sign in</h1>
+      <form
+        id="login-form"
+        class="login-form"
+        @submit.prevent="submitLogin"
+        data-testid="login-form"
+      >
+        <label class="field-label" for="email">Email</label>
+        <div class="login-input">
+          <input
+            id="email"
+            type="email"
+            v-model="email"
+            placeholder="you@example.com"
+            class="email-input"
+            required
+            data-testid="login-email-input"
+          />
+        </div>
+        <label class="field-label" for="password">Password</label>
+        <div class="login-input">
+          <input
+            id="password"
+            :type="showPassword ? 'text' : 'password'"
+            v-model="password"
+            placeholder=""
+            class="password-input"
+            required
+            data-testid="login-password-input"
+          />
+          <button
+            type="button"
+            id="toggle-password"
+            class="show-button"
+            @click="showPassword = !showPassword"
+            data-testid="login-toggle-password"
+          >
+            {{ showPassword ? 'Hide' : 'Show' }}
+          </button>
+        </div>
+        <p
+          class="error-message"
+          role="alert"
+          v-show="errorMessage"
+          data-testid="login-error-message"
+        >
+          {{ errorMessage }}
+        </p>
+        <button
+          type="submit"
+          class="btn btn--primary submit-button"
+          data-testid="login-submit-button"
+        >
+          Sign in
+        </button>
+        <div class="form-links">
+          <a
+            href="#"
+            @click.prevent="router.push('/reset-password-request')"
+            class="link"
+            data-testid="login-forgot-password-link"
+            >Forgot password?</a
+          >
+        </div>
+      </form>
+    </div>
+
+    <!-- Registration Form -->
+    <div
+      v-if="mode === 'register'"
+      id="login-panel-register"
+      class="form-container"
+      role="tabpanel"
+      aria-labelledby="login-tab-register"
+    >
+      <h1>Create account</h1>
+      <form
+        id="register-form"
+        class="login-form"
+        @submit.prevent="submitRegister"
+        data-testid="login-register-form"
+      >
+        <label class="field-label" for="register-email">Email</label>
+        <div class="login-input">
+          <input
+            id="register-email"
+            type="email"
+            v-model="registerEmail"
+            placeholder="you@example.com"
+            class="email-input"
+            required
+            data-testid="login-register-email-input"
+          />
+        </div>
+        <label class="field-label" for="register-password">Password</label>
+        <div class="login-input">
+          <input
+            id="register-password"
+            :type="showRegisterPassword ? 'text' : 'password'"
+            v-model="registerPassword"
+            placeholder=""
+            class="password-input"
+            required
+            data-testid="login-register-password-input"
+          />
+          <button
+            type="button"
+            class="show-button"
+            @click="showRegisterPassword = !showRegisterPassword"
+            data-testid="login-register-toggle-password"
+          >
+            {{ showRegisterPassword ? 'Hide' : 'Show' }}
+          </button>
+        </div>
+        <p class="field-help">At least 8 characters.</p>
+        <label class="field-label" for="register-password-confirm">Confirm password</label>
+        <div class="login-input">
+          <input
+            id="register-password-confirm"
+            :type="showRegisterPassword ? 'text' : 'password'"
+            v-model="registerPasswordConfirm"
+            placeholder=""
+            class="password-input"
+            required
+            data-testid="login-register-password-confirm-input"
+          />
+        </div>
+        <p
+          class="error-message"
+          role="alert"
+          v-show="registerErrorMessage"
+          data-testid="login-register-error-message"
+        >
+          {{ registerErrorMessage }}
+        </p>
+        <p
+          class="success-message"
+          role="status"
+          v-show="registerSuccessMessage"
+          data-testid="login-register-success-message"
+        >
+          {{ registerSuccessMessage }}
+        </p>
+        <button
+          type="submit"
+          class="btn btn--primary submit-button"
+          :disabled="registering"
+          data-testid="login-register-submit-button"
+        >
+          Create account
+        </button>
+        <p class="field-help">
+          We will email you a link to verify this address. You cannot sign in until you have
+          followed it.
+        </p>
+      </form>
+    </div>
+
+    <!-- OTP Login Form -->
+    <div
+      v-if="mode === 'otp'"
+      id="login-panel-otp"
+      class="form-container"
+      role="tabpanel"
+      aria-labelledby="login-tab-otp"
+    >
+      <h1>Sign in with a code</h1>
+      <form
+        id="otp-form"
+        class="login-form"
+        @submit.prevent="otpRequested ? submitOTPLogin() : requestOTP()"
+        data-testid="login-otp-form"
+      >
+        <label class="field-label" for="otp-email">Email</label>
+        <div class="login-input">
+          <input
+            id="otp-email"
+            type="email"
+            v-model="otpEmail"
+            placeholder="you@example.com"
+            class="email-input"
+            required
+            :disabled="otpRequested"
+            data-testid="login-otp-email-input"
+          />
+        </div>
+        <!-- Named, not only hinted: the placeholder went the moment typing started (bug 44). -->
+        <label v-if="otpRequested" class="field-label" for="otp-code">Sign-in code</label>
+        <div v-if="otpRequested" class="login-input">
+          <input
+            id="otp-code"
+            type="text"
+            v-model="otpCode"
+            placeholder="6 digits"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            class="email-input"
+            required
+            maxlength="6"
+            pattern="[0-9]{6}"
+            data-testid="login-otp-code-input"
+          />
+        </div>
+        <p
+          class="error-message"
+          role="alert"
+          v-show="otpErrorMessage"
+          data-testid="login-otp-error-message"
+        >
+          {{ otpErrorMessage }}
+        </p>
+        <p
+          class="success-message"
+          role="status"
+          v-show="otpSuccessMessage"
+          data-testid="login-otp-success-message"
+        >
+          {{ otpSuccessMessage }}
+        </p>
+        <button
+          type="submit"
+          class="btn btn--primary submit-button"
+          data-testid="login-otp-submit-button"
+        >
+          {{ otpRequested ? 'Sign in' : 'Send code' }}
+        </button>
+        <div v-if="otpRequested" class="form-links">
+          <a
+            href="#"
+            @click.prevent="
+              otpRequested = false;
+              otpCode = '';
+              otpSuccessMessage = '';
+            "
+            class="link"
+            data-testid="login-otp-different-email-link"
+            >Use a different email</a
+          >
+        </div>
+      </form>
+    </div>
+  </AuthCard>
 </template>
 
 <style scoped>
-.container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-/* The card idiom, extracted: --radius-card and the three-layer shadow. The halo it replaces -
-   `0 0 4px 5px` - has no offset, so no light source, and a spread larger than its blur is a ring
-   rather than a shadow (E16/F05). */
-.login-window {
-  width: 600px;
-  background-color: white;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-8);
-}
-
 .mode-tabs {
   display: flex;
   gap: var(--space-2);
@@ -591,9 +570,13 @@ const submitOTPLogin = async () => {
   border-bottom: 1px solid var(--mm-border);
 }
 
+/* Equal thirds wherever they fit; on a phone a third is narrower than "Sign-in code", which
+   wrapped to two lines, so no tab wraps and the longest takes the room it needs. The tabs' text is
+   centred in them, so their side padding only matters there, and 8px lets all three fit (T73). */
 .mode-tab {
   flex: 1;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-2);
+  white-space: nowrap;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;

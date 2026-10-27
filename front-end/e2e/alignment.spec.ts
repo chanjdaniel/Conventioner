@@ -1,11 +1,11 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 
 /**
  * Things that are meant to line up, do (E15/F01/S03).
  *
- * Three defects of one kind, each invisible in the source and obvious once measured:
+ * Defects of one kind, each invisible in the source and obvious once measured:
  *
  *   - Down the Vendors list the right-hand metadata started at 1387, 1389 and 1391 depending on the
  *     digits in the row. Outfit's `0`, `1` and `2` are different widths, so a right-aligned group
@@ -14,6 +14,7 @@ import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/see
  *     stacked ABOVE its button inside a centred
  *     column.
  *   - The check-in email field was 42px and the button beside it 40px, both starting at the same y.
+ *   - Section Setup's "Total tables" started 3px left of the section rows above it (T73).
  *
  * Measured rather than asserted against fixed numbers: the point is that peers agree with each
  * other, not that they sit at any particular coordinate.
@@ -85,5 +86,17 @@ test.describe('Things meant to line up do', () => {
         Math.round(b!.height),
       );
     }
+  });
+
+  test("Section Setup's total starts on its rows' left edge", async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    const row = page.getByTestId('setup-section-row-0');
+    const total = page.getByTestId('setup-section-total');
+    await expect(row).toBeVisible({ timeout: 15000 });
+
+    const [r, t] = await Promise.all([row.boundingBox(), total.boundingBox()]);
+    expect(Math.round(t!.x), 'the total is off its rows').toBe(Math.round(r!.x));
   });
 });

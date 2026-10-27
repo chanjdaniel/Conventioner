@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import AuthCard from '@/components/AuthCard.vue';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
@@ -87,87 +88,85 @@ const submitReset = async () => {
 </script>
 
 <template>
-  <div class="container">
-    <div class="reset-window">
-      <h1>Reset your password</h1>
-      <p class="description">Choose a new password for your account.</p>
+  <AuthCard>
+    <h1>Reset your password</h1>
+    <p class="description">Choose a new password for your account.</p>
 
-      <form @submit.prevent="submitReset" class="reset-form" data-testid="password-reset-form">
-        <label class="field-label" for="reset-new-password">New password</label>
-        <div class="password-field">
-          <input
-            id="reset-new-password"
-            :type="showPassword ? 'text' : 'password'"
-            v-model="newPassword"
-            class="password-input"
-            autocomplete="new-password"
-            required
-            :disabled="isLoading"
-            data-testid="password-reset-new-password-input"
-          />
-          <button
-            type="button"
-            class="show-button"
-            @click="showPassword = !showPassword"
-            data-testid="password-reset-toggle-password"
-          >
-            {{ showPassword ? 'Hide' : 'Show' }}
-          </button>
-        </div>
-        <p class="field-help">At least 8 characters.</p>
-
-        <label class="field-label" for="reset-confirm-password">Confirm password</label>
-        <div class="password-field">
-          <input
-            id="reset-confirm-password"
-            :type="showPassword ? 'text' : 'password'"
-            v-model="confirmPassword"
-            class="password-input"
-            autocomplete="new-password"
-            required
-            :disabled="isLoading"
-            data-testid="password-reset-confirm-password-input"
-          />
-        </div>
-
-        <p
-          class="error-message"
-          role="alert"
-          v-show="errorMessage"
-          data-testid="password-reset-error-message"
-        >
-          {{ errorMessage }}
-        </p>
-        <p
-          class="success-message"
-          role="status"
-          v-show="successMessage"
-          data-testid="password-reset-success-message"
-        >
-          {{ successMessage }}
-        </p>
-
-        <button
-          type="submit"
-          class="btn btn--primary submit-button"
+    <form @submit.prevent="submitReset" class="reset-form" data-testid="password-reset-form">
+      <label class="field-label" for="reset-new-password">New password</label>
+      <div class="password-field">
+        <input
+          id="reset-new-password"
+          :type="showPassword ? 'text' : 'password'"
+          v-model="newPassword"
+          class="password-input"
+          autocomplete="new-password"
+          required
           :disabled="isLoading"
-          data-testid="password-reset-submit-button"
+          data-testid="password-reset-new-password-input"
+        />
+        <button
+          type="button"
+          class="show-button"
+          @click="showPassword = !showPassword"
+          data-testid="password-reset-toggle-password"
         >
-          {{ isLoading ? 'Resetting…' : 'Reset password' }}
+          {{ showPassword ? 'Hide' : 'Show' }}
         </button>
+      </div>
+      <p class="field-help">At least 8 characters.</p>
 
-        <div class="form-links">
-          <a
-            href="#"
-            @click.prevent="router.push('/login')"
-            class="link"
-            data-testid="password-reset-back-link"
-            >Back to sign in</a
-          >
-        </div>
-      </form>
-    </div>
-  </div>
+      <label class="field-label" for="reset-confirm-password">Confirm password</label>
+      <div class="password-field">
+        <input
+          id="reset-confirm-password"
+          :type="showPassword ? 'text' : 'password'"
+          v-model="confirmPassword"
+          class="password-input"
+          autocomplete="new-password"
+          required
+          :disabled="isLoading"
+          data-testid="password-reset-confirm-password-input"
+        />
+      </div>
+
+      <p
+        class="error-message"
+        role="alert"
+        v-show="errorMessage"
+        data-testid="password-reset-error-message"
+      >
+        {{ errorMessage }}
+      </p>
+      <p
+        class="success-message"
+        role="status"
+        v-show="successMessage"
+        data-testid="password-reset-success-message"
+      >
+        {{ successMessage }}
+      </p>
+
+      <button
+        type="submit"
+        class="btn btn--primary submit-button"
+        :disabled="isLoading"
+        data-testid="password-reset-submit-button"
+      >
+        {{ isLoading ? 'Resetting…' : 'Reset password' }}
+      </button>
+
+      <div class="form-links">
+        <a
+          href="#"
+          @click.prevent="router.push('/login')"
+          class="link"
+          data-testid="password-reset-back-link"
+          >Back to sign in</a
+        >
+      </div>
+    </form>
+  </AuthCard>
 </template>
 
 <style scoped>
@@ -178,23 +177,6 @@ const submitReset = async () => {
  * band of nothing in it, and an input 10px wider than its box, which painted over the box's right
  * border.
  */
-.container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.reset-window {
-  width: 600px;
-  background-color: white;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-8);
-}
-
 h1 {
   margin: 0;
 }

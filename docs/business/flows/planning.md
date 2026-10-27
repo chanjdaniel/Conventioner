@@ -79,7 +79,7 @@ A market needs at least one before it leaves Draft.
 **Status:** Works (walked live).
 "+" adds a row of name, Location, Tier and Count; "Total tables" sums the counts; tables are named after their section ("North Row 1" to "North Row 4").
 A section may have no tier; a plan without tiers assigns, and its form asks no tier preference (bug 23; re-walked live as P1).
-Covered by: `plan-cards-share-a-row.spec.ts`, `sizing-model.spec.ts`, `untiered-plans-assign.spec.ts`, `market-pipeline.spec.ts`.
+Covered by: `plan-cards-share-a-row.spec.ts`, `sizing-model.spec.ts`, `untiered-plans-assign.spec.ts`, `market-pipeline.spec.ts`, `alignment.spec.ts`.
 
 ## E5. How vendors apply
 
