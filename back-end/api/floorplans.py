@@ -11,7 +11,7 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required
 from PIL import Image as PILImage
 
-from api.floorplans_access import market_refusal
+from api.floorplans_access import image_refusal, market_refusal
 from datatypes import MarketRole
 from services.gridfs_service import upload_image, get_image, delete_image
 from utils.pdf_converter import pdf_to_images, is_pdf
@@ -147,8 +147,15 @@ def get_floorplan(gridfs_id: str):
 @floorplans_bp.route("/<gridfs_id>", methods=["DELETE"])
 @login_required
 def delete_floorplan(gridfs_id: str):
-    """Delete a floorplan image from GridFS. Requires login."""
+    """Delete a floorplan image from GridFS.
+
+    The caller must be an editor of the image's market, on a market that is not archived.
+    """
     try:
+        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
+
         success = delete_image(gridfs_id)
         if not success:
             return jsonify({"error": "Image not found"}), 404

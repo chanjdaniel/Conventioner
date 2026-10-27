@@ -15,6 +15,8 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from PIL import Image as PILImage
 
+from api.floorplans_access import image_refusal
+from datatypes import MarketRole
 from services.gridfs_service import get_image
 from utils.request_body import string_field
 
@@ -149,6 +151,8 @@ def analyze_floorplan():
     Returns structured JSON with walls[], obstacles[], rooms[]
     in normalized 0-1 coordinate space.
 
+    The caller must be an editor of the image's market, on a market that is not archived.
+
     Primary: Gemini 2.5 Flash. Fallback: GPT-4o-mini.
     """
     try:
@@ -159,6 +163,10 @@ def analyze_floorplan():
         gridfs_id = string_field(data, "gridfs_id")
         if not gridfs_id:
             return jsonify({"error": "gridfs_id is required"}), 400
+
+        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
 
         # Retrieve image bytes from GridFS
         image_bytes = get_image(gridfs_id)

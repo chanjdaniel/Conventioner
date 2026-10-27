@@ -8,6 +8,8 @@ describes:
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
   - back-end/api/floorplans_analysis.py
+  - back-end/api/floorplans_calibrate.py
+  - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
   - back-end/api/floorplans_access.py
   - back-end/services/gridfs_service.py
@@ -43,10 +45,26 @@ The zone is the room less a wall buffer (1500 mm unless configured) and the obst
 Every floorplan action is checked against the caller's role on the floorplan's market, the way saving a floorplan to a market always was.
 [`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, role, edits=...)` checks a market the request names, `image_refusal(gridfs_id, role, edits=...)` checks the market an image was uploaded for, and each answers None or the refusal the route returns.
 They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a role below the one asked 403, and, for a route that changes the floorplan (`edits`), an archived market 403.
+A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
+
+| Route | Needs | Archived market |
+| --- | --- | --- |
+| `POST /floorplans/upload` | EDITOR on the `market_id` sent | refused |
+| `DELETE /floorplans/<id>` | EDITOR on the image's market | refused |
+| `POST /floorplans/analyze` | EDITOR on the image's market | refused |
+| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | EDITOR on the image's market | refused |
+| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | VIEWER on the image's market, signed in | allowed |
+| `GET /floorplans/<id>` | nothing: public by opaque id | allowed |
+| `POST /floorplans/save-to-market` | EDITOR, and a setup that has not settled (409) | refused |
+
+The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
+**The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
+The raw image read stays public by its opaque id, so pages that show a floorplan image need no session; it is the one route that does not check a market.
+The settled-setup refusal stays on save alone, since only save writes the sections.
 
 **An image belongs to the market it was uploaded for.**
 `POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
-[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found".
+[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found", and no route but the public read treats an unowned image as anyone's.
 The wizard's [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue) sends the market it is in.
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
 

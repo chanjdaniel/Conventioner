@@ -9,9 +9,13 @@ import math
 import traceback
 
 from flask import Blueprint, request, jsonify, send_file
+from flask_login import login_required
 from PIL import Image, ImageDraw, ImageFont
 
+from api.floorplans_access import image_refusal
+from datatypes import MarketRole
 from services.gridfs_service import get_image
+from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,7 @@ def _compute_rotated_corners(
 # ── POST /api/floorplans/export ────────────────────────────────────────────────
 
 @floorplans_export_bp.route("/export", methods=["POST"])
+@login_required
 def export_floorplan():
     """Render a floorplan image with table overlay rectangles and return PNG.
 
@@ -107,6 +112,9 @@ def export_floorplan():
     (``?show_codes=true&show_sections=true``).  JSON body ``options``
     overrides query params when both are present.
 
+    The export is a read of the plan, so anyone with a role on the image's market may make it,
+    on an archived market too.
+
     Returns a ``image/png`` response.
     """
     try:
@@ -115,9 +123,13 @@ def export_floorplan():
             return jsonify({"error": "Request body must be valid JSON"}), 400
 
         # ── Validate gridfs_id ───────────────────────────────────────────
-        gridfs_id = data.get("gridfs_id")
-        if not gridfs_id or not isinstance(gridfs_id, str):
+        gridfs_id = string_field(data, "gridfs_id")
+        if not gridfs_id:
             return jsonify({"error": "gridfs_id (string) is required"}), 400
+
+        refusal = image_refusal(gridfs_id, MarketRole.VIEWER, edits=False)
+        if refusal:
+            return refusal
 
         # ── Validate placed_tables ───────────────────────────────────────
         placed_tables = data.get("placed_tables")
