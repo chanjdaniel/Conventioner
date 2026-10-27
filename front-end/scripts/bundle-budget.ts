@@ -35,14 +35,22 @@ export interface EntrySizes {
 export function entryChunks(indexHtml: string): string[] {
   const attributes = (tag: string) =>
     Object.fromEntries(
-      [...tag.matchAll(/([a-z-]+)(?:="([^"]*)")?/g)].map(([, name, value]) => [name, value ?? '']),
+      [...tag.matchAll(/([a-z-]+)(?:="([^"]*)")?/gi)].map(([, name, value]) => [
+        name.toLowerCase(),
+        value ?? '',
+      ]),
     );
   const scripts: string[] = [];
   const preloads: string[] = [];
-  for (const [tag] of indexHtml.matchAll(/<(?:script|link)\b[^>]*>/g)) {
+  for (const [tag] of indexHtml.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
     const attrs = attributes(tag);
-    if (tag.startsWith('<script') && attrs.type === 'module' && attrs.src) scripts.push(attrs.src);
-    if (tag.startsWith('<link') && attrs.rel === 'modulepreload' && attrs.href)
+    const name = tag
+      .slice(1)
+      .split(/[\s/>]/, 1)[0]
+      .toLowerCase();
+    if (name === 'script' && attrs.type?.toLowerCase() === 'module' && attrs.src)
+      scripts.push(attrs.src);
+    if (name === 'link' && attrs.rel?.toLowerCase() === 'modulepreload' && attrs.href)
       preloads.push(attrs.href);
   }
   if (scripts.length === 0) {

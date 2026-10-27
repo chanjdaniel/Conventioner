@@ -42,6 +42,14 @@ describe('entryChunks', () => {
     expect(entryChunks(INDEX_HTML)).toEqual(['assets/index-AAAA.js', 'assets/vendor-BBBB.js']);
   });
 
+  it('recognises the tags however their names are cased, as HTML does', () => {
+    const html = `<HTML><HEAD>
+      <SCRIPT TYPE="MODULE" SRC="/assets/index-AAAA.js"></SCRIPT>
+      <LINK REL="MODULEPRELOAD" HREF="/assets/vendor-BBBB.js">
+    </HEAD></HTML>`;
+    expect(entryChunks(html)).toEqual(['assets/index-AAAA.js', 'assets/vendor-BBBB.js']);
+  });
+
   it('refuses a page that loads no module script, rather than measuring nothing', () => {
     expect(() => entryChunks('<html><head></head></html>')).toThrow(/no module script/);
   });
