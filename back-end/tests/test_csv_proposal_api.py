@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import skip_without_real_dependencies
+from conftest import sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -93,6 +93,7 @@ def _market(phase="draft", fields=None):
 def client(monkeypatch):
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
     users = {OWNER_EMAIL: OWNER_ID, STRANGER_EMAIL: "user-2"}
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(

@@ -80,6 +80,20 @@ def skip_without_real_dependencies():
         )
 
 
+def sessions_load_through_get_user(monkeypatch):
+    """Load a test's session through its own ``UsersApi.get_user``, by the address it wrote.
+
+    The app loads a session by the account's login id. A test that signs in by writing
+    ``session["_user_id"] = <address>`` and patching ``UsersApi.get_user`` uses the address as its
+    fake account's login id, so the loader is pointed at that patch, whenever it is made.
+    """
+    import api.users as UsersApi
+
+    monkeypatch.setattr(
+        UsersApi, "get_user_by_login_id", lambda login_id: UsersApi.get_user(login_id)
+    )
+
+
 if _needs_stub("pymongo"):
     fake_pymongo = types.ModuleType("pymongo")
     fake_pymongo_results = types.ModuleType("pymongo.results")
@@ -318,6 +332,10 @@ def mongo_matches(doc: dict, query: dict) -> bool:
             if "$ne" in condition and doc.get(key) == condition["$ne"]:
                 return False
             if "$in" in condition and doc.get(key) not in condition["$in"]:
+                return False
+        elif condition is None:
+            # A null matches a field that is null or absent.
+            if doc.get(key) is not None:
                 return False
         elif not present or doc[key] != condition:
             return False

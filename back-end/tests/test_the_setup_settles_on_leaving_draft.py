@@ -9,7 +9,7 @@ import copy
 
 import pytest
 
-from conftest import COMPLETE_PLAN, FakeMarketsCollection, stored_market
+from conftest import COMPLETE_PLAN, FakeMarketsCollection, sessions_load_through_get_user, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -138,6 +138,7 @@ def test_a_floorplan_cannot_rewrite_the_sections_after_draft(market, monkeypatch
 
     collection = market(phase)
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(
         id="user-1", email=email, is_active=True, is_authenticated=True, is_anonymous=False,
         get_id=lambda e=email: e))

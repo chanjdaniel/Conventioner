@@ -550,6 +550,8 @@ class User(BaseModel):
     otp: Optional[str] = None
     otp_expires: Optional[str] = None
     otp_attempts: int = 0
+    # What the session and the remember-me cookie name the account by; a password reset replaces it.
+    login_id: Optional[str] = None
 
 
 class ApplicationStatus(str, Enum):

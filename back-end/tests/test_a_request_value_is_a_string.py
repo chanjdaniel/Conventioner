@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import FakeMarketsCollection, skip_without_real_dependencies, stored_market
+from conftest import FakeMarketsCollection, sessions_load_through_get_user, skip_without_real_dependencies, stored_market
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -110,6 +110,7 @@ def client():
 def signed_in(monkeypatch):
     """A client signed in as the fixture user, for the endpoints that need a session."""
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(

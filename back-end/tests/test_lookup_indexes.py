@@ -49,6 +49,10 @@ def test_the_ids_every_screen_reads_by_are_among_them():
     assert ("market_id",) in LOOKUP_INDEXES["placement_history"]
 
 
+def test_the_login_id_every_request_loads_the_account_by_is_among_them():
+    assert ("login_id",) in LOOKUP_INDEXES["users"]
+
+
 def test_an_index_already_on_the_same_fields_is_left_alone_whatever_its_options():
     """A migrated database holds a unique ``id_1``; asking for a plain one beside it would be
     refused by Mongo as a conflicting index, and would fail the boot."""

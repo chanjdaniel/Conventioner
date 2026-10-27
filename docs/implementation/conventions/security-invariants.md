@@ -8,16 +8,19 @@ describes:
   - back-end/utils/session_storage.py
   - back-end/utils/env_file.py
   - back-end/utils/cors.py
+  - back-end/utils/request_origin.py
   - back-end/utils/proxy.py
   - back-end/utils/captcha.py
   - back-end/utils/email.py
   - back-end/tests/test_public_endpoint_defenses.py
+  - back-end/tests/test_the_remember_cookie.py
+  - back-end/tests/test_the_request_origin_check.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
   - scripts/real_data_check.py
   - .githooks/
-verified: 2026-10-25
+verified: 2026-10-27
 ---
 
 # Security invariants
@@ -34,7 +37,7 @@ The back end refuses to boot without six things, all checked by [`check_public_e
 | --- | --- | --- |
 | `SECRET_KEY` | `utils/secret_key.py` | the session cookie: without it any organizer's session can be forged |
 | `RECAPTCHA_SECRET_KEY` | [`utils/captcha.py`](../../../back-end/utils/captcha.py) | `POST /register`, the public signup |
-| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py) | which websites may spend the organizer's `SameSite=None` cookie; `*` is refused, and so is an entry that is not an origin |
+| `CORS_ALLOWED_ORIGINS` | [`utils/cors.py`](../../../back-end/utils/cors.py) | which websites may spend the organizer's `SameSite=None` cookie, and which origins a browser's write is taken from ([where a write comes from](#where-a-write-comes-from)); `*` is refused, and so is an entry that is not an origin |
 | `RESEND_API_KEY` | [`utils/email.py`](../../../back-end/utils/email.py) | the mail that carries every verification link, reset link and sign-in code |
 | `SESSION_TYPE` | [`utils/session_storage.py`](../../../back-end/utils/session_storage.py) | where the session is kept: `null` (the signed cookie, a serverless host) or `filesystem` (a container or VM), with no default |
 | `TRUSTED_PROXY_HOPS` | [`utils/proxy.py`](../../../back-end/utils/proxy.py) | the address reCAPTCHA scores a signup on, and the caller the applicant sign-in limits count |
@@ -43,7 +46,7 @@ Three fail silently when unset (the captcha passes everybody, a forgeable sessio
 What each one is, and what an unset one would do, is the deployment's checklist in [RELEASING.md](../../RELEASING.md#pre-deploy-required-production-environment); **keep that table in step with the check**, because a deploy doc that is wrong is worse than one that is missing: it will be trusted.
 
 **The check is a check.**
-`check_public_endpoint_defenses()` reads configuration and returns what it found; [`configure_public_endpoint_defenses()`](../../../back-end/app.py) is the only thing that touches the app, installing the key, the CORS policy, the proxy fix and the session store, in that order.
+`check_public_endpoint_defenses()` reads configuration and returns what it found; [`configure_public_endpoint_defenses()`](../../../back-end/app.py) is the only thing that touches the app, installing the key, the CORS policy, the request-origin check, the proxy fix and the session store, in that order.
 Keep them apart: flask-cors installs an `after_request` handler per call, so a check with side effects stacked one onto the live app every time anything asked it a question.
 
 **A boot requirement defends something the product serves.**
@@ -68,9 +71,6 @@ Reaching the primary stack from another device takes an override file of one's o
 It is gone from the Dockerfile, `docker-compose.yml` and the env templates, so the invariant is structural: a variable nobody sets is one nobody can key on.
 Do not reintroduce it.
 The image used to export `development`, so anything keyed on it read the same on a deployment as on a laptop: that is how the CORS hole survived, and how `SESSION_TYPE` came to default to `filesystem` on serverless hosts that have no disk.
-
-**`SESSION_COOKIE_SECURE` is not configurable at all**: a `SameSite=None` cookie is accepted by a browser only when it is Secure, so a switch could only ship a cookie the browser drops.
-Loopback counts as a secure context, so local development is unaffected.
 
 **`SESSION_TYPE=null` installs no session store.**
 flask-session has no `null` backend and raises on one; Flask's own interface signs the session into the cookie, the only store a serverless function has.
@@ -139,6 +139,31 @@ Each committed hook also runs the hook of its name in the git directory's `hooks
 **Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
 A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) instead of writing it out, or the hooks refuse the test file itself.
 
+## The cookies
+
+**Both cookies a sign-in sets, the session and the remember-me cookie, are `Secure`, `SameSite=None` and `HttpOnly`, and none of it is configurable.**
+The app and the API are on different hosts, so the browser must attach the cookies to the app's requests to the API, which takes `SameSite=None`; a browser accepts a `SameSite=None` cookie only when it is Secure, so a switch could only ship a cookie the browser drops, or sends in the clear where it does not.
+Loopback counts as a secure context, so local development is unaffected.
+The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
+Both name the account by its login id, which a password reset replaces, so a reset ends every session and remember-me cookie issued before it: [users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id).
+
+## Where a write comes from
+
+**A state-changing request whose browser says it came from an origin outside the CORS list is refused**, 403 with `{"error": "Request origin not allowed"}`, before its route runs (so before `@login_required`).
+CORS decides which origins may read a response; it does not stop a request from being sent, and a plain form post goes without a preflight while carrying the `SameSite=None` session cookie, so a write that needs no JSON body would otherwise rest on CORS alone.
+The decision is OWASP's Fetch Metadata check with its `Origin` fallback, in [`utils/request_origin.py`](../../../back-end/utils/request_origin.py):
+
+- `GET`, `HEAD` and `OPTIONS` pass whatever their headers, so a CORS preflight is untouched.
+- `Sec-Fetch-Site: same-origin` or `none` passes.
+- Otherwise a request with an `Origin` passes only when that origin is in the list; `Origin: null` is in no list.
+- `Sec-Fetch-Site` with no `Origin` is refused: every browser that sends Fetch Metadata sends `Origin` on a write.
+- Neither header passes: a script, the E2E API helper, the seed scripts and a health check send neither, and there is nothing to check.
+
+**The check reads CORS's list, through CORS's matcher**: `origin_is_allowed()` sits beside `allowed_origins()` in [`utils/cors.py`](../../../back-end/utils/cors.py) and reads a string entry as equal to the origin, case aside, as flask-cors compares one, and a pattern entry as a match of the whole origin, at least as strict as flask-cors's match from the start; so there is one list of the app's origins, and an origin the check takes is one CORS takes too.
+`configure_public_endpoint_defenses()` installs it right after CORS, as a `before_request` on the app, so a route added later is covered without doing anything.
+Production's app calls its API on a sibling host, which the browser calls `same-site`, with an origin in the list; local development and the E2E stack reach the API through Vite's `/api` proxy, which the browser calls `same-origin`.
+A 403 with these words on a deployment means the page's origin is not in `CORS_ALLOWED_ORIGINS` ([OPERATIONS.md](../../OPERATIONS.md#incidents)).
+
 ## Each request
 
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
@@ -147,6 +172,8 @@ The checks above make the process boot safe; that one makes safe each lookup a r
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.
+- [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and reads both cookies' `Set-Cookie` settings.
+- [`test_the_request_origin_check.py`](../../../back-end/tests/test_the_request_origin_check.py) tables the decision for a production-shaped list and the loopback pattern, and sends publish-results, sign-out and a floorplan upload from another site (refused, nothing done) and from the app (done).
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
 - `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the anonymiser's output passes, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
 - What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.
