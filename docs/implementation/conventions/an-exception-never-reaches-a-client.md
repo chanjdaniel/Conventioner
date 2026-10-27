@@ -9,6 +9,7 @@ describes:
   - back-end/app.py#get_assignment_csv
   - back-end/app.py#get_market_tables
   - back-end/api/markets.py#parsed_application_form
+  - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#_log_unreadable_market
   - back-end/application_write.py#_field_answer
   - back-end/csv_import.py#parse_csv
@@ -35,7 +36,7 @@ A domain exception of ours may carry client copy, because we wrote it where we r
 A parse that fails says what was wrong in our words, with the status it always had, and logs what the copy left out at warning level, never the input.
 
 - A body a model refuses answers 400 with `field_named_copy(heading, error)`: `Invalid plan: sections.0.count: Input should be a valid integer, ...`.
-  The plan is parsed in `prepared_plan` and the application form in `parsed_application_form`, both in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write and the [form amendment](../modules/form-amendment.md) share the second.
+  The plan is parsed in `prepared_plan`, the application form in `parsed_application_form` and a new market's body in `create_owned_market` (`Invalid market: ...`), all in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write and the [form amendment](../modules/form-amendment.md) share the form's parse.
   It names each failing field by its dotted location and pydantic's short `msg`, and never the error's `input`, `ctx`, `url` or `type`.
   Its log line is `parse_failure_detail(error)`: each location and pydantic's error type.
   The body is parsed with `model_validate`, so a body that is not an object is refused the same way rather than raising a `TypeError`.

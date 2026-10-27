@@ -328,6 +328,24 @@ class TestTheCopyIsOurs:
         assert "fields.0.order" in caplog.text
         assert "first-of-all" not in caplog.text
 
+    def test_a_new_market_with_a_wrong_typed_field_names_the_field(
+        self, client, monkeypatch, caplog,
+    ):
+        use_market(monkeypatch, None)
+        body = {
+            "name": "Spring Market", "creationDate": "2026-01-01T00:00:00Z",
+            "organizationId": "org-1", "modificationList": "none-whatsoever",
+        }
+
+        with caplog.at_level(logging.WARNING):
+            response = client.post("/markets", json=body)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith("Invalid market: modification_list: ")
+        assert_no_parser_detail(response, "none-whatsoever")
+        assert "modification_list" in caplog.text
+        assert "none-whatsoever" not in caplog.text
+
     def test_a_stored_market_that_cannot_be_read_says_only_that(self, client, monkeypatch, caplog):
         use_market(monkeypatch, stored_market(
             setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},

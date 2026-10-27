@@ -1127,7 +1127,11 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
 
     Raises ValueError, in words for the organizer, when the market may not be made.
     """
-    market = Market(**{**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    try:
+        market = Market.model_validate({**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    except ValidationError as e:
+        logger.warning("Refused a new market: %s", parse_failure_detail(e))
+        raise ValueError(field_named_copy("Invalid market", e)) from e
     refusal = organization_refusal(owner.email, data.get("organization_id"))
     if refusal:
         raise ValueError(refusal)
