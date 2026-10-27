@@ -113,7 +113,7 @@ function onSaved(payload: { market_id: string }) {
 
     <!-- ── Step 0: Upload ─────────────────────────────────────── -->
     <div v-if="step === 0" class="step-body step-body--upload">
-      <FloorplanUploader @uploaded="onUploaded" />
+      <FloorplanUploader :market-id="props.marketId" @uploaded="onUploaded" />
     </div>
 
     <!-- ── Step 1: Calibrate ──────────────────────────────────── -->

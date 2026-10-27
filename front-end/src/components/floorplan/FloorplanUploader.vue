@@ -13,6 +13,11 @@ type UploadResult = {
 
 type PageResult = UploadResult & { page?: number };
 
+const props = defineProps<{
+  /** The market the image is uploaded for: the server checks the caller's role on it. */
+  marketId: string;
+}>();
+
 const dropZoneRef = ref<HTMLDivElement>();
 const uploading = ref(false);
 const error = ref('');
@@ -58,6 +63,7 @@ async function handleFile(file: File) {
 
   try {
     const formData = new FormData();
+    formData.append('market_id', props.marketId);
     formData.append('file', file);
 
     const { data } = await api.post('/floorplans/upload', formData);

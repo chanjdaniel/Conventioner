@@ -8,6 +8,10 @@ describes:
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
   - back-end/api/floorplans_analysis.py
+  - back-end/api/floorplans.py
+  - back-end/api/floorplans_access.py
+  - back-end/services/gridfs_service.py
+  - front-end/src/components/floorplan/FloorplanUploader.vue
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
@@ -33,6 +37,18 @@ So the flow can be exercised end to end in CI with no API keys and no stubbing (
 `auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm)` returns placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`).
 The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed.
 The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
+
+## Who may use the floorplan routes
+
+Every floorplan action is checked against the caller's role on the floorplan's market, the way saving a floorplan to a market always was.
+[`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, role, edits=...)` checks a market the request names, `image_refusal(gridfs_id, role, edits=...)` checks the market an image was uploaded for, and each answers None or the refusal the route returns.
+They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a role below the one asked 403, and, for a route that changes the floorplan (`edits`), an archived market 403.
+
+**An image belongs to the market it was uploaded for.**
+`POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
+[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found".
+The wizard's [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue) sends the market it is in.
+Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
 
 ## Sharp edges
 
