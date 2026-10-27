@@ -14,8 +14,9 @@ export interface TemplateTableType {
 /**
  * A floorplan template saved by the signed-in user, so Load Template has one to list.
  *
- * Templates belong to the user, not a market, and the suite shares one user: the list grows with
- * every run, so a spec finds its own by the unique name returned here, never by position.
+ * A seeded template belongs to the user, not a market, and the suite shares one user: the list
+ * grows with every run, so a spec finds its own by the unique name returned here, never by
+ * position.
  * The request context must already be signed in (`seedDraftMarket` does that).
  */
 export async function seedFloorplanTemplate(

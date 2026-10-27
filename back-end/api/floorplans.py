@@ -11,6 +11,8 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required
 from PIL import Image as PILImage
 
+from api.floorplans_access import image_refusal, market_refusal
+from datatypes import MarketRole
 from services.gridfs_service import upload_image, get_image, delete_image
 from utils.pdf_converter import pdf_to_images, is_pdf
 
@@ -50,13 +52,21 @@ def _detect_mimetype(image_data: bytes) -> str:
 @floorplans_bp.route("/upload", methods=["POST"])
 @login_required
 def upload_floorplan():
-    """Accept a multipart file upload (image or PDF).
+    """Accept a multipart file upload (image or PDF) for a market.
+
+    The ``market_id`` form field names the market the image is for: the caller must be an editor
+    of it, on a market that is not archived, and every stored image remembers it.
 
     - Image: stores directly in GridFS, returns ``{gridfs_id, width, height}``.
     - PDF: converts each page via ``pdf_to_images``, stores each page
       separately, returns ``{pages: [{gridfs_id, width, height}, ...]}``.
     """
     try:
+        market_id = request.form.get("market_id")
+        refusal = market_refusal(market_id, MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
+
         file = request.files.get("file")
         if not file:
             return jsonify({"error": "No file provided"}), 400
@@ -85,7 +95,7 @@ def upload_floorplan():
             pages = []
             for i, page_bytes in enumerate(page_images):
                 page_filename = f"{filename}_page_{i + 1}.png"
-                gridfs_id = upload_image(page_bytes, page_filename)
+                gridfs_id = upload_image(page_bytes, page_filename, market_id)
                 width, height = _get_image_dimensions(page_bytes)
                 pages.append({
                     "gridfs_id": gridfs_id,
@@ -96,7 +106,7 @@ def upload_floorplan():
             return jsonify({"pages": pages}), 201
 
         # ── Image path ─────────────────────────────────────────────────
-        gridfs_id = upload_image(file_bytes, filename)
+        gridfs_id = upload_image(file_bytes, filename, market_id)
         width, height = _get_image_dimensions(file_bytes)
         return jsonify({
             "gridfs_id": gridfs_id,
@@ -137,8 +147,15 @@ def get_floorplan(gridfs_id: str):
 @floorplans_bp.route("/<gridfs_id>", methods=["DELETE"])
 @login_required
 def delete_floorplan(gridfs_id: str):
-    """Delete a floorplan image from GridFS. Requires login."""
+    """Delete a floorplan image from GridFS.
+
+    The caller must be an editor of the image's market, on a market that is not archived.
+    """
     try:
+        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
+
         success = delete_image(gridfs_id)
         if not success:
             return jsonify({"error": "Image not found"}), 404

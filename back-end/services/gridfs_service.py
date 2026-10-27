@@ -19,18 +19,38 @@ _db = get_database()
 _fs = GridFS(_db, collection="floorplan_images")
 
 
-def upload_image(image_data: bytes, filename: str) -> str:
-    """Store an image in GridFS and return its ObjectId as a string.
+def upload_image(image_data: bytes, filename: str, market_id: str) -> str:
+    """Store an image in GridFS for a market and return its ObjectId as a string.
 
     Args:
         image_data: Raw image bytes to store.
         filename: The filename to associate with the stored file.
+        market_id: The market the image is uploaded for, kept as ``metadata.marketId`` so every
+            later action on the image is checked against that market.
 
     Returns:
         The GridFS file's ObjectId as a string.
     """
-    file_id = _fs.put(image_data, filename=filename)
+    file_id = _fs.put(image_data, filename=filename, metadata={"marketId": market_id})
     return str(file_id)
+
+
+def get_image_market_id(gridfs_id: str) -> Optional[str]:
+    """The id of the market an image was uploaded for.
+
+    Returns None for an id that is not an ObjectId, an image that does not exist, and an image
+    stored without a market (uploaded before images named one), so all three read the same.
+    """
+    try:
+        oid = ObjectId(gridfs_id)
+    except (InvalidId, TypeError):
+        return None
+
+    grid_out = _fs.find_one({"_id": oid})
+    if grid_out is None:
+        return None
+    market_id = (grid_out.metadata or {}).get("marketId")
+    return market_id if isinstance(market_id, str) and market_id else None
 
 
 def get_image(gridfs_id: str) -> Optional[bytes]:

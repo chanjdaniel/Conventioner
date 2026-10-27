@@ -1,8 +1,8 @@
 """
 Floorplan table auto-placement endpoint.
 
-Receives room geometry (walls, obstacles), table specifications, and
-aisle-configuration; returns a list of placed-table positions with x, y,
+Receives the market it places for, room geometry (walls, obstacles), table
+specifications, and aisle-configuration; returns a list of placed-table positions with x, y,
 rotation in millimetre coordinates.
 """
 
@@ -12,7 +12,10 @@ import traceback
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
+from api.floorplans_access import market_refusal
+from datatypes import MarketRole
 from services.placement_service import auto_place_tables
+from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +29,12 @@ floorplans_placement_bp = Blueprint("floorplans_placement", __name__)
 def place_tables():
     """Auto-place rectangular tables into the room boundary.
 
+    Places only for an editor of the market named, on a market that is not archived.
+
     **Request body** (JSON)::
 
         {
+            "market_id": "...",
             "walls": [
                 {"start": [x, y], "end": [x, y], "thickness_mm": 200, "is_exterior": true}
             ],
@@ -66,6 +72,10 @@ def place_tables():
         data = request.get_json(silent=True)
         if not data:
             return jsonify({"error": "Request body must be valid JSON"}), 400
+
+        refusal = market_refusal(string_field(data, "market_id"), MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
 
         # ── validate required fields ──────────────────────────────────────
         for field in ("walls", "obstacles", "table_types", "counts", "scale_px_per_mm"):

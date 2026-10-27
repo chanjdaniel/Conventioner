@@ -14,6 +14,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from utils.identity import authenticated_email
+from utils.request_body import string_field
 import api.users as UsersApi
 from bson import ObjectId
 
@@ -44,12 +45,43 @@ def _doc_to_response(doc: dict) -> dict:
     return doc
 
 
+def _organization_refusal(org_id: str, user: dict):
+    """None when *user* is the organization's owner, one of its admins or one of its members.
+
+    Otherwise the JSON body and status to answer: 404 for an organization nobody has, 403 for one
+    the user is not in.
+    """
+    org = organizations_collection.find_one({"id": org_id})
+    if not org:
+        return {"error": "Organization not found"}, 404
+    user_id = user.get("id")
+    if user_id != org.get("owner") and user_id not in org.get("members", []) \
+            and user_id not in org.get("admins", []):
+        return {"error": "User does not belong to this organization"}, 403
+    return None
+
+
+def _requested_organization_refusal(data: dict, user: dict):
+    """None when the body names no organization, or one *user* is in; else the refusal to answer.
+
+    ``organizationId`` is a string or null; any other type answers 400 before anything is looked up.
+    """
+    if data.get("organizationId") is None:
+        return None
+    org_id = string_field(data, "organizationId")
+    if org_id is None:
+        return {"error": "organizationId must be a string"}, 400
+    return _organization_refusal(org_id, user)
+
+
 def _check_ownership(template_doc: dict, requesting_user) -> bool:
     """Return True if *requesting_user* is allowed to modify the template.
 
     Allowed if:
     - user is the template's ``ownerUserId``, OR
     - the template has an ``organizationId`` and the user is the org owner.
+
+    A stored ``organizationId`` that is not a non-empty string reads as no organization.
     """
     if not requesting_user:
         return False
@@ -58,7 +90,7 @@ def _check_ownership(template_doc: dict, requesting_user) -> bool:
         return True
 
     org_id = template_doc.get("organizationId")
-    if org_id:
+    if isinstance(org_id, str) and org_id:
         org = organizations_collection.find_one({"id": org_id})
         if org and org.get("owner") == requesting_user.get("id"):
             return True
@@ -77,7 +109,7 @@ def create_template():
     - **name** (required, str)
     - **tableTypes** (list of dicts, default [])
     - **aisles** (dict, default {})
-    - **organizationId** (optional, str)
+    - **organizationId** (optional, str): an organization the user is in
 
     The ``ownerUserId`` is set from the current authenticated user.
     """
@@ -93,6 +125,10 @@ def create_template():
         user = _get_request_user()
         if not user:
             return jsonify({"error": "User not found"}), 401
+
+        refusal = _requested_organization_refusal(data, user)
+        if refusal:
+            return refusal
 
         template_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -142,15 +178,9 @@ def list_templates():
 
         org_id = request.args.get("organizationId")
         if org_id:
-            org = organizations_collection.find_one({"id": org_id})
-            if not org:
-                return jsonify({"error": "Organization not found"}), 404
-            owner_id = org.get("owner")
-            members = org.get("members", [])
-            admins = org.get("admins", [])
-            user_id = user.get("id")
-            if user_id != owner_id and user_id not in members and user_id not in admins:
-                return jsonify({"error": "User does not belong to this organization"}), 403
+            refusal = _organization_refusal(org_id, user)
+            if refusal:
+                return refusal
             query = {"organizationId": org_id}
         else:
             query = {"ownerUserId": user.get("id")}
@@ -170,7 +200,7 @@ def list_templates():
 @floorplans_templates_bp.route("/templates/<template_id>", methods=["GET"])
 @login_required
 def get_template(template_id: str):
-    """Get a single template by its UUID id. Requires ownership or org membership."""
+    """Get a single template by its id. Requires its creator or the organization's owner."""
     try:
         doc = templates_collection.find_one({"id": template_id})
         if not doc:
@@ -195,7 +225,7 @@ def update_template(template_id: str):
     """Update an existing template.  Requires ownership.
 
     Accepts JSON body with any updatable fields:
-    - **name**, **tableTypes**, **aisles**, **organizationId**
+    - **name**, **tableTypes**, **aisles**, **organizationId** (an organization the user is in)
     """
     try:
         data = request.json
@@ -209,6 +239,10 @@ def update_template(template_id: str):
         user = _get_request_user()
         if not _check_ownership(doc, user):
             return jsonify({"error": "You do not have permission to update this template"}), 403
+
+        refusal = _requested_organization_refusal(data, user)
+        if refusal:
+            return refusal
 
         # Build the $set payload from allowed fields only
         allowed_fields = {"name", "tableTypes", "aisles", "organizationId"}

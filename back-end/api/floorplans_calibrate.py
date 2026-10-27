@@ -12,7 +12,10 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from PIL import Image as PILImage
 
+from api.floorplans_access import image_refusal
+from datatypes import MarketRole
 from services.gridfs_service import get_image
+from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +95,8 @@ def calibrate_floorplan():
 
     scale_px_per_mm = pixel_distance / length_mm
     scale_mm_per_px = 1 / scale_px_per_mm
+
+    The caller must be an editor of the image's market, on a market that is not archived.
     """
     try:
         data = request.get_json(silent=True)
@@ -99,9 +104,13 @@ def calibrate_floorplan():
             return jsonify({"error": "Request body must be valid JSON"}), 400
 
         # ── Validate required fields ────────────────────────────────────
-        gridfs_id = data.get("gridfs_id")
-        if not gridfs_id or not isinstance(gridfs_id, str):
+        gridfs_id = string_field(data, "gridfs_id")
+        if not gridfs_id:
             return jsonify({"error": "gridfs_id (string) is required"}), 400
+
+        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        if refusal:
+            return refusal
 
         length_mm = data.get("length_mm")
         if length_mm is None:
