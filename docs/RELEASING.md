@@ -7,7 +7,7 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-verified: 2026-10-25
+verified: 2026-10-27
 ---
 
 # Release Process
@@ -54,7 +54,11 @@ The commit message format is:
 
 ## Release Process (Automated)
 
-Release management is handled by [release-please](https://github.com/googleapis/release-please) (GitHub Action `googleapis/release-please-action@v5`) via `.github/workflows/release-please.yml`.
+Release management is handled by [release-please](https://github.com/googleapis/release-please) (GitHub Action `googleapis/release-please-action`, v5) via `.github/workflows/release-please.yml`.
+That workflow grants no permissions at its top level; its one job gets `contents: write` (the release commit and its tag), `pull-requests: write` (the Release PR) and `issues: write` (the Release PR's labels), and uses the job's own token, the action's default.
+
+The release and deploy workflows reference each action by its full commit SHA with the version in a comment beside it (`@<sha> # v7.0.1`), so a moved tag cannot change what they run; Dependabot's `github-actions` updater bumps the SHA and the comment together.
+No checkout in them keeps git credentials (`persist-credentials: false`).
 
 ### How a Release Happens
 
@@ -69,7 +73,9 @@ Release management is handled by [release-please](https://github.com/googleapis/
    `scripts/tests/test_deploys_by_hand.py` fails if either `vercel.json` loses that setting.
    The workflow deploys the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then checks `/healthz`, then deploys the front end (`makers-market-management-front-end`, `conventioner.io`) and checks a deep link.
    It deploys whatever `main` points at when it starts, and a run started from any other branch deploys nothing.
-   It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
+   It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at "Refuse to run half-configured", before it installs or deploys anything.
+   The token is in the `env` of "Deploy the back end" and "Deploy the front end" only; the refusal sees only whether it is set, and no other step holds it.
+   The workflow's own GitHub token can only read the repository (`permissions: contents: read`).
    The same run redeploys a commit after an environment variable changes.
 4. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
    This PR contains:
