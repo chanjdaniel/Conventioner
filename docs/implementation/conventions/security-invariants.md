@@ -150,7 +150,7 @@ Both name the account by its login id, which a password reset replaces, so a res
 ## Where a write comes from
 
 **A state-changing request whose browser says it came from an origin outside the CORS list is refused**, 403 with `{"error": "Request origin not allowed"}`, before its route runs (so before `@login_required`).
-CORS decides which origins may read a response; it does not stop a request from being sent, and a plain form post goes without a preflight while carrying the `SameSite=None` session cookie, so a write that needs no JSON body (publishing results, a floorplan upload, signing out) would otherwise rest on CORS alone.
+CORS decides which origins may read a response; it does not stop a request from being sent, and a plain form post goes without a preflight while carrying the `SameSite=None` session cookie, so a write that needs no JSON body would otherwise rest on CORS alone.
 The decision is OWASP's Fetch Metadata check with its `Origin` fallback, in [`utils/request_origin.py`](../../../back-end/utils/request_origin.py):
 
 - `GET`, `HEAD` and `OPTIONS` pass whatever their headers, so a CORS preflight is untouched.
@@ -159,7 +159,7 @@ The decision is OWASP's Fetch Metadata check with its `Origin` fallback, in [`ut
 - `Sec-Fetch-Site` with no `Origin` is refused: every browser that sends Fetch Metadata sends `Origin` on a write.
 - Neither header passes: a script, the E2E API helper, the seed scripts and a health check send neither, and there is nothing to check.
 
-**The check reads CORS's list, through CORS's matcher**: `origin_is_allowed()` sits beside `allowed_origins()` in [`utils/cors.py`](../../../back-end/utils/cors.py) and reads an entry the way flask-cors does (a string equal to the origin, case aside; a pattern matching all of it), so there is one list of the app's origins and one way to read it.
+**The check reads CORS's list, through CORS's matcher**: `origin_is_allowed()` sits beside `allowed_origins()` in [`utils/cors.py`](../../../back-end/utils/cors.py) and reads a string entry as equal to the origin, case aside, as flask-cors compares one, and a pattern entry as a match of the whole origin, at least as strict as flask-cors's match from the start; so there is one list of the app's origins, and an origin the check takes is one CORS takes too.
 `configure_public_endpoint_defenses()` installs it right after CORS, as a `before_request` on the app, so a route added later is covered without doing anything.
 Production's app calls its API on a sibling host, which the browser calls `same-site`, with an origin in the list; local development and the E2E stack reach the API through Vite's `/api` proxy, which the browser calls `same-origin`.
 A 403 with these words on a deployment means the page's origin is not in `CORS_ALLOWED_ORIGINS` ([OPERATIONS.md](../../OPERATIONS.md#incidents)).
