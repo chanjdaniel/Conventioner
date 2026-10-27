@@ -3,6 +3,7 @@ import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import AuthCard from '@/components/AuthCard.vue';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
@@ -88,8 +89,8 @@ const resendVerification = async () => {
 </script>
 
 <template>
-  <div class="container">
-    <div class="verification-window">
+  <AuthCard>
+    <div class="verification">
       <h1>Email Verification</h1>
 
       <div v-if="isLoading" class="loading">
@@ -123,26 +124,13 @@ const resendVerification = async () => {
         </button>
       </div>
     </div>
-  </div>
+  </AuthCard>
 </template>
 
 <style scoped>
-.container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.verification-window {
-  width: 600px;
-  min-height: 400px;
-  background-color: white;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: 60px;
+/* AuthCard draws the card; this keeps its 400px height, its content centred in it. */
+.verification {
+  min-height: calc(400px - 2 * var(--space-8));
   display: flex;
   flex-direction: column;
   align-items: center;
