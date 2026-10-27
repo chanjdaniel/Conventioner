@@ -90,7 +90,11 @@ watch(isLogin, (newValue) => {
       <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" :hasMenu="!isPublicPage" />
     </header>
 
-    <RouterView class="router-view" :class="{ 'router-view-public': fitsAPhone }" />
+    <!-- The one `main` landmark, on every route: the page's own content, apart from the banner and
+         the drawer. A wrapper, not the routed view's root, so no view has to remember to be it. -->
+    <main class="app-main" :class="{ 'app-main-public': fitsAPhone }">
+      <RouterView class="router-view" />
+    </main>
 
     <div
       v-if="!isPublicPage"
@@ -207,13 +211,22 @@ header {
   height: var(--banner-h);
 }
 
-.router-view {
+.app-main {
   flex: 1;
   min-height: 0;
   min-width: 1000px;
+
+  display: flex;
+  flex-direction: column;
 }
 
-.router-view-public {
+.app-main-public {
   min-width: 0;
+}
+
+/* The routed view fills `main` exactly as it filled the shell when it was the shell's own child. */
+.router-view {
+  flex: 1;
+  min-height: 0;
 }
 </style>

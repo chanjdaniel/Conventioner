@@ -146,7 +146,13 @@ function handleNewClose() {
            on screen, rather than unmounting the control the organizer was using. -->
       <p v-if="loading && markets.length === 0" class="empty-state">Loading markets...</p>
       <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
-      <p v-else-if="!loading && markets.length === 0" class="empty-state">No markets found</p>
+      <p
+        v-else-if="!loading && markets.length === 0"
+        class="empty-state"
+        data-testid="markets-empty"
+      >
+        No markets found
+      </p>
       <template v-else>
         <div class="finder" role="search" aria-label="Find a market" data-testid="markets-finder">
           <div class="finder-row">

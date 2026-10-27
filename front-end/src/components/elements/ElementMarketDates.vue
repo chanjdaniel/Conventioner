@@ -188,7 +188,7 @@ const indexOf = computed(() => {
         </button>
       </div>
 
-      <div class="calendar-grid" role="grid">
+      <div class="calendar-grid" role="group" :aria-label="heading">
         <span v-for="name in WEEKDAYS" :key="name" class="calendar-weekday">{{ name }}</span>
         <template v-for="(week, w) in weeks" :key="w">
           <span v-for="(day, d) in week" :key="`${w}-${d}`" class="calendar-cell">

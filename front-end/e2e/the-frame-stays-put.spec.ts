@@ -200,7 +200,10 @@ test.describe('The frame stays put', () => {
         await page.waitForLoadState('networkidle');
 
         const clipped = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('[data-testid="market-frame-card"] *'))
+          // `.visually-hidden` clips by design: it is words for a screen reader, drawn nowhere.
+          Array.from(
+            document.querySelectorAll('[data-testid="market-frame-card"] *:not(.visually-hidden)'),
+          )
             .filter((el) => {
               const style = getComputedStyle(el);
               return style.overflowY !== 'visible' && el.scrollHeight > el.clientHeight + 1;

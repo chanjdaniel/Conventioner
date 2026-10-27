@@ -14,9 +14,15 @@ import type { SummaryFact } from '@/utils/summary';
 
 defineProps<{
   facts: SummaryFact[];
-  /** A whole-row click target. Without it the card is a plain container. */
+  /**
+   * A whole-row click target. Without it the card is a plain container.
+   *
+   * The row is a click target for the pointer only. The keyboard and assistive technology reach
+   * it through a real button in the name slot, classed `summary-card-open`, whose click bubbles up
+   * to the row's: a row that was itself a `role="button"` nested its actions inside a button, and
+   * named itself with words that were not the ones on it (WCAG 4.1.2, 2.5.3).
+   */
   selectable?: boolean;
-  selectLabel?: string;
 }>();
 
 defineEmits<{ select: [] }>();
@@ -26,12 +32,7 @@ defineEmits<{ select: [] }>();
   <div
     class="summary-card"
     :class="{ 'summary-card--selectable': selectable }"
-    :role="selectable ? 'button' : undefined"
-    :tabindex="selectable ? 0 : undefined"
-    :aria-label="selectable ? selectLabel : undefined"
     @click="selectable && $emit('select')"
-    @keydown.enter.prevent="selectable && $emit('select')"
-    @keydown.space.prevent="selectable && $emit('select')"
   >
     <!-- The card is the container its own layout is measured against, so the body is a child of
          it: a container query cannot style the element it measures. -->
@@ -107,11 +108,10 @@ defineEmits<{ select: [] }>();
 }
 
 .summary-card--selectable:hover,
-.summary-card--selectable:focus-visible {
+.summary-card--selectable:has(.summary-card-name :focus-visible) {
   border-color: var(--mm-green);
   box-shadow: var(--shadow-card);
   transform: translateY(-2px);
-  outline: none;
 }
 
 /* The badge sits at the column's right edge rather than after the name, so badges share an edge
@@ -135,6 +135,24 @@ defineEmits<{ select: [] }>();
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The name's own button looks like the name: the card's lift is its focus ring, as it was the
+   row's. */
+.summary-card-name :slotted(.summary-card-open) {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  outline: none;
 }
 
 /* A fixed label column, so the labels line up across every row of the list and not merely

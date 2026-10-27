@@ -45,15 +45,11 @@ const facts = computed<SummaryFact[]>(() => [
 </script>
 
 <template>
-  <SummaryCard
-    :facts="facts"
-    selectable
-    :selectLabel="`Open ${market.name}`"
-    data-testid="market-card"
-    @select="$emit('open')"
-  >
+  <SummaryCard :facts="facts" selectable data-testid="market-card" @select="$emit('open')">
     <template #name>
-      <h3 data-testid="market-card-name" :title="market.name">{{ market.name }}</h3>
+      <h3 data-testid="market-card-name" :title="market.name">
+        <button type="button" class="summary-card-open">{{ market.name }}</button>
+      </h3>
     </template>
     <template #badge>
       <PhaseBadge :phase="market.phase" />

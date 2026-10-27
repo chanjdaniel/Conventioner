@@ -6,7 +6,10 @@ describes:
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
   - front-end/.stylelintrc.json
-verified: 2026-10-25
+  - front-end/e2e/contrast-sweep.spec.ts
+  - front-end/e2e/accessibility-sweep.spec.ts
+  - front-end/e2e/helpers/theSweptStates.ts
+verified: 2026-10-27
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -36,6 +39,7 @@ sources:
   - T15
   - T45
   - T73
+  - T75
 ---
 
 # Conventioner's design language
@@ -284,17 +288,22 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 ## What keeps this true
 
-A convention nothing enforces is how the product got here. Three checks, in `E16/F01` and `E16/F02`:
+A convention nothing enforces is how the product got here. Four checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
    Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 118 remaining warnings are the floorplan GUI, a beta.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
-3. **A rendered-usage contrast sweep**, `e2e/contrast-sweep.spec.ts`, walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
    `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
+4. **An accessibility sweep**, [`e2e/accessibility-sweep.spec.ts`](../front-end/e2e/accessibility-sweep.spec.ts), runs axe (`@axe-core/playwright`) over the same states and fails on any WCAG 2.0, 2.1 or 2.2 A or AA violation it can see, naming each one's rule, impact and target.
+   Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.
+   It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
+   An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
 
-The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
+The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
+Both sweeps walk one list, `walkTheSweptStates()` in [`e2e/helpers/theSweptStates.ts`](../front-end/e2e/helpers/theSweptStates.ts), and each passes only its own check, so a state added for one is walked by both.
 
 ## Evidence
 

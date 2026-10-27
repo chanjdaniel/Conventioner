@@ -37,17 +37,23 @@ function filterTo(filter: LedgerFilter, value: string): void {
         <p v-if="!group.rows.length" class="result-statistics-none">None.</p>
         <ul v-else>
           <li v-for="row in group.rows" :key="row.value">
+            <!-- Named by the words it shows, with the rest hidden between them: an
+                 `aria-label` replaced what a voice user sees with words they do not
+                 (WCAG 2.5.3). -->
             <button
               type="button"
               class="result-statistics-item"
-              :aria-label="`${row.label}: ${row.count}, ${row.share}% of placements. Show these tables`"
               :data-testid="`result-statistics-${group.filter}`"
               :data-value="row.value"
               @click="filterTo(group.filter, row.value)"
             >
-              <span class="result-statistics-label">{{ row.label }}</span>
+              <span class="result-statistics-label"
+                >{{ row.label }}<span class="visually-hidden">: </span></span
+              >
               <span class="result-statistics-count"
-                >{{ row.count }}<span class="result-statistics-share">{{ row.share }}%</span></span
+                >{{ row.count }}<span class="visually-hidden">, </span
+                ><span class="result-statistics-share">{{ row.share }}%</span
+                ><span class="visually-hidden"> of placements. Show these tables</span></span
               >
               <span class="result-statistics-bar" aria-hidden="true">
                 <span :style="{ width: `${row.bar}%` }" />

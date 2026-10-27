@@ -1,8 +1,6 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
-import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
-import { seedApplicantMarket } from './helpers/seedApplicantMarket';
-import { seedApplication } from './helpers/seedApplication';
+import { test, expect } from './fixtures';
+import { settle } from './helpers/settle';
+import { walkTheSweptStates, type Check } from './helpers/theSweptStates';
 import type { Page } from '@playwright/test';
 
 /**
@@ -18,9 +16,8 @@ import type { Page } from '@playwright/test';
  *   - the current-phase label rendered `--mm-green` on the rail's `#fbfbfa` at **4.43:1**. The token
  *     is correct - 4.59 on white - but white was not the ground it was used on.
  *
- * **A sweep is only worth the states it walks.** A twenty-screen pass missed the invisible
- * archive-confirmation button entirely, because nobody opened that dialog. So the dialogs, menus and
- * disabled controls below are named deliberately, and the list is part of the deliverable.
+ * **A sweep is only worth the states it walks**, so the states are one list, `walkTheSweptStates`,
+ * shared with the accessibility sweep.
  */
 
 const AA_NORMAL = 4.5;
@@ -156,30 +153,11 @@ async function sweep(page: Page): Promise<Sweep> {
 /**
  * A screen with fewer visible text nodes than this has not rendered, whatever it reports.
  *
- * Three, not more: the sparsest screen in the product is the public check-in page, which measures
- * five. The floor is here to catch a blank render, not to pin a design decision about how much
- * copy a screen carries.
+ * Two, not more: the sparsest state walked is the markets list of an organizer with none, which
+ * measures three - its title, New market and "No markets found". The floor is here to catch a
+ * blank render, not to pin a design decision about how much copy a screen carries.
  */
-const MIN_TEXT_NODES = 3;
-
-/**
- * Let CSS transitions finish before measuring.
- *
- * A control reports its transitioning paint, not its destination: the Download CSV button renders
- * disabled until statistics arrive, and for 150ms after they do it is an ENABLED button still
- * painted `--mm-border` under white text - 1.71:1, and gone by the time anyone could look. The
- * screens sweep only passed because it happened to navigate twice first.
- *
- * Bounded, and proceeds on timeout: a spinner is a legitimately perpetual animation, and a sweep
- * that hung on one would be worse than one that measured beside it.
- */
-async function settle(page: Page): Promise<void> {
-  await page
-    .waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), null, {
-      timeout: 2000,
-    })
-    .catch(() => undefined);
-}
+const MIN_TEXT_NODES = 2;
 
 async function expectAA(page: Page, state: string): Promise<void> {
   await settle(page);
@@ -193,156 +171,12 @@ async function expectAA(page: Page, state: string): Promise<void> {
   );
 }
 
+const contrastTest = test.extend<{ check: Check }>({
+  check: async ({ page }, use) => {
+    await use((state) => expectAA(page, state));
+  },
+});
+
 test.describe('Every rendered text node reaches AA', () => {
-  let marketId: string;
-  let marketSlug: string;
-
-  test.beforeAll(async ({ request }) => {
-    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const seeded = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    marketId = seeded.marketId;
-    marketSlug = seeded.marketSlug;
-  });
-
-  async function openTheSeededMarket(page: Page): Promise<void> {
-    await page.goto('/login');
-    await page.evaluate((user) => {
-      localStorage.setItem('user', JSON.stringify(user));
-    }, TEST_USER.email);
-  }
-
-  test('the screens', async ({ authenticatedPage: page }) => {
-    await openTheSeededMarket(page);
-    for (const [state, url, ready] of [
-      // The count, not "New market": the button is drawn before the list arrives, and on a stack
-      // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
-      ['markets', '/markets', 'markets-result-count'],
-      ['market plan', marketSetupPath(marketId, 'setup'), 'setup-dates-date-display-0'],
-      // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
-      // how a field-type badge shipped at 3.73:1 on it.
-      ['application form', marketSetupPath(marketId, 'form'), 'form-steps'],
-      // A published market: its rules read as settled (E22/F02/S02).
-      ['assignment', marketSetupPath(marketId, 'assignment'), 'assignment-rules-settled'],
-      ['result', marketScreenPath(marketId, 'result'), 'result-strip'],
-      ['vendors', marketScreenPath(marketId, 'vendors'), 'vendors-search-input'],
-      ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
-    ] as const) {
-      await page.goto(url);
-      await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
-      await expectAA(page, state);
-    }
-
-    // The form tab is steps, each its own surface (E33/F01/S01): the sweep is only worth the
-    // states it opens, so it opens every one this market's form has.
-    await page.goto(marketSetupPath(marketId, 'form'));
-    const steps = page.getByTestId('form-steps').getByRole('button');
-    await expect(steps.first()).toBeVisible({ timeout: 15000 });
-    for (const step of await steps.all()) {
-      const label = (await step.textContent()) ?? '';
-      await step.click();
-      await expect(step).toHaveAttribute('aria-current', 'step');
-      await expectAA(page, `application form, ${label}`);
-    }
-  });
-
-  test('sign-in, and the public check-in page', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.getByTestId('login-submit-button')).toBeVisible({ timeout: 10000 });
-    await expectAA(page, '/login');
-
-    await page.goto(`/${marketSlug}/check-in`);
-    await expect(page.getByTestId('attendance-checkin-market-name')).toBeVisible({
-      timeout: 10000,
-    });
-    await expectAA(page, '/check-in');
-  });
-
-  test('the states a screenshot pass never opens', async ({ authenticatedPage: page }) => {
-    // The invisible archive-confirmation button lived here, behind two clicks, and a twenty-screen
-    // walk never found it.
-    await openTheSeededMarket(page);
-    await page.goto(marketScreenPath(marketId, 'result'));
-    await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
-
-    await page.getByTestId('phase-rail-menu-button').click();
-    await expect(page.locator('.rail-menu-item').first()).toBeVisible();
-    await expectAA(page, 'the phase-rail menu');
-
-    await page.locator('.rail-menu-item--end').click();
-    await expect(page.getByTestId('archive-confirm-window')).toBeVisible({ timeout: 5000 });
-    await expectAA(page, 'the archive confirmation');
-
-    // And the button is actually there, which is the whole of S01.
-    const archive = page.getByTestId('archive-confirm-submit-button');
-    const painted = await archive.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { background: style.backgroundColor, border: style.borderWidth };
-    });
-    expect(painted.background, 'the archive button has no fill').not.toBe('rgba(0, 0, 0, 0)');
-
-    // Leave the market as it was found. Cancel, never confirm: archiving is permanent, so a spec
-    // that went through with it would only pass once.
-    await page.getByTestId('archive-confirm-cancel-button').click();
-    await expect(page.getByTestId('archive-confirm-window')).toBeHidden();
-  });
-
-  test('the statistics, open and under the pointer', async ({ authenticatedPage: page }) => {
-    // The ledger of bars (E35/F03/S01): a share in muted ink on white, and on a hovered row's beige.
-    await openTheSeededMarket(page);
-    await page.goto(`${marketScreenPath(marketId, 'result')}?stats=open`);
-    const row = page.getByTestId('result-statistics-date').first();
-    await expect(row).toBeVisible({ timeout: 15000 });
-    await expectAA(page, 'the statistics');
-    await row.hover();
-    await expectAA(page, 'a hovered statistics row');
-  });
-
-  test('a market tab under the pointer', async ({ authenticatedPage: page }) => {
-    // Hover is a state too, and none was walked: the tab bar's hover set its label to the border
-    // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).
-    await openTheSeededMarket(page);
-    await page.goto(marketSetupPath(marketId, 'setup'));
-    const tab = page.getByTestId('market-bar-tab-applications');
-    await expect(tab).toBeVisible({ timeout: 15000 });
-    await tab.hover();
-    await expectAA(page, 'a hovered market tab');
-  });
-
-  test('a review card, and the verdicts already given', async ({
-    authenticatedPage: page,
-    request,
-  }) => {
-    // A status is a tinted chip now, on the card's own beige ground as well as on white (bug 43),
-    // and no screen above opens either.
-    const { marketId: reviewing } = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    for (const email of ['nadia@ember.test', 'rafi@kiln.test', 'theo@thistle.test']) {
-      seedApplication(reviewing, email, { business_name: 'Ember Ceramics', product_type: 'Pots' });
-    }
-    await page.goto(marketSetupPath(reviewing, 'applications'));
-    await expect(page.getByTestId('app-monitor-card')).toBeVisible({ timeout: 15000 });
-    await page.getByTestId('app-monitor-approve-button').click();
-    await page.getByTestId('app-monitor-reject-button').click();
-    await page.getByTestId('app-monitor-decided-toggle').click();
-    await expect(page.getByTestId('app-monitor-decided-row')).toHaveCount(2);
-    await expectAA(page, 'a review card and its verdicts');
-  });
-
-  test('the new-market dialog, where a disabled primary lives', async ({
-    authenticatedPage: page,
-  }) => {
-    await page.goto('/markets');
-    await page.getByTestId('markets-create-button').click();
-    await expect(page.getByTestId('new-market-name-input')).toBeVisible({ timeout: 5000 });
-    await expectAA(page, 'the new-market dialog');
-  });
+  walkTheSweptStates(contrastTest);
 });
