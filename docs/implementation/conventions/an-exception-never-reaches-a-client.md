@@ -8,6 +8,7 @@ describes:
   - back-end/app.py#get_assignment_statistics
   - back-end/app.py#get_assignment_csv
   - back-end/app.py#get_market_tables
+  - back-end/api/markets.py#_load_market_for
   - back-end/api/markets.py#parsed_application_form
   - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#_log_unreadable_market
@@ -57,6 +58,11 @@ A parse that fails says what was wrong in our words, with the status it always h
 A raise site decides a refusal and raises the type for it; the route writes no `try`/`except` to answer it.
 An internal invariant (a guard's own consistency check, a model validator) stays a builtin: escaping is a bug, and it answers 500.
 
+**The markets API's refusals** ([`back-end/api/markets.py`](../../../back-end/api/markets.py)) are client errors.
+Every refusal it words raises `BadRequestError` or `ForbiddenError`, and a market the URL names that does not exist raises `MarketNotFoundError`, a `NotFoundError`, in the role writes and the deletion as everywhere else.
+Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedError` 403 ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), `MoveUnavailable` 400, `ApplicationFormLockedError` 409, and `PhaseChangedUnderRequest` 409, whose `body()` is the transition's `phase_changed` payload ([the guards](../modules/guards.md)).
+`create_market`'s "exactly one owner" stays a `ValueError`: `create_owned_market` sets the one owner, so it escaping is a bug.
+
 ## The two handlers
 
 `install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers both on the app, so every blueprint is covered too.
@@ -76,6 +82,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
 - [`test_an_exception_never_reaches_a_client.py`](../../../back-end/tests/test_an_exception_never_reaches_a_client.py) calls the real routes through the test client.
   A client error answers its status and body, a structured `body()` is answered as given, and an injected exception carrying a secret-shaped string answers exactly the generic 500 on each assignment read, with the string nowhere in the response and one log record holding the traceback and the market id but no email.
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
+  A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
 - CodeQL's `py/stack-trace-exposure`, run on every pull request, flags a route that catches an exception and answers its text.
