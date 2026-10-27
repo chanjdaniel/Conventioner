@@ -71,6 +71,7 @@ from utils.proxy import (
     install_trusted_proxy_fix,
     trusted_proxy_hops,
 )
+from utils.request_origin import install_request_origin_check
 from utils.secret_key import (
     SecretKeyNotConfiguredError,
     signing_secret,
@@ -317,8 +318,9 @@ def check_public_endpoint_defenses() -> PublicEndpointDefenses:
 def configure_public_endpoint_defenses(
     flask_app: Flask, defenses: PublicEndpointDefenses,
 ) -> None:
-    """Install what the check confirmed: the signing key, the origins it may be spent from, the store
-    it is kept in, and the hops a caller's address may be read back through.
+    """Install what the check confirmed: the signing key, the origins it may be spent from (which
+    are also the origins a write is taken from), the store it is kept in, and the hops a caller's
+    address may be read back through.
 
     The session store goes on last, because a cookie-only session *is* the signed cookie: the
     interface is built against the app's ``SECRET_KEY``, which the first line here is what puts
@@ -326,6 +328,7 @@ def configure_public_endpoint_defenses(
     """
     flask_app.config["SECRET_KEY"] = defenses.signing_secret
     install_cors(flask_app, defenses.origins)
+    install_request_origin_check(flask_app, defenses.origins)
     logger.info(
         "Allowing credentialed browser requests from: %s", describe_origins(defenses.origins),
     )
