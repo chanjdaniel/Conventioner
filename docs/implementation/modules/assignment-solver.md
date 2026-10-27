@@ -41,7 +41,7 @@ The CSV export is built from the assignment itself, not from an upload kept for 
 Only `migrate_to_uuid.py`, `mongo-init.js` and `reset_database.py` still name the old collection.
 
 **The export writes the applicant's own text as text.**
-The Name, Full name and Email cells go through `as_text_cell`, which prefixes a single quote to a value beginning with `=`, `+`, `-`, `@`, tab, CR or LF, so a name such as `=HYPERLINK(...)` is shown, not run, when the organizer opens the file (OWASP, CSV injection).
+The Name, Full name and Email cells go through `as_text_cell`, which prefixes a single quote to a value beginning with `=`, `+`, `-`, `@`, tab, CR or LF, so a name such as `=1+1` is shown, not run, when the organizer opens the file (OWASP, CSV injection).
 Every other value is written exactly as it is; the date cells are the organizer's plan and are not guarded (`tests/test_csv_formula_guard.py`).
 
 **`assign_market` reads the market's own approved applications.**

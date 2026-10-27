@@ -33,8 +33,8 @@ def _rows(market, names=None, full_names=None):
     return list(csv.DictReader(io.StringIO(market_csv_to_string(market, names, full_names))))
 
 
-def test_a_hyperlink_formula_in_a_name_arrives_as_text():
-    formula = '=HYPERLINK("https://example.test","Link")'
+def test_a_formula_leading_name_arrives_as_text():
+    formula = "=1+1"
 
     [row] = _rows(
         _market("nadia@ember.test"),
