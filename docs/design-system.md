@@ -9,7 +9,10 @@ describes:
   - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
   - front-end/e2e/accessibility-sweep.spec.ts
-  - front-end/e2e/helpers/theSweptStates.ts
+  - front-end/e2e/layout-sweep.spec.ts
+  - front-end/e2e/layout-detectors.spec.ts
+  - front-end/e2e/helpers/screens.ts
+  - front-end/e2e/helpers/layoutDetectors.ts
 verified: 2026-10-28
 sources:
   - wayfinding/claims-and-room/map
@@ -295,7 +298,7 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 ## What keeps this true
 
-A convention nothing enforces is how the product got here. Four checks, the first three in `E16/F01` and `E16/F02`:
+A convention nothing enforces is how the product got here. Five checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`: `0`, `auto`, a `--space-*` token, `--space-hairline`, `--card-grid-gap`, `--banner-h`, or `calc()` over them, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
@@ -309,9 +312,18 @@ A convention nothing enforces is how the product got here. Four checks, the firs
    Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
+5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a route with `meta.fitsAPhone`) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
+   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target too small on a phone.
+   Each failure names the state, the size, the element and the measurement.
+   It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12).
+   The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
+   [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
+   It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 
-The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
-Both sweeps walk one list, `walkTheSweptStates()` in [`e2e/helpers/theSweptStates.ts`](../front-end/e2e/helpers/theSweptStates.ts), and each passes only its own check, so a state added for one is walked by both.
+The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
+All three sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
+The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
+Contrast and axe measure each state at its first size; the layout sweep at every size.
 
 ## Evidence
 
