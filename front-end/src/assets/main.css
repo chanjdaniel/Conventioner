@@ -42,8 +42,8 @@ a {
 
 /*
  * Both faces ship as WOFF2, converted losslessly from the TTFs Google Fonts publishes (T76): the
- * same outlines and the same `wght` axis at 40% of the bytes, since every browser the app supports
- * reads WOFF2, variable faces included.
+ * same outlines, and Outfit's whole `wght` axis, at a fraction of the bytes, since every browser
+ * the app supports reads WOFF2, variable faces included.
  */
 @font-face {
   font-family: 'Merge One';
