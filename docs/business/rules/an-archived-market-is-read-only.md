@@ -35,7 +35,7 @@ Nobody changes it; an owner or admin still manages its roles, and its owner may 
 - **A market write loads through `_load_market_to_change()`** in [`back-end/api/markets.py`](../../../back-end/api/markets.py), which refuses an archived market with `MarketArchivedError`.
   It is a `PermissionError`, so every write route already answers it with a 403 carrying its words; a refusal that needed a new branch per route would be one forgotten branch from a 500.
   A new write loads through it, never through `_load_market_for`, so it cannot forget the rule.
-- A route that loads its own market asks `archived_refusal()`: the floorplan save, publishing results, the import and the CSV start (`_admin_market_document` in `back-end/app.py`), and every review write through `change_refusal`.
+- A route that loads its own market asks `archived_refusal()`: the floorplan save and every floorplan action but the export ([floorplan placement](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), publishing results, the import and the CSV start (`_admin_market_document` in `back-end/app.py`), and every review write through `change_refusal`.
   The phase cannot move either: no edge leaves `archived` ([the guards](../../implementation/modules/guards.md)).
 - The locks the market read serves give the archived reason first where it applies (`readOnlyReason`, the form's, the assignment rules', the automatic rejections'), since it is the true one; the setup's says only that it settled on leaving draft.
   The phase itself is on [the market document](../../implementation/data/market-document.md).

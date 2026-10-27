@@ -8,6 +8,14 @@ describes:
   - back-end/requirements-floorplan-solver.txt
   - back-end/api/floorplans_save.py
   - back-end/api/floorplans_analysis.py
+  - back-end/api/floorplans_calibrate.py
+  - back-end/api/floorplans_export.py
+  - back-end/api/floorplans.py
+  - back-end/api/floorplans_access.py
+  - back-end/api/floorplans_templates.py
+  - back-end/services/gridfs_service.py
+  - front-end/src/components/floorplan/FloorplanUploader.vue
+  - front-end/src/components/floorplan/FloorplanWorkflow.vue
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
@@ -32,7 +40,43 @@ So the flow can be exercised end to end in CI with no API keys and no stubbing (
 
 `auto_place_tables(walls, obstacles, table_types, counts, scale_px_per_mm, aisle_config, room_mm)` returns placed tables in millimetres (`x_mm`, `y_mm`, `rotation`, `width_mm`, `height_mm`, `table_type_id`).
 The organizer asks for a count per table type ([`AutoPlaceButton.vue`](../../../front-end/src/components/floorplan/AutoPlaceButton.vue)), and the wizard reports how many it placed.
+`POST /floorplans/place-tables` takes the `market_id` the wizard is open on beside the geometry, read with `string_field()`, and places only for an editor of that market on a market that is not archived; `AutoPlaceButton.vue` sends the `marketId` [`FloorplanWorkflow.vue`](../../../front-end/src/components/floorplan/FloorplanWorkflow.vue) gives it.
 The zone is the room less a wall buffer (1500 mm unless configured) and the obstacles; tables keep a spacing between them (1200 mm unless configured).
+
+## Who may use the floorplan routes
+
+Every floorplan action is checked against the caller's role on the floorplan's market, the way saving a floorplan to a market always was.
+The roles are [what each role may do](../../business/rules/what-each-role-may-do.md) says, and a route that changes the floorplan keeps [an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md).
+[`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, role, edits=...)` checks a market the request names, `image_refusal(gridfs_id, role, edits=...)` checks the market an image was uploaded for, and each answers None or the refusal the route returns.
+They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a role below the one asked 403, and, for a route that changes the floorplan (`edits`), an archived market 403.
+A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
+
+| Route | Needs | Archived market |
+| --- | --- | --- |
+| `POST /floorplans/upload` | EDITOR on the `market_id` sent | refused |
+| `POST /floorplans/place-tables` | EDITOR on the `market_id` sent | refused |
+| `DELETE /floorplans/<id>` | EDITOR on the image's market | refused |
+| `POST /floorplans/analyze` | EDITOR on the image's market | refused |
+| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | EDITOR on the image's market | refused |
+| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | VIEWER on the image's market, signed in | allowed |
+| `GET /floorplans/<id>` | nothing: public by opaque id | allowed |
+| `POST /floorplans/save-to-market` | EDITOR, and a setup that has not settled (409) | refused |
+
+The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
+**The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.
+The raw image read stays public by its opaque id, so pages that show a floorplan image need no session; it is the one route that does not check a market.
+The settled-setup refusal stays on save alone, since only save writes the sections.
+**Every floorplan route but the image read needs a sign-in**, and `TestEveryFloorplanRouteNeedsASignIn` in [`back-end/tests/test_floorplan_access.py`](../../../back-end/tests/test_floorplan_access.py) keeps it so: it asks each route the floorplan blueprints register without a session and expects a 401, so a new route, or one whose `@login_required` is missing or above its `@route`, fails it.
+
+**An image belongs to the market it was uploaded for.**
+`POST /floorplans/upload` ([`back-end/api/floorplans.py`](../../../back-end/api/floorplans.py)) takes a `market_id` form field beside the file, needs an editor of that market on a market that is not archived, and checks it before it reads the file.
+[`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found", and no route but the public read treats an unowned image as anyone's.
+The wizard's [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue) sends the market it is in.
+Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
+
+**A template is its creator's, and one filed under an organization is filed by someone in it.**
+[`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.
+A stored `organizationId` that is not a non-empty string reads as none, so only the template's creator reaches it; [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py) keeps both.
 
 ## Sharp edges
 

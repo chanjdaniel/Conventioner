@@ -203,9 +203,14 @@ class TestUploadingAFloorplan:
 
     @pytest.fixture
     def stored(self, monkeypatch):
+        """The market loads and the caller may edit it; what reaches the image store is recorded."""
+        monkeypatch.setattr(
+            MarketsApi, "markets_collection", FakeMarketsCollection(stored_market()),
+        )
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         images = []
 
-        def upload_image(data, filename):
+        def upload_image(data, filename, market_id):
             images.append(filename)
             return "image-1"
 
@@ -215,7 +220,10 @@ class TestUploadingAFloorplan:
     def _upload(self, client, headers):
         return client.post(
             "/floorplans/upload",
-            data={"file": (io.BytesIO(b"\x89PNG\r\n\x1a\n"), "hall.png", "image/png")},
+            data={
+                "market_id": "market-123",
+                "file": (io.BytesIO(b"\x89PNG\r\n\x1a\n"), "hall.png", "image/png"),
+            },
             content_type="multipart/form-data",
             headers=headers,
         )
