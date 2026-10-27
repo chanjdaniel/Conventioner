@@ -163,6 +163,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **VueDraggable 4.1.0** - Drag and drop component
   - Drag-and-drop functionality for UI elements
 - **Konva 10** and **vue-konva 4** - The floorplan wizard's canvas
+  - Each floorplan component imports the vue-konva components it draws with; none is installed app-wide, so no page but the floorplan wizard downloads Konva
 
 ### Development Tools
 - **ESLint 10.13.0** - JavaScript/TypeScript linter
