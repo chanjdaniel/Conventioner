@@ -33,8 +33,8 @@
 
 /* The card idiom, extracted: --radius-card and the three-layer shadow. The halo it replaces -
    `0 0 4px 5px` - has no offset, so no light source, and a spread larger than its blur is a ring
-   rather than a shadow (E16/F05). 600px on a desktop, as before; the window's width, less the
-   gutter, on anything narrower. */
+   rather than a shadow (E16/F05). 600px at most, as before; a narrower window keeps a 16px gutter
+   at each side. */
 .auth-card {
   width: 100%;
   max-width: 600px;

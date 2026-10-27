@@ -74,11 +74,12 @@ A write there answers 409 with "This market has ended, so check-in is closed."; 
 An archived market that never ran has no check-in page.
 Check-in is open to every market that runs, whatever its intake mode: how a vendor entered has no bearing on whether they can scan in on the day ([intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md)); the applicant surface is a lookup of its own ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
 
-**One organizer screen works on a phone.**
-The product is built for a laptop, and nothing else of the organizer's needs to work below a laptop's width; the door is the carve-out, the one surface someone may hold in their hand.
+**The door is the one organizer market screen that works on a phone.**
+The product is built for a laptop, and no other organizer market screen needs to work below a laptop's width; the door is the carve-out among them, the one someone may hold in their hand.
+The account pages on the way in fit a phone too ([the design language](../../design-system.md#layout)).
 The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
-Of the organizer's screens only Attendance has it, because the door is sometimes a person standing up.
+Of the organizer market screens only Attendance has it, because the door is sometimes a person standing up.
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 
 ## Why
