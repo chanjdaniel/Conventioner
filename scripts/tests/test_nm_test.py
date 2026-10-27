@@ -182,6 +182,8 @@ UNIT_SUITES = [
     "python -m pytest tests/ -v",
     "npm ci",
     "npm run test:unit",
+    "npm run build-only",
+    "npm run bundle-budget",
 ]
 
 
