@@ -139,6 +139,11 @@ Each committed hook also runs the hook of its name in the git directory's `hooks
 **Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
 A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) instead of writing it out, or the hooks refuse the test file itself.
 
+## Each request
+
+**A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
+The checks above make the process boot safe; that one makes safe each lookup a request then asks of it.
+
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.

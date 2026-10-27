@@ -7,7 +7,7 @@ describes:
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - E26/F07/S01
   - E32/F03/S02
@@ -34,7 +34,7 @@ Telling the person who just read the code whether they have applied leaks nothin
 - **Requesting a code** (`request_login_code` in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py)) stores a challenge for every address at a market [the gate](a-gated-market-answers-as-absent.md) serves and sends it before the response goes out (E32/F03/S02): on serverless hosting a process may be frozen the moment its response is out, and no code sent from a thread afterwards was ever seen to arrive.
   A failed send is logged and answered as a sent one.
   The code is six digits, kept hashed in `applicant_login_challenges` keyed by market and address, and lasts five minutes.
-- **Verifying a code** (`verify_login_code`) consumes the challenge with its first attempt, right or wrong, so there is no per-applicant attempt counter and no lockout, and every failure answers one 401.
+- **Verifying a code** (`verify_login_code`) consumes the challenge with its first attempt, right or wrong, so there is no per-applicant attempt counter and no lockout, and every failure answers one 401, a code or address sent as anything but a string included.
   A right code returns a token for whoever proved the address, applied or not.
 - **The token** ([`back-end/utils/application_token.py`](../../../back-end/utils/application_token.py)) names the market and the address, never an application, lasts 30 minutes and creates no session; it is signed with the app's one signing secret, which has no fallback.
   An applicant's application is found by market and address, its identity.

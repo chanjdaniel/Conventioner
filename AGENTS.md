@@ -113,6 +113,7 @@ The data and the back end:
 - Before changing organizations, membership or market roles, read [the organization document, and roles](docs/implementation/data/organization-document.md).
 - Before changing accounts or how an address is compared, read [users, and the one spelling of an address](docs/implementation/data/users-and-email.md).
 - Before adding a query on a new field, read [lookup indexes](docs/implementation/data/lookup-indexes.md).
+- Before looking anything up by a value from a request body, read [a request value is a string](docs/implementation/conventions/a-request-value-is-a-string.md).
 - Before adding or moving a back-end Python dependency, read [Python dependencies are locked](docs/TECH_STACK.md#python-dependencies-are-locked).
 - Before changing the Node or npm version, or writing `front-end/package-lock.json`, read [Node and npm are pinned](docs/TECH_STACK.md#node-and-npm-are-pinned).
 - Before deleting a market or an organization, or adding a collection keyed by market, read [market deletion](docs/implementation/modules/market-deletion.md) and [when an organization may be deleted](docs/business/rules/when-an-organization-may-be-deleted.md).
