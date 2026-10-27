@@ -5,8 +5,8 @@ code wrote. Anything else is the server's fault: logged once with its traceback,
 ``{"error": "Internal server error"}``, 500, with nothing of the exception in it. Flask's own
 answers (an unknown URL, a wrong method, Flask-Login's 401) pass through untouched.
 
-Pinned through the test client against the real app, on the four assignment reads that used to
-answer an exception's text, type, function and a timestamp.
+Pinned through the test client against the real app: the assignment reads, the organization and
+market role routes, the market setup routes, and the application form, amendment and phase routes.
 """
 import logging
 from types import SimpleNamespace
