@@ -13,6 +13,7 @@ from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from utils.email_address import normalized_email
+from utils.request_body import string_field
 
 db = get_database()
 users_collection = db["users"]
@@ -111,8 +112,8 @@ def _insert_unless_taken(user_doc: dict):
 #      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!", "organizations": []}'
 def register_user(bcrypt, request):
     data = request.json
-    email = normalized_email(data.get("email"))
-    password = data.get("password")
+    email = normalized_email(string_field(data, "email"))
+    password = string_field(data, "password")
     organizations = data.get("organizations", [])
 
     if not email or not password:
@@ -142,7 +143,11 @@ def register_user(bcrypt, request):
 
 def login(bcrypt, login_user, request):
     data = request.json
-    email, password = normalized_email(data.get('email')), data.get('password')
+    email = normalized_email(string_field(data, "email"))
+    password = string_field(data, "password")
+
+    if not email or not password:
+        return jsonify({"message": "Email and password required"}), 400
 
     # Find user in MongoDB
     user_doc = users_collection.find_one({"email": email})
@@ -176,9 +181,9 @@ def check_session(current_user):
 def register_user_with_captcha(bcrypt, request):
     """Register a new user with CAPTCHA verification."""
     data = request.json
-    email = normalized_email(data.get("email"))
-    password = data.get("password")
-    captcha_token = data.get("captcha_token")
+    email = normalized_email(string_field(data, "email"))
+    password = string_field(data, "password")
+    captcha_token = string_field(data, "captcha_token")
     organizations = data.get("organizations", [])
 
     if not email or not password:
@@ -254,7 +259,7 @@ def register_user_with_captcha(bcrypt, request):
 def verify_email(request):
     """Verify user's email with token."""
     data = request.json
-    token = data.get("token")
+    token = string_field(data, "token")
 
     if not token:
         return jsonify({"msg": "Verification token required"}), 400
@@ -292,7 +297,7 @@ def verify_email(request):
 def resend_verification_email(request):
     """Resend verification email to user."""
     data = request.json
-    email = normalized_email(data.get("email"))
+    email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -334,7 +339,7 @@ def resend_verification_email(request):
 def request_password_reset(request):
     """Request password reset link."""
     data = request.json
-    email = normalized_email(data.get("email"))
+    email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -386,8 +391,8 @@ def request_password_reset(request):
 def reset_password(bcrypt, request):
     """Reset password with reset token."""
     data = request.json
-    token = data.get("token")
-    new_password = data.get("new_password")
+    token = string_field(data, "token")
+    new_password = string_field(data, "new_password")
 
     if not token or not new_password:
         return jsonify({"msg": "Token and new password required"}), 400
@@ -428,7 +433,7 @@ def reset_password(bcrypt, request):
 def request_otp(request):
     """Request OTP for passwordless login."""
     data = request.json
-    email = normalized_email(data.get("email"))
+    email = normalized_email(string_field(data, "email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -485,8 +490,8 @@ def request_otp(request):
 def login_with_otp(login_user, request):
     """Login with OTP code."""
     data = request.json
-    email = normalized_email(data.get("email"))
-    otp = data.get("otp")
+    email = normalized_email(string_field(data, "email"))
+    otp = string_field(data, "otp")
 
     if not email or not otp:
         return jsonify({"msg": "Enter your email address and the code."}), 400
@@ -586,7 +591,7 @@ def delete_user(request, authenticated_email: str):
     the organization is something its owner may do, and then this succeeds.
     """
     data = request.json or {}
-    email_to_delete = normalized_email(data.get("email"))
+    email_to_delete = normalized_email(string_field(data, "email"))
 
     if not email_to_delete:
         return jsonify({"msg": "Email address required"}), 400

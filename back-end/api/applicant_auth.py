@@ -50,6 +50,7 @@ from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
 from utils.email_address import normalized_email
+from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
 
@@ -201,9 +202,7 @@ def _too_many(retry_after: Optional[int]):
 
 def _email_from(data) -> Optional[str]:
     """The normalised address a request names, or None when it names none."""
-    if not isinstance(data, dict):
-        return None
-    email = normalized_email(data.get("email"))
+    email = normalized_email(string_field(data, "email"))
     return email if email and "@" in email else None
 
 
@@ -439,7 +438,7 @@ def verify_login_code(market_slug: str) -> tuple:
     if refused:
         return refused
 
-    code = (data.get("code") or "").strip() if isinstance(data, dict) else ""
+    code = (string_field(data, "code") or "").strip()
 
     if not email or not code:
         return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS

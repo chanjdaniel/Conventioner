@@ -11,7 +11,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-10-24
+verified: 2026-10-27
 sources:
   - bug/38
   - E26/F09/S01
