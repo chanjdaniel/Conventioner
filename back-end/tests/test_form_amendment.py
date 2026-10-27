@@ -172,6 +172,21 @@ class TestItRefusesBeforeMovingAnything:
         with pytest.raises(Amend.AmendmentRefused):
             Amend.amend_application_form("market-123", FORM_THAT_ASKS_NOTHING, "user-1")
 
+    def test_a_form_with_a_wrong_typed_field_is_refused_by_the_field_and_nothing_moves(
+        self, markets,
+    ):
+        fake = markets(MarketPhase.APPLICATIONS_OPEN)
+        wrong = {"fields": [{**FORM_WITH_A_FIELD["fields"][0], "order": "first-of-all"}]}
+
+        with pytest.raises(ValueError) as refusal:
+            Amend.amend_application_form("market-123", wrong, "user-1")
+
+        assert str(refusal.value).startswith("Invalid application form data: fields.0.order: ")
+        assert "first-of-all" not in str(refusal.value)
+        assert "errors.pydantic.dev" not in str(refusal.value)
+        assert fake.phase == "applications_open"
+        assert fake.writes == []
+
     def test_a_market_with_applications_is_refused_and_told_why(self, markets, monkeypatch):
         fake = markets(MarketPhase.APPLICATIONS_OPEN)
         monkeypatch.setattr(ApplicationsApi, "count_applications_for_market", lambda _id: 3)

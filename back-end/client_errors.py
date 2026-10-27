@@ -15,6 +15,7 @@ import logging
 from typing import Any, Dict, Tuple
 
 from flask import Flask, Response, jsonify, request
+from pydantic import ValidationError
 from werkzeug.exceptions import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,38 @@ class NotFoundError(ClientError, ValueError):
 
 class ConflictError(ClientError):
     status = 409
+
+
+def field_named_copy(heading: str, error: ValidationError) -> str:
+    """The copy for a body a model refused: ``heading``, then each failing field by its dotted
+    location and pydantic's short message.
+
+    Never the error's ``input`` (whatever the body held), ``ctx``, ``url`` (a link to pydantic's
+    docs) or ``type``: they describe the library, and the input may be anyone's words.
+    """
+    problems = "; ".join(
+        f"{_dotted(problem['loc'])}: {problem['msg']}" if problem["loc"] else problem["msg"]
+        for problem in error.errors(include_url=False, include_context=False, include_input=False)
+    )
+    return f"{heading}: {problems}"
+
+
+def parse_failure_detail(error: Exception) -> str:
+    """What a log line may say of a failed parse: each failing location and pydantic's error type.
+
+    Never the input, which may hold an applicant's answer or address; anything but a
+    ``ValidationError`` by its type alone, since its message may quote the input too.
+    """
+    if not isinstance(error, ValidationError):
+        return type(error).__name__
+    return "; ".join(
+        f"{_dotted(problem['loc'])} ({problem['type']})"
+        for problem in error.errors(include_url=False, include_context=False, include_input=False)
+    )
+
+
+def _dotted(location: Tuple[Any, ...]) -> str:
+    return ".".join(str(part) for part in location)
 
 
 def answer_client_error(error: ClientError) -> Tuple[Response, int]:

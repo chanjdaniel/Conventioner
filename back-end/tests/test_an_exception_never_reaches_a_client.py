@@ -16,6 +16,7 @@ import pytest
 from conftest import (
     COMPLETE_PLAN,
     FakeMarketsCollection,
+    FakeSlugMarketsCollection,
     sessions_load_through_get_user,
     skip_without_real_dependencies,
     stored_market,
@@ -24,8 +25,10 @@ from conftest import (
 skip_without_real_dependencies()
 
 import app as app_module
+import api.applicants as ApplicantsApi
 import api.markets as MarketsApi
 import api.users as UsersApi
+import db_config
 from client_errors import (
     BadRequestError,
     ClientError,
@@ -33,7 +36,7 @@ from client_errors import (
     ForbiddenError,
     NotFoundError,
 )
-from datatypes import MarketPhase
+from datatypes import MarketPhase, market_name_slug
 
 
 OWNER_EMAIL = "owner@example.com"
@@ -214,6 +217,130 @@ class TestAnUnexpectedFailure:
         assert "ana.vendor@example.com" not in caplog.text
         assert "vendor-notes" not in record.getMessage()
         assert "corner table" not in caplog.text
+
+
+# What a parser's message carries besides the field and what was wrong: the input, the error's type,
+# a link to the library's docs. A refusal names the field and says what was wrong, and no more.
+PARSER_DETAIL = ("errors.pydantic.dev", "input_value", "input_type", "int_parsing", "type=")
+
+
+def use_market(monkeypatch, doc):
+    collection = FakeMarketsCollection(doc)
+    monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+    return collection
+
+
+def assert_no_parser_detail(response, *inputs):
+    text = response.get_data(as_text=True)
+    for detail in (*PARSER_DETAIL, *inputs):
+        assert detail not in text
+
+
+class TestTheCopyIsOurs:
+    """A refusal that comes of a failed parse is in our words: the parser's message is logged, not
+    answered, and the log holds nothing an applicant wrote."""
+
+    def test_a_number_question_answered_in_words_says_so_and_no_more(
+        self, monkeypatch, applications, caplog,
+    ):
+        doc = stored_market(
+            phase=MarketPhase.APPLICATIONS_OPEN, intakeMode="form", setupObject=COMPLETE_PLAN,
+            applicationForm={"fields": [
+                {"key": "booths", "label": "Booths", "type": "number", "required": True,
+                 "options": [], "order": 0},
+            ]},
+        )
+        markets = FakeSlugMarketsCollection(doc)
+        monkeypatch.setattr(db_config, "get_database", lambda *_a, **_kw: {"markets": markets})
+        monkeypatch.setattr(
+            ApplicantsApi, "authenticate_request",
+            lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            response = app_module.app.test_client().put(
+                f"/public/markets/{market_name_slug('Test Market')}/applicant/application",
+                json={"formData": {"booths": "a dozen or so"}},
+                headers={"Authorization": "Bearer token"},
+            )
+
+        assert response.status_code == 422
+        assert response.get_json() == {"error": "'Booths' must be a number."}
+        assert_no_parser_detail(response, "a dozen", "could not convert")
+        assert "a dozen" not in caplog.text
+
+    def test_a_file_that_is_not_csv_says_so_and_logs_why(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS_OPEN))
+        # One answer longer than Python's reader allows a field to be.
+        oversized = 'Name,Notes\n"Ana Rivera","' + "x" * 200_000 + '"\n'
+
+        with caplog.at_level(logging.WARNING):
+            response = client.post(
+                "/markets/market-123/applications/import/inspect", json={"csvContent": oversized},
+            )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "That file could not be read as CSV."}
+        assert "field larger than field limit" in caplog.text
+        assert "Ana Rivera" not in caplog.text
+
+    def test_a_plan_with_a_wrong_typed_field_names_the_field(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(setupObject=COMPLETE_PLAN))
+        plan = {
+            **COMPLETE_PLAN,
+            "sections": [{**COMPLETE_PLAN["sections"][0], "count": "plenty-of-tables"}],
+        }
+
+        with caplog.at_level(logging.WARNING):
+            response = client.put("/markets/market-123/plan", json={"setupObject": plan})
+
+        assert response.status_code == 400
+        error = response.get_json()["error"]
+        assert error.startswith("Invalid plan: sections.0.count: ")
+        assert_no_parser_detail(response, "plenty-of-tables")
+        assert "sections.0.count" in caplog.text
+        assert "plenty-of-tables" not in caplog.text
+
+    def test_a_plan_that_is_not_an_object_is_refused_as_one(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(setupObject=COMPLETE_PLAN))
+
+        response = client.put("/markets/market-123/plan", json={"setupObject": ["a", "plan"]})
+
+        assert response.status_code == 400
+        assert response.get_json()["error"].startswith("Invalid plan: ")
+        assert_no_parser_detail(response)
+
+    def test_a_form_with_a_wrong_typed_field_names_the_field(
+        self, client, monkeypatch, applications, caplog,
+    ):
+        use_market(monkeypatch, stored_market(setupObject=COMPLETE_PLAN))
+        form = {"fields": [
+            {"key": "booths", "label": "Booths", "type": "number", "order": "first-of-all"},
+        ]}
+
+        with caplog.at_level(logging.WARNING):
+            response = client.put("/markets/market-123/application-form", json=form)
+
+        assert response.status_code == 400
+        error = response.get_json()["error"]
+        assert error.startswith("Invalid application form data: fields.0.order: ")
+        assert_no_parser_detail(response, "first-of-all")
+        assert "fields.0.order" in caplog.text
+        assert "first-of-all" not in caplog.text
+
+    def test_a_stored_market_that_cannot_be_read_says_only_that(self, client, monkeypatch, caplog):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        with caplog.at_level(logging.WARNING):
+            response = client.put("/markets/market-123/plan", json={"setupObject": COMPLETE_PLAN})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+        assert "market-123" in caplog.text
+        assert "setup_object.sections" in caplog.text
+        assert "unreadable-sections" not in caplog.text
 
 
 class TestFlasksOwnAnswers:

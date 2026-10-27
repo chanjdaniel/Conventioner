@@ -5,6 +5,7 @@ from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
+from client_errors import field_named_copy, parse_failure_detail
 from datatypes import (
     Application,
     ApplicationForm,
@@ -137,7 +138,8 @@ def _load_market_for(market_id: str, requesting_user: str, role: MarketRole, act
     try:
         market = market_from_document(market_dict)
     except Exception as e:
-        raise ValueError(f"Invalid market data: {e}")
+        _log_unreadable_market(market_id, e)
+        raise ValueError("Invalid market data") from e
 
     organization = _load_organization(market.organization_id)
     if not PermissionsApi.user_has_permission(requesting_user, market, role, organization):
@@ -733,6 +735,12 @@ class MarketContext(NamedTuple):
     organization_dict: Optional[Dict[str, Any]]
 
 
+def _log_unreadable_market(market_id: str, error: Exception) -> None:
+    """A stored market the model refuses is answered "Invalid market data"; why is logged, never
+    what the document held."""
+    logger.warning("Stored market %s failed validation: %s", market_id, parse_failure_detail(error))
+
+
 def load_market_context(market_id: str) -> Optional[MarketContext]:
     """Load a market with its parsed model and owning organization, or None if absent."""
     market_dict = markets_collection.find_one({"id": market_id})
@@ -742,7 +750,7 @@ def load_market_context(market_id: str) -> Optional[MarketContext]:
     try:
         market = market_from_document(market_dict)
     except Exception as e:
-        logger.warning("Stored market %s failed validation: %s", market_id, e)
+        _log_unreadable_market(market_id, e)
         return MarketContext(market_dict, None, None, None)
 
     organization, org_dict = _load_organization_context(market.organization_id)
@@ -1865,9 +1873,10 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     CSV start writes it in the same update as the form and the mapping it makes.
     """
     try:
-        plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
+        plan = SetupObject.model_validate(convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
-        raise ValueError(f"Invalid plan: {e}") from e
+        logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
+        raise ValueError(field_named_copy("Invalid plan", e)) from e
     share = plan.assignment_options.max_half_table_proportion_per_section
     if share is not None and not 0 <= share <= 100:
         raise ValueError(
@@ -2011,10 +2020,7 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
     """
     _assert_application_form_editable(market)
 
-    try:
-        application_form = ApplicationForm(**application_form_data)
-    except Exception as e:
-        raise ValueError(f"Invalid application form data: {e}")
+    application_form = parsed_application_form(market.id, application_form_data)
 
     stored_form = market.application_form
     application_form = _normalized_application_form(
@@ -2023,6 +2029,20 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
         essential_options=stored_form.essential_options if stored_form else None,
     )
     return convert_keys_to_camel_case(application_form.model_dump())
+
+
+def parsed_application_form(market_id: str, application_form_data: Any) -> ApplicationForm:
+    """The form a request body proposes, or a ValueError naming each field it gets wrong.
+
+    The one parse of a proposed form, for the form write and the amendment alike.
+    """
+    try:
+        return ApplicationForm.model_validate(application_form_data)
+    except ValidationError as e:
+        logger.warning(
+            "Refused an application form for market %s: %s", market_id, parse_failure_detail(e),
+        )
+        raise ValueError(field_named_copy("Invalid application form data", e)) from e
 
 
 def get_application_form(market_id: str, requesting_user: str) -> dict:

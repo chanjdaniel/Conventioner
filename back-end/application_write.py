@@ -212,8 +212,10 @@ def _field_answer(
     if field_type == "number":
         try:
             stored[key] = _as_number(raw)
-        except (TypeError, ValueError) as e:
-            return f"'{label}' must be a number: {e}"
+        except (TypeError, ValueError):
+            # Why the conversion failed is the answer itself, which is the applicant's to know and
+            # nobody's to log; the copy says all there is.
+            return f"'{label}' must be a number."
         return None
 
     if field_type in ("select", "multi_select"):

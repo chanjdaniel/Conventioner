@@ -225,10 +225,7 @@ def amend_application_form(
     if not availability["available"]:
         raise AmendmentUnavailable(availability["reason"])
 
-    try:
-        proposed = ApplicationForm(**application_form_data)
-    except Exception as e:
-        raise ValueError(f"Invalid application form data: {e}")
+    proposed = MarketsApi.parsed_application_form(market_id, application_form_data)
 
     blockers = preflight(market, proposed, plan)
     if blockers:
