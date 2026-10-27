@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import skip_without_real_dependencies
+from conftest import sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -137,6 +137,7 @@ def client(monkeypatch):
             is_anonymous=False, get_id=lambda e=email: e,
         )
 
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(UsersApi, "get_user", _get_user)
     monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(_market_doc()))
     monkeypatch.setattr(

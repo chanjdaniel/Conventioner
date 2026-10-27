@@ -4,7 +4,7 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - E32/F03/S04
 ---
@@ -25,7 +25,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | --- | --- |
 | `markets` | `id`; `organizationId`; `roles.$**` |
 | `organizations` | `id`; `owner`; `admins`; `members` |
-| `users` | `id`; `verification_token`; `password_reset_token` |
+| `users` | `id`; `verification_token`; `password_reset_token`; `login_id` (every request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id)) |
 | `applications` | `id` |
 | `attendance` | `market_id, vendor_email` |
 | `placement_history` | `market_id` |

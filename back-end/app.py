@@ -387,8 +387,8 @@ def healthz() -> Response:
 # users
 
 @login_manager.user_loader
-def get_user(email: str) -> Any:
-    return UsersApi.get_user(email)
+def get_user(login_id: str) -> Any:
+    return UsersApi.get_user_by_login_id(login_id)
 
 
 

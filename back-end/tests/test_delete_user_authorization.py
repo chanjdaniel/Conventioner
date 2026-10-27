@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import skip_without_real_dependencies
+from conftest import sessions_load_through_get_user, skip_without_real_dependencies
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -95,6 +95,7 @@ def client(monkeypatch, organizations):
     """
     organizations()
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(

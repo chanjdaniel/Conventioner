@@ -9,7 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
-from conftest import COMPLETE_PLAN
+from conftest import COMPLETE_PLAN, sessions_load_through_get_user
 
 from conftest import skip_without_real_dependencies
 
@@ -110,6 +110,7 @@ def client(monkeypatch):
     identity here as it is in production.
     """
     monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user",
         lambda email: SimpleNamespace(

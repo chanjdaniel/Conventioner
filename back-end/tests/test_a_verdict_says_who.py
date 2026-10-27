@@ -17,7 +17,7 @@ import api.applicants as ApplicantsApi  # noqa: E402
 import api.applications as ApplicationsApi  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
-from conftest import FakeApplicationsCollection  # noqa: E402
+from conftest import FakeApplicationsCollection, sessions_load_through_get_user  # noqa: E402
 from datatypes import ApplicationStatus, MarketPhase, VerdictGiver  # noqa: E402
 
 ALEX = VerdictGiver(kind="person", user_id="user-alex", email="alex@market.test")
@@ -84,6 +84,7 @@ def client(monkeypatch):
         return SimpleNamespace(id=people[email], email=email, is_active=True, is_authenticated=True,
                                is_anonymous=False, get_id=lambda e=email: e)
 
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(UsersApi, "get_user", _get_user)
     document = stored_market(MarketPhase.REVIEW, id="market-1", organizationId=None,
                              roles={"user-owner": "owner", "user-editor": "editor",

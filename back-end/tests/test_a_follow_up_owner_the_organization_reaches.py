@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import FakeMarketsCollection, sessions_load_through_get_user, stored_market
 import app as app_module
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
@@ -67,6 +67,7 @@ def market(monkeypatch, applications):
         OrgsApi, "get_organization",
         lambda org_id: ORGANIZATION.model_dump() if org_id == ORG_ID else None,
     )
+    sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(
         UsersApi, "get_user", lambda email: _account(email) if email in PEOPLE else None)
     monkeypatch.setattr(

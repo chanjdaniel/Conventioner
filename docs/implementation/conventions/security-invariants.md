@@ -143,6 +143,7 @@ A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) ins
 The app and the API are on different hosts, so the browser must attach the cookies to the app's requests to the API, which takes `SameSite=None`; a browser accepts a `SameSite=None` cookie only when it is Secure, so a switch could only ship a cookie the browser drops, or sends in the clear where it does not.
 Loopback counts as a secure context, so local development is unaffected.
 The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
+Both name the account by its login id, which a password reset replaces, so a reset ends every session and remember-me cookie issued before it: [users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id).
 
 ## Each request
 
