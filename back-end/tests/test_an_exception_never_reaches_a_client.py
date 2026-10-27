@@ -30,6 +30,7 @@ import api.applicants as ApplicantsApi
 import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
 import csv_start as CsvStart
@@ -572,6 +573,184 @@ class TestTheOrganizationAndRoleRoutes:
         assert "example.com" not in caplog.text
 
 
+# A new market's body the model takes, in an organization its creator owns.
+NEW_MARKET = {
+    "name": "Spring Market", "creationDate": "2026-01-01T00:00:00Z", "organizationId": ORG_ID,
+    "modificationList": [], "assignmentObject": {},
+}
+
+# Each market setup route, with a body it accepts and the markets API function it answers through.
+# The list of a user's markets has no refusal a signed-in user can reach, so it is here only to fail.
+MARKET_SETUP_ROUTES = [
+    ("get", "/markets/market-123", None, "get_market_for_user"),
+    ("get", "/markets", None, "get_markets_for_user"),
+    ("post", "/markets", NEW_MARKET, "create_owned_market"),
+    ("put", "/markets/market-123/name", {"name": "Autumn Market"}, "rename_market"),
+    ("put", "/markets/market-123/plan", {"setupObject": COMPLETE_PLAN}, "save_plan"),
+    ("get", "/markets/market-123/vendor-notes", None, "get_vendor_notes"),
+    ("put", "/markets/market-123/vendor-notes/vendor@example.com", {"note": "Extra chair"},
+     "save_vendor_note"),
+    ("put", "/markets/market-123/vendor-notes/vendor@example.com/request-handled",
+     {"handled": True}, "mark_vendor_request_handled"),
+    ("put", "/markets/market-123/review-highlights", {"keys": ["business_name"]},
+     "save_review_highlights"),
+    ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
+    ("delete", "/markets/market-123", None, "delete_market"),
+]
+
+
+class TestTheMarketSetupRoutes:
+    """Reading, creating, renaming, planning and deleting a market, and its notes, highlights and
+    rejection rules, answer through the handler: each refusal with the status and copy an organizer
+    reads, and anything else as the generic 500."""
+
+    def test_a_market_the_user_cannot_see_is_not_found(self, client):
+        response = client.get("/markets/market-missing")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found or access denied"}
+
+    @pytest.mark.parametrize("body", [{}, None])
+    def test_a_new_market_needs_a_body(self, client, body):
+        response = client.post("/markets", json=body)
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No data provided"}
+
+    def test_a_new_market_that_is_not_an_object_is_refused_as_one(self, client):
+        response = client.post("/markets", json=["Spring Market"])
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A JSON object is required"}
+
+    def test_a_new_market_in_no_organization_says_so(self, client, organization):
+        organization()
+
+        response = client.post("/markets", json={**NEW_MARKET, "organizationId": "org-missing"})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Organization not found"}
+
+    def test_a_new_market_that_breaks_an_invariant_is_the_servers_fault(
+        self, client, monkeypatch, organization,
+    ):
+        organization()
+        monkeypatch.setattr(MarketsApi, "create_market", fail_with(
+            ValueError("Market must have exactly one owner in roles dict"),
+        ))
+
+        response = client.post("/markets", json=NEW_MARKET)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+
+    def test_a_market_needs_a_name(self, client):
+        response = client.put("/markets/market-123/name", json={"name": "  "})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "A market needs a name."}
+
+    def test_a_market_past_draft_keeps_its_name(self, client):
+        response = client.put("/markets/market-123/name", json={"name": "Autumn Market"})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": MarketsApi.RENAME_REFUSED_AFTER_DRAFT}
+
+    def test_renaming_a_market_that_does_not_exist(self, client):
+        response = client.put("/markets/market-missing/name", json={"name": "Autumn Market"})
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_a_plan_write_carries_only_the_plan(self, client):
+        response = client.put(
+            "/markets/market-123/plan", json={"setupObject": COMPLETE_PLAN, "name": "Renamed"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "The plan write carries only the plan; it does not accept name.",
+        }
+
+    def test_the_notes_of_a_market_that_does_not_exist(self, client):
+        response = client.get("/markets/market-missing/vendor-notes")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_a_note_on_an_archived_market(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.ARCHIVED))
+
+        response = client.put(
+            "/markets/market-123/vendor-notes/vendor@example.com", json={"note": "Extra chair"},
+        )
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+
+    def test_a_request_marked_without_saying_how(self, client):
+        response = client.put(
+            "/markets/market-123/vendor-notes/vendor@example.com/request-handled",
+            json={"handled": "yes"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "handled is required"}
+
+    def test_highlights_on_an_archived_market(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.ARCHIVED))
+
+        response = client.put("/markets/market-123/review-highlights", json={"keys": []})
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": MarketsApi.ARCHIVED_REFUSAL}
+
+    def test_rejection_rules_once_they_are_settled(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.MARKET_DAYS))
+
+        response = client.put("/markets/market-123/rejection-rules", json={"rules": []})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": MarketsApi.REJECTION_RULES_SETTLED}
+
+    def test_deleting_a_market_that_does_not_exist(self, client):
+        response = client.delete("/markets/market-missing")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "Market not found"}
+
+    def test_deleting_a_market_that_cannot_be_read(self, client, monkeypatch):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        response = client.delete("/markets/market-123")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+
+    @pytest.mark.parametrize("method, path, body, function", MARKET_SETUP_ROUTES)
+    def test_an_unexpected_failure_answers_only_internal_server_error(
+        self, client, monkeypatch, caplog, organization, method, path, body, function,
+    ):
+        organization()
+        monkeypatch.setattr(MarketsApi, function, fail_with(RuntimeError(SECRET)))
+
+        with caplog.at_level(logging.ERROR):
+            response = call(client, method, path, body)
+
+        assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
+        assert SECRET not in response.get_data(as_text=True)
+        assert "RuntimeError" not in response.get_data(as_text=True)
+        [record] = [r for r in caplog.records if r.name == "client_errors"]
+        assert record.exc_info is not None and record.exc_info[0] is RuntimeError
+        assert method.upper() in record.getMessage()
+        if "/markets/" in path:
+            assert "market-123" in record.getMessage()
+        assert "example.com" not in caplog.text
+
+
 class TestAClientError:
     def test_is_answered_with_its_status_and_copy(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -827,6 +1006,26 @@ class TestTheCopyIsOurs:
         assert "setup_object.sections" in caplog.text
         assert "unreadable-sections" not in caplog.text
 
+
+    def test_a_stored_organization_that_cannot_be_read_logs_only_where(
+        self, client, monkeypatch, caplog,
+    ):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, organizationId=ORG_ID))
+        unreadable = FakeOrganizations({
+            "_id": "mongo-org", "id": ORG_ID, "name": ORG_NAME, "owner": "user-9",
+            "markets": "unreadable-markets",
+        })
+        monkeypatch.setattr(OrgsApi, "organizations_collection", unreadable)
+        monkeypatch.setattr(PermissionsApi, "organizations_collection", unreadable)
+
+        with caplog.at_level(logging.WARNING):
+            response = client.put("/markets/market-123/name", json={"name": "Autumn Market"})
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": MarketsApi.RENAME_REFUSED_AFTER_DRAFT}
+        assert ORG_ID in caplog.text
+        assert "markets (list_type)" in caplog.text
+        assert "unreadable-markets" not in caplog.text
 
 class TestFlasksOwnAnswers:
     def test_an_unknown_url_is_still_flasks_404(self, client):

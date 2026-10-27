@@ -82,7 +82,7 @@ class TestLoadOrganizationContext:
         assert organization is None
         assert org_dict["name"] == "Test Org"
         assert ORG_ID in caplog.text
-        assert "Failed to parse organization" in caplog.text
+        assert f"Stored organization {ORG_ID} failed validation" in caplog.text
 
 
 class TestCallSitesAdoptTheHelpersFailurePath:
@@ -120,7 +120,7 @@ class TestCallSitesAdoptTheHelpersFailurePath:
 
         assert market.id == "market-123"
         assert ORG_ID in caplog.text
-        assert "Failed to parse organization" in caplog.text
+        assert f"Stored organization {ORG_ID} failed validation" in caplog.text
 
 
 class TestGetAssignedMarketOrganizationName:
@@ -162,4 +162,4 @@ class TestGetAssignedMarketOrganizationName:
         assert status == 200
         assert result["organizationName"] == "Test Org"
         assert fetches == [ORG_ID]
-        assert "Failed to parse organization" in caplog.text
+        assert f"Stored organization {ORG_ID} failed validation" in caplog.text

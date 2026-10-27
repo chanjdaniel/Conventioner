@@ -655,38 +655,30 @@ def update_market_role(market_id: str, user_id: str) -> Response:
 @login_required
 def get_market(market_id: str) -> Response:
     """Get a market by its ID. Uses permission checks."""
-    try:
-        user_email = authenticated_email()
+    user_email = authenticated_email()
 
-        # Check that user exists
-        user = UsersApi.get_user(user_email)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    # Check that user exists
+    user = UsersApi.get_user(user_email)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        # Try to find market by name (market_id is actually the name)
-        market = MarketsApi.get_market_for_user(user_email, market_id)
-        if market:
-            return jsonify({"market": market}), 200
-        else:
-            return jsonify({"error": "Market not found or access denied"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    market = MarketsApi.get_market_for_user(user_email, market_id)
+    if market:
+        return jsonify({"market": market}), 200
+    return jsonify({"error": "Market not found or access denied"}), 404
 
 @app.route('/markets', methods=['GET'])
 @login_required
 def get_markets_by_owner_email() -> Response:
     """Get all markets for user (via explicit role or organization)."""
-    try:
-        user_email = authenticated_email()
-        
-        user = UsersApi.get_user(user_email)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-        
-        markets = MarketsApi.get_markets_for_user(user_email)
-        return jsonify({"markets": markets}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    user_email = authenticated_email()
+
+    user = UsersApi.get_user(user_email)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    markets = MarketsApi.get_markets_for_user(user_email)
+    return jsonify({"markets": markets}), 200
 
 @app.route('/markets', methods=['POST'])
 @login_required
@@ -696,44 +688,34 @@ def create_market() -> Response:
     Every market belongs to an organization: the payload must carry an
     `organizationId` that names an existing organization the requesting user
     owns or belongs to (as admin or member). A missing, unknown, or
-    non-member organization is rejected with 400.
+    non-member organization is rejected with 400, and a body the model refuses is rejected with
+    400 naming each field it refused.
     """
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        
-        owner_email = authenticated_email()
-        owner = UsersApi.get_user(owner_email)
-        if not owner:
-            return jsonify({"error": "Owner not found"}), 404
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
 
-        market_id = MarketsApi.create_owned_market(owner, convert_keys_to_snake_case(data))
+    owner_email = authenticated_email()
+    owner = UsersApi.get_user(owner_email)
+    if not owner:
+        return jsonify({"error": "Owner not found"}), 404
 
-        return jsonify({
-            "message": "Market created successfully",
-            "market_id": market_id
-        }), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    market_id = MarketsApi.create_owned_market(owner, convert_keys_to_snake_case(data))
+
+    return jsonify({
+        "message": "Market created successfully",
+        "market_id": market_id
+    }), 201
 
 @app.route('/markets/<market_id>/name', methods=['PUT'])
 @login_required
 def rename_market(market_id: str) -> Response:
     """Rename a market while it is a draft (E21/F03/S04). Body: { "name": "..." }."""
-    try:
-        data = request.get_json(silent=True) or {}
-        MarketsApi.rename_market(market_id, data.get("name", ""), authenticated_email())
-        return jsonify({"message": "Market renamed"}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in rename_market for {market_id}: {str(e)}")
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+    data = request.get_json(silent=True) or {}
+    MarketsApi.rename_market(market_id, data.get("name", ""), authenticated_email())
+    return jsonify({"message": "Market renamed"}), 200
 
 
 @app.route('/markets/<market_id>/plan', methods=['PUT'])
@@ -744,66 +726,41 @@ def save_plan(market_id: str) -> Response:
     Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
     name: the plan's autosave sends what the plan owns, not the whole market.
     """
-    try:
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "A JSON object is required"}), 400
-        MarketsApi.save_plan(market_id, data, authenticated_email())
-        return jsonify({"message": "Plan saved"}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in save_plan for {market_id}: {str(e)}")
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    MarketsApi.save_plan(market_id, data, authenticated_email())
+    return jsonify({"message": "Plan saved"}), 200
 
 
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
 @login_required
 def get_vendor_notes(market_id: str) -> Response:
     """The organizer's notes on this market's vendors, by address (E31/F04)."""
-    try:
-        return jsonify({"notes": MarketsApi.get_vendor_notes(market_id, authenticated_email())}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
+    return jsonify({"notes": MarketsApi.get_vendor_notes(market_id, authenticated_email())}), 200
 
 
 @app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>', methods=['PUT'])
 @login_required
 def save_vendor_note(market_id: str, vendor_email: str) -> Response:
     """Replace the organizer's note on one vendor. Body: { "note": "Promised an extra chair" }"""
-    try:
-        data = request.get_json(silent=True) or {}
-        if not isinstance(data.get("note"), str):
-            return jsonify({"error": "note is required"}), 400
-        MarketsApi.save_vendor_note(market_id, vendor_email, data["note"], authenticated_email())
-        return jsonify({"message": "Note saved"}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("note"), str):
+        return jsonify({"error": "note is required"}), 400
+    MarketsApi.save_vendor_note(market_id, vendor_email, data["note"], authenticated_email())
+    return jsonify({"message": "Note saved"}), 200
 
 
 @app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled', methods=['PUT'])
 @login_required
 def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
     """Mark a vendor's request handled, or take the mark back. Body: { "handled": true }"""
-    try:
-        data = request.get_json(silent=True) or {}
-        if not isinstance(data.get("handled"), bool):
-            return jsonify({"error": "handled is required"}), 400
-        MarketsApi.mark_vendor_request_handled(
-            market_id, vendor_email, data["handled"], authenticated_email())
-        return jsonify({"message": "Saved"}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("handled"), bool):
+        return jsonify({"error": "handled is required"}), 400
+    MarketsApi.mark_vendor_request_handled(
+        market_id, vendor_email, data["handled"], authenticated_email())
+    return jsonify({"message": "Saved"}), 200
 
 
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
@@ -819,23 +776,13 @@ def save_review_highlights(market_id: str) -> Response:
     Deliberately NOT gated on the application-form lock: an organizer learns which answers they
     needed while reviewing, which is after that lock closes.
     """
-    try:
-        data = request.get_json(silent=True) or {}
-        keys = data.get("keys")
-        if keys is None:
-            return jsonify({"error": "keys is required"}), 400
+    data = request.get_json(silent=True) or {}
+    keys = data.get("keys")
+    if keys is None:
+        return jsonify({"error": "keys is required"}), 400
 
-        stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
-        return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in save_review_highlights for {market_id}: {str(e)}")
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+    stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
+    return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
 
 
 @app.route('/markets/<market_id>/rejection-rules', methods=['PUT'])
@@ -848,21 +795,11 @@ def save_rejection_rules(market_id: str) -> Response:
     The only writer of the field. Refused, in words, for a rule a question cannot carry, and once
     the market has reached Assignment.
     """
-    try:
-        data = request.get_json(silent=True) or {}
-        if "rules" not in data:
-            return jsonify({"error": "rules is required"}), 400
-        stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
-        return jsonify({"rejectionRules": stored}), 200
-    except MarketsApi.MarketNotFoundError:
-        return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error in save_rejection_rules for {market_id}: {str(e)}")
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+    data = request.get_json(silent=True) or {}
+    if "rules" not in data:
+        return jsonify({"error": "rules is required"}), 400
+    stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
+    return jsonify({"rejectionRules": stored}), 200
 
 
 @app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
@@ -1028,20 +965,10 @@ def get_application_form(market_id: str) -> Response:
 @login_required
 def delete_market(market_id: str) -> Response:
     """Delete a market. Only owner can delete."""
-    try:
-        requesting_user = authenticated_email()
-
-        result = MarketsApi.delete_market(market_id, requesting_user)
-        if result.deleted_count > 0:
-            return jsonify({"message": "Market deleted successfully"}), 200
-        else:
-            return jsonify({"error": "Market not found"}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    result = MarketsApi.delete_market(market_id, authenticated_email())
+    if result.deleted_count > 0:
+        return jsonify({"message": "Market deleted successfully"}), 200
+    return jsonify({"error": "Market not found"}), 404
 
 @app.route('/markets/<market_id>/transition', methods=['POST'])
 @login_required
