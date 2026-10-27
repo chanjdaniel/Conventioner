@@ -259,7 +259,12 @@ flask run --port=5001 --cert=adhoc
 
 # Or redirect errors to log file
 flask run --port=5001 --cert=adhoc > error.log 2>&1
+
+# Or with the Werkzeug debugger and reloader, on your machine only
+flask run --port=5001 --cert=adhoc --debug
 ```
+
+`flask run` is the only way the back end starts: `app.py` has no `__main__` block, so `python app.py` starts no server, and the debugger runs only when you ask for it with `--debug`.
 
 The backend will start on: **[https://127.0.0.1:5001](https://127.0.0.1:5001)**
 

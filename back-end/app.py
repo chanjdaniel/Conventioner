@@ -2177,9 +2177,6 @@ def cleanup_sessions() -> None:
 
 cleanup_sessions()
 
-# Vercel automatically detects Flask apps, but we can export the app instance
-# The app instance will be used by Vercel's Python runtime
-
-if __name__ == '__main__':
-    # 5001 as every other way the back end starts, not Flask's 5000: docs/TESTING.md says why.
-    app.run(debug=True, port=5001)
+# No `__main__` block: the back end starts with `flask run` (the Dockerfile, docs/STARTUP.md) or is
+# imported by Vercel's Python runtime, so the Werkzeug debugger runs only when asked for by name
+# (`flask run --debug`).
