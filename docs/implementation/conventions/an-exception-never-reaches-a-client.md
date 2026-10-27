@@ -8,6 +8,10 @@ describes:
   - back-end/app.py#get_assignment_statistics
   - back-end/app.py#get_assignment_csv
   - back-end/app.py#get_market_tables
+  - back-end/api/markets.py#parsed_application_form
+  - back-end/api/markets.py#_log_unreadable_market
+  - back-end/application_write.py#_field_answer
+  - back-end/csv_import.py#parse_csv
 verified: 2026-10-27
 sources:
   - T74
@@ -25,6 +29,19 @@ It is the error half of the [security invariants](security-invariants.md#each-re
 Client copy is a literal, or a sentence our code composes from values it chose: a field's label, a market's name, a phase, a list of blockers.
 It is never `str()`, `repr()` or `args` of an exception, nor a library's message, even wrapped in a sentence of ours.
 A domain exception of ours may carry client copy, because we wrote it where we raised it, and a route may translate one into its answer with a method of its own (`IncompleteApplicationsError.message()`).
+
+### A refused parse
+
+A parse that fails says what was wrong in our words, with the status it always had, and logs what the copy left out at warning level, never the input.
+
+- A body a model refuses answers 400 with `field_named_copy(heading, error)`: `Invalid plan: sections.0.count: Input should be a valid integer, ...`.
+  The plan is parsed in `prepared_plan` and the application form in `parsed_application_form`, both in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write and the [form amendment](../modules/form-amendment.md) share the second.
+  It names each failing field by its dotted location and pydantic's short `msg`, and never the error's `input`, `ctx`, `url` or `type`.
+  Its log line is `parse_failure_detail(error)`: each location and pydantic's error type.
+  The body is parsed with `model_validate`, so a body that is not an object is refused the same way rather than raising a `TypeError`.
+- A stored market the model refuses answers `Invalid market data`, 400, and `_log_unreadable_market` logs the same detail with the market's id, for `_load_market_for` and `load_market_context` alike.
+- A number question answered with text ([`back-end/application_write.py`](../../../back-end/application_write.py)) answers `'<label>' must be a number.`, 422, and logs nothing: why the conversion failed is the answer itself, which is the applicant's and never a log's.
+- A CSV Python's reader refuses (`parse_csv` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)) answers `That file could not be read as CSV.`, 400, and logs the reader's message, which names a limit or a character, never a cell.
 
 ## The types
 
@@ -58,6 +75,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
 - [`test_an_exception_never_reaches_a_client.py`](../../../back-end/tests/test_an_exception_never_reaches_a_client.py) calls the real routes through the test client.
   A client error answers its status and body, a structured `body()` is answered as given, and an injected exception carrying a secret-shaped string answers exactly the generic 500 on each assignment read, with the string nowhere in the response and one log record holding the traceback and the market id but no email.
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
+  Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
 - CodeQL's `py/stack-trace-exposure`, run on every pull request, flags a route that catches an exception and answers its text.
   It stops following a flow at a `raise`, so the client copy rule and these tests keep the guarantee where the tool cannot see.
