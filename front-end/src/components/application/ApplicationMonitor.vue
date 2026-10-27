@@ -517,7 +517,7 @@ function submittedOn(app: Application): string {
         </span>
         <span
           v-if="resultsPublished"
-          class="published-badge"
+          class="chip chip--positive"
           data-testid="app-monitor-published-badge"
         >
           Results Published
@@ -925,15 +925,6 @@ function submittedOn(app: Application): string {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   max-width: 24ch;
-}
-
-.published-badge {
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-green);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-control);
-  font-size: var(--text-xs);
-  font-weight: 400;
 }
 
 .loading-state,

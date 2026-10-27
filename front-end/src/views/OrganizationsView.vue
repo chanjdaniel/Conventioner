@@ -259,19 +259,20 @@ function canManage(org: Organization): boolean {
   font-size: var(--text-xs);
 }
 
+/* Opaque chip grounds, so a badge reads the same on a dialog's beige as on white (T79). */
 .role-owner {
-  background: rgba(26, 111, 139, 0.14);
+  background: var(--mm-chip-informational);
   color: var(--mm-blue);
 }
 
 .role-admin {
-  background: rgba(54, 130, 111, 0.16);
+  background: var(--mm-chip-positive);
   color: var(--mm-text-green);
 }
 
 .role-member {
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-green);
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green);
 }
 
 .content-block::-webkit-scrollbar {
