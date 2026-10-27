@@ -169,6 +169,8 @@ A 403 with these words on a deployment means the page's origin is not in `CORS_A
 **A value read from a request body reaches a query only as a string**: the rule, its one helper and its test are [a request value is a string](a-request-value-is-a-string.md).
 The checks above make the process boot safe; that one makes safe each lookup a request then asks of it.
 
+**An exception never reaches a client**: a refusal is answered in copy our code wrote, and any other failure is logged and answered a bare `{"error": "Internal server error"}`; the types, the two handlers and their tests are [an exception never reaches a client](an-exception-never-reaches-a-client.md).
+
 ## How it is enforced
 
 - One test module per requirement (`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`, `test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py` for the refusal itself: it names every missing variable, `ALLOW_INSECURE_LOCAL_DEV` is the only waiver, and the template boots.

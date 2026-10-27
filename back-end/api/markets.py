@@ -59,7 +59,6 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import rejection_rules as RejectionRules
-import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
@@ -1156,172 +1155,126 @@ def organization_refusal(user_email: str, organization_id: Optional[str]) -> Opt
 
 def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Get an assigned market. Requires VIEW permission."""
-    try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
 
-        if requesting_user:
-            if context.market is None:
-                return {"error": "Invalid market data"}, 400
+    if requesting_user:
+        if context.market is None:
+            return {"error": "Invalid market data"}, 400
 
-            if not PermissionsApi.user_has_permission(requesting_user, context.market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
+        if not PermissionsApi.user_has_permission(requesting_user, context.market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
 
-        market_dict = convert_keys_to_snake_case(context.document)
+    market_dict = convert_keys_to_snake_case(context.document)
 
-        # Fix missing assignment_options in setup_object
-        if "setup_object" in market_dict and market_dict["setup_object"]:
-            if "assignment_options" not in market_dict["setup_object"]:
-                market_dict["setup_object"]["assignment_options"] = {
-                    "max_assignments_per_vendor": None,
-                    "max_half_table_proportion_per_section": None,
-                }
-        
-        # Fix None assignment_object
-        # temp reset
-        # if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
-        market_dict["assignment_object"] = {
-            "vendor_assignments": [],
-            "assignment_date": "",
-            "assignment_statistics": None
-        }
-
-        # Convert dictionary to Market object
-        try:
-            market = market_from_document(context.document, market_dict)
-            try:
-                vendors = solver_vendors_for(market)
-            except IncompleteApplicationsError as incomplete:
-                # The organizer has to go and fix something, so say who.
-                return {"error": incomplete.message()}, 400
-
-            # Running the solver over nobody produced a screen that looked exactly like a
-            # completed run - 0 assignments, 0/24 tables, 0/0 vendors - which reads as a market
-            # that failed rather than one that was never asked anything. Refused HERE rather than
-            # inside the solver, because the read-only views of an assignment (statistics, the
-            # tables grid, the CSV) are right to show an empty market's empty picture; it is
-            # *asking for an assignment* that has nothing to do.
-            if not vendors:
-                return {"error": NOTHING_TO_ASSIGN}, 400
-
-            assigned_market = assign_market(market, vendors)
-            assigned_market_dict = assigned_market.model_dump()
-
-            assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
-            if context.organization_dict:
-                assigned_market_dict['organizationName'] = context.organization_dict.get('name')
-            return assigned_market_dict, 200
-
-        except Exception as validation_error:
-            logger.error(f"Market validation error: {validation_error}")
-            logger.error(f"Validation error type: {type(validation_error)}")
-            logger.error(f"Full traceback: {traceback.format_exc()}")  # Add this line
-            if hasattr(validation_error, 'errors'):
-                logger.error(f"Validation errors: {validation_error.errors()}")
-            
-            # Return more detailed validation error
-            error_details = {
-                "error": "Market validation failed",
-                "message": str(validation_error),
-                "error_type": type(validation_error).__name__,
-                "market_id": market_id
+    # Fix missing assignment_options in setup_object
+    if "setup_object" in market_dict and market_dict["setup_object"]:
+        if "assignment_options" not in market_dict["setup_object"]:
+            market_dict["setup_object"]["assignment_options"] = {
+                "max_assignments_per_vendor": None,
+                "max_half_table_proportion_per_section": None,
             }
-            
-            if hasattr(validation_error, 'errors'):
-                error_details["validation_errors"] = validation_error.errors()
-            
-            return error_details, 400
 
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assigned_market: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        
-        # Return detailed error information
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assigned_market"
-        }, 500
+    # Fix None assignment_object
+    # temp reset
+    # if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
+    market_dict["assignment_object"] = {
+        "vendor_assignments": [],
+        "assignment_date": "",
+        "assignment_statistics": None
+    }
+
+    # Convert dictionary to Market object
+    market = market_from_document(context.document, market_dict)
+    try:
+        vendors = solver_vendors_for(market)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+
+    # Running the solver over nobody produced a screen that looked exactly like a
+    # completed run - 0 assignments, 0/24 tables, 0/0 vendors - which reads as a market
+    # that failed rather than one that was never asked anything. Refused HERE rather than
+    # inside the solver, because the read-only views of an assignment (statistics, the
+    # tables grid, the CSV) are right to show an empty market's empty picture; it is
+    # *asking for an assignment* that has nothing to do.
+    if not vendors:
+        return {"error": NOTHING_TO_ASSIGN}, 400
+
+    assigned_market = assign_market(market, vendors)
+    assigned_market_dict = assigned_market.model_dump()
+
+    assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
+    if context.organization_dict:
+        assigned_market_dict['organizationName'] = context.organization_dict.get('name')
+    return assigned_market_dict, 200
 
 
 def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Derive and return assignment statistics for a market."""
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    # Keep persisted schema free of assignment statistics, then derive fresh.
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        # The vendors are read once and handed to both: the solver places them, and the
+        # reasons below are computed against the same set, so the two can never disagree
+        # about who applied.
+        vendors = solver_vendors_for(market)
+        assigned_market = assignment_to_show(market, vendors)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+    stats = assigned_market.assignment_object.assignment_statistics
+    if stats is None:
+        return {"error": "Unable to derive assignment statistics"}, 500
 
-        market = context.market
+    rows = derive_market_table_rows(assigned_market)
+    stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        # Keep persisted schema free of assignment statistics, then derive fresh.
-        market.assignment_object.assignment_statistics = None
-        try:
-            # The vendors are read once and handed to both: the solver places them, and the
-            # reasons below are computed against the same set, so the two can never disagree
-            # about who applied.
-            vendors = solver_vendors_for(market)
-            assigned_market = assignment_to_show(market, vendors)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-        stats = assigned_market.assignment_object.assignment_statistics
-        if stats is None:
-            return {"error": "Unable to derive assignment statistics"}, 500
-
-        rows = derive_market_table_rows(assigned_market)
-        stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
-
-        payload = convert_keys_to_camel_case(stats.model_dump())
-        # Why each vendor holds no table, computed from the plan, the applications and the
-        # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
-        # unplaced, so the panel listing them can say why without a second request.
-        placed_rows = assigned_market.assignment_object.vendor_assignments or []
-        payload["unplacedDates"] = [
-            {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
-            for entry in unplaced_dates(
-                assigned_market.setup_object, vendors, placed_rows,
-            )
-        ]
-        # A hand placement that contradicts what the vendor asked for stands - admins edit
-        # without restriction - but it is never silent: tier sets the price, and someone will be
-        # charged for a table they did not choose (E11/F02/S02). Computed on read beside the
-        # reasons above, because "why is this vendor here" and "why is this vendor nowhere" are
-        # one question asked twice.
-        payload["overriddenPlacements"] = [
-            {
-                "email": entry.email,
-                "date": entry.date,
-                "tableCode": entry.table_code,
-                "overrides": [override.value for override in entry.overrides],
-            }
-            for entry in overridden_placements(
-                vendors, placed_rows,
-                not_approved_vendors(market, {vendor.email for vendor in vendors}),
-            )
-        ]
-        # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
-        # name them. A vendor with no stored name has no entry and renders as they did before.
-        payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)
-        return payload, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assignment_statistics: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assignment_statistics"
-        }, 500
+    payload = convert_keys_to_camel_case(stats.model_dump())
+    # Why each vendor holds no table, computed from the plan, the applications and the
+    # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
+    # unplaced, so the panel listing them can say why without a second request.
+    placed_rows = assigned_market.assignment_object.vendor_assignments or []
+    payload["unplacedDates"] = [
+        {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
+        for entry in unplaced_dates(
+            assigned_market.setup_object, vendors, placed_rows,
+        )
+    ]
+    # A hand placement that contradicts what the vendor asked for stands - admins edit
+    # without restriction - but it is never silent: tier sets the price, and someone will be
+    # charged for a table they did not choose (E11/F02/S02). Computed on read beside the
+    # reasons above, because "why is this vendor here" and "why is this vendor nowhere" are
+    # one question asked twice.
+    payload["overriddenPlacements"] = [
+        {
+            "email": entry.email,
+            "date": entry.date,
+            "tableCode": entry.table_code,
+            "overrides": [override.value for override in entry.overrides],
+        }
+        for entry in overridden_placements(
+            vendors, placed_rows,
+            not_approved_vendors(market, {vendor.email for vendor in vendors}),
+        )
+    ]
+    # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
+    # name them. A vendor with no stored name has no entry and renders as they did before.
+    payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)
+    return payload, 200
 
 
 def get_placement_history(
@@ -1366,53 +1319,39 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
     Returns either ({"csv_content": str, "filename": str}, 200) on success or
     an error dict with the appropriate HTTP status code.
     """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    if market.setup_object is None:
+        return {"error": "Market has no setup configured"}, 400
+
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        vendors = solver_vendors_for(market)
+        assigned_market = assignment_to_show(market, vendors)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
+    assigned_market_dict = assigned_market.model_dump()
 
-        market = context.market
+    csv_content = market_csv_to_string(
+        assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
+        ApplicationsApi.vendor_full_names_for_market(market_id),
+        {vendor.email for vendor in not_approved_vendors(
+            market, {vendor.email for vendor in vendors})},
+    )
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        if market.setup_object is None:
-            return {"error": "Market has no setup configured"}, 400
-
-        market.assignment_object.assignment_statistics = None
-        try:
-            vendors = solver_vendors_for(market)
-            assigned_market = assignment_to_show(market, vendors)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-        assigned_market_dict = assigned_market.model_dump()
-
-        try:
-            csv_content = market_csv_to_string(
-                assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
-                ApplicationsApi.vendor_full_names_for_market(market_id),
-                {vendor.email for vendor in not_approved_vendors(
-                    market, {vendor.email for vendor in vendors})},
-            )
-        except ValueError as e:
-            return {"error": str(e)}, 400
-
-        filename = _market_csv_filename(context.document.get("name"), market_id)
-        return {"csv_content": csv_content, "filename": filename, "market_id": market_id}, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_assignment_csv: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_assignment_csv",
-        }, 500
+    filename = _market_csv_filename(context.document.get("name"), market_id)
+    return {"csv_content": csv_content, "filename": filename, "market_id": market_id}, 200
 
 
 def is_not_approved(application: Application) -> bool:
@@ -1465,70 +1404,59 @@ def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str
 
 def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
     """Derive and return table rows for a market."""
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    market = context.market
+
+    if requesting_user:
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
+            return {"error": "User does not have permission to view this market"}, 403
+
+    market.assignment_object.assignment_statistics = None
     try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+        vendors = solver_vendors_for(market)
+    except IncompleteApplicationsError as incomplete:
+        # The organizer has to go and fix something, so say who.
+        return {"error": incomplete.message()}, 400
 
-        market = context.market
+    # The STORED assignment, when the market has one. This is the screen an organizer edits
+    # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
+    # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
+    # they pressed Assign, and every seat they moved a vendor into would be a seat they had
+    # never actually seen. A market with nothing stored still shows the run it would get.
+    assigned_market = assignment_to_show(market, vendors)
 
-        if requesting_user:
-            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
-                return {"error": "User does not have permission to view this market"}, 403
-
-        market.assignment_object.assignment_statistics = None
-        try:
-            vendors = solver_vendors_for(market)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-
-        # The STORED assignment, when the market has one. This is the screen an organizer edits
-        # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
-        # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
-        # they pressed Assign, and every seat they moved a vendor into would be a seat they had
-        # never actually seen. A market with nothing stored still shows the run it would get.
-        assigned_market = assignment_to_show(market, vendors)
-
-        rows = derive_market_table_rows(assigned_market)
-        return {
-            "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
-            # Name against address, for the surfaces that only ever knew the address. Sent with
-            # the rows rather than fetched separately so the grid and its occupants' names can
-            # never be a request apart.
-            "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-            # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
-            "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
+    rows = derive_market_table_rows(assigned_market)
+    return {
+        "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
+        # Name against address, for the surfaces that only ever knew the address. Sent with
+        # the rows rather than fetched separately so the grid and its occupants' names can
+        # never be a request apart.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+        # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+        "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
+            market_id,
+            market.application_form.fields if market.application_form else [],
+            {email for row in rows for email in row.assignment_slots if email},
+        ),
+        # Who may be put in a seat, and what they asked for. Sent with the grid because the
+        # view has to warn - before the change, not after - when a placement would alter a
+        # vendor's table choice away from their own answer (E11/F03/S01).
+        # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
+        # seat anyone by hand, warned, and the run's own vendors come first.
+        "vendors": [_placeable(vendor, None) for vendor in vendors] + [
+            _placeable(vendor, application)
+            for vendor, application in outside_solver_vendors(
                 market_id,
-                market.application_form.fields if market.application_form else [],
-                {email for row in rows for email in row.assignment_slots if email},
-            ),
-            # Who may be put in a seat, and what they asked for. Sent with the grid because the
-            # view has to warn - before the change, not after - when a placement would alter a
-            # vendor's table choice away from their own answer (E11/F03/S01).
-            # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
-            # seat anyone by hand, warned, and the run's own vendors come first.
-            "vendors": [_placeable(vendor, None) for vendor in vendors] + [
-                _placeable(vendor, application)
-                for vendor, application in outside_solver_vendors(
-                    market_id,
-                    EssentialFields.effective_essential_options_for_market(market),
-                    {vendor.email for vendor in vendors},
-                )
-            ],
-        }, 200
-    except Exception as e:
-        logger.error(f"Unexpected error in get_market_tables: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "get_market_tables"
-        }, 500
+                EssentialFields.effective_essential_options_for_market(market),
+                {vendor.email for vendor in vendors},
+            )
+        ],
+    }, 200
 
 
 def finalization_update(
