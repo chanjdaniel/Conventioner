@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { Layer as VLayer, Rect as VRect, Stage as VStage } from 'vue-konva';
 import { useModalRoot } from '@/utils/useModalRoot';
 import { useFloorplanStore } from '@/stores/floorplan';
 import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';

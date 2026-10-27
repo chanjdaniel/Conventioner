@@ -4,7 +4,6 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import './stores/floorplan';
 import './stores/application';
-import VueKonva from 'vue-konva';
 
 import App from './App.vue';
 import router from './router';
@@ -15,7 +14,6 @@ const app = createApp(App);
 
 app.use(createPinia());
 app.use(router);
-app.use(VueKonva);
 
 installApplicantSessionExpiry(router);
 

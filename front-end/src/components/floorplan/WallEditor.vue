@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { Circle as VCircle, Layer as VLayer, Line as VLine, Stage as VStage } from 'vue-konva';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { canvasColor } from '@/utils/canvasColor';
 import type { WallSegment, ObstacleZone } from '@/assets/types/datatypes';

@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import {
+  Image as VImage,
+  Layer as VLayer,
+  Line as VLine,
+  Rect as VRect,
+  Stage as VStage,
+  Transformer as VTransformer,
+} from 'vue-konva';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import { useUndoRedo } from '@/components/floorplan/useUndoRedo';

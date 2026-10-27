@@ -74,7 +74,9 @@ Two families, and only two.
 | Headings | `Merge One` | Deep descenders; never give it a tight line box. |
 | Everything else | `Outfit` | The product's real UI face. |
 
-**The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: `public/fonts/Outfit/static/` ships Medium, SemiBold and Bold, and `public/fonts/Outfit-VariableFont_wght.ttf` covers the whole axis, and none of them were ever declared. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
+Both ship as WOFF2 from `front-end/public/fonts/`, converted losslessly from Google Fonts' TTFs with the variable `wght` axis kept; a new face ships as WOFF2 too.
+
+**The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: static Medium, SemiBold and Bold files shipped alongside the variable Outfit, which covers the whole axis, and none of them were ever declared. The variable face (`public/fonts/Outfit-VariableFont_wght.woff2`) is the only Outfit that ships now; the unused statics are gone. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
 
 `Inter` is retired. `body` declared it while 354 component rules named a face of their own - 274 Outfit, 80 Merge One - so Inter survived in 2 rules and in the one place nothing overrode it: form controls, which do not inherit `font-family` and fell through to the user agent's Arial instead.
 
