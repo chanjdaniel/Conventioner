@@ -5,7 +5,14 @@ from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
-from client_errors import field_named_copy, parse_failure_detail
+from client_errors import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    field_named_copy,
+    parse_failure_detail,
+)
 from datatypes import (
     Application,
     ApplicationForm,
@@ -89,12 +96,12 @@ VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox"
 FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
-class MarketNotFoundError(ValueError):
-    """No market exists with the requested id. Callers map this to HTTP 404."""
+class MarketNotFoundError(NotFoundError):
+    """No market exists with the requested id: a 404."""
 
 
-class ApplicationFormLockedError(Exception):
-    """The application form may no longer be edited. Callers map this to HTTP 409.
+class ApplicationFormLockedError(ConflictError):
+    """The application form may no longer be edited: a 409.
 
     A dedicated type rather than a builtin: a ``RuntimeError`` escaping any other part of an
     update is a bug, not a conflict, and must not be reported to the client as one.
@@ -139,11 +146,11 @@ def _load_market_for(market_id: str, requesting_user: str, role: MarketRole, act
         market = market_from_document(market_dict)
     except Exception as e:
         _log_unreadable_market(market_id, e)
-        raise ValueError("Invalid market data") from e
+        raise BadRequestError("Invalid market data") from e
 
     organization = _load_organization(market.organization_id)
     if not PermissionsApi.user_has_permission(requesting_user, market, role, organization):
-        raise PermissionError(f"User does not have permission to {action} this market")
+        raise ForbiddenError(f"User does not have permission to {action} this market")
 
     return market
 
@@ -154,12 +161,12 @@ ARCHIVED_REFUSAL = (
 )
 
 
-class MarketArchivedError(PermissionError):
+class MarketArchivedError(ForbiddenError):
     """A write to an archived market (bug 30, E26/F06/S01).
 
-    A ``PermissionError``, because that is what it is - nobody, whatever their role, may change a
-    market's record - and because every write route already answers one with a 403 carrying its
-    words. A refusal that needed a new branch in each route would be one forgotten branch from a 500.
+    Forbidden, because that is what it is - nobody, whatever their role, may change a market's
+    record - and so a 403 carrying its words wherever it is raised. A refusal that needed a new
+    branch in each route would be one forgotten branch from a 500.
     """
 
 
@@ -463,7 +470,7 @@ def _normalized_select_options(field: FormField, key: str) -> List[str]:
     same burden as field keys: a duplicate is an ambiguous answer, a blank is an unselectable
     row in the applicant's form, and stray whitespace would ride along into every answer."""
     if not field.options:
-        raise ValueError(
+        raise BadRequestError(
             f"Field '{key}' is type '{field.type}' but has no options defined"
         )
 
@@ -471,9 +478,9 @@ def _normalized_select_options(field: FormField, key: str) -> List[str]:
     for option in field.options:
         option_value = (option or "").strip()
         if not option_value:
-            raise ValueError(f"Field '{key}' has a blank option. Options must be non-empty.")
+            raise BadRequestError(f"Field '{key}' has a blank option. Options must be non-empty.")
         if option_value in options:
-            raise ValueError(
+            raise BadRequestError(
                 f"Duplicate option '{option_value}' in field '{key}'. Options must be unique."
             )
         options.append(option_value)
@@ -516,37 +523,37 @@ def _normalized_application_form(
     unasked = [str(key).strip() for key in application_form.unasked_essentials or [] if str(key).strip()]
     unaskable_error = EssentialFields.unaskable_essential_error(unasked)
     if unaskable_error:
-        raise ValueError(unaskable_error)
+        raise BadRequestError(unaskable_error)
 
     fields: List[FormField] = []
     seen_keys = set()
     for index, field in enumerate(application_form.fields):
         key = (field.key or "").strip()
         if not key:
-            raise ValueError(
+            raise BadRequestError(
                 f"Field '{field.label or '(untitled)'}' must have a non-empty key"
             )
         if not FORM_FIELD_KEY_PATTERN.match(key):
-            raise ValueError(
+            raise BadRequestError(
                 f"Invalid field key '{key}'. Keys may only contain lowercase letters, "
                 "numbers, and underscores."
             )
         if key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX):
-            raise ValueError(
+            raise BadRequestError(
                 f"Field key '{key}' uses the reserved "
                 f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
                 "essential questions every form already asks."
             )
         if key in seen_keys:
-            raise ValueError(f"Duplicate field key '{key}'. Field keys must be unique.")
+            raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")
         seen_keys.add(key)
 
         label = (field.label or "").strip()
         if not label:
-            raise ValueError(f"Field '{key}' must have a non-empty label")
+            raise BadRequestError(f"Field '{key}' must have a non-empty label")
 
         if field.type not in VALID_FORM_FIELD_TYPES:
-            raise ValueError(
+            raise BadRequestError(
                 f"Unrecognized field type '{field.type}' for field '{key}'. "
                 f"Valid types: {', '.join(sorted(VALID_FORM_FIELD_TYPES))}"
             )
@@ -1055,6 +1062,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER.value)
     if owner_count != 1:
+        # A builtin: ``create_owned_market`` sets the one owner, so this escaping is a bug, a 500.
         raise ValueError("Market must have exactly one owner in roles dict")
     
     market_id = str(uuid.uuid4())
@@ -1063,14 +1071,14 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     refusal = public_address_refusal(market.name)
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
     
     try:
         result = markets_collection.insert_one(market_dict)
     except DuplicateKeyError as e:
         # Two creations passed the check above and raced; the unique `market_slug` index refused
         # the second. It is the same clash, so it reads the same (code review of E21).
-        raise ValueError(_address_taken(market.name)) from e
+        raise BadRequestError(_address_taken(market.name)) from e
     
     if market.organization_id:
         try:
@@ -1125,16 +1133,16 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     or by an id that is nobody, which then sat in the organization with no one able to manage it
     (bug 46). Anyone else is added afterwards, through the endpoints that manage a market's people.
 
-    Raises ValueError, in words for the organizer, when the market may not be made.
+    Raises a ``BadRequestError``, in words for the organizer, when the market may not be made.
     """
     try:
         market = Market.model_validate({**data, "roles": {owner.id: MarketRole.OWNER.value}})
     except ValidationError as e:
         logger.warning("Refused a new market: %s", parse_failure_detail(e))
-        raise ValueError(field_named_copy("Invalid market", e)) from e
+        raise BadRequestError(field_named_copy("Invalid market", e)) from e
     refusal = organization_refusal(owner.email, data.get("organization_id"))
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
     _result, market_id = create_market(market, owner.email)
     return market_id
 
@@ -1514,15 +1522,32 @@ def finalization_update(
     return {}
 
 
-class PhaseChangedUnderRequest(Exception):
-    """The market's stored phase was not what this write expected.
+class PhaseChangedUnderRequest(ConflictError):
+    """The market's stored phase was not what this write expected: a 409.
 
-    Carries the phase it actually holds, so a caller can say so rather than retrying blindly.
+    Carries the phase it actually holds, and the move that was asked for, so the organizer is told
+    to reload rather than the request retrying blindly.
     """
 
-    def __init__(self, actual_phase: str):
+    def __init__(self, actual_phase: str, from_phase: str, target_phase: str):
         self.actual_phase = actual_phase
-        super().__init__(f"Market is in '{actual_phase}'")
+        self.from_phase = from_phase
+        self.target_phase = target_phase
+        super().__init__(
+            f"This market moved to the '{actual_phase}' phase while the request was in flight, so "
+            f"it can no longer move to '{target_phase}' from '{from_phase}'. "
+            "Reload the market and try again."
+        )
+
+    def body(self) -> Dict[str, Any]:
+        """Read as a move's blockers are, so the rail shows the conflict where it shows a guard."""
+        conflict = PreconditionResult(id="phase_changed", passed=False, message=self.message)
+        return convert_keys_to_camel_case({
+            "error": "phase_changed",
+            "current_phase": self.actual_phase,
+            "target_phase": self.target_phase,
+            "blockers": [conflict.payload()],
+        })
 
 
 def apply_phase_transition(
@@ -1567,7 +1592,7 @@ def apply_phase_transition(
     latest = markets_collection.find_one({"id": market_id})
     if latest is None:
         raise MarketNotFoundError("Market not found")
-    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
+    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
 
 
 def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
@@ -1577,8 +1602,10 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
     if the market still stands where the step before left it - a request that moved it in between
     stops the walk there rather than being carried over.
 
-    Raises what ``apply_phase_transition`` raises, at the step where it happened.
+    Raises what ``apply_phase_transition`` raises, at the step where it happened; a conflict names
+    the whole move, from where the walk began to where it was headed, not the step it stopped at.
     """
+    origin = phase_from_market_document(document).value
     for index, target in enumerate(route):
         if index:
             document = markets_collection.find_one({"id": market_id})
@@ -1586,12 +1613,15 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
                 raise MarketNotFoundError("Market not found")
             standing = phase_from_market_document(document).value
             if standing != route[index - 1]:
-                raise PhaseChangedUnderRequest(standing)
-        apply_phase_transition(market_id, document, target, by=by)
+                raise PhaseChangedUnderRequest(standing, origin, route[-1])
+        try:
+            apply_phase_transition(market_id, document, target, by=by)
+        except PhaseChangedUnderRequest as changed:
+            raise PhaseChangedUnderRequest(changed.actual_phase, origin, route[-1]) from changed
 
 
-class MoveUnavailable(ValueError):
-    """The move is not open from the phase the market stands in. Callers map this to HTTP 400."""
+class MoveUnavailable(BadRequestError):
+    """The move is not open from the phase the market stands in: a 400."""
 
 
 def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
@@ -1642,31 +1672,31 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     """Add a user role to a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
 
     if not PermissionsApi.can_manage_roles(requesting_user, market, role, context.organization):
-        raise PermissionError("User does not have permission to manage this role")
+        raise ForbiddenError("User does not have permission to manage this role")
 
     if role == MarketRole.OWNER:
         current_roles = market_dict.get('roles', {})
         for uid, existing_role in current_roles.items():
             if existing_role == MarketRole.OWNER.value:
-                raise ValueError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError("Market already has an owner. Transfer ownership first.")
     
     user = UsersApi.get_user(user_email)
     if not user:
-        raise ValueError("User not found")
+        raise BadRequestError("User not found")
 
     roles = market_dict.get('roles', {})
     # Adding never changes a role: overwriting one here would skip update_market_role's guards and
     # let an Admin demote the Owner.
     if user.id in roles:
-        raise ValueError(
+        raise BadRequestError(
             f"{user.email} already has a role on this market. Change it in their row under Users with access."
         )
     roles[user.id] = role.value
@@ -1683,9 +1713,9 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
     """Remove a user role from a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
@@ -1693,13 +1723,13 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
 
     roles = market_dict.get('roles', {})
     if user_id not in roles:
-        raise ValueError("User does not have a role in this market")
+        raise BadRequestError("User does not have a role in this market")
     
     if roles.get(user_id) == MarketRole.OWNER.value:
         # Count how many owners there are
         owner_count = sum(1 for r in roles.values() if r == MarketRole.OWNER.value)
         if owner_count <= 1:
-            raise ValueError("Cannot remove the only owner. Transfer ownership first.")
+            raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
     
     user_role_value = roles.get(user_id)
     if user_role_value:
@@ -1708,7 +1738,7 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         except ValueError:
             user_role = MarketRole.VIEWER
         if not PermissionsApi.can_manage_roles(requesting_user, market, user_role, organization):
-            raise PermissionError("User does not have permission to remove this role")
+            raise ForbiddenError("User does not have permission to remove this role")
     
     del roles[user_id]
     
@@ -1724,9 +1754,9 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     """Update a user's role in a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market_dict = context.document
     market = context.market
@@ -1735,7 +1765,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     roles = market_dict.get('roles', {})
     current_role_value = roles.get(user_id)
     if not current_role_value:
-        raise ValueError("User does not have a role in this market")
+        raise BadRequestError("User does not have a role in this market")
 
     try:
         current_role = MarketRole(current_role_value)
@@ -1744,22 +1774,22 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
 
     # Owners cannot have their role changed
     if current_role == MarketRole.OWNER:
-        raise PermissionError("Cannot change owner's role")
+        raise ForbiddenError("Cannot change owner's role")
 
     # Admins can only be changed by owners
     if current_role == MarketRole.ADMIN:
         requesting_role = PermissionsApi.get_user_market_role(requesting_user, market, organization)
         if requesting_role != MarketRole.OWNER:
-            raise PermissionError("Only owners can change admin roles")
+            raise ForbiddenError("Only owners can change admin roles")
 
     # Check requesting user can manage this role
     if not PermissionsApi.can_manage_roles(requesting_user, market, new_role, organization):
-        raise PermissionError("User does not have permission to manage this role")
+        raise ForbiddenError("User does not have permission to manage this role")
     
     if new_role == MarketRole.OWNER:
         for uid, existing_role in roles.items():
             if uid != user_id and existing_role == MarketRole.OWNER.value:
-                raise ValueError("Market already has an owner. Transfer ownership first.")
+                raise BadRequestError("Market already has an owner. Transfer ownership first.")
     
     roles[user_id] = new_role.value
     
@@ -1775,15 +1805,15 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
     """Delete a market. Only owner can delete."""
     context = load_market_context(market_id)
     if context is None:
-        raise ValueError("Market not found")
+        raise MarketNotFoundError("Market not found")
     if context.market is None:
-        raise ValueError("Invalid market data")
+        raise BadRequestError("Invalid market data")
 
     market = context.market
 
     user_role = PermissionsApi.get_user_market_role(requesting_user, market, context.organization)
     if user_role != MarketRole.OWNER:
-        raise PermissionError("Only the market owner can delete this market")
+        raise ForbiddenError("Only the market owner can delete this market")
 
     if market.organization_id:
         try:
@@ -1819,17 +1849,17 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     """
     name = (name or "").strip()
     if not name:
-        raise ValueError("A market needs a name.")
+        raise BadRequestError("A market needs a name.")
 
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "rename")
     if market.phase is not MarketPhase.DRAFT:
-        raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
+        raise BadRequestError(RENAME_REFUSED_AFTER_DRAFT)
     if name == market.name:
         return
 
     refusal = public_address_refusal(name, market_id)
     if refusal:
-        raise ValueError(refusal)
+        raise BadRequestError(refusal)
 
     try:
         markets_collection.update_one(
@@ -1838,7 +1868,7 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
         )
     except DuplicateKeyError as e:
         # A rename that raced another write to the same address, refused by the unique index.
-        raise ValueError(_address_taken(name)) from e
+        raise BadRequestError(_address_taken(name)) from e
 
 
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
@@ -1861,9 +1891,9 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
-        raise ValueError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
+        raise BadRequestError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
     if "setupObject" not in body:
-        raise ValueError("setupObject is required.")
+        raise BadRequestError("setupObject is required.")
 
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     markets_collection.update_one(market_doc_filter("id", market_id),
@@ -1880,10 +1910,10 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
         plan = SetupObject.model_validate(convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
         logger.warning("Refused a plan for market %s: %s", market.id, parse_failure_detail(e))
-        raise ValueError(field_named_copy("Invalid plan", e)) from e
+        raise BadRequestError(field_named_copy("Invalid plan", e)) from e
     share = plan.assignment_options.max_half_table_proportion_per_section
     if share is not None and not 0 <= share <= 100:
-        raise ValueError(
+        raise BadRequestError(
             "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
             "default."
         )
@@ -1893,10 +1923,10 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
         try:
             intake = IntakeMode(body["intakeMode"])
         except ValueError as e:
-            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
+            raise BadRequestError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
         if intake is not market.intake_mode:
             if market.phase is not MarketPhase.DRAFT:
-                raise ValueError(
+                raise BadRequestError(
                     "How vendors reach a market can only be changed while it is a draft."
                 )
             update[market_doc_key("intake_mode")] = intake.value
@@ -1904,14 +1934,14 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     # And the setup the same way, from leaving draft on (E31/F01/S02): restating it is not a change.
     setup_settled = setup_lock_reason(market)
     if setup_settled and setup_part(plan) != setup_part(market.setup_object):
-        raise ValueError(setup_settled)
+        raise BadRequestError(setup_settled)
 
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
     settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
-        raise ValueError(settled)
+        raise BadRequestError(settled)
     return update
 
 
@@ -1952,7 +1982,7 @@ def follow_up_owner(
     gives a role, named in its roles or reached through its organization (T15), as far as the
     requester is offered them (``follow_up_owners_for``). Asked of the same list the market read
     serves this requester as ``peopleOnMarket``, so the server takes exactly whom the dialog offers.
-    Raises ``ValueError`` with the refusal's words otherwise; to someone outside the organization
+    Raises a ``BadRequestError`` with the refusal's words otherwise; to someone outside the organization
     they never tell an organization address from a stranger's.
     """
     offered = PermissionsApi.follow_up_owners_for(market, organization, requester.user_id)
@@ -1961,8 +1991,8 @@ def follow_up_owner(
         return MarketPerson(user_id=user.id, email=user.email)
     if market.organization_id and not PermissionsApi.in_market_organization(
             market, organization, requester.user_id):
-        raise ValueError("You can hand a follow-up only to someone named in this market's roles.")
-    raise ValueError("A follow-up's owner must have a role on this market.")
+        raise BadRequestError("You can hand a follow-up only to someone named in this market's roles.")
+    raise BadRequestError("A follow-up's owner must have a role on this market.")
 
 
 def save_rejection_rules(
@@ -1977,7 +2007,7 @@ def save_rejection_rules(
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     settled = rejection_rules_lock_reason(market.phase)
     if settled:
-        raise ValueError(settled)
+        raise BadRequestError(settled)
     prepared = RejectionRules.Rulebook(market).prepared(rules)
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
@@ -1996,8 +2026,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
 
     Raises:
         MarketNotFoundError: no such market
-        ValueError: validation failure
-        PermissionError: user lacks EDITOR+ permission
+        BadRequestError: validation failure
+        ForbiddenError: user lacks EDITOR+ permission
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
@@ -2036,7 +2066,7 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
 
 
 def parsed_application_form(market_id: str, application_form_data: Any) -> ApplicationForm:
-    """The form a request body proposes, or a ValueError naming each field it gets wrong.
+    """The form a request body proposes, or a ``BadRequestError`` naming each field it gets wrong.
 
     The one parse of a proposed form, for the form write and the amendment alike.
     """
@@ -2046,7 +2076,7 @@ def parsed_application_form(market_id: str, application_form_data: Any) -> Appli
         logger.warning(
             "Refused an application form for market %s: %s", market_id, parse_failure_detail(e),
         )
-        raise ValueError(field_named_copy("Invalid application form data", e)) from e
+        raise BadRequestError(field_named_copy("Invalid application form data", e)) from e
 
 
 def get_application_form(market_id: str, requesting_user: str) -> dict:

@@ -104,6 +104,32 @@ class TestTheTypes:
         assert issubclass(ForbiddenError, PermissionError)
         assert not issubclass(ConflictError, (ValueError, PermissionError))
 
+    def test_the_markets_apis_own_refusals_are_client_errors_with_their_old_bases(self):
+        assert issubclass(MarketsApi.MarketNotFoundError, (NotFoundError, ValueError))
+        assert issubclass(MarketsApi.MarketArchivedError, (ForbiddenError, PermissionError))
+        assert issubclass(MarketsApi.MoveUnavailable, (BadRequestError, ValueError))
+        assert issubclass(MarketsApi.ApplicationFormLockedError, ConflictError)
+        assert issubclass(MarketsApi.PhaseChangedUnderRequest, ConflictError)
+
+
+class TestAMarketsApiRefusal:
+    """A refusal the markets API decides is answered with its status and copy, even by a route whose
+    own ladder never caught it."""
+
+    def test_an_unreadable_market_refuses_the_vendor_notes_in_our_words(
+        self, client, monkeypatch, caplog,
+    ):
+        use_market(monkeypatch, stored_market(
+            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
+        ))
+
+        with caplog.at_level(logging.WARNING):
+            response = client.get("/markets/market-123/vendor-notes")
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "Invalid market data"}
+        assert "unreadable-sections" not in response.get_data(as_text=True)
+
 
 class TestAClientError:
     def test_is_answered_with_its_status_and_copy(self, client, monkeypatch):
