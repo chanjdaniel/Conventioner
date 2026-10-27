@@ -13,8 +13,7 @@ sources:
 
 **A value read from a request body reaches a MongoDB filter only as a string, read with `string_field()`** ([`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py)).
 A JSON body may hold an object, a list, a number or a boolean wherever a string belongs, and Flask hands each through as the Python value it is.
-PyMongo puts a value into the filter as it is given, and the database reads an object there as query syntax, so a lookup by such a value can match documents other than the one the caller named.
-A reset link's or a verification link's token is the whole check on that link, so its type is part of the check.
+PyMongo puts a value into the filter as it is given, and the database reads an object there as query syntax.
 It is the per-request half of the [security invariants](security-invariants.md), which keep the process itself from booting unsafe.
 
 ## The one spelling
@@ -25,6 +24,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - the account endpoints (`back-end/api/users.py`) answer their "required" 400, for every address, password, token and sign-in code they read;
 - the applicant sign-in (`back-end/api/applicant_auth.py`) answers its one same 200 for a code request and its one same 401 for a verify, so a wrong type tells a caller nothing a missing value does not;
 - the public check-in and its undo (`back-end/app.py`) answer 400 for an address or a date;
+- creating an organization (`back-end/app.py`) answers 400 for a name that is not a string or is blank;
 - saving a floorplan to a market and analysing a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_analysis.py`) answer 400 for the id they name.
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
@@ -38,7 +38,7 @@ An address read this way still goes through `normalized_email()` ([users, and th
 ## How it is enforced
 
 [`test_a_request_value_is_a_string.py`](../../../back-end/tests/test_a_request_value_is_a_string.py) sends each of those endpoints an object, a list, a number and a boolean in place of each string it reads, and a list whose text holds an address where an address belongs.
-Each is refused, and nothing changes: no password, no verified flag, no counted try, no check-in.
+Each is refused, and nothing changes: no password, no verified flag, no counted try, no check-in, no organization.
 Its users collection matches as the database does, an operator included, so a lookup that let a non-string through would find what the database finds.
 A reset, a verification and a sign-in with the right string still work.
 
