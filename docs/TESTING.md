@@ -172,6 +172,17 @@ Add more component tests in `front-end/src/__tests__/`.
 
 Configuration: `front-end/vitest.config.ts` with `happy-dom` environment.
 
+## Bundle Budget
+
+```bash
+cd front-end
+VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only
+npm run bundle-budget
+```
+
+It prints the gzipped size of each chunk a first visit loads before any page paints, and fails when their total passes the limit in `front-end/scripts/bundle-budget.ts`.
+CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit on purpose, is [the bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget).
+
 ## End-to-End (E2E) Tests
 
 ```bash
