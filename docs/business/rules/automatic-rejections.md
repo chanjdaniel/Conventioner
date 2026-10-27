@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -58,7 +58,7 @@ They are not gated by the form's lock: the form freezes at the first application
 
 ## Where it is kept
 
-- [`back-end/rejection_rules.py`](../../../back-end/rejection_rules.py) is the one statement of what a rule may say and how it judges: `Rulebook` builds the questions a rule may name and the rules as they stand, `prepared` refuses a write in the organizer's words, `rejecting` finds the first rule an application meets and words its reason, and `judge` applies them.
+- [`back-end/rejection_rules.py`](../../../back-end/rejection_rules.py) is the one statement of what a rule may say and how it judges: `Rulebook` builds the questions a rule may name and the rules as they stand, `prepared` refuses a write in the organizer's words (a 400 [client error](../../implementation/conventions/an-exception-never-reaches-a-client.md)), `rejecting` finds the first rule an application meets and words its reason, and `judge` applies them.
 - `judgeable_applications` in [`back-end/api/applications.py`](../../../back-end/api/applications.py) is which applications a rule may judge; the giver (`{kind: rule, rule}`) and `verdict_reason` are stored on [the application document](../../implementation/data/application-document.md#statuses), and the reason is served to the organizer as `verdictReason` and never in an applicant's response.
 - `save_rejection_rules` and `rejection_rules_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the lock asks `review_is_open`, as the verdicts do, and the market read serves `rejectionQuestions`, `rejectionRules` and `rejectionRulesLockReason`, so the step offers exactly what the write takes.
 - The import judges at its end ([the CSV import](../../implementation/modules/csv-import.md)).

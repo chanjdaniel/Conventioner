@@ -63,6 +63,18 @@ Every refusal it words raises `BadRequestError` or `ForbiddenError`, and a marke
 Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedError` 403 ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), `MoveUnavailable` 400, `ApplicationFormLockedError` 409, and `PhaseChangedUnderRequest` 409, whose `body()` is the transition's `phase_changed` payload ([the guards](../modules/guards.md)).
 `create_market`'s "exactly one owner" stays a `ValueError`: `create_owned_market` sets the one owner, so it escaping is a bug.
 
+**Every other module's refusals** are client errors too, each with the status its routes answer today.
+
+- [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which only the deletion preview answers 404 today; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
+- [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
+- `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError` ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
+- The [form amendment](../modules/form-amendment.md)'s `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are `ConflictError`s; the last two answer their blockers and their resume offer from `body()`.
+- `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
+- `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
+
+A `ConflictError` subclasses no builtin, so `AssignPhaseError`, `AddVendorRefused` and `ConfirmRefused` also keep the `ValueError` they were, until no route or caller catches one to answer it.
+What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
+
 ## The two handlers
 
 `install_error_answers(app)`, called once in [`back-end/app.py`](../../../back-end/app.py) right after the public endpoint defenses are configured, registers both on the app, so every blueprint is covered too.
@@ -83,6 +95,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
   A client error answers its status and body, a structured `body()` is answered as given, and an injected exception carrying a secret-shaped string answers exactly the generic 500 on each assignment read, with the string nowhere in the response and one log record holding the traceback and the market id but no email.
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
+  Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input.
   An unknown URL, a wrong method and a signed-out call still answer Flask's 404, 405 and Flask-Login's 401.
 - CodeQL's `py/stack-trace-exposure`, run on every pull request, flags a route that catches an exception and answers its text.
