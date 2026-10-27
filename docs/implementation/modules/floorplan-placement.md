@@ -12,6 +12,7 @@ describes:
   - back-end/api/floorplans_export.py
   - back-end/api/floorplans.py
   - back-end/api/floorplans_access.py
+  - back-end/api/floorplans_templates.py
   - back-end/services/gridfs_service.py
   - front-end/src/components/floorplan/FloorplanUploader.vue
   - front-end/src/utils/canvasColor.ts
@@ -70,6 +71,10 @@ The settled-setup refusal stays on save alone, since only save writes the sectio
 [`upload_image()`](../../../back-end/services/gridfs_service.py) keeps the market's id in the GridFS file's metadata (`metadata.marketId`), on every page of a PDF too, and `get_image_market_id()` reads it back: None for an unknown image, an id that is not an ObjectId, or an image stored without a market, so `image_refusal()` answers all three "Image not found", and no route but the public read treats an unowned image as anyone's.
 The wizard's [`FloorplanUploader.vue`](../../../front-end/src/components/floorplan/FloorplanUploader.vue) sends the market it is in.
 Images uploaded before images named a market have no `marketId`; the wizard never reopens a saved floorplan's image, so they are read only by the public `GET /floorplans/<id>`, and no migration gives them one.
+
+**A template is its creator's, and one filed under an organization is filed by someone in it.**
+[`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.
+A stored `organizationId` that is not a non-empty string reads as none, so only the template's creator reaches it; [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py) keeps both.
 
 ## Sharp edges
 
