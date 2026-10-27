@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-22
+verified: 2026-10-27
 sources:
   - wayfinding/readable-journey/07
   - E21/F02/S02
@@ -12,6 +12,7 @@ sources:
   - bug/14
   - bug/42
   - E14/F01/S02
+  - T75
 ---
 
 # Finding and opening markets
@@ -32,7 +33,7 @@ A market whose organization is gone says "No longer available" there rather than
 - **Not the reader's role**: that is permission detail on a list used to get somewhere, and Manage is already offered only to an Admin or the owner.
 - **No progress counts**: the list does not carry them, and each would cost a query per row on a list that grows.
 
-**The row itself opens the market**, on its own pages, in every phase; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
+**The row itself opens the market**, on its own pages, in every phase, and on the keyboard its name is the button that does; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
 Opening never leads to the market's public page: a Google Form market has none, so opening a published one by its public page once answered "Page not found" for every market of the first release, and what an organizer wants of a published market, its check-in address, is on its rail ([the market lifecycle](lifecycle.md#where-the-check-in-address-lives)).
 
 ## C1. The dashboard
