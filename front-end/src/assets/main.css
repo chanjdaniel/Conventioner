@@ -40,9 +40,14 @@ a {
   transition: 0.4s;
 }
 
+/*
+ * Both faces ship as WOFF2, converted losslessly from the TTFs Google Fonts publishes (T76): the
+ * same outlines and the same `wght` axis at 40% of the bytes, since every browser the app supports
+ * reads WOFF2, variable faces included.
+ */
 @font-face {
   font-family: 'Merge One';
-  src: url('/fonts/MergeOne-Regular.ttf') format('truetype');
+  src: url('/fonts/MergeOne-Regular.woff2') format('woff2');
 }
 
 /*
@@ -52,9 +57,9 @@ a {
  * or bold and got a browser-synthesised smear of the regular. E15/F01/S02 declares them.
  */
 /*
- * The variable font rather than static weights (E15/F01/S02). It is 108KB against 107.8KB for the
- * two statics the design language names, so it costs nothing and no weight can ever be synthesised
- * again - including one added later by someone who has not read this.
+ * The variable font rather than static weights (E15/F01/S02). As TTF it was 108KB against 107.8KB
+ * for the two statics the design language names, so it costs nothing and no weight can ever be
+ * synthesised again - including one added later by someone who has not read this.
  *
  * `font-weight: 100 900` is the descriptor that makes that true. Without it the face claims
  * `normal` alone, which is precisely how 65 declarations came to ask for 500, 600 or bold and get
@@ -62,7 +67,7 @@ a {
  */
 @font-face {
   font-family: 'Outfit';
-  src: url('/fonts/Outfit-VariableFont_wght.ttf') format('truetype-variations');
+  src: url('/fonts/Outfit-VariableFont_wght.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;

@@ -8,8 +8,8 @@
  * crisp. `document.fonts` confirmed it: one face per family, both `weight: normal`.
  *
  * Nothing needed downloading. `public/fonts/Outfit/static/` had shipped Medium, SemiBold and Bold
- * all along, and `public/fonts/Outfit-VariableFont_wght.ttf` covers the whole axis for the same
- * 108KB two static weights would have cost.
+ * all along, and the variable Outfit (now `public/fonts/Outfit-VariableFont_wght.woff2`) covers the
+ * whole axis for the same 108KB, as TTF, that two static weights would have cost.
  *
  * Two things are asserted, because either alone lets the bug back:
  *
