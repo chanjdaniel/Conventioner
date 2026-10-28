@@ -1708,7 +1708,7 @@ function startOver() {
 
 .drop-zone-hint {
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   max-width: 42ch;
   line-height: 1.5;
 }

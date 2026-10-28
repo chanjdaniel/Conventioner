@@ -1,0 +1,633 @@
+import type {
+  Page,
+  PlaywrightTestArgs,
+  PlaywrightTestOptions,
+  PlaywrightWorkerArgs,
+  PlaywrightWorkerOptions,
+  TestType,
+} from '@playwright/test';
+import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL } from '../fixtures';
+import { marketScreenPath, marketSetupPath } from './marketScreens';
+import { createApplicantLoginChallenge } from './seedApplicantMarket';
+import { loginViaApi } from './seeds';
+import { seedTheScreens, type TheScreensSeed } from './seedTheScreens';
+import { settle } from './settle';
+
+/**
+ * Every screen and deliberate state of the app, walked by every sweep: contrast
+ * (`contrast-sweep.spec.ts`), what axe can see (`accessibility-sweep.spec.ts`) and layout
+ * (`layout-sweep.spec.ts`). Each sweep passes its own `check` and nothing else, so a state added
+ * here is walked by all three.
+ *
+ * **A sweep is only worth the states it walks.** A twenty-screen pass missed the invisible
+ * archive-confirmation button, because nobody opened that dialog; a layout trial missed the
+ * dashboard's squeezed dates until it opened a market before the dashboard (T67). So the list
+ * names the router's routes, the dialogs, menus and drawers, hover states, the dashboard with a
+ * market remembered, every phase, settled rules and the signed-out pages, over the stress seed's
+ * markets (`seedTheScreens.ts`), and the list is part of the deliverable (`docs/design-system.md`,
+ * "What keeps this true").
+ */
+
+export interface Size {
+  width: number;
+  height: number;
+}
+
+export const DESKTOP: Size = { width: 1920, height: 1080 };
+export const LAPTOP: Size = { width: 1440, height: 900 };
+export const PHONE: Size = { width: 390, height: 844 };
+
+/** The sizes each kind of screen ships at: an organizer works at a desk; the rest may be a phone. */
+const ORGANIZER = [DESKTOP, LAPTOP];
+const PUBLIC = [DESKTOP, PHONE];
+/** A route with `meta.fitsAPhone`: an organizer's, used at the door on a phone too (E29/F01). */
+const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
+
+/** Who is signed in to see a screen. */
+export type Who = 'organizer' | 'no organization' | 'applicant' | 'nobody';
+
+export interface Screen {
+  name: string;
+  who: Who;
+  sizes: Size[];
+  /** Go there and open the state, returning once what it shows has drawn. */
+  open: (page: Page, seed: TheScreensSeed) => Promise<void>;
+}
+
+const visible = async (page: Page, testId: string) =>
+  expect(page.getByTestId(testId).first()).toBeVisible({ timeout: 15000 });
+
+/** Opens `path` and waits for `ready`, then clicks each of `then` in turn, waiting on the last. */
+function at(path: (seed: TheScreensSeed) => string, ready: string, ...then: [string, string][]) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    await page.goto(path(seed));
+    await visible(page, ready);
+    for (const [click, shows] of then) {
+      await page.getByTestId(click).first().click();
+      await visible(page, shows);
+    }
+  };
+}
+
+/** The dashboard, remembering the market this browser opened last (E21/F02/S05). */
+function dashboardRemembering(market: keyof TheScreensSeed) {
+  return async (page: Page, seed: TheScreensSeed) => {
+    await page.goto('/dashboard');
+    await page.evaluate(
+      (id) => localStorage.setItem('lastMarketId', id),
+      (seed[market] as { marketId: string }).marketId,
+    );
+    await page.reload();
+    await visible(page, 'dashboard-last-market-card');
+  };
+}
+
+const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
+  marketSetupPath((seed[market] as { marketId: string }).marketId, page);
+type MarketScreen = Parameters<typeof marketScreenPath>[1];
+const screen = (market: keyof TheScreensSeed, page: MarketScreen) => (seed: TheScreensSeed) =>
+  marketScreenPath((seed[market] as { marketId: string }).marketId, page);
+/** A market's address off the bar: its landing, or a flow such as starting from a CSV. */
+const marketAddress =
+  (market: keyof TheScreensSeed, rest = '') =>
+  (seed: TheScreensSeed) =>
+    `/markets/${(seed[market] as { marketId: string }).marketId}${rest}`;
+const slug =
+  (market: keyof TheScreensSeed, rest = '') =>
+  (seed: TheScreensSeed) =>
+    `/${(seed[market] as { marketSlug: string }).marketSlug}${rest}`;
+const fixed = (path: string) => () => path;
+
+const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
+
+export const SCREENS: Screen[] = [
+  // The organizer's own pages.
+  {
+    name: 'the dashboard',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/dashboard'), 'dashboard-has-markets'),
+  },
+  {
+    name: 'the dashboard, remembering a long-named draft',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: dashboardRemembering('draft'),
+  },
+  {
+    name: 'the dashboard, remembering a market in market days',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: dashboardRemembering('big'),
+  },
+  {
+    // The count, not "New market": the button is drawn before the list arrives, and on a stack
+    // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
+    name: 'the markets list',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/markets'), 'markets-result-count'),
+  },
+  {
+    name: 'the new-market dialog, where a disabled primary lives',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/markets'), 'markets-result-count', [
+      'markets-create-button',
+      'new-market-name-input',
+    ]),
+  },
+  {
+    name: 'the manage-market dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/markets'), 'markets-result-count', [
+      'market-card-manage-button',
+      'manage-market-window',
+    ]),
+  },
+  {
+    // The app's own menu, behind the banner's button on every organizer screen.
+    name: 'the navigation drawer',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/markets'), 'markets-result-count', ['app-menu-button', 'app-nav']),
+  },
+  {
+    name: 'the organizations',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/organizations'), 'organization-card'),
+  },
+  {
+    name: 'the manage-organization dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/organizations'), 'organization-card', [
+      'organizations-manage-button',
+      'manage-org-window',
+    ]),
+  },
+  {
+    name: 'the start page',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(fixed('/init'), 'init-setup-new-market-button'),
+  },
+
+  // A draft with a long name: its plan, its form being written, its applications not yet open.
+  {
+    name: 'a draft, its plan',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('draft', 'setup'), 'setup-dates-date-display-0'),
+  },
+  {
+    // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is how
+    // a field-type badge shipped at 3.73:1 on it.
+    name: 'a draft, its form',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('draft', 'form'), 'form-steps'),
+  },
+  {
+    name: 'a draft, its applications',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('draft', 'applications'), 'market-tab-note'),
+  },
+  {
+    name: 'a CSV draft, starting from a Google Form',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(marketAddress('csvDraft', '/start-from-csv'), 'start-from-csv'),
+  },
+
+  // Applications open, closed and in review, each with 40 applications in every review state.
+  {
+    name: 'applications open, one by one',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'app-monitor-card'),
+  },
+  {
+    // A status is a tinted chip, on the card's own beige ground as well as on white (bug 43).
+    name: 'a review card, and the verdicts already given',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'app-monitor-card', [
+      'app-monitor-decided-toggle',
+      'app-monitor-decided-row',
+    ]),
+  },
+  {
+    name: 'the follow-up dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'app-monitor-card', [
+      'app-monitor-follow-up-button',
+      'follow-up-window',
+    ]),
+  },
+  {
+    name: 'applications open, all at once',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'app-monitor-card', [
+      'applications-view-all',
+      'applications-all-tick',
+    ]),
+  },
+  {
+    name: 'applications open, the plan settled',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'setup'), 'setup-dates-date-display-0'),
+  },
+  {
+    name: 'applications open, the form locked',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'form'), 'form-steps'),
+  },
+  {
+    name: 'applications closed',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('closed', 'applications'), 'app-monitor-card'),
+  },
+  {
+    name: 'in review',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('review', 'applications'), 'app-monitor-card'),
+  },
+  {
+    name: 'a CSV market, importing applications',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('csv', 'import'), 'import-view'),
+  },
+
+  // Assignment, its rules still open and nothing run.
+  {
+    name: 'in assignment, the rules open',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('assignment', 'assignment'), 'assignment-card-priority'),
+  },
+  {
+    name: 'in assignment, nothing placed yet',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('assignment', 'result'), 'market-bar'),
+  },
+
+  // Market days: 36 vendors placed over four dates and three sections.
+  {
+    name: "a market's own address",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(marketAddress('big'), 'market-bar'),
+  },
+  {
+    name: 'the result',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'result'), 'tables-count-assigned'),
+  },
+  {
+    // The ledger of bars (E35/F03/S01): a share in muted ink on white.
+    name: 'the statistics',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await visible(page, 'result-statistics-date');
+    },
+  },
+  {
+    // And on a hovered row's beige.
+    name: 'a hovered statistics row',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await visible(page, 'result-statistics-date');
+      await page.getByTestId('result-statistics-date').first().hover();
+    },
+  },
+  {
+    name: 'the phase-rail menu',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await expect(page.locator('.rail-menu-item').first()).toBeVisible();
+    },
+  },
+  {
+    // The invisible archive-confirmation button lived here, behind two clicks, and a twenty-screen
+    // walk never found it. Opened and never confirmed: archiving is permanent.
+    name: 'the archive confirmation',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await page.locator('.rail-menu-item--end').click();
+      await visible(page, 'archive-confirm-window');
+      // And the button is actually there, which is the whole of E16/F01/S01.
+      const fill = await page
+        .getByTestId('archive-confirm-submit-button')
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(fill, 'the archive button has no fill').not.toBe('rgba(0, 0, 0, 0)');
+    },
+  },
+  {
+    name: 'the change-placement dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'result'), 'tables-count-assigned', [
+      'tables-seat-change',
+      'placement-dialog-window',
+    ]),
+  },
+  {
+    name: 'the placement history',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'result'), 'tables-count-assigned', [
+      'result-history-button',
+      'placement-history-dialog-window',
+    ]),
+  },
+  {
+    name: 'the vendors',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'vendors'), 'vendors-list-item'),
+  },
+  {
+    name: 'the vendor drawer',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'vendors'), 'vendors-list-item', [
+      'vendors-list-item',
+      'vendors-detail-email',
+    ]),
+  },
+  {
+    name: 'the add-vendor dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'vendors'), 'vendors-list-item', [
+      'vendors-add-button',
+      'add-vendor-name-input',
+    ]),
+  },
+  {
+    name: 'the attendance',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'attendance'), 'attendance-row'),
+  },
+  {
+    name: 'the floorplan',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'floorplan'), 'market-bar'),
+  },
+  {
+    name: 'market days, the plan',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('big', 'setup'), 'setup-dates-date-display-0'),
+  },
+  ...FORM_STEPS.map((step): Screen => ({
+    // The form tab is steps, each its own surface (E33/F01/S01).
+    name: `market days, the form, ${step}`,
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('big', 'form'), 'form-steps', [`form-step-${step}`, `form-step-body-${step}`]),
+  })),
+  {
+    name: 'market days, the applications',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('big', 'applications'), 'market-setup-applications-condition'),
+  },
+  {
+    // Hover is a state too: the tab bar's hover once set its label to a 25% near-black on the
+    // black bar, invisible under the pointer (E21/F01/S01).
+    name: 'a market tab under the pointer',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(setup('big', 'setup'), 'setup-dates-date-display-0')(page, seed);
+      await page.getByTestId('market-bar-tab-applications').hover();
+    },
+  },
+
+  // Settled rules, read as a record (E22/F02/S02), and an archive.
+  {
+    name: 'the rules, settled',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('rules', 'assignment'), 'assignment-rules-settled'),
+  },
+  {
+    name: 'the result of a market with rules',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('rules', 'result'), 'tables-count-assigned'),
+  },
+  {
+    name: 'an archive, its result',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('archived', 'result'), 'tables-count-assigned'),
+  },
+  {
+    name: 'an archive, its plan',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('archived', 'setup'), 'setup-dates-date-display-0'),
+  },
+
+  // The first thing a new organizer sees, and nothing on it is seeded.
+  {
+    name: 'the dashboard, with no market',
+    who: 'no organization',
+    sizes: ORGANIZER,
+    open: at(fixed('/dashboard'), 'dashboard-no-market-yet'),
+  },
+  {
+    name: 'the markets list, with no market',
+    who: 'no organization',
+    sizes: ORGANIZER,
+    open: at(fixed('/markets'), 'markets-empty'),
+  },
+
+  // Signed out: the way in, and what vendors and the door see.
+  {
+    name: 'sign in',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/login'), 'login-submit-button'),
+  },
+  {
+    name: 'sign in with a code',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/login'), 'login-submit-button', ['login-tab-otp', 'login-otp-form']),
+  },
+  {
+    name: 'create an account',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/login'), 'login-submit-button', ['login-tab-register', 'login-register-form']),
+  },
+  {
+    name: 'ask for a reset link',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/reset-password-request'), 'auth-card'),
+  },
+  {
+    name: 'choose a new password',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/reset-password?token=a-token-from-an-email'), 'auth-card'),
+  },
+  {
+    // An unknown token, so the page settles on its error and the buttons that answer it.
+    name: 'verify an email address',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(
+      fixed('/verify-email?token=a-token-from-an-email'),
+      'email-verification-error-message',
+    ),
+  },
+  {
+    name: 'a page that is not there',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(fixed('/no/such/page'), 'page-not-found'),
+  },
+  {
+    name: "a market's public page",
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(slug('open'), 'market-home-name'),
+  },
+  {
+    name: 'the application form',
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: at(slug('open', '/apply'), 'apply-market-name'),
+  },
+  {
+    name: 'applicant sign-in',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(slug('open', '/applicant-login'), 'applicant-login-email-input'),
+  },
+  {
+    name: "an applicant's dashboard",
+    who: 'applicant',
+    sizes: PUBLIC,
+    open: at(slug('open', '/applicant/dashboard'), 'applicant-dashboard-status'),
+  },
+  {
+    name: 'the check-in page',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: at(slug('big', '/check-in'), 'attendance-checkin-market-name'),
+  },
+];
+
+/** The address the stress seed's first applicant signs in with. */
+const APPLICANT = 'applicant0@example.com';
+
+/** Signs the page's browser in as `who`, over the API: the sign-in pages are screens of their own. */
+export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promise<void> {
+  if (who === 'nobody') return;
+  if (who === 'applicant') {
+    // A code planted as the email would carry it, used once, so each sign-in plants its own.
+    createApplicantLoginChallenge(seed.open.marketId, APPLICANT, '424242');
+    const res = await page.request.post(
+      `${BACKEND_URL}/public/markets/${seed.open.marketSlug}/applicant-login/verify-code`,
+      { data: { email: APPLICANT, code: '424242' } },
+    );
+    expect(res.ok(), `the applicant's sign-in: ${res.status()}`).toBe(true);
+    const { token } = (await res.json()) as { token: string };
+    // The tab keeps a vendor's sign-in (`stores/application.ts`).
+    const session = {
+      marketId: seed.open.marketId,
+      marketSlug: seed.open.marketSlug,
+      applicantEmail: APPLICANT,
+      token,
+    };
+    await page.addInitScript(
+      (kept) => sessionStorage.setItem('conventioner.applicantSession', kept),
+      JSON.stringify(session),
+    );
+    return;
+  }
+  const user = who === 'organizer' ? TEST_USER : NO_ORG_USER;
+  await loginViaApi(page.request, BACKEND_URL, user.email, user.password);
+  // The shell keeps who is signed in here, and the router reads it before any probe (`App.vue`).
+  await page.addInitScript(
+    (email) => localStorage.setItem('user', JSON.stringify(email)),
+    user.email,
+  );
+}
+
+/** What a sweep asserts of the page as it stands, named for the state it is in. */
+export type Check = (state: string) => Promise<void>;
+
+/** A test whose `check` fixture is the sweep's own. */
+export type SweepTest = TestType<
+  PlaywrightTestArgs & PlaywrightTestOptions & { check: Check },
+  PlaywrightWorkerArgs & PlaywrightWorkerOptions
+>;
+
+/**
+ * One test per screen, running the sweep's `check` on it: at every size it ships at with
+ * `everySize`, else at the first. Returns the seed, for a sweep's own test over several screens.
+ */
+export function walkTheScreens(
+  test: SweepTest,
+  { everySize }: { everySize: boolean },
+): { seed: () => TheScreensSeed } {
+  let seed: TheScreensSeed;
+
+  test.beforeAll(async ({ request }) => {
+    test.setTimeout(120_000);
+    seed = await seedTheScreens(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  });
+
+  for (const s of SCREENS) {
+    test(s.name, async ({ page, check }) => {
+      test.setTimeout(60_000 * (everySize ? s.sizes.length : 1));
+      await signIn(page, s.who, seed);
+      for (const size of everySize ? s.sizes : s.sizes.slice(0, 1)) {
+        await page.setViewportSize(size);
+        await openScreen(page, s, seed);
+        await check(s.name);
+      }
+    });
+  }
+
+  return { seed: () => seed };
+}
+
+/** Opens a screen and lets it come to rest: its fonts loaded and its transitions run. */
+export async function openScreen(page: Page, s: Screen, seed: TheScreensSeed): Promise<void> {
+  await s.open(page, seed);
+  await page.evaluate(() => document.fonts.ready);
+  await settle(page);
+}

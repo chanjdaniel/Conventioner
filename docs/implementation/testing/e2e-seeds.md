@@ -14,11 +14,14 @@ describes:
   - front-end/e2e/helpers/seedDraftMarket.ts
   - front-end/e2e/helpers/seedApplicantMarket.ts
   - front-end/e2e/helpers/seedApplication.ts#seedApprovedVendor
+  - front-end/e2e/helpers/seedApplication.ts#approvedVendorApplication
+  - front-end/e2e/helpers/seedApplication.ts#insertApplications
+  - front-end/e2e/helpers/seedTheScreens.ts
   - front-end/e2e/helpers/seedFloorplanTemplate.ts
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
-verified: 2026-10-25
+verified: 2026-10-28
 sources:
   - E02
   - E11/F01/S01
@@ -28,6 +31,7 @@ sources:
   - E36/F04/S02
   - T15
   - T45
+  - T79
 ---
 
 # E2E seeds
@@ -66,12 +70,15 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
 | `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
+| `seedTheScreens()` ([file](../../../front-end/e2e/helpers/seedTheScreens.ts)) | the stress markets the sweeps walk: one in every phase, names of about 70 characters, 40 applications in every review state, 36 vendors over four dates and three sections, settled rules, an archive and two CSV markets | for the [sweeps](../../design-system.md#what-keeps-this-true); its applications go in with one `insertApplications()` per market |
 | `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned |
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).
 The seeds once uploaded a fabricated CSV because the solver read a `source_data` collection; E02 deleted it.
 A spec using `seedMarketWithVendors()` or anything built on it therefore exercises no review: the applications arrive approved.
+
+`approvedVendorApplication()` builds the application `seedApprovedVendor()` writes without writing it, and `insertApplications()` writes many in one `insertMany`: every `mongoEval` is a round trip into the container, so a seed of dozens writes them together.
 
 **`seedApplication()` writes one application straight into Mongo**, snake_case and keyed by `market_id` as [the application document](../data/application-document.md) is, with status `open`.
 It is how a spec puts an application on a market without signing in as an applicant, in any phase, and so how it reaches [the form lock](../../business/rules/the-form-locks-at-the-first-application.md).

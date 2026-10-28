@@ -860,6 +860,9 @@ function cancelPending() {
 .url-chip-url {
   color: var(--mm-text-link);
   min-width: 0;
+  /* A 24px line, so the address is a 24px target on a phone (WCAG 2.5.8, T79), and no taller than
+     the Copy button beside it. */
+  line-height: var(--space-6);
   /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
      character rather than the whole address. The rail's end measures its own narrowest to decide
      whether it fits beside the spine, and an unbreakable address made it never fit. */

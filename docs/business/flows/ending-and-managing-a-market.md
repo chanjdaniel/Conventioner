@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
-verified: 2026-10-22
+verified: 2026-10-28
 sources:
   - E20/F01/S03
   - E21/F03/S04
