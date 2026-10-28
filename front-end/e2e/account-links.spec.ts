@@ -30,7 +30,7 @@ test.describe('Account links, opened signed out', () => {
   }) => {
     const email = uniqueEmail();
     const created = await request.post('/api/register-user', {
-      data: { email, password: PASSWORD, organizations: [] },
+      data: { email, password: PASSWORD },
     });
     expect(created.ok()).toBeTruthy();
     try {

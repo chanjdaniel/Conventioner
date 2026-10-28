@@ -119,8 +119,12 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
     return result
 
 
-def update_organization(org_id: str, requesting_user_email: str, updates: Dict[str, Any]) -> UpdateResult:
-    """Update an organization. Only owner can update."""
+def update_organization(org_id: str, requesting_user_email: str, name: str) -> UpdateResult:
+    """Rename an organization. Only owner can update.
+
+    The name is the one field an owner edits: its owner, admins, members and markets change only
+    through their own endpoints, which keep each user's ``organizations`` in step with them.
+    """
     org = organizations_collection.find_one({"id": org_id})
     if not org:
         raise NotFoundError("Organization not found")
@@ -131,13 +135,9 @@ def update_organization(org_id: str, requesting_user_email: str, updates: Dict[s
     if org.get("owner") != requesting_user.id:
         raise ForbiddenError("Only organization owner can update organization")
     
-    updates.pop("id", None)
-    updates.pop("owner", None)
-    updates.pop("_id", None)
-    
     return organizations_collection.update_one(
         {"id": org_id},
-        {"$set": updates}
+        {"$set": {"name": name}}
     )
 
 

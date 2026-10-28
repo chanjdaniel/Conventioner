@@ -164,12 +164,11 @@ def _insert_unless_taken(user_doc: dict):
 
 # curl -k -X POST https://127.0.0.1:5001/register-user \
 #      -H "Content-Type: application/json" \
-#      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!", "organizations": []}'
+#      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!"}'
 def register_user(bcrypt, request):
     data = request.json
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
-    organizations = data.get("organizations", [])
 
     if not email or not password:
         return jsonify({"msg": "Email and password required"}), 400
@@ -184,7 +183,7 @@ def register_user(bcrypt, request):
         "id": str(uuid.uuid4()),
         "email": email,
         "password": hashed_password,
-        "organizations": organizations
+        "organizations": []
     }
     
     result = _insert_unless_taken(user_doc)
@@ -229,7 +228,6 @@ def register_user_with_captcha(bcrypt, request):
     email = normalized_email(string_field(data, "email"))
     password = string_field(data, "password")
     captcha_token = string_field(data, "captcha_token")
-    organizations = data.get("organizations", [])
 
     if not email or not password:
         return jsonify({"msg": "Email and password required"}), 400
@@ -268,7 +266,7 @@ def register_user_with_captcha(bcrypt, request):
         "id": str(uuid.uuid4()),
         "email": email,
         "password": hashed_password,
-        "organizations": organizations,
+        "organizations": [],
         "email_verified": False,
         "verification_token": verification_token,
         "verification_token_expires": verification_token_expires,
