@@ -8,7 +8,7 @@ describes:
   - front-end/src/components/icons/
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - T45
 status: accepted
