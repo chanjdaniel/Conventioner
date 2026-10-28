@@ -217,6 +217,8 @@ echo "===== Bundle Budget ====="
 VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only
 npm run bundle-budget
 echo "Bundle budget: OK"
+# As CI does next: that build calls neither eval nor Function (front-end/scripts/no-eval.ts).
+npm run no-eval
 
 # ── E2E tests (needs the stack) ──────────────────────────────────────────────
 

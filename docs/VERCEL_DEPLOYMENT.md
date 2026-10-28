@@ -4,7 +4,7 @@ kind: runbook
 describes:
   - back-end/vercel.json
   - front-end/vercel.json
-verified: 2026-10-25
+verified: 2026-10-28
 ---
 
 # Building Production on Vercel
@@ -43,7 +43,7 @@ Both import this repository from GitHub, each with its own root directory:
 | Root directory | `front-end` | `back-end` |
 | Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
 | Runtime | Node 24.x (build only), from `front-end/package.json`'s `engines` | Python 3.12, from `back-end/.python-version` |
-| Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work | [`back-end/vercel.json`](../back-end/vercel.json) |
+| Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work, and every path carries the [security headers](implementation/conventions/security-invariants.md#security-headers) | [`back-end/vercel.json`](../back-end/vercel.json) |
 | Custom domain | `conventioner.io` | `api.conventioner.io` |
 
 Both `vercel.json` files set `git.deploymentEnabled: false`: Vercel's Git integration builds no branch, so no push, merge or PR creates a deployment, preview or production, and production moves only when the Deploy workflow is started by hand (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
@@ -91,7 +91,7 @@ The back end no longer waves that through - it has a real secret now, and Google
 
 1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
 2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow, or `gh workflow run deploy.yml --ref main`); it is the only way production moves (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
-   It deploys the back end, waits for `/healthz`, then deploys the front end and checks a deep link.
+   It deploys the back end, waits for `/healthz`, then deploys the front end and checks a deep link and its security headers.
 3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
 
 ## Troubleshooting a back end that will not boot

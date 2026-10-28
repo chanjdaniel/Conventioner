@@ -88,6 +88,15 @@ jobs:
         run: |
           curl -fsS --max-time 20 https://conventioner.io/markets | grep -q '<div id="app">'
 
+      # The headers front-end/vercel.json declares; the policy may be report-only or enforcing.
+      - name: The front end sends its security headers
+        run: |
+          headers=$(curl -fsS --max-time 20 -o /dev/null -D - https://conventioner.io/markets)
+          for name in 'content-security-policy(-report-only)?' x-content-type-options \
+            referrer-policy x-frame-options strict-transport-security; do
+            grep -Eqi "^$name:" <<<"$headers" || { echo "::error::conventioner.io sends no $name"; exit 1; }
+          done
+
       - name: Say how to roll back
         if: failure()
         run: |

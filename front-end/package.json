@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "bundle-budget": "node scripts/bundle-budget.ts",
+    "no-eval": "node scripts/no-eval.ts",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
     "format": "prettier --write .",
