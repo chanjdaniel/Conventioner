@@ -75,8 +75,8 @@ The first fix to try is a lazily loaded route or component, which keeps the code
 GitHub's CodeQL default setup, a repository setting with no workflow file here, analyses `actions`, `javascript-typescript` and `python` with the default suite, on every pull request to `dev` and weekly on `dev`.
 Each pull request gets an `Analyze (actions)`, an `Analyze (javascript-typescript)` and an `Analyze (python)` check, and a `CodeQL` check from `github-advanced-security` that reports the alerts new in the code it changed.
 It is the automated backstop for [a request value is a string](../conventions/a-request-value-is-a-string.md) (`py/nosql-injection`) and [an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md) (`py/stack-trace-exposure`).
-**`CodeQL` is a required check on `dev`** (since 2026-10-28): it fails a pull request that brings in a new alert at or above the repository's check-run failure thresholds (Settings, Code security, protection rules).
-For security alerts the threshold is "Medium or higher", lowered from the default "High or higher" because `py/stack-trace-exposure` is a medium; standard alerts, which have a rule severity rather than a security one, have a threshold of their own in the same place.
+**`CodeQL` is a required check on `dev`** (since 2026-10-28): it fails a pull request that brings in a new security alert of medium severity or above, or a new standard alert of severity error.
+Those are the repository's check-run failure thresholds (Settings, Code security, protection rules): "Medium or higher" for security alerts, lowered from the default "High or higher" because `py/stack-trace-exposure` is a medium, and "Only errors" for standard alerts, which have a rule severity rather than a security one.
 The three `Analyze (<language>)` checks are not themselves required: they make the analyses the `CodeQL` check reads.
 `main`'s six checks are unchanged: nearly every commit reaches `main` by promotion from `dev`, where it has already passed `CodeQL`, and the others are the Release PR, merged with `--admin`, and a [hotfix](../../RELEASING.md#hotfixes).
 
