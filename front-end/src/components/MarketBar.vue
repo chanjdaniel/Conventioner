@@ -60,13 +60,16 @@ function linkFor(tab: MarketTab): string {
           :aria-current="tabOf(current) === tab ? 'step' : undefined"
           :data-testid="`market-bar-tab-${tab}`"
         >
-          {{ pathTabLabel(tab, path, TAB_LABELS)
-          }}<span
-            v-if="tabOf(current) === tab"
-            class="current-dot"
-            aria-hidden="true"
-            data-testid="market-bar-current-dot"
-          />
+          <!-- One inline run, so the dot is raised against the label's capitals in its line rather
+               than centred as a flex item of the tab. -->
+          <span
+            >{{ pathTabLabel(tab, path, TAB_LABELS)
+            }}<span
+              v-if="tabOf(current) === tab"
+              class="current-dot"
+              aria-hidden="true"
+              data-testid="market-bar-current-dot"
+          /></span>
         </RouterLink>
       </nav>
     </template>
