@@ -1,10 +1,9 @@
 """A request body sets only the fields its handler names, of the types it names.
 
-A JSON body may carry any key, and any JSON value under it. A handler that writes the body's keys as
-they came lets a caller set what the server owns: a new account's organizations, an organization's
-owner, members or markets. So each write here takes the fields it is for and nothing else, and a
-body that is not a JSON object is refused with a 400 before any value is read from it.
+Each write here takes the fields it is for, each of its type, and ignores any other key; a body
+that is not a JSON object is refused with a 400 before any value is read from it.
 """
+import json
 import os
 import sys
 from types import SimpleNamespace
@@ -34,7 +33,14 @@ FIXTURE_PASSWORD = "fixture-password-1"
 OWNER_ID = "fixture-user-id"
 ORG_ID = "org-1"
 
-NOT_OBJECTS = [[{"email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD}], "a body", 12345, True]
+NOT_OBJECTS = [
+    [{"email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD}], "a body", 12345, True, None,
+]
+
+
+def send_json(client, method, path, body):
+    """Send ``body`` as JSON text, so a ``None`` arrives as a literal ``null`` and not as no body."""
+    return getattr(client, method)(path, data=json.dumps(body), content_type="application/json")
 
 
 class FakeUsers:
@@ -133,7 +139,7 @@ class TestANewAccount:
     def test_a_body_that_is_not_an_object_is_refused(
         self, client, users, captcha_passes, path, body,
     ):
-        response = client.post(path, json=body)
+        response = send_json(client, "post", path, body)
 
         assert response.status_code == 400
         assert users.docs == []
@@ -203,9 +209,9 @@ class TestAFloorplanSave:
         )
 
     @pytest.mark.parametrize("body", [
-        [{"market_id": "market-123", "floorplan": {"a": 1}}], "a body", 12345, True,
+        [{"market_id": "market-123", "floorplan": {"a": 1}}], "a body", 12345, True, None,
     ])
     def test_a_body_that_is_not_an_object_is_refused(self, signed_in, body):
-        response = signed_in.post("/floorplans/save-to-market", json=body)
+        response = send_json(signed_in, "post", "/floorplans/save-to-market", body)
 
         assert response.status_code == 400
