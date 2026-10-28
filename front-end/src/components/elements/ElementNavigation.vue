@@ -126,6 +126,8 @@ h3 {
   padding: 0;
 
   height: 30px;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   aspect-ratio: 1;
 
   display: flex;

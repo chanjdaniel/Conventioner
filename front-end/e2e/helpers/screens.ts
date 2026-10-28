@@ -393,6 +393,23 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
+  // What else the organizer reaches at the door, on the phone in their hand (T82).
+  {
+    name: 'the navigation drawer, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(screen('big', 'attendance'), 'attendance-row', ['app-menu-button', 'app-nav']),
+  },
+  {
+    name: 'the phase-rail menu, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: async (page, seed) => {
+      await at(screen('big', 'attendance'), 'attendance-row')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await expect(page.locator('.rail-menu-item').first()).toBeVisible();
+    },
+  },
   {
     name: 'the floorplan',
     who: 'organizer',
@@ -546,6 +563,19 @@ export const SCREENS: Screen[] = [
     who: 'nobody',
     sizes: PUBLIC,
     open: at(slug('big', '/check-in'), 'attendance-checkin-market-name'),
+  },
+  {
+    // What a vendor at the door sees once they have looked themselves up: a card and a Check in
+    // button for each of their days.
+    name: 'the check-in page, a vendor looked up',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('big', '/check-in'), 'attendance-checkin-email-input')(page, seed);
+      await page.getByTestId('attendance-checkin-email-input').fill('vendor0@example.com');
+      await page.getByTestId('attendance-checkin-lookup-button').click();
+      await visible(page, 'attendance-checkin-checkin-button');
+    },
   },
 ];
 

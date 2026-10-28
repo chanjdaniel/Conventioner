@@ -612,6 +612,7 @@ function errorFor(key: string): string {
   display: flex;
   flex-direction: row;
   align-items: center;
+  min-height: var(--target-min);
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
@@ -639,7 +640,7 @@ function errorFor(key: string): string {
 }
 
 .essential-text-input {
-  height: 36px;
+  height: var(--control-height);
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
@@ -663,7 +664,7 @@ function errorFor(key: string): string {
 }
 
 .essential-max-input {
-  height: 36px;
+  height: var(--control-height);
   width: 120px;
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);

@@ -63,6 +63,7 @@ const logout = async () => {
 
   width: 100%;
   height: 36px;
+  min-height: var(--target-min);
 
   border-bottom: 1.75px solid rgba(39, 35, 35, 0.49);
   border-top-left-radius: 10px;
@@ -77,9 +78,10 @@ const logout = async () => {
   box-shadow: var(--shadow-card);
 }
 
+/* As the links' labels above it are, centred in its row: it copied a bottom margin from a rule
+   that never reached them, and sat 4px high. */
 .signout-button :deep(.signout-label) {
   font-size: var(--text-lg);
   font-weight: 400;
-  margin-bottom: var(--space-2);
 }
 </style>

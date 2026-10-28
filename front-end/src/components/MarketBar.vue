@@ -146,6 +146,9 @@ function linkFor(tab: MarketTab): string {
 }
 
 .market-bar-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
   padding: var(--space-2) var(--space-4);
   border-bottom: 2px solid transparent;
   font-size: var(--text-sm);

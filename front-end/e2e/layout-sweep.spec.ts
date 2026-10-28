@@ -2,8 +2,8 @@ import { test, expect } from './fixtures';
 import {
   detectLayout,
   gates,
+  minTargetAt,
   misplacedBars,
-  PHONE_WIDTH,
   SPACE_SCALE,
   TYPE_SCALE,
   type Finding,
@@ -18,12 +18,10 @@ import type { Page, TestInfo } from '@playwright/test';
  * the detectors in `helpers/layoutDetectors.ts`, and the test fails on any finding of a gating kind:
  * the page or an element past the window, a child outside its parent, text clipped, text or
  * controls overlapping, text squeezed into a column, type off the scale, and a tap target under
- * 24px on a phone (WCAG 2.5.8). Each failure names the state, the size, the element and the
- * measurement.
+ * 44px on a phone (T82). Each failure names the state, the size, the element and the measurement.
  *
  * The noisier kinds (spacing off the scale, uneven gaps, near-miss edges, empty bands, truncated
- * names, nested scrollers, small targets on a desktop, and phone targets under 44px as
- * `tight-target`, until the phone controls are raised to 44px) are real drift mixed with what is by design,
+ * names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design,
  * so they are attached to each test as `layout report`, never failed on.
  *
  * Then, across screens: the market bar stands at the same x and width on every market screen of one
@@ -56,8 +54,7 @@ async function expectLaidOut(page: Page, state: string, testInfo: TestInfo): Pro
   const findings = await page.evaluate(detectLayout, {
     spaceScale: SPACE_SCALE,
     textScale: TYPE_SCALE,
-    minTarget: 24,
-    comfortableTarget: width < PHONE_WIDTH ? 44 : undefined,
+    minTarget: minTargetAt(width),
   });
   await measureBar(page, state);
 

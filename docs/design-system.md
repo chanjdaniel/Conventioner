@@ -46,6 +46,7 @@ sources:
   - T75
   - T81
   - T79
+  - T82
 ---
 
 # Conventioner's design language
@@ -287,9 +288,14 @@ Two smaller controls had no owner either, each re-decided per file, and are prim
 
 | | Variants | Notes |
 | --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
+| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+
+**On a phone every target is 44px**, the size a thumb wants (T82).
+The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
+At `width <= 640px`, the market frame's phone break, all three are 44px and the banner is at least that tall, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
+A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 
@@ -314,12 +320,11 @@ A convention nothing enforces is how the product got here. Five checks, the firs
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
 5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a route with `meta.fitsAPhone`) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
-   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 24px on a phone (WCAG 2.5.8), a control's visible label counting toward its target.
+   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target.
    Each failure names the state, the size, the element and the measurement.
    It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12).
-   **A phone target is gated at 24px, not the 44px a thumb wants**: about 75 phone controls were under 44px when the sweep landed (36px buttons and fields, 28px day buttons on phone attendance), so Daniel chose the WCAG floor as the gate (2026-10-28), and a follow-up raises the phone controls to 44px and the gate with them.
-   Until then each phone target under 44px is reported as a `tight-target`.
-   The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop, tight targets on a phone) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
+   The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
+   The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 

@@ -19,6 +19,7 @@ import { join, resolve as resolvePath } from 'node:path';
 
 const SRC = resolvePath(process.cwd(), 'src');
 const CSS = readFileSync(join(SRC, 'assets/primitives.css'), 'utf8');
+const BASE = readFileSync(join(SRC, 'assets/base.css'), 'utf8');
 
 /** Every innermost rule block whose selector list contains `selector`, in source order. */
 function blocks(selector: string): string[] {
@@ -45,11 +46,34 @@ function declaration(selector: string, property: string): string | null {
 
 describe('the primitives exist and own what tokens cannot', () => {
   it('gives a control one standard height and one compact height, and no third', () => {
+    // The two heights are tokens, so a phone can raise both to a thumb's target in one place.
+    expect(declaration('.btn', 'height')).toBe('var(--control-height)');
+    expect(declaration('.field', 'height')).toBe('var(--control-height)');
+    expect(declaration('.add-row', 'height')).toBe('var(--control-height)');
+    expect(declaration('.btn--compact', 'height')).toBe('var(--control-height-compact)');
+    // No pixel height is left but the textarea's 72px, which is a min, not a control height.
     const heights = new Set(
       [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/height:\s*(\d+)px;/g)].map((m) => m[1]),
     );
-    // 36 standard, 28 compact, 72 the textarea's min-height - which is a min, not a control height.
-    expect([...heights].sort()).toEqual(['28', '36', '72']);
+    expect([...heights]).toEqual(['72']);
+  });
+
+  it('sets the control heights at 36px and 28px, and at 44px on a phone', () => {
+    // A thumb wants 44px (Apple's and Material's guidance; WCAG 2.5.5's AAA target), and the
+    // layout sweep fails a phone control under it. A desk keeps 36px and 28px, and WCAG 2.5.8's
+    // 24px floor for a target that is not a control.
+    const css = BASE.replace(/\/\*[\s\S]*?\*\//g, '');
+    const token = (body: string, name: string) =>
+      body.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1].trim();
+    const root = css.slice(css.indexOf(':root {'));
+    expect(token(root, '--control-height')).toBe('36px');
+    expect(token(root, '--control-height-compact')).toBe('28px');
+    expect(token(root, '--target-min')).toBe('24px');
+
+    const phone = css.match(/@media \(width <= 640px\) \{\s*:root \{([^}]*)\}/)?.[1] ?? '';
+    expect(token(phone, '--control-height')).toBe('44px');
+    expect(token(phone, '--control-height-compact')).toBe('44px');
+    expect(token(phone, '--target-min')).toBe('44px');
   });
 
   it('sizes and spaces itself from the scale, never from a literal', () => {
@@ -119,7 +143,6 @@ describe('the primitives exist and own what tokens cannot', () => {
     // `.icon-add-round { width: 40px; height: 40px }` was declared identically in SIX files, one of
     // which never used the icon at all.
     expect(blocks('.add-row')).not.toHaveLength(0);
-    expect(declaration('.add-row', 'height')).toBe('36px');
     expect(declaration('.add-row', 'align-items')).toBe('center');
     expect(declaration('.add-row', 'justify-content')).toBe('center');
   });
