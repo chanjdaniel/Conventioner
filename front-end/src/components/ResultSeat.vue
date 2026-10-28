@@ -104,7 +104,7 @@ const emit = defineEmits<{ open: []; view: [] }>();
   max-width: 100%;
   min-width: 0;
   text-align: left;
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
