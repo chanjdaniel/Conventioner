@@ -184,6 +184,7 @@ UNIT_SUITES = [
     "npm run test:unit",
     "npm run build-only",
     "npm run bundle-budget",
+    "npm run no-eval",
 ]
 
 

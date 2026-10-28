@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-10-27
+verified: 2026-10-28
 ---
 # Technology Stack
 
@@ -121,7 +121,8 @@ How each part of the code works is in the implementation layer of the [knowledge
 
 ### Build Tool
 - **Vite 8.3.5** - Next-generation frontend build tool, bundling with Rolldown
-  - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget)
+  - CI holds the entry JavaScript of a build to a gzipped limit, the [bundle budget](implementation/testing/ci-and-the-gate.md#the-bundle-budget), and fails a build that calls `eval` or `Function`, which the [Content-Security-Policy](implementation/conventions/security-invariants.md#security-headers) refuses ([the eval check](implementation/testing/ci-and-the-gate.md#no-string-evaluated-as-script))
+  - `vite preview` serves `front-end/vercel.json`'s security headers, so a production build runs locally under the policy production sends
   - Minifying keeps legal comments (`/*!` and `@license`, in [`vite.config.ts`](../front-end/vite.config.ts)), so the licence notices of copied icons and bundled libraries reach the shipped bundle ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - Fast development server with HMR
   - Production build optimization
@@ -161,7 +162,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Utilities
 - **VueUse 15.0.0** - Collection of Vue composition utilities
   - Reusable composition functions
-- **VueDraggable 4.1.0** - Drag and drop component
+- **VueDraggable 4.1.0** - Drag and drop component, resolved to the ES source it publishes (`vite.config.ts`), since its UMD builds evaluate a string and carry a second Vue
   - Drag-and-drop functionality for UI elements
 - **Konva 10** and **vue-konva 4** - The floorplan wizard's canvas
   - Each floorplan component imports the vue-konva components it draws with; none is installed app-wide, so no page but the floorplan wizard downloads Konva

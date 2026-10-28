@@ -69,6 +69,7 @@ from utils.proxy import (
     trusted_proxy_hops,
 )
 from utils.request_origin import install_request_origin_check
+from utils.security_headers import install_security_headers
 from client_errors import install_error_answers
 from utils.secret_key import (
     SecretKeyNotConfiguredError,
@@ -353,6 +354,7 @@ app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
 
 configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
 install_error_answers(app)
+install_security_headers(app)
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
 

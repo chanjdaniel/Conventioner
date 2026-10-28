@@ -280,7 +280,7 @@ export const SCREENS: Screen[] = [
     name: 'in assignment, nothing placed yet',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('assignment', 'result'), 'market-bar'),
+    open: at(screen('assignment', 'result'), 'market-bar-title'),
   },
 
   // Market days: 36 vendors placed over four dates and three sections.
@@ -288,7 +288,7 @@ export const SCREENS: Screen[] = [
     name: "a market's own address",
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(marketAddress('big'), 'market-bar'),
+    open: at(marketAddress('big'), 'market-bar-title'),
   },
   {
     name: 'the result',
@@ -434,7 +434,7 @@ export const SCREENS: Screen[] = [
     name: 'the floorplan',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'floorplan'), 'market-bar'),
+    open: at(screen('big', 'floorplan'), 'market-bar-title'),
   },
   {
     name: 'market days, the plan',

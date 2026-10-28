@@ -12,11 +12,13 @@ describes:
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
   - front-end/scripts/bundle-budget.ts
+  - front-end/scripts/no-eval.ts
 verified: 2026-10-28
 sources:
   - T47
   - T53
   - T74
+  - T84
 ---
 
 # CI and the gate
@@ -35,7 +37,7 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 | --- | --- |
 | `backend` | Python 3.12, the locks `requirements.txt`, `requirements-floorplan-solver.txt` and `requirements-dev.txt`, a re-lock that fails on any difference ([the locks](../../TECH_STACK.md#python-dependencies-are-locked)), then pytest |
 | `frontend-unit` | the Node `.nvmrc` pins, `npm ci`, Vitest |
-| `frontend-lint-and-types` | a check that the Node is `.nvmrc`'s, `npm ci --engine-strict` (the npm is `engines.npm`), and a check that npm writes the committed lockfile unchanged ([Node and npm are pinned](../../TECH_STACK.md#node-and-npm-are-pinned)), then Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate), the type-check, and a `vite build` measured against [the bundle budget](#the-bundle-budget) |
+| `frontend-lint-and-types` | a check that the Node is `.nvmrc`'s, `npm ci --engine-strict` (the npm is `engines.npm`), and a check that npm writes the committed lockfile unchanged ([Node and npm are pinned](../../TECH_STACK.md#node-and-npm-are-pinned)), then Prettier's `format:check`, ESLint, Stylelint (`lint:css`, the [design language](../../design-system.md) gate), the type-check, and a `vite build` measured against [the bundle budget](#the-bundle-budget) and checked for [no string evaluated as script](#no-string-evaluated-as-script) |
 | `knowledge-graph` | pytest from `back-end/requirements-dev.txt`, the scripts' tests (on the Node `.nvmrc` pins, since the pre-warm's tests run its npm) and `knowledge_graph.py check` |
 | `knowledge-graph-drift` | on a pull request only, `knowledge_graph.py drift` against the base branch; it clones the full history for that |
 | `real-data` | on a pull request only, [`real_data_check.py`](../../../scripts/real_data_check.py) on the PR's commits since the base branch, then gitleaks 8.28.0 (checksum-verified, fully redacted) on the same commits; the backstop to the git hooks and the gate, which run the checker before anything is pushed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)) |
@@ -65,10 +67,17 @@ The entry JavaScript is what a first visit downloads before any page paints: the
 [`front-end/scripts/bundle-budget.ts`](../../../front-end/scripts/bundle-budget.ts) (`npm run bundle-budget`, after `npm run build-only`) gzips each at level 9, prints every chunk's size and the total against the limit on every run, and exits non-zero above it.
 It runs in the required `frontend-lint-and-types` job and in `nm-test.sh`, both on a build made with `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, since the bundle is measured and never deployed.
 
-The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (102220 B against 105000 B, T76).
+The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (102220 B against 105000 B, T76), and lowered when the total fell (85740 B against 89000 B, T84, when vuedraggable stopped bringing a second Vue).
 It landed because nothing noticed `main.ts` installing vue-konva for the whole app, which put the floorplan canvas library on every page, `/login` included, for about 60 KB gzipped.
 **Raise the limit only on purpose**: in the same pull request as the code that needs it, saying there what the extra bytes buy, and still a few KB above the new total so the next unplanned growth fails.
 The first fix to try is a lazily loaded route or component, which keeps the code out of the entry.
+
+## No string evaluated as script
+
+**CI fails a build any of whose JavaScript calls `eval` or the `Function` constructor.**
+The front end's [Content-Security-Policy](../conventions/security-invariants.md#security-headers) has no `'unsafe-eval'`, so such a call is refused once the policy enforces and reported while it is report-only, and with no reporting endpoint a report in production reaches nobody.
+[`front-end/scripts/no-eval.ts`](../../../front-end/scripts/no-eval.ts) (`npm run no-eval`, after `npm run build-only`) reads every `.js` file under `dist/assets/`, prints each call with its file and a little context, and exits non-zero on any; it runs right after the bundle budget, on the same build, in `frontend-lint-and-types` and in `nm-test.sh`.
+The first one it would have caught was vuedraggable's UMD build, whose bundled core-js finds the global object with `Function('return this')()` and whose `require("vue")` pulled in a second Vue with its template compiler; `vite.config.ts` resolves `vuedraggable` to the ES source the package publishes beside its builds, which has neither.
 
 ## CodeQL
 
@@ -127,8 +136,8 @@ CI's run is also the stricter one: there `failOnFlakyTests` fails a test that pa
 The first gate run with `--skip-e2e`, on the branch that added it, took 6.4 minutes for its test step, and its CI step waited for all four shards (6 to 6.5 minutes each) before it passed.
 
 [`scripts/nm-test.sh`](../../../scripts/nm-test.sh) is the runner the gate invokes, and anyone may run it.
-With `--skip-e2e`, as the gate runs it, it stops after Vitest and the [bundle budget](#the-bundle-budget) with one line, `nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started.`, and starts no stack, sets no teardown trap and takes no end-to-end lock; without it, it runs everything below.
-It runs, in order, the real-data check on the branch's commits since `origin/dev` (before anything else, and failing the run on a finding, since the gate pushes the branch), the scripts' tests and the knowledge graph's `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, a `vite build` held to the bundle budget, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
+With `--skip-e2e`, as the gate runs it, it stops after Vitest, the [bundle budget](#the-bundle-budget) and [the eval check](#no-string-evaluated-as-script) with one line, `nm-test: --skip-e2e: Playwright is left to CI's e2e shards; no stack started.`, and starts no stack, sets no teardown trap and takes no end-to-end lock; without it, it runs everything below.
+It runs, in order, the real-data check on the branch's commits since `origin/dev` (before anything else, and failing the run on a finding, since the gate pushes the branch), the scripts' tests and the knowledge graph's `check`, back-end pytest (installing `requirements.txt`, the floorplan solver's and the dev requirements, then re-locking them as CI does), front-end Vitest, a `vite build` held to the bundle budget and checked for no string evaluated as script, and Playwright against a Docker stack of its own, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set.
 Its Python is `PYTHON_CMD`, else `python3.12` (`back-end/.python-version`), else `python3`, and it installs nothing into that Python: it makes a virtual environment of its own from it, installs there, and a guard deletes it once the run is gone, since a uv- or distro-managed Python refuses `pip install` outright (PEP 668).
 Its stack is isolated: a unique `COMPOSE_PROJECT_NAME` (`nmtest-<pid>`), and host ports Docker assigns as the stack starts (`TH_PORTS=auto`, [below](#stack-identity)), so two runs started together can never race for one port, as runs that each probed for a free port before starting could.
 Once the stack is up, the run reads its ports back with `th-compose.sh ports` and exports them for `seed_fixture.sh` and Playwright.

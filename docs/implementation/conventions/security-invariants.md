@@ -9,20 +9,26 @@ describes:
   - back-end/utils/env_file.py
   - back-end/utils/cors.py
   - back-end/utils/request_origin.py
+  - back-end/utils/security_headers.py
   - back-end/utils/proxy.py
   - back-end/utils/captcha.py
   - back-end/utils/email.py
   - back-end/tests/test_public_endpoint_defenses.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_request_origin_check.py
+  - back-end/tests/test_security_headers.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
+  - front-end/vite.config.ts#deployedHeaders
+  - front-end/vercel.json
+  - front-end/src/__tests__/securityHeaders.test.ts
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
   - scripts/real_data_check.py
   - .githooks/
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - T74
+  - T84
 ---
 
 # Security invariants
@@ -175,6 +181,26 @@ The checks above make the process boot safe; that one makes safe each lookup a r
 
 **The front end has no DOM or HTML sink today** (no `v-html`, no `innerHTML`), and its lint refuses `v-html` anywhere ([every control is named](every-control-is-named.md#how-it-is-enforced)).
 If one is ever introduced, lifting that rule is the decision, and the chosen tools are DOMPurify for `v-html` and Trusted Types (`require-trusted-types-for 'script'`) for the page.
+
+## Security headers
+
+**Every page the front end serves carries the standard security headers and a Content-Security-Policy**, declared once, for every path, in [`front-end/vercel.json`](../../../front-end/vercel.json)'s `headers`; Vercel adds no policy of its own.
+They are `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` (with the policy's `frame-ancestors 'none'`, the page is framed nowhere) and `Strict-Transport-Security: max-age=63072000; includeSubDomains`.
+The policy limits what script can run in the tab, the applicant's session included.
+
+**The policy names every source the app loads from, and lets no inline code or eval run.**
+`default-src 'self'`, with `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'none'`; scripts from the app and reCAPTCHA, styles and fonts from the app, images from the app and `blob:` (a floorplan's image is fetched and drawn from an object URL), connections to the app, `https://api.conventioner.io` and reCAPTCHA, and frames only reCAPTCHA's, its hosts as [Google's allowlist](https://developers.google.com/recaptcha/docs/faq) names them.
+There is no `'unsafe-inline'` and no `'unsafe-eval'`: the built `index.html` has no inline script, Vue sets a bound style through the CSSOM (which the policy does not govern), and a build that calls `eval` or `Function` fails CI's [eval check](../testing/ci-and-the-gate.md#no-string-evaluated-as-script).
+A new origin the app loads from (an analytics script, an image host) goes into its directive in the same PR.
+
+**It is report-only until it has run in production with no reports**, as `Content-Security-Policy-Report-Only`; promoting it is renaming that one header key to `Content-Security-Policy`.
+It has no reporting endpoint, so a report shows only in a browser's console; walk a production build under it with `npm run build-only && npm run preview`, since `vite preview` serves `vercel.json`'s headers ([`deployedHeaders`](../../../front-end/vite.config.ts)), and the dev server, whose styles are injected inline, is not a build the policy describes.
+[`securityHeaders.test.ts`](../../../front-end/src/__tests__/securityHeaders.test.ts) pins the headers and the policy's shape, and that `vite preview` serves them on the root and a deep link; the Deploy workflow checks that `conventioner.io` sends every one after each front-end deploy.
+
+**Every API answer carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`**, added by one `after_request`, [`install_security_headers()`](../../../back-end/utils/security_headers.py), so a route added later, an error answer and a CORS preflight carry them without doing anything.
+The API answers JSON, a CSV export and floorplan images, never a page, so it sends no policy of its own.
+It is installed after the [error answers](an-exception-never-reaches-a-client.md), outside `configure_public_endpoint_defenses()`, because it depends on no configuration; it only adds headers, so it leaves the order of the defenses above, flask-cors's `after_request` among them, as it was.
+[`test_security_headers.py`](../../../back-end/tests/test_security_headers.py) reads both on a JSON answer, a 401, a 404 and a preflight that CORS still answers; the Deploy workflow checks `api.conventioner.io/healthz` for both after each back-end deploy.
 
 ## How it is enforced
 

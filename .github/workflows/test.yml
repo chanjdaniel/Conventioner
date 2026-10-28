@@ -214,6 +214,10 @@ jobs:
         run: npm run build-only
       - name: Bundle budget
         run: npm run bundle-budget
+      # The Content-Security-Policy has no 'unsafe-eval': no built file calls eval or Function
+      # (scripts/no-eval.ts).
+      - name: No string evaluated as script
+        run: npm run no-eval
 
   docker-build:
     runs-on: ubuntu-latest

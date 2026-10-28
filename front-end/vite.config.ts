@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig, loadEnv } from 'vite';
@@ -44,6 +45,31 @@ function assertCaptchaSiteKey(env: Record<string, string>) {
   );
 }
 
+/**
+ * The headers `vercel.json` sends on every path, so `vite preview` serves a production build under
+ * the same security headers and Content-Security-Policy as production does. `vercel.json` is the one
+ * place they are declared; walk a page with `npm run build-only && npm run preview` to see what the
+ * policy would report there.
+ */
+function deployedHeaders(): Record<string, string> {
+  const vercel = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8')) as {
+    headers: { source: string; headers: { key: string; value: string }[] }[];
+  };
+  const everyPath = vercel.headers.find((rule) => rule.source === '/(.*)');
+  return Object.fromEntries((everyPath?.headers ?? []).map(({ key, value }) => [key, value]));
+}
+
+/**
+ * vuedraggable's own ES source, which it publishes beside its builds. Its builds are webpack UMD
+ * bundles carrying core-js, whose global lookup runs `Function('return this')()`: a string
+ * evaluated as script, which the Content-Security-Policy refuses (and reported on every page with a
+ * drag list). The source is the same component without that, importing SortableJS's ES build.
+ */
+export const VUEDRAGGABLE_SOURCE = {
+  find: /^vuedraggable$/,
+  replacement: 'vuedraggable/src/vuedraggable.js',
+};
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
@@ -55,9 +81,10 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [vue(), vueJsx(), vueDevTools()],
     resolve: {
-      alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url)),
-      },
+      alias: [
+        { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+        VUEDRAGGABLE_SOURCE,
+      ],
     },
     build: {
       rolldownOptions: {
@@ -88,6 +115,10 @@ export default defineConfig(({ command, mode }) => {
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
+    },
+    preview: {
+      host: '127.0.0.1',
+      headers: deployedHeaders(),
     },
   };
 });
