@@ -226,7 +226,7 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
 
 - Changes reach `dev` by PR; `dev` requires ten checks, `CodeQL` among them, and `main` six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 - Promote a commit whose `dev` CI is green: `git fetch origin && git push origin <sha>:main`.
-  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which deploys the back end, checks `/healthz`, deploys the front end, and checks a deep link and its security headers.
+  The Test workflow runs on `main`; once it is green, start the Deploy workflow by hand (Actions, Deploy, Run workflow, from `main`, or `gh workflow run deploy.yml --ref main`), which deploys the back end, checks `/healthz` and its security headers, deploys the front end, and checks a deep link and its security headers.
   Nothing deploys by itself: no push, merge or PR reaches Vercel.
   Watch it under Actions; a failed run says how to roll back in its summary.
 - After release-please's Release PR is merged, merge `main` back into `dev` (a PR from `main` to `dev`), or the next promotion is not a fast-forward.

@@ -91,7 +91,7 @@ The back end no longer waves that through - it has a real secret now, and Google
 
 1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
 2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow, or `gh workflow run deploy.yml --ref main`); it is the only way production moves (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
-   It deploys the back end, waits for `/healthz`, then deploys the front end and checks a deep link and its security headers.
+   It deploys the back end, waits for `/healthz` and checks its security headers, then deploys the front end and checks a deep link and its security headers.
 3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
 
 ## Troubleshooting a back end that will not boot
