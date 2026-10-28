@@ -13,6 +13,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import assignment.vendor_input as VendorInput
 import essential_fields as EF
+from client_errors import ForbiddenError
 from datatypes import ApplicationStatus, EssentialFormOptions, MarketPerson, MarketPhase
 
 ADDER = MarketPerson(user_id="user-editor", email="editor@market.test")
@@ -71,7 +72,7 @@ def test_before_the_assignment_a_vendor_applies_instead(stored, phase):
 def test_an_archived_market_takes_nobody(stored):
     stored(MarketPhase.ARCHIVED)
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(ForbiddenError):
         AddedVendors.add_vendor("market-123", {"name": "A", "email": "a@example.com"}, ADDER)
 
 

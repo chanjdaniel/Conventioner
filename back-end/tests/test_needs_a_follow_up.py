@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import api.applicants as ApplicantsApi  # noqa: E402
 import api.applications as ApplicationsApi  # noqa: E402
 from conftest import FakeApplicationsCollection, client_market  # noqa: E402
+from client_errors import BadRequestError  # noqa: E402
 from datatypes import (  # noqa: E402
     Application, ApplicationStatus, MarketPerson, MarketPhase, VerdictGiver)
 from guards import AllApplicationsReviewedGuard  # noqa: E402
@@ -120,5 +121,5 @@ class TestWhoMayOwnIt:
 
         assert MarketsApi.follow_up_owner(market, None, requester, "sam@market.test") == SAM
         for email in ("stranger@x.test", "nobody@x.test", None):
-            with pytest.raises(ValueError, match="must have a role on this market"):
+            with pytest.raises(BadRequestError, match="must have a role on this market"):
                 MarketsApi.follow_up_owner(market, None, requester, email)

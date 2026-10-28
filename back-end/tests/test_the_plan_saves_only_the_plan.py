@@ -11,6 +11,7 @@ from conftest import FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import BadRequestError
 from datatypes import IntakeMode, MarketPhase, MarketRole
 
 PLAN = {
@@ -75,7 +76,7 @@ def test_it_requires_the_same_role_every_market_write_does(market):
 def test_a_body_naming_anything_else_is_refused(market, field):
     collection = market()
 
-    with pytest.raises(ValueError, match=field):
+    with pytest.raises(BadRequestError, match=field):
         MarketsApi.save_plan("market-123", {"setupObject": PLAN, field: "anything"}, "user-1")
 
     assert collection.last_update is None
@@ -84,7 +85,7 @@ def test_a_body_naming_anything_else_is_refused(market, field):
 def test_a_body_without_the_plan_is_refused(market):
     market()
 
-    with pytest.raises(ValueError, match="setupObject"):
+    with pytest.raises(BadRequestError, match="setupObject"):
         MarketsApi.save_plan("market-123", {"intakeMode": "csv"}, "user-1")
 
 
@@ -95,7 +96,7 @@ def test_a_body_without_the_plan_is_refused(market):
 def test_the_intake_mode_cannot_change_after_draft(market, phase):
     collection = market(phase=phase)
 
-    with pytest.raises(ValueError, match="draft"):
+    with pytest.raises(BadRequestError, match="draft"):
         MarketsApi.save_plan(
             "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.FORM.value}, "user-1"
         )
@@ -118,7 +119,7 @@ def test_restating_the_intake_mode_after_draft_is_not_a_change(market):
 def test_a_malformed_plan_is_refused(market):
     collection = market()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(BadRequestError):
         MarketsApi.save_plan("market-123", {"setupObject": {"tiers": "not a list"}}, "user-1")
 
     assert collection.last_update is None
@@ -132,7 +133,7 @@ def test_a_half_table_proportion_out_of_range_is_refused(market, share):
         **PLAN,
         "assignmentOptions": {"maxHalfTableProportionPerSection": share},
     }
-    with pytest.raises(ValueError, match="0 and 100"):
+    with pytest.raises(BadRequestError, match="0 and 100"):
         MarketsApi.save_plan("market-123", {"setupObject": plan}, "user-1")
 
     assert collection.last_update is None
@@ -182,7 +183,7 @@ STORED_RULES = {
 def test_after_the_assignment_a_rule_cannot_change(market, phase, change):
     collection = market(phase=phase, setupObject=STORED_RULES)
 
-    with pytest.raises(ValueError, match="settled"):
+    with pytest.raises(BadRequestError, match="settled"):
         MarketsApi.save_plan("market-123", {"setupObject": {**STORED_RULES, **change}}, "user-1")
 
     assert collection.last_update is None

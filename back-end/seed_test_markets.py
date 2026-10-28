@@ -28,6 +28,7 @@ import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 from api.permissions import user_has_permission
+from client_errors import ClientError
 from datatypes import IntakeMode, MarketPhase, MarketRole, User, market_name_slug
 from market_documents import market_doc_field, market_doc_filter
 
@@ -175,8 +176,9 @@ def main(argv=None) -> int:
         for line in seed_test_markets(args.owner):
             print(line)
     # Every refusal the product's own writes can give, said as the operator's "Not done", never a
-    # traceback: a plan or form the server refuses, a role, a race with someone else's move.
-    except (SeedError, ValueError, PermissionError, MarketsApi.PhaseChangedUnderRequest) as e:
+    # traceback: a plan or form the server refuses, a role, a race with someone else's move. Each is
+    # a client error; anything else is a bug, and its traceback is what the operator needs.
+    except (SeedError, ClientError) as e:
         print(f"Not done: {e}", file=sys.stderr)
         return 1
     return 0

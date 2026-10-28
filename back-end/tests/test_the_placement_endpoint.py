@@ -11,6 +11,7 @@ from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
+from client_errors import ForbiddenError
 from datatypes import MarketPhase, MarketRole
 
 
@@ -208,7 +209,7 @@ def test_a_viewer_is_refused_and_an_editor_is_not(monkeypatch):
 
     monkeypatch.setattr(PermissionsApi, "user_has_permission", only_viewer)
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(ForbiddenError):
         PlacementsApi.write_placement("market-123", placement(), "user-1")
 
     assert asked_for == [MarketRole.EDITOR]
@@ -301,7 +302,7 @@ def test_a_solver_run_needs_edit_permission(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(ForbiddenError):
         PlacementsApi.run_assignment("market-123", "user-1")
 
 
@@ -443,7 +444,7 @@ class TestFreeingASeat:
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             PlacementsApi.remove_placement(
                 "market-123", "ana@example.com", "2026-08-01", "user-1"
             )
@@ -535,7 +536,7 @@ class TestSwappingTwoVendors:
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             PlacementsApi.swap_placements(
                 "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
             )

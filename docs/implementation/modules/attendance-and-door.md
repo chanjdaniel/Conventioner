@@ -67,6 +67,7 @@ A placement is dated by the market date itself, so no reader maps anything back 
 **An organizer checks a vendor in through `api/door.py`**: EDITOR, the bar every market write sets, so a door volunteer is added to the market as an editor.
 It loads through the change loader (`_load_market_to_change`), so an archived market's record is never changed, and refuses with a 409 outside `market_days`.
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
+`_door_write` catches nothing: a market that does not exist answers 404, an archived one or a role short of EDITOR 403, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
 
 **An archived market that ran is still served, as a record** ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).

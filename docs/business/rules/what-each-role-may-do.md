@@ -8,7 +8,7 @@ describes:
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/tests/test_an_organizations_admins_run_its_markets.py
   - back-end/utils/identity.py
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
