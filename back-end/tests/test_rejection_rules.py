@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import api.markets as MarketsApi  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
 from conftest import client_market, complete_setup, stored_market  # noqa: E402
+from client_errors import BadRequestError  # noqa: E402
 from datatypes import ApplicationForm, MarketPhase  # noqa: E402
 
 UBC = ["Current UBC student", "UBC alumni/staff", "Not a UBC student"]
@@ -64,19 +65,19 @@ class TestWhatARuleMaySay:
         ]
 
     def test_free_text_is_refused(self):
-        with pytest.raises(ValueError, match="Business name"):
+        with pytest.raises(BadRequestError, match="Business name"):
             Rules.Rulebook(_market()).prepared([{"key": "business", "answers": ["Acme"]}])
 
     def test_an_answer_the_question_does_not_offer_is_refused(self):
-        with pytest.raises(ValueError, match="does not offer"):
+        with pytest.raises(BadRequestError, match="does not offer"):
             Rules.Rulebook(_market()).prepared([{"key": "affiliation", "answers": ["Alumni"]}])
 
     def test_a_question_that_does_not_exist_is_refused(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(BadRequestError):
             Rules.Rulebook(_market()).prepared([{"key": "nothing", "answers": []}])
 
     def test_one_rule_a_question(self):
-        with pytest.raises(ValueError, match="one rule"):
+        with pytest.raises(BadRequestError, match="one rule"):
             Rules.Rulebook(_market()).prepared([{"key": "affiliation", "answers": []},
                                              {"key": "affiliation", "answers": []}])
 
@@ -128,7 +129,7 @@ class TestTheWrite:
     def test_it_is_refused_from_assignment_on(self, saved):
         self.market = _market(phase=MarketPhase.ASSIGNMENT)
 
-        with pytest.raises(ValueError, match="Assignment"):
+        with pytest.raises(BadRequestError, match="Assignment"):
             MarketsApi.save_rejection_rules("market-123", [], "owner@x.test")
         assert saved == []
 

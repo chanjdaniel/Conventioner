@@ -13,6 +13,7 @@ import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.users as UsersApi
+from client_errors import BadRequestError, ForbiddenError
 from datatypes import MarketPhase, MarketRole, Organization
 
 ORG_ID = "org-1"
@@ -208,7 +209,7 @@ def test_adding_someone_already_on_the_market_changes_nothing(roles_on_the_marke
     """
     before = roles_on_the_market()
 
-    with pytest.raises(ValueError, match="already has a role on this market"):
+    with pytest.raises(BadRequestError, match="already has a role on this market"):
         MarketsApi.add_market_role("market-123", target, MarketRole.VIEWER, who)
 
     assert roles_on_the_market() == before
@@ -225,7 +226,7 @@ def test_an_organization_admin_adds_an_editor_or_a_viewer(roles_on_the_market, w
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
 def test_an_organization_admin_does_not_add_a_market_admin(roles_on_the_market, who):
     """Raising someone to Admin stays the market owner's, as it is for the market's own Admins."""
-    with pytest.raises(PermissionError):
+    with pytest.raises(ForbiddenError):
         MarketsApi.add_market_role("market-123", "newcomer", MarketRole.ADMIN, who)
 
     assert "newcomer" not in roles_on_the_market()
@@ -242,7 +243,7 @@ def test_an_organization_admin_changes_an_editor_or_a_viewer(roles_on_the_market
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN, MARKET_ADMIN])
 @pytest.mark.parametrize("target", [MARKET_OWNER, MARKET_ADMIN])
 def test_only_the_owner_changes_the_owner_or_an_admin(roles_on_the_market, who, target):
-    with pytest.raises(PermissionError):
+    with pytest.raises(ForbiddenError):
         MarketsApi.update_market_role("market-123", target, MarketRole.VIEWER, who)
 
     assert roles_on_the_market()[target] == ("owner" if target == MARKET_OWNER else "admin")

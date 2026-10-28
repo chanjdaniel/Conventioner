@@ -9,6 +9,7 @@ from conftest import FakeMarketsCollection, client_market, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import BadRequestError, ForbiddenError
 from datatypes import (
     Application, ApplicationForm, ApplicationStatus, FormField, MarketPhase,
 )
@@ -78,7 +79,7 @@ class TestSaveApplicationForm:
     def test_requires_editor_permission(self, markets, applications, monkeypatch):
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: False)
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             MarketsApi.save_application_form("market-123", VALID_FORM, "user-1")
 
 
@@ -169,18 +170,18 @@ class TestFieldValidation:
         assert saved["fields"] == []
 
     def test_unrecognized_type_is_refused(self, markets, applications):
-        with pytest.raises(ValueError, match="Unrecognized field type"):
+        with pytest.raises(BadRequestError, match="Unrecognized field type"):
             self._save([{"key": "bad", "label": "Bad", "type": "invalid_type"}])
 
     @pytest.mark.parametrize("field_type", ["select", "multi_select"])
     def test_select_without_options_is_refused(self, markets, applications, field_type):
-        with pytest.raises(ValueError, match="no options defined"):
+        with pytest.raises(BadRequestError, match="no options defined"):
             self._save([{"key": "size", "label": "Size", "type": field_type}])
 
     @pytest.mark.parametrize("field_type", ["select", "multi_select"])
     def test_blank_option_is_refused(self, markets, applications, field_type):
         """A blank option renders as an unselectable empty row in the applicant's form."""
-        with pytest.raises(ValueError, match="blank option"):
+        with pytest.raises(BadRequestError, match="blank option"):
             self._save([
                 {"key": "size", "label": "Size", "type": field_type, "options": ["Small", "  "]}
             ])
@@ -188,7 +189,7 @@ class TestFieldValidation:
     @pytest.mark.parametrize("field_type", ["select", "multi_select"])
     def test_duplicate_option_is_refused(self, markets, applications, field_type):
         """Options are the persisted answer values, so a duplicate is an ambiguous answer."""
-        with pytest.raises(ValueError, match="Duplicate option 'Small'"):
+        with pytest.raises(BadRequestError, match="Duplicate option 'Small'"):
             self._save([
                 {
                     "key": "size", "label": "Size", "type": field_type,
@@ -212,32 +213,32 @@ class TestFieldValidation:
 
     def test_duplicate_keys_are_refused(self, markets, applications):
         """Duplicate keys would collide in Application.form_data and lose an answer."""
-        with pytest.raises(ValueError, match="Duplicate field key 'field_2'"):
+        with pytest.raises(BadRequestError, match="Duplicate field key 'field_2'"):
             self._save([
                 {"key": "field_2", "label": "One", "type": "text"},
                 {"key": "field_2", "label": "Two", "type": "text"},
             ])
 
     def test_keys_differing_only_in_whitespace_are_duplicates(self, markets, applications):
-        with pytest.raises(ValueError, match="Duplicate field key 'name'"):
+        with pytest.raises(BadRequestError, match="Duplicate field key 'name'"):
             self._save([
                 {"key": "name", "label": "One", "type": "text"},
                 {"key": " name ", "label": "Two", "type": "text"},
             ])
 
     def test_blank_key_is_refused(self, markets, applications):
-        with pytest.raises(ValueError, match="non-empty key"):
+        with pytest.raises(BadRequestError, match="non-empty key"):
             self._save([{"key": "   ", "label": "Nameless", "type": "text"}])
 
     def test_blank_label_is_refused(self, markets, applications):
-        with pytest.raises(ValueError, match="non-empty label"):
+        with pytest.raises(BadRequestError, match="non-empty label"):
             self._save([{"key": "x", "label": "", "type": "text"}])
 
     @pytest.mark.parametrize("key", ["a.b", "$where", "Name", "shop name", "shop-name", "aéb"])
     def test_keys_outside_the_slug_charset_are_refused(self, markets, applications, key):
         """Keys become document keys inside Application.form_data; a dot or a leading '$' is
         exactly what Mongo update operators cannot address."""
-        with pytest.raises(ValueError, match="Invalid field key"):
+        with pytest.raises(BadRequestError, match="Invalid field key"):
             self._save([{"key": key, "label": "Label", "type": "text"}])
 
 
@@ -335,7 +336,7 @@ class TestCreateMarketWritesTheFormThroughTheSameContract:
         assert written["publishedAt"] is None
 
     def test_duplicate_keys_are_refused_on_create(self, created, applications):
-        with pytest.raises(ValueError, match="Duplicate field key"):
+        with pytest.raises(BadRequestError, match="Duplicate field key"):
             self._create(ApplicationForm(fields=[
                 FormField(key="a", label="A", type="text"),
                 FormField(key="a", label="Also A", type="text"),
@@ -345,7 +346,7 @@ class TestCreateMarketWritesTheFormThroughTheSameContract:
 
     @pytest.mark.parametrize("key", ["a.b", "$where", "Shop Name"])
     def test_unaddressable_keys_are_refused_on_create(self, created, applications, key):
-        with pytest.raises(ValueError, match="Invalid field key"):
+        with pytest.raises(BadRequestError, match="Invalid field key"):
             self._create(ApplicationForm(fields=[FormField(key=key, label="L", type="text")]))
 
         assert created.inserted is None
@@ -406,5 +407,5 @@ class TestGetApplicationForm:
     def test_requires_viewer_permission(self, markets, applications, monkeypatch):
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: False)
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             MarketsApi.get_application_form("market-123", "user-1")

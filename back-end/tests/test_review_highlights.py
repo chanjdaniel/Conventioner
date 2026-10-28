@@ -10,6 +10,7 @@ import pytest
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from conftest import FakeMarketsCollection, stored_market
+from client_errors import ForbiddenError
 from datatypes import MarketPhase, MarketRole
 
 
@@ -64,7 +65,7 @@ class TestSavingThem:
             lambda _user, _market, role, *_a, **_kw: role != MarketRole.EDITOR,
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             MarketsApi.save_review_highlights("market-123", ["a"], "user-1")
 
     def test_an_unknown_market_is_not_found(self, monkeypatch):

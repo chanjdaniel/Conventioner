@@ -20,10 +20,8 @@ from client_errors import BadRequestError, ConflictError
 from datatypes import Application, ApplicationStatus, MarketPerson, MarketRole
 from utils.email_address import normalized_email
 
-class AddVendorRefused(ConflictError, ValueError):
-    """The market cannot take this vendor now: its phase, or an address it already holds. A 409.
-
-    Still a ``ValueError`` until no route catches one to answer it."""
+class AddVendorRefused(ConflictError):
+    """The market cannot take this vendor now: its phase, or an address it already holds. A 409."""
 
 
 class AddVendorInvalid(BadRequestError):

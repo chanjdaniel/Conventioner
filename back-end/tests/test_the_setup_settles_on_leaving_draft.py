@@ -13,6 +13,7 @@ from conftest import COMPLETE_PLAN, FakeMarketsCollection, sessions_load_through
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import BadRequestError
 from datatypes import MarketPhase
 
 AFTER_DRAFT = [p for p in MarketPhase if p not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)]
@@ -49,7 +50,7 @@ CHANGES = {
 def test_after_draft_a_change_to_the_setup_is_refused(market, phase, what):
     collection = market(phase)
 
-    with pytest.raises(ValueError, match="settled"):
+    with pytest.raises(BadRequestError, match="settled"):
         MarketsApi.save_plan("market-123", {"setupObject": _changed(**CHANGES[what])}, "user-1")
     assert collection.last_update is None
 

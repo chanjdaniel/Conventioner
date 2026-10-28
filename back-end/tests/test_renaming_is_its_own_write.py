@@ -11,6 +11,7 @@ from conftest import FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import BadRequestError
 from datatypes import MarketPhase, MarketRole
 
 
@@ -60,7 +61,7 @@ def test_it_requires_the_role_renaming_always_required(market):
 def test_after_draft_the_name_is_the_address_that_was_shared(market, phase):
     collection = market(phase=phase)
 
-    with pytest.raises(ValueError, match="already been shared"):
+    with pytest.raises(BadRequestError, match="already been shared"):
         MarketsApi.rename_market("market-123", "Autumn Market", "user-1")
 
     assert collection.last_update is None
@@ -69,7 +70,7 @@ def test_after_draft_the_name_is_the_address_that_was_shared(market, phase):
 def test_a_taken_address_is_refused(market):
     collection = market()
 
-    with pytest.raises(ValueError, match="web address"):
+    with pytest.raises(BadRequestError, match="web address"):
         MarketsApi.rename_market("market-123", "Cafe Market", "user-1")
 
     assert collection.last_update is None
@@ -79,5 +80,5 @@ def test_a_taken_address_is_refused(market):
 def test_a_market_must_be_called_something(market, name):
     market()
 
-    with pytest.raises(ValueError, match="name"):
+    with pytest.raises(BadRequestError, match="name"):
         MarketsApi.rename_market("market-123", name, "user-1")

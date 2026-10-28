@@ -153,8 +153,9 @@ def find_or_create_application(app: Application) -> Application:
         if existing:
             return Application(**existing)
 
+    # Named by its market and never its address: this escapes to the 500 log, which holds none.
     raise PyMongoError(
-        f"Could not store the application for {app.applicant_email}: a concurrent write for the "
+        f"Could not store an application for market {app.market_id}: a concurrent write for the "
         f"same applicant keeps winning, and no document for them can be read back."
     )
 

@@ -19,7 +19,7 @@ describes:
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -58,6 +58,8 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 Each loads its market through `_load_market_to_change`, so an archived market is refused.
 A placement that names no seat the plan has is a `PlacementError` (400); a seat someone else holds is a `SeatTakenError` (409), naming the occupant; a run outside its phase is an `AssignPhaseError` (409).
 Each is a [client error](../conventions/an-exception-never-reaches-a-client.md) carrying that status.
+The routes catch nothing: each refusal reaches the handler with its own status and copy, and anything else answers the generic 500.
+Each reads its body with `json_object` ([a body that is not an object is refused in words](../conventions/an-exception-never-reaches-a-client.md)): a body that is not a JSON object answers `A JSON object is required`, 400, a placement with no body or an empty one `No data provided`, 400, and a swap or a freed seat with none is read as empty and refused by the API in its own words; a swap whose `emails` is not a list names no vendor, and is refused as such.
 
 **There is no other door.**
 The whole-market PUT that once let a stale client copy move vendors on market day is deleted ([ADR 0008](../../adr/0008-each-write-names-what-it-changes.md)).

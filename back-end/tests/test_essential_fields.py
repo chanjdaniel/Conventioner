@@ -20,6 +20,7 @@ from api.applicants import (
     get_public_application_form,
     save_applicant_application,
 )
+from client_errors import BadRequestError
 from datatypes import Application, ApplicationForm, ApplicationStatus, EssentialFormOptions
 
 
@@ -533,7 +534,7 @@ class TestReservedKeyPrefix:
             {"key": "essential_available_dates", "label": "Sneaky", "type": "text"},
         ]}
 
-        with pytest.raises(ValueError, match="reserved 'essential_' prefix"):
+        with pytest.raises(BadRequestError, match="reserved 'essential_' prefix"):
             MarketsApi.save_application_form("market-123", form, "user-1")
 
     def test_a_client_cannot_forge_the_frozen_offering(self, monkeypatch, applications):

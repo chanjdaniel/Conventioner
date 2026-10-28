@@ -15,6 +15,7 @@ from conftest import FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import BadRequestError
 from datatypes import Market
 from market_documents import (
     MARKET_MIGRATION_IDS,
@@ -52,11 +53,11 @@ def two_markets(monkeypatch):
 
 class TestCreation:
     def test_a_name_that_folds_onto_a_taken_address_is_refused(self, two_markets):
-        with pytest.raises(ValueError, match="web address"):
+        with pytest.raises(BadRequestError, match="web address"):
             MarketsApi.create_market(_market("Cafe Market"), "owner@example.com")
 
     def test_the_same_name_is_refused(self, two_markets):
-        with pytest.raises(ValueError, match="web address"):
+        with pytest.raises(BadRequestError, match="web address"):
             MarketsApi.create_market(_market("Spring Market"), "owner@example.com")
 
     def test_a_free_address_is_created(self, two_markets):
@@ -186,9 +187,9 @@ class TestTheRaceTheIndexCatches:
         return collection
 
     def test_a_creation_that_loses_reads_as_the_clash(self, racing):
-        with pytest.raises(ValueError, match="web address /autumn-market"):
+        with pytest.raises(BadRequestError, match="web address /autumn-market"):
             MarketsApi.create_market(_market("Autumn Market"), "owner@example.com")
 
     def test_a_rename_that_loses_reads_as_the_clash(self, racing):
-        with pytest.raises(ValueError, match="web address /autumn-market"):
+        with pytest.raises(BadRequestError, match="web address /autumn-market"):
             MarketsApi.rename_market("market-123", "Autumn Market", "user-1")

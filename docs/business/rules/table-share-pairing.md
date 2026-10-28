@@ -7,7 +7,7 @@ describes:
   - back-end/essential_fields.py#partner_addresses
   - back-end/migrations/migrate_table_share_answer.py
   - back-end/api/applicants.py#list_market_applications
-verified: 2026-10-22
+verified: 2026-10-28
 sources:
   - wayfinding/v0-1-0/01
   - wayfinding/november-2026-dry-run/08

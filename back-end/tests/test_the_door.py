@@ -15,6 +15,7 @@ import api.attendance as AttendanceApi
 import api.door as DoorApi
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
+from client_errors import ForbiddenError
 from datatypes import MarketPhase, MarketRole
 
 D1, D2 = "2026-11-18", "2026-11-19"
@@ -151,7 +152,7 @@ class TestAnOrganizerChecksAVendorIn:
     def test_someone_who_cannot_edit_the_market_is_refused(self, door):
         door["granted"] = False
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ForbiddenError):
             DoorApi.check_in("market-123", "ben@example.com", D1, "viewer@example.com")
         assert door["attendance"].docs == []
 

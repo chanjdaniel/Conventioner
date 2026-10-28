@@ -40,10 +40,8 @@ IGNORE_VALUE = "__ignore__"
 CHOICE_TYPES = ("select", "multi_select")
 
 
-class ConfirmRefused(ConflictError, ValueError):
-    """The request cannot be written as it stands; the message says why. A 409.
-
-    Still a ``ValueError`` until no caller catches one to answer it."""
+class ConfirmRefused(ConflictError):
+    """The request cannot be written as it stands; the message says why. A 409."""
 
 
 def _ledger_rows(columns: List[Dict[str, Any]]) -> Dict[int, List[int]]:
@@ -225,7 +223,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     """The one ``$set`` confirm writes: plan, form and mapping, judged but not yet written.
 
     Raises ``ConfirmRefused`` for a request that cannot be written, and lets the plan's and the
-    form's own writers raise for what they refuse (``ValueError``, ``ApplicationFormLockedError``).
+    form's own writers raise for what they refuse (``BadRequestError``, ``ApplicationFormLockedError``).
     """
     reason = CsvProposal.refusal(market_doc)
     if reason:
@@ -294,17 +292,14 @@ def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def confirm(market_doc: Dict[str, Any], body: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-    """Write everything the ledger holds, or nothing, and say which."""
+    """Write everything the ledger holds, or nothing, and say which.
+
+    What ``confirmed_update`` refuses it raises as a client error, answered as raised: a
+    ``ConfirmRefused`` or a locked form 409, a plan or a form the writers refuse 400.
+    """
     if not isinstance(body.get("csvContent"), str):
         return {"error": "csvContent is required"}, 400
-    try:
-        update = confirmed_update(market_doc, body["csvContent"], body)
-    except ConfirmRefused as refused:
-        return {"error": str(refused)}, 409
-    except MarketsApi.ApplicationFormLockedError as locked:
-        return {"error": str(locked)}, 409
-    except ValueError as invalid:
-        return {"error": str(invalid)}, 400
+    update = confirmed_update(market_doc, body["csvContent"], body)
 
     result = MarketsApi.markets_collection.update_one(still_startable(market_doc),
                                                       {"$set": update})

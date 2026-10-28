@@ -23,6 +23,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from client_errors import parse_failure_detail
 from application_write import record_application_answers, validate_application_answers
 import table_share as TableShare
 from market_documents import (
@@ -389,7 +390,10 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
         try:
             parsed.append(Application(**doc))
         except Exception as e:
-            logger.warning("Failed to parse application %s: %s", doc.get("id", "?"), e)
+            # Where it failed and never the input, which holds the applicant's answers.
+            logger.warning(
+                "Failed to parse application %s: %s", doc.get("id", "?"), parse_failure_detail(e),
+            )
 
     # Whether each table-share request can be met depends on the market's other applications, so
     # it is derived here, where all of them are in hand, and never stored (E27/F01/S03).
