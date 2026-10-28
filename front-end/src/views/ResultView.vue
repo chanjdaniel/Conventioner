@@ -638,12 +638,12 @@ function swapSeats(withEmail: string): void {
 }
 
 .tables-body {
-  padding: 24px;
+  padding: var(--space-6);
   color: var(--mm-black);
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-6);
 }
 
 /* Stays in view over the tables it filters. */
@@ -652,7 +652,7 @@ function swapSeats(withEmail: string): void {
   top: 0;
   z-index: 2;
   background-color: white;
-  padding: 12px 0;
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -660,7 +660,7 @@ function swapSeats(withEmail: string): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
 }
 
@@ -681,7 +681,7 @@ function swapSeats(withEmail: string): void {
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: var(--space-hairline) var(--space-2);
   /* Every pill carries a border, in its own fill where it needs none, so all three are one height:
      "assigned" was 2px shorter than its neighbours. */
   border: 1px solid transparent;
@@ -738,14 +738,14 @@ function swapSeats(withEmail: string): void {
 }
 
 .status-message {
-  padding: 40px 0;
+  padding: var(--space-12) 0;
   text-align: center;
   color: var(--mm-black);
   opacity: 0.7;
 }
 
 .empty-state {
-  padding: 40px 0;
+  padding: var(--space-12) 0;
   text-align: center;
   color: var(--mm-black);
   opacity: 0.6;
@@ -754,18 +754,18 @@ function swapSeats(withEmail: string): void {
 .date-groups {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-8);
 }
 
 .date-group {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .date-heading {
   margin: 0;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
   border-bottom: 2px solid var(--mm-black);
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-lg);
@@ -773,7 +773,7 @@ function swapSeats(withEmail: string): void {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -786,8 +786,8 @@ function swapSeats(withEmail: string): void {
 .section-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-left: 4px;
+  gap: var(--space-2);
+  padding-left: var(--space-1);
 }
 
 .section-heading {
@@ -797,7 +797,7 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-black);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -810,7 +810,7 @@ function swapSeats(withEmail: string): void {
      One on the <h3>, and this chip is a <span> inside it, so it opts back out. */
   font-family: 'Outfit', sans-serif;
   font-size: var(--text-xs);
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   background-color: var(--mm-beige);
   border-radius: var(--radius-card);
   color: var(--mm-black);
@@ -822,14 +822,14 @@ function swapSeats(withEmail: string): void {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .table-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   background-color: white;
   border-radius: var(--radius-card);
   border-left: 4px solid var(--mm-green);
@@ -849,7 +849,7 @@ function swapSeats(withEmail: string): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .table-code {
@@ -868,15 +868,15 @@ function swapSeats(withEmail: string): void {
 .table-row-assignment {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  padding-top: 4px;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
   border-top: 1px dashed var(--mm-border);
 }
 
 .half-slot {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-hairline);
   min-width: 0;
   flex: 1;
 }
@@ -891,18 +891,18 @@ function swapSeats(withEmail: string): void {
 }
 
 .error-text {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   color: var(--mm-red);
   font-size: var(--text-sm);
 }
 
 @media (max-width: 720px) {
   .tables-view {
-    padding: 20px 12px;
+    padding: var(--space-4) var(--space-3);
   }
 
   .tables-body {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .date-heading {
@@ -910,7 +910,7 @@ function swapSeats(withEmail: string): void {
   }
 
   .table-row-head {
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .table-code {

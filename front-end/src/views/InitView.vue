@@ -48,7 +48,7 @@ const newOpen = ref(false);
   justify-content: center;
   align-items: center;
 
-  gap: 72px;
+  gap: var(--space-12);
   height: 100%;
   width: 100%;
   margin: 0;

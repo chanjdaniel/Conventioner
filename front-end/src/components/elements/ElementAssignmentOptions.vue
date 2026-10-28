@@ -145,14 +145,14 @@ const handleProportionInput = (value: number) => {
 .option-help {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   text-align: left;
 }
 
 .option-note {
   font-size: var(--text-xs);
   color: var(--mm-text-yellow);
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 .container {
@@ -165,7 +165,7 @@ const handleProportionInput = (value: number) => {
   align-items: center;
 
   /* Offset parent .setting-body padding-top so "Column mapping" sits closer to the card top */
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--space-2));
 }
 
 .rows {
@@ -175,14 +175,14 @@ const handleProportionInput = (value: number) => {
 
   align-items: stretch;
 
-  gap: 8px;
+  gap: var(--space-2);
   /* No scroller of its own (E22/F01/S01): it was one, sized to the card rather than to the options,
      so the second option sat 30px below a scrollbar nobody could see. The page is the scroller. */
 }
 
 .mapping-heading {
   width: 100%;
-  padding: 0 10px 4px;
+  padding: 0 var(--space-2) var(--space-1);
   text-align: left;
 }
 
@@ -199,15 +199,15 @@ const handleProportionInput = (value: number) => {
 }
 
 .additional-options-heading {
-  margin-top: 12px;
-  padding-top: 6px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
 }
 
 .row {
   display: grid;
   grid-template-columns: 60% 40%;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
 }
 
 .row-item {
@@ -217,11 +217,11 @@ const handleProportionInput = (value: number) => {
   flex-direction: column;
   position: relative;
 
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
   justify-content: center;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-hairline);
 
   border-right: 1px solid var(--mm-border);
 }

@@ -73,7 +73,7 @@ function move(index: number, delta: number) {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
 }
@@ -82,8 +82,8 @@ function move(index: number, delta: number) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -116,14 +116,14 @@ function move(index: number, delta: number) {
   color: var(--mm-green);
   border: 1px solid var(--mm-green);
   border-radius: var(--radius-card);
-  padding: 1px 8px;
+  padding: var(--space-hairline) var(--space-2);
   white-space: nowrap;
 }
 
 .ranked-controls {
   display: flex;
   flex-direction: row;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .ranked-btn {

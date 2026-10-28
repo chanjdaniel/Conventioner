@@ -190,7 +190,7 @@ const condition = computed(() => {
 .settings-body {
   align-self: stretch;
   display: flex;
-  gap: 30px;
+  gap: var(--space-8);
   padding: var(--space-6);
 }
 
@@ -208,13 +208,13 @@ const condition = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .import-entry-button {
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);

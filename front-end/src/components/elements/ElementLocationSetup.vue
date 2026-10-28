@@ -98,14 +98,12 @@ const removeRow = (index: number | null) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  /* gap: 15px; */
 }
 
 .column-titles {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 2rem;
-  margin-bottom: 15px;
+  margin-bottom: var(--space-4);
 }
 
 .rows {
@@ -115,7 +113,7 @@ const removeRow = (index: number | null) => {
 
   align-items: center;
 
-  gap: 8px;
+  gap: var(--space-2);
 
   overflow-y: auto;
   overflow-x: hidden;
@@ -124,8 +122,8 @@ const removeRow = (index: number | null) => {
 .row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 2rem;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
 }
 
 .row-item {
@@ -133,8 +131,8 @@ const removeRow = (index: number | null) => {
   flex-direction: row;
   position: relative;
 
-  padding-left: 10px;
-  padding-right: 5px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-1);
   justify-content: center;
   align-items: center;
 

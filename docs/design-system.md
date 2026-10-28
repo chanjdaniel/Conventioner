@@ -6,10 +6,11 @@ describes:
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
   - front-end/.stylelintrc.json
+  - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
   - front-end/e2e/accessibility-sweep.spec.ts
   - front-end/e2e/helpers/theSweptStates.ts
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -40,6 +41,7 @@ sources:
   - T45
   - T73
   - T75
+  - T81
 ---
 
 # Conventioner's design language
@@ -125,7 +127,10 @@ A 4px grid, seven steps, plus one exception.
 
 **The one exception is a 2px hairline**, for gaps between an icon and its label or between two lines of the same field. It is not a step and nothing should be laid out on it.
 
-The largest migration cost is here: **10px is the second most-used spacing value in the product (87 uses)** and is on no grid. Each one goes to 8 or 12 by judgement.
+The largest migration cost was here: **10px was the second most-used spacing value in the product (87 uses)** and is on no grid, so each one went to 8 or 12 by judgement.
+The migration was called done while `src` still declared raw 10px, 6px and 5px well over a hundred times, because nothing refused one; since T81 Stylelint does (below).
+A badge or pill pads `--space-hairline` by `--space-2`, as the chip primitive does, and a notice pads `--space-2` by `--space-3`.
+A raw pixel that is not spacing, such as a tab's `-1px` margin over a border, carries a `stylelint-disable-next-line` that says so.
 
 ## Layout
 
@@ -293,8 +298,9 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 A convention nothing enforces is how the product got here. Four checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
+   It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`: `0`, `auto`, a `--space-*` token, `--space-hairline`, `--card-grid-gap`, `--banner-h`, or `calc()` over them, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
    `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
-   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 118 remaining warnings are the floorplan GUI, a beta.
+   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 266 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".

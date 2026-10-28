@@ -209,16 +209,16 @@ async function submitForm() {
 .apply-page {
   width: 100%;
   max-width: var(--applicant-max);
-  margin: 40px auto;
-  padding: 0 16px;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-4);
 }
 
 .apply-load-failed {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
-  padding: 24px;
+  gap: var(--space-3);
+  padding: var(--space-6);
   font-size: var(--text-sm);
 }
 
@@ -226,7 +226,7 @@ async function submitForm() {
   text-align: center;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-  padding: 40px;
+  padding: var(--space-12);
 }
 
 .apply-header {
@@ -234,9 +234,9 @@ async function submitForm() {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .apply-header h1 {
@@ -251,15 +251,15 @@ async function submitForm() {
   background: var(--mm-chip-attention);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);
-  padding: 16px;
-  margin-bottom: 24px;
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
   font-size: var(--text-sm);
   color: var(--mm-text-yellow-on-tint);
 }
 
 .apply-no-form {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
@@ -267,7 +267,7 @@ async function submitForm() {
 .apply-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-6);
 }
 
 .apply-custom-divider {
@@ -277,22 +277,22 @@ async function submitForm() {
   letter-spacing: 0.06em;
   color: var(--mm-text-muted);
   border-bottom: 1px solid var(--mm-border);
-  padding-bottom: 4px;
-  margin-top: 8px;
+  padding-bottom: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 .apply-actions {
   display: flex;
-  gap: 12px;
-  padding-top: 8px;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
 }
 
 .apply-error {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   background: var(--mm-chip-destructive);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
   color: var(--mm-text-red-on-tint);
 }

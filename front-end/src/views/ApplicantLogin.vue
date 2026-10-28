@@ -240,27 +240,27 @@ function goBack() {
 .login-page {
   width: 100%;
   max-width: 420px;
-  margin: 60px auto;
-  padding: 0 16px;
+  margin: var(--space-12) auto;
+  padding: 0 var(--space-4);
 }
 
 .login-loading {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .login-header h1 {
   font-family: 'Merge One';
   font-size: var(--text-xl);
   color: var(--mm-black);
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-1);
 }
 
 .login-market {
@@ -273,8 +273,8 @@ function goBack() {
   background: var(--mm-chip-destructive);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 12px 16px;
-  margin-bottom: 16px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
   font-size: var(--text-sm);
   color: var(--mm-text-red-on-tint);
 }
@@ -282,7 +282,7 @@ function goBack() {
 .login-step {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 /* A field and its label, held together rather than spaced like the step's other parts. */
@@ -311,8 +311,8 @@ function goBack() {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .login-link-btn {

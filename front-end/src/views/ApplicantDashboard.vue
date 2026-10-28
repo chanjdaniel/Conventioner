@@ -217,8 +217,8 @@ function logout() {
 .dashboard-page {
   width: 100%;
   max-width: var(--applicant-max);
-  margin: 40px auto;
-  padding: 0 16px;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-4);
 }
 
 .dash-header {
@@ -226,7 +226,7 @@ function logout() {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .dash-header h1 {
@@ -239,18 +239,18 @@ function logout() {
 .dash-market {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
 }
 
 .dash-email {
   font-size: var(--text-sm);
   color: var(--mm-black);
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-6);
 }
 
 .dash-loading {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
@@ -271,7 +271,7 @@ function logout() {
   background: var(--mm-chip-informational);
   border: 1px solid var(--mm-blue);
   border-radius: var(--radius-control);
-  padding: 16px;
+  padding: var(--space-4);
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--mm-blue);
@@ -284,10 +284,10 @@ function logout() {
 .dash-status-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 20px;
+  gap: var(--space-1);
+  padding: var(--space-6);
   border-radius: var(--radius-card);
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 /* A verdict in the chip tones, each ink measured on its own ground (`contrast.test.ts`). These
@@ -325,18 +325,18 @@ function logout() {
 .dash-form-answers h3 {
   font-size: var(--text-md);
   color: var(--mm-black);
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
 }
 
 .answers-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   margin: 0;
 }
 
 .answer-row {
-  padding: 10px 14px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -347,7 +347,7 @@ function logout() {
   font-weight: 600;
   text-transform: uppercase;
   color: var(--mm-text-muted);
-  margin-bottom: 2px;
+  margin-bottom: var(--space-hairline);
 }
 
 .answer-row dd {
@@ -359,14 +359,14 @@ function logout() {
 .dash-no-answers {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-  padding: 20px;
+  padding: var(--space-6);
   text-align: center;
 }
 
 .dash-actions {
   display: flex;
   flex-direction: row;
-  gap: 12px;
-  margin-top: 24px;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
 }
 </style>

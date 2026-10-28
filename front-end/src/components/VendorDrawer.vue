@@ -354,7 +354,7 @@ useInertBehind(
 
 /* The panel head is dark, so the muted-on-dark token rather than the on-white one. */
 .detail-subtitle {
-  margin: 2px 0 0;
+  margin: var(--space-hairline) 0 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted-on-dark);
   overflow-wrap: anywhere;
@@ -400,6 +400,7 @@ useInertBehind(
   padding: var(--space-3) var(--space-2);
   border: none;
   border-bottom: 2px solid transparent;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list -- a border's width, not spacing: the underline lies over the strip's rule */
   margin-bottom: -1px;
   background: none;
   font-size: var(--text-sm);
@@ -446,7 +447,7 @@ useInertBehind(
   color: var(--mm-black);
   opacity: 0.75;
   align-self: start;
-  padding-top: 2px;
+  padding-top: var(--space-hairline);
 }
 
 .detail-grid dd {

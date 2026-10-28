@@ -18,6 +18,20 @@
         "severity": "warning",
         "message": "Use a scale token from base.css - --text-*, --radius-*, --shadow-card. See docs/design-system.md."
       }
+    ],
+    "declaration-property-value-allowed-list": [
+      {
+        "/^(margin|padding)(-[a-z-]+)?$/": [
+          "/^(?:\\s*(?:0|auto|var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|calc\\((?:var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|[-+*/().\\d\\s])+\\))\\s*)+$/"
+        ],
+        "/^(grid-)?(row-|column-)?gap$/": [
+          "/^(?:\\s*(?:0|auto|var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|calc\\((?:var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|[-+*/().\\d\\s])+\\))\\s*)+$/"
+        ]
+      },
+      {
+        "severity": "warning",
+        "message": "Use a --space-* token from base.css - or 0, auto, --space-hairline, --card-grid-gap, --banner-h, or calc() over them. See docs/design-system.md#spacing."
+      }
     ]
   },
   "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"],
@@ -107,7 +121,13 @@
         "src/views/ApplicantLogin.vue",
         "src/views/ApplicationPage.vue",
         "src/views/MarketHomeView.vue",
-        "src/views/FloorplanEditorView.vue"
+        "src/views/FloorplanEditorView.vue",
+        "src/App.vue",
+        "src/assets/main.css",
+        "src/components/AnswerValue.vue",
+        "src/components/NothingAssigned.vue",
+        "src/components/elements/ElementIntakeMode.vue",
+        "src/components/market/MarketApplicationsTab.vue"
       ],
       "rules": {
         "color-no-hex": [
@@ -124,6 +144,20 @@
           },
           {
             "severity": "error"
+          }
+        ],
+        "declaration-property-value-allowed-list": [
+          {
+            "/^(margin|padding)(-[a-z-]+)?$/": [
+              "/^(?:\\s*(?:0|auto|var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|calc\\((?:var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|[-+*/().\\d\\s])+\\))\\s*)+$/"
+            ],
+            "/^(grid-)?(row-|column-)?gap$/": [
+              "/^(?:\\s*(?:0|auto|var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|calc\\((?:var\\(--space-(?:1|2|3|4|6|8|12|hairline)\\)|var\\(--(?:card-grid-gap|banner-h)\\)|[-+*/().\\d\\s])+\\))\\s*)+$/"
+            ]
+          },
+          {
+            "severity": "error",
+            "message": "Use a --space-* token from base.css - or 0, auto, --space-hairline, --card-grid-gap, --banner-h, or calc() over them. See docs/design-system.md#spacing."
           }
         ]
       }

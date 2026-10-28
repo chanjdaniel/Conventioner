@@ -163,7 +163,7 @@ const fieldCount = computed(() => fields.value.length);
 .form-builder {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .builder-header {
@@ -181,12 +181,12 @@ const fieldCount = computed(() => fields.value.length);
 .add-field-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   background: var(--mm-green);
   color: white;
   border: none;
   border-radius: var(--radius-control);
-  padding: 6px 14px;
+  padding: var(--space-1) var(--space-4);
   cursor: pointer;
   font-family: 'Merge One';
   font-size: var(--text-sm);
@@ -194,7 +194,7 @@ const fieldCount = computed(() => fields.value.length);
 
 .empty-state {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
@@ -240,7 +240,7 @@ const fieldCount = computed(() => fields.value.length);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .field-ordinal {
@@ -272,7 +272,7 @@ const fieldCount = computed(() => fields.value.length);
   background: var(--mm-red);
   color: white;
   border-radius: var(--radius-control);
-  padding: 1px 6px;
+  padding: var(--space-hairline) var(--space-2);
 }
 
 .remove-btn {
@@ -280,7 +280,7 @@ const fieldCount = computed(() => fields.value.length);
   border: 1px solid var(--mm-red);
   color: var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   cursor: pointer;
   font-size: var(--text-xs);
 }

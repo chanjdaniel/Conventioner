@@ -60,7 +60,7 @@ defineEmits<{ select: [] }>();
 <style scoped>
 .summary-card {
   width: 100%;
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-6);
   border: 1.5px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: white;
@@ -80,7 +80,7 @@ defineEmits<{ select: [] }>();
   display: grid;
   grid-template-columns: minmax(200px, 28rem) minmax(22rem, 1fr) auto;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 /* Too narrow for the name and the facts side by side (the market chooser dialog): the facts go
@@ -91,7 +91,7 @@ defineEmits<{ select: [] }>();
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .summary-card-actions:empty {
@@ -120,7 +120,7 @@ defineEmits<{ select: [] }>();
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -161,7 +161,7 @@ defineEmits<{ select: [] }>();
   margin: 0;
   display: grid;
   grid-template-columns: 7.5rem minmax(0, 1fr);
-  gap: 8px 12px;
+  gap: var(--space-2) var(--space-3);
   align-items: baseline;
 }
 
@@ -189,6 +189,6 @@ defineEmits<{ select: [] }>();
 .summary-card-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 </style>

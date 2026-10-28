@@ -88,7 +88,7 @@ const { marketId } = storeToRefs(useMarketStore());
 
 <style scoped>
 .user-email {
-  margin-top: 20px;
+  margin-top: var(--space-4);
   font-size: var(--text-lg);
 }
 
@@ -106,7 +106,7 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px;
+  padding: var(--space-2);
 
   width: 10vw;
   height: 100vh;
@@ -122,7 +122,7 @@ h3 {
   position: absolute;
   top: 0;
   right: 0;
-  margin: 5px;
+  margin: var(--space-1);
   padding: 0;
 
   height: 30px;
@@ -148,13 +148,13 @@ h3 {
   position: relative;
   top: 30px;
   align-self: stretch;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .nav-icon {
   height: 24px;
   aspect-ratio: 1;
-  margin: 6px;
+  margin: var(--space-1);
   color: var(--mm-black);
 }
 </style>

@@ -209,8 +209,8 @@ h4 {
 }
 
 h3 {
-  padding-left: 5px;
-  padding-right: 5px;
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
 }
 
 .container {
@@ -224,7 +224,7 @@ h3 {
   align-items: center;
   /* No side padding of its own: it put Tier's rows 5px further in than every other card's, when a
      card's inner gutter is the card's to set (E23/F01/S01). */
-  gap: 15px;
+  gap: var(--space-4);
 }
 
 .input-container {
@@ -252,8 +252,8 @@ h3 {
 .priority-row {
   display: grid;
   grid-template-columns: var(--tier-columns);
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
   min-height: 48px;
   overflow: visible;
 }
@@ -288,8 +288,8 @@ h3 {
    an error. An organizer mid-build has one constantly. */
 .tier-no-tables {
   flex: 0 0 auto;
-  margin-left: 8px;
-  padding: 1px 7px;
+  margin-left: var(--space-2);
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--mm-yellow);
   color: var(--mm-black);
@@ -302,8 +302,8 @@ h3 {
   flex-direction: row;
   position: relative;
 
-  padding-left: 10px;
-  padding-right: 5px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-1);
   justify-content: center;
   align-items: center;
 
@@ -319,7 +319,7 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   overflow: visible;
 }
 
@@ -327,7 +327,7 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0px;
+  gap: 0;
   overflow: visible;
 }
 
@@ -338,7 +338,7 @@ h3 {
 
   align-items: center;
 
-  gap: 8px;
+  gap: var(--space-2);
 
   overflow: auto;
   scrollbar-width: none;
@@ -411,8 +411,8 @@ h3 {
   max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-top: 10px;
-  gap: 0px;
+  padding-top: var(--space-2);
+  gap: 0;
 }
 
 .sorting-order-row {
@@ -423,7 +423,7 @@ h3 {
   height: auto;
   width: 100%;
   cursor: grab;
-  padding: 4px;
+  padding: var(--space-1);
 }
 
 .sorting-index-drag {
@@ -438,10 +438,10 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 5px;
-  margin-right: 5px;
-  padding-left: 5px;
-  padding-right: 5px;
+  margin-left: var(--space-1);
+  margin-right: var(--space-1);
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
 }
 /* The field inside is unstyled (`all: unset`), which takes its focus ring with it; the ring is
    drawn here, so a keyboard user can see which name they are typing into (bug 44). */

@@ -49,7 +49,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 15px;
+  padding: var(--space-4);
 }
 
 .setting-body {
@@ -61,10 +61,10 @@
   background-color: white;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
-  padding-top: 15px;
-  padding-left: 20px;
-  padding-right: 20px;
-  padding-bottom: 20px;
+  padding-top: var(--space-4);
+  padding-left: var(--space-6);
+  padding-right: var(--space-6);
+  padding-bottom: var(--space-6);
 }
 
 /*
@@ -108,8 +108,8 @@
   box-shadow: none;
   border-radius: 0;
   border-bottom: 1px solid var(--mm-border);
-  padding-bottom: 6px;
-  margin-bottom: 4px;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 
   /*
    * The SAME horizontal inset the rows list has (E17/F01/S03).
