@@ -12,6 +12,7 @@ assignment and placement routes, and the applicant, review, import and door rout
 import logging
 from types import SimpleNamespace
 
+import flask
 import pytest
 
 from conftest import (
@@ -1413,35 +1414,48 @@ OPTIONAL_BODIES = [
     ("post", "/markets/<market_id>/attendance", None),
     ("delete", "/markets/<market_id>/attendance", None),
 ]
-# Each write route in app.py that takes no body at all: the view never calls `json_object` and
-# reads nothing of the request.
+HANDED_ON = ({"handed_on": True}, 200)
+DELETED = SimpleNamespace(deleted_count=1)
+
+# Each write route in app.py that takes no body, with what to stub so its view runs to its success
+# answer: a body read anywhere on that path is then caught.
 READS_NO_BODY = [
-    ("post", "/logout"),
-    ("delete", "/organizations/<org_id>"),
-    ("delete", "/organizations/<org_id>/users/<user_id>"),
-    ("delete", "/markets/<market_id>/roles/<user_id>"),
-    ("post", "/markets/<market_id>/application-form/amendment/resume"),
-    ("delete", "/markets/<market_id>"),
-    ("post", "/markets/<market_id>/assignment"),
-    ("put", "/markets/<market_id>/applications/<application_id>/claim"),
-    ("delete", "/markets/<market_id>/applications/<application_id>/claim"),
-    ("post", "/markets/<market_id>/publish-results"),
+    ("post", "/logout", []),
+    ("delete", "/organizations/<org_id>", [(OrgsApi, "delete_organization", DELETED)]),
+    ("delete", "/organizations/<org_id>/users/<user_id>", [(OrgsApi, "remove_org_user", True)]),
+    ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),
+    ("post", "/markets/<market_id>/application-form/amendment/resume",
+     [(FormAmendmentApi, "resume_amendment", {"resumed": True})]),
+    ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),
+    ("post", "/markets/<market_id>/assignment", [(PlacementsApi, "run_assignment", HANDED_ON)]),
+    ("put", "/markets/<market_id>/applications/<application_id>/claim", [
+        (ApplicationsApi, "find_application_by_id", {"market_id": "market-123"}),
+        (ApplicationsApi, "renew_claim", True),
+    ]),
+    ("delete", "/markets/<market_id>/applications/<application_id>/claim", [
+        (ApplicationsApi, "find_application_by_id", {"market_id": "market-123"}),
+        (ApplicationsApi, "release_claim", None),
+    ]),
+    ("post", "/markets/<market_id>/publish-results", [(ApplicantsApi, "publish_results", HANDED_ON)]),
 ]
-# Each write route in app.py whose body another module reads: the account routes read by
-# api/users.py and the two applicant sign-in routes read by api/applicant_auth.py.
-READS_ITS_OWN_BODY = [
-    ("post", "/register-user"),
-    ("post", "/login"),
-    ("post", "/register"),
-    ("post", "/verify-email"),
-    ("post", "/resend-verification"),
-    ("post", "/request-password-reset"),
-    ("post", "/reset-password"),
-    ("post", "/request-otp"),
-    ("post", "/login-otp"),
-    ("post", "/delete-user"),
-    ("post", "/public/markets/<market_slug>/applicant-login/request-code"),
-    ("post", "/public/markets/<market_slug>/applicant-login/verify-code"),
+# Each write route in app.py with a body another module reads: the view hands `request` to the
+# account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its
+# uniform answers. Each with the module and function its view hands the request to.
+BODY_READ_ELSEWHERE = [
+    ("post", "/register-user", UsersApi, "register_user"),
+    ("post", "/login", UsersApi, "login"),
+    ("post", "/register", UsersApi, "register_user_with_captcha"),
+    ("post", "/verify-email", UsersApi, "verify_email"),
+    ("post", "/resend-verification", UsersApi, "resend_verification_email"),
+    ("post", "/request-password-reset", UsersApi, "request_password_reset"),
+    ("post", "/reset-password", UsersApi, "reset_password"),
+    ("post", "/request-otp", UsersApi, "request_otp"),
+    ("post", "/login-otp", UsersApi, "login_with_otp"),
+    ("post", "/delete-user", UsersApi, "delete_user"),
+    ("post", "/public/markets/<market_slug>/applicant-login/request-code",
+     ApplicantAuthApi, "request_login_code"),
+    ("post", "/public/markets/<market_slug>/applicant-login/verify-code",
+     ApplicantAuthApi, "verify_login_code"),
 ]
 BODY_VIEW_ARGS = {
     "<org_id>": ORG_ID, "<market_id>": "market-123", "<user_id>": "user-2",
@@ -1449,6 +1463,29 @@ BODY_VIEW_ARGS = {
     "<path:vendor_email>": "vendor@example.com",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
+
+
+def path_for(rule):
+    path = rule
+    for arg, value in BODY_VIEW_ARGS.items():
+        path = path.replace(arg, value)
+    return path
+
+
+def body_reads(monkeypatch):
+    """Every read of the request's body while a route answers: `get_json` (and `request.json`),
+    `get_data` (and `request.data`) and the form parser each record their name and raise."""
+    reads = []
+
+    def reader(name):
+        def read(*_args, **_kwargs):
+            reads.append(name)
+            raise RuntimeError(f"the view read the body with {name}")
+        return read
+
+    for name in ("get_json", "get_data", "_load_form_data"):
+        monkeypatch.setattr(flask.Request, name, reader(name))
+    return reads
 
 
 def send_body(client, monkeypatch, method, rule, phase, **kwargs):
@@ -1463,24 +1500,26 @@ def send_body(client, monkeypatch, method, rule, phase, **kwargs):
         ApplicantsApi, "authenticate_request",
         lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},
     )
-    path = rule
-    for arg, value in BODY_VIEW_ARGS.items():
-        path = path.replace(arg, value)
-    return getattr(client, method)(path, headers={"Authorization": "Bearer token"}, **kwargs)
+    return getattr(client, method)(
+        path_for(rule), headers={"Authorization": "Bearer token"}, **kwargs,
+    )
 
 
 class TestABodyThatIsNotAnObject:
     """Every write route in app.py is classified once, by `app.url_map`, as reading a required or an
-    optional body, as reading no body, or as reading its own body elsewhere, and each body route
-    refuses a body that is not a JSON object in the same words, 400: never Werkzeug's HTML 415, a
-    model's own words, or the generic 500 of an ``AttributeError``."""
+    optional body in its view, as taking no body, or as having a body another module reads; each
+    body route refuses a body that is not a JSON object in the same words, 400: never Werkzeug's
+    HTML 415, a model's own words, or the generic 500 of an ``AttributeError``; and no other view
+    reads the body at all."""
 
     def test_every_write_route_is_classified(self):
         groups = {
             "required": {(method, rule) for method, rule, _phase in REQUIRED_BODIES},
             "optional": {(method, rule) for method, rule, _phase in OPTIONAL_BODIES},
-            "reads no body": set(READS_NO_BODY),
-            "reads its own body": set(READS_ITS_OWN_BODY),
+            "takes no body": {(method, rule) for method, rule, _stubs in READS_NO_BODY},
+            "a body another module reads": {
+                (method, rule) for method, rule, *_ in BODY_READ_ELSEWHERE
+            },
         }
         assert sum(len(group) for group in groups.values()) == len(set().union(*groups.values()))
 
@@ -1493,6 +1532,30 @@ class TestABodyThatIsNotAnObject:
         }
 
         assert write_views == set().union(*groups.values())
+
+    @pytest.mark.parametrize("method, rule, stubs", READS_NO_BODY)
+    def test_a_route_that_takes_no_body_reads_none(self, client, monkeypatch, method, rule, stubs):
+        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        for module, function, answer in stubs:
+            monkeypatch.setattr(module, function, lambda *_args, answer=answer, **_kwargs: answer)
+        reads = body_reads(monkeypatch)
+
+        response = getattr(client, method)(path_for(rule), json=["a body"])
+
+        assert response.status_code == 200
+        assert reads == []
+
+    @pytest.mark.parametrize("method, rule, api, function", BODY_READ_ELSEWHERE)
+    def test_a_route_whose_body_another_module_reads_reads_none_in_its_view(
+        self, client, monkeypatch, method, rule, api, function,
+    ):
+        monkeypatch.setattr(api, function, lambda *_args, **_kwargs: HANDED_ON)
+        reads = body_reads(monkeypatch)
+
+        response = getattr(client, method)(path_for(rule), json=["a body"])
+
+        assert (response.status_code, response.get_json()) == (200, {"handed_on": True})
+        assert reads == []
 
     @pytest.mark.parametrize("not_an_object", NOT_OBJECTS)
     @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES + OPTIONAL_BODIES)
