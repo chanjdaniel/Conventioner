@@ -877,7 +877,7 @@ function submittedOn(app: Application): string {
 
 <style scoped>
 .monitor-panel {
-  padding: var(--space-6) 0;
+  padding: var(--space-4) 0;
 }
 
 .monitor-header {
