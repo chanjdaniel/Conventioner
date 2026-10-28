@@ -186,7 +186,7 @@ If one is ever introduced, lifting that rule is the decision, and the chosen too
 
 **Every page the front end serves carries the standard security headers and a Content-Security-Policy**, declared once, for every path, in [`front-end/vercel.json`](../../../front-end/vercel.json)'s `headers`; Vercel adds no policy of its own.
 They are `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` (with the policy's `frame-ancestors 'none'`, the page is framed nowhere) and `Strict-Transport-Security: max-age=63072000; includeSubDomains`.
-The policy is the compensating control for the applicant's token, which lives in `sessionStorage` where any script in the tab can read it.
+The policy limits what script can run in the tab, the applicant's session included.
 
 **The policy names every source the app loads from, and lets no inline code or eval run.**
 `default-src 'self'`, with `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'none'`; scripts from the app and reCAPTCHA, styles and fonts from the app, images from the app and `blob:` (a floorplan's image is fetched and drawn from an object URL), connections to the app, `https://api.conventioner.io` and reCAPTCHA, and frames only reCAPTCHA's, its hosts as [Google's allowlist](https://developers.google.com/recaptcha/docs/faq) names them.
