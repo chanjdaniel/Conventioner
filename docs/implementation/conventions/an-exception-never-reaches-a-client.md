@@ -190,7 +190,7 @@ Two lines these routes reach are kept free of an applicant's address for the 500
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
 **A body that is not an object is refused in words.**
-Every route in `app.py` that reads a JSON body reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and no view there reads `request` for a body another way.
+Every route in `app.py` that reads the body itself reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and no view there reads `request` for a body another way.
 A body that is not JSON is no body, rather than Werkzeug's HTML 415.
 JSON that is not an object (a list, a string, a number, a boolean) raises a `BadRequestError`, `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError` or a model's own words.
 A required body that is missing or an empty object raises `No data provided`, 400; an optional one reads none as `{}`, and the route answers what is then missing in its own words (`csvContent is required`, a swap that names no vendors).
@@ -211,8 +211,8 @@ The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
-   `TestABodyThatIsNotAnObject` reads `app.url_map` and classifies every POST, PUT or DELETE route whose view is defined in `app.py` as one of a required body, an optional body, no body, or its own body read elsewhere, each route in exactly one of those lists.
-  Each listed route answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
+  `TestABodyThatIsNotAnObject` reads `app.url_map` and classifies every POST, PUT or DELETE route whose view is defined in `app.py` as one of a required body, an optional body, no body, or its own body read elsewhere, each route in exactly one of those lists.
+  Each route the required and optional lists hold answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
   No client error, nor any refusal built on one, is a `ValueError` or a `PermissionError`, and the seeder says each as `Not done` while a library's `ValueError` escapes it.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.

@@ -1,7 +1,8 @@
 """How a handler reads a request body, and a string from it.
 
-A route reads its body with `json_object`, so every route refuses a body that is not a JSON object
-in the same words, and a library's failure to read it never reaches the client as a 415 or a 500.
+A route in `app.py` reads its body with `json_object`, so each such route refuses a body that is not
+a JSON object in the same words, and a library's failure to read it never reaches the client as a
+415 or a 500.
 
 A JSON body may hold an object, a list, a number or a boolean wherever a string belongs, and a
 value handed to PyMongo as it came is part of the filter, where an object is read as query syntax.
