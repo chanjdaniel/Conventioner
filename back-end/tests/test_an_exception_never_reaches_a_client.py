@@ -9,8 +9,6 @@ Pinned through the test client against the real app: the assignment reads, the o
 market role routes, the market setup routes, the application form, amendment and phase routes, the
 assignment and placement routes, and the applicant, review, import and door routes.
 """
-import ast
-import inspect
 import logging
 from types import SimpleNamespace
 
@@ -1415,35 +1413,42 @@ OPTIONAL_BODIES = [
     ("post", "/markets/<market_id>/attendance", None),
     ("delete", "/markets/<market_id>/attendance", None),
 ]
+# Each write route in app.py that takes no body at all: the view never calls `json_object` and
+# reads nothing of the request.
+READS_NO_BODY = [
+    ("post", "/logout"),
+    ("delete", "/organizations/<org_id>"),
+    ("delete", "/organizations/<org_id>/users/<user_id>"),
+    ("delete", "/markets/<market_id>/roles/<user_id>"),
+    ("post", "/markets/<market_id>/application-form/amendment/resume"),
+    ("delete", "/markets/<market_id>"),
+    ("post", "/markets/<market_id>/assignment"),
+    ("put", "/markets/<market_id>/applications/<application_id>/claim"),
+    ("delete", "/markets/<market_id>/applications/<application_id>/claim"),
+    ("post", "/markets/<market_id>/publish-results"),
+]
+# Each write route in app.py whose body another module reads: the account routes read by
+# api/users.py and the two applicant sign-in routes read by api/applicant_auth.py.
+READS_ITS_OWN_BODY = [
+    ("post", "/register-user"),
+    ("post", "/login"),
+    ("post", "/register"),
+    ("post", "/verify-email"),
+    ("post", "/resend-verification"),
+    ("post", "/request-password-reset"),
+    ("post", "/reset-password"),
+    ("post", "/request-otp"),
+    ("post", "/login-otp"),
+    ("post", "/delete-user"),
+    ("post", "/public/markets/<market_slug>/applicant-login/request-code"),
+    ("post", "/public/markets/<market_slug>/applicant-login/verify-code"),
+]
 BODY_VIEW_ARGS = {
     "<org_id>": ORG_ID, "<market_id>": "market-123", "<user_id>": "user-2",
     "<application_id>": "app-1", "<market_slug>": SLUG,
     "<path:vendor_email>": "vendor@example.com",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
-
-
-def views_reading_a_body():
-    """Each (method, rule) whose view in app.py reads its body with `json_object`, itself or
-    through the helper it answers with."""
-    readers = {"json_object"}
-    tree = ast.parse(inspect.getsource(app_module))
-    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
-
-    def calls(function):
-        return {
-            node.func.id for node in ast.walk(function)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-        }
-
-    readers |= {f.name for f in functions if f.name.startswith("_") and calls(f) & readers}
-    reading = {f.name for f in functions if calls(f) & readers}
-    return {
-        (method.lower(), rule.rule)
-        for rule in app_module.app.url_map.iter_rules()
-        if app_module.app.view_functions[rule.endpoint].__name__ in reading
-        for method in rule.methods - {"HEAD", "OPTIONS"}
-    }
 
 
 def send_body(client, monkeypatch, method, rule, phase, **kwargs):
@@ -1465,23 +1470,29 @@ def send_body(client, monkeypatch, method, rule, phase, **kwargs):
 
 
 class TestABodyThatIsNotAnObject:
-    """Every route in app.py reads its body with `json_object`, so each refuses a body that is not a
-    JSON object in the same words, 400: never Werkzeug's HTML 415, a model's own words, or the
-    generic 500 of an ``AttributeError``."""
+    """Every write route in app.py is classified once, by `app.url_map`, as reading a required or an
+    optional body, as reading no body, or as reading its own body elsewhere, and each body route
+    refuses a body that is not a JSON object in the same words, 400: never Werkzeug's HTML 415, a
+    model's own words, or the generic 500 of an ``AttributeError``."""
 
-    def test_every_route_that_reads_a_body_is_listed(self):
-        listed = {(method, rule) for method, rule, _phase in REQUIRED_BODIES + OPTIONAL_BODIES}
+    def test_every_write_route_is_classified(self):
+        groups = {
+            "required": {(method, rule) for method, rule, _phase in REQUIRED_BODIES},
+            "optional": {(method, rule) for method, rule, _phase in OPTIONAL_BODIES},
+            "reads no body": set(READS_NO_BODY),
+            "reads its own body": set(READS_ITS_OWN_BODY),
+        }
+        assert sum(len(group) for group in groups.values()) == len(set().union(*groups.values()))
 
-        assert views_reading_a_body() == listed
+        write_views = {
+            (method.lower(), rule.rule)
+            for rule in app_module.app.url_map.iter_rules()
+            for method in rule.methods - {"HEAD", "OPTIONS"}
+            if method in ("POST", "PUT", "DELETE")
+            and app_module.app.view_functions[rule.endpoint].__module__ == app_module.__name__
+        }
 
-    def test_no_route_reads_its_body_any_other_way(self):
-        tree = ast.parse(inspect.getsource(app_module))
-
-        assert [
-            node.lineno for node in ast.walk(tree)
-            if isinstance(node, ast.Attribute) and node.attr in ("get_json", "json", "data", "form")
-            and isinstance(node.value, ast.Name) and node.value.id == "request"
-        ] == []
+        assert write_views == set().union(*groups.values())
 
     @pytest.mark.parametrize("not_an_object", NOT_OBJECTS)
     @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES + OPTIONAL_BODIES)
