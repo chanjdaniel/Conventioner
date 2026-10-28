@@ -17,8 +17,8 @@ export const TYPE_SCALE = [12, 14, 16, 20, 26, 32];
 
 /**
  * px, the widest window that is a phone, where a tap target under 44px fails: the break at which
- * `base.css` raises `--target-min` and the control heights to 44px (`primitives.test.ts` holds the
- * two to one number).
+ * `base.css` raises `--target-min` and the control heights to 44px (`layout-detectors.spec.ts`
+ * holds the two to one number).
  */
 export const PHONE_MAX_WIDTH = 640;
 
