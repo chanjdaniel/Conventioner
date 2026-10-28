@@ -4,6 +4,7 @@ import {
   gates,
   minTargetAt,
   misplacedBars,
+  PHONE_MAX_WIDTH,
   SPACE_SCALE,
   TYPE_SCALE,
   type Finding,
@@ -175,5 +176,31 @@ test.describe('The market bar check', () => {
         apart: ['the floorplan: x 0, width 1440'],
       },
     ]);
+  });
+});
+
+test.describe('The phone target gate', () => {
+  test('gates phone targets at 44px at the width base.css raises them, and only there', () => {
+    expect(minTargetAt(PHONE_MAX_WIDTH)).toBe(44);
+    expect(minTargetAt(PHONE_MAX_WIDTH + 1)).toBe(24);
+  });
+
+  test('renders the sign-in button at 44px on a phone and 36px past it', async ({ page }) => {
+    // The gate's phone break and base.css's must be one number, so a window between them cannot
+    // slip past: the sweep holds a phone to 44px while the CSS still paints 24px, or the reverse.
+    const measure = async (width: number) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/login');
+      const button = page.getByTestId('login-submit-button');
+      await button.waitFor();
+      const targetMin = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--target-min').trim(),
+      );
+      const height = await button.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+      return { targetMin, height };
+    };
+
+    expect(await measure(PHONE_MAX_WIDTH)).toEqual({ targetMin: '44px', height: 44 });
+    expect(await measure(PHONE_MAX_WIDTH + 1)).toEqual({ targetMin: '24px', height: 36 });
   });
 });
