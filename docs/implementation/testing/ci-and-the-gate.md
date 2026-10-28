@@ -66,7 +66,7 @@ The entry JavaScript is what a first visit downloads before any page paints: the
 [`front-end/scripts/bundle-budget.ts`](../../../front-end/scripts/bundle-budget.ts) (`npm run bundle-budget`, after `npm run build-only`) gzips each at level 9, prints every chunk's size and the total against the limit on every run, and exits non-zero above it.
 It runs in the required `frontend-lint-and-types` job and in `nm-test.sh`, both on a build made with `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, since the bundle is measured and never deployed.
 
-The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (102220 B against 105000 B, T76).
+The limit is `LIMIT_GZIP_BYTES` in that script, set a few KB above the total measured when it landed (102220 B against 105000 B, T76), and lowered when the total fell (85740 B against 89000 B, T84, when vuedraggable stopped bringing a second Vue).
 It landed because nothing noticed `main.ts` installing vue-konva for the whole app, which put the floorplan canvas library on every page, `/login` included, for about 60 KB gzipped.
 **Raise the limit only on purpose**: in the same pull request as the code that needs it, saying there what the extra bytes buy, and still a few KB above the new total so the next unplanned growth fails.
 The first fix to try is a lazily loaded route or component, which keeps the code out of the entry.

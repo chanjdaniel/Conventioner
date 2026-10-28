@@ -18,8 +18,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
-/** Measured at 102220 B when T76 moved Konva out; the rest is headroom. */
-export const LIMIT_GZIP_BYTES = 105_000;
+/**
+ * Measured at 102220 B when T76 moved Konva out, and at 85740 B when T84 resolved vuedraggable to its
+ * ES source, dropping the second Vue and the core-js its UMD build carried; the rest is headroom.
+ */
+export const LIMIT_GZIP_BYTES = 89_000;
 
 export interface ChunkSize {
   file: string;
