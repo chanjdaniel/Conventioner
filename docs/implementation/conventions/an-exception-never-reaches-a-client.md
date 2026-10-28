@@ -112,7 +112,7 @@ A parse that fails says what was wrong in our words, with the status it always h
   The plan is parsed in `prepared_plan`, the application form in `parsed_application_form` and a new market's body in `create_owned_market` (`Invalid market: ...`), all in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write and the [form amendment](../modules/form-amendment.md) share the form's parse.
   It names each failing field by its dotted location and pydantic's short `msg`, and never the error's `input`, `ctx`, `url` or `type`.
   Its log line is `parse_failure_detail(error)`: each location and pydantic's error type.
-  The body is parsed with `model_validate`, so a body that is not an object is refused the same way rather than raising a `TypeError`.
+  The value is parsed with `model_validate`, so a value that is not an object is refused the same way rather than raising a `TypeError`.
 - A stored market the model refuses answers `Invalid market data`, 400, and `_log_unreadable_market` logs the same detail with the market's id, for `_load_market_for` and `load_market_context` alike.
   A stored organization the model refuses is logged the same way with its id by `_load_organization_context`, and its market is still served, granting nothing through the organization.
 - A number question answered with text ([`back-end/application_write.py`](../../../back-end/application_write.py)) answers `'<label>' must be a number.`, 422, and logs nothing: why the conversion failed is the answer itself, which is the applicant's and never a log's.
