@@ -65,10 +65,10 @@ onMounted(load);
 
 <style scoped>
 .market-home {
-  padding: 32px 40px;
+  padding: var(--space-8);
 }
 h1 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);

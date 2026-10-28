@@ -1360,19 +1360,19 @@ function startOver() {
 .import-view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 32px 96px;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8) calc(2 * var(--space-12));
   color: var(--mm-black);
 }
 
 .import-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--space-4);
   justify-content: space-between;
   align-items: flex-start;
   border-bottom: 1px solid var(--mm-border);
-  padding-bottom: 16px;
+  padding-bottom: var(--space-4);
 }
 
 .import-header h1 {
@@ -1381,7 +1381,7 @@ function startOver() {
 }
 
 .import-subtitle {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
@@ -1389,7 +1389,7 @@ function startOver() {
 .import-steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: var(--space-4);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1404,7 +1404,7 @@ function startOver() {
 
 .import-error {
   margin: 0;
-  padding: 10px 14px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
   color: var(--mm-red);
@@ -1416,7 +1416,7 @@ function startOver() {
 .import-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   width: 100%;
   max-width: 720px;
   margin-inline: auto;
@@ -1436,19 +1436,19 @@ function startOver() {
 .import-map {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
-  gap: 24px;
+  gap: var(--space-6);
   align-items: start;
 }
 
 .import-ledger h2 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-1);
   font-size: var(--text-lg);
 }
 
 .ledger-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 12px;
+  margin-top: var(--space-3);
   font-size: var(--text-sm);
 }
 
@@ -1458,12 +1458,12 @@ function startOver() {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mm-text-muted);
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--mm-border);
 }
 
 .ledger-table td {
-  padding: 10px;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--mm-border);
   vertical-align: middle;
 }
@@ -1503,7 +1503,7 @@ function startOver() {
 
 .ledger-shape {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-hairline);
   font-weight: 400;
   font-size: var(--text-xs);
   color: var(--mm-green);
@@ -1514,7 +1514,7 @@ function startOver() {
 }
 
 .ledger-member {
-  padding-left: 26px !important;
+  padding-left: var(--space-6) !important;
   color: var(--mm-text-muted);
 }
 
@@ -1526,9 +1526,9 @@ function startOver() {
 .import-restored {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid rgba(54, 130, 111, 0.16);
   border-radius: var(--radius-control);
   background: rgba(54, 130, 111, 0.16);
@@ -1537,8 +1537,8 @@ function startOver() {
 
 .ledger-badge {
   display: inline-block;
-  margin-left: 8px;
-  padding: 1px 6px;
+  margin-left: var(--space-2);
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-pill);
   background: rgba(54, 130, 111, 0.16);
   color: var(--mm-green);
@@ -1566,8 +1566,8 @@ function startOver() {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
-  margin: 8px 0 0;
-  padding: 8px 10px;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
   border-left: 3px solid var(--mm-yellow);
   background: rgba(228, 166, 41, 0.18);
   font-size: var(--text-xs);
@@ -1582,7 +1582,7 @@ function startOver() {
   width: 100%;
   max-width: 260px;
   height: 34px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -1592,22 +1592,22 @@ function startOver() {
 .import-rail {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
-  padding: 16px;
+  padding: var(--space-4);
   background: var(--mm-beige);
 }
 
 .import-rail h3 {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-2);
   font-size: var(--text-sm);
 }
 
 .rail-list {
   list-style: none;
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
 }
 
@@ -1628,15 +1628,15 @@ function startOver() {
 }
 
 .rail-unasked {
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-left: 3px solid var(--mm-green);
   background: rgba(54, 130, 111, 0.16);
   font-size: var(--text-xs);
 }
 
 .rail-unasked p {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-1);
 }
 
 .rail-unasked p:last-child {
@@ -1661,10 +1661,10 @@ function startOver() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   text-align: center;
-  padding: 36px 24px;
-  margin-top: 8px;
+  padding: var(--space-8) var(--space-6);
+  margin-top: var(--space-2);
   border: 2px dashed var(--mm-border);
   border-radius: var(--radius-card);
   background: var(--mm-beige);
@@ -1714,38 +1714,38 @@ function startOver() {
 }
 
 .preview-samples {
-  margin-top: 20px;
+  margin-top: var(--space-6);
 }
 
 .preview-samples h3,
 .preview-mapping-heading {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
 }
 
 .preview-mapping-heading {
-  margin-top: 20px;
+  margin-top: var(--space-6);
 }
 
 .sample-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .sample-card {
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   min-width: 0;
 }
 
 .sample-card dl {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  gap: var(--space-hairline);
   margin: 0;
   font-size: var(--text-xs);
 }
@@ -1755,7 +1755,7 @@ function startOver() {
 }
 
 .sample-card dd {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }
@@ -1767,19 +1767,19 @@ function startOver() {
 
 .preview-mapping {
   list-style: none;
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
 }
 
 .preview-mapping li {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 10px;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -1797,7 +1797,7 @@ function startOver() {
 
 .import-note {
   margin: 0;
-  padding: 10px 14px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: var(--mm-beige);
@@ -1815,39 +1815,39 @@ function startOver() {
 }
 
 .import-failures {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
 }
 
 .import-failures h3 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
   color: var(--mm-red);
 }
 
 .import-failures ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-6);
   font-size: var(--text-xs);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .import-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   justify-content: flex-end;
   border-top: 1px solid var(--mm-border);
-  padding-top: 16px;
+  padding-top: var(--space-4);
 }
 
 .button-primary,
 .button-secondary {
   height: 38px;
-  padding: 0 18px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
   cursor: pointer;

@@ -673,7 +673,7 @@ function cancelPending() {
 /* A band inside the card, directly below the market header - not a strip floating above it. */
 .phase-rail {
   width: 100%;
-  padding: 12px 24px 14px;
+  padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
   /* White, not the white this used to be. --mm-green is measured at 4.59 on WHITE; on that
      off-white it rendered 4.43, so the current-phase label failed AA on every market screen -
@@ -681,7 +681,7 @@ function cancelPending() {
   background: white;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .phase-rail-row {
@@ -697,7 +697,7 @@ function cancelPending() {
 .phase-spine {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -727,8 +727,8 @@ function cancelPending() {
 .phase-step {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px 2px 0;
+  gap: var(--space-1);
+  padding: var(--space-hairline) var(--space-2) var(--space-hairline) 0;
   font-size: var(--text-xs);
   white-space: nowrap;
   color: var(--mm-text-muted);
@@ -736,7 +736,7 @@ function cancelPending() {
 
 .phase-step + .phase-step {
   border-left: 1px solid var(--mm-border);
-  padding-left: 10px;
+  padding-left: var(--space-2);
 }
 
 .phase-step-dot {
@@ -771,7 +771,7 @@ function cancelPending() {
  * have, which the walk found no fault with.
  */
 .phase-step--current {
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .phase-step--current .phase-step-dot {
@@ -821,10 +821,10 @@ function cancelPending() {
 .url-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   /* Never taller than the buttons beside it, and stretched to theirs: at 4px it was a pixel taller,
      so the rail grew by one whenever an address appeared. */
-  padding: 3px 4px 3px 10px;
+  padding: var(--space-hairline) var(--space-1) var(--space-hairline) var(--space-2);
   align-self: stretch;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -876,7 +876,7 @@ function cancelPending() {
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   font: inherit;
   color: var(--mm-black);
   cursor: pointer;
@@ -892,7 +892,7 @@ function cancelPending() {
 .phase-rail-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: none;
   margin-left: auto;
 }
@@ -932,7 +932,7 @@ function cancelPending() {
 .rail-menu-item {
   border: none;
   background: white;
-  padding: 9px 12px;
+  padding: var(--space-2) var(--space-3);
   text-align: left;
   font-size: var(--text-sm);
   color: var(--mm-black);

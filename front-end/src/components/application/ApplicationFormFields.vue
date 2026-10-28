@@ -170,7 +170,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .form-label {
@@ -191,7 +191,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 
 .form-input {
   height: 36px;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -206,7 +206,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
@@ -215,8 +215,8 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-multiselect {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
@@ -229,7 +229,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-field-error {
   font-size: var(--text-xs);
   color: var(--mm-red);
-  margin: 2px 0 0;
+  margin: var(--space-hairline) 0 0;
 }
 
 .form-unsupported {

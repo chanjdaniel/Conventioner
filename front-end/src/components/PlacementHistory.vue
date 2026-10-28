@@ -100,7 +100,7 @@ const emptyText = computed(() =>
 
 <style scoped>
 .placement-history-title {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   color: var(--mm-green);
@@ -118,12 +118,12 @@ const emptyText = computed(() =>
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .placement-history-entry {
   border-left: 3px solid var(--mm-border);
-  padding: 6px 0 6px 10px;
+  padding: var(--space-2) 0 var(--space-2) var(--space-3);
 }
 
 /* A machine row reads quieter than a hand edit: the hand edits are the ones anyone came for. */
@@ -154,7 +154,7 @@ const emptyText = computed(() =>
 }
 
 .placement-history-who {
-  margin: 2px 0 0;
+  margin: var(--space-hairline) 0 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;

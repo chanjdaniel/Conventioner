@@ -146,7 +146,7 @@ const resendVerification = async () => {
 .success-message {
   color: green;
   font-size: var(--text-lg);
-  margin-bottom: 20px;
+  margin-bottom: var(--space-4);
 }
 
 .redirect-message {
@@ -157,7 +157,7 @@ const resendVerification = async () => {
 .error-message {
   color: red;
   font-size: var(--text-lg);
-  margin-bottom: 20px;
+  margin-bottom: var(--space-4);
 }
 
 .resend-button,

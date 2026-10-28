@@ -139,15 +139,15 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .form-preview {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .preview-banner {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: rgba(228, 166, 41, 0.18);
   border-radius: var(--radius-control);
   font-size: var(--text-xs);
@@ -158,7 +158,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   background: var(--mm-yellow);
   color: black;
   border-radius: var(--radius-control);
-  padding: 1px 6px;
+  padding: var(--space-hairline) var(--space-2);
   font-weight: 600;
   font-size: var(--text-xs);
 }
@@ -166,7 +166,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-essential {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .preview-custom-divider {
@@ -176,12 +176,12 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   letter-spacing: 0.06em;
   color: var(--mm-text-muted);
   border-bottom: 1px solid var(--mm-border);
-  padding-bottom: 4px;
+  padding-bottom: var(--space-1);
 }
 
 .preview-empty {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
@@ -189,13 +189,13 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .preview-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .preview-label {
@@ -216,7 +216,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 
 .preview-input {
   height: 32px;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
@@ -233,7 +233,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--mm-black);
 }
@@ -241,8 +241,8 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-multiselect {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  gap: var(--space-1);
+  padding: var(--space-2);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: var(--mm-beige);

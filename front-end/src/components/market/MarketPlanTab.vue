@@ -311,8 +311,8 @@ const intakeEditable = computed(() => props.intakeEditable);
 
 .section-path-button {
   align-self: flex-start;
-  margin-bottom: 8px;
-  padding: 6px 12px;
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
   background: white;

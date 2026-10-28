@@ -180,8 +180,6 @@ const countTables = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  /* gap: 15px; */
 }
 
 /* In the flow, under the rows. It was positioned absolutely below the card, and cleared the last
@@ -201,7 +199,7 @@ const countTables = () => {
   display: grid;
   grid-template-columns: var(--section-columns);
   width: 100%;
-  margin-bottom: 15px;
+  margin-bottom: var(--space-4);
 }
 
 .rows {
@@ -211,7 +209,7 @@ const countTables = () => {
 
   align-items: center;
 
-  gap: 8px;
+  gap: var(--space-2);
 
   overflow-y: auto;
   overflow-x: hidden;
@@ -221,8 +219,8 @@ const countTables = () => {
   display: grid;
   grid-template-columns: var(--section-columns);
   width: 100%;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
 }
 
 .row-item {
@@ -230,8 +228,8 @@ const countTables = () => {
   flex-direction: row;
   position: relative;
 
-  padding-left: 6px;
-  padding-right: 5px;
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
   justify-content: center;
   align-items: center;
 
@@ -296,11 +294,11 @@ input[type='number'] {
      with a stray chevron rather than as something you could operate. */
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-pill);
-  padding-left: 8px;
+  padding-left: var(--space-2);
   outline: none;
   cursor: pointer;
   font-size: var(--text-sm);
-  padding-right: 5px;
+  padding-right: var(--space-1);
   background-color: white;
   /* A location name that still will not fit says so, rather than stopping mid-word. */
   text-overflow: ellipsis;

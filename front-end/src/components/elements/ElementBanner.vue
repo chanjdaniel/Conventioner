@@ -115,7 +115,7 @@ function goToDashboard() {
   align-items: center;
   height: 100%;
   padding: 0;
-  margin-left: 8px;
+  margin-left: var(--space-2);
   background: none;
   border: none;
   cursor: pointer;

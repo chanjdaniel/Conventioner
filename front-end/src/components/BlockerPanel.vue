@@ -62,7 +62,7 @@ const rows = computed(() =>
 
 <style scoped>
 .blocker-panel {
-  padding: 1rem;
+  padding: var(--space-4);
   border-radius: var(--radius-control);
   /* The destructive chip's ground: the 14% red the panel always drew, laid over the rail's white.
      Its ink is the chip's too, since --mm-red, which the panel used to read, is 4.41 on it. The
@@ -72,7 +72,7 @@ const rows = computed(() =>
 }
 
 .blocker-heading {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 var(--space-2) 0;
   font-weight: 600;
   color: var(--mm-text-red-on-tint);
 }
@@ -86,8 +86,8 @@ const rows = computed(() =>
 .blocker-item {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
   color: var(--mm-text-red-on-tint);
 }
 

@@ -8,7 +8,7 @@ describes:
   - back-end/guards.py#NoAskedForTierWithoutTablesGuard
   - front-end/src/utils/placementReason.ts
   - front-end/src/components/VendorDateCard.vue
-verified: 2026-10-22
+verified: 2026-10-28
 sources:
   - wayfinding/readable-journey/04
   - wayfinding/readable-journey/map

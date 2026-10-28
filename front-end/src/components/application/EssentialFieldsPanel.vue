@@ -306,8 +306,8 @@ function asks(key: string): boolean {
 .essential-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid rgba(54, 130, 111, 0.16);
   border-radius: var(--radius-card);
   background: rgba(54, 130, 111, 0.16);
@@ -319,7 +319,7 @@ function asks(key: string): boolean {
   flex-direction: row;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .essential-badge {
@@ -327,7 +327,7 @@ function asks(key: string): boolean {
   background: var(--mm-green);
   color: white;
   border-radius: var(--radius-control);
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   white-space: nowrap;
 }
 
@@ -341,8 +341,8 @@ function asks(key: string): boolean {
 .essential-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 12px;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid rgba(54, 130, 111, 0.16);
   border-radius: var(--radius-control);
   background: white;
@@ -352,7 +352,7 @@ function asks(key: string): boolean {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .essential-item-label {
@@ -386,19 +386,19 @@ function asks(key: string): boolean {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .essential-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   color: var(--mm-black);
   background: rgba(54, 130, 111, 0.16);
   border: 1px solid rgba(54, 130, 111, 0.16);
   border-radius: var(--radius-card);
-  padding: 2px 10px;
+  padding: var(--space-hairline) var(--space-2);
 }
 
 .essential-chip-rank {
@@ -420,14 +420,14 @@ function asks(key: string): boolean {
   background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);
-  padding: 6px 9px;
+  padding: var(--space-1) var(--space-2);
   margin: 0;
 }
 .essential-asks-toggle {
   align-self: flex-end;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.66);
 }

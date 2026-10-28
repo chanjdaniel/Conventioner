@@ -159,13 +159,13 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 .settings-body {
   align-self: stretch;
   display: flex;
-  gap: 30px;
+  gap: var(--space-8);
   padding: var(--space-6);
 }
 
 .settings-body-stacked {
   flex-direction: column;
-  gap: 30px;
+  gap: var(--space-8);
   overflow-y: auto;
 }
 
@@ -173,7 +173,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
    beside it, Assignment Options was a short card with an empty half. */
 .plan-row {
   display: grid;
-  gap: 30px;
+  gap: var(--space-8);
   align-items: start;
 }
 
@@ -186,7 +186,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .assign-disabled-hint {
@@ -199,7 +199,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 
 .assign-error-banner {
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-red);
   background: rgba(192, 57, 43, 0.08);

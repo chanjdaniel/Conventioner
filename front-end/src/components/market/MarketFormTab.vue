@@ -581,21 +581,21 @@ watch(formLocked, (locked, wasLocked) => {
   background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
 }
 .form-load-error-banner {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--mm-red);
   background: rgba(192, 57, 43, 0.14);
   border: 1px solid var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
 }
 .retry-button {
   flex-shrink: 0;
@@ -603,7 +603,7 @@ watch(formLocked, (locked, wasLocked) => {
   border: 1px solid var(--mm-red);
   color: var(--mm-red);
   border-radius: var(--radius-control);
-  padding: 3px 12px;
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
   font-size: var(--text-xs);
 }
@@ -614,7 +614,7 @@ watch(formLocked, (locked, wasLocked) => {
   background: var(--mm-beige);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
 }
 /*
  * The confirm action sits at the row's right (E17/F03/S02). The row had no `justify-content`, so it
@@ -629,9 +629,9 @@ watch(formLocked, (locked, wasLocked) => {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 8px;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--mm-border);
 }
 .form-save-row .done-button {
@@ -645,7 +645,7 @@ watch(formLocked, (locked, wasLocked) => {
  * BUTTONS. Only the minimum footprint is this screen's own.
  */
 .done-button {
-  margin-top: 15px;
+  margin-top: var(--space-4);
   min-width: 100px;
 }
 .save-status {
@@ -664,6 +664,6 @@ watch(formLocked, (locked, wasLocked) => {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12);
 }
 </style>

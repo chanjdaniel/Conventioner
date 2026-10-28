@@ -275,7 +275,7 @@ function handleNewClose() {
   width: 100%;
   max-width: var(--list-max);
   margin: 0 auto;
-  padding: 32px 40px;
+  padding: var(--space-8);
 }
 
 .header {
@@ -283,7 +283,7 @@ function handleNewClose() {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 24px;
+  padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -295,7 +295,7 @@ function handleNewClose() {
 }
 
 .new-market-button {
-  padding: 10px 24px;
+  padding: var(--space-2) var(--space-6);
   background: var(--mm-green);
   color: white;
   border: none;
@@ -313,7 +313,7 @@ function handleNewClose() {
 }
 
 .markets-block {
-  padding-top: 24px;
+  padding-top: var(--space-6);
 }
 
 .empty-state,
@@ -371,7 +371,7 @@ function handleNewClose() {
 .markets-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-6);
 }
 
 /* Scrollbar styling */
