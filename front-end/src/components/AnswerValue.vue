@@ -16,6 +16,7 @@ const segments = computed(() => answerSegments(props.value));
       target="_blank"
       rel="noopener noreferrer"
       class="answer-link"
+      :class="{ 'answer-link--alone': segments.length === 1 }"
       data-testid="answer-link"
       >{{ segment.text }}</a
     >
@@ -31,5 +32,15 @@ const segments = computed(() => answerSegments(props.value));
   text-underline-offset: 2px;
   /* An address has no spaces to wrap at, and a long one ran 108px past a phone (T79). */
   overflow-wrap: anywhere;
+}
+
+/* An answer that is only an address is a link on its own line, so on a phone it is a thumb's
+   target (T82); one inside a sentence stays in the sentence's line, and a desk keeps the line. */
+@media (width <= 640px) {
+  .answer-link--alone {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
 }
 </style>

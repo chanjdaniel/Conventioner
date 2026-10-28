@@ -2,8 +2,9 @@ import { test, expect } from './fixtures';
 import {
   detectLayout,
   gates,
+  minTargetAt,
   misplacedBars,
-  PHONE_WIDTH,
+  PHONE_MAX_WIDTH,
   SPACE_SCALE,
   TYPE_SCALE,
   type Finding,
@@ -30,8 +31,7 @@ async function findingsOn(page: Page, html: string, width = 1440): Promise<Findi
   const findings = await page.evaluate(detectLayout, {
     spaceScale: SPACE_SCALE,
     textScale: TYPE_SCALE,
-    minTarget: 24,
-    comfortableTarget: width < PHONE_WIDTH ? 44 : undefined,
+    minTarget: minTargetAt(width),
   });
   return findings.filter((f) => gates(f, width));
 }
@@ -101,36 +101,26 @@ test.describe('The layout detectors', () => {
     ]);
   });
 
-  test('a tap target under 24px fails on a phone, and only there', async ({ page }) => {
-    const html = `<button data-testid="lookup" style="width: 200px; height: 20px">Look up</button>`;
+  test('a tap target under 44px fails on a phone, and only there', async ({ page }) => {
+    const html = `<button data-testid="lookup" style="width: 200px; height: 36px">Look up</button>`;
     expect(
       (await findingsOn(page, html, 390)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
-    ).toEqual(['small-target button[lookup]: 200x20px, under 24px']);
+    ).toEqual(['small-target button[lookup]: 200x36px, under 44px']);
     expect(await findingsOn(page, html, 1440)).toEqual([]);
   });
 
-  test('a phone target under 44px is reported, and a label counts toward its target', async ({
-    page,
-  }) => {
-    await findingsOn(
+  test("a control's label counts toward its target", async ({ page }) => {
+    const found = await findingsOn(
       page,
-      `<button data-testid="lookup" style="width: 200px; height: 36px">Look up</button>
-       <label style="display: block; padding: 4px 0"><input data-testid="gold" type="checkbox"
-         style="width: 20px; height: 20px; margin: 0"> Gold</label>`,
+      `<label style="display: block; padding: 12px 0"><input data-testid="gold" type="checkbox"
+         style="width: 20px; height: 20px; margin: 0"> Gold</label>
+       <label style="display: block; padding: 4px 0"><input data-testid="silver" type="checkbox"
+         style="width: 20px; height: 20px; margin: 0"> Silver</label>`,
       390,
     );
-    const all = await page.evaluate(detectLayout, {
-      spaceScale: SPACE_SCALE,
-      textScale: TYPE_SCALE,
-      minTarget: 24,
-      comfortableTarget: 44,
-    });
-    const targets = all.filter((f) => /target/.test(f.kind));
-    expect(targets.map((f) => `${f.kind} ${f.el}: ${f.detail}`)).toEqual([
-      'tight-target button[lookup]: 200x36px, under 44px',
-      'tight-target label > input[gold]: 20x20px and its label, under 44px',
+    expect(of(found, 'small-target').map((f) => `${f.el}: ${f.detail}`)).toEqual([
+      'label > input[silver]: 20x20px and its label, under 44px',
     ]);
-    expect(targets.some((f) => gates(f, 390))).toBe(false);
   });
 
   test('a label nobody can see or tap does not save a small target', async ({ page }) => {
@@ -143,8 +133,8 @@ test.describe('The layout detectors', () => {
       390,
     );
     expect(of(found, 'small-target').map((f) => `${f.el}: ${f.detail}`)).toEqual([
-      'input[hidden]: 16x16px, under 24px',
-      'input[inert]: 16x16px, under 24px',
+      'input[hidden]: 16x16px, under 44px',
+      'input[inert]: 16x16px, under 44px',
     ]);
   });
 
@@ -186,5 +176,31 @@ test.describe('The market bar check', () => {
         apart: ['the floorplan: x 0, width 1440'],
       },
     ]);
+  });
+});
+
+test.describe('The phone target gate', () => {
+  test('gates phone targets at 44px at the width base.css raises them, and only there', () => {
+    expect(minTargetAt(PHONE_MAX_WIDTH)).toBe(44);
+    expect(minTargetAt(PHONE_MAX_WIDTH + 1)).toBe(24);
+  });
+
+  test('renders the sign-in button at 44px on a phone and 36px past it', async ({ page }) => {
+    // The gate's phone break and base.css's must be one number, so a window between them cannot
+    // slip past: the sweep holds a phone to 44px while the CSS still paints 24px, or the reverse.
+    const measure = async (width: number) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/login');
+      const button = page.getByTestId('login-submit-button');
+      await button.waitFor();
+      const targetMin = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--target-min').trim(),
+      );
+      const height = await button.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+      return { targetMin, height };
+    };
+
+    expect(await measure(PHONE_MAX_WIDTH)).toEqual({ targetMin: '44px', height: 44 });
+    expect(await measure(PHONE_MAX_WIDTH + 1)).toEqual({ targetMin: '24px', height: 36 });
   });
 });

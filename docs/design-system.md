@@ -5,7 +5,7 @@ describes:
   - front-end/src/assets/base.css
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
-  - front-end/.stylelintrc.json
+  - front-end/stylelint.config.js
   - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
   - front-end/e2e/accessibility-sweep.spec.ts
@@ -46,6 +46,7 @@ sources:
   - T75
   - T81
   - T79
+  - T82
 ---
 
 # Conventioner's design language
@@ -57,7 +58,7 @@ The evidence is `.lavish/aesthetics-2026-09-20.html`; the decisions were taken o
 A value not in this file does not belong in a component.
 The product had no shared component layer, and that was the root cause of everything aesthetic: at the walk, 17 radius declarations, 24 font sizes, 32 spacing values, and 351 hardcoded hex colours against 704 token uses.
 Do not add a 72nd set of local decisions: reach for the tokens and the primitives.
-[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/.stylelintrc.json`](../front-end/.stylelintrc.json), are what keep them there.
+[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/stylelint.config.js`](../front-end/stylelint.config.js), are what keep them there.
 
 ## How this was decided
 
@@ -135,6 +136,17 @@ The largest migration cost was here: **10px was the second most-used spacing val
 The migration was called done while `src` still declared raw 10px, 6px and 5px well over a hundred times, because nothing refused one; since T81 Stylelint does (below).
 A badge or pill pads `--space-hairline` by `--space-2`, as the chip primitive does, and a notice pads `--space-2` by `--space-3`.
 A raw pixel that is not spacing, such as a tab's `-1px` margin over a border, carries a `stylelint-disable-next-line` that says so.
+
+**What a margin, a padding or a gap may be**, as [`stylelint.config.js`](../front-end/stylelint.config.js) builds it (T81, tightened in T82):
+
+- `0`, a `--space-*` token, `--space-hairline`, `--card-grid-gap` or `--banner-h`, each value set apart by whitespace.
+- In `calc()`, a negated token (`calc(-1 * var(--space-2))`) or a sum of tokens (`calc(var(--space-12) + var(--space-12))`), and nothing else: a bare number makes a raw size, `calc(var(--space-1) * 1.5)` is 6px.
+- A phone's safe area, `env(safe-area-inset-*)`, on its own, in a sum (`calc(var(--space-4) + env(safe-area-inset-bottom))`), or as the larger of it and a token (`max(var(--space-4), env(safe-area-inset-left))`); `max()`, `min()` and `clamp()` take only these values.
+- `auto` on a margin only, where it centres; on a padding or a gap it is invalid.
+- A percentage on a padding only, which keeps a box's proportions as it scales.
+- A CSS-wide keyword (`inherit`, `initial`, `unset`, `revert`, `revert-layer`) as the whole value.
+
+A legitimate value it refuses widens the patterns in `stylelint.config.js`, with an example in `spacingScale.test.ts`, rather than a disable comment.
 
 ## Layout
 
@@ -287,9 +299,15 @@ Two smaller controls had no owner either, each re-decided per file, and are prim
 
 | | Variants | Notes |
 | --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
+| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+
+**On a phone every target is 44px**, the size a thumb wants (T82).
+The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
+At `width <= 640px`, the market frame's phone break, all three are 44px and the banner is at least that tall, so a control that takes its height from a token is a thumb's size there with nothing of its own; a bespoke control takes `min-height: var(--target-min)` (and `min-width` where it is narrow) rather than a phone rule of its own.
+The one exception is `.answer-link--alone`, an answer that is only a link: it takes that minimum in a phone rule, since on a desk the same link sits in a review card's line and a 24px box would move the rows.
+A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 
@@ -302,8 +320,8 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 A convention nothing enforces is how the product got here. Five checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
-   It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`: `0`, `auto`, a `--space-*` token, `--space-hairline`, `--card-grid-gap`, `--banner-h`, or `calc()` over them, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
-   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
+   It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
+   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (`MIGRATED` in `stylelint.config.js`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
    Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 266 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
@@ -314,12 +332,11 @@ A convention nothing enforces is how the product got here. Five checks, the firs
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
 5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a route with `meta.fitsAPhone`) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
-   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 24px on a phone (WCAG 2.5.8), a control's visible label counting toward its target.
+   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target.
    Each failure names the state, the size, the element and the measurement.
-   It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12).
-   **A phone target is gated at 24px, not the 44px a thumb wants**: about 75 phone controls were under 44px when the sweep landed (36px buttons and fields, 28px day buttons on phone attendance), so Daniel chose the WCAG floor as the gate (2026-10-28), and a follow-up raises the phone controls to 44px and the gate with them.
-   Until then each phone target under 44px is reported as a `tight-target`.
-   The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop, tight targets on a phone) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
+   It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12), and when it found the bar on fewer than two market screens of one size, so a renamed test id cannot leave that check passing on nothing.
+   The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
+   The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 

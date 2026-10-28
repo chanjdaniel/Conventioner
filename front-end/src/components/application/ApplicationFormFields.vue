@@ -190,7 +190,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-input {
-  height: 36px;
+  height: var(--control-height);
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);

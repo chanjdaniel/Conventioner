@@ -116,6 +116,14 @@
      two lines of one field. */
   --space-hairline: 2px;
 
+  /* How big a thing someone taps is (T82). A control is one of two heights (`.btn`, `.field`,
+     `.add-row` in primitives.css), and any other target - a tab, a link on its own line, a Show
+     toggle - is at least `--target-min`, WCAG 2.5.8's 24px. A phone raises all three to 44px
+     below. */
+  --control-height: 36px;
+  --control-height-compact: 28px;
+  --target-min: 24px;
+
   /* How wide a screen is (E16/F03, from claims-and-room ticket 01, which holds the measurements).
 
      A screen is a card of ONE OF TWO widths that grows to its content while the page scrolls. Two
@@ -152,6 +160,21 @@
      read as outlined in grey fog. Its inset twin is what makes the setup fields look pressed. */
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+/*
+ * A phone (T82): every target is a thumb's 44px, the size the layout sweep holds a phone to. The
+ * same break as the market frame's phone layout, so the door's bar and its buttons change together;
+ * a desk keeps its denser controls. The banner's 5vh is 42px on a 844px-tall phone, under its own
+ * buttons' 44.
+ */
+@media (width <= 640px) {
+  :root {
+    --control-height: 44px;
+    --control-height-compact: 44px;
+    --target-min: 44px;
+    --banner-h: clamp(var(--target-min), 5vh, 100px);
+  }
 }
 
 /*

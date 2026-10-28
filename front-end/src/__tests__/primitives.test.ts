@@ -16,9 +16,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
+import postcss from 'postcss';
 
 const SRC = resolvePath(process.cwd(), 'src');
 const CSS = readFileSync(join(SRC, 'assets/primitives.css'), 'utf8');
+const BASE = readFileSync(join(SRC, 'assets/base.css'), 'utf8');
+const PRIMITIVES = postcss.parse(CSS);
+const BASE_ROOT = postcss.parse(BASE);
 
 /** Every innermost rule block whose selector list contains `selector`, in source order. */
 function blocks(selector: string): string[] {
@@ -43,13 +47,71 @@ function declaration(selector: string, property: string): string | null {
   return null;
 }
 
+/** The first rule whose selector list holds `selector`, in source order, or null. */
+function ruleWithSelector(container: postcss.Container, selector: string): postcss.Rule | null {
+  let found: postcss.Rule | null = null;
+  container.walkRules((rule) => {
+    if (!found && rule.selectors?.includes(selector)) found = rule;
+  });
+  return found;
+}
+
+/** The value of `property` in `rule`, or null when the rule or the declaration is absent. */
+function valueInRule(rule: postcss.Rule | null, property: string): string | null {
+  if (!rule) return null;
+  let value: string | null = null;
+  rule.walkDecls(property, (decl) => {
+    value = decl.value;
+  });
+  return value;
+}
+
+/** The value of `property` in the first rule whose selector list holds `selector`. */
+function valueIn(
+  container: postcss.Container | null,
+  selector: string,
+  property: string,
+): string | null {
+  return container ? valueInRule(ruleWithSelector(container, selector), property) : null;
+}
+
+/** The first media at-rule whose params are exactly `params`, or null. */
+function mediaAt(container: postcss.Container, params: string): postcss.AtRule | null {
+  let found: postcss.AtRule | null = null;
+  container.walkAtRules('media', (atRule) => {
+    if (!found && atRule.params.trim() === params) found = atRule;
+  });
+  return found;
+}
+
 describe('the primitives exist and own what tokens cannot', () => {
   it('gives a control one standard height and one compact height, and no third', () => {
-    const heights = new Set(
-      [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/height:\s*(\d+)px;/g)].map((m) => m[1]),
-    );
-    // 36 standard, 28 compact, 72 the textarea's min-height - which is a min, not a control height.
-    expect([...heights].sort()).toEqual(['28', '36', '72']);
+    // The two heights are tokens, so a phone can raise both to a thumb's target in one place.
+    expect(valueIn(PRIMITIVES, '.btn', 'height')).toBe('var(--control-height)');
+    expect(valueIn(PRIMITIVES, '.field', 'height')).toBe('var(--control-height)');
+    expect(valueIn(PRIMITIVES, '.add-row', 'height')).toBe('var(--control-height)');
+    expect(valueIn(PRIMITIVES, '.btn--compact', 'height')).toBe('var(--control-height-compact)');
+    // No pixel height is left but the textarea's 72px, which is a min, not a control height.
+    const heights = new Set<string>();
+    PRIMITIVES.walkDecls(/height$/, (decl) => {
+      const pixels = decl.value.match(/^(\d+)px$/);
+      if (pixels) heights.add(pixels[1]);
+    });
+    expect([...heights]).toEqual(['72']);
+  });
+
+  it('sets the control heights at 36px and 28px, and at 44px on a phone', () => {
+    // A thumb wants 44px (Apple's and Material's guidance; WCAG 2.5.5's AAA target), and the
+    // layout sweep fails a phone control under it. A desk keeps 36px and 28px, and WCAG 2.5.8's
+    // 24px floor for a target that is not a control.
+    expect(valueIn(BASE_ROOT, ':root', '--control-height')).toBe('36px');
+    expect(valueIn(BASE_ROOT, ':root', '--control-height-compact')).toBe('28px');
+    expect(valueIn(BASE_ROOT, ':root', '--target-min')).toBe('24px');
+
+    const phone = mediaAt(BASE_ROOT, '(width <= 640px)');
+    expect(valueIn(phone, ':root', '--control-height')).toBe('44px');
+    expect(valueIn(phone, ':root', '--control-height-compact')).toBe('44px');
+    expect(valueIn(phone, ':root', '--target-min')).toBe('44px');
   });
 
   it('sizes and spaces itself from the scale, never from a literal', () => {
@@ -119,7 +181,6 @@ describe('the primitives exist and own what tokens cannot', () => {
     // `.icon-add-round { width: 40px; height: 40px }` was declared identically in SIX files, one of
     // which never used the icon at all.
     expect(blocks('.add-row')).not.toHaveLength(0);
-    expect(declaration('.add-row', 'height')).toBe('36px');
     expect(declaration('.add-row', 'align-items')).toBe('center');
     expect(declaration('.add-row', 'justify-content')).toBe('center');
   });

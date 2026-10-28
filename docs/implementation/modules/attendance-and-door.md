@@ -29,6 +29,7 @@ sources:
   - bug/9
   - known-gap/3
   - T15
+  - T82
 ---
 
 # Attendance and the door
@@ -82,6 +83,7 @@ The vendors' own check-in page is not an organizer screen at all, so the organiz
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
 Of the organizer market screens only Attendance has it, because the door is sometimes a person standing up.
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
+Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, vendor drawer, rail menu and archive confirmation, and the check-in page before and after a lookup at 390px, and fails on a target under 44px (T82).
 
 ## Why
 

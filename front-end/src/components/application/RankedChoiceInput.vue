@@ -129,6 +129,8 @@ function move(index: number, delta: number) {
 .ranked-btn {
   width: 30px;
   height: 30px;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;

@@ -15,21 +15,28 @@
 export const SPACE_SCALE = [2, 4, 8, 12, 16, 24, 32, 48];
 export const TYPE_SCALE = [12, 14, 16, 20, 26, 32];
 
-/** Narrower than this is a phone: a tap target under 24px fails there, and one under 44px is reported. */
-export const PHONE_WIDTH = 600;
+/**
+ * px, the widest window that is a phone, where a tap target under 44px fails: the break at which
+ * `base.css` raises `--target-min` and the control heights to 44px (`layout-detectors.spec.ts`
+ * holds the two to one number).
+ */
+export const PHONE_MAX_WIDTH = 640;
+
+/**
+ * px, the smallest tap target at a window this wide: a thumb's 44px on a phone, the size the app's
+ * `--target-min` gives it there (T82), and WCAG 2.5.8's 24px on a desktop, where it is reported.
+ */
+export function minTargetAt(width: number): number {
+  return width <= PHONE_MAX_WIDTH ? 44 : 24;
+}
 
 export interface DetectOptions {
   /** px values allowed for margin, padding and gap; 0 is always allowed. */
   spaceScale: number[];
   /** px font sizes allowed for text. */
   textScale: number[];
-  /** px, the smallest tap target's width and height: WCAG 2.5.8's 24px. */
+  /** px, the smallest tap target's width and height (`minTargetAt`). */
   minTarget: number;
-  /**
-   * px, the size a target on a phone is meant to reach (44px). Under it, and not under `minTarget`,
-   * is a `tight-target`: reported, never failed on, until the phone controls are raised to it.
-   */
-  comfortableTarget?: number;
 }
 
 export interface Finding {
@@ -55,13 +62,11 @@ export const GATING = [
 ];
 
 /**
- * Whether the sweep fails on a finding at a window this wide. `small-target`, under WCAG 2.5.8's
- * 24px, only at phone width, where it is precise: on a desktop it is mostly hints inside larger
- * buttons. On a phone the gate is 24px, not the 44px a thumb wants, until the phone controls are
- * raised to 44px (Daniel, 2026-10-28); until then `tight-target` reports each one under 44px.
+ * Whether the sweep fails on a finding at a window this wide. `small-target` only at phone width,
+ * where it is precise: on a desktop it is mostly hints inside larger buttons.
  */
 export function gates(finding: Finding, width: number): boolean {
-  if (finding.kind === 'small-target') return width < PHONE_WIDTH;
+  if (finding.kind === 'small-target') return width <= PHONE_MAX_WIDTH;
   return GATING.includes(finding.kind);
 }
 
@@ -359,8 +364,6 @@ export function detectLayout(opts: DetectOptions): Finding[] {
         // Exempt.
       } else if (!reaches(opts.minTarget)) {
         push('small-target', el, `${measured}, under ${opts.minTarget}px`);
-      } else if (opts.comfortableTarget && !reaches(opts.comfortableTarget)) {
-        push('tight-target', el, `${measured}, under ${opts.comfortableTarget}px`);
       }
     }
 

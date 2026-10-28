@@ -286,6 +286,8 @@ watch(
 }
 
 .dialog-close {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   position: absolute;
   top: var(--space-2);
   right: var(--space-3);

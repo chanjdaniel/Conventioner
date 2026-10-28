@@ -20,7 +20,7 @@ const router = useRouter();
   <div class="not-found" data-testid="page-not-found">
     <h1>Page not found</h1>
     <p>There is nothing to see at this address. Check the link you were given.</p>
-    <button type="button" class="not-found-action" @click="router.push('/login')">Sign in</button>
+    <button type="button" class="btn btn--primary" @click="router.push('/login')">Sign in</button>
   </div>
 </template>
 
@@ -40,16 +40,5 @@ p {
   margin: 0 0 var(--space-6);
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
-}
-
-.not-found-action {
-  height: 38px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-control);
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-  font-size: var(--text-sm);
-  cursor: pointer;
 }
 </style>

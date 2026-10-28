@@ -32,6 +32,7 @@ import { api } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useScrollsSideways } from '@/utils/useScrollsSideways';
 import AppDialog from '@/components/AppDialog.vue';
 import { marketPath, resolutionPath } from '@/utils/market';
 import {
@@ -69,6 +70,11 @@ const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 const spine = computed(() => spineFor(currentPhase.value, props.market?.phasesPassedThrough));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
+
+/* On a phone the spine scrolls sideways inside the rail, and a region that scrolls is a keyboard
+   stop, so the phases past the window's edge can be reached (T82). On a desk it fits, and is not. */
+const spineEl = ref<HTMLElement | null>(null);
+const spineScrolls = useScrollsSideways(spineEl, spine);
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
 
 /**
@@ -440,7 +446,13 @@ function cancelPending() {
 <template>
   <div v-if="market" class="phase-rail" data-testid="phase-rail">
     <div class="phase-rail-row">
-      <ol class="phase-spine" data-testid="phase-rail-spine">
+      <ol
+        ref="spineEl"
+        class="phase-spine"
+        :tabindex="spineScrolls ? 0 : undefined"
+        aria-label="Phases"
+        data-testid="phase-rail-spine"
+      >
         <li
           v-for="(phase, index) in spine"
           :key="phase"
@@ -719,6 +731,11 @@ function cancelPending() {
     scrollbar-width: none;
   }
 
+  .phase-spine:focus-visible {
+    outline: 2px solid var(--mm-black);
+    outline-offset: 2px;
+  }
+
   .phase-step {
     flex-shrink: 0;
   }
@@ -860,9 +877,9 @@ function cancelPending() {
 .url-chip-url {
   color: var(--mm-text-link);
   min-width: 0;
-  /* A 24px line, so the address is a 24px target on a phone (WCAG 2.5.8, T79), and no taller than
-     the Copy button beside it. */
-  line-height: var(--space-6);
+  /* A line `--target-min` tall, so the address is a target on a phone (WCAG 2.5.8, T79; 44px since
+     T82), and no taller than the Copy button beside it. */
+  line-height: var(--target-min);
   /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
      character rather than the whole address. The rail's end measures its own narrowest to decide
      whether it fits beside the spine, and an unbreakable address made it never fit. */
@@ -876,6 +893,8 @@ function cancelPending() {
 
 .url-chip-copy {
   flex: none;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
@@ -933,6 +952,7 @@ function cancelPending() {
 }
 
 .rail-menu-item {
+  min-height: var(--target-min);
   border: none;
   background: white;
   padding: var(--space-2) var(--space-3);

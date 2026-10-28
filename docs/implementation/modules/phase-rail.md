@@ -4,6 +4,7 @@ kind: module
 describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
+  - front-end/src/utils/useScrollsSideways.ts
 verified: 2026-10-28
 sources:
   - wayfinding/claims-and-room/07
@@ -22,6 +23,7 @@ sources:
   - bug/8
   - bug/37
   - bug/44
+  - T82
 ---
 
 # The phase rail
@@ -72,6 +74,7 @@ The addresses and the moves are one item of the row; where the row cannot hold t
 Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
+While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
 
 **Crowding is measured between labels, never by overflow.**
 The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.

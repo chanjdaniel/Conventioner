@@ -361,6 +361,9 @@ useInertBehind(
 }
 
 .detail-close {
+  flex-shrink: 0;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   background: transparent;
   border: none;
   color: white;

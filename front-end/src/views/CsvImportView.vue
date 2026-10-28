@@ -1361,7 +1361,7 @@ function startOver() {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-6) var(--space-8) calc(2 * var(--space-12));
+  padding: var(--space-6) var(--space-8) calc(var(--space-12) + var(--space-12));
   color: var(--mm-black);
 }
 

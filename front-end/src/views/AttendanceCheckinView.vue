@@ -435,6 +435,7 @@ async function undoCheckIn(date: string): Promise<void> {
   border-radius: var(--radius-control);
   padding: 0 var(--space-4);
   height: 40px;
+  min-height: var(--target-min);
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-md);
   cursor: pointer;
@@ -459,6 +460,7 @@ async function undoCheckIn(date: string): Promise<void> {
   border-radius: var(--radius-control);
   padding: 0 var(--space-4);
   height: 40px;
+  min-height: var(--target-min);
   font-size: var(--text-sm);
   cursor: pointer;
 }
@@ -468,6 +470,7 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .undo-button {
+  min-height: var(--target-min);
   background: none;
   border: none;
   padding: var(--space-1) var(--space-2);
@@ -585,20 +588,16 @@ async function undoCheckIn(date: string): Promise<void> {
     /* Stacked, `flex: 1` is a zero HEIGHT basis: the field shrank to its 22px line box under a 44px
        button. Its own height, the button's touch target. */
     flex: none;
-    min-height: 44px;
+    min-height: var(--target-min);
     min-width: 0;
     font-size: var(--text-md); /* iOS zooms the page in on a focused input below 16px. */
   }
 
   .lookup-row .primary-button,
+  .lookup-row .secondary-button,
   .assignment-action .primary-button,
-  .assignment-action .secondary-button {
-    width: 100%;
-    min-height: 44px; /* A comfortable touch target. */
-  }
-
+  .assignment-action .secondary-button,
   .assignment-action .undo-button {
-    min-height: 44px;
     width: 100%;
   }
 

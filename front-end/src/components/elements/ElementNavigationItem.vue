@@ -32,6 +32,7 @@ defineProps<{
 
   width: 100%;
   height: 36px;
+  min-height: var(--target-min);
 
   border-bottom: 1.75px solid rgba(39, 35, 35, 0.49);
   border-top-left-radius: 10px;
@@ -44,11 +45,5 @@ defineProps<{
 .item:hover {
   background-color: var(--hover-grey);
   box-shadow: var(--shadow-card);
-}
-
-h3 {
-  font-size: var(--text-lg);
-  font-weight: 400;
-  margin-bottom: var(--space-2);
 }
 </style>

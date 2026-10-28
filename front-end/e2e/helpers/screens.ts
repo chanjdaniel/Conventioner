@@ -393,6 +393,43 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
+  // What else the organizer reaches at the door, on the phone in their hand (T82).
+  {
+    name: 'the navigation drawer, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(screen('big', 'attendance'), 'attendance-row', ['app-menu-button', 'app-nav']),
+  },
+  {
+    name: 'the vendor drawer, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(screen('big', 'attendance'), 'attendance-row', [
+      'attendance-vendor',
+      'vendors-detail-email',
+    ]),
+  },
+  {
+    name: 'the archive confirmation, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: async (page, seed) => {
+      await at(screen('big', 'attendance'), 'attendance-row')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await page.locator('.rail-menu-item--end').click();
+      await visible(page, 'archive-confirm-window');
+    },
+  },
+  {
+    name: 'the phase-rail menu, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: async (page, seed) => {
+      await at(screen('big', 'attendance'), 'attendance-row')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await expect(page.locator('.rail-menu-item').first()).toBeVisible();
+    },
+  },
   {
     name: 'the floorplan',
     who: 'organizer',
@@ -547,20 +584,31 @@ export const SCREENS: Screen[] = [
     sizes: PUBLIC,
     open: at(slug('big', '/check-in'), 'attendance-checkin-market-name'),
   },
+  {
+    // What a vendor at the door sees once they have looked themselves up: a card and a Check in
+    // button for each of their days.
+    name: 'the check-in page, a vendor looked up',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(slug('big', '/check-in'), 'attendance-checkin-email-input')(page, seed);
+      await page.getByTestId('attendance-checkin-email-input').fill('vendor0@example.com');
+      await page.getByTestId('attendance-checkin-lookup-button').click();
+      await visible(page, 'attendance-checkin-checkin-button');
+    },
+  },
 ];
-
-/** The address the stress seed's first applicant signs in with. */
-const APPLICANT = 'applicant0@example.com';
 
 /** Signs the page's browser in as `who`, over the API: the sign-in pages are screens of their own. */
 export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promise<void> {
   if (who === 'nobody') return;
   if (who === 'applicant') {
     // A code planted as the email would carry it, used once, so each sign-in plants its own.
-    createApplicantLoginChallenge(seed.open.marketId, APPLICANT, '424242');
+    const email = seed.applicant.email;
+    createApplicantLoginChallenge(seed.open.marketId, email, '424242');
     const res = await page.request.post(
       `${BACKEND_URL}/public/markets/${seed.open.marketSlug}/applicant-login/verify-code`,
-      { data: { email: APPLICANT, code: '424242' } },
+      { data: { email, code: '424242' } },
     );
     expect(res.ok(), `the applicant's sign-in: ${res.status()}`).toBe(true);
     const { token } = (await res.json()) as { token: string };
@@ -568,7 +616,7 @@ export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promis
     const session = {
       marketId: seed.open.marketId,
       marketSlug: seed.open.marketSlug,
-      applicantEmail: APPLICANT,
+      applicantEmail: email,
       token,
     };
     await page.addInitScript(

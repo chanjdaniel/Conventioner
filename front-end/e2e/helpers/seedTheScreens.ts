@@ -1,5 +1,4 @@
 import type { APIRequestContext } from '@playwright/test';
-import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { approvedVendorApplication, insertApplications } from './seedApplication';
 import { seedDraftMarket } from './seedDraftMarket';
 import { transitionMarket } from './seedPhaseMarket';
@@ -51,8 +50,8 @@ export interface TheScreensSeed {
   csv: SeededMarket;
   /** A CSV draft with no plan yet, which starting from a Google Form's responses serves. */
   csvDraft: SeededMarket;
-  /** An applicant of `open` with a sign-in code waiting, for their dashboard. */
-  applicant: { email: string; code: string };
+  /** An applicant of `open`, who signs in to their dashboard (`signIn` in `screens.ts`). */
+  applicant: { email: string };
 }
 
 export const MARKET_DATES = ['2099-08-01', '2099-08-08', '2099-08-15', '2099-08-22'];
@@ -353,9 +352,8 @@ export async function seedTheScreens(
   });
   const csvDraft = { marketId, marketName, marketSlug: marketNameToSlug(marketName) };
 
-  // The first applicant signs in with a code planted for them, as the email would carry it.
-  const applicant = { email: 'applicant0@example.com', code: '424242' };
-  createApplicantLoginChallenge(open.marketId, applicant.email, applicant.code);
+  // The first applicant of `open`; each sign-in plants its own code, since a code is used once.
+  const applicant = { email: 'applicant0@example.com' };
 
   return {
     draft,

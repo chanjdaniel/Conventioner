@@ -640,7 +640,10 @@ const submitOTPLogin = async () => {
 }
 
 .login-input {
-  height: 36px;
+  /* The input inside is the target, and it is this box less its border: a desk's box is a control's
+     height, and on a phone the input itself reaches `--target-min`, so the box is 2px taller (T82). */
+  box-sizing: content-box;
+  height: max(calc(var(--control-height) - 2px), var(--target-min));
   padding: 0 var(--space-3);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
@@ -669,6 +672,7 @@ const submitOTPLogin = async () => {
   border: none;
   background-color: transparent;
   width: fit-content;
+  min-width: var(--target-min);
   padding: 0 0 0 var(--space-2);
   color: var(--mm-text-link);
   font-size: var(--text-xs);
@@ -726,12 +730,12 @@ const submitOTPLogin = async () => {
   text-align: center;
 }
 
-/* A link on a line of its own is a 24px target (WCAG 2.5.8, T79): a line box that tall, with no
+/* A link on a line of its own is a target (WCAG 2.5.8, T79): a line box `--target-min` tall, with no
    padding, so it still sits on its text. */
 .link {
   display: inline-flex;
   align-items: center;
-  min-height: var(--space-6);
+  min-height: var(--target-min);
   color: var(--mm-text-link);
   text-decoration: none;
   font-size: var(--text-sm);
