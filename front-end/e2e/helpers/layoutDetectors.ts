@@ -15,15 +15,19 @@
 export const SPACE_SCALE = [2, 4, 8, 12, 16, 24, 32, 48];
 export const TYPE_SCALE = [12, 14, 16, 20, 26, 32];
 
-/** Narrower than this is a phone, where a tap target under 44px fails. */
-export const PHONE_WIDTH = 600;
+/**
+ * px, the widest window that is a phone, where a tap target under 44px fails: the break at which
+ * `base.css` raises `--target-min` and the control heights to 44px (`primitives.test.ts` holds the
+ * two to one number).
+ */
+export const PHONE_MAX_WIDTH = 640;
 
 /**
  * px, the smallest tap target at a window this wide: a thumb's 44px on a phone, the size the app's
  * `--target-min` gives it there (T82), and WCAG 2.5.8's 24px on a desktop, where it is reported.
  */
 export function minTargetAt(width: number): number {
-  return width < PHONE_WIDTH ? 44 : 24;
+  return width <= PHONE_MAX_WIDTH ? 44 : 24;
 }
 
 export interface DetectOptions {
@@ -62,7 +66,7 @@ export const GATING = [
  * where it is precise: on a desktop it is mostly hints inside larger buttons.
  */
 export function gates(finding: Finding, width: number): boolean {
-  if (finding.kind === 'small-target') return width < PHONE_WIDTH;
+  if (finding.kind === 'small-target') return width <= PHONE_MAX_WIDTH;
   return GATING.includes(finding.kind);
 }
 

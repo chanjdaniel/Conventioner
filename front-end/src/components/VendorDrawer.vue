@@ -361,6 +361,8 @@ useInertBehind(
 }
 
 .detail-close {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   background: transparent;
   border: none;
   color: white;

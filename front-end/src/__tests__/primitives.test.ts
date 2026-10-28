@@ -76,6 +76,17 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(token(phone, '--target-min')).toBe('44px');
   });
 
+  it('raises the targets at the width the layout sweep holds a phone to 44px', () => {
+    // Two numbers for one phone let a window between them slip past the gate: controls at 44px
+    // the sweep held to 24, or the reverse.
+    const sweep = readFileSync(join(SRC, '../e2e/helpers/layoutDetectors.ts'), 'utf8');
+    const widest = sweep.match(/export const PHONE_MAX_WIDTH = (\d+);/)?.[1];
+    expect(widest, 'PHONE_MAX_WIDTH in layoutDetectors.ts').toBeTruthy();
+    expect(BASE).toMatch(
+      new RegExp(`@media \\(width <= ${widest}px\\) \\{\\s*:root \\{[^}]*--target-min: 44px`),
+    );
+  });
+
   it('sizes and spaces itself from the scale, never from a literal', () => {
     // A primitive that hardcodes a pixel is a primitive that cannot be restyled from one place,
     // which is the whole reason this layer exists.

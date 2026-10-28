@@ -401,6 +401,26 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'attendance'), 'attendance-row', ['app-menu-button', 'app-nav']),
   },
   {
+    name: 'the vendor drawer, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(screen('big', 'attendance'), 'attendance-row', [
+      'attendance-vendor',
+      'vendors-detail-email',
+    ]),
+  },
+  {
+    name: 'the archive confirmation, at the door',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: async (page, seed) => {
+      await at(screen('big', 'attendance'), 'attendance-row')(page, seed);
+      await page.getByTestId('phase-rail-menu-button').click();
+      await page.locator('.rail-menu-item--end').click();
+      await visible(page, 'archive-confirm-window');
+    },
+  },
+  {
     name: 'the phase-rail menu, at the door',
     who: 'organizer',
     sizes: [PHONE],

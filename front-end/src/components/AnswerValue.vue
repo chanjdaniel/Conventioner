@@ -34,11 +34,13 @@ const segments = computed(() => answerSegments(props.value));
   overflow-wrap: anywhere;
 }
 
-/* An answer that is only an address is a link on its own line, so it is a target (WCAG 2.5.8, 44px
-   on a phone since T82); one inside a sentence stays in the sentence's line. */
-.answer-link--alone {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
+/* An answer that is only an address is a link on its own line, so on a phone it is a thumb's
+   target (T82); one inside a sentence stays in the sentence's line, and a desk keeps the line. */
+@media (width <= 640px) {
+  .answer-link--alone {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
 }
 </style>
