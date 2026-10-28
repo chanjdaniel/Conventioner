@@ -107,7 +107,7 @@ test.describe('Authentication journeys', () => {
 
       // Step 1: Create a user via the back-end API (no CAPTCHA).
       const regRes = await request.post('/api/register-user', {
-        data: { email, password: REGISTER_PASSWORD, organizations: [] },
+        data: { email, password: REGISTER_PASSWORD },
         headers: { 'Content-Type': 'application/json' },
       });
       expect(regRes.ok()).toBeTruthy();

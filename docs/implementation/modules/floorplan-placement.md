@@ -19,7 +19,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - bug/38
   - E26/F09/S01
@@ -100,7 +100,7 @@ Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
 
 **Saving writes the plan's sections and locations, so it is a draft's only** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
-`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) needs EDITOR, refuses an archived market (403) and a settled setup (409), then replaces `setupObject.sections` and `.locations` with the floorplan's and appends the floorplan to `setupObject.floorplans`.
+`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400), needs EDITOR, refuses an archived market (403) and a settled setup (409), then replaces `setupObject.sections` and `.locations` with the floorplan's and appends the floorplan to `setupObject.floorplans`.
 It tolerates a market with no `setupObject` (`isinstance(existing_setup, dict)` chooses between updating the existing object and seeding a fresh one).
 
 **The editor keeps the tables it is handed.**

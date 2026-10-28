@@ -4,10 +4,12 @@ kind: convention
 describes:
   - back-end/utils/request_body.py
   - back-end/tests/test_a_request_value_is_a_string.py
+  - back-end/tests/test_a_body_sets_only_its_fields.py
 verified: 2026-10-28
 sources:
   - T66
   - T74
+  - T85
 ---
 
 # A request value is a string before it reaches a query
@@ -25,12 +27,13 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - the account endpoints (`back-end/api/users.py`) answer their "required" 400, for every address, password, token and sign-in code they read;
 - the applicant sign-in (`back-end/api/applicant_auth.py`) answers its one same 200 for a code request and its one same 401 for a verify, so a wrong type tells a caller nothing a missing value does not;
 - the public check-in and its undo (`back-end/app.py`) answer 400 for an address or a date;
-- creating an organization (`back-end/app.py`) answers 400 for a name that is not a string or is blank;
+- creating and renaming an organization (`back-end/app.py`) answer 400 for a name that is not a string or is blank;
 - adding an organization's admin or member, handing on its ownership, and adding or changing someone's market role (`back-end/app.py`) answer their "required" 400 for an address or a role that is not a string;
 - saving a floorplan to a market, placing its tables, and analysing, calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_analysis.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
 The body itself is read with `json_object()` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), which every route in `back-end/app.py` that reads its body in the view calls; it refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).
+Saving a floorplan to a market refuses such a body in the same words, and registration answers it as a missing address and password.
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
 
@@ -40,11 +43,19 @@ An address read this way still goes through `normalized_email()` ([users, and th
 - A value that is a structure by design (an application form, a plan, a floorplan) is written, not looked up by, and is checked by the module that owns it.
 - The organizer handlers in `back-end/app.py` that coerce with `str()` (a placement, a swap, the organizer's check-in) are safe, since a string is never query syntax, but they turn a wrong type into text nobody sent; new code reads with `string_field()` instead.
 
+## A write takes only its fields
+
+A handler that writes what a body holds names the fields it takes, and reads each with its type; any other key is ignored.
+A new account starts in no organization, whatever its registration body says, so signing in reads back none it named.
+An organization's update renames it and changes nothing else, since its people and markets change only through writes that keep each user's side in step ([the organization document](../data/organization-document.md)).
+A floorplan template's update takes its own allow-listed fields the same way (`back-end/api/floorplans_templates.py`).
+[`test_a_body_sets_only_its_fields.py`](../../../back-end/tests/test_a_body_sets_only_its_fields.py) sends each of these writes keys it does not take, and bodies that are not an object, and checks nothing beyond its fields is written.
+
 ## How it is enforced
 
 [`test_a_request_value_is_a_string.py`](../../../back-end/tests/test_a_request_value_is_a_string.py) sends each of those endpoints an object, a list, a number and a boolean in place of each string it reads, and a list whose text holds an address where an address belongs.
 Each is refused, and nothing changes: no password, no verified flag, no counted try, no check-in, no organization.
-Its users collection matches as the database does, an operator included, so a lookup that let a non-string through would find what the database finds.
+Its collections match as the database does, an operator included, so a lookup that let a non-string through would find what the database finds.
 A reset, a verification and a sign-in with the right string still work.
 
 CodeQL's `py/nosql-injection` is the automated backstop: it is in the default suite GitHub's default setup runs on every pull request and weekly on `dev` ([CI and the gate](../testing/ci-and-the-gate.md#codeql)), and it flags a request value that reaches a MongoDB filter unchecked.
