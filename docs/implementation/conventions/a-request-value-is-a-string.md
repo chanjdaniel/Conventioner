@@ -30,6 +30,8 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - saving a floorplan to a market, placing its tables, and analysing, calibrating and exporting a floorplan image (`back-end/api/floorplans_save.py`, `back-end/api/floorplans_placement.py`, `back-end/api/floorplans_analysis.py`, `back-end/api/floorplans_calibrate.py`, `back-end/api/floorplans_export.py`) answer 400 for the id they name;
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
+The body itself is read in `back-end/app.py` with `json_object()` from the same module, which refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).
+
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
 
 ## What is not a body string

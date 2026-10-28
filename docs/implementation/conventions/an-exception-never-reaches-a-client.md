@@ -3,6 +3,7 @@ layer: implementation
 kind: convention
 describes:
   - back-end/client_errors.py
+  - back-end/utils/request_body.py#json_object
   - back-end/tests/test_an_exception_never_reaches_a_client.py
   - back-end/app.py#get_assigned_market
   - back-end/app.py#get_assignment_statistics
@@ -162,26 +163,26 @@ It never names the path, the query string, the body or the view argument `vendor
 
 The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still their 400 with its own message, and anything else reaches the handler.
 
-So do the organization routes (the list, create, read, update, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`No data provided`, `Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
+So do the organization routes (the list, create, read, update, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).
 
 So do the market setup routes: reading a market and listing a user's markets, creating, renaming, planning and deleting one, and its vendor notes, review highlights and rejection rules.
-None catches anything, and each keeps its literal answers (`No data provided`, `A JSON object is required`, `note is required`, `keys is required`, `Market not found or access denied`).
+None catches anything, and each keeps its literal answers (`note is required`, `keys is required`, `Market not found or access denied`).
 Creating a market answers a body the model refuses with its field-named 400, a refusal the markets API decides (no organization, an address another market holds) with that refusal's status, and anything else, its one-owner invariant included, with the generic 500.
 Deleting a market that does not exist answers 404.
 
 So do the application form, amendment and phase routes: reading and saving the form, the amendment's availability, the amendment and its resume, the phase move and the pending-offers count.
-None catches anything, and each keeps its literal answers (`No data provided`, `applicationForm is required`, `to_phase is required`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
+None catches anything, and each keeps its literal answers (`applicationForm is required`, `to_phase is required`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
 A form saved in a phase that has fixed it answers its lock reason, 409; the amendment answers its blockers and a stall its resume offer from `body()`; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`.
 A stall is the one refusal logged: `_walk` in [`back-end/api/form_amendment.py`](../../../back-end/api/form_amendment.py) logs the market's id and where it stopped before it raises, because a market left between phases is worth a line for whoever is on call, and the handler logs no client error.
 
 So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history.
-None catches anything, and each keeps its literal answers (`No data provided`, `A JSON object is required`).
+None catches anything.
 A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
 
 So do the applicant, review, import and door routes: every public route an applicant or a vendor at the door calls, the application list, the review's verdicts, selections, next card, claims and follow-up owners, the [CSV start](../modules/csv-proposal-and-start.md)'s proposal and confirm, the [application import](../modules/csv-import.md)'s inspect, preview and import, Publish Results, and [attendance and the door](../modules/attendance-and-door.md).
-None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, `A JSON object is required` for a door write or an applicant's save whose body is not an object, and the permission 403s the routes ask themselves.
+None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, and the permission 403s the routes ask themselves.
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.
@@ -189,8 +190,12 @@ Two lines these routes reach are kept free of an applicant's address for the 500
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
 **A body that is not an object is refused in words.**
-Every route in `app.py` that reads a JSON body reads it with `request.get_json(silent=True)`, so a body that is not JSON is no body rather than Werkzeug's HTML 415, and it answers a body that is not an object (a list, a string, a number) `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError`.
-A route whose body is required answers no body `No data provided`; one whose body is optional reads none as `{}`.
+Every route in `app.py` that reads a JSON body reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and nothing else there reads `request` for a body.
+A body that is not JSON is no body, rather than Werkzeug's HTML 415.
+JSON that is not an object (a list, a string, a number, a boolean) raises a `BadRequestError`, `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError` or a model's own words.
+A required body that is missing or an empty object raises `No data provided`, 400; an optional one reads none as `{}`, and the route answers what is then missing in its own words (`csvContent is required`, a swap that names no vendors).
+The body is required for the organization and market role writes, creating a market, the plan, the application form, a phase move, adding a vendor, writing a placement, an applicant's save, a verdict on one application and the CSV start's confirm; every other body route reads it as optional.
+The account routes in [`back-end/api/users.py`](../../../back-end/api/users.py) read their own bodies and are not yet on this reader.
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
 The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches the same way: it says a client error as `Not done: <its copy>` and lets anything else raise with its traceback, which is what the operator needs for a bug.
@@ -206,7 +211,8 @@ The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
-  Each route that reads a body refuses no body, a body that is not JSON, a list, a string and a number in words, and a market name, review highlights or a ticked entry of the wrong type as a missing one.
+  `TestABodyThatIsNotAnObject` lists every route in `app.py` that reads a body, required or optional, and checks the list against the routes whose view calls `json_object` and that no view reads `request` for a body another way.
+  Each listed route answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
   No client error, nor any refusal built on one, is a `ValueError` or a `PermissionError`, and the seeder says each as `Not done` while a library's `ValueError` escapes it.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
   Each refused parse above answers its own copy with nothing of the parser's message or the input in it, and its log holds the field but not the input; so does a stored organization that cannot be read.
