@@ -198,7 +198,7 @@ The body is required for the organization and market role writes, creating a mar
 Two groups of routes have a body another module reads: the account routes, whose views hand `request` to [`back-end/api/users.py`](../../../back-end/api/users.py), not yet on this reader, and the applicant sign-in's code request and verify, read in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py) for their uniform answers.
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
-The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches the same way: it says a client error as `Not done: <its copy>` and lets anything else raise with its traceback, which is what the operator needs for a bug.
+The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches only its own refusals and client errors, saying each as `Not done: <its copy>`, and lets anything else raise with its traceback, which is what the operator needs for a bug.
 
 ## How it is enforced
 
@@ -212,7 +212,7 @@ The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.
   `TestABodyThatIsNotAnObject` reads `app.url_map` and classifies every POST, PUT or DELETE route whose view is defined in `app.py` as one of a required body or an optional body read in the view, no body, or a body another module reads, each route in exactly one of those lists.
-  Each route that takes no body runs to its success answer, and each whose body another module reads hands `request` on to a stub, while every way to read the body (`get_json` and `request.json`, `get_data` and `request.data`, the form parser) records the read and raises: none is read in the view.
+  Each route that takes no body runs to its success answer, and each whose body another module reads has that module's function stubbed out, while every way to read the body (`get_json` and `request.json`, `get_data` and `request.data`, the form parser) records the read and raises: none is read in the view.
   Each route the required and optional lists hold answers JSON that is not an object `A JSON object is required`; each required one answers no body, `null`, `{}`, a body that is not JSON and broken JSON `No data provided`; each optional one reads no body as empty; and a market name, review highlights or a ticked entry of the wrong type is read as a missing one.
   No client error, nor any refusal built on one, is a `ValueError` or a `PermissionError`, and the seeder says each as `Not done` while a library's `ValueError` escapes it.
   Each refusal of the modules above, raised for real where a route reaches it and spied on as it passes, is answered with exactly its own status and `body()`.
