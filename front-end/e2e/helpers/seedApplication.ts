@@ -58,20 +58,36 @@ export function seedApplication(
 export function seedApprovedVendor(
   marketId: string,
   applicantEmail: string,
-  answers: {
-    dates: string[];
-    tiers: string[];
-    sections?: string[];
-    maxDates?: number;
-    tableChoice?: string;
-    shareWith?: string;
-    fullName?: string;
-    extra?: Record<string, unknown>;
-  },
+  answers: VendorAnswers,
 ): string {
-  const applicationId = randomUUID();
-  const application = {
-    id: applicationId,
+  const application = approvedVendorApplication(marketId, applicantEmail, answers);
+  mongoEval(`db.applications.insertOne(${JSON.stringify(application)})`);
+  return application.id;
+}
+
+/** What an approved vendor answered: the essential questions, and any of the form's own. */
+export interface VendorAnswers {
+  dates: string[];
+  tiers: string[];
+  sections?: string[];
+  maxDates?: number;
+  tableChoice?: string;
+  shareWith?: string;
+  fullName?: string;
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * The application `seedApprovedVendor` writes, built and not written, so a seed of many vendors
+ * writes them with one `insertApplications` rather than a container round trip each.
+ */
+export function approvedVendorApplication(
+  marketId: string,
+  applicantEmail: string,
+  answers: VendorAnswers,
+) {
+  return {
+    id: randomUUID(),
     market_id: marketId,
     applicant_email: applicantEmail,
     form_data: {
@@ -97,10 +113,12 @@ export function seedApprovedVendor(
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+}
 
-  mongoEval(`db.applications.insertOne(${JSON.stringify(application)})`);
-
-  return applicationId;
+/** Write many applications in one call: each `mongoEval` is a round trip into the container. */
+export function insertApplications(applications: { id: string }[]): void {
+  if (applications.length === 0) return;
+  mongoEval(`db.applications.insertMany(${JSON.stringify(applications)})`);
 }
 
 /**

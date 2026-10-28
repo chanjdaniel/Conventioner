@@ -91,7 +91,7 @@ const resendVerification = async () => {
 <template>
   <AuthCard>
     <div class="verification">
-      <h1>Email Verification</h1>
+      <h1>Verify your email</h1>
 
       <div v-if="isLoading" class="loading">
         <p>Verifying your email...</p>
@@ -113,14 +113,14 @@ const resendVerification = async () => {
           class="btn btn--primary resend-button"
           data-testid="email-verification-resend-button"
         >
-          Resend Verification Email
+          Resend verification email
         </button>
         <button
           @click="router.push('/login')"
           class="btn btn--secondary link-button"
           data-testid="email-verification-login-button"
         >
-          Go to Login
+          Go to sign in
         </button>
       </div>
     </div>
@@ -144,7 +144,7 @@ const resendVerification = async () => {
 }
 
 .success-message {
-  color: green;
+  color: var(--mm-green);
   font-size: var(--text-lg);
   margin-bottom: var(--space-4);
 }
@@ -155,28 +155,14 @@ const resendVerification = async () => {
 }
 
 .error-message {
-  color: red;
+  color: var(--mm-red);
   font-size: var(--text-lg);
   margin-bottom: var(--space-4);
 }
 
+/* `.btn` and its variants carry everything but the spacing (E16/F05). */
 .resend-button,
 .link-button {
   margin: var(--space-2);
-}
-
-/* `.btn btn--primary` carries everything but the spacing (E16/F05). */
-.resend-button {
-  margin: var(--space-2);
-}
-
-.link-button {
-  background-color: var(--mm-text-link);
-  color: white;
-}
-
-.resend-button:hover,
-.link-button:hover {
-  opacity: 0.9;
 }
 </style>

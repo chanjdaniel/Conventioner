@@ -7,7 +7,7 @@ import {
   TEST_USER,
   NO_ORG_USER,
 } from './fixtures';
-import { ensureTestOrg, loginViaApi } from './helpers/seeds';
+import { ensureTestOrgs, loginViaApi } from './helpers/seeds';
 
 /**
  * D14: every market requires an organization at creation. An org-less market is
@@ -16,7 +16,9 @@ import { ensureTestOrg, loginViaApi } from './helpers/seeds';
  */
 test.describe('New market - organization is required', () => {
   test.beforeAll(async ({ request }) => {
-    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    // The overlay test needs a choice of organization: with only one, the dialog names it instead
+    // of offering the dropdown the test reads.
+    await ensureTestOrgs(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, 2);
   });
 
   test('API enforces organization at market creation', async ({ request }) => {

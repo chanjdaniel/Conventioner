@@ -46,13 +46,12 @@ const currentIndex = computed(() => props.steps.findIndex((step) => step.id === 
 </template>
 
 <style scoped>
-/* Pulled back by a step's own padding, so its first number lines up with the card below. */
 .step-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 0 calc(-1 * var(--space-2));
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -79,6 +78,12 @@ const currentIndex = computed(() => props.steps.findIndex((step) => step.id === 
   color: var(--mm-black);
   font-size: var(--text-sm);
   cursor: pointer;
+}
+
+/* The first step starts at the header's edge, so its number lines up with the card below. It was
+   pulled back by a negative margin, which left the list 8px outside its header (T79). */
+.step-item:first-child .step-button {
+  padding-left: 0;
 }
 
 .step-button:hover .step-label {

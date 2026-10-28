@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 import { settle } from './helpers/settle';
-import { walkTheSweptStates, type Check } from './helpers/theSweptStates';
+import { walkTheScreens, type Check } from './helpers/screens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -16,8 +16,9 @@ import type { Page } from '@playwright/test';
  *   - the current-phase label rendered `--mm-green` on the rail's `#fbfbfa` at **4.43:1**. The token
  *     is correct - 4.59 on white - but white was not the ground it was used on.
  *
- * **A sweep is only worth the states it walks**, so the states are one list, `walkTheSweptStates`,
- * shared with the accessibility sweep.
+ * **A sweep is only worth the states it walks**, so the states are one list, `helpers/screens.ts`,
+ * shared with the accessibility and layout sweeps. Contrast does not change with the window, so each
+ * state is measured at the first size it ships at.
  */
 
 const AA_NORMAL = 4.5;
@@ -151,13 +152,14 @@ async function sweep(page: Page): Promise<Sweep> {
 }
 
 /**
- * A screen with fewer visible text nodes than this has not rendered, whatever it reports.
+ * A screen with no more visible text nodes than this has not rendered, whatever it reports.
  *
- * Two, not more: the sparsest state walked is the markets list of an organizer with none, which
- * measures three - its title, New market and "No markets found". The floor is here to catch a
- * blank render, not to pin a design decision about how much copy a screen carries.
+ * One, not more: the sparsest state walked is a market's public page, which measures two - the
+ * market's name and its address - and a page still loading measures one, "Loading...". The floor
+ * is here to catch a blank render, not to pin a design decision about how much copy a screen
+ * carries.
  */
-const MIN_TEXT_NODES = 2;
+const MIN_TEXT_NODES = 1;
 
 async function expectAA(page: Page, state: string): Promise<void> {
   await settle(page);
@@ -178,5 +180,5 @@ const contrastTest = test.extend<{ check: Check }>({
 });
 
 test.describe('Every rendered text node reaches AA', () => {
-  walkTheSweptStates(contrastTest);
+  walkTheScreens(contrastTest, { everySize: false });
 });

@@ -409,8 +409,11 @@
   color: var(--mm-black);
 }
 
+/* Underlined, since colour alone does not set a link apart from the sentence around it (WCAG
+   1.4.1, axe's link-in-text-block). */
 .note a {
   color: var(--mm-text-link);
+  text-decoration: underline;
 }
 
 /*

@@ -29,5 +29,7 @@ const segments = computed(() => answerSegments(props.value));
   color: var(--mm-text-link);
   text-decoration: underline;
   text-underline-offset: 2px;
+  /* An address has no spaces to wrap at, and a long one ran 108px past a phone (T79). */
+  overflow-wrap: anywhere;
 }
 </style>
