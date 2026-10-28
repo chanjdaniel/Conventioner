@@ -9,12 +9,14 @@ describes:
   - back-end/utils/env_file.py
   - back-end/utils/cors.py
   - back-end/utils/request_origin.py
+  - back-end/utils/security_headers.py
   - back-end/utils/proxy.py
   - back-end/utils/captcha.py
   - back-end/utils/email.py
   - back-end/tests/test_public_endpoint_defenses.py
   - back-end/tests/test_the_remember_cookie.py
   - back-end/tests/test_the_request_origin_check.py
+  - back-end/tests/test_security_headers.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/vite.config.ts#deployedHeaders
   - front-end/vercel.json
@@ -194,6 +196,11 @@ A new origin the app loads from (an analytics script, an image host) goes into i
 **It is report-only until it has run in production with no reports**, as `Content-Security-Policy-Report-Only`; promoting it is renaming that one header key to `Content-Security-Policy`.
 It has no reporting endpoint, so a report shows only in a browser's console; walk a production build under it with `npm run build-only && npm run preview`, since `vite preview` serves `vercel.json`'s headers ([`deployedHeaders`](../../../front-end/vite.config.ts)), and the dev server, whose styles are injected inline, is not a build the policy describes.
 [`securityHeaders.test.ts`](../../../front-end/src/__tests__/securityHeaders.test.ts) pins the headers and the policy's shape, and that `vite preview` serves them on the root and a deep link; the Deploy workflow checks that `conventioner.io` sends every one after each front-end deploy.
+
+**Every API answer carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`**, added by one `after_request`, [`install_security_headers()`](../../../back-end/utils/security_headers.py), so a route added later, an error answer and a CORS preflight carry them without doing anything.
+The API answers JSON, a CSV export and floorplan images, never a page, so it sends no policy of its own.
+It is installed after the [error answers](an-exception-never-reaches-a-client.md), outside `configure_public_endpoint_defenses()`, because it depends on no configuration; it only adds headers, so it leaves the order of the defenses above, flask-cors's `after_request` among them, as it was.
+[`test_security_headers.py`](../../../back-end/tests/test_security_headers.py) reads both on a JSON answer, a 401, a 404 and a preflight that CORS still answers; the Deploy workflow checks `api.conventioner.io/healthz` for both after each back-end deploy.
 
 ## How it is enforced
 

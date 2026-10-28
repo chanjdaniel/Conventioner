@@ -78,6 +78,14 @@ jobs:
           echo "$body"
           test "$body" = '{"status":"ok"}'
 
+      # The headers back-end/utils/security_headers.py adds to every answer.
+      - name: The back end sends its security headers
+        run: |
+          headers=$(curl -fsS --max-time 20 -o /dev/null -D - https://api.conventioner.io/healthz)
+          for name in x-content-type-options referrer-policy; do
+            grep -Eqi "^$name:" <<<"$headers" || { echo "::error::api.conventioner.io sends no $name"; exit 1; }
+          done
+
       - name: Deploy the front end
         env:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
