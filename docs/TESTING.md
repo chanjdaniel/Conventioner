@@ -5,11 +5,12 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - E34/F03/S02
   - E35/F02/S01
   - T47
+  - T74
 ---
 
 # Testing Conventioner
@@ -318,8 +319,8 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 ## CI Pipeline
 
 Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`.
-[CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which six
-checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
+[CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which checks
+branch protection requires (ten on `dev`, `CodeQL` among them, and six on `main`), why a flaky test fails the build, and what the no-mistakes gate
 runs through `scripts/nm-test.sh` (every suite but Playwright, which only CI runs before a merge).
 
 ## Stack limits
