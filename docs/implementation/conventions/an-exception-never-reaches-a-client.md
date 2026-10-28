@@ -190,12 +190,12 @@ Two lines these routes reach are kept free of an applicant's address for the 500
 No route in `app.py` answers what it caught: `healthz` alone catches, to answer `{"status": "unavailable"}`, 503, when the database does not answer, and the floorplan blueprints keep their own catches, which answer the generic 500 and log, until they are rewritten.
 
 **A body that is not an object is refused in words.**
-Every route in `app.py` that reads a JSON body reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and nothing else there reads `request` for a body.
+Every route in `app.py` that reads a JSON body reads it with `json_object` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), and no view there reads `request` for a body another way.
 A body that is not JSON is no body, rather than Werkzeug's HTML 415.
 JSON that is not an object (a list, a string, a number, a boolean) raises a `BadRequestError`, `A JSON object is required`, 400, rather than the generic 500 of an `AttributeError` or a model's own words.
 A required body that is missing or an empty object raises `No data provided`, 400; an optional one reads none as `{}`, and the route answers what is then missing in its own words (`csvContent is required`, a swap that names no vendors).
 The body is required for the organization and market role writes, creating a market, the plan, the application form, a phase move, adding a vendor, writing a placement, an applicant's save, a verdict on one application and the CSV start's confirm; every other body route reads it as optional.
-The account routes in [`back-end/api/users.py`](../../../back-end/api/users.py) read their own bodies and are not yet on this reader.
+Two groups of routes read their own bodies outside `app.py`: the account routes in [`back-end/api/users.py`](../../../back-end/api/users.py), not yet on this reader, and the applicant sign-in's code request and verify in [`back-end/api/applicant_auth.py`](../../../back-end/api/applicant_auth.py), which keep their own reading for their uniform answers.
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
 The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches the same way: it says a client error as `Not done: <its copy>` and lets anything else raise with its traceback, which is what the operator needs for a bug.
