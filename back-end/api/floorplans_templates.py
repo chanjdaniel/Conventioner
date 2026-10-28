@@ -14,7 +14,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from utils.identity import authenticated_email
-from utils.request_body import string_field
+from utils.request_body import json_object, string_field
 import api.users as UsersApi
 from bson import ObjectId
 
@@ -74,6 +74,25 @@ def _requested_organization_refusal(data: dict, user: dict):
     return _organization_refusal(org_id, user)
 
 
+def _template_field_refusal(data: dict):
+    """None when each template field the body holds has its type; else the 400 to answer.
+
+    ``name`` is a string that is not blank, ``tableTypes`` a list of objects and ``aisles`` an
+    object; ``organizationId`` is checked by `_requested_organization_refusal`.
+    """
+    if "name" in data:
+        name = string_field(data, "name")
+        if not name or not name.strip():
+            return {"error": "Template name is required"}, 400
+    if "tableTypes" in data:
+        table_types = data["tableTypes"]
+        if not isinstance(table_types, list) or not all(isinstance(t, dict) for t in table_types):
+            return {"error": "tableTypes must be a list of objects"}, 400
+    if "aisles" in data and not isinstance(data["aisles"], dict):
+        return {"error": "aisles must be an object"}, 400
+    return None
+
+
 def _check_ownership(template_doc: dict, requesting_user) -> bool:
     """Return True if *requesting_user* is allowed to modify the template.
 
@@ -113,14 +132,13 @@ def create_template():
 
     The ``ownerUserId`` is set from the current authenticated user.
     """
+    data = json_object(required=True)
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        name = data.get("name")
-        if not name:
+        if "name" not in data:
             return jsonify({"error": "Template name is required"}), 400
+        refusal = _template_field_refusal(data)
+        if refusal:
+            return refusal
 
         user = _get_request_user()
         if not user:
@@ -135,7 +153,7 @@ def create_template():
 
         doc = {
             "id": template_id,
-            "name": name,
+            "name": data["name"],
             "ownerUserId": user.get("id"),
             "organizationId": data.get("organizationId"),
             "tableTypes": data.get("tableTypes", []),
@@ -227,11 +245,8 @@ def update_template(template_id: str):
     Accepts JSON body with any updatable fields:
     - **name**, **tableTypes**, **aisles**, **organizationId** (an organization the user is in)
     """
+    data = json_object(required=True)
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
         doc = templates_collection.find_one({"id": template_id})
         if not doc:
             return jsonify({"error": "Template not found"}), 404
@@ -240,17 +255,16 @@ def update_template(template_id: str):
         if not _check_ownership(doc, user):
             return jsonify({"error": "You do not have permission to update this template"}), 403
 
-        refusal = _requested_organization_refusal(data, user)
+        refusal = _requested_organization_refusal(data, user) or _template_field_refusal(data)
         if refusal:
             return refusal
 
         # Build the $set payload from allowed fields only
         allowed_fields = {"name", "tableTypes", "aisles", "organizationId"}
         updates = {k: v for k, v in data.items() if k in allowed_fields}
-        updates["updatedAt"] = datetime.now().isoformat()
-
         if not updates:
             return jsonify({"error": "No updatable fields provided"}), 400
+        updates["updatedAt"] = datetime.now().isoformat()
 
         result = templates_collection.update_one(
             {"id": template_id},

@@ -33,7 +33,7 @@ It never raises, so each handler keeps its own words and status, and answers Non
 - creating and updating a floorplan template (`back-end/api/floorplans_templates.py`) answer 400 for an `organizationId` that is neither a string nor null.
 
 The body itself is read with `json_object()` in [`back-end/utils/request_body.py`](../../../back-end/utils/request_body.py), which every route in `back-end/app.py` that reads its body in the view calls; it refuses one that is not a JSON object before any value is read from it ([an exception never reaches a client](an-exception-never-reaches-a-client.md)).
-Saving a floorplan to a market refuses such a body in the same words, and registration answers it as a missing address and password.
+The floorplan templates' create and update read theirs with it too; saving a floorplan to a market refuses such a body in the same words, and registration answers it as a missing address and password.
 
 An address read this way still goes through `normalized_email()` ([users, and the one spelling of an address](../data/users-and-email.md)), which spells it as stored.
 
@@ -48,8 +48,8 @@ An address read this way still goes through `normalized_email()` ([users, and th
 A handler that writes what a body holds names the fields it takes, and reads each with its type; any other key is ignored.
 A new account starts in no organization, whatever its registration body says, so signing in reads back none it named.
 An organization's update renames it and changes nothing else, since its people and markets change only through writes that keep each user's side in step ([the organization document](../data/organization-document.md)).
-A floorplan template's update takes its own allow-listed fields the same way (`back-end/api/floorplans_templates.py`).
-[`test_a_body_sets_only_its_fields.py`](../../../back-end/tests/test_a_body_sets_only_its_fields.py) sends each of these writes keys it does not take, and bodies that are not an object, and checks nothing beyond its fields is written.
+A floorplan template's create and update (`back-end/api/floorplans_templates.py`) take its `name`, a string that is not blank, its `tableTypes`, a list of objects, its `aisles`, an object, and its `organizationId`, and answer 400 for any of them of another type; they read the body with `json_object()`.
+[`test_a_body_sets_only_its_fields.py`](../../../back-end/tests/test_a_body_sets_only_its_fields.py) sends each of these writes keys it does not take, values of the wrong type and bodies that are not an object, a literal `null` among them, and checks nothing beyond its fields is written.
 
 ## How it is enforced
 

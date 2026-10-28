@@ -24,8 +24,10 @@ skip_without_real_dependencies()
 import app as app_module
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import api.floorplans_templates as TemplatesApi
 import api.users as UsersApi
 from datatypes import MarketPhase
+from utils.request_body import NO_DATA_PROVIDED, NOT_AN_OBJECT
 
 
 FIXTURE_EMAIL = "fixture-user@example.com"
@@ -215,3 +217,123 @@ class TestAFloorplanSave:
         response = send_json(signed_in, "post", "/floorplans/save-to-market", body)
 
         assert response.status_code == 400
+
+
+TEMPLATE_ID = "template-1"
+TABLE_TYPES = [{"name": "Full", "widthMm": 1800, "heightMm": 750, "maxCapacity": 2}]
+AISLES = {"wallBufferMm": 1500, "tableSpacingMm": 1200, "walkwayWidthMm": 2000}
+
+
+class FakeTemplates:
+    def __init__(self, *docs):
+        self.docs = [dict(d) for d in docs]
+        self.sets = []
+
+    def find_one(self, query):
+        return next(
+            (dict(d) for d in self.docs if all(d.get(k) == v for k, v in query.items())), None,
+        )
+
+    def insert_one(self, doc):
+        self.docs.append(dict(doc))
+        return SimpleNamespace(inserted_id="inserted")
+
+    def update_one(self, query, update):
+        self.sets.append(update["$set"])
+        return SimpleNamespace(modified_count=1)
+
+
+class TestAFloorplanTemplate:
+    @pytest.fixture
+    def templates(self, monkeypatch, signed_in):
+        monkeypatch.setattr(
+            UsersApi, "get_user_raw", lambda email: {"id": OWNER_ID, "email": email},
+        )
+        collection = FakeTemplates({
+            "id": TEMPLATE_ID, "name": "Main hall", "ownerUserId": OWNER_ID,
+            "organizationId": None, "tableTypes": TABLE_TYPES, "aisles": AISLES,
+        })
+        monkeypatch.setattr(TemplatesApi, "templates_collection", collection)
+        return collection
+
+    def test_creating_one_stores_only_its_fields(self, signed_in, templates):
+        response = signed_in.post("/floorplans/templates", json={
+            "name": "Annex", "tableTypes": TABLE_TYPES, "aisles": AISLES,
+            "ownerUserId": "someone-else", "id": "chosen-id", "$where": "1",
+        })
+
+        assert response.status_code == 201
+        stored = templates.docs[-1]
+        assert set(stored) == {
+            "id", "name", "ownerUserId", "organizationId", "tableTypes", "aisles",
+            "createdAt", "updatedAt",
+        }
+        assert (stored["name"], stored["ownerUserId"]) == ("Annex", OWNER_ID)
+        assert stored["id"] != "chosen-id"
+
+    def test_updating_one_sets_only_its_fields(self, signed_in, templates):
+        response = signed_in.put(f"/floorplans/templates/{TEMPLATE_ID}", json={
+            "name": "Annex", "ownerUserId": "someone-else", "id": "chosen-id", "$where": "1",
+        })
+
+        assert response.status_code == 200
+        [written] = templates.sets
+        assert set(written) == {"name", "updatedAt"}
+        assert written["name"] == "Annex"
+
+    def test_an_update_with_none_of_its_fields_changes_nothing(self, signed_in, templates):
+        response = signed_in.put(
+            f"/floorplans/templates/{TEMPLATE_ID}", json={"ownerUserId": "someone-else"},
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "No updatable fields provided"}
+        assert templates.sets == []
+
+    @pytest.mark.parametrize("field, value", [
+        ("name", {"$ne": None}), ("name", ["Annex"]), ("name", 12345), ("name", None),
+        ("name", "   "),
+        ("tableTypes", {"name": "Full"}), ("tableTypes", ["Full"]), ("tableTypes", None),
+        ("aisles", [AISLES]), ("aisles", "wide"), ("aisles", None),
+    ])
+    @pytest.mark.parametrize("method, path", [
+        ("post", "/floorplans/templates"), ("put", f"/floorplans/templates/{TEMPLATE_ID}"),
+    ])
+    def test_a_field_of_the_wrong_type_is_refused(
+        self, signed_in, templates, method, path, field, value,
+    ):
+        body = {"name": "Annex", "tableTypes": TABLE_TYPES, "aisles": AISLES, field: value}
+
+        response = getattr(signed_in, method)(path, json=body)
+
+        assert response.status_code == 400
+        assert len(templates.docs) == 1
+        assert templates.sets == []
+
+    @pytest.mark.parametrize("body", NOT_OBJECTS)
+    @pytest.mark.parametrize("method, path", [
+        ("post", "/floorplans/templates"), ("put", f"/floorplans/templates/{TEMPLATE_ID}"),
+    ])
+    def test_a_body_that_is_not_an_object_is_refused(
+        self, signed_in, templates, method, path, body,
+    ):
+        response = send_json(signed_in, method, path, body)
+
+        assert response.status_code == 400
+        # A literal null is no body, as json_object reads it.
+        assert response.get_json() == {"error": NO_DATA_PROVIDED if body is None else NOT_AN_OBJECT}
+        assert len(templates.docs) == 1
+        assert templates.sets == []
+
+    @pytest.mark.parametrize("method, path", [
+        ("post", "/floorplans/templates"), ("put", f"/floorplans/templates/{TEMPLATE_ID}"),
+    ])
+    def test_a_body_that_is_not_json_is_no_body(self, signed_in, templates, method, path):
+        response = getattr(signed_in, method)(
+            path, data='{"name": "Annex"}', content_type="text/plain",
+        )
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": NO_DATA_PROVIDED}
+        assert len(templates.docs) == 1
+        assert templates.sets == []
