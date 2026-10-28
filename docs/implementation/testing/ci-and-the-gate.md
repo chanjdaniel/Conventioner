@@ -45,13 +45,13 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 | `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; on failure it uploads the report and posts a flaky-test summary |
 | `e2e` | passes only when every shard did |
 
-**Branch protection requires six checks** on both `dev` and `main`: `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor`.
+**Branch protection requires ten checks on `dev` and six on `main`.**
+Both require `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor`.
+`dev` also requires `knowledge-graph`, `real-data`, [`CodeQL`](#codeql) and `agent-review`, a commit status the agent team's reviewer sets on a pull request's head rather than a CI job.
 `e2e` is a job of its own so protection names one check whatever the shard count becomes.
-`knowledge-graph` is a required check on `dev` as well.
 `knowledge-graph-drift` is its own job and not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay.
 `zizmor-online` is never required: a rate limit or outage of GitHub's API would otherwise block a merge, and `zizmor` already holds the workflows to the offline audits.
-`real-data` blocks a merge once branch protection requires it, a repository setting.
-It is the only real-data check the gate's own commits get: the document, lint and CI-fix steps commit after `nm-test.sh` has run, and the gate pushes them from its repository, which has no hooks installed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)).
+`real-data` is the only real-data check the gate's own commits get: the document, lint and CI-fix steps commit after `nm-test.sh` has run, and the gate pushes them from its repository, which has no hooks installed ([real data never leaves the PC](../conventions/security-invariants.md#real-data-never-leaves-the-pc)).
 
 **A flaky test fails the build.**
 Under `CI`, Playwright retries twice and sets `failOnFlakyTests` ([`front-end/playwright.config.ts`](../../../front-end/playwright.config.ts)), so a test that passes only on a retry still fails its shard.
@@ -74,7 +74,10 @@ The first fix to try is a lazily loaded route or component, which keeps the code
 GitHub's CodeQL default setup, a repository setting with no workflow file here, analyses `actions`, `javascript-typescript` and `python` with the default suite, on every pull request to `dev` and weekly on `dev`.
 Each pull request gets an `Analyze (actions)`, an `Analyze (javascript-typescript)` and an `Analyze (python)` check, and a `CodeQL` check from `github-advanced-security` that reports the alerts new in the code it changed.
 It is the automated backstop for [a request value is a string](../conventions/a-request-value-is-a-string.md) (`py/nosql-injection`) and [an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md) (`py/stack-trace-exposure`).
-**None of these checks is required**: branch protection names only the checks [above](#ci).
+**`CodeQL` is a required check on `dev`** (since 2026-10-28): it fails a pull request that brings in a new security alert of medium severity or above.
+That is the repository's check-run failure threshold for security alerts, "Medium or higher" (Settings, Code security, protection rules), lowered from the default "High or higher" because `py/stack-trace-exposure` is a medium.
+The three `Analyze (<language>)` checks are not themselves required: they make the analyses the `CodeQL` check reads.
+`main`'s six checks are unchanged: nearly every commit reaches `main` by promotion from `dev`, where it has already passed `CodeQL`, and the others are the Release PR, merged with `--admin`, and a [hotfix](../../RELEASING.md#hotfixes).
 
 ## Dependabot
 
