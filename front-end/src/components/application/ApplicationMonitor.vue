@@ -520,7 +520,7 @@ function submittedOn(app: Application): string {
           class="chip chip--positive"
           data-testid="app-monitor-published-badge"
         >
-          Results Published
+          Results published
         </span>
       </div>
     </div>

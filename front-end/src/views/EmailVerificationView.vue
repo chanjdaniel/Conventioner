@@ -90,79 +90,95 @@ const resendVerification = async () => {
 
 <template>
   <AuthCard>
-    <div class="verification">
-      <h1>Verify your email</h1>
+    <h1>Verify your email</h1>
 
-      <div v-if="isLoading" class="loading">
-        <p>Verifying your email...</p>
-      </div>
+    <p v-if="isLoading" class="description">Verifying your email…</p>
 
-      <div v-else-if="message" class="success">
-        <p class="success-message" data-testid="email-verification-success-message">
-          {{ message }}
-        </p>
-        <p class="redirect-message">Redirecting to login page...</p>
-      </div>
+    <template v-else-if="message">
+      <p class="success-message" role="status" data-testid="email-verification-success-message">
+        {{ message }}
+      </p>
+      <p class="description">Redirecting to login page...</p>
+    </template>
 
-      <div v-else-if="errorMessage" class="error">
-        <p class="error-message" data-testid="email-verification-error-message">
-          {{ errorMessage }}
-        </p>
-        <button
-          @click="resendVerification"
-          class="btn btn--primary resend-button"
-          data-testid="email-verification-resend-button"
+    <template v-else-if="errorMessage">
+      <p class="error-message" role="alert" data-testid="email-verification-error-message">
+        {{ errorMessage }}
+      </p>
+      <button
+        type="button"
+        @click="resendVerification"
+        class="btn btn--primary submit-button"
+        data-testid="email-verification-resend-button"
+      >
+        Resend verification email
+      </button>
+      <div class="form-links">
+        <a
+          href="#"
+          @click.prevent="router.push('/login')"
+          class="link"
+          data-testid="email-verification-back-link"
+          >Back to sign in</a
         >
-          Resend verification email
-        </button>
-        <button
-          @click="router.push('/login')"
-          class="btn btn--secondary link-button"
-          data-testid="email-verification-login-button"
-        >
-          Go to sign in
-        </button>
       </div>
-    </div>
+    </template>
   </AuthCard>
 </template>
 
 <style scoped>
-/* AuthCard draws the card; this keeps its 400px height, its content centred in it. */
-.verification {
-  min-height: calc(400px - 2 * var(--space-8));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+/*
+ * The reset pages' card, in their terms (T79's review): a left-aligned heading over a left-aligned
+ * line, one full-width primary action and the way back as a link beneath it. It was a column
+ * centred in a card held at 400px, about 100px of nothing above and below it on a phone.
+ */
+h1 {
+  margin: 0;
 }
 
-.loading {
-  font-size: var(--text-lg);
+.description {
+  margin: var(--space-2) 0 0;
   color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
+.error-message,
 .success-message {
-  color: var(--mm-green);
-  font-size: var(--text-lg);
-  margin-bottom: var(--space-4);
-}
-
-.redirect-message {
-  color: var(--mm-text-muted);
+  margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
 }
 
 .error-message {
   color: var(--mm-red);
-  font-size: var(--text-lg);
-  margin-bottom: var(--space-4);
 }
 
-/* `.btn` and its variants carry everything but the spacing (E16/F05). */
-.resend-button,
-.link-button {
-  margin: var(--space-2);
+.success-message {
+  color: var(--mm-text-green);
+}
+
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state. */
+.submit-button {
+  width: 100%;
+  margin-top: var(--space-6);
+}
+
+.form-links {
+  margin-top: var(--space-4);
+  text-align: center;
+}
+
+/* A link on a line of its own is a target (WCAG 2.5.8, T79): a line box `--target-min` tall, with no
+   padding, so it still sits on its text. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--mm-text-link);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.link:hover {
+  text-decoration: underline;
 }
 </style>

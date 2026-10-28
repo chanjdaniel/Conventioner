@@ -31,15 +31,19 @@ import type { Page, TestInfo } from '@playwright/test';
 
 /** Where each market screen put its market bar, by window width: screen -> [x, width]. */
 const bars = new Map<number, Map<string, [number, number]>>();
+/** Every screen measured for a bar, by window width, the ones with none among them. */
+const measured = new Map<number, Set<string>>();
 
+/** Records where the open screen put its bar, or that it has none, so it is not opened again. */
 async function measureBar(page: Page, state: string): Promise<void> {
-  const box = await page
-    .getByTestId('market-bar')
-    .first()
-    .boundingBox({ timeout: 1000 })
-    .catch(() => null);
-  if (!box) return;
   const width = page.viewportSize()!.width;
+  if (!measured.has(width)) measured.set(width, new Set());
+  measured.get(width)!.add(state);
+  // The screen has come to rest (`openScreen`), so a bar it has is drawn.
+  const bar = page.getByTestId('market-bar');
+  if (!(await bar.count())) return;
+  const box = await bar.first().boundingBox();
+  if (!box) return;
   if (!bars.has(width)) bars.set(width, new Map());
   bars.get(width)!.set(state, [Math.round(box.x), Math.round(box.width)]);
 }
@@ -93,12 +97,19 @@ layoutTest.describe('No screen is laid out wrong', () => {
     await signIn(page, 'organizer', seed());
     for (const s of SCREENS.filter((x) => x.who === 'organizer')) {
       for (const size of s.sizes) {
-        if (bars.get(size.width)?.has(s.name)) continue;
+        if (measured.get(size.width)?.has(s.name)) continue;
         await page.setViewportSize(size);
         await openScreen(page, s, seed());
         await measureBar(page, s.name);
       }
     }
+
+    // A check that measured no bars passes on nothing: a renamed test id would leave it green.
+    const most = Math.max(0, ...[...bars.values()].map((screens) => screens.size));
+    expect(
+      most,
+      'the market bar was measured on two market screens of one size',
+    ).toBeGreaterThanOrEqual(2);
 
     for (const { width, usual, apart } of misplacedBars(bars)) {
       expect
