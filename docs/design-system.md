@@ -5,7 +5,7 @@ describes:
   - front-end/src/assets/base.css
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
-  - front-end/.stylelintrc.json
+  - front-end/stylelint.config.js
   - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
   - front-end/e2e/accessibility-sweep.spec.ts
@@ -58,7 +58,7 @@ The evidence is `.lavish/aesthetics-2026-09-20.html`; the decisions were taken o
 A value not in this file does not belong in a component.
 The product had no shared component layer, and that was the root cause of everything aesthetic: at the walk, 17 radius declarations, 24 font sizes, 32 spacing values, and 351 hardcoded hex colours against 704 token uses.
 Do not add a 72nd set of local decisions: reach for the tokens and the primitives.
-[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/.stylelintrc.json`](../front-end/.stylelintrc.json), are what keep them there.
+[`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/stylelint.config.js`](../front-end/stylelint.config.js), are what keep them there.
 
 ## How this was decided
 
@@ -136,6 +136,17 @@ The largest migration cost was here: **10px was the second most-used spacing val
 The migration was called done while `src` still declared raw 10px, 6px and 5px well over a hundred times, because nothing refused one; since T81 Stylelint does (below).
 A badge or pill pads `--space-hairline` by `--space-2`, as the chip primitive does, and a notice pads `--space-2` by `--space-3`.
 A raw pixel that is not spacing, such as a tab's `-1px` margin over a border, carries a `stylelint-disable-next-line` that says so.
+
+**What a margin, a padding or a gap may be**, as [`stylelint.config.js`](../front-end/stylelint.config.js) builds it (T81, tightened in T82):
+
+- `0`, a `--space-*` token, `--space-hairline`, `--card-grid-gap` or `--banner-h`, each value set apart by whitespace.
+- In `calc()`, a negated token (`calc(-1 * var(--space-2))`) or a sum of tokens (`calc(var(--space-12) + var(--space-12))`), and nothing else: a bare number makes a raw size, `calc(var(--space-1) * 1.5)` is 6px.
+- A phone's safe area, `env(safe-area-inset-*)`, on its own, in a sum (`calc(var(--space-4) + env(safe-area-inset-bottom))`), or as the larger of it and a token (`max(var(--space-4), env(safe-area-inset-left))`); `max()`, `min()` and `clamp()` take only these values.
+- `auto` on a margin only, where it centres; on a padding or a gap it is invalid.
+- A percentage on a padding only, which keeps a box's proportions as it scales.
+- A CSS-wide keyword (`inherit`, `initial`, `unset`, `revert`, `revert-layer`) as the whole value.
+
+A legitimate value it refuses widens the patterns in `stylelint.config.js`, with an example in `spacingScale.test.ts`, rather than a disable comment.
 
 ## Layout
 
@@ -308,8 +319,8 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 A convention nothing enforces is how the product got here. Five checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
-   It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`: `0`, `auto`, a `--space-*` token, `--space-hairline`, `--card-grid-gap`, `--banner-h`, or `calc()` over them, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
-   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
+   It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
+   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (`MIGRATED` in `stylelint.config.js`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
    Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 266 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.

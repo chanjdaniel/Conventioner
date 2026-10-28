@@ -173,7 +173,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **Prettier 3.9.10** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
   - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
   - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
-- **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `.stylelintrc.json`
+- **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `stylelint.config.js`
 - **Vue TSC 3.3.13** - TypeScript type checker for Vue
   - Type checking for Vue components
 
