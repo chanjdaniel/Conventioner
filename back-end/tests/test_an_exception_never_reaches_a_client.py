@@ -9,6 +9,8 @@ Pinned through the test client against the real app: the assignment reads, the o
 market role routes, the market setup routes, the application form, amendment and phase routes, the
 assignment and placement routes, and the applicant, review, import and door routes.
 """
+import ast
+import inspect
 import logging
 from types import SimpleNamespace
 
@@ -53,6 +55,7 @@ from client_errors import (
 )
 from datatypes import MarketPhase, market_name_slug
 from guards import PreconditionResult
+from utils.request_body import NO_DATA_PROVIDED, NOT_AN_OBJECT
 
 
 OWNER_EMAIL = "owner@example.com"
@@ -613,19 +616,6 @@ class TestTheMarketSetupRoutes:
         assert response.status_code == 404
         assert response.get_json() == {"error": "Market not found or access denied"}
 
-    @pytest.mark.parametrize("body", [{}, None])
-    def test_a_new_market_needs_a_body(self, client, body):
-        response = client.post("/markets", json=body)
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "No data provided"}
-
-    def test_a_new_market_that_is_not_an_object_is_refused_as_one(self, client):
-        response = client.post("/markets", json=["Spring Market"])
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
-
     def test_a_new_market_in_no_organization_says_so(self, client, organization):
         organization()
 
@@ -835,15 +825,6 @@ class TestTheFormAndPhaseRoutes:
         assert_answered_as_raised(response, raised)
         assert response.status_code == 409
 
-    def test_a_form_saved_with_no_json_body_is_refused_in_words(self, client):
-        response = client.put(
-            "/markets/market-123/application-form",
-            data="fields=[]", content_type="text/plain",
-        )
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "No data provided"}
-
     def test_the_form_of_a_market_that_does_not_exist(self, client):
         response = client.get("/markets/market-missing/application-form")
 
@@ -930,12 +911,6 @@ class TestTheAssignmentAndPlacementRoutes:
             "error": incomplete.message(), "incomplete": incomplete.applicants(),
         }
 
-    def test_a_vendor_added_with_no_body(self, client):
-        response = client.post("/markets/market-123/vendors", json=["Ana"])
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "No data provided"}
-
     def test_a_vendor_added_to_a_market_that_does_not_exist(self, client):
         response = client.post(
             "/markets/market-missing/vendors", json={"name": "Ana", "email": "ana@example.com"},
@@ -958,15 +933,6 @@ class TestTheAssignmentAndPlacementRoutes:
             "ana@example.com already has an application in this market. "
             "Seat them on the Result page."
         )}
-
-    @pytest.mark.parametrize("body", [None, ["ana@example.com"], {}])
-    def test_a_placement_with_no_body(self, client, body):
-        kwargs = {} if body is None else {"json": body}
-
-        response = client.put("/markets/market-123/placements", **kwargs)
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "No data provided"}
 
     def test_a_placement_for_someone_who_never_applied(self, client):
         response = client.put("/markets/market-123/placements", json={
@@ -1023,16 +989,6 @@ class TestTheAssignmentAndPlacementRoutes:
 
         assert response.status_code == 400
         assert response.get_json() == {"error": "A swap must name a date and two vendors."}
-
-    @pytest.mark.parametrize("method, path", [
-        ("post", "/markets/market-123/placements/swap"),
-        ("delete", "/markets/market-123/placements"),
-    ])
-    def test_a_body_that_is_not_an_object_is_refused_as_one(self, client, method, path):
-        response = call(client, method, path, ["ana@example.com", "2099-08-01"])
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
 
     def test_freeing_a_seat_with_no_body_says_what_it_needs(self, client):
         response = client.delete("/markets/market-123/placements")
@@ -1174,22 +1130,6 @@ class TestTheApplicantReviewImportAndDoorRoutes:
 
         assert response.status_code == 401
         assert response.get_json() == {"error": APPLICANT_SESSION_EXPIRED}
-
-    @pytest.mark.parametrize("body", [None, ["ana@example.com"], "answers"])
-    def test_an_application_saved_without_an_object_is_refused_as_one(self, monkeypatch, body):
-        monkeypatch.setattr(
-            ApplicantsApi, "authenticate_request",
-            lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},
-        )
-        kwargs = {} if body is None else {"json": body}
-
-        response = app_module.app.test_client().put(
-            f"/public/markets/{SLUG}/applicant/application",
-            headers={"Authorization": "Bearer token"}, **kwargs,
-        )
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
 
     def test_an_application_that_loses_every_race_names_the_market_not_the_applicant(
         self, applications, monkeypatch,
@@ -1407,15 +1347,6 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         assert response.status_code == 400
         assert response.get_json() == {"error": "Invalid market data"}
 
-    @pytest.mark.parametrize("method", ["post", "delete"])
-    def test_a_check_in_whose_body_is_not_an_object(self, client, method):
-        response = call(
-            client, method, "/markets/market-123/attendance", ["ana@example.com", "2099-08-01"],
-        )
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
-
     @pytest.mark.parametrize(
         "method, path, body, api, function, logged_as", APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES,
     )
@@ -1441,67 +1372,149 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         assert "example.com" not in caplog.text
 
 
-# Each organization and market role route that reads a body, with a body it accepts.
-ORGANIZATION_AND_ROLE_BODIES = [
-    ("post", "/organizations", {"name": "Night Market Co"}),
-    ("put", f"/organizations/{ORG_ID}", {"name": "Renamed"}),
-    ("post", f"/organizations/{ORG_ID}/admins", {"user_email": "admin@example.com"}),
-    ("post", f"/organizations/{ORG_ID}/members", {"user_email": "member@example.com"}),
-    ("post", f"/organizations/{ORG_ID}/transfer", {"new_owner_email": "next@example.com"}),
-    ("post", "/markets/market-123/roles", {"user_email": "editor@example.com", "role": "editor"}),
-    ("put", "/markets/market-123/roles/user-2", {"role": "viewer"}),
+# Every route in app.py that reads a JSON body, by its rule, with the phase its market must be in
+# for the route to reach its body. A body is read with `json_object`: a required one refuses no body
+# as `NO_DATA_PROVIDED`, and an optional one reads it as `{}`.
+REQUIRED_BODIES = [
+    ("post", "/organizations", None),
+    ("put", "/organizations/<org_id>", None),
+    ("post", "/organizations/<org_id>/admins", None),
+    ("post", "/organizations/<org_id>/members", None),
+    ("post", "/organizations/<org_id>/transfer", None),
+    ("post", "/markets/<market_id>/roles", None),
+    ("put", "/markets/<market_id>/roles/<user_id>", None),
+    ("post", "/markets", None),
+    ("put", "/markets/<market_id>/plan", None),
+    ("put", "/markets/<market_id>/application-form", None),
+    ("post", "/markets/<market_id>/transition", None),
+    ("post", "/markets/<market_id>/vendors", None),
+    ("put", "/markets/<market_id>/placements", None),
+    ("put", "/public/markets/<market_slug>/applicant/application", None),
+    ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.REVIEW),
+    ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
 ]
-
-# Each route that reads an optional body as `{}` when there is none, with a body it accepts.
 OPTIONAL_BODIES = [
-    ("put", "/markets/market-123/name", {"name": "Autumn Market"}),
-    ("put", "/markets/market-123/vendor-notes/vendor@example.com", {"note": "Extra chair"}),
-    ("put", "/markets/market-123/vendor-notes/vendor@example.com/request-handled",
-     {"handled": True}),
-    ("put", "/markets/market-123/review-highlights", {"keys": ["business_name"]}),
-    ("put", "/markets/market-123/rejection-rules", {"rules": []}),
-    ("post", "/markets/market-123/application-form/amendment", {"applicationForm": {"fields": []}}),
-    ("post", "/markets/market-123/applications/verdicts",
-     {"status": "reviewer_approved", "applications": [{"id": "app-1"}]}),
-    ("post", "/markets/market-123/review/next", {}),
-    ("put", "/markets/market-123/applications/app-1/follow-up-owner",
-     {"ownerEmail": "editor@example.com"}),
+    ("put", "/markets/<market_id>/name", None),
+    ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>", None),
+    ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled", None),
+    ("put", "/markets/<market_id>/review-highlights", None),
+    ("put", "/markets/<market_id>/rejection-rules", None),
+    ("post", "/markets/<market_id>/application-form/amendment", None),
+    ("post", "/markets/<market_id>/placements/swap", None),
+    ("delete", "/markets/<market_id>/placements", None),
+    ("post", "/public/markets/<market_slug>/attendance/checkin", None),
+    ("delete", "/public/markets/<market_slug>/attendance/checkin", None),
+    ("post", "/markets/<market_id>/applications/verdicts", MarketPhase.REVIEW),
+    ("post", "/markets/<market_id>/review/next", MarketPhase.REVIEW),
+    ("put", "/markets/<market_id>/applications/<application_id>/follow-up-owner",
+     MarketPhase.REVIEW),
+    ("post", "/markets/<market_id>/csv-proposal", MarketPhase.DRAFT),
+    ("post", "/markets/<market_id>/applications/import/inspect", MarketPhase.APPLICATIONS_OPEN),
+    ("post", "/markets/<market_id>/applications/import/preview", MarketPhase.APPLICATIONS_OPEN),
+    ("post", "/markets/<market_id>/applications/import", MarketPhase.APPLICATIONS_OPEN),
+    ("post", "/markets/<market_id>/attendance", None),
+    ("delete", "/markets/<market_id>/attendance", None),
 ]
+BODY_VIEW_ARGS = {
+    "<org_id>": ORG_ID, "<market_id>": "market-123", "<user_id>": "user-2",
+    "<application_id>": "app-1", "<market_slug>": SLUG,
+    "<path:vendor_email>": "vendor@example.com",
+}
+NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
+
+
+def views_reading_a_body():
+    """Each (method, rule) whose view in app.py reads its body with `json_object`, itself or
+    through the helper it answers with."""
+    readers = {"json_object"}
+    tree = ast.parse(inspect.getsource(app_module))
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+
+    def calls(function):
+        return {
+            node.func.id for node in ast.walk(function)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+
+    readers |= {f.name for f in functions if f.name.startswith("_") and calls(f) & readers}
+    reading = {f.name for f in functions if calls(f) & readers}
+    return {
+        (method.lower(), rule.rule)
+        for rule in app_module.app.url_map.iter_rules()
+        if app_module.app.view_functions[rule.endpoint].__name__ in reading
+        for method in rule.methods - {"HEAD", "OPTIONS"}
+    }
+
+
+def send_body(client, monkeypatch, method, rule, phase, **kwargs):
+    """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
+    where the route is theirs; the public check-in finds no market."""
+    use_market(monkeypatch, stored_market(
+        phase=phase or MarketPhase.REVIEW, setupObject=COMPLETE_PLAN,
+    ))
+    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
+    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
+    monkeypatch.setattr(
+        ApplicantsApi, "authenticate_request",
+        lambda _header: {"market_id": "market-123", "email": "vendor@example.com"},
+    )
+    path = rule
+    for arg, value in BODY_VIEW_ARGS.items():
+        path = path.replace(arg, value)
+    return getattr(client, method)(path, headers={"Authorization": "Bearer token"}, **kwargs)
 
 
 class TestABodyThatIsNotAnObject:
-    """A route that reads a JSON object refuses anything else in words, 400: no body, a body that
-    is not JSON, or JSON that is a list, a string or a number. Never Werkzeug's HTML 415, and never
-    the generic 500 of an ``AttributeError``."""
+    """Every route in app.py reads its body with `json_object`, so each refuses a body that is not a
+    JSON object in the same words, 400: never Werkzeug's HTML 415, a model's own words, or the
+    generic 500 of an ``AttributeError``."""
 
-    @pytest.mark.parametrize("method, path, _body", ORGANIZATION_AND_ROLE_BODIES)
-    def test_an_organization_or_role_write_with_no_json_body(self, client, method, path, _body):
-        response = getattr(client, method)(path, data="name=Renamed", content_type="text/plain")
+    def test_every_route_that_reads_a_body_is_listed(self):
+        listed = {(method, rule) for method, rule, _phase in REQUIRED_BODIES + OPTIONAL_BODIES}
 
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "No data provided"}
+        assert views_reading_a_body() == listed
 
-    @pytest.mark.parametrize("not_an_object", [["Renamed"], "Renamed", 7])
-    @pytest.mark.parametrize("method, path, _body", ORGANIZATION_AND_ROLE_BODIES)
-    def test_an_organization_or_role_write_whose_body_is_not_an_object(
-        self, client, method, path, _body, not_an_object,
+    def test_no_route_reads_its_body_any_other_way(self):
+        tree = ast.parse(inspect.getsource(app_module))
+
+        assert [
+            node.lineno for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute) and node.attr in ("get_json", "json", "data", "form")
+            and isinstance(node.value, ast.Name) and node.value.id == "request"
+        ] == []
+
+    @pytest.mark.parametrize("not_an_object", NOT_OBJECTS)
+    @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES + OPTIONAL_BODIES)
+    def test_json_that_is_not_an_object_is_refused_as_one(
+        self, client, monkeypatch, method, rule, phase, not_an_object,
     ):
-        response = call(client, method, path, not_an_object)
+        response = send_body(client, monkeypatch, method, rule, phase, json=not_an_object)
 
         assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
+        assert response.get_json() == {"error": NOT_AN_OBJECT}
 
-    @pytest.mark.parametrize("not_an_object", [["Autumn Market"], "Autumn Market", 7])
-    @pytest.mark.parametrize("method, path, _body", OPTIONAL_BODIES)
-    def test_a_write_whose_body_is_not_an_object(
-        self, client, monkeypatch, method, path, _body, not_an_object,
+    @pytest.mark.parametrize("no_body", [
+        {}, {"json": None}, {"json": {}},
+        {"data": "name=Renamed", "content_type": "text/plain"},
+        {"data": "{not json", "content_type": "application/json"},
+    ], ids=["none", "null", "empty-object", "not-json", "broken-json"])
+    @pytest.mark.parametrize("method, rule, phase", REQUIRED_BODIES)
+    def test_a_required_body_that_is_not_there_is_no_data(
+        self, client, monkeypatch, method, rule, phase, no_body,
     ):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
-
-        response = call(client, method, path, not_an_object)
+        response = send_body(client, monkeypatch, method, rule, phase, **no_body)
 
         assert response.status_code == 400
-        assert response.get_json() == {"error": "A JSON object is required"}
+        assert response.get_json() == {"error": NO_DATA_PROVIDED}
+
+    @pytest.mark.parametrize("method, rule, phase", OPTIONAL_BODIES)
+    def test_an_optional_body_that_is_not_there_is_read_as_empty(
+        self, client, monkeypatch, method, rule, phase,
+    ):
+        response = send_body(client, monkeypatch, method, rule, phase)
+
+        assert response.status_code != 500
+        assert response.get_json() not in ({"error": NO_DATA_PROVIDED}, {"error": NOT_AN_OBJECT})
 
     @pytest.mark.parametrize("name", [["Autumn Market"], {"en": "Autumn Market"}, 7])
     def test_a_name_that_is_not_a_string_is_no_name(self, client, monkeypatch, name):
