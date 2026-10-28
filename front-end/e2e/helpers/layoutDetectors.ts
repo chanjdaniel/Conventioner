@@ -15,7 +15,7 @@
 export const SPACE_SCALE = [2, 4, 8, 12, 16, 24, 32, 48];
 export const TYPE_SCALE = [12, 14, 16, 20, 26, 32];
 
-/** Narrower than this is a phone, whose tap targets are held to 44px. */
+/** Narrower than this is a phone: a tap target under 24px fails there, and one under 44px is reported. */
 export const PHONE_WIDTH = 600;
 
 export interface DetectOptions {
@@ -346,8 +346,11 @@ export function detectLayout(opts: DetectOptions): Finding[] {
       )
     ) {
       const inlineLink = tag === 'a' && el.parentElement && ownText(el.parentElement);
+      // Only a label someone can see and tap: a hidden or inert one saves nothing.
       const labels = (el as HTMLInputElement).labels
-        ? Array.from((el as HTMLInputElement).labels!).map(rectOf)
+        ? Array.from((el as HTMLInputElement).labels!)
+            .filter((label) => !inertOrHidden(label) && shown(styleOf(label), rectOf(label)))
+            .map(rectOf)
         : [];
       const reaches = (size: number) =>
         [r, ...labels].some((x) => x.width >= size && x.height >= size);

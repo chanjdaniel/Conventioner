@@ -133,6 +133,21 @@ test.describe('The layout detectors', () => {
     expect(targets.some((f) => gates(f, 390))).toBe(false);
   });
 
+  test('a label nobody can see or tap does not save a small target', async ({ page }) => {
+    const found = await findingsOn(
+      page,
+      `<input id="hidden" data-testid="hidden" type="checkbox" style="width: 16px; height: 16px">
+       <label for="hidden" style="display: block; padding: 24px 0; visibility: hidden">Gold</label>
+       <input id="inert" data-testid="inert" type="checkbox" style="width: 16px; height: 16px">
+       <div inert><label for="inert" style="display: block; padding: 24px 0">Silver</label></div>`,
+      390,
+    );
+    expect(of(found, 'small-target').map((f) => `${f.el}: ${f.detail}`)).toEqual([
+      'input[hidden]: 16x16px, under 24px',
+      'input[inert]: 16x16px, under 24px',
+    ]);
+  });
+
   test('a page that only looks broken raises nothing', async ({ page }) => {
     const found = await findingsOn(
       page,
