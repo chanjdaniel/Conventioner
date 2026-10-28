@@ -15,7 +15,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 
 - `dev` is the default/integration branch: all feature PRs target `dev`.
 - `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and deployed from by hand only.
-  `main` requires six CI checks and `dev` ten, `CodeQL` among them ([CI and the gate](docs/implementation/testing/ci-and-the-gate.md#ci)); after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
+  `main` requires six checks and `dev` ten, `CodeQL` and `agent-review` among them ([CI and the gate](docs/implementation/testing/ci-and-the-gate.md#ci)); after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
 - Never commit directly to `main`.
   Never open PRs targeting `main` (except the release-please Release PR, which is automated).
 - **Promotion is a fast-forward, and only Daniel deploys, by hand**: `.github/workflows/deploy.yml` runs only on `workflow_dispatch` from `main`, shipping the back end, checking `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`).

@@ -12,7 +12,7 @@ describes:
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
   - front-end/scripts/bundle-budget.ts
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - T47
   - T53
@@ -42,12 +42,13 @@ No `${{ }}` expression is written inside a `run:` script: a value reaches the sh
 | `zizmor` | [zizmor](https://docs.zizmor.sh/) 1.31.1 (checksum-verified) with `--offline` over the repository, which audits the three workflows and `dependabot.yml` without a token; any finding fails the job, and its log names the audit, file and line; an accepted finding is ignored on its own line as `# zizmor: ignore[<audit>] <reason>`, and there is no zizmor config file, so nothing is ignored wholesale |
 | `zizmor-online` | on a pull request only, the same zizmor without `--offline`, given the run's read-only token, so it adds the audits that look actions up on GitHub: an impostor commit, a known-vulnerable action or a confused ref behind a pin; information, not a required check, because it depends on GitHub's API |
 | `docker-build` | `docker compose build` |
-| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; on failure it uploads the report and posts a flaky-test summary |
+| `e2e-shard` | four runners, each building and starting its own stack, seeding it with `seed_fixture.sh` and running a quarter of the Playwright suite by spec file, with `DISABLE_CAPTCHA` and `DISABLE_EMAIL` set; it pulls `mongo:7` and `mongo-express:latest` from Docker Hub before the start and retries only that pull a handful of times, because a transient registry 500 once failed a shard outright, so a stack that genuinely fails to start fails the shard at once; it posts a flaky-test summary on every run, and on failure uploads the report |
 | `e2e` | passes only when every shard did |
 
 **Branch protection requires ten checks on `dev` and six on `main`.**
 Both require `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build`, `e2e` and `zizmor`.
 `dev` also requires `knowledge-graph`, `real-data`, [`CodeQL`](#codeql) and `agent-review`, a commit status the agent team's reviewer sets on a pull request's head rather than a CI job.
+`dev`'s protection binds admins too (`enforce_admins`), so nothing merges into it, the merge of `main` back into `dev` included, without all ten, short of changing the protection itself; `main`'s does not, which is how the Release PR merges with `--admin` ([RELEASING.md](../../RELEASING.md#how-a-release-happens)).
 `e2e` is a job of its own so protection names one check whatever the shard count becomes.
 `knowledge-graph-drift` is its own job and not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay.
 `zizmor-online` is never required: a rate limit or outage of GitHub's API would otherwise block a merge, and `zizmor` already holds the workflows to the offline audits.
@@ -74,8 +75,8 @@ The first fix to try is a lazily loaded route or component, which keeps the code
 GitHub's CodeQL default setup, a repository setting with no workflow file here, analyses `actions`, `javascript-typescript` and `python` with the default suite, on every pull request to `dev` and weekly on `dev`.
 Each pull request gets an `Analyze (actions)`, an `Analyze (javascript-typescript)` and an `Analyze (python)` check, and a `CodeQL` check from `github-advanced-security` that reports the alerts new in the code it changed.
 It is the automated backstop for [a request value is a string](../conventions/a-request-value-is-a-string.md) (`py/nosql-injection`) and [an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md) (`py/stack-trace-exposure`).
-**`CodeQL` is a required check on `dev`** (since 2026-10-28): it fails a pull request that brings in a new security alert of medium severity or above.
-That is the repository's check-run failure threshold for security alerts, "Medium or higher" (Settings, Code security, protection rules), lowered from the default "High or higher" because `py/stack-trace-exposure` is a medium.
+**`CodeQL` is a required check on `dev`** (since 2026-10-28): it fails a pull request that brings in a new alert at or above the repository's check-run failure thresholds (Settings, Code security, protection rules).
+For security alerts the threshold is "Medium or higher", lowered from the default "High or higher" because `py/stack-trace-exposure` is a medium; standard alerts, which have a rule severity rather than a security one, have a threshold of their own in the same place.
 The three `Analyze (<language>)` checks are not themselves required: they make the analyses the `CodeQL` check reads.
 `main`'s six checks are unchanged: nearly every commit reaches `main` by promotion from `dev`, where it has already passed `CodeQL`, and the others are the Release PR, merged with `--admin`, and a [hotfix](../../RELEASING.md#hotfixes).
 
@@ -158,7 +159,7 @@ Every other command of the E2E phase (`up`, `seed_fixture.sh`, Playwright) runs 
 The rest of the run (the knowledge graph, the back end's and the front end's unit tests, building a shared image whose dependencies changed) runs beside other runs.
 A run that finds the lock held prints `nm-test: waiting for the end-to-end lock since <time>, held by <project> (pid <pid>, <worktree>) since <time>`, and `nm-test: has the end-to-end lock at <time>` once it has it; after 45 minutes without it the run fails with `no end-to-end slot within 45 minutes`.
 To see who holds it and who waits: `cat ~/.local/state/conventioner/e2e.lock` names the last run to take it, and `lsof ~/.local/state/conventioner/e2e.lock` lists every process with it open, the holder and its guard, and each waiting run with its `flock`.
-The lock is the one place T19's `team-capacity run --kind gate:conventioner` takes over, with the lock kept as the fallback where `team-capacity` is absent; it can go once the browser is isolated from the host's network changes.
+The lock is the one place T19's `team-capacity run --kind gate:conventioner` is to take over, keeping the lock as the fallback where `team-capacity` is absent; `nm-test.sh` does not call it yet, and the lock can go once the browser is isolated from the host's network changes.
 `nm-test.sh` never calls `sudo`: it installs Chromium with `npx playwright install chromium`, never `--with-deps` or `install-deps`, because those run `sudo` with no terminal and each failed attempt counts toward the account's `pam_faillock` lockout; the machine's own package manager provides the system libraries.
 CI's workflow keeps `--with-deps`, which is correct on GitHub's Ubuntu runners.
 It does not run Prettier, ESLint, Stylelint or the type-check: CI does.

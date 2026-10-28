@@ -7,7 +7,7 @@ describes:
   - release-please-config.json
   - back-end/app.py#check_public_endpoint_defenses
   - front-end/vite.config.ts#assertCaptchaSiteKey
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - T74
 ---
@@ -29,7 +29,8 @@ This project uses a **dev → main promotion flow**:
 A PR into `dev` also needs `knowledge-graph`, `real-data`, `CodeQL` and `agent-review`, ten in all; `main` asks only the six ([CI and the gate](implementation/testing/ci-and-the-gate.md#ci)).
 Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
 `main` keeps a linear history; force pushes are blocked on both.
-Admins can override, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
+Admins can override `main`'s protection, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
+`dev`'s binds admins too (`enforce_admins`): nothing merges into `dev`, the merge of `main` back into it included, without all ten checks, short of changing the protection itself.
 
 ```
 feature/* ──PR──▶ dev ──promotion──▶ main (versioned release) ──by hand──▶ deploy
