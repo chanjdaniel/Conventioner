@@ -19,13 +19,14 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - E20/F04/S01
   - E21/F03/S01
   - E26/F08/S01
   - bug/46
   - T15
+  - T85
   - decision/2026-10-20
 ---
 
@@ -53,6 +54,7 @@ Membership is recorded on both sides: each user's `organizations` lists the ids 
 `get_organizations_for_user` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md).
 
 **Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member; the owner removes anyone but themselves, an admin only members.
+Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
 Transferring ownership makes the old owner an admin.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).

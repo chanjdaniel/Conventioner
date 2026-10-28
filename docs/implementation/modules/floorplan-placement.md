@@ -19,7 +19,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - bug/38
   - E26/F09/S01
@@ -77,6 +77,7 @@ Images uploaded before images named a market have no `marketId`; the wizard neve
 
 **A template is its creator's, and one filed under an organization is filed by someone in it.**
 [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) reads a create's or an update's `organizationId` with `string_field()`: null or absent files it under none, another type answers 400, an organization nobody has 404, and one the caller is not in (as owner, admin or member) 403, the test listing an organization's templates applies.
+The other fields a template takes are typed too, and any other key is ignored ([a write takes only its fields](../conventions/a-request-value-is-a-string.md#a-write-takes-only-its-fields)).
 A stored `organizationId` that is not a non-empty string reads as none, so only the template's creator reaches it; [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py) keeps both.
 
 ## Sharp edges
@@ -100,7 +101,7 @@ Handed `var(--mm-red)`, a canvas keeps painting with whatever colour it last had
 Pass a canvas colour through `canvasColor()` ([`front-end/src/utils/canvasColor.ts`](../../../front-end/src/utils/canvasColor.ts)), which resolves a `var(--name)` to the stylesheet's value at the moment of drawing and passes anything else, or a token the stylesheet lacks, through unchanged.
 
 **Saving writes the plan's sections and locations, so it is a draft's only** ([the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md)).
-`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) needs EDITOR, refuses an archived market (403) and a settled setup (409), then replaces `setupObject.sections` and `.locations` with the floorplan's and appends the floorplan to `setupObject.floorplans`.
+`POST /floorplans/save-to-market` ([`back-end/api/floorplans_save.py`](../../../back-end/api/floorplans_save.py)) refuses a body that is not a JSON object (400), needs EDITOR, refuses an archived market (403) and a settled setup (409), then replaces `setupObject.sections` and `.locations` with the floorplan's and appends the floorplan to `setupObject.floorplans`.
 It tolerates a market with no `setupObject` (`isinstance(existing_setup, dict)` chooses between updating the existing object and seeding a fresh one).
 
 **The editor keeps the tables it is handed.**

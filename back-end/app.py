@@ -398,7 +398,7 @@ def get_user(login_id: str) -> Any:
 
 # curl -k -X POST https://127.0.0.1:5001/register-user \
 #   -H "Content-Type: application/json" \
-#   -d '{"email": "testemail@example.com", "password": "testpassword", "organizations": []}'
+#   -d '{"email": "testemail@example.com", "password": "testpassword"}'
 @app.route("/register-user", methods=["POST"])
 def register_user() -> Response:
     return UsersApi.register_user(bcrypt, request)
@@ -497,10 +497,14 @@ def get_organization(org_id: str) -> Response:
 @app.route('/organizations/<org_id>', methods=['PUT'])
 @login_required
 def update_organization(org_id: str) -> Response:
-    """Update an organization. Only owner can update."""
+    """Rename an organization. Only owner can update. Body: { "name": "..." }; nothing else is read."""
     data = json_object(required=True)
 
-    result = OrgsApi.update_organization(org_id, authenticated_email(), data)
+    name = (string_field(data, 'name') or '').strip()
+    if not name:
+        return jsonify({"error": "Organization name required"}), 400
+
+    result = OrgsApi.update_organization(org_id, authenticated_email(), name)
     return jsonify({
         "message": "Organization updated successfully",
         "modified_count": result.modified_count

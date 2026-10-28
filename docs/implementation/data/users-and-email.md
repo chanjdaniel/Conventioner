@@ -6,15 +6,18 @@ describes:
   - back-end/datatypes.py#User
   - back-end/api/users.py#ensure_user_indexes
   - back-end/api/users.py#AuthUser
+  - back-end/api/users.py#register_user
+  - back-end/api/users.py#register_user_with_captcha
   - back-end/api/users.py#get_user_by_login_id
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
   - back-end/app.py#verify_user_indexes
   - back-end/migrations/migrate_user_emails.py
   - back-end/tests/test_the_remember_cookie.py
-verified: 2026-10-27
+verified: 2026-10-28
 sources:
   - E32/F03/S04
+  - T85
 ---
 
 # Users, and the one spelling of an address
@@ -32,7 +35,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `id` | a UUID, the primary key, and what every role and membership names |
 | `email` | the sign-in, stored lowercased and trimmed, unique |
 | `password` | a bcrypt hash |
-| `organizations` | the ids of the organizations the person is in ([the organization document](organization-document.md)) |
+| `organizations` | the ids of the organizations the person is in ([the organization document](organization-document.md)); empty at registration, whatever the body sends, and written only by a membership change |
 | `email_verified` | false until the emailed link is followed; an unverified account cannot sign in |
 | `verification_token`, `verification_token_expires` | the email-verification link, valid an hour |
 | `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour |
