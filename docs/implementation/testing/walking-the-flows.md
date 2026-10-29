@@ -54,6 +54,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | --- | --- | --- |
 | `back-end/tests/test_data/google_forms/fall-2023.csv`, `spring-2024.csv`, `spring-2025.csv`, `fall-2025.csv`, `spring-2026.csv` | Five anonymised real Google Form exports (237 rows in `fall-2025.csv`, 30 columns, per-day tier grid, checkbox certifications); the [corpus README](../../../back-end/tests/test_data/README.md) describes each | G, H2 |
 | `back-end/tests/test_data/google_forms_export.csv` | An older Google Form export, 232 applications | H2 |
+| `back-end/tests/test_data/example_columns.csv` | Forty invented applications shaped to pin what a market started from a file keeps of it; the [corpus README](../../../back-end/tests/test_data/README.md#example_columnscsv) describes it | F |
 | `.scratch/examples/markets/*.csv` in the primary checkout | Five real exports (2023 to 2026), untracked, with real applicants' details; never commit or quote them | G, H2, user testing |
 | `front-end/e2e/fixtures/test-floorplan.png` | 800x600 floor plan image | E6 |
 

@@ -78,6 +78,7 @@ On a market started from its Google Form's responses, the questions also draw on
 4. Change a question the start made to Select and its options are its column's answers; to Multi-Select, the options inside them ("Filled from the answers in your file.").
    Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
 5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
+   A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
 
 A question that did not come from the file behaves as above, and a market not started from one offers neither.
 Covered by: `the-questions-come-from-the-file.spec.ts`.
