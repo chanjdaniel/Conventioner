@@ -66,6 +66,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 **The market read's screen reasons keep their words** until each screen asks its own row (E39/F01/S02): `readOnlyReason` (`change_refusal`) asks Market Setup and says "You can view this market but not change it.", `adminActionsReason` (`admin_actions_refusal`) asks that and then Move the phase, and `publishResultsReason` asks that and then Publish results, in the same words as `adminActionsReason`.
 `verdictLockReason` and `addVendorReason` answer with their rows' sentences, which no screen shows.
 
+**Each write a row permits records into [the market's history](../data/history.md) under the row's id**, and `back-end/tests/test_every_write_records.py` fails on a row no write records unless it says why.
+
 ## Sharp edges
 
 **No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every other server source for any use of `user_has_permission`, `can_manage_roles` or `ROLE_RANK`, and of the role resolvers `get_user_market_role`, `organization_market_role` and `higher_role` outside the two functions that serve the role itself to the client (`get_market_for_user`, `_summary_role`), and fails on any.

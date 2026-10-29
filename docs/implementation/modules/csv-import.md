@@ -80,6 +80,8 @@ The start from a CSV writes the same format, so the first import of a later expo
 
 **After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
+**An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
+
 ## Superseded
 
 - Matching answers against the offering before splitting a column was rejected, for a warning alone (wayfinding/readable-journey/05); since a split cut options with commas in half, known options are taken whole first, comparing whole pieces so one name inside another never matches, and the warning is left for an option made of others (bug/27).

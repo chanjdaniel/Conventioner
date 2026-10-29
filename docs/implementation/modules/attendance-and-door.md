@@ -85,6 +85,8 @@ Of the organizer market screens only Attendance has it, because the door is some
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, vendor drawer, rail menu and archive confirmation, and the check-in page before and after a lookup at 390px, and fails on a target under 44px (T82).
 
+**Each check-in and its undo records into [the market's history](../data/history.md)** (`checked_in`, `check_in_undone`, under `check-in`) in `record_attendance` and `undo_attendance`, so both doors record alike: the organizer as the actor at theirs, the vendor at their own.
+
 ## Why
 
 The page an organizer works from at the door, and the record a market leaves behind.

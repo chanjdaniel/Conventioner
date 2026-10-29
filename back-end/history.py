@@ -2,10 +2,10 @@
 
 **One history for every change** (E40, ADR 0017). It began as the placement history, which kept
 placements only; Daniel widened it ("every change is logged", Q23), so every write that changes a
-market, its applications or its vendors is to record here (the placement writes do; E40/F01/S02
-brings the rest), and the placement trail is this history narrowed to placements. What is state
-stays where it is - an application's verdict, the market's ``phaseHistory`` - and its changes are
-to be recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
+market, its applications or its vendors records here, after its change has landed (E40/F01/S02;
+``tests/test_every_write_records.py`` sends each), and the placement trail is this history narrowed
+to placements. What is state stays where it is - an application's verdict, the market's
+``phaseHistory`` - and its changes are recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
 must outlive what it describes and this history is deleted with its market.
 
 **An entry says what happened, never a sentence**: the ``E39`` action it was

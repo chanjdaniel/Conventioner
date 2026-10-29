@@ -87,6 +87,9 @@ Given the application as the caller read it (`if_unchanged_since`), it writes on
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).
 
+**Each verdict or follow-up a person gives, each follow-up handed on, each vendor added and each applicant's own save records into [the market's history](history.md)**: the verdict fields here stay the state the review reads, and the history keeps every verdict a person gives, not only the latest.
+A rule's rejection is not an entry of its own; saving the rules and an import count the ones they made.
+
 ## Indexes
 
 **`(market_id, applicant_email, application_type)` identifies an application, and the database enforces it:** the unique index `market_applicant_type_unique`, built by `ensure_application_indexes()`.

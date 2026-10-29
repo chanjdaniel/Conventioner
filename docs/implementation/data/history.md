@@ -5,10 +5,12 @@ describes:
   - back-end/history.py
   - back-end/api/markets.py#get_placement_history
   - back-end/migrations/migrate_placement_history.py
+  - back-end/tests/test_every_write_records.py
 verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
+  - E40/F01/S02
 ---
 
 # The market's history
@@ -21,7 +23,7 @@ It began as the placement history, because a placement that differs from what th
 The placement history kept placements only, on the view that a narrow trail that gets read beats a general one that gets ignored.
 Daniel widened it (T92, Q23: "yes every change is logged"): an organizer investigating a problem or a mistake asks who did what on the market, whatever it was, and one history answers that where several partial records would each answer part of it.
 The decision, and what stays state and what stays apart, is [ADR 0017](../../adr/0017-one-history-for-every-change.md).
-Today the placement writes record into it; every other write on a market is to record through the same `record` (E40/F01/S02).
+Every write that changes a market, its applications or its vendors records one entry into it (E40/F01/S02), once its change has landed, under the E39 action its check asked; [what each write records](#what-each-write-records) lists them.
 
 The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).
 
@@ -33,16 +35,17 @@ Stored snake_case with the market foreign key `market_id`, like applications and
 | --- | --- |
 | `id` | a UUID |
 | `market_id` | the market |
-| `actor` | the address of the signed-in person who made the change |
+| `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application, and a vendor's own at their check-in page |
 | `at` | ISO 8601, UTC |
-| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement |
+| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks |
 | `kind` | the finer kind where one action covers several changes, else null: a placement's is `placed`, `freed`, `swapped` or `assigned` |
 | `vendors` | the lowercased addresses the entry is about, empty for a run |
 | `subject` | what else the entry is about; a placement's is its table-day, `{date, table_codes}`, and a run's is empty |
 | `detail` | structured, per kind: the date, table code and table choice placed; the date and table freed; the date and both seats swapped; how many placements a run wrote and how many pins it kept |
 
-`record(market_id, actor, action, kind=, vendors=, subject=, detail=)` writes one; the placement writes call `record_placed`, `record_freed`, `record_swapped` and `record_assignment_run`, which build the detail and its subject (`placement_subject`).
-Every other kind of change gives its detail the changed fields before and after, never a whole document.
+`record(market_id, actor, action, kind=, vendors=, subject=, detail=)` writes one, and `record_applicant` writes an applicant's own; the placement writes call `record_placed`, `record_freed`, `record_swapped` and `record_assignment_run`, which build the detail and its subject (`placement_subject`).
+Every other kind of change gives its detail the changed fields before and after, never a whole document: `changes(before, after)` keeps the fields that differ, and answers None when none does, so a write that restates what is stored (the plan's autosave, a note saved unchanged) records nothing.
+An import, the start from a CSV and a run record their counts instead, and a verdict is recorded whole each time it is given, since each one is.
 **The placement kinds are the one exception**: their details keep the shapes they had before the history widened, with no before, because the entries moved from `placement_history` have none to give and the placement endpoint answers exactly as it did.
 So a hand placement that moves a vendor records the seat they went to, not the seat they left.
 
@@ -50,10 +53,44 @@ So a hand placement that moves a vendor records the seat they went to, not the s
 Leaving runs out would make the history lie by omission, since a placement changed between two hand edits would have no explanation; one entry per placement would drown the hand edits, which are the entries anyone reads.
 A swap is one entry too, because it was one action.
 
+## What each write records
+
+The kinds are constants in `history.py`; a dash is an empty list or subject.
+
+| Action | Kind | The write | Vendors | Subject | Detail |
+| --- | --- | --- | --- | --- | --- |
+| `change-setup` | `renamed` | renaming a draft | - | - | `name` |
+| `change-setup` | `plan` | a Market Setup card, or the intake mode (`PUT /markets/:id/plan`) | - | - | whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed |
+| `change-setup` | `floorplan` | saving a floorplan to the market | - | `floorplan_id` | whichever of `sections`, `locations` and `floorplan_ids` changed |
+| `change-setup` | `floorplan_image_deleted` | deleting a floorplan image | - | `image_id` | `image_id`, then null |
+| `change-form` | `form` | the form builder | - | - | the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed |
+| `change-form` | `review_highlights` | the review highlights | - | - | `review_highlights` |
+| `change-form` | `rejection_rules` | the automatic rejections | - | - | `rejection_rules`, and `rejected`: how many applications the rules rejected as they were saved |
+| `amend-form` | null | an amendment of a locked form | - | `return_phase` | the form's changes as for `form`, and `hops`: the phase moves the chain took, recorded here rather than as moves |
+| `amend-form` | `resumed` | finishing a stalled amendment | - | `return_phase` | `phase`, and `hops` |
+| `import-applications` | `imported` | an import, one entry however many rows | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules` |
+| `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
+| `give-verdicts` | `verdict` | one verdict, or a follow-up | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
+| `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id: its `status` (and owner) before, the `status` after |
+| `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
+| `move-phase` | null | a phase move, by whoever made it | - | - | `phase`; the [phase record](../modules/phase-record.md) stays the state the guards read |
+| `publish-results` | null | publishing results | - | - | `results_published` |
+| `add-vendor` | null | adding a vendor who never applied | the vendor | `application_id` | `name` and `status`, null before |
+| `write-vendor-notes` | `note` | the organizer's note | the vendor | - | `note` |
+| `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
+| `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above |
+| `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
+| `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the vendor's own | the vendor | `date` | `checked_in` |
+| `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
+| `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values |
+
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose history starts empty; its deletion, which takes the history with it while the [deletion trail](../modules/market-deletion.md) records it; and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
+That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
+
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for the placements, and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
-The placement writes in `api/placements.py` ([placements](../modules/placements.md)) record after the seat is taken, and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
+Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
 
 **Recording who** attaches an organizer's identity to a market that may be exported, shared or handed to a successor organizer.
 That was weighed and accepted for the placements when the trail was decided, and widened to every change on Daniel's word (Q23).

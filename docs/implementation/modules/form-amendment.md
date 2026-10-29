@@ -66,6 +66,8 @@ The dialog says so before it runs, and that the market's public application page
 **It answers both of the import's dead ends**: a column with nowhere to go, which adds a question for it, and a preference the Google Form never asked, which switches that question off.
 Its refusals keep the import's own voice, saying what is wrong and what would fix it, the advisory the dead end used to carry.
 
+**An amendment records one entry in [the market's history](../data/history.md)** (`amend-form`): the form's changes and the phase it returns to, with its hops counted rather than recorded as phase moves; it writes the form through `write_application_form`, which records nothing itself, and a resume records `resumed`.
+
 ## Why
 
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): a form found wrong after leaving draft, while nobody has applied, is fixed here, through the lock rather than around it.

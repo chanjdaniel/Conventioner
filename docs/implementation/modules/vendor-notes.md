@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#mark_vendor_request_handled
   - front-end/src/utils/vendorNotes.ts
   - front-end/src/components/VendorNotes.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/what-to-show-and-when/03
   - E31/F04
@@ -25,8 +25,8 @@ The vendor's request itself is not here: it is their answer on the application, 
 
 | Function | What it does |
 | --- | --- |
-| `write_note(market_id, vendor_email, text, by)` | replaces the organizer's note, stamping who and when |
-| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it |
+| `write_note(market_id, vendor_email, text, by)` | replaces the organizer's note, stamping who and when, and returns the note as it was and as it is |
+| `mark_request_handled(market_id, vendor_email, handled, by)` | sets the mark, or clears it, and returns whether it was set |
 | `replace_sheet_notes(market_id, by_vendor)` | the import's write: every vendor's "From your sheet" line replaced, and a vendor the file no longer has a line for loses theirs |
 | `notes_for_market(market_id)` | every vendor's entry on one market, by lowercased address, camelCased for the wire |
 | `delete_for_market(market_id)` | the market's notes, taken with the market ([market deletion](market-deletion.md)) |
@@ -50,6 +50,8 @@ Applicant endpoints return the application, and a field on it would leak by bein
 Notes are beside a page's work, never its subject, so a failed read shows the page without them.
 
 `back-end/tests/test_vendor_notes.py` pins the writes, the roles, the archive and the deletion; `front-end/e2e/vendor-notes.spec.ts` walks a request and a note from Vendors to the door, where it is handled.
+
+**Each note and each handled mark records into [the market's history](../data/history.md)** (`note`, `request_handled`) with the value it replaced, which `write_note` and `mark_request_handled` return; an import's sheet lines record nothing of their own, as part of the import's one entry.
 
 ## Why
 
