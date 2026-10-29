@@ -1916,8 +1916,9 @@ def set_permission(
     """Set the role a row of this market's table asks, as its owner (E39/F01/S03). Asks
     ``Actions.CHANGE_THE_TABLE``.
 
-    The row is then the market's own, whatever it was before. Setting the role it already asks
-    stores and records nothing: who may take it has not changed. Returns the market's table.
+    The row is then the market's own, whatever it was before, except that setting the role it
+    already asks stores and records nothing: who may take it has not changed, so a row copied from
+    the organization keeps its source. Returns the market's table.
     """
     market, row = _row_to_change(market_id, action_id, requesting_user)
     if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
