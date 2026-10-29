@@ -3,7 +3,6 @@ import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedApplication } from './helpers/seedApplication';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { transitionMarket } from './helpers/seedPhaseMarket';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 
@@ -29,7 +28,7 @@ test.describe('What to show, and when', () => {
     await page.goto(marketSetupPath(marketId, 'form'));
 
     // The step onward is drawn, and refused in words before anyone tries it.
-    await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
+    await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
     await expect(next).toContainText('To open applications: This market has no market dates.');
     // Its fix is the rail's main button (E32/F01/S02).
@@ -47,22 +46,17 @@ test.describe('What to show, and when', () => {
       intakeMode: 'csv',
     });
     await page.goto(marketSetupPath(csv.marketId, 'setup'));
-    await expect(page.getByTestId('phase-transition-applications_open')).toHaveText(
-      'Import responses',
-    );
+    // Its first import is its way into the stage, which on this path is Review (E38/F04/S01).
+    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Begin Review');
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Questions');
-    // Plan, Import, Review: the closed phase is stepped through, never a stage (E32/F02/S01).
-    await expect(page.getByTestId('phase-rail-spine')).toContainText('Import');
-    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Applications Open');
-    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Form Closed');
+    await expect(page.getByTestId('phase-rail-spine')).toContainText('Review');
+    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Applications');
 
     const form = await seedDraftMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
       intakeMode: 'form',
     });
     await page.goto(marketSetupPath(form.marketId, 'setup'));
-    await expect(page.getByTestId('phase-transition-applications_open')).toHaveText(
-      'Open Applications',
-    );
+    await expect(page.getByTestId('phase-transition-applications')).toHaveText('Open Applications');
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
   });
 
@@ -153,13 +147,13 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-setup-settled')).toContainText(
-      'The setup is settled: it cannot change once the market has moved on to importing',
+      'The setup is settled: it cannot change once its responses have been imported',
     );
     await page.goto(marketSetupPath(marketId, 'form'));
     // A locked form opens on its review setup; its questions say why they are fixed (E33/F01/S03).
     await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
-      'The questions are fixed: they cannot change once the market has moved on to importing',
+      'The questions are fixed: they cannot change once its responses have been imported',
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
@@ -189,7 +183,7 @@ test.describe('What to show, and when', () => {
     // Pressed anyway, it does nothing: the move is not tried and refused, it is not offered.
     await reopen.click({ force: true });
     await expect(page.getByTestId('phase-rail-blockers')).toHaveCount(0);
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
   });
 
   test('deciding the last application opens the way to assignment, with no reload', async ({
@@ -204,9 +198,6 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
     );
     seedApplication(marketId, 'last@example.com');
-    for (const phase of ['applications_closed', 'review']) {
-      await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
-    }
     await page.goto(marketSetupPath(marketId, 'applications'));
     const begin = page.getByTestId('phase-transition-assignment');
     await expect(begin).toBeDisabled();

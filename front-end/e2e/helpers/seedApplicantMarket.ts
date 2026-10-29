@@ -8,7 +8,7 @@ import { uniqueMarketName } from './uniqueName';
 /**
  * Seed result for a market that an applicant can log into.
  *
- * The market is published past `draft` and in `applications_open` phase with a
+ * The market is published past `draft` and in the `applications` phase with a
  * configured application form. An Application document exists for the applicant
  * so the back end treats their email as known.
  */
@@ -83,8 +83,9 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
 }
 
 /**
- * Create a published market in `applications_open` phase with an application
- * form and an Application document for the test applicant.
+ * Create a published market in the `applications` phase with an application
+ * form and an Application document for the test applicant. A Google Form
+ * market (`intakeMode: 'csv'`) is left a draft, ready for its first import.
  *
  * This is the minimum setup needed for the applicant login flow: the market
  * must be past `draft` so the public login endpoint can resolve it, and an
@@ -127,7 +128,7 @@ export async function seedApplicantMarket(
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
   // Write the application form - this is what the guards check before
-  // accepting a transition into `applications_open`.
+  // accepting a transition into `applications`.
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
     data: { fields: APPLICATION_FIELDS },
@@ -136,10 +137,16 @@ export async function seedApplicantMarket(
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
 
-  // Transition to applications_open - the guards require the form to exist.
+  // A Google Form market stays a draft, ready for its first import, which is its way into Review
+  // (E38/F04/S01); a market whose vendors apply on its page opens applications.
+  if ((options.intakeMode ?? 'form') === 'csv') {
+    return { marketId, marketName, marketSlug: marketNameToSlug(marketName), orgId };
+  }
+
+  // Transition to applications - the guards require the form to exist.
   const transitionRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
-    data: { toPhase: 'applications_open' },
+    data: { toPhase: 'applications' },
   });
   if (!transitionRes.ok()) {
     throw new Error(

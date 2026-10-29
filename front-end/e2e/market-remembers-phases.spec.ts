@@ -8,7 +8,7 @@ import { seedPhaseMarket } from './helpers/seedPhaseMarket';
  * A market remembers where it has been (bug 8, E26/F06/S03; settles claims-and-room 06).
  *
  * The archived rail read evidence rather than history: a stored assignment meant Assignment, a
- * published form meant Applications Open, and nothing meant Market Days. So a market that ran was
+ * published form meant applications opened, and nothing meant Market Days. So a market that ran was
  * told it "was assigned but never published, so no check-in page went on the air", and one
  * archived while taking applications that it "was abandoned before it ran".
  */
@@ -50,9 +50,10 @@ test('a market that opened applications says so, though it went back to draft', 
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
   // Reopening for editing clears the form's published stamp - the only evidence there was.
-  await transition(request, marketId, 'applications_open');
+  await transition(request, marketId, 'applications');
   await transition(request, marketId, 'draft');
   await transition(request, marketId, 'archived');
 
@@ -61,9 +62,6 @@ test('a market that opened applications says so, though it went back to draft', 
   await expect(frozen).toContainText('It opened applications but was never assigned.', {
     timeout: 15000,
   });
-  await expect(page.locator('[data-phase="applications_open"]')).toHaveAttribute(
-    'data-state',
-    'done',
-  );
+  await expect(page.locator('[data-phase="applications"]')).toHaveAttribute('data-state', 'done');
   await expect(page.locator('[data-phase="assignment"]')).toHaveAttribute('data-state', 'frozen');
 });

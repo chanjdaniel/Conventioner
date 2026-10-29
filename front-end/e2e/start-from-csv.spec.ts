@@ -5,7 +5,6 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
-import { transitionMarket } from './helpers/seedPhaseMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 
@@ -128,7 +127,6 @@ test.describe('Start from your Google Form', () => {
       await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
 
       await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-      await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
       const importer = new CsvImportPage(page);
       await importer.open({ id: marketId });
       await importer.chooseFile(readFileSync(join(CORPUS, `${file}.csv`), 'utf8'));
@@ -191,7 +189,6 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
@@ -225,7 +222,6 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
 
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
@@ -380,7 +376,6 @@ test.describe('Start from your Google Form', () => {
     await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));

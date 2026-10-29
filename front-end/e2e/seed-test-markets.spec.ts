@@ -59,8 +59,9 @@ test.describe('The test markets', () => {
 
   test('are made once however often the seeder runs, one of each path', async ({ page }) => {
     const first = seed();
-    expect(first).toContain(`${ONLINE} (form): applications_open, /${marketNameToSlug(ONLINE)}`);
-    expect(first).toContain(`${GOOGLE_FORM} (csv): applications_open`);
+    expect(first).toContain(`${ONLINE} (form): applications, /${marketNameToSlug(ONLINE)}`);
+    // Its first import is its way into Review (E38/F04/S01), so it waits as a draft.
+    expect(first).toContain(`${GOOGLE_FORM} (csv): draft`);
     expect(seed()).toBe(first);
     expect([marketsNamed(ONLINE), marketsNamed(GOOGLE_FORM)]).toEqual([1, 1]);
     // Nobody has applied to either.
@@ -78,11 +79,11 @@ test.describe('The test markets', () => {
 
   test('a market a failed run left in draft is finished by the next', async ({ request }) => {
     // What a run that stopped after creating the market leaves behind: a draft, nothing more.
-    removeMarket(GOOGLE_FORM);
+    removeMarket(ONLINE);
     await loginViaApi(request, BACKEND_URL, OWNER, PASSWORD);
     const created = await request.post(`${BACKEND_URL}/markets`, {
       data: {
-        name: GOOGLE_FORM,
+        name: ONLINE,
         creationDate: new Date().toISOString(),
         organizationId: mongoEval(`db.organizations.findOne({ name: "${ORGANIZATION}" }).id`),
         modificationList: [],
@@ -91,8 +92,8 @@ test.describe('The test markets', () => {
     });
     expect(created.ok(), await created.text()).toBeTruthy();
 
-    expect(seed()).toContain(`${GOOGLE_FORM} (csv): applications_open`);
-    expect(marketsNamed(GOOGLE_FORM)).toBe(1);
+    expect(seed()).toContain(`${ONLINE} (form): applications`);
+    expect(marketsNamed(ONLINE)).toBe(1);
   });
 
   test('a vendor can apply to the online market', async ({ page }) => {
