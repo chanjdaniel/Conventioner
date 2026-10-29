@@ -2,7 +2,7 @@
  * Who changed a placement, to what, and when - as a person reads it.
  *
  * The back end stores entries structured and names each kind with an enum
- * (`back-end/placement_history.py`); the wording is here, because a sentence should be
+ * (`back-end/history.py`); the wording is here, because a sentence should be
  * changeable without a migration or a back-end release. The same rule `placementReason.ts`
  * follows.
  *
@@ -12,7 +12,7 @@
 import { getFormattedTimestamp, getShortDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
-/** Mirrors the kinds in `back-end/placement_history.py`. */
+/** Mirrors the placement kinds in `back-end/history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
 
 export interface PlacementHistoryEntry {
