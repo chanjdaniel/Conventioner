@@ -192,7 +192,7 @@ class TestWhatTheAnswersDo:
 def test_the_corpus_asks_only_where_the_rules_leave_something():
     """On the five exports every ceiling the rules can read is read, and the team question is
     asked of a handful of trailing optional text columns at most."""
-    for name in ("fall-2023", "spring-2024", "spring-2025", "five-day-grid",
+    for name in ("fall-2023", "spring-2024", "no-timestamp", "five-day-grid",
                  "team-status-column"):
         with open(os.path.join(CORPUS, f"{name}.csv"), newline="", encoding="utf-8") as handle:
             rows = list(csv.reader(handle))

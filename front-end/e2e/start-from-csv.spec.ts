@@ -18,7 +18,7 @@ const CORPUS = join(HERE, '..', '..', 'back-end', 'tests', 'test_data', 'google_
 const FIXTURES: Record<string, number> = {
   'fall-2023': 2023,
   'spring-2024': 2024,
-  'spring-2025': 2025,
+  'no-timestamp': 2025,
   'five-day-grid': 2025,
   'team-status-column': 2026,
 };
@@ -105,7 +105,7 @@ test.describe('Start from your Google Form', () => {
 
   // Three of the five exports never asked how many days an applicant wants (bug 24). They used to
   // stop at the mapping with "Still unmapped: Number of dates you want" and no way through.
-  for (const file of ['fall-2023', 'spring-2024', 'spring-2025']) {
+  for (const file of ['fall-2023', 'spring-2024', 'no-timestamp']) {
     test(`${file}: a form that never asked how many days is imported with no personal limit`, async ({
       authenticatedPage: page,
       request,

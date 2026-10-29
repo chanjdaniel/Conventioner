@@ -142,6 +142,18 @@ COMMENT_SENTENCES = (
 )
 NOTE_SENTENCES = (
     "Asked to be placed near the entrance.",
+    "Portfolio checked.",
+    "Proof of membership is a screenshot, fine.",
+    "Applied last fair too.",
+    "Needs a table near an outlet.",
+    "Shares a table with a friend.",
+    "Check the portfolio link again.",
+    "Timetable uploaded instead of a card.",
+    "Asked about storage overnight.",
+    "Arrives late on the first day.",
+    "Second application from the same shop.",
+    "Wants the same spot as last time.",
+    "Emailed to ask about card readers.",
 )
 RING_SIZES = (
     "Sizes 5 to 9", "Mostly 6, 7 and 8", "Adjustable bands only", "US 4 to 10",
@@ -258,13 +270,23 @@ class Timestamp(Kind):
 @dataclass
 class Email(Kind):
     """Each applicant's own address; but in ``pasted`` rows the answer is a copy of that row's
-    cell in ``from_column``, an address that is not one."""
+    cell in ``from_column``, in ``name_only`` rows the applicant's given name, and in ``named``
+    rows their name written before their address: answers that are not an address."""
     pasted: Tuple[int, ...] = ()
     from_column: int = 1
+    name_only: Tuple[int, ...] = ()
+    named: Tuple[int, ...] = ()
 
     def cells(self, context):
-        return [context.columns[self.from_column][row] if row in self.pasted else person.email
-                for row, person in enumerate(context.people)]
+        def answer(row, person):
+            if row in self.pasted:
+                return context.columns[self.from_column][row]
+            if row in self.name_only:
+                return person.given.lower()
+            if row in self.named:
+                return f"{person.given} {person.family} - {person.email}"
+            return person.email
+        return [answer(row, person) for row, person in enumerate(context.people)]
 
 
 @dataclass
@@ -840,7 +862,151 @@ TEAM_STATUS_COLUMN = Form(
     ],
 )
 
-FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN)
+CEILING_GRID = (
+    "For each day, choose every table tier you would take. Choose None for a day you cannot "
+    "attend.\n"
+    "\n"
+    "NOTE:\n"
+    "- Gold tables are in the North Wing of Example Hall, Silver tables in the South Wing and "
+    "Bronze tables in the lobby; Bronze costs the least.\n"
+    "- Each vendor is given a table on up to 2 days in total, even if you choose more.\n"
+    "- We will never place you on a day you left at None, or at a tier you did not choose.\n"
+    "\n"
+    "Choosing more tiers and days makes it more likely we can find you a table. [{}]"
+)
+
+NO_TIMESTAMP = Form(
+    file="no-timestamp.csv",
+    seed=25,
+    rows=237,
+    columns=[
+        # The team's review columns first; the sheet was saved without the form's timestamp.
+        ("Status", Choice({"approved": 230, "rejected": 7})),
+        ("Screening Notes", Prose(NOTE_SENTENCES, count=42)),
+        ("Full Name", FullName()),
+        ("Preferred Name", PreferredName()),
+        ("Email Address", Email(name_only=(50,), named=(95,))),
+        ("Are you an Example College student or alum?\n"
+         "\n"
+         "NOTE: Example Makers Fair is for Example College students, alumni and staff.\n"
+         "\n"
+         "We may ask to see a student or staff card at the door.",
+         Choice({"Yes, I am a current Example College student": 179,
+                 "Yes, I am Example College alumni or staff": 57,
+                 "No, I am not part of Example College, and I understand my application will not "
+                 "be considered.": 1})),
+        ("Please provide your Example College email address (alumni and staff may give the one "
+         "the college issued to them).",
+         SchoolEmail(count=203)),
+        ("If you do not have an Example College email, please upload proof that you belong to "
+         "Example College (a timetable, an alumni card or a staff card).",
+         Upload(count=54)),
+        ("Discord Username\n"
+         "\n"
+         "We share table numbers and news on the day through the fair's Discord server.\n"
+         "\n"
+         "(your username, not your display name)",
+         Handle()),
+        ("Business Name", Business()),
+        ("Where can we find your business online? (one link)", Link("shop", count=213)),
+        ("Have you had a table at a market or fair before?",
+         Prose(TABLING_SENTENCES, count=195, most=3, shared={"No": 3, "Yes": 3, "N/A": 2})),
+        ("What are you planning to sell?",
+         MultiSelect({"Stickers": 121, "Keychains": 110, "Art prints": 108, "Jewellery": 78,
+                      "Fibre arts (crochet, knitting, etc)": 49, "Clothing": 36, "Pottery": 18},
+                     rare=(5, 4, 3) + (2,) * 8 + (1,) * 123, only_rare=37)),
+        ("Please share a link to your portfolio or to photos of the pieces you plan to bring to "
+         "Example Makers Fair. A website, a social page or a shared folder all work.\n"
+         "\n"
+         "If your portfolio is private, please let anyone with the link view it until "
+         "applications close.",
+         Link("portfolio", count=237)),
+        ("I certify that everything I will sell at the fair is designed and made by me, and that "
+         "I have the right to sell it.\n"
+         "\n"
+         "Resold goods, dropshipped goods and work traced from another artist are not allowed. Fan "
+         "art is welcome as long as the drawing is my own, but I will not sell copies of official "
+         "merchandise.\n"
+         "\n"
+         "If the team finds work at my table that breaks this rule, they may ask me to take it "
+         "down or to leave the fair, and I may not be offered a table next time.",
+         Constant("I certify")),
+        ("I certify that the work I will sell follows the fair's content rules, posted at "
+         "https://example.com/fair-rules.\n"
+         "\n"
+         "Example Hall is a public building and families walk through the fair, so:\n"
+         "- No work showing graphic violence or sexual content.\n"
+         "- No work that targets a person or a group of people.\n"
+         "- Work for an older audience is kept in a closed binder, and I will ask for ID before "
+         "showing it.\n"
+         "\n"
+         "If I am not sure whether a piece is allowed, I will message the team on Discord before "
+         "the fair, and I understand the team may ask me to take down a piece that breaks these "
+         "rules.",
+         Constant("I certify")),
+        ("Which of these clubs are you in?",
+         MultiSelect({"I am not a member of any of these clubs": 170,
+                      "Example College Printmaking Society": 31,
+                      "Example College Anime Society": 31,
+                      "Example College Ceramics Society": 13,
+                      "Example College Visual Arts Society": 2},
+                     rare=(), only_rare=0)),
+        ("If you ticked a club, please upload something that shows you are a member.",
+         Upload(count=58)),
+        # Columns 18 to 22: the five days, the last keeping everyone available on one of them.
+        *((CEILING_GRID.format(day),
+           GridDay(counts, earlier=() if day[0] != "F" else (18, 19, 20, 21)))
+          for day, counts in (
+            ("Monday, May 19th", {"None": 78, "Gold": 63, "Gold, Silver": 42,
+                                  "Gold, Silver, Bronze": 34, "Silver": 12, "Silver, Bronze": 5,
+                                  "Bronze": 3}),
+            ("Tuesday, May 20th", {"None": 88, "Gold": 57, "Gold, Silver": 43,
+                                   "Gold, Silver, Bronze": 31, "Silver": 11, "Bronze": 4,
+                                   "Silver, Bronze": 3}),
+            ("Wednesday, May 21st", {"None": 81, "Gold": 56, "Gold, Silver": 47,
+                                     "Gold, Silver, Bronze": 35, "Silver": 11,
+                                     "Silver, Bronze": 4, "Bronze": 3}),
+            ("Thursday, May 22nd", {"None": 89, "Gold": 60, "Gold, Silver, Bronze": 36,
+                                    "Gold, Silver": 34, "Silver": 7, "Silver, Bronze": 5,
+                                    "Bronze": 4, "Gold, Silver, None": 1, "Silver, None": 1}),
+            ("Friday, May 23rd", {"Gold": 71, "None": 57, "Gold, Silver": 46,
+                                  "Gold, Silver, Bronze": 40, "Silver": 10, "Silver, Bronze": 7,
+                                  "Bronze": 5, "Gold, Silver, None": 1}),
+        )),
+        ("Which table size would you like, a half table or full table? Tick all that suit you.\n"
+         "\n"
+         "- A full table is about two metres wide; a half table is half of one, at half the fee.\n"
+         "- Half tables are shared with another vendor.\n"
+         "- Either means you are happy with whichever we have room for.\n"
+         "- Your choice cannot change after results are out. ",
+         Choice({"Full table": 87, "Either": 66, "Half table": 65, "Full table, Either": 11,
+                 "Half table, Either": 6, "Full table, Half table": 2})),
+        ("If you chose a half table or Either, who would you like to share a table with?\n"
+         "\n"
+         "Please give your partner's email address, as they wrote it on their own application.\n"
+         "\n"
+         "NOTE:\n"
+         "- You and your partner must each apply.\n"
+         "- Your partner must also choose a half table or Either.\n"
+         "- Leave this blank and we will pair you with another vendor where we can.\n"
+         "- We try to keep every pair together, but cannot promise it.",
+         TableShare(applicants=31, outsiders=3, pairs=2,
+                    words={"N/A": 7, "no": 4, "Not sure yet": 3, "my friend from class": 1,
+                           "anyone is fine": 1, "Still deciding": 1, "none": 1,
+                           "Whoever needs a partner": 1, "I will ask around": 1,
+                           "Someone from my club": 1})),
+        ("I understand that a vendor who arrives after set-up closes may lose their table for "
+         "that day.",
+         Constant("I understand")),
+        ("I understand that if I do not come on a day I was given a table, and do not tell the "
+         "team a week before, I may not be offered a table at the next Example Makers Fair.",
+         Constant("I understand")),
+        ("Anything else you would like to tell us? Questions, requests and comments are welcome.",
+         Prose(COMMENT_SENTENCES, count=69, shared={"Thank you!": 3})),
+    ],
+)
+
+FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN, NO_TIMESTAMP)
 
 
 def main() -> None:

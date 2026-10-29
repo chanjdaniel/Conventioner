@@ -37,10 +37,9 @@ def upload():
     return {"type": "text", "options": None, "upload": True}
 
 
-UBC = ["Yes, I am a CURRENT UBC student", "Yes, I am an UBC alumni/staff"]
 SELL = ["Stickers", "Prints", "Keychains", "Jewelry", "Apparel", "Ceramic"]
 NONE_CLUB = "I am NOT a part of any of these clubs"
-ART, ANI, PRINT = "AMS Artelier at UBC", "UBC Ani", "UBC PRINT Arts and Crafts"
+ART, PRINT = "AMS Artelier at UBC", "UBC PRINT Arts and Crafts"
 
 # The synthetic files' options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
 AFFILIATION = ["Yes, I am a current Example College student",
@@ -96,28 +95,26 @@ ANSWER_KEY = {
         26: ("Additional comments", c("text")), 27: ("", EMPTY), 28: ("", EMPTY),
         29: ("", ORG),
     },
-    "spring-2025": {
+    "no-timestamp": {
         0: ("Status", ORG), 1: ("Screening Notes", ORG), 2: ("Full Name", FULL),
         3: ("Preferred Name", PREF), 4: ("Email Address", EMAIL),
-        5: ("Are you a UBC student or alumni?", c("select", UBC)),
-        6: ("Please provide your UBC/alumni/staff", c("email")),
-        7: ("If you do not have an UBC email", upload()),
+        5: ("Are you an Example College student or alum?", c("select", AFFILIATION)),
+        6: ("Please provide your Example College email", c("email")),
+        7: ("If you do not have an Example College email", upload()),
         8: ("Discord Username", c("text")), 9: ("Business Name", c("text")),
-        10: ("URL to Business", c("text")),
-        11: ("Do you have any tabling experience", c("text")),
-        12: ("What will you be selling", c("multi_select",
-                                     SELL + ["Woven (crochet, knitting etc)"])),
-        13: ("Please provide a link to your portfolio", c("text")),
-        14: ("I certify that the work I will be selling is my own", c("checkbox")),
-        15: ("I certify that the work I will be selling abides", c("checkbox")),
-        16: ("Which clubs are you a member of?",
-             c("multi_select", [NONE_CLUB, ART, ANI, PRINT])),
-        17: ("If applicable, please attach proof", upload()),
-        **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 23)},
-        23: ("Do you want to have a half table", CHOICE), 24: ("If you chose half table", SHARE),
-        25: ("I understand that there will be no table", c("checkbox")),
-        26: ("I understand that no-shows", c("checkbox")),
-        27: ("Additional comments", c("text")),
+        10: ("Where can we find your business online", c("text")),
+        11: ("Have you had a table at a market", c("text")),
+        12: ("What are you planning to sell", c("multi_select", MAKES)),
+        13: ("Please share a link to your portfolio", c("text")),
+        14: ("I certify that everything I will sell", c("checkbox")),
+        15: ("I certify that the work I will sell follows", c("checkbox")),
+        16: ("Which of these clubs are you in?", c("multi_select", [NO_CLUB] + CLUBS[:3])),
+        17: ("If you ticked a club", upload()),
+        **{k: ("For each day, choose every table tier", TIERS) for k in range(18, 23)},
+        23: ("Which table size would you like", CHOICE), 24: ("If you chose a half table", SHARE),
+        25: ("I understand that a vendor who arrives", c("checkbox")),
+        26: ("I understand that if I do not come", c("checkbox")),
+        27: ("Anything else", c("text")),
     },
     "fall-2023": {
         0: ("Timestamp", TS), 1: ("Accepted? (Y/N)", ORG), 2: ("Full Name", FULL),
@@ -336,7 +333,7 @@ class TestWhatAColumnCarries:
         assert label.endswith("UBC Makers Market!")
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
         headers, rows = _read(name)
@@ -378,7 +375,7 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_column_is_answered_by_more_than_responded(self, name):
         """A status-only row an organizer typed is not a response, so its cells are not answers:
@@ -393,7 +390,7 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
-    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "spring-2025",
+    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "no-timestamp",
                                   "team-status-column"])
     def test_a_tier_grid_answers_the_dates_as_well(self, name):
         """A day's row in the grid is a day the applicant can come: the import reads availability
