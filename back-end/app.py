@@ -11,6 +11,7 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
+import api.vendor_export as VendorExportApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -31,7 +32,7 @@ from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, make_response, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
@@ -1111,6 +1112,30 @@ def get_assignment_csv(market_id: str) -> Response:
         response.headers['Content-Type'] = 'text/csv; charset=utf-8'
         response.headers['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
         return response
+    return jsonify(result), status_code
+
+
+@app.route('/markets/<market_id>/vendor-export', methods=['POST'])
+@login_required
+def export_vendors(market_id: str) -> Response:
+    """Download the market's vendors as a CSV, filtered and with the columns chosen (E42/F01/S01).
+    Body: { "filters": {...}, "columns": ["name", "email", ...], "day": "2026-10-29" }. A read,
+    sent as a POST for the filters it carries. Asks ``Actions.EXPORT_CSV``."""
+    content, filename = VendorExportApi.export(
+        market_id, json_object(required=True), authenticated_email())
+    response = make_response(content)
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@app.route('/markets/<market_id>/vendor-export/preview', methods=['POST'])
+@login_required
+def preview_vendor_export(market_id: str) -> Response:
+    """What the export would hold: its count, header and first rows, and what the market offers to
+    filter and export by. Body as ``export_vendors``. Asks ``Actions.EXPORT_CSV``."""
+    result, status_code = VendorExportApi.preview(
+        market_id, json_object(required=True), authenticated_email())
     return jsonify(result), status_code
 
 

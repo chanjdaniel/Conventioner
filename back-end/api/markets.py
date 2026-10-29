@@ -1338,12 +1338,15 @@ def get_placement_history(
     }, 200
 
 
-def _market_csv_filename(market_name: Optional[str], market_id: str) -> str:
-    """Build a deterministic, filesystem-safe CSV filename for assignment downloads."""
+def _market_csv_filename(
+    market_name: Optional[str], market_id: str, kind: str = "assigned",
+) -> str:
+    """Build a deterministic, filesystem-safe CSV filename for a market's downloads: the
+    assignment's, or the vendors' export (``kind``)."""
     name = (market_name or market_id or "market").strip() or "market"
     safe = "".join(c if c.isalnum() or c in (" ", "-", "_") else " " for c in name)
     safe = "_".join(safe.split())
-    return f"{safe}_assigned.csv"
+    return f"{safe}_{kind}.csv"
 
 
 def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
