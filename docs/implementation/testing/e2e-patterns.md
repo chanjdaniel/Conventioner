@@ -14,7 +14,7 @@ describes:
   - front-end/e2e/global-setup.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -26,6 +26,7 @@ sources:
   - E33/F01/S01
   - T45
   - T75
+  - E38/F06/S01
 ---
 
 # E2E patterns
