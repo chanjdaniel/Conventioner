@@ -156,7 +156,7 @@ def test_publish_results_flips_the_flag(monkeypatch):
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
-    result, status = publish_results("market-1")
+    result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 200
     assert result["results_published"] is True
@@ -168,7 +168,7 @@ def test_publish_results_refuses_when_already_published(monkeypatch):
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
-    result, status = publish_results("market-1")
+    result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 409
     assert "already published" in result.get("error", "").lower()
@@ -179,7 +179,7 @@ def test_publish_results_404_on_missing_market(monkeypatch):
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
-    result, status = publish_results("nonexistent")
+    result, status = publish_results("nonexistent", "owner@example.com")
 
     assert status == 404
 
@@ -189,7 +189,7 @@ def test_publish_results_refuses_on_draft_market(monkeypatch):
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
-    result, status = publish_results("market-1")
+    result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 409
     assert "once tables have been allocated" in result.get("error", "")
@@ -327,7 +327,7 @@ class TestPublishingResultsOnAMarketWithNoApplicants:
     def test_a_csv_market_is_refused(self, monkeypatch):
         fake = self._csv_market(monkeypatch)
 
-        result, status = publish_results("market-1")
+        result, status = publish_results("market-1", "owner@example.com")
 
         assert status == 409
         assert "takes its vendors by import" in result["error"]
@@ -337,7 +337,7 @@ class TestPublishingResultsOnAMarketWithNoApplicants:
         """The button is conditioned on intake mode too, but the endpoint is reachable directly."""
         self._csv_market(monkeypatch)
 
-        _result, status = publish_results("market-1")
+        _result, status = publish_results("market-1", "owner@example.com")
 
         assert status == 409
 
@@ -345,6 +345,6 @@ class TestPublishingResultsOnAMarketWithNoApplicants:
         """The default fails closed, which is what `intake_mode_from_market_document` guarantees."""
         self._csv_market(monkeypatch)
 
-        _result, status = publish_results("market-1")
+        _result, status = publish_results("market-1", "owner@example.com")
 
         assert status == 409

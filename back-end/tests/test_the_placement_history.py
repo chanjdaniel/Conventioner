@@ -172,7 +172,8 @@ class TestTheEndpoint:
     def test_it_answers_the_placements_as_it_always_did(self, collection, history):
         """Served from the market's history, narrowed to placements, in the shape the drawer reads."""
         PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
-        History.record("market-123", "organizer@x.test", Actions.CHECK_IN, vendors=["ana@example.com"])
+        History.record("market-123", "organizer@x.test", Actions.CHECK_IN,
+                       vendors=["ana@example.com"], detail={})
 
         body, status = MarketsApi.get_placement_history("market-123", "organizer@x.test")
 
@@ -180,8 +181,10 @@ class TestTheEndpoint:
         [entry] = body["entries"]
         assert set(entry) == {"id", "marketId", "actor", "at", "kind", "vendors", "detail"}
         assert entry["kind"] == "placed"
+        # A new placement also names the seat it moved the vendor from: none, here.
         assert entry["detail"] == {
             "date": "2026-08-01", "tableCode": "Hall A 1", "tableChoice": "Full Table",
+            "before": None,
         }
         assert "vendorNames" in body
 

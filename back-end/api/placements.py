@@ -355,15 +355,18 @@ def write_placement(
             "Free that seat first, or swap the two vendors."
         )
 
+    stored = market.assignment_object.vendor_assignments
+    left = next((existing for existing in stored
+                 if existing.email == placement.email and existing.date == placement.date), None)
     kept = [
         existing
-        for existing in market.assignment_object.vendor_assignments
+        for existing in stored
         if not (existing.email == placement.email and existing.date == placement.date)
     ]
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
-    History.record_placed(market_id, requesting_user, placement)
+    History.record_placed(market_id, requesting_user, placement, left)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
