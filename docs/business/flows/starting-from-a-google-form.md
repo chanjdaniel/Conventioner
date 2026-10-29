@@ -17,6 +17,7 @@ sources:
   - bug/24
   - bug/27
   - bug/41
+  - E38/F02/S01
 ---
 
 # Starting from a Google Form's responses
@@ -30,6 +31,7 @@ It is for an organizer whose Google Form is the real form, who would otherwise r
 The flow is four steps at one address, "1 Upload", "2 Year", "3 Review", "4 Confirm"; Back, Cancel and leaving write nothing, and a reload lands back on Upload, since the file is not kept.
 Nothing is written until the organizer confirms, and the file is not stored ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)).
 The confirm also saves the import's column mapping, so the first import of the same file opens "Mapped when your form was started from this file."
+It keeps, too, what the file said of each question and each column left out, as far as it names nobody (answers at least 3 applicants gave, holding no address, link, handle or phone number), so the Questions tab can fill a question's options from it, or add a left-out column as a question, after the start ([building the application form](form-tab.md#f2-custom-questions)).
 Only column headings and the shape of their answers are sent to TypeSafe, and the upload step says so; no applicant's answer leaves Conventioner.
 Covered by: `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts`.
 

@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-10-29
+verified: 2026-10-28
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6

@@ -207,7 +207,7 @@ const fieldCount = computed(() => fields.value.length);
   align-items: center;
 }
 
-/* Wraps under the count on a phone rather than squeezing the select to nothing. */
+/* Wraps rather than squeezing the select to nothing when the row runs short of room. */
 .builder-actions {
   display: flex;
   flex-wrap: wrap;
