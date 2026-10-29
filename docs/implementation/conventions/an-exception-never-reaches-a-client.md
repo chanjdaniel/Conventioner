@@ -8,6 +8,8 @@ describes:
   - back-end/app.py#get_assigned_market
   - back-end/app.py#get_assignment_statistics
   - back-end/app.py#get_assignment_csv
+  - back-end/app.py#export_vendors
+  - back-end/app.py#preview_vendor_export
   - back-end/app.py#get_market_tables
   - back-end/app.py#get_organizations
   - back-end/app.py#create_organization
@@ -83,6 +85,7 @@ describes:
   - back-end/api/applicants.py#list_market_applications
   - back-end/api/applications.py#find_or_create_application
   - back-end/api/added_vendors.py#AddVendorRefused
+  - back-end/api/vendor_export.py#ExportInvalid
   - back-end/api/placements.py#AssignPhaseError
   - back-end/csv_start.py#ConfirmRefused
   - back-end/seed_test_markets.py#main
@@ -143,6 +146,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 - [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) raises `BadRequestError` and `ForbiddenError`, and `NotFoundError` for "Organization not found", which every organization route answers 404; `OrganizationHasLiveMarkets` is a 409 whose `body()` names the blocking markets ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)).
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
+- The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
 - The [form amendment](../modules/form-amendment.md)'s `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are `ConflictError`s; the last two answer their blockers and their resume offer from `body()`.
 - `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
 - `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
@@ -180,6 +184,8 @@ So do the assignment and placement routes: running the assignment, adding a vend
 None catches anything.
 A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
+
+So do the vendor export's download and its preview: neither catches anything, and a filter or a column it does not read answers its `ExportInvalid`, 400.
 
 So do the applicant, review, import and door routes: every public route an applicant or a vendor at the door calls, the application list, the review's verdicts, selections, next card, claims and follow-up owners, the [CSV start](../modules/csv-proposal-and-start.md)'s proposal and confirm, the [application import](../modules/csv-import.md)'s inspect, preview and import, Publish Results, and [attendance and the door](../modules/attendance-and-door.md).
 None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, and the permission 403s the routes ask themselves.
