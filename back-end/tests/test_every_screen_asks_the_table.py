@@ -116,7 +116,8 @@ class TestAnArchivedMarket:
         served = read(MarketRole.OWNER, MarketPhase.ARCHIVED)["actionRefusals"]
 
         assert {row.id for row in MarketsApi.ARCHIVED_STILL_TAKES} == {
-            "read", "export-csv", "manage-editors-and-viewers", "manage-admins", "delete-market"}
+            "read", "read-history", "export-csv", "manage-editors-and-viewers", "manage-admins",
+            "delete-market"}
         assert all(served[row.id] is None for row in MarketsApi.ARCHIVED_STILL_TAKES)
 
 

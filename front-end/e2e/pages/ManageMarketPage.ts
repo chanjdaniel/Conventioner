@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * Page object for the ManageMarketOverlay reached from MarketsView.
  * Covers adding/removing/changing user roles, org management,
- * market rename, and deletion.
+ * market rename, the market's history, and deletion.
  */
 export class ManageMarketPage {
   readonly page: Page;
@@ -21,6 +21,12 @@ export class ManageMarketPage {
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
+  readonly history: Locator;
+  readonly historySentences: Locator;
+  readonly historyWho: Locator;
+  readonly historyKind: Locator;
+  readonly historyVendor: Locator;
+  readonly historyLoadMore: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -39,6 +45,12 @@ export class ManageMarketPage {
     // Its own destructive dialog (bug 43), so its buttons are that dialog's.
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
+    this.history = page.getByTestId('manage-market-history');
+    this.historySentences = page.getByTestId('market-history-sentence');
+    this.historyWho = page.getByTestId('market-history-who');
+    this.historyKind = page.getByTestId('market-history-kind');
+    this.historyVendor = page.getByTestId('market-history-vendor');
+    this.historyLoadMore = page.getByTestId('market-history-load-more');
   }
 
   async waitForOverlay(): Promise<void> {

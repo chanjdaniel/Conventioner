@@ -5,6 +5,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import MarketHistory from '@/components/MarketHistory.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -97,6 +98,9 @@ const grantableRoles = computed(() =>
 
 /** Deleting a market is the table's "Delete the market" row, its owner's alone. */
 const canDelete = computed(() => mayTake(marketData.value, MarketAction.DeleteMarket));
+
+/** The market's history is read at its own row, "Read the market's history" (E40/F01/S03). */
+const canReadHistory = computed(() => mayTake(marketData.value, MarketAction.ReadHistory));
 
 /** Why this person may not rename the market, the Market Setup row's answer, or null. */
 const renameRefusal = computed(() => actionRefusal(marketData.value, MarketAction.ChangeSetup));
@@ -336,6 +340,13 @@ function closeAddUser() {
             {{ addUserError }}
           </p>
         </form>
+      </section>
+
+      <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
+           people, where Permissions will stand beside it (E39/F01/S04). -->
+      <section v-if="canReadHistory" class="section" data-testid="manage-market-history">
+        <h3>History</h3>
+        <MarketHistory :market-id="marketData.id" />
       </section>
 
       <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,

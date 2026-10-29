@@ -147,6 +147,18 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
+    name: "the manage-market dialog's history, an entry open",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['market-card-manage-button', 'market-history-entry'],
+      ['market-history-toggle', 'market-history-changes'],
+    ),
+  },
+  {
     // The app's own menu, behind the banner's button on every organizer screen.
     name: 'the navigation drawer',
     who: 'organizer',

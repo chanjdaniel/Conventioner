@@ -1045,10 +1045,25 @@ def write_placement(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
+@app.route('/markets/<market_id>/history', methods=['GET'])
+@login_required
+def get_history(market_id: str) -> Response:
+    """One page of every change on the market, newest first, for Manage market's History.
+    Asks ``Actions.READ_HISTORY``.
+
+    ``?before=`` is the cursor the last page answered with; ``?actor=``, ``?group=``, ``?vendor=``,
+    ``?since=`` and ``?until=`` narrow it.
+    """
+    args = {key: request.args.get(key, "")
+            for key in ("before", "actor", "group", "vendor", "since", "until")}
+    result, status_code = MarketsApi.get_history(market_id, authenticated_email(), args)
+    return jsonify(result), status_code
+
+
 @app.route('/markets/<market_id>/placement-history', methods=['GET'])
 @login_required
 def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when. Asks ``Actions.READ``.
+    """Who changed a placement, to what, and when. Asks ``Actions.READ_HISTORY``.
 
     ``?vendor=`` narrows it to the entries about one person, for their detail panel.
     """

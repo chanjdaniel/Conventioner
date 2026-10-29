@@ -566,6 +566,7 @@ NOT_A_CHANGE = {
 #: The table's rows no write records, and why.
 NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
+    Actions.READ_HISTORY.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
     Actions.CHANGE_THE_TABLE.id: "no write takes it yet; E39/F01/S03, which adds the market's own "
