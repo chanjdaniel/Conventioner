@@ -177,13 +177,47 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
         assert read(MarketRole.EDITOR)["publishOutcomes"] is None
 
 
-@pytest.mark.parametrize("role", ROLES[1:], ids=str)
-def test_no_role_shaped_reason_is_served_any_more(read, role):
-    served = read(role)
+#: The reasons an old bundle reads, served for one more release, and the row and the rule of the
+#: market's life each stands for; the next release removes them.
+DEPRECATED_REASONS = {
+    "adminActionsReason": ("move-phase", None),
+    "verdictLockReason": ("give-verdicts", "verdictsSettledReason"),
+    "addVendorReason": ("add-vendor", "addingVendorsReason"),
+    "publishResultsReason": ("publish-results", "publishWaitsReason"),
+}
 
-    for gone in ("adminActionsReason", "verdictLockReason", "addVendorReason",
-                 "publishResultsReason"):
-        assert gone not in served
+
+class TestTheReasonsAnOldBundleReads:
+    """The back end deploys before the front end, and an old bundle reads a missing reason as
+    allowed: each reason it reads is served one more release, as its row's answer."""
+
+    @pytest.mark.parametrize("role", ROLES[1:], ids=str)
+    @pytest.mark.parametrize("phase", [
+        MarketPhase.REVIEW, MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS,
+        MarketPhase.ARCHIVED], ids=str)
+    def test_each_is_its_rows_answer_then_its_rule(self, read, role, phase):
+        served = read(role, phase)
+
+        for reason, (row, rule) in DEPRECATED_REASONS.items():
+            expected = served["actionRefusals"][row] or (served[rule] if rule else None)
+            assert served[reason] == expected, reason
+
+    def test_each_refuses_whom_its_row_refuses(self, read):
+        served = read(MarketRole.EDITOR, MarketPhase.ASSIGNMENT)
+
+        assert served["adminActionsReason"] == (
+            "Only an Admin or the owner may move this market's phase.")
+        assert served["addVendorReason"] is None
+
+    def test_each_carries_its_rule_for_someone_the_row_lets(self, read, monkeypatch):
+        monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m: "Run it first.")
+
+        served = read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)
+
+        assert served["verdictLockReason"] == MarketsApi.VERDICTS_SETTLED
+        assert served["publishResultsReason"] == "Run it first."
+        assert read(MarketRole.OWNER, MarketPhase.REVIEW)["addVendorReason"] == (
+            MarketsApi.NOT_YET_ADDING)
 
 
 class TestTheMarketsList:

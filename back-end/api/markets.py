@@ -227,6 +227,25 @@ def role_action_refusals(
     return _answers(phase, lambda row: Actions.role_refusal(row, role))
 
 
+def deprecated_screen_reasons(
+    refusals: Dict[str, Optional[str]], verdicts_settled: Optional[str],
+    adding_vendors: Optional[str], publish_waits: Optional[str],
+) -> Dict[str, Optional[str]]:
+    """Deprecated: the reasons the screens read before each asked its row (E39/F01/S02), each now
+    its row's answer and the rule of the market's life it carried.
+
+    The back end deploys before the front end, and a tab keeps its bundle until it reloads; an old
+    bundle reads a missing reason as "allowed" and offers what the server refuses. Served for one
+    more release so it keeps refusing; the next release removes them, and the read's ``user_role``.
+    """
+    return {
+        'adminActionsReason': refusals[Actions.MOVE_PHASE.id],
+        'verdictLockReason': refusals[Actions.GIVE_VERDICTS.id] or verdicts_settled,
+        'addVendorReason': refusals[Actions.ADD_VENDOR.id] or adding_vendors,
+        'publishResultsReason': refusals[Actions.PUBLISH_RESULTS.id] or publish_waits,
+    }
+
+
 def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Optional[str]:
     """Why this person may change nothing on this market, or None while they may change something
     (E26/F08/S01, E39/F01/S02): the archived rule, then whether any of the table's changing rows
@@ -812,6 +831,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         return None
 
     market_dict['_id'] = str(market_dict['_id'])
+    # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
+    # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
     market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
     # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
@@ -863,15 +884,19 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # settle on entering assignment (E36/F01/S01), a vendor is added from the assignment on
     # (E36/F03/S01), and results wait for the allocation (E36/F04/S01), with how many will read
     # each outcome for the confirmation of someone who may publish now.
-    market_dict['verdictsSettledReason'] = (
-        None if review_is_open(market.phase) else VERDICTS_SETTLED)
-    market_dict['addingVendorsReason'] = adding_refusal(market.phase)
+    verdicts_settled = None if review_is_open(market.phase) else VERDICTS_SETTLED
+    market_dict['verdictsSettledReason'] = verdicts_settled
+    adding_vendors = adding_refusal(market.phase)
+    market_dict['addingVendorsReason'] = adding_vendors
     publish_waits = ApplicantsApi.publish_results_refusal(market)
     market_dict['publishWaitsReason'] = publish_waits
     market_dict['publishOutcomes'] = (
         None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits
         else ResultOutcome.outcome_counts(market)
     )
+    # Deprecated, for a tab still on the old bundle; the next release removes them.
+    market_dict.update(deprecated_screen_reasons(
+        refusals, verdicts_settled, adding_vendors, publish_waits))
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
@@ -947,6 +972,7 @@ def _decorate_market_summary(
     whether it was served by the list endpoint or by ``get_market_for_user``.
     """
     market['_id'] = str(market['_id'])
+    # Deprecated, as the market read's: an old bundle's card offers Manage on it.
     market['user_role'] = user_role
     phase = phase_from_market_document(market)
     _stamp_effective_market_state(market, phase)

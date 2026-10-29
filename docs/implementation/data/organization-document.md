@@ -86,7 +86,7 @@ Removing someone from the organization takes away what it gave them and leaves a
 
 `user_has_permission` ranks the roles by `ROLE_RANK`, owner 4, admin 3, editor 2, viewer 1, and grants a row when the person's rank reaches the row's role; only [the market's actions](../modules/market-actions.md) calls it, with the row's role.
 Every market check asks a row there, and the market read serves every row's answer for the screens (`actionRefusals`), so no screen decides a threshold of its own ([what each role may do](../../business/rules/what-each-role-may-do.md)).
-The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations; each entry's `user_role` is the role the market's own read would serve, worked by the same two rules from the documents the list already holds (`_summary_role`, reading the organization from the list's memo), so the card offers Manage to exactly the people the market lets manage it.
+The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations; each entry's role is the one the market's own read would resolve, worked by the same two rules from the documents the list already holds (`_summary_role`, reading the organization from the list's memo), and the entry's `actionRefusals` are asked of it, so the card offers Manage to exactly the people the market lets manage it.
 
 ## A market's organization
 

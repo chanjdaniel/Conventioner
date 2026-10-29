@@ -6,6 +6,7 @@ describes:
   - back-end/api/permissions.py#user_has_permission
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
+  - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
 verified: 2026-10-29
 sources:
@@ -77,7 +78,8 @@ The markets list serves the same answers, through the same function, for each en
 **`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
-The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) are gone, as are `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal`.
+The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".
+So the read serves them for one more release, each its row's answer and then the rule it carried (`deprecated_screen_reasons`), and the next release removes them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone.
 
 **A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.
 `test_the_screens_name_exactly_the_tables_rows` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py), which pins every answer the read serves, fails when the front end's ids and the table's differ, and `noScreenComparesARole.test.ts` when a source file compares or ranks a market role, or reads the role the person holds.
