@@ -53,19 +53,34 @@ const labels = computed(() =>
   Object.fromEntries(groups.value.flatMap((g) => g.actions.map((a) => [a.id, a.label]))),
 );
 
+/**
+ * Every vendor the section knows: those who gave a name, and every address an entry it has loaded
+ * names, so a vendor with no name is found by part of their address too.
+ */
+const seenVendors = ref<Set<string>>(new Set());
+const knownVendors = computed(() => [
+  ...new Set([...Object.keys(vendorNames.value), ...seenVendors.value]),
+]);
+
+function see(page: MarketHistoryEntry[]) {
+  const seen = new Set(seenVendors.value);
+  for (const entry of page) for (const email of entry.vendors) if (email) seen.add(email);
+  seenVendors.value = seen;
+}
+
 /** The market's vendors who answer to what was typed in the vendor filter: name or address. */
 const vendorCandidates = computed(() => {
   const typed = vendorText.value.trim();
   if (!typed) return [];
-  const known = Object.keys(vendorNames.value);
+  const known = knownVendors.value;
   const exact = known.find((email) => email === typed.toLowerCase());
   if (exact) return [exact];
   return known.filter((email) => vendorMatches(typed, email, vendorNames.value));
 });
 
 /**
- * The vendor the history is narrowed to: the one the filter names, or an address typed whole (a
- * vendor with no name is known by it alone); none while it names several or nobody.
+ * The vendor the history is narrowed to: the one the filter names, or an address typed whole that
+ * no loaded entry names yet; none while it names several or nobody.
  */
 const vendor = computed(() => {
   const typed = vendorText.value.trim();
@@ -74,14 +89,16 @@ const vendor = computed(() => {
   return '';
 });
 
-const vendorHint = computed(() => {
-  const typed = vendorText.value.trim();
-  if (!typed || vendor.value) return '';
-  if (vendorCandidates.value.length > 1) {
-    return `${vendorCandidates.value.length} vendors match. Keep typing, or choose one.`;
-  }
-  return 'No vendor of this market matches.';
-});
+/** Typed text that names no vendor at all: the filter matches nothing, and nothing is asked. */
+const vendorMatchesNobody = computed(
+  () => !!vendorText.value.trim() && !vendor.value && !vendorCandidates.value.length,
+);
+
+const vendorHint = computed(() =>
+  vendorCandidates.value.length > 1 && !vendor.value
+    ? `${vendorCandidates.value.length} vendors match. Keep typing, or choose one.`
+    : '',
+);
 
 const filters = computed(() => ({
   actor: actor.value,
@@ -110,12 +127,19 @@ async function read(before: string | null): Promise<HistoryPage> {
 let asking = 0;
 async function load(): Promise<void> {
   const mine = ++asking;
-  loading.value = true;
   loadError.value = '';
+  if (vendorMatchesNobody.value) {
+    entries.value = [];
+    next.value = null;
+    loading.value = false;
+    return;
+  }
+  loading.value = true;
   try {
     const page = await read(null);
     if (mine !== asking) return;
     entries.value = page.entries ?? [];
+    see(entries.value);
     next.value = page.next ?? null;
     vendorNames.value = page.vendorNames ?? {};
     actors.value = page.actors ?? [];
@@ -140,6 +164,7 @@ async function loadMore(): Promise<void> {
     const page = await read(next.value);
     if (mine !== asking) return;
     entries.value = [...entries.value, ...(page.entries ?? [])];
+    see(page.entries ?? []);
     next.value = page.next ?? null;
     vendorNames.value = { ...vendorNames.value, ...(page.vendorNames ?? {}) };
   } catch (err) {
@@ -151,7 +176,7 @@ async function loadMore(): Promise<void> {
 }
 
 watch(() => props.marketId, load, { immediate: true });
-watch(() => JSON.stringify(filters.value), load);
+watch(() => [JSON.stringify(filters.value), vendorMatchesNobody.value], load);
 
 function clearFilters() {
   actor.value = '';
@@ -205,8 +230,8 @@ const emptyText = computed(() =>
           data-testid="market-history-vendor"
         />
         <datalist :id="`market-history-vendors-${marketId}`">
-          <option v-for="(name, email) in vendorNames" :key="email" :value="email">
-            {{ name }}
+          <option v-for="email in knownVendors" :key="email" :value="email">
+            {{ vendorNames[email] ?? '' }}
           </option>
         </datalist>
       </label>

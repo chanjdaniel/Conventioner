@@ -139,6 +139,39 @@ describe('the History section', () => {
     );
   });
 
+  it('narrows to nothing, asking nothing, for a vendor the filter matches nobody by', async () => {
+    const asked = serve({ entries: [assigned('e1', 1)], next: null });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="market-history-vendor"]').setValue('Zelda');
+    await flushPromises();
+
+    expect(asked).toEqual(['/markets/market-1/history']);
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(0);
+    expect(wrapper.get('[data-testid="market-history-empty"]').text()).toBe(
+      'No change matches these filters.',
+    );
+
+    await wrapper.get('[data-testid="market-history-clear"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
+  });
+
+  it('finds a vendor with no name by part of an address the history names', async () => {
+    const asked = serve({ entries: [assigned('e1', 1, 'cy.vendor@ember.test')], next: null });
+    const wrapper = mountHistory();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy.vend');
+    await flushPromises();
+
+    expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=cy.vendor%40ember.test');
+    expect(
+      wrapper.findAll('datalist option').map((option) => option.attributes('value')),
+    ).toContain('cy.vendor@ember.test');
+  });
+
   it('links a vendor to their drawer on the Vendors page', async () => {
     serve({ entries: [assigned('e1', 1)], next: null });
     const wrapper = mountHistory();
