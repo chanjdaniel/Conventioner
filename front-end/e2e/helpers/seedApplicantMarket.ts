@@ -98,7 +98,12 @@ export async function seedApplicantMarket(
   baseURL: string,
   email: string,
   password: string,
-  options: { setupObject?: Record<string, unknown>; intakeMode?: 'csv' | 'form' } = {},
+  // `fields` are the form's own questions; absent, `APPLICATION_FIELDS`.
+  options: {
+    setupObject?: Record<string, unknown>;
+    intakeMode?: 'csv' | 'form';
+    fields?: Record<string, unknown>[];
+  } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -130,7 +135,7 @@ export async function seedApplicantMarket(
   // accepting a transition into `applications_open`.
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
-    data: { fields: APPLICATION_FIELDS },
+    data: { fields: options.fields ?? APPLICATION_FIELDS },
   });
   if (!formRes.ok()) {
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
