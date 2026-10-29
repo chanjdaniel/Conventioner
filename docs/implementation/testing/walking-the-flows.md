@@ -52,9 +52,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 
 | File | What it is | Used in |
 | --- | --- | --- |
-| `back-end/tests/test_data/google_forms/fall-2023.csv`, `spring-2024.csv`, `spring-2025.csv`, `fall-2025.csv`, `spring-2026.csv` | Five anonymised real Google Form exports (237 rows in `fall-2025.csv`, 30 columns, per-day tier grid, checkbox certifications); the [corpus README](../../../back-end/tests/test_data/README.md) describes each | G, H2 |
-| `back-end/tests/test_data/google_forms_export.csv` | An older Google Form export, 232 applications | H2 |
-| `.scratch/examples/markets/*.csv` in the primary checkout | Five real exports (2023 to 2026), untracked, with real applicants' details; never commit or quote them | G, H2, user testing |
+| `back-end/tests/test_data/google_forms/five-day-grid.csv`, `fall-2023.csv`, `spring-2024.csv`, `spring-2025.csv`, `spring-2026.csv` | Five Google Form exports: `five-day-grid.csv` synthetic (237 rows, 30 columns, per-day tier grid, checkbox certifications), the other four anonymised; the [corpus README](../../../back-end/tests/test_data/README.md) describes each | G, H2 |
 | `front-end/e2e/fixtures/test-floorplan.png` | 800x600 floor plan image | E6 |
 
 ## Coverage map

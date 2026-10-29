@@ -4,9 +4,9 @@ The answer key below is the one written by hand for the form-started-from-a-CSV 
 before any rule existed, and it is what the rules were measured against: every column's kind, the
 type and options of every question of the organizer's own (its required flags went with
 E33/F02/S01: the proposal marks nothing required). It is asserted here on
-the five anonymised exports in ``tests/test_data/google_forms/``, so the rules are held to the
-numbers they were chosen on. The anonymiser keeps every answer at least 3 applicants gave, which is
-the same line the rules read the file through, so the fixtures carry what the rules need.
+the five Google Form exports in ``tests/test_data/google_forms/``, so the rules are held to the
+numbers they were chosen on. Each file carries answers at least 3 applicants gave, which is the
+same line the rules read the file through, so the fixtures carry what the rules need.
 
 No row value appears here: columns are named by header prefix, options by the form's own wording.
 """
@@ -44,29 +44,36 @@ SELL = ["Stickers", "Prints", "Keychains", "Jewelry", "Apparel", "Ceramic"]
 NONE_CLUB = "I am NOT a part of any of these clubs"
 ART, ANI, PRINT = "AMS Artelier at UBC", "UBC Ani", "UBC PRINT Arts and Crafts"
 
+# The synthetic five-day grid's options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
+AFFILIATION = ["Yes, I am a current Example College student",
+               "Yes, I am Example College alumni or staff"]
+MAKES = ["Stickers", "Keychains", "Art prints", "Jewellery", "Fibre arts (crochet, knitting, etc)",
+         "Clothing", "Pottery"]
+NO_CLUB = "I am not a member of any of these clubs"
+CLUBS = [f"Example College {craft} Society"
+         for craft in ("Printmaking", "Anime", "Ceramics", "Visual Arts")]
+
 ANSWER_KEY = {
-    "fall-2025": {
-        0: ("ED", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
+    "five-day-grid": {
+        0: ("Review", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
-        6: ("Are you a UBC student or alumni?", c("select", UBC)),
-        7: ("Please provide your UBC/alumni/staff", c("email")),
-        8: ("If you do not have an UBC email", upload()),
-        9: ("Discord Username", c("text")), 10: ("Business Name", c("text")),
-        11: ("URL to Business", c("text")),
-        12: ("Do you have any tabling experience", c("text")),
-        13: ("What will you be selling", c("multi_select",
-                                     SELL + ["Woven (crochet, knitting, etc)"])),
-        14: ("Please provide a link to your portfolio", c("text")),
-        15: ("I certify that the work I will be selling is my own", c("checkbox")),
-        16: ("I certify that the work I will be selling abides", c("checkbox")),
-        17: ("Which clubs are you a member of?",
-             c("select", [NONE_CLUB, ART, ANI, PRINT, "Visual Art Students’ Association"])),
-        18: ("If applicable, please attach proof", upload()),
-        **{k: ("For each day, choose all table tiers", TIERS) for k in range(19, 24)},
-        24: ("Maximum number of days", MAXD), 25: ("Do you want to have a half table", CHOICE),
+        6: ("Are you an Example College student", c("select", AFFILIATION)),
+        7: ("Please provide your Example College email", c("email")),
+        8: ("If you do not have an Example College email", upload()),
+        9: ("Discord username", c("text")), 10: ("Business Name", c("text")),
+        11: ("Link to your shop", c("text")),
+        12: ("Have you tabled at a market before", c("text")),
+        13: ("What do you plan to sell", c("multi_select", MAKES)),
+        14: ("Please share a link to your portfolio", c("text")),
+        15: ("I confirm that everything I sell", c("checkbox")),
+        16: ("I confirm that my work follows", c("checkbox")),
+        17: ("Which of these clubs do you belong to?", c("select", [NO_CLUB] + CLUBS)),
+        18: ("If you belong to one of these clubs", upload()),
+        **{k: ("For each market day, tick every table tier", TIERS) for k in range(19, 24)},
+        24: ("Maximum number of days", MAXD), 25: ("Would you like a half table", CHOICE),
         26: ("If you chose half table", SHARE),
-        27: ("I understand that no-shows", c("checkbox")),
-        28: ("Additional comments", c("text")), 29: ("Column 1", ORG),
+        27: ("I understand that if I do not come", c("checkbox")),
+        28: ("Anything else", c("text")), 29: ("Column 1", ORG),
     },
     "spring-2024": {
         0: ("Fq", ORG), 1: ("Timestamp", TS), 2: ("Full Name", FULL), 3: ("Preferred Name", PREF),
@@ -159,7 +166,7 @@ ANSWER_KEY = {
 
 # Google's collected address and the asked one: either may be the applicant's email, as long as
 # the other is the duplicate.
-EITHER_EMAIL = {"fall-2025": (2, 5), "spring-2026": (2, 5)}
+EITHER_EMAIL = {"five-day-grid": (2, 5), "spring-2026": (2, 5)}
 
 # The two misses the rules were measured with: a clubs question almost nobody answered with two
 # clubs, read as one choice. They must come back marked, not silently wrong.
@@ -290,19 +297,19 @@ class TestWhatAColumnCarries:
         assert dropped, "some applicants answered only options left out by default"
 
     def test_an_organizers_column_is_left_out_and_marked(self):
-        column = self._column("fall-2025", 29)
+        column = self._column("five-day-grid", 29)
         assert column["fate"] == "left_out"
         assert CsvProposal.CHECK_ORGANIZER in column["check"]
 
     def test_a_grids_columns_name_their_stem(self):
-        column = self._column("fall-2025", 19)
-        assert column["group"].startswith("For each day, choose all table tiers")
+        column = self._column("five-day-grid", 19)
+        assert column["group"].startswith("For each market day, tick every table tier")
 
     def test_a_headers_first_line_is_the_label_and_the_rest_help_text(self):
-        field = self._column("fall-2025", 6)["field"]
-        assert field["label"] == "Are you a UBC student or alumni?"
+        field = self._column("five-day-grid", 6)["field"]
+        assert field["label"] == "Are you an Example College student, alumni or staff?"
         assert field["helpText"].startswith("NOTE:")
-        assert field["key"] == "are_you_a_ubc_student_or_alumni"
+        assert field["key"] == "are_you_an_example_college_student"
 
     def test_a_first_line_past_120_characters_keeps_its_first_sentence(self):
         long = ("Please provide a link to your portfolio. " + "Instagram, a website or a drive "
@@ -331,8 +338,8 @@ class TestWhatAColumnCarries:
         assert label.endswith("UBC Makers Market!")
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025", "fall-2025",
-                                      "spring-2026"])
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
+                                      "five-day-grid", "spring-2026"])
     def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
         headers, rows = _read(name)
         for column in CsvProposal.proposal(headers, rows)["columns"]:
@@ -373,8 +380,8 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025", "fall-2025",
-                                      "spring-2026"])
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
+                                      "five-day-grid", "spring-2026"])
     def test_no_column_is_answered_by_more_than_responded(self, name):
         """A status-only row an organizer typed is not a response, so its cells are not answers:
         counting them said "answered by 360 of 359" (bug 40)."""
@@ -388,7 +395,7 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
-    @pytest.mark.parametrize("name", ["fall-2025", "spring-2024", "spring-2025", "spring-2026"])
+    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "spring-2025", "spring-2026"])
     def test_a_tier_grid_answers_the_dates_as_well(self, name):
         """A day's row in the grid is a day the applicant can come: the import reads availability
         from it (``unserved_required``), so the proposal must not list the dates as unanswered

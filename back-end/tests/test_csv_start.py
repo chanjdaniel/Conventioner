@@ -2,7 +2,7 @@
 
 What one confirm writes - the plan facts, the form, the ceiling and the import mapping - and the seam
 it closes: the import of the same file afterwards restores every column and matches every value.
-Run on the anonymised exports in ``tests/test_data/google_forms/``.
+Run on the Google Form exports in ``tests/test_data/google_forms/``.
 """
 import copy
 import os
@@ -14,7 +14,7 @@ import csv_start as CsvStart
 import essential_fields as EssentialFields
 
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
-YEARS = {"fall-2023": 2023, "spring-2024": 2024, "spring-2025": 2025, "fall-2025": 2025,
+YEARS = {"fall-2023": 2023, "spring-2024": 2024, "spring-2025": 2025, "five-day-grid": 2025,
          "spring-2026": 2026}
 
 
@@ -66,7 +66,7 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 # and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27). Another
 # 15 to 41 per export were skipped for a blank answer to a question the proposal guessed required
 # from how many answered it, until it stopped guessing (E33/F02/S01).
-IMPORTED = {"fall-2023": 277, "spring-2024": 355, "spring-2025": 235, "fall-2025": 236,
+IMPORTED = {"fall-2023": 277, "spring-2024": 355, "spring-2025": 235, "five-day-grid": 236,
             "spring-2026": 245}
 
 
@@ -159,14 +159,14 @@ def test_a_plan_that_already_has_tiers_keeps_them_and_settles_the_rest_as_value_
     doc = _draft(setupObject={"priority": [], "locations": [], "sections": [],
                               "assignmentOptions": {}, "marketDates": [],
                               "tiers": [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}]})
-    update = _confirmed_update(doc, _csv("fall-2025"), {
+    update = _confirmed_update(doc, _csv("five-day-grid"), {
         "year": 2025, "settled": {"tier": {"Bronze": "Silver"}}})
     assert [t["name"] for t in update["setupObject"]["tiers"]] == ["Gold", "Silver"]
     resolutions = update["importMapping"]["resolutions"][EssentialFields.TIER_PREFERENCE_KEY]
     assert resolutions["Bronze"] == "Silver"
     # A grid column's bracket text names a plan date the import reads for itself (bug 26), so
     # there is no decision to save for it.
-    assert "Monday, November 17" not in resolutions
+    assert "Monday, October 20" not in resolutions
 
 
 def test_two_columns_cannot_answer_the_same_essential_question():
@@ -212,23 +212,23 @@ def test_a_choice_with_no_option_kept_becomes_a_question_answered_in_words():
 def test_an_unsettled_day_the_plan_lacks_is_left_for_the_import_to_ask():
     doc = _draft(setupObject={"priority": [], "locations": [], "sections": [], "tiers": [],
                               "assignmentOptions": {},
-                              "marketDates": [{"date": "2025-11-17"}, {"date": "2025-11-18"}]})
-    update = _confirmed_update(doc, _csv("fall-2025"), {"year": 2025})
+                              "marketDates": [{"date": "2025-10-20"}, {"date": "2025-10-21"}]})
+    update = _confirmed_update(doc, _csv("five-day-grid"), {"year": 2025})
     tiers = update["importMapping"]["resolutions"].get(EssentialFields.TIER_PREFERENCE_KEY, {})
-    assert "Wednesday, November 19" not in tiers
+    assert "Wednesday, October 22" not in tiers
 
     # The import reads the days the plan has, and asks about the one it lacks - offering the
     # plan's days to match it to, not its tiers (bug 26).
     after = _written(doc, update)
-    csv_text = _csv("fall-2025")
+    csv_text = _csv("five-day-grid")
     _error, headers, _rows = CsvImport.parse_csv(csv_text)
     saved = CsvImport.stored_mapping(after)
     restored, *_ = CsvImport.restore_mapping(headers, saved, CsvImport.import_targets(after))
     preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
     days = {u["value"]: u["offered"] for u in preview["unmatched"]
-            if u["target"] == EssentialFields.TIER_PREFERENCE_KEY and "November" in u["value"]}
-    assert "Monday, November 17" not in days
-    assert days["Wednesday, November 19"] == ["2025-11-17", "2025-11-18"]
+            if u["target"] == EssentialFields.TIER_PREFERENCE_KEY and "October" in u["value"]}
+    assert "Monday, October 20" not in days
+    assert days["Wednesday, October 22"] == ["2025-10-20", "2025-10-21"]
 
 
 def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():
@@ -238,10 +238,10 @@ def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():
     assert condition["phase"] == {"$exists": False} and condition["id"] == "market-1"
 
 
-SELLING = "What will you be selling at the event?"
+SELLING = "What do you plan to sell at the fair?"
 
 
-def _started(name="fall-2025"):
+def _started(name="five-day-grid"):
     doc = _draft()
     csv_text = _csv(name)
     return _written(doc, _confirmed_update(doc, csv_text, {"year": YEARS[name]})), csv_text

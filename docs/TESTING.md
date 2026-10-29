@@ -359,13 +359,14 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   helpers authenticate properly by logging in.
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
-- **The Google Forms fixture**: `back-end/tests/test_data/google_forms_export.csv` is a real
-  response export with the people replaced, built by an earlier version of
-  `back-end/tests/fixtures/anonymise_form_export.py`.
+- **The Google Forms fixture**: `back-end/tests/test_data/google_forms/five-day-grid.csv` is a
+  synthetic response export in a Google Form's shape, written by
+  `back-end/tests/fixtures/synthetic_form_exports.py`.
   It exists because three MVP blockers came from the *shape* of a real export and every CSV test
   before it wrote its own short single-line headers.
-  `back-end/tests/test_data/README.md` lists the six properties it must preserve, and
-  `test_real_export_shapes.py` asserts those before it asserts anything else.
+  `back-end/tests/test_data/README.md` lists the six properties it must preserve;
+  `test_form_export_shapes.py` asserts them, but for the duplicate and organizer columns, which the
+  answer key in `test_csv_proposal.py` holds.
 - **A real export is never committed, anonymised or not, except through `back-end/tests/fixtures/anonymise_form_export.py`.**
   A fixture's addresses are at `example.com` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
   The git hooks refuse anything else before it is committed or pushed, and the gate and CI refuse it again; install the hooks once per clone with `git config core.hooksPath .githooks` (a treehouse worktree gets them from `scripts/treehouse-setup.sh`).

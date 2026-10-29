@@ -1,11 +1,12 @@
-"""The five anonymised Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
+"""The five Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
 
-They are real application exports from five markets with the people replaced, made by
-``tests/fixtures/anonymise_form_export.py``; ``tests/test_data/README.md`` says which market each
-one is. The real files never reach CI, so this is what stands between a regenerated or hand-edited
-copy and a fixture that silently stopped looking like the export it came from: the row count, the
-header row exactly as the form wrote it, and how often the table-size answers occur, which the
-anonymiser keeps verbatim because at least 3 applicants gave each one.
+``five-day-grid.csv`` is synthetic, made by ``tests/fixtures/synthetic_form_exports.py``, which
+``tests/test_synthetic_form_exports.py`` holds to the byte. The other four are real application
+exports with the people replaced, made by ``tests/fixtures/anonymise_form_export.py``; the real
+files never reach CI. ``tests/test_data/README.md`` says what each one is. This is what stands
+between a regenerated or hand-edited copy and a fixture that silently stopped looking like a Google
+Form's export: the row count, the header row exactly as the form wrote it, and how often the
+table-size answers occur.
 """
 import csv
 import hashlib
@@ -26,8 +27,8 @@ SHAPES = {
     "spring-2025": (237, 28, "793acf80aa31b295", 23,
                     {"Full table": 87, "Either": 66, "Half table": 65, "Full table, Either": 11,
                      "Half table, Either": 6, "Full table, Half table": 2}),
-    "fall-2025": (237, 30, "eedca99cd03454bc", 25,
-                  {"Full table": 89, "Either": 86, "Half table": 62}),
+    "five-day-grid": (237, 30, "8c07a995dbc30840", 25,
+                      {"Full table": 89, "Either": 86, "Half table": 62}),
     "spring-2026": (250, 35, "79a0c0aa08260f25", 30,
                     {"Full table": 87, "Either": 85, "Half table": 75, "TEST": 1}),
 }
