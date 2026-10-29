@@ -1,6 +1,12 @@
 import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 
+/**
+ * The import's targets that are not questions (`RESERVED_TARGETS` in `back-end/csv_import.py`): a
+ * question keyed like one would hold the column that says who applied, when, or the sheet's note.
+ */
+const RESERVED_IMPORT_KEYS = ['applicant_email', 'submitted_at', 'sheet_note'];
+
 /** The types a question of the organizer's own can be, as the form builder names them. */
 export const FIELD_TYPES = [
   { value: 'text', label: 'Text' },
@@ -65,6 +71,9 @@ export function applicationFormError(form: ApplicationForm | null): string | nul
     }
     if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
       return `Key "${key}" uses the reserved "${ESSENTIAL_KEY_PREFIX}" prefix. Those keys belong to the essential questions every form already asks.`;
+    }
+    if (RESERVED_IMPORT_KEYS.includes(key)) {
+      return `Key "${key}" is reserved: the import reads that column as who applied, when they applied, or your sheet's note. Choose another key.`;
     }
     if (seen.has(key)) return `Duplicate field key "${key}". Keys must be unique.`;
     seen.add(key);

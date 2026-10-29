@@ -79,7 +79,7 @@ Each field's own rules are with the module that writes it; this node is the docu
 **The application form is stored as one validator returns it.**
 Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked; the writes on an existing market go through `prepared_application_form`, which asks [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) first:
 
-- A field's `key` is non-blank, unique in the form, matches `^[a-z0-9_]+$` (it becomes a key inside an application's answers) and does not start with the reserved `essential_`.
+- A field's `key` is non-blank, unique in the form, matches `^[a-z0-9_]+$` (it becomes a key inside an application's answers) and does not start with the reserved `essential_` or name one of the import's own targets (`applicant_email`, `submitted_at`, `sheet_note`, which would hold the wrong column).
 - Its `label` is non-blank, and its `type` is one of `text`, `number`, `select`, `multi_select`, `checkbox`, `date` and `email`.
 - A `select` or `multi_select` has at least one option, each trimmed, non-blank and unique, since options are the stored answers; every other type's options are emptied.
 - `order` is rewritten to the field's position in the list.

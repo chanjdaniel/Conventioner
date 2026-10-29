@@ -64,6 +64,14 @@ describe('applicationFormError', () => {
     expect(applicationFormError(form(field({ key: '$where' })))).toContain('is invalid');
   });
 
+  it('rejects the keys the import reads as who applied, when, and the sheet note', () => {
+    for (const key of ['applicant_email', 'submitted_at', 'sheet_note']) {
+      expect(applicationFormError(form(field({ key, label: 'Applicant email' })))).toBe(
+        `Key "${key}" is reserved: the import reads that column as who applied, when they applied, or your sheet's note. Choose another key.`,
+      );
+    }
+  });
+
   it('rejects duplicate keys, which would collide as answer keys', () => {
     const dupe = form(field(), field({ label: 'Other', order: 1 }));
 

@@ -49,6 +49,7 @@ from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_c
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
+import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
@@ -554,6 +555,11 @@ def _normalized_application_form(
                 f"Field key '{key}' uses the reserved "
                 f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
                 "essential questions every form already asks."
+            )
+        if key in CsvImport.RESERVED_TARGETS:
+            raise BadRequestError(
+                f"Field key '{key}' is reserved: the import reads that column as who applied, "
+                "when they applied, or your sheet's note. Choose another key."
             )
         if key in seen_keys:
             raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")

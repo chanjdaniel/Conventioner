@@ -537,6 +537,19 @@ class TestReservedKeyPrefix:
         with pytest.raises(BadRequestError, match="reserved 'essential_' prefix"):
             MarketsApi.save_application_form("market-123", form, "user-1")
 
+    @pytest.mark.parametrize("key", ["applicant_email", "submitted_at", "sheet_note"])
+    def test_the_builder_refuses_a_key_the_import_reads_as_something_else(
+            self, monkeypatch, applications, key):
+        """A question keyed ``applicant_email`` would hold the column that says who applied
+        (E38/F02): the import's own targets are no question's key."""
+        monkeypatch.setattr(MarketsApi, "markets_collection",
+                            FakeMarketsCollection(stored_market()))
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
+        form = {"fields": [{"key": key, "label": "Applicant email", "type": "text"}]}
+
+        with pytest.raises(BadRequestError, match=f"Field key '{key}' is reserved"):
+            MarketsApi.save_application_form("market-123", form, "user-1")
+
     def test_a_client_cannot_forge_the_frozen_offering(self, monkeypatch, applications):
         """``essential_options`` is server-owned, like ``published_at``: whatever a payload
         carries is discarded."""
