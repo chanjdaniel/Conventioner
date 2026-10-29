@@ -456,7 +456,8 @@ IDENTIFYING = [
     "bit.ly/makers", "HTTPS://EXAMPLE.CA", "twitter.com/makers", "www.example.com",
     "@makers", "IG:@makers", "Prints (@makers)", "@ makers",
     "Call 555-0199", "5550199", "555.0199", "604 555 0199", "604.555.0199", "+1 (604) 555-0199",
-    "+44 20 7946 0958", "1234567",
+    "+44 20 7946 0958", "1234567", "12 34 56 78", "+33 6 12 34 56", "0 7946 0958",
+    "555-1000", "2003000", "800.2000",
     "123 Main Street Unit 4", "Unit 4 - 42 Fake Ave", "Suite 200", "1234 Fake St.", "42 Fake Dr",
     "42 Fake Pl", "42 Fake Cres", "42 Fake Way", "42 Fake Terrace", "42 W 4th St", "Apt. 3",
     "Ste 200", "PO Box 123", "P.O. Box 123",
@@ -469,8 +470,11 @@ NAMING_NOBODY = [
     "2023 - 2024", "$25", "$5.50", "3.5 inch pins", "10x10", "1st time vendor", "Ph.D student",
     "Accepted", "Gold Tier", "Jewellery & Accessories", "I agree to the terms",
     "Thursday 10:00 - 4:00", "9.30 - 4.30", "10.00 - 16.00", "11.30-12.30", "14.11.2025",
-    "500-1000", "100-1000", "250-1000", "100 1000", "1000-5000", "Under 100", "Booth 12",
-    "3 way split", "Either way is fine",
+    "500-1000", "100-1000", "250-1000", "100 1000", "1000-5000", "100-1499", "999-1000",
+    "500 - 1000", "5000-10000", "Under 100", "Booth 12", "3 way split", "Either way is fine",
+    "2 days either way", "$10 either way", "Booth 12 by the way", "Prints 2 for $10 all the way",
+    "Booth 12 near the food court", "2 prints of Dr Who", "Suite 2 of prints", "4 Way Stop",
+    "8th Street Fair", "St. Patrick's Day",
 ]
 
 
