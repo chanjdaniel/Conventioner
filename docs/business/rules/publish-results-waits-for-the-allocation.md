@@ -16,6 +16,7 @@ sources:
   - E36/F04
   - E36/F04/S01
   - E36/F04/S02
+  - E38/F05
 ---
 
 # Publish Results waits for the allocation
@@ -51,6 +52,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule: refused on a CSV market, once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
   `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks ADMIN and the archived rule first.
 - The market read serves the admin check and the rule as one `publishResultsReason`, and the counts as `publishOutcomes`, so the button is offered exactly when the endpoint would take it.
+  The button ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) is drawn on the Applications page from `assignment` on only, disabled with that reason until a current run is stored.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.
 - `ResultsPublishedGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
 - `back-end/tests/test_publishing_settles_the_assignment.py` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it; a seed that publishes a `form` market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
@@ -58,3 +60,4 @@ An ADMIN or the owner, as with every action that tells people outside the market
 ## Superseded
 
 - Publish Results as a secondary action on Applications from the first verdict on, never named by the rail (wayfinding/what-to-show-and-when/02); it waits for a current run in Assignment, and the rail leads there when it is what holds the market back (wayfinding/rejection-visibility/02, E36/F04).
+- Drawn disabled, with its reason, over the review in the phases before Assignment; on the 2026-10-29 walk Daniel chose to show it only from Assignment on (E38/F05).

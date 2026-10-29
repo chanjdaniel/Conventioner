@@ -4,10 +4,10 @@
  *
  * It was in the one-by-one review's header, and the rail's "Publish results" leads to the
  * Applications page: with All the page's default, it would have led to a page without it. It is a
- * step for the market, not for a view, so it sits over the switch.
+ * step for the market, not for a view, so it sits over the switch, from the assignment on.
  */
 import { computed, ref, watch } from 'vue';
-import { IntakeMode, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { publishResults } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { outcomeHeadline } from '@/utils/applicantOutcome';
@@ -26,6 +26,16 @@ const props = defineProps<{ market: Market | null }>();
  * there, and the endpoint refuses too, because a hidden button is not a rule.
  */
 const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
+/**
+ * Results go out from the assignment on, so it is drawn only from there (Daniel, 2026-10-29): before
+ * it, a disabled button with its reason sat over the review it has nothing to do with.
+ */
+const FROM_THE_ASSIGNMENT: readonly string[] = [
+  MarketPhase.Assignment,
+  MarketPhase.Offers,
+  MarketPhase.MarketDays,
+];
+const itsPhase = computed(() => FROM_THE_ASSIGNMENT.includes(props.market?.phase ?? ''));
 /** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
 const publishes = computed(
   () => !props.market?.adminActionsReason && !props.market?.readOnlyReason,
@@ -69,7 +79,7 @@ async function publish() {
 </script>
 
 <template>
-  <div v-if="market && marketHasApplicants && publishes" class="publish-row">
+  <div v-if="market && marketHasApplicants && itsPhase && publishes" class="publish-row">
     <button
       v-if="!published"
       class="publish-button"

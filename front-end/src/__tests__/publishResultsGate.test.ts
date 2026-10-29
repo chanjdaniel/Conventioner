@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PublishResults from '@/components/application/PublishResults.vue';
-import { IntakeMode, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const publishResults = vi.fn();
 
@@ -27,6 +27,7 @@ function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): M
     intakeMode,
     publishResultsReason: null,
     publishOutcomes: { haveATable: 3, notAssigned: 2 },
+    phase: MarketPhase.Assignment,
     ...publish,
   } as unknown as Market;
 }
@@ -84,5 +85,24 @@ describe('a form-intake market (E36/F04/S01)', () => {
 
     await wrapper.find('[data-testid="publish-results-submit-button"]').trigger('submit');
     expect(publishResults).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
+  it.each([MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review])(
+    'offers no Publish Results, not even a disabled one, in %s',
+    async (phase) => {
+      const wrapper = await mounted(marketTaking(IntakeMode.Form, { phase }));
+
+      expect(wrapper.find(button).exists()).toBe(false);
+      expect(wrapper.find(hint).exists()).toBe(false);
+    },
+  );
+
+  it('offers it again from the assignment on, published or not', async () => {
+    const days = await mounted(
+      marketTaking(IntakeMode.Form, { phase: MarketPhase.MarketDays, resultsPublished: true }),
+    );
+    expect(days.find('[data-testid="applications-published-badge"]').exists()).toBe(true);
   });
 });

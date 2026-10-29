@@ -39,11 +39,17 @@ test('publishing waits for a run, then says who will read what before it tells t
     sections: ['Main Hall', 'Garden'],
   });
   seedApplicationWithStatus(market.marketId, 'reviewer_rejected', 'turned-away@example.com');
-  for (const toPhase of ['applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications_closed', 'review']) {
     await post(request, `/markets/${market.marketId}/transition`, { toPhase });
   }
 
+  // Not offered at all before the assignment, not even disabled (Daniel, 2026-10-29).
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(marketSetupPath(market.marketId, 'applications'));
+  await expect(page.getByTestId('applications-all')).toBeVisible();
+  await expect(page.getByTestId('applications-publish-button')).toHaveCount(0);
+  await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
+
   await page.goto(marketSetupPath(market.marketId, 'applications'));
   // The rail's end - the application page, Run the assignment, Publish Market, More - takes a row of
   // its own rather than running out of the card, which lost More off the edge at 1440.
