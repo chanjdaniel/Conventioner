@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: intent
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - E18/F04
   - E26/F07
@@ -34,6 +34,6 @@ Every applicant answers the same form, which never changes under them once anyon
 - [The online path](../flows/the-online-path.md): the whole path, from creation to the end.
 - [Creating a market](../flows/creating-a-market.md): "On this market's own page" puts the market on this path from its first screen.
 - [Building the application form](../flows/form-tab.md): the questions an applicant answers, and the preview of them.
-- [Taking applications](../flows/taking-applications.md): opening, closing and reopening applications.
+- [Taking applications](../flows/taking-applications.md): opening applications, and stopping and taking them again.
 - [Applying online](../flows/applying-online.md): the vendor's sign-in, application, edits and outcome.
 - [The mixed path](../flows/the-mixed-path.md): applying online beside importing, and why it is not offered.

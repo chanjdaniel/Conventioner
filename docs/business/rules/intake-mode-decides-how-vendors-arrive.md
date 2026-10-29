@@ -35,7 +35,7 @@ Switching the mode mid-lifecycle strands what the previous mode produced: flip a
 An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
 
 **Each path has its own ways in.**
-Importing is the CSV path's in every phase (E31/F03/S04): a form market takes its applications on its own page, so nothing is imported into it.
+Importing is the CSV path's, in Draft and Review (E31/F03/S04): a form market takes its applications on its own page, so nothing is imported into it.
 Publish Results is the form path's: a CSV market's vendors never see this product, so it has no applicants to tell ([Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md)).
 
 **Intake mode does not gate the form builder.**

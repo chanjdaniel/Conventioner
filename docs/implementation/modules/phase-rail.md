@@ -51,6 +51,7 @@ A Google Form market's draft offers the fix "Import responses" as its main butto
 **More… holds the stage's actions beside its moves.**
 `stageActions` in [the market guide](market-guide.md) gives a Google Form market in Review "Redo import", which opens the import and moves nothing, and an own-form market in Applications "Stop taking applications" or "Take applications again", a write to `POST /markets/:id/applications-stopped` after which the store re-reads the market (E38/F04/S02, S03).
 They come first in the menu, as `phase-rail-action-<id>`, offered only to an Admin and, for the stop, only when the read's `applicationsStopReason` is null.
+The moves follow them, any back edge first and Archive Market last, so the destructive move is never in the middle.
 
 **The spine is derived, never listed.**
 `phaseSpine()` in [`front-end/src/utils/phase.ts`](../../../front-end/src/utils/phase.ts) walks `VALID_TRANSITIONS` (the front end's mirror of the server's table) forward from `draft`, taking at each step the one edge to somewhere new that is not `archived`, and appends `archived`.

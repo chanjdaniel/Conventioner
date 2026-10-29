@@ -42,7 +42,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each ADMIN and
 
 ## Sharp edges
 
-**Importing is the CSV path's in every phase** (E31/F03/S04).
+**Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
 In a draft it also refuses with the first of `first_import_blockers`, the move into Review judged less `ResponsesImportedGuard`, so a setup that would keep the market out is said before a row is read.
 

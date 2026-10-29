@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-27
+verified: 2026-10-29
 ---
 
 # Conventioner - Development Startup Guide
@@ -324,20 +324,21 @@ Every step is reachable from the UI; none of it needs the API.
    Add the market dates, then the tiers, locations and sections, then the assignment options.
    Do this before the next step: what the market offers its applicants is derived from this plan,
    and a market that offers nothing has nothing to ask anybody about.
-5. **Open applications**, using the phase control panel at the top of Market Setup.
-   A new market starts in `draft`, and importing vendors is only permitted once applications are
-   open.
-   If the panel refuses, it names what is missing and links to where to fix it.
-6. **Import the vendors** from the **Applications** tab: click "Import from CSV".
+5. **Import the vendors**, while the market is a draft: "Import responses" on the phase control
+   panel at the top of the market opens the import (a market whose vendors apply on its own page
+   instead enters its applications with "Open Applications").
    Upload the CSV your Google Form produced, map its columns onto the questions the solver reads,
    resolve any cell value the market does not recognise, then preview and confirm.
    Nothing is written until you confirm, and the preview says exactly what will happen.
-7. **Review the applications**, back on the Applications tab.
+   A Google Form market enters Review once the import is written.
+   A draft whose setup would keep it out of Review says what it lacks before a file is picked.
+   If the panel refuses a move, it names what is missing and links to where to fix it.
+6. **Review the applications** on the Applications tab.
    Imported rows arrive awaiting review.
    Approve the ones a table should go to: **the solver reads approved applications and nothing
    else**, so an application left unreviewed takes no part in assignment.
-8. **Generate the assignment** by running "Assign" from Market Setup.
-9. **View the results** and download the CSV.
+7. **Generate the assignment** by running "Assign" from Market Setup.
+8. **View the results** and download the CSV.
 
 **Where do I get a CSV?**
 Any CSV with a header row will do for a first look: an email address column, plus one column per

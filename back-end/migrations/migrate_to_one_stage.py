@@ -28,9 +28,9 @@ change, market by market, and the counts, and writes nothing.
 Run it after the deploy that ships the stage, not before: the build before it reads
 ``applications`` as an unknown phase, which degrades to archived.
 
-Usage, from ``back-end/`` (for production, put the URI on the command line, never in ``.env``):
-    MONGODB_URI='mongodb+srv://...' python migrations/migrate_to_one_stage.py --dry-run
-    MONGODB_URI='mongodb+srv://...' python migrations/migrate_to_one_stage.py
+Usage, from ``back-end/`` (the production database address passed inline, never from ``.env``):
+    python migrations/migrate_to_one_stage.py --dry-run
+    python migrations/migrate_to_one_stage.py
 """
 import argparse
 import os
