@@ -40,7 +40,7 @@ A vendor fits a seat when placing them overrides nothing, and a sharing vendor f
 A searchable picker was weighed for a market of two hundred and not taken: the product has no such shared control, and a native select already jumps to a name as it is typed.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 
-Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the placement history](../../implementation/data/placement-history.md).
+Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the market's history](../../implementation/data/history.md).
 
 ## J6. Place a vendor in an empty seat
 

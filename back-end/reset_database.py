@@ -33,6 +33,8 @@ APP_COLLECTIONS = (
     'source_data',
     # Missed until 2026-10-03, so every reset left the trail of who moved whom, and the record of
     # every deletion, pointing at markets and organizations that no longer existed.
+    'history',
+    # The history's old name, still on a database `migrate_placement_history.py` has not moved.
     'placement_history',
     'deletion_trail',
     'vendor_notes',

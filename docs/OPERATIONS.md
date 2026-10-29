@@ -8,6 +8,7 @@ describes:
   - back-end/migrations/migrate_user_emails.py
   - back-end/api/applications.py#ensure_application_indexes
   - back-end/migrations/create_applications_collection.py
+  - back-end/migrations/migrate_placement_history.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
 verified: 2026-10-27
 sources:
@@ -16,6 +17,7 @@ sources:
   - T24
   - T74
   - decision/2026-10-20
+  - E40/F01/S01
 ---
 
 # Operations
@@ -165,6 +167,8 @@ A new database is started once with `MONGODB_URI='<URI>' .venv/bin/python init_d
 Production was started that way on 2026-10-18, so no script in `back-end/migrations/` was needed then; [RELEASING.md](RELEASING.md#pre-deploy-database-migrations) says when one is.
 The first that is: the release carrying E32 refuses to boot until every account address is stored lowercased, so run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_user_emails.py --dry-run`, then without `--dry-run`, before promoting it.
 If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
+The release carrying E40/F01/S01 moves the placement history into the market's history: once it is deployed, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_placement_history.py --dry-run` ([`migrate_placement_history.py`](../back-end/migrations/migrate_placement_history.py)), which counts the entries it would move, then without `--dry-run`.
+Until it runs, the drawer's History tab shows only the placements made since the deploy; nothing refuses to boot ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
 
 ### When the back end refuses to boot
 
