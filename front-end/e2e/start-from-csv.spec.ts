@@ -20,7 +20,7 @@ const FIXTURES: Record<string, number> = {
   'spring-2024': 2024,
   'spring-2025': 2025,
   'five-day-grid': 2025,
-  'spring-2026': 2026,
+  'team-status-column': 2026,
 };
 
 /** The ledger's rows, from the file itself: a run of bracketed columns under one stem is one. */
@@ -317,7 +317,7 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'spring-2026.csv'));
+    await flow.chooseFile(join(CORPUS, 'team-status-column.csv'));
     await flow.answerYear();
     const toCheck = await flow.count('to-check');
     const custom = await flow.count('custom');
@@ -331,7 +331,7 @@ test.describe('Start from your Google Form', () => {
     await expect(flow.toCheck).toHaveText(String(toCheck - 1));
 
     // One choice turned into several: the clubs question the rules read as one choice.
-    const clubs = flow.row('Which clubs are you a member of?');
+    const clubs = flow.row('Which clubs are you part of?');
     await expect(
       clubs.getByTestId('proposal-check').filter({ hasText: 'Could allow several answers' }),
     ).toHaveCount(1);
@@ -340,7 +340,7 @@ test.describe('Start from your Google Form', () => {
     await expect(flow.toCheck).toHaveText(String(toCheck - 2));
 
     // A rare option kept.
-    const student = flow.row('Are you a UBC student or alumni?');
+    const student = flow.row('Are you an Example College student, alum or staff member?');
     const rare = student.getByTestId('proposal-option').filter({ hasText: 'keep?' }).first();
     await rare.locator('input').check();
     await expect(rare.locator('input')).toBeChecked();

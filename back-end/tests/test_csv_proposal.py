@@ -38,16 +38,15 @@ def upload():
 
 
 UBC = ["Yes, I am a CURRENT UBC student", "Yes, I am an UBC alumni/staff"]
-UBC_NO = ("No, I am not a UBC student/alumni/staff and I understand my application will not be "
-          "considered.")
 SELL = ["Stickers", "Prints", "Keychains", "Jewelry", "Apparel", "Ceramic"]
 NONE_CLUB = "I am NOT a part of any of these clubs"
 ART, ANI, PRINT = "AMS Artelier at UBC", "UBC Ani", "UBC PRINT Arts and Crafts"
 
-# The synthetic five-day grid's options, as ``tests/fixtures/synthetic_form_exports.py`` writes
-# them.
+# The synthetic files' options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
 AFFILIATION = ["Yes, I am a current Example College student",
                "Yes, I am Example College alumni or staff"]
+DECLINED = ("No, I am not part of Example College, and I understand my application will not be "
+            "considered.")
 MAKES = ["Stickers", "Keychains", "Art prints", "Jewellery", "Fibre arts (crochet, knitting, etc)",
          "Clothing", "Pottery"]
 NO_CLUB = "I am not a member of any of these clubs"
@@ -133,45 +132,43 @@ ANSWER_KEY = {
         10: ("Please provide a link to your portfolio", c("text")),
         11: ("Additional comments", c("text")),
     },
-    "spring-2026": {
+    "team-status-column": {
         0: ("STATUS", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
-        6: ("Are you a UBC student or alumni?", c("select", UBC + [UBC_NO])),
-        7: ("Please provide your UBC/alumni/staff", c("email")),
-        8: ("If you do not have an UBC email", upload()),
-        9: ("Discord Username", c("text")), 10: ("Business Name", c("text")),
-        11: ("URL to Business", c("text")),
-        12: ("Do you have any tabling experience", c("text")),
-        13: ("What will you be selling", c("multi_select",
-                                     SELL + ["Woven (crochet, knitting, etc)"])),
-        14: ("If you plan to sell press-on nails", c("text")),
-        15: ("Please submit one video", upload()),
-        16: ("Please submit any additional drafts", upload()),
-        17: ("Please provide a link to your portfolio", c("text")),
-        18: ("I certify that the work I will be selling is my own", c("checkbox")),
-        19: ("UBC Makers Market's mission", c("checkbox")),
-        20: ("I certify that this application", c("checkbox")),
-        21: ("I certify that the work I will be selling abides", c("checkbox")),
-        22: ("Which clubs are you a member of?",
-             c("multi_select", [NONE_CLUB, ART, ANI, PRINT])),
-        23: ("If applicable, please attach proof", upload()),
-        **{k: ("For each day, choose all table tiers", TIERS) for k in range(24, 29)},
-        29: ("Maximum number of days", MAXD), 30: ("Do you want to have a half table", CHOICE),
+        6: ("Are you an Example College student, alum", c("select", AFFILIATION + [DECLINED])),
+        7: ("Please give your Example College email", c("email")),
+        8: ("If you have no Example College email", upload()),
+        9: ("Discord username", c("text")), 10: ("Business Name", c("text")),
+        11: ("Link to your business", c("text")),
+        12: ("Have you sold your work at a market", c("text")),
+        13: ("What will you be selling at the fair", c("multi_select", MAKES)),
+        14: ("If you plan to sell rings", c("text")),
+        15: ("Please upload one short video", upload()),
+        16: ("Please upload any sketches", upload()),
+        17: ("Please share a link to your portfolio", c("text")),
+        18: ("I confirm that everything I sell at the fair", c("checkbox")),
+        19: ("Example Makers Fair's mission", c("checkbox")),
+        20: ("I confirm that everything in this application", c("checkbox")),
+        21: ("I confirm that my work follows", c("checkbox")),
+        22: ("Which clubs are you part of?", c("multi_select", [NO_CLUB] + CLUBS[:3])),
+        23: ("If you are in one of these clubs", upload()),
+        **{k: ("Which tables would you take on each day", TIERS) for k in range(24, 29)},
+        29: ("Maximum number of days", MAXD), 30: ("Do you want a half table", CHOICE),
         31: ("If you chose half table", SHARE),
-        32: ("I understand that no-shows", c("checkbox")),
-        33: ("Additional comments", c("text")),
+        32: ("I understand that if I do not come", c("checkbox")),
+        33: ("Anything else", c("text")),
         # Filled by 228 of 248: added to the form after it opened, or optional. Not scored.
-        34: ("Please provide a link to a video", c("text", None)),
+        34: ("Please share a link to a video", c("text", None)),
     },
 }
 
 # Google's collected address and the asked one: either may be the applicant's email, as long as
 # the other is the duplicate.
-EITHER_EMAIL = {"five-day-grid": (2, 5), "spring-2026": (2, 5)}
+EITHER_EMAIL = {"five-day-grid": (2, 5), "team-status-column": (2, 5)}
 
 # The two misses the rules were measured with: a clubs question almost nobody answered with two
 # clubs, read as one choice. They must come back marked, not silently wrong.
-KNOWN_TYPE_MISSES = {("spring-2024", 16), ("spring-2026", 22)}
+KNOWN_TYPE_MISSES = {("spring-2024", 16), ("team-status-column", 22)}
 
 
 def _read(name):
@@ -274,11 +271,11 @@ class TestWhatAColumnCarries:
         return CsvProposal.proposal(headers, rows)["columns"][index]
 
     def test_a_rare_option_is_listed_with_its_count_and_off(self):
-        # "No, I am not a UBC student ..." was chosen by fewer than 3.
-        field = self._column("spring-2026", 6)["field"]
+        # The declined-affiliation option was chosen by fewer than 3.
+        field = self._column("team-status-column", 6)["field"]
         rare = [o for o in field["options"] if o["rare"]]
         assert rare and all(not o["keep"] and o["count"] < 3 for o in rare)
-        assert CsvProposal.CHECK_RARE_OPTIONS in self._column("spring-2026", 6)["check"]
+        assert CsvProposal.CHECK_RARE_OPTIONS in self._column("team-status-column", 6)["check"]
 
     def test_a_checkbox_questions_one_off_answers_are_listed_to_be_kept(self):
         """An answer that could not be listed could not be kept, so an applicant who gave only such
@@ -340,7 +337,7 @@ class TestWhatAColumnCarries:
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
     @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
-                                      "five-day-grid", "spring-2026"])
+                                      "five-day-grid", "team-status-column"])
     def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
         headers, rows = _read(name)
         for column in CsvProposal.proposal(headers, rows)["columns"]:
@@ -382,7 +379,7 @@ class TestWhatAColumnCarries:
         assert second == f"{first}_2"
 
     @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025",
-                                      "five-day-grid", "spring-2026"])
+                                      "five-day-grid", "team-status-column"])
     def test_no_column_is_answered_by_more_than_responded(self, name):
         """A status-only row an organizer typed is not a response, so its cells are not answers:
         counting them said "answered by 360 of 359" (bug 40)."""
@@ -396,7 +393,8 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
-    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "spring-2025", "spring-2026"])
+    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "spring-2025",
+                                  "team-status-column"])
     def test_a_tier_grid_answers_the_dates_as_well(self, name):
         """A day's row in the grid is a day the applicant can come: the import reads availability
         from it (``unserved_required``), so the proposal must not list the dates as unanswered

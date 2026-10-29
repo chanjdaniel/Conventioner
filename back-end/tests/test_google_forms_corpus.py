@@ -1,9 +1,10 @@
 """The five Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
 
-``five-day-grid.csv`` is synthetic, made by ``tests/fixtures/synthetic_form_exports.py``, which
-``tests/test_synthetic_form_exports.py`` holds to the byte. The other four are real application
-exports with the people replaced, made by ``tests/fixtures/anonymise_form_export.py``; the real
-files never reach CI. ``tests/test_data/README.md`` says what each one is. This is what stands
+``five-day-grid.csv`` and ``team-status-column.csv`` are synthetic, made by
+``tests/fixtures/synthetic_form_exports.py``, which ``tests/test_synthetic_form_exports.py`` holds
+to the byte. The other three are real application exports with the people replaced, made by
+``tests/fixtures/anonymise_form_export.py``; the real files never reach CI.
+``tests/test_data/README.md`` says what each one is. This is what stands
 between a regenerated or hand-edited copy and a fixture that silently stopped looking like a Google
 Form's export: the row count, the header row exactly as the form wrote it, and how often the
 table-size answers occur.
@@ -29,8 +30,8 @@ SHAPES = {
                      "Half table, Either": 6, "Full table, Half table": 2}),
     "five-day-grid": (237, 30, "8c07a995dbc30840", 25,
                       {"Full table": 89, "Either": 86, "Half table": 62}),
-    "spring-2026": (250, 35, "79a0c0aa08260f25", 30,
-                    {"Full table": 87, "Either": 85, "Half table": 75, "TEST": 1}),
+    "team-status-column": (250, 35, "65b7f619ebd722f4", 30,
+                           {"Full table": 87, "Either": 85, "Half table": 75, "TEST": 1}),
 }
 
 

@@ -23,8 +23,8 @@ ANSWERS = {
                     "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 2},
     "fall-2023": {"dates": ["11-20", "11-21", "11-22", "11-23", "11-24"], "year": 2023,
                   "tiers": [], "ceiling": None},
-    "spring-2026": {"dates": ["03-23", "03-24", "03-25", "03-26", "03-27"], "year": 2026,
-                    "tiers": ["Gold", "Silver"], "ceiling": None},
+    "team-status-column": {"dates": ["04-20", "04-21", "04-22", "04-23", "04-24"], "year": 2026,
+                           "tiers": ["Gold", "Silver"], "ceiling": None},
 }
 
 

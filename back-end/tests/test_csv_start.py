@@ -15,7 +15,7 @@ import essential_fields as EssentialFields
 
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
 YEARS = {"fall-2023": 2023, "spring-2024": 2024, "spring-2025": 2025, "five-day-grid": 2025,
-         "spring-2026": 2026}
+         "team-status-column": 2026}
 
 
 def _confirmed_update(*args):
@@ -67,7 +67,7 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 # 15 to 41 per export were skipped for a blank answer to a question the proposal guessed required
 # from how many answered it, until it stopped guessing (E33/F02/S01).
 IMPORTED = {"fall-2023": 277, "spring-2024": 355, "spring-2025": 235, "five-day-grid": 236,
-            "spring-2026": 245}
+            "team-status-column": 245}
 
 
 @pytest.mark.parametrize("name", YEARS)

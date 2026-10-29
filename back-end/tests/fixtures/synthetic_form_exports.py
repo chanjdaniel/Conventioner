@@ -143,6 +143,11 @@ COMMENT_SENTENCES = (
 NOTE_SENTENCES = (
     "Asked to be placed near the entrance.",
 )
+RING_SIZES = (
+    "Sizes 5 to 9", "Mostly 6, 7 and 8", "Adjustable bands only", "US 4 to 10",
+    "Small, medium and large", "Size 7 only", "Half sizes from 5 to 8", "A few of each, 6 to 9",
+    "Made to order", "Whatever fits on the day",
+)
 
 
 # ── Cell kinds ──────────────────────────────────────────────────────────────────────────────────
@@ -158,21 +163,27 @@ class Person:
 
 class Context:
     """What a cell kind may read while its column is made: the seeded generator, the applicants,
-    and the columns made before it."""
+    the columns made before it, and the rows whose cell in this column the form writes itself
+    (``closed``), which a kind's counts leave out."""
 
     def __init__(self, rng: random.Random, people: List[Person]):
         self.rng = rng
         self.people = people
         self.columns: List[List[str]] = []
+        self.closed: frozenset = frozenset()
 
     @property
     def rows(self) -> int:
         return len(self.people)
 
+    @property
+    def open_rows(self) -> List[int]:
+        return [row for row in range(self.rows) if row not in self.closed]
+
     def place(self, counts: Dict[str, int], rows: Optional[Sequence[int]] = None) -> List[str]:
-        """Each value in exactly as many rows as its count, at random among ``rows``, blank in
-        the rest."""
-        rows = list(range(self.rows)) if rows is None else list(rows)
+        """Each value in exactly as many rows as its count, at random among ``rows`` (the open
+        ones unless given), blank in the rest."""
+        rows = self.open_rows if rows is None else list(rows)
         values = [value for value, count in counts.items() for _ in range(count)]
         if len(values) > len(rows):
             raise ValueError(f"{len(values)} answers for {len(rows)} rows")
@@ -214,7 +225,7 @@ class GridDay(Choice):
     earlier: Tuple[int, ...] = ()
 
     def cells(self, context):
-        absent = [row for row in range(context.rows) if self.earlier
+        absent = [row for row in context.open_rows if self.earlier
                   and all(context.columns[day][row] == "None" for day in self.earlier)]
         tiers = [value for value, count in self.counts.items() if value != "None"
                  for _ in range(count)]
@@ -223,7 +234,7 @@ class GridDay(Choice):
         left = dict(self.counts)
         for value in given.values():
             left[value] -= 1
-        cells = context.place(left, [row for row in range(context.rows) if row not in given])
+        cells = context.place(left, [row for row in context.open_rows if row not in given])
         for row, value in given.items():
             cells[row] = value
         return cells
@@ -246,22 +257,29 @@ class Timestamp(Kind):
 
 @dataclass
 class Email(Kind):
-    """Each applicant's own address."""
+    """Each applicant's own address; but in ``pasted`` rows the answer is a copy of that row's
+    cell in ``from_column``, an address that is not one."""
+    pasted: Tuple[int, ...] = ()
+    from_column: int = 1
 
     def cells(self, context):
-        return [person.email for person in context.people]
+        return [context.columns[self.from_column][row] if row in self.pasted else person.email
+                for row, person in enumerate(context.people)]
 
 
 @dataclass
 class Duplicate(Kind):
     """A second column asking the same thing: a copy of ``of``, but for ``differs`` rows, where
-    the applicant gave another address of theirs."""
+    the applicant gave another address of theirs. A row whose ``of`` is not an address is always
+    one of them."""
     of: int
     differs: int = 0
 
     def cells(self, context):
         cells = list(context.columns[self.of])
-        for row in context.rng.sample(range(context.rows), self.differs):
+        wrong = [row for row in context.open_rows if "@" not in cells[row]]
+        right = [row for row in context.open_rows if row not in wrong]
+        for row in wrong + context.rng.sample(right, self.differs - len(wrong)):
             person = context.people[row]
             cells[row] = f"{person.given}{person.family}{row}@example.org".lower()
         return cells
@@ -291,7 +309,7 @@ class SchoolEmail(Kind):
     count: int
 
     def cells(self, context):
-        rows = set(context.rng.sample(range(context.rows), self.count))
+        rows = set(context.rng.sample(context.open_rows, self.count))
         return [f"{p.given}.{p.family}{row}@students.example.com".lower() if row in rows else ""
                 for row, p in enumerate(context.people)]
 
@@ -319,14 +337,21 @@ class Business(Kind):
 
 @dataclass
 class Link(Kind):
-    """A link at example.com naming the applicant's handle, for ``count`` applicants."""
+    """A link at example.com naming the applicant's handle, for ``count`` applicants; plus the
+    short answers in ``shared`` instead of a link, each given by exactly as many as its count."""
     path: str
     count: int
+    shared: Dict[str, int] = field(default_factory=dict)
 
     def cells(self, context):
-        rows = set(context.rng.sample(range(context.rows), self.count))
-        return [f"https://example.com/{self.path}/{p.handle}" if row in rows else ""
-                for row, p in enumerate(context.people)]
+        rows = set(context.rng.sample(context.open_rows, self.count))
+        cells = [f"https://example.com/{self.path}/{p.handle}" if row in rows else ""
+                 for row, p in enumerate(context.people)]
+        if self.shared:
+            words = context.place(self.shared, [row for row in context.open_rows
+                                                if row not in rows])
+            cells = [cell or word for cell, word in zip(cells, words)]
+        return cells
 
 
 @dataclass
@@ -336,7 +361,7 @@ class Upload(Kind):
     count: int
 
     def cells(self, context):
-        rows = set(context.rng.sample(range(context.rows), self.count))
+        rows = set(context.rng.sample(context.open_rows, self.count))
         alphabet = string.ascii_letters + string.digits + "-_"
         return ["https://drive.google.com/open?id="
                 + "".join(context.rng.choice(alphabet) for _ in range(33)) if row in rows else ""
@@ -374,7 +399,7 @@ class MultiSelect(Kind):
 
     def cells(self, context):
         rng = context.rng
-        rows = list(range(context.rows))
+        rows = context.open_rows
         alone = set(rng.sample(rows, self.only_rare))
         others = [row for row in rows if row not in alone]
         chosen: Dict[int, set] = {row: set() for row in rows}
@@ -402,7 +427,8 @@ class MultiSelect(Kind):
         if alone_left:
             raise ValueError("fewer typed answers than applicants who gave only those")
         order = list(self.options)
-        return [", ".join([o for o in order if o in chosen[row]] + extra[row]) for row in rows]
+        return [", ".join([o for o in order if o in chosen[row]] + extra[row])
+                if row in chosen else "" for row in range(context.rows)]
 
     @staticmethod
     def _typed(rng, count):
@@ -434,9 +460,10 @@ class TableShare(Kind):
             answers[f"{first}, {second}"] = 1
         cells = context.place(answers)
         # Nobody names themself.
-        for row, value in enumerate(cells):
-            if value == emails[row]:
-                other = (row + 1) % context.rows
+        rows = context.open_rows
+        for at, row in enumerate(rows):
+            if cells[row] == emails[row]:
+                other = rows[(at + 1) % len(rows)]
                 cells[row], cells[other] = cells[other], cells[row]
         return cells
 
@@ -455,10 +482,17 @@ class Note(Kind):
 
 @dataclass
 class Form:
+    """A form's export. Two kinds of row are the form's own rather than a column's: the
+    ``stopped`` applicants, who sent the form with every question from column ``stopped_at`` on
+    left blank, and, with ``test_from``, a last row the organizer sent to try the form, "TEST" in
+    every column from that one."""
     file: str
     seed: int
     rows: int
     columns: Sequence[Tuple[str, Kind]]
+    stopped: Tuple[int, ...] = ()
+    stopped_at: int = 0
+    test_from: Optional[int] = None
 
     def people(self, rng: random.Random) -> List[Person]:
         """Distinct applicants: a few share a given name, as people do."""
@@ -476,8 +510,17 @@ class Form:
     def rows_of_cells(self) -> List[List[str]]:
         rng = random.Random(self.seed)
         context = Context(rng, self.people(rng))
-        for _header, kind in self.columns:
-            context.columns.append(kind.cells(context))
+        test_row = self.rows - 1
+        for index, (_header, kind) in enumerate(self.columns):
+            stopped = set(self.stopped) if self.stopped and index >= self.stopped_at else set()
+            tested = {test_row} if self.test_from is not None and index >= self.test_from else set()
+            context.closed = frozenset(stopped | tested)
+            cells = kind.cells(context)
+            for row in stopped:
+                cells[row] = ""
+            for row in tested:
+                cells[row] = "TEST"
+            context.columns.append(cells)
         return [list(row) for row in zip(*context.columns)]
 
     def text(self) -> str:
@@ -634,7 +677,170 @@ FIVE_DAY_GRID = Form(
     ],
 )
 
-FORMS = (FIVE_DAY_GRID,)
+TWO_TIER_GRID = (
+    "Which tables would you take on each day of the fair? Tick both tiers if either works for you.\n"
+    "\n"
+    "NOTE: \n"
+    "- Gold tables face the front entrance of Example Hall; Silver tables are in the North Wing "
+    "and cost a little less.\n"
+    "- Leave a day at None if you cannot be there, and we will not give you a table that day.\n"
+    "- The more days and tiers you tick, the better your chance of a table. [{}]"
+)
+
+TEAM_STATUS_COLUMN = Form(
+    file="team-status-column.csv",
+    seed=27,
+    rows=250,
+    # Two applicants stopped after the first page; the organizer tried the form once at the end.
+    stopped=(72, 129),
+    stopped_at=10,
+    test_from=3,
+    columns=[
+        ("STATUS", Choice({"Accepted": 243, "Rejected": 3, "Waitlisted": 2, "Withdrew": 1,
+                           "Duplicate entry": 1})),
+        ("Timestamp", Timestamp(datetime(2026, 2, 23, 9, 0, 0), datetime(2026, 3, 9, 23, 0, 0))),
+        ("Email Address", Email(pasted=(2,))),
+        ("Full Legal Name", FullName(blank_rows=(0,))),
+        ("Preferred Name", PreferredName()),
+        ("Email Address", Duplicate(of=2, differs=51)),
+        ("Are you an Example College student, alum or staff member? \n"
+         "\n"
+         "NOTE: Only Example College students, alumni and staff may sell at Example Makers Fair.\n"
+         "\n"
+         "If you are not, you are welcome to visit the fair as a shopper.",
+         Choice({"Yes, I am a current Example College student": 178,
+                 "Yes, I am Example College alumni or staff": 69,
+                 "No, I am not part of Example College, and I understand my application will not "
+                 "be considered.": 2})),
+        ("Please give your Example College email address. Alumni and staff may give the address "
+         "the college gave them, even if they no longer use it often.",
+         SchoolEmail(count=200)),
+        ("If you have no Example College email, please upload something that shows you study or "
+         "work at Example College, such as a class timetable or a staff card.",
+         Upload(count=57)),
+        ("Discord username\n"
+         "\n"
+         "The fair's team talks to vendors on Discord: your table, your set-up time and any change "
+         "on the day all come through it. Please give the username we can find you by, and join "
+         "the server when we invite you.\n"
+         "\n"
+         "(your username, not your display name)",
+         Handle()),
+        ("Business Name", Business()),
+        ("Link to your business (a shop, a website or a page)", Link("shop", count=223)),
+        ("Have you sold your work at a market or fair before?",
+         Prose(TABLING_SENTENCES, count=209, most=3, shared={"Yes": 3})),
+        ("What will you be selling at the fair?",
+         MultiSelect({"Stickers": 141, "Keychains": 134, "Art prints": 121, "Jewellery": 70,
+                      "Fibre arts (crochet, knitting, etc)": 44, "Clothing": 27, "Pottery": 18},
+                     rare=(1,) * 121 + (2,) * 7 + (3,) * 4 + (4,), only_rare=17)),
+        ("If you plan to sell rings, which sizes will you bring? \n"
+         "\n"
+         "A range is fine; leave this blank if you are not selling rings.",
+         Prose(RING_SIZES, count=20, most=1, shared={"N/A": 5, "NA": 3, "No rings": 2})),
+        ("Please upload one short video of you making a piece of your work, so the review team can "
+         "see it is made by hand (a phone video is fine).",
+         Upload(count=113)),
+        ("Please upload any sketches or work-in-progress photos of the pieces you will bring.",
+         Upload(count=139)),
+        ("Please share a link to your portfolio or to photos of what you will bring to Example "
+         "Makers Fair.\n"
+         "\n"
+         "A website, a social page or a shared folder all work, as long as it shows recent "
+         "pieces.\n"
+         "\n"
+         "If it is private, please let anyone with the link view it until applications close.\n"
+         "\n"
+         "We look at every portfolio, and the more of your current work it shows, the easier "
+         "it is for us to say yes. \n"
+         "\n"
+         "Please do not send a link that asks us to sign in.",
+         Link("portfolio", count=247)),
+        ("I confirm that everything I sell at the fair is designed and made by me.\n"
+         "\n"
+         "Resold, dropshipped and traced work is not allowed, and the team may ask a vendor "
+         "selling it to pack up and leave.\n"
+         "\n"
+         "Fan art is welcome, as long as the drawing is your own.",
+         Constant("I confirm")),
+        ("Example Makers Fair's mission is to give student and alumni makers a first place to "
+         "sell their work. \n"
+         "\n"
+         "Tables go first to makers who have not sold at many markets before. \n"
+         "\n"
+         "I have read the fair's mission and agree to support it.\n",
+         Constant("I agree")),
+        ("I confirm that everything in this application is true and that it is my own.\n"
+         "\n"
+         "An application made for someone else, or copied from another, will not be considered.",
+         Constant("I confirm")),
+        ("I confirm that my work follows the fair's content rules.\n"
+         "\n"
+         "Families walk through the fair, so:\n"
+         "\n"
+         "- No work showing graphic violence or sexual content. \n"
+         "- No work aimed at a person or a group of people.\n"
+         "- Keep work for an older audience in a closed binder, and ask for ID first.\n"
+         "- If you are unsure about a piece, ask the team on Discord before the fair.",
+         Constant("I confirm")),
+        ("Which clubs are you part of?",
+         Choice({"I am not a member of any of these clubs": 183,
+                 "Example College Printmaking Society": 27,
+                 "Example College Anime Society": 21,
+                 "Example College Ceramics Society": 12,
+                 "Example College Printmaking Society, Example College Anime Society": 2,
+                 "Example College Ceramics Society, I am not a member of any of these clubs": 1,
+                 "Example College Anime Society, I am not a member of any of these clubs": 1})),
+        ("If you are in one of these clubs, please upload proof of membership.\n",
+         Upload(count=53)),
+        # Columns 24 to 28: the five days, the last keeping everyone available on one of them.
+        *((TWO_TIER_GRID.format(day),
+           GridDay(counts, earlier=() if day[0] != "F" else (24, 25, 26, 27)))
+          for day, counts in (
+            ("Monday, April 20", {"None": 89, "Gold, Silver": 88, "Gold": 51, "Silver": 18,
+                                  "Silver, None": 1}),
+            ("Tuesday, April 21", {"None": 102, "Gold, Silver": 87, "Gold": 42, "Silver": 16}),
+            ("Wednesday, April 22", {"Gold, Silver": 94, "None": 68, "Gold": 65, "Silver": 19,
+                                     "Silver, None": 1}),
+            ("Thursday, April 23", {"Gold, Silver": 94, "None": 91, "Gold": 46, "Silver": 16}),
+            ("Friday, April 24", {"Gold, Silver": 103, "Gold": 64, "None": 62, "Silver": 16,
+                                  "Gold, Silver, None": 1, "Silver, None": 1}),
+        )),
+        ("Maximum number of days you want a table",
+         Choice({"2 days": 86, "3 days": 60, "5 days": 46, "1 day": 33, "4 days": 22})),
+        ("Do you want a half table or full table?\n"
+         "\n"
+         "- A half table is half the width and half the fee of a full table.\n"
+         "- Half tables are shared with another vendor.\n"
+         "- Choose Either if you are happy with whichever we have room for.\n"
+         "- We cannot change your table size after results are out. ",
+         Choice({"Full table": 87, "Either": 85, "Half table": 75})),
+        ("If you chose half table or either, who would you like to share with?\n"
+         "\n"
+         "Give their email address as they wrote it on their own application.\n"
+         "\n"
+         "NOTE:\n"
+         "- Each of you must apply on your own.\n"
+         "- Your partner must also choose a half table or either.\n"
+         "- Leave this blank and we will pair you with another vendor where we can.\n"
+         "- We try to keep every pair together but cannot promise it.",
+         TableShare(applicants=43, outsiders=2, pairs=0,
+                    words={"No": 2, "N/A": 1, "Not sure yet": 1, "my friend from class": 1,
+                           "anyone is fine": 1, "Still deciding": 1, "none": 1,
+                           "Whoever needs a partner": 1, "I will ask around": 1, "Not yet": 1,
+                           "Someone from my club": 1})),
+        ("I understand that if I do not come on a day I was given a table, without telling the "
+         "team beforehand, I may not be offered a table at the next Example Makers Fair.",
+         Constant("I understand")),
+        ("Anything else you would like the team to know before the fair? (optional)",
+         Prose(COMMENT_SENTENCES, count=74, shared={"Thank you!": 2, "Can't wait!": 2})),
+        # Added to the form after it opened, so the first applicants never saw it.
+        ("Please share a link to a video of your process, if you did not upload one. ",
+         Link("video", count=214, shared={"N/A": 6, "See below": 4, "Below": 3})),
+    ],
+)
+
+FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN)
 
 
 def main() -> None:

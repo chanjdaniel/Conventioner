@@ -52,7 +52,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 
 | File | What it is | Used in |
 | --- | --- | --- |
-| `back-end/tests/test_data/google_forms/five-day-grid.csv`, `fall-2023.csv`, `spring-2024.csv`, `spring-2025.csv`, `spring-2026.csv` | Five Google Form exports: `five-day-grid.csv` synthetic (237 rows, 30 columns, per-day tier grid, checkbox certifications), the other four anonymised; the [corpus README](../../../back-end/tests/test_data/README.md) describes each | G, H2 |
+| `back-end/tests/test_data/google_forms/five-day-grid.csv`, `team-status-column.csv`, `fall-2023.csv`, `spring-2024.csv`, `spring-2025.csv` | Five Google Form exports: `five-day-grid.csv` synthetic (237 rows, 30 columns, per-day tier grid, checkbox certifications), `team-status-column.csv` synthetic (250 rows, 35 columns, a team status column, four upload questions, a `TEST` row), the other three anonymised; the [corpus README](../../../back-end/tests/test_data/README.md) describes each | G, H2 |
 | `front-end/e2e/fixtures/test-floorplan.png` | 800x600 floor plan image | E6 |
 
 ## Coverage map
