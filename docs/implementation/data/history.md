@@ -4,6 +4,7 @@ kind: data
 describes:
   - back-end/history.py
   - back-end/api/markets.py#get_placement_history
+  - back-end/api/markets.py#get_permission_history
   - back-end/migrations/migrate_placement_history.py
   - back-end/tests/test_every_write_records.py
 verified: 2026-10-30
