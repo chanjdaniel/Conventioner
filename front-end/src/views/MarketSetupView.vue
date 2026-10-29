@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
@@ -177,11 +178,13 @@ watch(
 );
 
 /**
- * Why this person cannot import here, or null. Importing is an admin action, so who is asking
- * comes first (bug 37); then whether the phase takes applications at all.
+ * Why this person cannot import here, or null. Who is asking comes first, the table's import row
+ * (bug 37, E39/F01/S02); then whether the phase takes applications at all.
  */
 const importRefusalReason = computed(
-  () => market.value?.adminActionsReason || importRefusal(market.value?.phase),
+  () =>
+    actionRefusal(market.value, MarketAction.ImportApplications) ||
+    importRefusal(market.value?.phase),
 );
 
 /**
@@ -197,10 +200,19 @@ const importRefusalReason = computed(
 // are published. The phase mirror stands in only until the market has been read.
 const assignRefusalReason = computed(
   () =>
-    market.value?.readOnlyReason ||
+    actionRefusal(market.value, MarketAction.Assign) ||
     (market.value?.assignRefusalReason !== undefined
       ? market.value.assignRefusalReason
       : assignRefusal(market.value?.phase)),
+);
+
+/**
+ * Whether this person may change the assignment rules. They ride in the plan, so their write asks
+ * both the Market Setup row and the Assignment row (E39/F01/S01).
+ */
+const rulesWritable = computed(
+  () =>
+    mayTake(market.value, MarketAction.ChangeSetup) && mayTake(market.value, MarketAction.Assign),
 );
 
 /**
@@ -254,7 +266,7 @@ const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 async function savePlan() {
   // A plan that cannot change is never sent (bug 30): its controls are disabled, and this is the
   // one door every edit reaches the server through, so nothing slips past them.
-  if (!market.value?.id || market.value.readOnlyReason) return;
+  if (!market.value?.id || !mayTake(market.value, MarketAction.ChangeSetup)) return;
   planSaveStatus.value = 'saving';
   planSaveError.value = '';
   try {
@@ -403,8 +415,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupObject="setupObject"
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
-          :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
-          :readOnly="Boolean(market.readOnlyReason)"
+          :csvStartRefusal="
+            actionRefusal(market, MarketAction.ImportApplications) ||
+            market?.csvStartRefusal ||
+            null
+          "
+          :readOnly="!mayTake(market, MarketAction.ChangeSetup)"
           :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
@@ -436,7 +452,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignError="assignError"
           :assignIncomplete="assignIncomplete"
           :marketId="market.id"
-          :readOnly="Boolean(market.readOnlyReason)"
+          :readOnly="!rulesWritable"
           :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"

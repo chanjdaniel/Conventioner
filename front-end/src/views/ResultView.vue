@@ -7,6 +7,7 @@
  * summary strip on top (`ResultSummary`), then the tables with their seat editing, then the
  * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -282,10 +283,11 @@ function openHalf(row: MarketTableRow, email: string | null, side: Seat): void {
 }
 
 /**
- * Nothing on this page may change the market (bug 30): it is archived, and so a record. The
- * server refuses every placement write on it; the seats say so by offering none.
+ * Whether this person may place, swap or free a seat here: the table's Assignment row (bug 37,
+ * E39/F01/S02), refused on an archived market, which is a record (bug 30). The server refuses
+ * every placement write it would; the seats say so by offering none.
  */
-const readOnly = computed(() => Boolean(market.value?.readOnlyReason));
+const readOnly = computed(() => !mayTake(market.value, MarketAction.Assign));
 
 /** Which seat at this table a vendor holds: the whole of it, or one side. */
 function seatHeldBy(row: MarketTableRow, email: string): Seat {

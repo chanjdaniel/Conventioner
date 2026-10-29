@@ -8,9 +8,10 @@ import AppDialog from '@/components/AppDialog.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
-  canChangeRole,
   getRolesForChange,
+  GIVEN_ROLES,
 } from '@/utils/permissions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -34,8 +35,6 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
-
-const addableRoles = [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -85,30 +84,22 @@ function getUserList(): Array<{ userId: string; email: string; role: MarketRole 
 
 /** What this caller could change the given role TO. Empty means it is not theirs to change. */
 function changeableRoles(role: MarketRole): MarketRole[] {
-  const userRole = marketData.value?.userRole;
-  if (!userRole || !canChangeRole(userRole, role)) return [];
-  return getRolesForChange(role, userRole);
+  return getRolesForChange(marketData.value, role);
 }
 
 /**
  * The roles this person may grant, in the order they are offered. Empty for a Viewer or an Editor,
  * who were shown "Add user" and refused with a 403 (bug 37).
  */
-const grantableRoles = computed(() => {
-  const userRole = marketData.value?.userRole;
-  if (!userRole) return [];
-  return addableRoles.filter((role) => canManageRoles(userRole, role));
-});
+const grantableRoles = computed(() =>
+  GIVEN_ROLES.filter((role) => canManageRoles(marketData.value, role)),
+);
 
-/** Deleting a market is its owner's alone, as the server rules. */
-const canDelete = computed(() => marketData.value?.userRole === MarketRole.Owner);
+/** Deleting a market is the table's "Delete the market" row, its owner's alone. */
+const canDelete = computed(() => mayTake(marketData.value, MarketAction.DeleteMarket));
 
-function canRemoveUser(targetRole: MarketRole): boolean {
-  if (targetRole === MarketRole.Owner) return false;
-  const userRole = marketData.value?.userRole;
-  if (!userRole) return false;
-  return canManageRoles(userRole, targetRole);
-}
+/** Why this person may not rename the market, the Market Setup row's answer, or null. */
+const renameRefusal = computed(() => actionRefusal(marketData.value, MarketAction.ChangeSetup));
 
 async function handleAddUser() {
   if (!marketData.value || !newUserEmail.value.trim()) return;
@@ -270,7 +261,7 @@ function closeAddUser() {
                 </option>
               </select>
               <button
-                v-if="canRemoveUser(role)"
+                v-if="canManageRoles(marketData, role)"
                 type="button"
                 class="btn btn--destructive"
                 title="Remove user"
@@ -364,13 +355,9 @@ function closeAddUser() {
 
       <section class="section">
         <h3>Rename market</h3>
-        <!-- Whoever cannot change the market cannot rename it either (bug 37). -->
-        <p
-          v-if="marketData.readOnlyReason"
-          class="form-hint"
-          data-testid="manage-market-rename-refused"
-        >
-          {{ marketData.readOnlyReason }}
+        <!-- Renaming is the Market Setup row's: whoever may not change the setup is told why (bug 37). -->
+        <p v-if="renameRefusal" class="form-hint" data-testid="manage-market-rename-refused">
+          {{ renameRefusal }}
         </p>
         <p v-else-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
           This market's public web address comes from its name, and it has already been shared, so

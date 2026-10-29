@@ -12,6 +12,8 @@ import { mount, RouterLinkStub } from '@vue/test-utils';
 
 import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market, type PreconditionResult } from '@/assets/types/datatypes';
+import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
 
 const here = vi.hoisted(() => ({ path: '/markets/market-1/form' }));
 
@@ -49,6 +51,7 @@ function railFor(
         name: 'Riverside',
         phase: MarketPhase.Draft,
         transitionBlockers: { [MarketPhase.ApplicationsOpen]: blockers },
+        actionRefusals: answersRefusing(),
         ...overrides,
       } as Market,
     },
@@ -139,7 +142,9 @@ describe('no fix is offered', () => {
   });
 
   it('to someone the move is not theirs to make, whose sentence still names where it is fixed', () => {
-    const rail = railFor([NO_LOCATION], { adminActionsReason: 'Only an admin moves the market.' });
+    const rail = railFor([NO_LOCATION], {
+      actionRefusals: answersRefusing(MarketAction.MovePhase),
+    });
 
     expect(rail.find(fix).exists()).toBe(false);
     expect(rail.get('[data-testid="phase-rail-next-link"]').text()).toBe('Add a location');

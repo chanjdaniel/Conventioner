@@ -18,6 +18,7 @@ import PlacementHistoryDialog from '@/components/PlacementHistoryDialog.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { marketPath } from '@/utils/market';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
@@ -103,6 +104,8 @@ const unassignedCount = computed(() =>
  */
 const historyOpen = ref(false);
 
+/** Download CSV is the table's Export CSV row (E39/F01/S02). */
+const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
 const downloadError = ref('');
 const isDownloading = ref(false);
 
@@ -190,6 +193,7 @@ async function downloadCsv(): Promise<void> {
           Assignment history
         </button>
         <button
+          v-if="mayExport"
           type="button"
           class="btn btn--secondary"
           :disabled="isDownloading"

@@ -13,6 +13,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import { marketRoute, serveMarket } from './support/marketScreen';
+import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
@@ -150,7 +151,13 @@ describe('the plan saves itself', () => {
     api.get.mockImplementation(() =>
       Promise.resolve({
         data: {
-          market: { id: 'market-1', name: 'Riverside', phase: 'draft', setupObject: stored },
+          market: {
+            id: 'market-1',
+            name: 'Riverside',
+            phase: 'draft',
+            setupObject: stored,
+            actionRefusals: answersRefusing(),
+          },
         },
       }),
     );

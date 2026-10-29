@@ -8,6 +8,7 @@
  * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
  * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -136,6 +137,8 @@ function holderOf(app: Application): string | null {
 
 /** The applications shown, as a CSV: the dialog opens on the filter and Mine, taken as it opens. */
 const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
 const exportSeed = ref<ExportFilters>(NO_FILTERS);
 function openExport(): void {
   exportSeed.value = applicationsAllSeed({ filter: filter.value, mine: mine.value });
@@ -157,7 +160,9 @@ const opened = computed(() =>
 );
 
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
-const decides = computed(() => !props.market?.verdictLockReason);
+const decides = computed(
+  () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
 
 const saving = ref(false);
 const verdictMessage = ref('');
@@ -298,6 +303,7 @@ async function decideSelection() {
         {{ shown.length }} of {{ applications.length }}
       </span>
       <button
+        v-if="mayExport"
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="applications-all-export-button"

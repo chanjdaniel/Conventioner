@@ -25,7 +25,7 @@ sources:
 
 # Vendors
 
-**Who:** anyone who can read the market; placing and adding are an Editor's, and exporting is anyone's who holds a role ([what each role may do](../rules/what-each-role-may-do.md)).
+**Who:** anyone who can read the market; placing and adding are an Editor's, and exporting is the Export CSV row's, a Viewer's by default, so the button shows only to someone it lets ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Vendors page, the Assignment tab's third page, or the Result page's "N unassigned".
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 

@@ -568,8 +568,8 @@ def publish_results_refusal(market: Market) -> Optional[str]:
 
     Results wait for the allocation: in assignment, once a run is stored and current, so every
     applicant is told what the market will hold, and nobody's answer shifts under them through a
-    later run. Served as part of ``publishResultsReason``, so the button is offered exactly when
-    the endpoint would take it.
+    later run. Served as ``publishWaitsReason``, beside the table's Publish results answer, so the
+    button is offered exactly when the endpoint would take it.
     """
     if market.intake_mode is not IntakeMode.FORM:
         return NO_APPLICANTS_TO_TELL

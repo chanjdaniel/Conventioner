@@ -23,6 +23,7 @@
  * that the spine wraps rather than compressing, because labels painting over each other is worse
  * than a rail two lines tall.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { hasAssignment } from '@/utils/marketPage';
@@ -244,12 +245,12 @@ function elsewhere(relative: string | null | undefined): string | null {
 const stepLink = computed(() => elsewhere(step.value?.page));
 
 /**
- * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
- * Editor or a Viewer was offered every move, and each failed with a 403 in small red text under
- * the rail. The rail still says where the market stands.
+ * The moves this person may make. None when the table's "Move the phase" is not theirs (bug 37,
+ * E39/F01/S02): an Editor or a Viewer was offered every move, and each failed with a 403 in small
+ * red text under the rail. The rail still says where the market stands.
  */
 const availableTransitions = computed(() =>
-  props.market && !props.market.adminActionsReason
+  props.market && mayTake(props.market, MarketAction.MovePhase)
     ? movesOf(props.market).filter(
         // The moves the server judged for the market's own path, which may step through a phase it
         // never stops in (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a

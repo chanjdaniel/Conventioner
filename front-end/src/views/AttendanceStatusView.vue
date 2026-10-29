@@ -9,6 +9,7 @@
  *
  * Laptop first, and it must work on a phone: the door is sometimes a person standing up.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -80,9 +81,11 @@ const names = computed<VendorNames>(() => {
   return out;
 });
 
-/** An editor may check vendors in while the market is running; the server is the authority. */
+/** Whoever the table lets check vendors in may, while the market is running; the server is the
+ *  authority. */
 const canCheckIn = computed(
-  () => market.value?.phase === MarketPhase.MarketDays && !market.value?.readOnlyReason,
+  () =>
+    market.value?.phase === MarketPhase.MarketDays && mayTake(market.value, MarketAction.CheckIn),
 );
 
 function tally(date: string) {
@@ -169,8 +172,8 @@ async function write(row: RosterRow, method: 'post' | 'delete') {
 
 /** What each vendor asked for and what the organizers noted, for the door (E31/F04/S04). */
 const { load: loadNotes, entryFor } = useVendorNotes(marketId);
-/** An editor writes notes; anyone with a role reads them. */
-const canWriteNotes = computed(() => !!market.value && !market.value.readOnlyReason);
+/** Whoever the table lets write notes writes them; anyone with a role reads them. */
+const canWriteNotes = computed(() => mayTake(market.value, MarketAction.WriteVendorNotes));
 
 /**
  * A vendor's name opens their drawer (E35/F01/S02): who they are, what they asked for, where else
