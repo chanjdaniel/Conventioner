@@ -209,6 +209,10 @@ class TestTheReasonsAnOldBundleReads:
             "Only an Admin or the owner may import applications or start this market from a CSV.")
         assert served["addVendorReason"] is None
 
+    @pytest.mark.parametrize("role", ROLES[1:], ids=str)
+    def test_the_role_its_manage_market_and_card_read_is_served_too(self, read, role):
+        assert read(role)["user_role"] == role.value
+
     def test_each_carries_its_rule_for_someone_the_row_lets(self, read, monkeypatch):
         monkeypatch.setattr(ApplicantsApi, "publish_results_refusal", lambda _m: "Run it first.")
 
