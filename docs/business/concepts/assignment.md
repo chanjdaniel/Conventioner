@@ -6,7 +6,7 @@ verified: 2026-10-22
 
 # Assignment
 
-**Assignment** is defined in [the glossary](../../../CONTEXT.md#placing), under Placing, beside Assignment rules, Priority and Max assignments per vendor; this node gathers what the graph says about it.
+**Assignment** is defined in [the glossary](../../../CONTEXT.md#assigning), under Assigning, beside Assignment rules, Priority and Max assignments per vendor; this node gathers what the graph says about it.
 
 ## Rules
 

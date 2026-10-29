@@ -46,13 +46,13 @@ Each control asks the row of the action it takes:
 | --- | --- | --- |
 | The phase rail | every move | Move the phase |
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
-| Market Setup, the Assignment page | the rules | Run the assignment and Change Market Setup, since the rules ride in the plan |
-| Market Setup, the Assignment page | Assign | Run the assignment |
+| Market Setup, the Assignment page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
+| Market Setup, the Assignment page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null |
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
-| Result, and the drawer's link to it | Change on a seat | Run the assignment |
+| Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
 | Attendance | Check in, Undo | Check vendors in, in market days |

@@ -183,7 +183,7 @@ function whereTheySit(target: SwapTarget): string {
     :title="tableCode"
     testid="placement-dialog"
     wide
-    :confirm-label="mode === 'place' ? 'Place them here' : 'Swap seats'"
+    :confirm-label="mode === 'place' ? 'Assign them here' : 'Swap seats'"
     :confirm-disabled="mode === 'place' ? !canPlace : !canSwap"
     :error="errorMessage"
     @close="emit('close')"
@@ -320,7 +320,7 @@ function whereTheySit(target: SwapTarget): string {
       </div>
 
       <p class="placement-note">
-        Freeing this seat leaves them with no table on this date until they are placed again.
+        Freeing this seat leaves them with no table on this date until they are assigned again.
       </p>
     </template>
 
@@ -347,7 +347,7 @@ function whereTheySit(target: SwapTarget): string {
         :disabled="!canPlace"
         data-testid="placement-dialog-confirm"
       >
-        Place them here
+        Assign them here
       </button>
       <button
         v-else

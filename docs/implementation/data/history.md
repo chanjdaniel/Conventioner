@@ -114,7 +114,7 @@ The answer carries the vendors' names against their addresses, so the trail read
 `GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, read at VIEWER like the placements.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
-The organizer reads the placements as [the placement history](../../business/flows/placing-by-hand.md#j13-placement-history).
+The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
 
 ## The move from `placement_history`
 

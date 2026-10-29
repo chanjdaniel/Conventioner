@@ -4,7 +4,7 @@ kind: module
 describes:
   - back-end/phase_record.py
   - back-end/datatypes.py#PhaseEntry
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03
@@ -40,7 +40,7 @@ A market enters a handful of phases in its life, the rail reads them on every ma
 
 **A market older than the record is read from what it can prove.**
 A record whose first entry is not a dated `draft` began partway through the market's life: `push_entries` starts such a record with the phase the market was already in, undated, so it never passes for a whole one.
-For such a market `phases_reached` adds what the market holds that proves more (a check-in proves it ran, a stored assignment that it was assigned, a published form that it opened applications) and answers `complete: false`.
+For such a market `phases_reached` adds what the market holds that proves more (a check-in proves it ran, a stored table allocation that its tables were allocated, a published form that it opened applications) and answers `complete: false`.
 Only a complete record may say a market never reached a phase; [the phase rail](phase-rail.md) strikes nothing through without one.
 
 **`checked_in` is a parameter**, so this module reads documents and nothing else: the check-in surface needs its answer, and could not import a module that imported it.

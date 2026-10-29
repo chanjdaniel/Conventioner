@@ -22,6 +22,7 @@ sources:
   - E21/F04/S01
   - E21/F04/S02
   - T15
+  - E45/F01/S01
 ---
 
 # The market frame
@@ -33,7 +34,7 @@ A screen hands it the market from [the market store](market-store.md) and render
 
 ## What it draws
 
-- **The bar**, [`MarketBar`](../../../front-end/src/components/MarketBar.vue): the market's name and its tabs, Market Setup, Application Form, Applications, Assignment and Attendance.
+- **The bar**, [`MarketBar`](../../../front-end/src/components/MarketBar.vue): the market's name and its six tabs, Market Setup, Application Form, Applications, Assignment, Attendance and Stats.
   It is rendered once, by the frame; a screen draws no title or Back button of its own.
   The underline is the tab being looked at, and the dot the tab the market is worked on in its phase; a tab opens the page carrying the dot when it holds it, else its first page.
   A CSV market's form tab is called "Questions".
@@ -48,7 +49,8 @@ A screen hands it the market from [the market store](market-store.md) and render
 These are the frame's words: the market bar, a tab, the phase rail and a phase; "Market Setup" names a tab, never the page, and the plan is what it edits, each card of it a plan card.
 A tab is a place to look and never a state: the market's state is its phase, on the rail alone.
 
-**Every tab stays on the bar for the market's whole life**, Attendance included: `tabsFor()` returns all five in every phase, and a tab out of its phase says when it matters rather than disappearing.
+**Every tab stays on the bar for the market's whole life**, Attendance included: `tabsFor()` returns all six in every phase, and a tab out of its phase says when it matters rather than disappearing.
+Stats, last, has no phase of its own and no note: it reads the market from its first application to its archive, and says "Nobody has applied yet." until someone has.
 
 [`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, floorplan and start-from-CSV under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
 `hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Result page.
@@ -77,13 +79,16 @@ A screen in the frame sets no width of its own, or moving between a market's scr
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not; the tabs never give way to it.
 
 **On a phone the tabs scroll inside the bar.**
-At 640px and below the name takes its own line and the tabs scroll sideways rather than widening the page; only Attendance reaches that width (see [attendance and the door](attendance-and-door.md)).
+At 640px and below the name takes its own line and the tabs scroll sideways rather than widening the page, since six tabs are wider than a phone; only Attendance reaches that width (see [attendance and the door](attendance-and-door.md)).
+[`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the six tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
 
 ## Why
 
 The bar and the whole rail pin as one block, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
 
 Four tabs, with the Assignment tab's pages in a row under the rail, won over two other navigations prototyped on every market screen: a flat bar of six tabs put Vendors and Attendance on it with nothing to show before an assignment, and only just fit beside a long name at 1280; the market's screens listed down the frame's left side cost 200px of every market screen and looked like nothing else in the product.
+The bar holds six tabs again since Attendance stayed on it for the market's whole life (E31/F03/S02) and Stats joined it (E45/F01/S01), while Vendors stays a page of the Assignment tab; Stats is a tab rather than a page under Applications because the figures planned for it, seats and money among them, would sit oddly under the applications (Daniel's choice in T92's planning).
+Six tabs still fit beside a long name at 1280 because the name, never the tabs, gives way.
 The page row is what makes the tab's name, repeated as its first page's, read as "the tab, and its first page"; Result and Vendors beside each other are the assignment by table and by vendor.
 
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).

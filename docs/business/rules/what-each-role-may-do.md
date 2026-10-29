@@ -49,8 +49,8 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 
 | Role | May |
 | --- | --- |
-| Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance and the placement history |
-| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, running the assignment and placing, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
+| Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance and the assignment history |
+| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
 | Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
@@ -76,7 +76,7 @@ See [the organization document](../../implementation/data/organization-document.
 ## Where it is kept
 
 - **Every check on a market asks a row of the table** in [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py), and a refusal is the row's sentence naming who may ("Only an Admin or the owner may move this market's phase."); no check names a role of its own, and [the market's actions](../../implementation/modules/market-actions.md) lists each route's row.
-  A rule of the market's life (archived, the verdicts settling, adding from the assignment on) is still asked where it was, and refuses whoever may.
+  A rule of the market's life (archived, the verdicts settling, adding from Assignment on) is still asked where it was, and refuses whoever may.
 - The market read serves every row's answer for the person asking, `actionRefusals`, asked of the same rows the writes ask, of the role resolved once (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else the archived rule's words where it refuses that row, else the row's sentence.
   `readOnlyReason` (`read_only_reason`) is set when the market is archived, or none of the table's changing rows is the person's.
 - **A screen offers a control only on the answer of the action it takes, through `mayTake` and `actionRefusal`** ([`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)); no screen reads the person's role, and Manage market's role helpers ([`front-end/src/utils/permissions.ts`](../../../front-end/src/utils/permissions.ts)) ask the row that gives each role.

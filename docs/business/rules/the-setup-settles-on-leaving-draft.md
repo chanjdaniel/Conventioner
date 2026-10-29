@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
@@ -31,7 +31,7 @@ So leaving draft requires a complete setup: dates none of which has passed, a lo
 
 ## Why
 
-Once the market is out of draft, applicants choose its dates, tiers and sections, and the assignment places vendors in them; a date or a section that moved under them would leave an answer naming something that no longer exists.
+Once the market is out of draft, applicants choose its dates, tiers and sections, and the table allocation assigns vendors in them; a date or a section that moved under them would leave an answer naming something that no longer exists.
 A setup that leaves incomplete could therefore never be completed, so the move out of draft asks for each part of it, each pointing at Market Setup.
 
 **One point, not stages.**
