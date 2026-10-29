@@ -85,11 +85,13 @@ DOMAIN = re.compile(r"\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b", re.IGNORECASE
 ANY_HANDLE = re.compile(r"(^|\W)@\s*\w")
 # A local phone number, 7 digits with or without one separator, or any longer run of digits.
 SHORT_PHONE = re.compile(r"\b\d{3}[\s.-]?\d{4}\b|\b\d{7,}\b")
-# What a phone number's digits and separators also spell, and a question offers: times ("9.30"),
-# years and dotted dates; and a range of numbers ("500-1000", "100 - 1499") whose ends are each
-# round or one short of it, the lower first, around a dash or a space.
-TIME_YEAR_OR_DATE = re.compile(r"\d{1,2}[.:]\d{2}|(?:19|20)\d{2}|\d{1,2}\.\d{1,2}\.\d{2,4}")
-NUMBER_RANGE = re.compile(r"(\d{3,5})(?:\s*[-\u2013]\s*|\s+)(\d{3,5})")
+# What a phone number's digits and separators also spell, and a question offers: clock times
+# ("9.30", "17:00"), years and dotted dates of a day, a month and a year; and a range of numbers
+# ("500-1000", "501 - 1000") around a dash.
+TIME_YEAR_OR_DATE = re.compile(
+    r"(?:[01]?\d|2[0-3])[.:][0-5]\d|(?:19|20)\d{2}"
+    r"|(?:0?[1-9]|[12]\d|3[01])\.(?:0?[1-9]|1[0-2])\.(?:19|20)?\d{2}")
+NUMBER_RANGE = re.compile(r"(\d{3,5})\s*[-\u2013]\s*(\d{3,5})")
 # A street address: a number (an ordinal too), a name of one to three words ("W 4th"), a street
 # word; a unit, suite or apartment number; or a post office box. The name is what keeps "3 way
 # split" from being one, and a name holds none of the small words of prose ("2 days either way",
@@ -154,9 +156,9 @@ def _names_someone(value: str) -> bool:
     spelled out; a link, with or without its scheme; a handle, wherever its @ sits; a phone number
     of 7 digits or more; a street address, unit or post office box.
 
-    It catches every phone number ``_identifying`` does but a run of digits that is only times,
-    years and dates ("9.30 - 4.30", "2023 - 2024") or a range of numbers ("500-1000"), which a
-    question offers. What no pattern sees, such as a bare name, a shop's name, a handle with no @
+    It catches every phone number ``_identifying`` does but a run of digits that is only clock
+    times, years and dates ("9.30 - 4.30", "2023 - 2024") or a range of numbers around a dash, each
+    end within one of round ("500-1000"), which a question offers. What no pattern sees, such as a bare name, a shop's name, a handle with no @
     or a postal code, only SHARED_BY guards.
     """
     if any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, ANY_HANDLE,
@@ -167,17 +169,19 @@ def _names_someone(value: str) -> bool:
 
 
 def _not_a_phone(digits: str) -> bool:
-    """Whether a run of digits and separators is times, years and dates, or a range of numbers:
-    each end round or one short of it ("100-1499", "999-1000"), the lower first. A round local
-    number ("200-3000") reads as a range too, and is left to SHARED_BY."""
+    """Whether a run of digits and separators is clock times, years and dates, or a range of
+    numbers: two of 3 to 5 digits, 9 at most together, around a dash, the lower first, each end
+    within one of round ("100-1499", "501-1000", "999-1000"). Two groups split by a space alone are
+    a phone number ("98760 98769"); a round local number with a dash ("200-3000") reads as a range,
+    and is left to SHARED_BY."""
     parts = [part for part in re.split(r"[\s()\-\u2013]+", digits) if part]
     if parts and all(TIME_YEAR_OR_DATE.fullmatch(part) for part in parts):
         return True
     found = NUMBER_RANGE.fullmatch(digits)
-    if not found:
+    if not found or len(found.group(1)) + len(found.group(2)) > 9:
         return False
     low, high = int(found.group(1)), int(found.group(2))
-    return low < high and low % 10 in (0, 9) and high % 10 in (0, 9)
+    return low < high and low % 10 in (9, 0, 1) and high % 10 in (9, 0, 1)
 
 
 def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:
