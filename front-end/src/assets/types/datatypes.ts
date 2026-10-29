@@ -298,7 +298,6 @@ export interface Market {
   phasesPassedThrough?: string[];
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
-  userRole?: MarketRole; // User's effective role (added by API)
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';

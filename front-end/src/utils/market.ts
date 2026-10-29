@@ -74,7 +74,6 @@ export async function fetchMarkets(): Promise<Market[]> {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseMarketFromApi(market: any): Market {
-  const userRoleRaw = market.userRole ?? market.user_role;
   const creationDate = market.creationDate ?? market.creation_date;
   const rolesRaw = market.roles || {};
   const roles: Record<string, MarketRole> = {};
@@ -101,7 +100,6 @@ export function parseMarketFromApi(market: any): Market {
     organizationId: market.organizationId ?? market.organization_id ?? undefined,
     organizationName: market.organizationName ?? market.organization_name ?? market.organization,
     theme: market.theme,
-    userRole: userRoleRaw ? (userRoleRaw as MarketRole) : undefined,
     isDraft: phaseRaw
       ? (phaseRaw as MarketPhase) === 'draft'
       : (market.isDraft ?? market.is_draft ?? true),

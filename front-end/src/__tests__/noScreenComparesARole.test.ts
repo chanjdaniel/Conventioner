@@ -6,17 +6,16 @@
  * as the server, and a rule changed on the server would have left them offering the old one. A
  * screen now asks the table's answer for the action its control takes (`utils/marketActions.ts`).
  *
- * This reads the source, as `noMarketInTheBrowser.test.ts` does, so the next file that reads the
- * person's role to decide what to offer fails here, by name.
+ * This reads the source, as `noMarketInTheBrowser.test.ts` does, so the next file that compares or
+ * ranks a role to decide what to offer fails here, by name. The `Market` type carries no role, so
+ * the type checker refuses a read of the person's role in any shape; the last pattern catches one
+ * written past the type.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve as resolvePath } from 'node:path';
 
 const SRC = resolvePath(process.cwd(), 'src');
-
-/** The parser carries the role the server serves, for nothing to compare. */
-const CARRIES_THE_ROLE = new Set(['utils/market.ts']);
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -52,7 +51,6 @@ describe('no screen compares a role', () => {
   it('no source file decides a permission from a role', () => {
     const offenders = files
       .map((file) => relative(SRC, file))
-      .filter((file) => !CARRIES_THE_ROLE.has(file))
       .flatMap((file) =>
         thresholdsIn(readFileSync(join(SRC, file), 'utf8')).map((what) => `${file}: ${what}`),
       );

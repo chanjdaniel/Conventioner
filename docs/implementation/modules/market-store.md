@@ -60,7 +60,8 @@ Each control asks the row of the action it takes:
 | The markets list | Manage | Give and take Editor and Viewer roles |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
-None of the role-shaped reasons the screens read before stays on the read: every screen that read one is in the table above.
+No screen reads the role-shaped reasons the screens read before: every screen that read one is in the table above.
+The read serves them, and the person's `user_role`, one more release for a tab still on the old bundle ([the market's actions](market-actions.md#what-the-screens-read)), and the `Market` type names none of them, nor the role, so the type checker refuses a screen that reads one.
 
 ## Sharp edges
 
