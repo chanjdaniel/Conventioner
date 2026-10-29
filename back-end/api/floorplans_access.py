@@ -1,9 +1,9 @@
 """
 The one place a floorplan route decides who may use it.
 
-Every floorplan action is checked against the caller's role on the floorplan's market: a route that
-names a market checks that market, and a route that takes an image id checks the market the image
-was uploaded for. Each function answers None when the caller may go on, or the refusal to answer
+Every floorplan action asks its row of the table (``api.market_actions``) on the floorplan's
+market: a route that names a market asks on that market, and a route that takes an image id asks on
+the market the image was uploaded for. Each function answers None when the caller may go on, or the refusal to answer
 with (a JSON body and a status), in the order save-to-market answers: unknown market or image 404,
 then no role 403, then an archived market 403 for a route that changes something.
 
@@ -13,18 +13,14 @@ Call these only from a route carrying ``@login_required``.
 from typing import Any, Dict, Optional, Tuple
 
 import api.markets as MarketsApi
-import api.permissions as PermissionsApi
-from datatypes import MarketRole
+import api.market_actions as Actions
 from services.gridfs_service import get_image_market_id
 from utils.identity import authenticated_email
 
 Refusal = Tuple[Dict[str, Any], int]
 
-_WHAT_THE_ROLE_ALLOWS = {MarketRole.VIEWER: "view", MarketRole.EDITOR: "edit"}
-
-
 def market_refusal(
-    market_id: Optional[str], required_role: MarketRole, *, edits: bool
+    market_id: Optional[str], action: Actions.Action, *, edits: bool
 ) -> Optional[Refusal]:
     """Why the caller may not use a floorplan route on this market, or None when they may.
 
@@ -39,11 +35,9 @@ def market_refusal(
     if context.market is None:
         return {"error": "Invalid market data"}, 400
 
-    if not PermissionsApi.user_has_permission(
-        authenticated_email(), context.market, required_role, context.organization
-    ):
-        action = _WHAT_THE_ROLE_ALLOWS[required_role]
-        return {"error": f"User does not have permission to {action} this market"}, 403
+    refused = Actions.refusal(action, authenticated_email(), context.market, context.organization)
+    if refused:
+        return {"error": refused}, 403
 
     if edits:
         archived = MarketsApi.archived_refusal(context.market)
@@ -53,7 +47,7 @@ def market_refusal(
 
 
 def image_refusal(
-    gridfs_id: Optional[str], required_role: MarketRole, *, edits: bool
+    gridfs_id: Optional[str], action: Actions.Action, *, edits: bool
 ) -> Optional[Refusal]:
     """Why the caller may not use a floorplan route on this image, or None when they may.
 
@@ -64,4 +58,4 @@ def image_refusal(
     market_id = get_image_market_id(gridfs_id) if gridfs_id else None
     if market_id is None:
         return {"error": "Image not found"}, 404
-    return market_refusal(market_id, required_role, edits=edits)
+    return market_refusal(market_id, action, edits=edits)

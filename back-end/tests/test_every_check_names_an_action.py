@@ -1,0 +1,289 @@
+"""Every permission check on a market asks a named action (E39/F01/S01).
+
+Each check used to name its own role threshold, about twenty of them across the routes, so what a
+role may do was spread over every module that wrote a market. Each now asks one row of the table
+in ``api/market_actions.py``: the row says the lowest role that may take the action, and a refusal
+is the row's own sentence. The built-in defaults are the rules each check held before.
+"""
+import ast
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from conftest import COMPLETE_PLAN, client_market, stored_market
+import api.added_vendors as AddedVendorsApi
+import api.door as DoorApi
+import api.form_amendment as FormAmendmentApi
+import api.market_actions as Actions
+import api.markets as MarketsApi
+import api.permissions as PermissionsApi
+import api.placements as PlacementsApi
+from client_errors import ForbiddenError
+from datatypes import MarketPerson, MarketPhase, MarketRole
+
+BACK_END = Path(__file__).resolve().parent.parent
+
+#: The epic's table (E39), the rows E38 registers left out: (id, group, label, default, fixed).
+THE_TABLE = [
+    ("read", "Reading", "Read the market: its applications, assignment, statistics, attendance, "
+     "history and floorplan export", MarketRole.VIEWER, True),
+    ("export-csv", "Reading", "Export CSV", MarketRole.VIEWER, False),
+    ("change-setup", "Market Setup",
+     "Change Market Setup: the plan, its floorplans, the market's name", MarketRole.EDITOR, False),
+    ("change-form", "Market Setup",
+     "Change the form, the automatic rejections and the review highlights", MarketRole.EDITOR,
+     False),
+    ("amend-form", "Market Setup", "Amend a locked form", MarketRole.ADMIN, False),
+    ("import-applications", "Applications", "Import applications, and start a market from a CSV",
+     MarketRole.ADMIN, False),
+    ("give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR, False),
+    ("move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, False),
+    ("publish-results", "Lifecycle", "Publish results", MarketRole.ADMIN, False),
+    ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
+    ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
+    ("assign", "Assignment",
+     "Run the assignment, change its rules, and place, swap or free seats", MarketRole.EDITOR,
+     False),
+    ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
+    ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
+     MarketRole.ADMIN, False),
+    ("manage-admins", "People", "Give and take Admin roles", MarketRole.OWNER, True),
+    ("delete-market", "People", "Delete the market", MarketRole.OWNER, True),
+    ("change-the-table", "People", "Change this table", MarketRole.OWNER, True),
+]
+
+#: Lowest first: the role a row's default is compared against, and the one just below it.
+LADDER = [None, MarketRole.VIEWER, MarketRole.EDITOR, MarketRole.ADMIN, MarketRole.OWNER]
+
+
+@pytest.fixture
+def holding(monkeypatch):
+    """The asker holds this role on the market, resolved as every check resolves it."""
+    def hold(role):
+        monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: role)
+    return hold
+
+
+class TestTheTable:
+    def test_every_row_of_the_epic_is_there_as_agreed(self):
+        rows = [(a.id, a.group, a.label, a.default, a.fixed) for a in Actions.ACTIONS.values()]
+
+        assert rows == THE_TABLE
+
+    def test_an_action_is_found_by_its_id(self):
+        assert Actions.ACTIONS["move-phase"] is Actions.MOVE_PHASE
+
+    def test_two_rows_never_share_an_id(self):
+        with pytest.raises(ValueError, match="move-phase"):
+            Actions.action(
+                "move-phase", "Lifecycle", "Move it again", MarketRole.ADMIN, "move it again")
+
+
+@pytest.mark.parametrize("action", list(Actions.ACTIONS.values()), ids=lambda a: a.id)
+class TestEachRow:
+    def test_its_default_role_may(self, action, holding):
+        holding(action.default)
+
+        assert Actions.refusal(action, "u@x.test", client_market(), None) is None
+        assert Actions.may(action, "u@x.test", client_market(), None)
+
+    def test_every_role_above_its_default_may(self, action, holding):
+        for role in LADDER[LADDER.index(action.default) + 1:]:
+            holding(role)
+
+            assert Actions.may(action, "u@x.test", client_market(), None), role
+
+    def test_the_role_below_is_refused_with_the_rows_sentence(self, action, holding):
+        holding(LADDER[LADDER.index(action.default) - 1])
+
+        refused = Actions.refusal(action, "u@x.test", client_market(), None)
+
+        assert refused == Actions.refusal_sentence(action)
+        assert not Actions.may(action, "u@x.test", client_market(), None)
+
+    def test_its_sentence_names_who_may(self, action):
+        sentence = Actions.refusal_sentence(action)
+
+        assert sentence.startswith("Only ") and sentence.endswith(".")
+        assert {
+            MarketRole.VIEWER: "someone who holds a role",
+            MarketRole.EDITOR: "an Editor, an Admin or the owner",
+            MarketRole.ADMIN: "an Admin or the owner",
+            MarketRole.OWNER: "the market's owner",
+        }[action.default] in sentence
+
+
+class TestARefusalIsASentence:
+    def test_a_load_refused_says_the_rows_sentence(self, holding, monkeypatch):
+        holding(MarketRole.VIEWER)
+        monkeypatch.setattr(
+            MarketsApi, "markets_collection",
+            SimpleNamespace(find_one=lambda *_a, **_k: {"id": "market-123"}))
+        monkeypatch.setattr(MarketsApi, "market_from_document", lambda _doc: client_market())
+
+        with pytest.raises(ForbiddenError) as refused:
+            MarketsApi._load_market_for("market-123", "u@x.test", Actions.CHANGE_SETUP)
+
+        assert str(refused.value) == (
+            "Only an Editor, an Admin or the owner may change this market's setup."
+        )
+
+
+#: Each write and read that loads its market through the loaders, and the row it asks.
+EACH_LOAD_ASKS = [
+    (lambda: MarketsApi.rename_market("market-123", "Spring Market", "u@x.test"),
+     Actions.CHANGE_SETUP),
+    (lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "u@x.test"),
+     Actions.CHANGE_SETUP),
+    (lambda: MarketsApi.save_application_form("market-123", {}, "u@x.test"), Actions.CHANGE_FORM),
+    (lambda: MarketsApi.save_review_highlights("market-123", [], "u@x.test"), Actions.CHANGE_FORM),
+    (lambda: MarketsApi.save_rejection_rules("market-123", [], "u@x.test"), Actions.CHANGE_FORM),
+    (lambda: MarketsApi.get_application_form("market-123", "u@x.test"), Actions.READ),
+    (lambda: MarketsApi.get_vendor_notes("market-123", "u@x.test"), Actions.READ),
+    (lambda: MarketsApi.save_vendor_note("market-123", "v@x.test", "Chair given", "u@x.test"),
+     Actions.WRITE_VENDOR_NOTES),
+    (lambda: MarketsApi.mark_vendor_request_handled("market-123", "v@x.test", True, "u@x.test"),
+     Actions.WRITE_VENDOR_NOTES),
+    (lambda: PlacementsApi.run_assignment("market-123", "u@x.test"), Actions.ASSIGN),
+    (lambda: PlacementsApi.write_placement("market-123", {}, "u@x.test"), Actions.ASSIGN),
+    (lambda: PlacementsApi.remove_placement("market-123", "v@x.test", "2026-11-18", "u@x.test"),
+     Actions.ASSIGN),
+    (lambda: PlacementsApi.swap_placements(
+        "market-123", "2026-11-18", "v@x.test", "w@x.test", "u@x.test"), Actions.ASSIGN),
+    (lambda: DoorApi.check_in("market-123", "v@x.test", "2026-11-18", "u@x.test"),
+     Actions.CHECK_IN),
+    (lambda: DoorApi.undo_check_in("market-123", "v@x.test", "2026-11-18", "u@x.test"),
+     Actions.CHECK_IN),
+    (lambda: AddedVendorsApi.add_vendor(
+        "market-123", {}, MarketPerson(user_id="u", email="u@x.test")), Actions.ADD_VENDOR),
+    (lambda: FormAmendmentApi.amend_application_form("market-123", {}, "u@x.test"),
+     Actions.AMEND_FORM),
+    (lambda: FormAmendmentApi.resume_amendment("market-123", "u@x.test"), Actions.AMEND_FORM),
+]
+
+
+@pytest.mark.parametrize("call,row", EACH_LOAD_ASKS, ids=lambda x: getattr(x, "id", ""))
+def test_each_load_asks_its_row_and_refuses_in_its_words(call, row, monkeypatch):
+    asked = []
+
+    def refuse(action, *_a):
+        asked.append(action)
+        return Actions.refusal_sentence(action)
+
+    monkeypatch.setattr(Actions, "refusal", refuse)
+    monkeypatch.setattr(
+        MarketsApi, "markets_collection",
+        SimpleNamespace(find_one=lambda *_a, **_k: stored_market(MarketPhase.REVIEW)))
+    monkeypatch.setattr(MarketsApi, "_load_organization", lambda _org_id: None)
+
+    with pytest.raises(ForbiddenError) as refused:
+        call()
+
+    assert asked == [row]
+    assert str(refused.value) == Actions.refusal_sentence(row)
+
+
+class TestThePlanWrite:
+    """The assignment rules ride in the plan, and are the Assignment row's: a plan write asks
+    Market Setup, and Assignment too when it changes them."""
+
+    @pytest.fixture
+    def asked(self, monkeypatch):
+        rows = []
+        stored = stored_market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN)
+        monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: (
+            MarketsApi.market_from_document(stored)))
+        monkeypatch.setattr(MarketsApi, "_load_organization", lambda _org_id: None)
+        monkeypatch.setattr(
+            MarketsApi, "markets_collection", SimpleNamespace(update_one=lambda *_a, **_k: None))
+        monkeypatch.setattr(Actions, "refusal", lambda action, *_a: rows.append(action))
+        return stored, rows
+
+    def test_restating_the_rules_does_not_ask_the_assignment_row(self, asked):
+        stored, rows = asked
+
+        MarketsApi.save_plan("market-123", {"setupObject": stored["setupObject"]}, "u@x.test")
+
+        assert rows == []
+
+    def test_changing_the_rules_asks_the_assignment_row(self, asked):
+        stored, rows = asked
+        plan = {**stored["setupObject"], "assignmentOptions": {
+            "maxAssignmentsPerVendor": 1, "maxHalfTableProportionPerSection": None}}
+
+        MarketsApi.save_plan("market-123", {"setupObject": plan}, "u@x.test")
+
+        assert rows == [Actions.ASSIGN]
+
+
+def _sources():
+    """Every server source but the tests and the two modules that own roles."""
+    owners = {BACK_END / "api" / "market_actions.py", BACK_END / "api" / "permissions.py"}
+    for path in sorted(BACK_END.rglob("*.py")):
+        relative = path.relative_to(BACK_END).parts
+        if relative[0] in ("tests", "migrations") or path in owners or "__pycache__" in relative:
+            continue
+        yield path, ast.parse(path.read_text(), filename=str(path))
+
+
+def _called(node: ast.Call) -> str:
+    func = node.func
+    return func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+
+
+def _role_thresholds(tree: ast.AST):
+    """Where a source asks a role threshold itself: the old permission calls, the rank table, or a
+    role it looked up compared to a ``MarketRole``."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and _called(node) in ("user_has_permission", "can_manage_roles"):
+            yield node.lineno, _called(node)
+        if isinstance(node, (ast.Name, ast.Attribute)) and (
+            getattr(node, "id", None) == "ROLE_RANK" or getattr(node, "attr", None) == "ROLE_RANK"
+        ):
+            yield node.lineno, "ROLE_RANK"
+    for function in ast.walk(tree):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        looked_up = {
+            target.id
+            for node in ast.walk(function)
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+            and _called(node.value) == "get_user_market_role"
+            for target in node.targets if isinstance(target, ast.Name)
+        }
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Compare):
+                continue
+            operands = [node.left, *node.comparators]
+            names = {o.id for o in operands if isinstance(o, ast.Name)}
+            roles = [o for o in operands if isinstance(o, ast.Attribute)
+                     and isinstance(o.value, ast.Name) and o.value.id == "MarketRole"]
+            if names & looked_up and roles:
+                yield node.lineno, f"{(names & looked_up).pop()} compared to MarketRole"
+
+
+def test_no_check_outside_the_actions_module_names_a_role():
+    """A check that names a role of its own is a rule the table cannot change."""
+    found = [
+        f"{path.relative_to(BACK_END)}:{line} {what}"
+        for path, tree in _sources() for line, what in _role_thresholds(tree)
+    ]
+
+    assert found == []
+
+
+def test_the_search_finds_a_check_that_names_a_role():
+    """The search above is only as good as what it catches."""
+    tree = ast.parse(
+        "def delete(user, market):\n"
+        "    role = PermissionsApi.get_user_market_role(user, market)\n"
+        "    if role != MarketRole.OWNER:\n"
+        "        raise ForbiddenError('no')\n"
+        "def write(user, market):\n"
+        "    return PermissionsApi.user_has_permission(user, market, MarketRole.EDITOR)\n"
+    )
+
+    assert [what for _line, what in _role_thresholds(tree)] == [
+        "user_has_permission", "role compared to MarketRole",
+    ]

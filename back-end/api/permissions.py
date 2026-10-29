@@ -118,40 +118,17 @@ def follow_up_owners_for(
 
 
 def user_has_permission(user_email: str, market: Market, required_role: MarketRole, organization: Optional[Organization] = None) -> bool:
-    """
-    Check if user has required permission level.
-    
-    Uses role hierarchy: Owner(4) > Admin(3) > Editor(2) > Viewer(1)
-    Returns True if user_role >= required_role
+    """Whether the role this person holds is ``required_role`` or above it.
+
+    Uses role hierarchy: Owner(4) > Admin(3) > Editor(2) > Viewer(1). A check never calls this
+    with a role of its own: it asks its row in ``api.market_actions``, which calls this with the
+    row's role (E39/F01/S01).
     """
     user_role = get_user_market_role(user_email, market, organization)
     if user_role is None:
         return False
 
     return ROLE_RANK[user_role] >= ROLE_RANK[required_role]
-
-
-def can_manage_roles(user_email: str, market: Market, target_role: MarketRole, organization: Optional[Organization] = None) -> bool:
-    """
-    Check if user can add/remove users with target_role.
-    
-    Rules:
-    - Owner can manage all roles
-    - Admin can manage Editor and Viewer only
-    """
-    user_role = get_user_market_role(user_email, market, organization)
-    if user_role is None:
-        return False
-    
-    # Owner can manage all roles
-    if user_role == MarketRole.OWNER:
-        return True
-    
-    # Admin can manage Editor and Viewer
-    if user_role == MarketRole.ADMIN:
-        return target_role in [MarketRole.EDITOR, MarketRole.VIEWER]
-    
-    return False
 
 
 def get_user_organizations(user_email: str) -> List[Organization]:

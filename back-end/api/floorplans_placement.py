@@ -13,7 +13,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from api.floorplans_access import market_refusal
-from datatypes import MarketRole
+import api.market_actions as Actions
 from services.placement_service import auto_place_tables
 from utils.request_body import string_field
 
@@ -73,7 +73,7 @@ def place_tables():
         if not data:
             return jsonify({"error": "Request body must be valid JSON"}), 400
 
-        refusal = market_refusal(string_field(data, "market_id"), MarketRole.EDITOR, edits=True)
+        refusal = market_refusal(string_field(data, "market_id"), Actions.ASSIGN, edits=True)
         if refusal:
             return refusal
 

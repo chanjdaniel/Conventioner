@@ -13,11 +13,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 import api.applications as ApplicationsApi
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import essential_fields as EssentialFields
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError
-from datatypes import Application, ApplicationStatus, MarketPerson, MarketRole
+from datatypes import Application, ApplicationStatus, MarketPerson
 from utils.email_address import normalized_email
 
 class AddVendorRefused(ConflictError):
@@ -32,8 +33,7 @@ def add_vendor(
     market_id: str, data: Dict[str, Any], adder: MarketPerson,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a vendor who never applied: their name, their address, and who added them."""
-    market = MarketsApi._load_market_to_change(
-        market_id, adder.email, MarketRole.EDITOR, "add a vendor to")
+    market = MarketsApi._load_market_to_change(market_id, adder.email, Actions.ADD_VENDOR)
     refused = MarketsApi.adding_refusal(market.phase)
     if refused:
         raise AddVendorRefused(refused)

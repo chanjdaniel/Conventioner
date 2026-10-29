@@ -18,9 +18,8 @@ from utils.identity import authenticated_email
 from utils.request_body import NOT_AN_OBJECT, string_field
 
 from db_config import get_database
-from datatypes import MarketRole
 import api.markets as MarketsApi
-import api.permissions as PermissionsApi
+import api.market_actions as Actions
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def save_floorplan_to_market():
     Algorithm:
       1. Look up the Market document by ``market_id`` (404 if not found).
       2. Resolve the requesting user from the session and
-         verify they hold EDITOR+ permission on the market (403 if not).
+         ask the table's Market Setup row (``Actions.CHANGE_SETUP``; 403 if not).
       3. Walk ``floorplan.sections``, extracting ``SectionObject`` entries
          (name, location name, tier id, count = len(tableIds)) and
          deduplicating ``LocationObject`` entries by name.
@@ -92,12 +91,10 @@ def save_floorplan_to_market():
         if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400
 
-        if not PermissionsApi.user_has_permission(
-            user_email, context.market, MarketRole.EDITOR, context.organization
-        ):
-            return jsonify({
-                "error": "User does not have permission to edit this market"
-            }), 403
+        refused = Actions.refusal(
+            Actions.CHANGE_SETUP, user_email, context.market, context.organization)
+        if refused:
+            return jsonify({"error": refused}), 403
         # It writes the plan, and an archived market's plan is part of its record (bug 30).
         refusal = MarketsApi.archived_refusal(context.market)
         if refusal:

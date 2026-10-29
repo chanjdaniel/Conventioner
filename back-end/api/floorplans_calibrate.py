@@ -13,7 +13,7 @@ from flask_login import login_required
 from PIL import Image as PILImage
 
 from api.floorplans_access import image_refusal
-from datatypes import MarketRole
+import api.market_actions as Actions
 from services.gridfs_service import get_image
 from utils.request_body import string_field
 
@@ -108,7 +108,7 @@ def calibrate_floorplan():
         if not gridfs_id:
             return jsonify({"error": "gridfs_id (string) is required"}), 400
 
-        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        refusal = image_refusal(gridfs_id, Actions.CHANGE_SETUP, edits=True)
         if refusal:
             return refusal
 
