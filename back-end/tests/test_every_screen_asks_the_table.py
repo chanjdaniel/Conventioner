@@ -180,7 +180,7 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
 #: The reasons an old bundle reads, served for one more release, and the row and the rule of the
 #: market's life each stands for; the next release removes them.
 DEPRECATED_REASONS = {
-    "adminActionsReason": ("move-phase", None),
+    "adminActionsReason": ("import-applications", None),
     "verdictLockReason": ("give-verdicts", "verdictsSettledReason"),
     "addVendorReason": ("add-vendor", "addingVendorsReason"),
     "publishResultsReason": ("publish-results", "publishWaitsReason"),
@@ -206,7 +206,7 @@ class TestTheReasonsAnOldBundleReads:
         served = read(MarketRole.EDITOR, MarketPhase.ASSIGNMENT)
 
         assert served["adminActionsReason"] == (
-            "Only an Admin or the owner may move this market's phase.")
+            "Only an Admin or the owner may import applications or start this market from a CSV.")
         assert served["addVendorReason"] is None
 
     def test_each_carries_its_rule_for_someone_the_row_lets(self, read, monkeypatch):

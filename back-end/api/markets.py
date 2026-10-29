@@ -239,7 +239,9 @@ def deprecated_screen_reasons(
     more release so it keeps refusing; the next release removes them, and the read's ``user_role``.
     """
     return {
-        'adminActionsReason': refusals[Actions.MOVE_PHASE.id],
+        # The old bundle says these words only on the import screens, and asks the rest only
+        # whether it is null: the import row's answer is the move row's yes and no in its words.
+        'adminActionsReason': refusals[Actions.IMPORT_APPLICATIONS.id],
         'verdictLockReason': refusals[Actions.GIVE_VERDICTS.id] or verdicts_settled,
         'addVendorReason': refusals[Actions.ADD_VENDOR.id] or adding_vendors,
         'publishResultsReason': refusals[Actions.PUBLISH_RESULTS.id] or publish_waits,
