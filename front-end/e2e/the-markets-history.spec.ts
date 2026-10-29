@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
+import { VendorsPage } from './pages/VendorsPage';
 import { completePlan } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 import {
@@ -137,11 +138,10 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
   await expect(manage.window).toBeVisible();
 
   // An entry opens to show what it was before and after.
-  const roleChange = page.getByTestId('market-history-entry').first();
-  await roleChange.getByTestId('market-history-toggle').click();
-  await expect(roleChange.getByTestId('market-history-changes')).toContainText('Role');
-  await expect(roleChange.getByTestId('market-history-changes')).toContainText('Editor');
-  await expect(roleChange.getByTestId('market-history-changes')).toContainText('Viewer');
+  const roleChange = await manage.openHistoryEntry(0);
+  await expect(roleChange).toContainText('Role');
+  await expect(roleChange).toContainText('Editor');
+  await expect(roleChange).toContainText('Viewer');
 });
 
 test('each filter narrows the list, and a vendor links to their drawer', async ({
@@ -164,7 +164,7 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
   // Who may be narrowed to is whoever changed something here: the colleague only received.
   await expect(manage.historyWho.locator('option')).toHaveText(['Anyone', TEST_USER.email]);
 
-  await page.getByTestId('market-history-vendor-link').first().click();
+  await manage.historyVendorLinks.first().click();
   await expect(page).toHaveURL(`/markets/${marketId}/vendors?vendor=${VENDOR}`);
-  await expect(page.locator('#vendor-drawer-title')).toHaveText(VENDOR);
+  await expect(new VendorsPage(page).detailPanel).toContainText(VENDOR);
 });

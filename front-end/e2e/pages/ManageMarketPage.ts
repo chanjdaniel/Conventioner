@@ -22,7 +22,9 @@ export class ManageMarketPage {
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
   readonly history: Locator;
+  readonly historyEntries: Locator;
   readonly historySentences: Locator;
+  readonly historyVendorLinks: Locator;
   readonly historyWho: Locator;
   readonly historyKind: Locator;
   readonly historyVendor: Locator;
@@ -46,11 +48,20 @@ export class ManageMarketPage {
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
     this.history = page.getByTestId('manage-market-history');
+    this.historyEntries = page.getByTestId('market-history-entry');
     this.historySentences = page.getByTestId('market-history-sentence');
+    this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
     this.historyWho = page.getByTestId('market-history-who');
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = page.getByTestId('market-history-vendor');
     this.historyLoadMore = page.getByTestId('market-history-load-more');
+  }
+
+  /** Opens one change of the History section to its before and after, and answers that table. */
+  async openHistoryEntry(index: number): Promise<Locator> {
+    const entry = this.historyEntries.nth(index);
+    await entry.getByTestId('market-history-toggle').click();
+    return entry.getByTestId('market-history-changes');
   }
 
   async waitForOverlay(): Promise<void> {
