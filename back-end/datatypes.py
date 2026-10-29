@@ -429,6 +429,31 @@ class ImportMapping(BaseModel):
     made_by: MappingAuthor = MappingAuthor.IMPORT
 
 
+class ExampleOptions(BaseModel):
+    """A column's answers read both ways as choices: whole answers, or the options inside them."""
+    select: List[str] = []
+    multi_select: List[str] = []
+
+
+class ExampleColumn(BaseModel):
+    """What a market started from a Google Form's responses keeps of one column (E38/F02/S01).
+
+    Only what the Review step showed and the privacy view lets through: the organizer's own
+    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``).
+    """
+    # The column's heading, or a grid's, as the import mapping names them.
+    headers: List[str] = []
+    # The key a question made from it has, or would have: the link to the form and the mapping.
+    key: str
+    label: str
+    help_text: Optional[str] = None
+    # What the start read it as, or wrote it as, if it became a question.
+    type: str
+    # Whether the start made it a question of the organizer's own, rather than left it out.
+    question: bool = False
+    options: ExampleOptions = Field(default_factory=ExampleOptions)
+
+
 class RejectionRule(BaseModel):
     """A choice question and the answers to it that reject an application (E33/F03/S01)."""
     key: str
@@ -473,6 +498,9 @@ class Market(BaseModel):
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
+    # Server-owned: written only by the start from a Google Form's responses (``csv_start``), so the
+    # Questions tab can offer what the example file said without the file. Absent on any other.
+    example_columns: Optional[List[ExampleColumn]] = None
     # Organizer-settable while the market is a draft, through the plan write; fixed once it is not.
     intake_mode: IntakeMode = IntakeMode.CSV
     # Every phase this market entered, in order (E26/F06/S03). Server-owned: `create_market` writes
@@ -947,8 +975,18 @@ class ImportMappingContract(ImportMapping, ContractModel):
     """Camel-cased contract view of a saved CSV import mapping."""
 
 
+class ExampleOptionsContract(ExampleOptions, ContractModel):
+    """Camel-cased contract view of a kept column's two readings."""
+
+
+class ExampleColumnContract(ExampleColumn, ContractModel):
+    """Camel-cased contract view of a column the CSV start kept."""
+    options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
+
+
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    example_columns: Optional[List[ExampleColumnContract]] = None
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
     creation_date: str

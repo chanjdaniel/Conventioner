@@ -366,6 +366,22 @@ def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Di
     ]
 
 
+def kept_readings(field: Dict[str, Any]) -> Dict[str, List[str]]:
+    """Both readings of a column's answers as the start keeps them (E38/F02/S01): the options the
+    Review step keeps by default - at least SHARED_BY applicants chose each, and for a
+    multi-select at least OPTION_SHARE of the answers - less any holding an address, link, handle
+    or phone number. Values only, most chosen first: the privacy view, never a count or a person.
+    """
+    by_type = field.get("optionsByType") or {}
+
+    def kept(reading: Optional[Dict[str, Any]]) -> List[str]:
+        return [option["value"] for option in (reading or {}).get("options", [])
+                if not option["rare"] and not _identifying(option["value"])]
+
+    return {"select": kept(by_type.get("select")),
+            "multiSelect": kept(by_type.get("multi_select"))}
+
+
 def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
     """One decision per column, in order: fate, which essential, why."""
     lowered = [column.label.lower() for column in columns]

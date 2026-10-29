@@ -18,6 +18,7 @@ sources:
   - E24/F02/S01
   - E24/F03/S03
   - E33/F02/S01
+  - E38/F02/S01
 ---
 
 # The CSV proposal and start
@@ -33,7 +34,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), the two that t
 | --- | --- |
 | `GET /csv-proposal/typesafe` | whether hosted TypeSafe is configured, so the upload step can say so before anything is sent |
 | `POST /markets/:id/csv-proposal` | the proposal for this market and this file (`propose`), or why there is none; writes nothing and keeps nothing |
-| `POST /markets/:id/csv-proposal/confirm` | the organizer's choices written: the plan facts, the form, the ceiling and the import mapping (`confirm`), or nothing |
+| `POST /markets/:id/csv-proposal/confirm` | the organizer's choices written: the plan facts, the form, the ceiling, the import mapping and the example file's columns (`confirm`), or nothing |
 
 The proposal says, for each column in the file's order, its fate (who applied, when, an essential question, a question of the organizer's own with its type, options, label, help text and key, or left out, and why) and what is worth a second look; and for the plan, the file's dates and the year they fit, its tiers best first, the ceiling on days per vendor a heading states, and where those disagree with a plan already there.
 A file never states locations, sections or table counts, so the proposal never offers them, and it proposes no priority rule: what ranks vendors is the organizer's judgement, which the file does not hold.
@@ -50,8 +51,19 @@ Confirm judges the plan and the form through the plan's and the form's own write
 A market that changed since is written nothing, and told to start again.
 **The plan's own values win**: the file's dates (in the year the organizer confirms) and tiers fill a plan that has none, and its ceiling a plan with none set.
 
-**The file is sent twice and stored never.**
+**The file is sent twice and stored never; what the start keeps of it is the privacy view.**
 Confirm reads it again rather than trusting the browser's copy of the columns, and re-runs the rules on it; the organizer's choices for each ledger row are the only thing the request adds, and the browser sends one for every row, so what TypeSafe settled reaches confirm as the organizer's choice, never by asking again.
+
+**The start keeps what the file said of each question of the organizer's own and each left-out column** (`exampleColumns`, E38/F02/S01), so the Questions tab can fill a question's options, or add a question from a left-out column, after the file is gone.
+For each ledger row the organizer confirmed as a question of their own or left out, and that had answers, it keeps the headings, the key its question has or would have, the label and help text, the type written or read, whether it became a question, and both readings of its answers as choices (`kept_readings`): whole answers for Select, the options inside them for Multi-Select.
+A reading keeps only the options the Review step keeps by default, those at least 3 applicants chose (`SHARED_BY`, and for a multi-select at least `OPTION_SHARE` of the answers), less any holding an address, link, handle or phone number (`_identifying`); values only, most chosen first.
+That is safe to keep for the reason it was safe to read: an answer 3 applicants share names none of them, which is the uniqueness rule [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) measured, and the headings are the organizer's own words, which the import mapping already keeps.
+Nothing kept leaves the server but to the market's own readers, who see the applications themselves.
+Who applied, when and the essential questions are not kept: none is a question to add or retype.
+A later import does not refresh it: the form locks at the first application, so it is never read after one.
+
+**A left-out column is saved in the mapping under the key a question made from it would have.**
+The import restores only the targets the form has, so that target waits unread until the organizer adds the question from the Questions tab, and the first import then restores it with the rest; a question added by hand under the same key is restored to that column too.
 
 **The proposal writes the import's own mapping, and there is one mapping format** (`csv_import.mapping_payload`, saved `madeBy: start`).
 The first import of a later export restores every column and matches every value ([the CSV import](csv-import.md)).

@@ -4,14 +4,16 @@ kind: testing
 describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/google_forms_export.csv
+  - back-end/tests/test_data/example_columns.csv
   - back-end/tests/fixtures/anonymise_form_export.py
-verified: 2026-10-24
+verified: 2026-10-29
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/the-form-started-from-a-csv/01
   - wayfinding/the-form-started-from-a-csv/07
   - E06/F04
   - E24/F01/S01
+  - E38/F02/S01
 ---
 
 # Test data
@@ -98,6 +100,12 @@ The anonymiser has since changed what it keeps: a value stays only when at least
 This file's source export is not among the ones that version was run on, so the file stays as the earlier version produced it.
 Do not hand-edit it: a change it needs is a reason to replace it with one of the exports made by the current anonymiser.
 Do not commit a real export.
+
+## [`example_columns.csv`](example_columns.csv)
+
+Forty invented applications, no export behind them, shaped to pin what a market started from a file keeps of it (E38/F02/S01; `tests/test_csv_start.py`, and the E2E that starts a market from it).
+It holds a multi-select ("What do you sell?") with a joined answer carrying a link that 3 applicants gave and two options fewer than 3 chose, a select ("Booth size"), unique handles, and the two columns a team adds ("Status", a select of verdicts, and "Notes", holding a phone number 3 rows share).
+Every address is at `example.com` and the one phone number is in the reserved `555-0100` to `555-0199` range.
 
 ## Superseded
 
