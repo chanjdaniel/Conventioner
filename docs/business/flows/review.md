@@ -5,6 +5,7 @@ describes:
   - front-end/src/components/application/ApplicationMonitor.vue
   - front-end/src/components/application/ApplicationsAll.vue
   - front-end/src/components/market/MarketApplicationsTab.vue
+  - front-end/src/components/application/ListFreshness.vue
 verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
@@ -39,6 +40,7 @@ sources:
   - T15
   - E38/F05/S01
   - E38/F05/S02
+  - E38/F05/S03
 ---
 
 # Reviewing applications
@@ -51,6 +53,8 @@ Verdicts are open from the first application until the market enters Assignment,
 A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).
 The choice is kept in the address: no `view` is All, and a saved `?view=all` still opens it; One by one is `?view=one`, and so is a link to one application (`?application=<id>`, as the Assignment tab's refusal links to it), which opens on its card.
+Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/application/ListFreshness.vue)).
+A refresh is a re-read, not a reset: the All view keeps the ticks of rows still shown, One by one keeps the card up while it is still to decide and moves on from one decided elsewhere, and a refresh that fails says "Could not refresh. The list is as it was last read." and keeps the list.
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
 
@@ -74,7 +78,7 @@ Two reviewers at once are never handed the same card: the card a reviewer has op
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
-Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`.
+Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
 
 ## I2. Change a decision
 
@@ -86,7 +90,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`).
+**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
@@ -99,7 +103,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 A selection is only ever the rows ticked, one by one or by Select all, which ticks the rows on screen: each is in front of the reviewer and counted in the confirmation, and nothing past them is decided.
 The list is not paged, so the rows shown are every match today; if it ever is paged, Select all still means the rows shown.
-The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count and the page's "N still to decide" move.
+The list is read again every 30 seconds while the tab is in view, quietly, which moves its "Updated" time too; every verdict given from it, and every Refresh, re-reads the market, so the rail's count and the page's "N still to decide" move.
 
 ## I3. Choose what leads the card
 

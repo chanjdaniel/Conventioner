@@ -34,6 +34,7 @@ import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import ListFreshness from '@/components/application/ListFreshness.vue';
 
 const props = defineProps<{ market: Market | null }>();
 /** What is still to decide, follow-ups included, for the page's own line about it. */
@@ -48,13 +49,24 @@ const marketId = computed(() => props.market?.id ?? '');
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
+/** When the list was last read from the server, by any of the reads below (E38/F05/S03). */
+const readAt = ref<number | null>(null);
+const refreshing = ref(false);
+const refreshError = ref('');
+
+/** The one read: the list, and when. */
+async function read() {
+  applications.value = await fetchMarketApplications(marketId.value);
+  readAt.value = Date.now();
+  refreshError.value = '';
+}
 
 async function load() {
   if (!marketId.value) return;
   loading.value = true;
   errorMessage.value = '';
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -66,16 +78,35 @@ watch(marketId, () => void load(), { immediate: true });
 /**
  * Read again every half minute while the tab is in view, so who holds what and what others decided
  * show without a reload (E34/F03/S02) - a tick is refused rather than written over someone's card,
- * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list.
+ * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list,
+ * and the time it was last read goes on ageing on screen.
  */
 const REREAD_MS = 30_000;
 let rereading: ReturnType<typeof setInterval> | null = null;
 async function reread() {
   if (!marketId.value || document.visibilityState !== 'visible' || saving.value) return;
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch {
     // The list on screen stands; the next re-read tries again.
+  }
+}
+
+/**
+ * Refresh, at once (E38/F05/S03): a re-read, not a reset - the ticks of rows still shown stay, as
+ * on every re-read - and a failed one says so beside the button and keeps the list.
+ */
+async function refresh() {
+  if (!marketId.value || refreshing.value) return;
+  refreshing.value = true;
+  try {
+    await read();
+    // The rail counts what is left as well: it should agree with the list just read.
+    void marketStore.refresh();
+  } catch {
+    refreshError.value = 'Could not refresh. The list is as it was last read.';
+  } finally {
+    refreshing.value = false;
   }
 }
 onMounted(() => (rereading = setInterval(() => void reread(), REREAD_MS)));
@@ -275,6 +306,12 @@ async function decideSelection() {
 
 <template>
   <div class="all-view" data-testid="applications-all">
+    <ListFreshness
+      :readAt="readAt"
+      :refreshing="refreshing"
+      :failed="refreshError"
+      @refresh="refresh"
+    />
     <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
     <div class="all-filter-group">
       <span id="applications-all-filter-label" class="field-label">Filter</span>

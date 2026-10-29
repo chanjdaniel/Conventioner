@@ -37,6 +37,8 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
+import { useMarketStore } from '@/stores/market';
+import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -55,6 +57,10 @@ const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
+/** When the list was last read from the server (E38/F05/S03), and a refresh's own state. */
+const readAt = ref<number | null>(null);
+const refreshing = ref(false);
+const refreshError = ref('');
 const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
@@ -251,7 +257,7 @@ async function takeNext(after: string | null, want: string | null = null) {
     const app = await claims.next(after, includeFollowUps.value, want);
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
-    else applications.value = await fetchMarketApplications(props.market.id);
+    else await read();
     allHeldElsewhere.value = !app && undecided.value.length > 0;
     cursor.value = app
       ? Math.max(
@@ -264,12 +270,20 @@ async function takeNext(after: string | null, want: string | null = null) {
   }
 }
 
+/** The one read of the list, and when it was. */
+async function read() {
+  if (!props.market) return;
+  applications.value = await fetchMarketApplications(props.market.id);
+  readAt.value = Date.now();
+  refreshError.value = '';
+}
+
 async function loadApplications() {
   if (!props.market) return;
   loading.value = true;
   errorMessage.value = '';
   try {
-    applications.value = await fetchMarketApplications(props.market.id);
+    await read();
     cursor.value = 0;
     if (props.named) await showNamed();
     else if (decides.value) await takeNext(null);
@@ -278,6 +292,34 @@ async function loadApplications() {
   } finally {
     loading.value = false;
   }
+}
+
+/**
+ * Refresh (E38/F05/S03): the counts, others' verdicts and who holds what, read again at once. The
+ * list is otherwise kept in step with this reviewer's own verdicts, so others' show only here, or
+ * when no card can be handed out. A re-read, not a reset: the card up stays up while it is still to
+ * decide - the reviewer holds it - and one decided elsewhere meanwhile gives way to the next. A
+ * failed refresh says so beside the button and keeps the list.
+ */
+async function refresh() {
+  if (!props.market || refreshing.value) return;
+  refreshing.value = true;
+  const up = current.value?.id ?? null;
+  try {
+    await read();
+    void useMarketStore().refresh();
+  } catch {
+    refreshError.value = 'Could not refresh. The list is as it was last read.';
+    return;
+  } finally {
+    refreshing.value = false;
+  }
+  // A refused verdict's card stays as it now stands, until the reviewer moves on.
+  if (refusedOn.value) return;
+  const at = up ? undecided.value.findIndex((app) => app.id === up) : -1;
+  if (at >= 0) cursor.value = at;
+  else if (decides.value) await takeNext(null);
+  else cursor.value = Math.min(cursor.value, Math.max(undecided.value.length - 1, 0));
 }
 
 /**
@@ -435,6 +477,14 @@ function submittedOn(app: Application): string {
 
 <template>
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
+    <ListFreshness
+      v-if="!loading"
+      class="monitor-freshness"
+      :readAt="readAt"
+      :refreshing="refreshing"
+      :failed="refreshError"
+      @refresh="refresh"
+    />
     <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
@@ -764,7 +814,12 @@ function submittedOn(app: Application): string {
 
 <style scoped>
 .monitor-panel {
-  padding: var(--space-4) 0;
+  /* No top padding: it starts where the All view does, so switching views moves nothing. */
+  padding: 0 0 var(--space-4);
+}
+
+.monitor-freshness {
+  margin-bottom: var(--space-4);
 }
 
 .loading-state,
