@@ -25,5 +25,24 @@ describe('AmendFormDialog', () => {
     expect(wrapper.get('[data-testid="amend-form-key-error"]').text()).toBe(
       'Key "submitted_at" is reserved: the import reads that column as when they applied. Choose another key.',
     );
+    // The error grows the dialog as a key is typed, so its top is held rather than its centre.
+    expect(wrapper.get('.dialog-container').classes()).toContain('dialog-container--anchored');
+  });
+
+  it('names each question it can stop asking, never its key', async () => {
+    const wrapper = mount(AmendFormDialog, {
+      props: {
+        open: true,
+        marketId: 'market-1',
+        applicationForm: { fields: [] },
+        essentialOptions: EMPTY_ESSENTIAL_OPTIONS,
+        intakeIsForm: false,
+      },
+      global: { stubs: { teleport: true } },
+    });
+    await wrapper.vm.$nextTick();
+
+    const toggle = wrapper.get('[data-testid="amend-form-unask-essential_request"]');
+    expect(toggle.text()).toBe('Stop asking Anything else you need from us?');
   });
 });

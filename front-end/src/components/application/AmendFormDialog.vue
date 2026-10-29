@@ -25,6 +25,8 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  REQUEST_KEY,
+  REQUEST_LABEL,
   UNASKABLE_ESSENTIAL_KEYS,
   askedEssentialAnswers,
 } from '@/utils/essentialFields';
@@ -83,10 +85,11 @@ watch(
   { immediate: true },
 );
 
-/** Only rankings may be turned off, and only the ones this market's plan actually offers. */
+/** Only the rankings and the request may be turned off, and only what this market's plan offers. */
 const UNASKABLE_LABELS: Record<string, string> = {
   [SECTION_RANKING_KEY]: SECTION_RANKING_LABEL,
   [TABLE_TYPE_RANKING_KEY]: TABLE_TYPE_RANKING_LABEL,
+  [REQUEST_KEY]: REQUEST_LABEL,
 };
 
 /** What the essential questions currently ask, ignoring what is already turned off. */
@@ -213,6 +216,7 @@ async function resume() {
     title="Fix the form"
     testid="amend-form"
     wide
+    anchored
     confirm-label="Save and carry on"
     :confirm-disabled="cannotSave"
     @close="emit('close')"
