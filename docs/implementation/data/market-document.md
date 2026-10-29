@@ -34,7 +34,7 @@ sources:
 
 One document per market in the `markets` collection, holding the market's plan, its form, its stored assignment and its lifecycle.
 [`back-end/market_documents.py`](../../../back-end/market_documents.py) owns its canonical form and every raw read of it; the model is `Market` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), and the writes are in [`back-end/api/markets.py`](../../../back-end/api/markets.py) and the modules it names.
-Applications, check-ins, the placement trail and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the placement history](placement-history.md), and [market deletion](../modules/market-deletion.md) for how they go with the market.
+Applications, check-ins, the market's history and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the market's history](history.md), and [market deletion](../modules/market-deletion.md) for how they go with the market.
 
 The glossary concepts: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md), [Intake mode](../../business/concepts/intake-mode.md), [Essential question](../../business/concepts/essential-question.md) and [Review highlight](../../business/concepts/review-highlight.md).
 

@@ -40,7 +40,7 @@ A vendor fits a seat when placing them overrides nothing, and a sharing vendor f
 A searchable picker was weighed for a market of two hundred and not taken: the product has no such shared control, and a native select already jumps to a name as it is typed.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
 
-Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the placement history](../../implementation/data/placement-history.md).
+Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the market's history](../../implementation/data/history.md).
 
 ## J6. Place a vendor in an empty seat
 
@@ -88,7 +88,7 @@ Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 ## J13. Placement history
 
 **Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Placement history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
+"Placement history" on the Result page opens the market's whole placement history, and a vendor's drawer has their own on its History tab.
 Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Placed <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Ran the assignment: N placements written, M pins preserved".
 Anyone who can read the market can read it.
 Covered by: `the-placement-history-dialog.spec.ts`.

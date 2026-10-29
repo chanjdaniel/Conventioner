@@ -29,6 +29,6 @@ verified: 2026-10-22
 
 - [Placements](../../implementation/modules/placements.md): the four doors, pins, the held seat, orphans, and `MarketTableRow`.
 - [ADR 0002: A pin is a placement row](../../adr/0002-a-pin-is-a-placement-row.md).
-- [The placement history](../../implementation/data/placement-history.md): every placement, freed seat and swap.
+- [The market's history](../../implementation/data/history.md): every placement, freed seat and swap.
 - [Floorplan placement](../../implementation/modules/floorplan-placement.md): the beta's Auto-Place, tables placed in a room.
 - [Attendance and the door](../../implementation/modules/attendance-and-door.md): a check-in needs a stored placement on that date.

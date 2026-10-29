@@ -13,9 +13,10 @@ starts in. It is a log, not a "furthest phase" field, because the machine has ba
 for Editing, the form amendment chain) and because a log answers the questions that come next -
 when applications opened, who published - which a single field cannot.
 
-**On the market document, not beside it.** ``placement_history`` is a separate collection because
-placements are many and each names a vendor; a market enters a handful of phases in its life, the
-rail reads them on every market screen, and the one market store already holds the document.
+**On the market document, not beside it.** The market's ``history`` is a separate collection
+because its entries are many and most name a vendor; a market enters a handful of phases in its
+life, the rail reads them on every market screen, and the one market store already holds the
+document.
 
 **A market that predates the record says less.** Its record, if it has one at all, began partway
 through its life, so a phase missing from it may still have been entered. Its phases are the record
