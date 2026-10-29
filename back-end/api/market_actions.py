@@ -124,9 +124,9 @@ def held_row(row: Action, rows: Mapping[str, Any]) -> Optional[MarketPermission]
     A fixed row is never the market's, whatever is stored; nor is a row whose role or source this
     build does not know, which reads as no row held rather than failing the market's read.
     """
-    if row.fixed:
+    if row.fixed or not isinstance(rows, Mapping):
         return None
-    held = (rows or {}).get(row.id)
+    held = rows.get(row.id)
     if isinstance(held, dict):
         try:
             held = MarketPermission(**held)

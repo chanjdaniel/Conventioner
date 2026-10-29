@@ -274,6 +274,52 @@ class TestEveryCheckReadsTheMarketsRows:
         assert Actions.minimum_role(Actions.DELETE_MARKET, market) is MarketRole.OWNER
         assert row(read_table(), "delete-market")["source"] == "built-in"
 
+    @pytest.mark.parametrize("stored", [
+        {"role": "superuser", "source": "market"},
+        {"role": "admin", "source": "somewhere"},
+        {"role": 3, "source": "market"},
+    ], ids=["an unknown role", "an unknown source", "a role that is not a string"])
+    def test_a_stored_row_this_build_cannot_read_is_its_default(self, world, stored):
+        world.markets.doc()["permissions"] = {"check-in": stored}
+        market = MarketsApi.market_from_document(world.markets.doc())
+
+        assert Actions.minimum_role(Actions.CHECK_IN, market) is MarketRole.EDITOR
+        # The markets list asks the raw document's rows.
+        assert Actions.role_refusal(
+            Actions.CHECK_IN, MarketRole.EDITOR, world.markets.doc()["permissions"]) is None
+        assert row(read_table(), "check-in")["source"] == "built-in"
+
+    @pytest.mark.parametrize("stored", [
+        {"check-in": "admin"},
+        {"check-in": {"role": "admin"}},
+        {"check-in": None},
+        None,
+        "admin",
+    ], ids=["a row that is not a map", "a row without a source", "a null row", "null rows",
+            "rows that are not a map"])
+    def test_a_stored_row_of_the_wrong_shape_is_dropped_and_the_market_still_reads(
+        self, world, stored,
+    ):
+        world.markets.doc()["permissions"] = stored
+
+        market = MarketsApi.market_from_document(world.markets.doc())
+
+        assert market.permissions == {}
+        assert Actions.minimum_role(Actions.CHECK_IN, market) is MarketRole.EDITOR
+        assert Actions.role_refusal(
+            Actions.CHECK_IN, MarketRole.EDITOR, world.markets.doc()["permissions"]) is None
+        assert row(read_table(), "check-in")["source"] == "built-in"
+
+    def test_a_good_row_beside_a_broken_one_is_still_read(self, world):
+        world.markets.doc()["permissions"] = {
+            "check-in": {"role": "admin", "source": "market"}, "add-vendor": "owner",
+        }
+
+        market = MarketsApi.market_from_document(world.markets.doc())
+
+        assert list(market.permissions) == ["check-in"]
+        assert Actions.minimum_role(Actions.CHECK_IN, market) is MarketRole.ADMIN
+
     def test_a_stored_row_the_table_no_longer_has_is_ignored(self, world):
         world.markets.doc()["permissions"] = {"gone-row": {"role": "viewer", "source": "market"}}
 

@@ -83,7 +83,9 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **A market stores only the rows it differs on**, in `permissions` on [the market document](../data/market-document.md): a map from action id to `{role, source}` (`MarketPermission` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), `source` being `market` (changed here by its owner) or `organization` (copied from the organization's default at creation, which E39/F02 writes).
 A row the market does not hold reads its default, so a market without the field reads the built-in table and needs no migration.
-`held_row(row, rows)` is the market's own row or None: never for a fixed row, whatever is stored, nor for a stored role or source this build does not know, and a stored id the table no longer has is never asked; `MarketPermission` keeps both as plain strings so such a value fails no market's read.
+`held_row(row, rows)` is the market's own row or None: never for a fixed row, whatever is stored, nor for a stored role or source this build does not know, nor for a row of the wrong shape, and a stored id the table no longer has is never asked.
+**A stored row this build cannot read never fails the market's read**: `MarketPermission` keeps its role and source as plain strings, so an unknown value parses and reads as the default, and `Market` drops a row of the wrong shape as it parses (not a map, no string role or source, or `permissions` not a map at all; `drop_unreadable_permissions` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), so the read, every write and the markets list read such a row alike, as its default.
+Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
 `create_market` writes `permissions: {}` whatever the create body carried.
 
 **`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`) and whether it is `fixed`.
