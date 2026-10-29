@@ -31,6 +31,7 @@ sources:
 
 **The record is written in the update that moves the phase.**
 `apply_phase_transition`, the one phase writer ([the guards](guards.md)), pushes the entry in the same atomic update that sets the phase, and `create_market` writes the dated `draft` entry every market starts with; whatever a create body carries is replaced.
+For one release an entry still naming `applications_open`, `applications_closed` or `review` reads as `applications`, as the phase itself does, until [`migrate_to_one_stage.py`](../../../back-end/migrations/migrate_to_one_stage.py) renames it ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 
 **It is a log, not a "furthest phase" field** ([ADR 0012](../../adr/0012-a-market-remembers-every-phase-it-entered.md)), because the machine has a back edge (Reopen for Editing) and because a log answers the next questions, when applications opened and who published, which a single field cannot.
 
