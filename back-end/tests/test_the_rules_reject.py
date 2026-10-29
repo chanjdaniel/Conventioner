@@ -140,7 +140,7 @@ class TestWhatJudgingNeverDoes:
 
         monkeypatch.setattr(ApplicationsApi, "judgeable_applications", read_then_a_person_decides)
 
-        assert Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123") == 0
+        assert Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123") == Rules.Judged()
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_APPROVED.value
         assert stored[0]["verdict_by"]["kind"] == "person"
 

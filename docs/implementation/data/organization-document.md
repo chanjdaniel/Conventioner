@@ -72,6 +72,8 @@ Roles change on an archived market too: they are not a change to its record.
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 
+**Giving, changing and taking a market role records into [the market's history](history.md)** (`role_given`, `role_changed`, `role_taken`), under the Admin row when an Admin or Owner role is either side of it, else the Editor and Viewer row.
+
 ## What a person may do on a market
 
 `get_user_market_role` resolves a person's role on one market as the higher of two:

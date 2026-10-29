@@ -55,3 +55,4 @@ An Editor or above changes them; nobody changes an archived market's ([what each
 - `reviewAnswers` in [`front-end/src/utils/reviewQueue.ts`](../../../front-end/src/utils/reviewQueue.ts) splits a card into the marked answers, in their order, and the rest, in the card's own order; the review card and the All view both read it.
 - `back-end/tests/test_review_highlights.py`, `front-end/src/__tests__/reviewQueue.test.ts` and `front-end/e2e/review-highlights.spec.ts` pin it.
 - The screens are [what a reviewer reads first](../flows/form-tab.md#f3-what-a-reviewer-reads-first) and [choose what leads the card](../flows/review.md#i3-choose-what-leads-the-card).
+- Each change of the highlights is recorded in [the market's history](../../implementation/data/history.md) (`review_highlights`), as they were and as they are.

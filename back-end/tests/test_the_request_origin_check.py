@@ -133,7 +133,7 @@ class TestPublishingResults:
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         calls = []
 
-        def publish(market_id):
+        def publish(market_id, _by):
             calls.append(market_id)
             return {"message": "Results published"}, 200
 

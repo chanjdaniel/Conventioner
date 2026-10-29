@@ -38,4 +38,4 @@ def undo_check_in(
     """Take back a check-in on this date, whoever made it."""
     if _market_on_its_days(market_id, requesting_user) is None:
         return {"error": NOT_PUBLISHED}, 409
-    return AttendanceApi.undo_attendance(market_id, vendor_email, date)
+    return AttendanceApi.undo_attendance(market_id, vendor_email, date, undone_by=requesting_user)

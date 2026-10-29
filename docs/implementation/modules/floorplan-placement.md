@@ -108,6 +108,8 @@ It tolerates a market with no `setupObject` (`isinstance(existing_setup, dict)` 
 [`FloorplanEditor.vue`](../../../front-end/src/components/floorplan/FloorplanEditor.vue)'s `loadBackgroundImage()` calls `store.initFloorplan()` only when no floorplan exists yet, spreading the store's `placedTables`, `tableTypes`, `sections`, `walls`, `obstacles` and scale into it, so moving forward through the wizard keeps the auto-placed tables; when a floorplan exists it only refreshes the background image's fields.
 This replaced a snapshot-and-restore workaround in the E2E page object.
 
+**Saving a floorplan to the market and deleting an image record into [the market's history](../data/history.md)** (`floorplan`, `floorplan_image_deleted`, under `change-setup`); a calibration, an analysis and an Auto-Place keep nothing, and an upload stores an image the market uses only once a floorplan is saved, so none of them records.
+
 ## Why
 
 Auto-Place exists so an organizer with a hall plan gets section table counts from the room rather than typing them; the counts it saves become the plan's sections, which the [assignment solver](assignment-solver.md) seats vendors at.
