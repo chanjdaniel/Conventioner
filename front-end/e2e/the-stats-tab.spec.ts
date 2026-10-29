@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
-import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
+import { approvedVendorApplication, insertApplications } from './helpers/seedApplication';
+import { ensureTestOrg, SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -12,7 +13,8 @@ import { StatsPage } from './pages/StatsPage';
 /**
  * The Stats tab (E45/F01/S01): a sixth tab on the market bar, open in every phase and to anyone who
  * reads the market, starting with who applied - by status and by the day each applied - counted as
- * the Applications tab counts them.
+ * the Applications tab counts them; then a chart per choice question of the form, narrowed to the
+ * approved or the placed (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
@@ -213,4 +215,173 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
   expect(phone.pageScrolls, 'the page scrolls sideways on a phone').toBe(false);
   await stats.scrollIntoViewIfNeeded();
   await expect(stats).toBeInViewport({ ratio: 1 });
+});
+
+const SELLING = 'What will you be selling at the event?';
+
+test('a chart per choice question counts each option, groups "Other", and narrows to the approved and the placed', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    data: {
+      fields: [
+        { key: 'business', label: 'Business name', type: 'text', options: [], order: 0 },
+        {
+          key: 'selling',
+          label: SELLING,
+          type: 'multi_select',
+          options: ['Prints', 'Stickers', 'Jewelry', 'Ceramics'],
+          order: 1,
+        },
+        {
+          key: 'first_market',
+          label: 'Is this your first market with us?',
+          type: 'select',
+          options: ['Yes', 'No'],
+          order: 2,
+        },
+      ],
+    },
+  });
+  expect(form.ok(), await form.text()).toBeTruthy();
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+
+  // Each answered on a Google Form, where "Other" is written in by hand.
+  const applicant = (email: string, status: string, selling: string[], firstMarket: string) => ({
+    ...approvedVendorApplication(marketId, email, {
+      dates: [SEED_MARKET_DATE],
+      tiers: ['Gold'],
+      extra: { business: email.split('@')[0], selling, first_market: firstMarket },
+    }),
+    status,
+  });
+  insertApplications([
+    applicant('nadia@ember.test', 'reviewer_rejected', ['Prints', 'Stickers'], 'Yes'),
+    applicant('theo@thistle.test', 'reviewer_approved', ['Prints', 'Hand-bound zines'], 'No'),
+    applicant('omar@kiln.test', 'reviewer_approved', ['Jewelry', 'Candles', 'Soap'], 'Yes'),
+    applicant('priya@weft.test', 'reviewer_approved', ['Prints'], 'No'),
+    applicant('lena@forge.test', 'reviewer_rejected', ['Stickers'], 'Yes'),
+  ]);
+  for (const phase of ['applications_closed', 'review', 'assignment']) {
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
+  }
+  const stats = new StatsPage(page);
+
+  // Before anyone has a seat, Placed says so rather than charting noughts.
+  await page.goto(`${marketScreenPath(marketId, 'stats')}?among=placed`);
+  await expect(page.getByTestId('stats-among-nobody')).toHaveText('Nobody has a table yet.', {
+    timeout: 15000,
+  });
+  await expect(stats.amongCount).toHaveText('0 of 5');
+  await expect(stats.questions).toHaveCount(0);
+
+  // The run seats the three approved; Priya's seat is freed and given by hand to Lena, rejected.
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
+  expect(run.ok(), await run.text()).toBeTruthy();
+  const seats = ((await run.json()).assignmentObject.vendorAssignments ?? []) as {
+    email: string;
+    tableCode: string;
+  }[];
+  const priyas = seats.find((seat) => seat.email === 'priya@weft.test');
+  expect(priyas, 'the run did not seat Priya').toBeTruthy();
+  const freed = await request.delete(`${BACKEND_URL}/markets/${marketId}/placements`, {
+    data: { email: 'priya@weft.test', date: SEED_MARKET_DATE },
+  });
+  expect(freed.ok(), await freed.text()).toBeTruthy();
+  const placed = await request.put(`${BACKEND_URL}/markets/${marketId}/placements`, {
+    data: {
+      email: 'lena@forge.test',
+      date: SEED_MARKET_DATE,
+      table_code: priyas!.tableCode,
+      table_choice: 'Full Table',
+    },
+  });
+  expect(placed.ok(), await placed.text()).toBeTruthy();
+
+  await stats.goto(marketId);
+
+  // The choice questions only, in the form's order: the business name is words, not choices.
+  await expect(stats.questions).toHaveCount(2, { timeout: 15000 });
+  await expect(stats.question('selling').getByRole('heading')).toHaveText(SELLING);
+  await expect(stats.question('business')).toHaveCount(0);
+  await expect(stats.amongCount).toHaveText('5 of 5');
+  await expect(stats.among('all')).toHaveAttribute('aria-pressed', 'true');
+
+  const expectCounts = async (key: string, counts: [string, number][]) => {
+    await expect(stats.answerRows(key)).toHaveCount(counts.length);
+    for (const [answer, count] of counts) {
+      await expect(stats.answerCount(key, answer)).toHaveText(String(count));
+    }
+  };
+
+  // Every option, even one nobody chose; the three written in are one "Other", counted per
+  // applicant, so Omar's two count once.
+  await expectCounts('selling', [
+    ['Prints', 3],
+    ['Stickers', 2],
+    ['Jewelry', 1],
+    ['Ceramics', 0],
+    ['other', 2],
+  ]);
+  await expect(stats.answerRows('selling')).toHaveText([
+    /^Prints.*3.*60%/,
+    /^Stickers.*2.*40%/,
+    /^Jewelry.*1.*20%/,
+    /^Ceramics.*0.*0%/,
+    /^Other.*2.*40%/,
+  ]);
+  await expectCounts('first_market', [
+    ['Yes', 3],
+    ['No', 2],
+  ]);
+  // A bar leads nowhere: the All view cannot filter by an answer.
+  await expect(stats.answerRows('selling').first()).not.toHaveAttribute('href');
+
+  // Approved narrows every chart, and says so in the address.
+  await stats.among('approved').click();
+  await expect(page).toHaveURL(/[?&]among=approved/);
+  await expect(stats.amongCount).toHaveText('3 of 5');
+  await expectCounts('selling', [
+    ['Prints', 2],
+    ['Stickers', 0],
+    ['Jewelry', 1],
+    ['Ceramics', 0],
+    ['other', 2],
+  ]);
+  await expectCounts('first_market', [
+    ['Yes', 1],
+    ['No', 2],
+  ]);
+
+  // Placed is whoever holds a seat, Lena among them though rejected, Priya not though approved.
+  await stats.among('placed').click();
+  await expect(page).toHaveURL(/[?&]among=placed/);
+  await expect(stats.amongCount).toHaveText('3 of 5');
+  await expectCounts('selling', [
+    ['Prints', 1],
+    ['Stickers', 1],
+    ['Jewelry', 1],
+    ['Ceramics', 0],
+    ['other', 2],
+  ]);
+  await expectCounts('first_market', [
+    ['Yes', 2],
+    ['No', 1],
+  ]);
+
+  // The address keeps it: a reload, or a link shared, opens on the same group.
+  await page.reload();
+  await expect(stats.among('placed')).toHaveAttribute('aria-pressed', 'true', { timeout: 15000 });
+  await expect(stats.answerCount('selling', 'Stickers')).toHaveText('1');
+  await stats.among('all').click();
+  await expect(page).not.toHaveURL(/among=/);
+  await expect(stats.answerCount('selling', 'Prints')).toHaveText('3');
 });
