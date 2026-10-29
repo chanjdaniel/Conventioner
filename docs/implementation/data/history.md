@@ -42,7 +42,9 @@ Stored snake_case with the market foreign key `market_id`, like applications and
 | `detail` | structured, per kind: the date, table code and table choice placed; the date and table freed; the date and both seats swapped; how many placements a run wrote and how many pins it kept |
 
 `record(market_id, actor, action, kind=, vendors=, subject=, detail=)` writes one; the placement writes call `record_placed`, `record_freed`, `record_swapped` and `record_assignment_run`, which build the detail and its subject (`placement_subject`).
-A new kind of change gives its detail the changed fields before and after, never a whole document.
+Every other kind of change gives its detail the changed fields before and after, never a whole document.
+**The placement kinds are the one exception**: their details keep the shapes they had before the history widened, with no before, because the entries moved from `placement_history` have none to give and the placement endpoint answers exactly as it did.
+So a hand placement that moves a vendor records the seat they went to, not the seat they left.
 
 **A run is one entry**, not none and not one per placement.
 Leaving runs out would make the history lie by omission, since a placement changed between two hand edits would have no explanation; one entry per placement would drown the hand edits, which are the entries anyone reads.
