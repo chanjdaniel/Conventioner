@@ -6,6 +6,7 @@ describes:
   - back-end/datatypes.py#Market
   - back-end/datatypes.py#MarketPhase
   - back-end/datatypes.py#phase_from_market_document
+  - back-end/datatypes.py#applications_stopped_from_market_document
   - back-end/datatypes.py#intake_mode_from_market_document
   - back-end/datatypes.py#market_name_slug
   - back-end/datatypes.py#MarketSchemaContract
@@ -123,6 +124,8 @@ Keep it that way.
 `phase_from_market_document()` (`datatypes.py`) is the one source of truth for that mapping: a document with no `phase`, or one this build does not recognize, reads as `draft` when `isDraft` (or the older `is_draft`) is true or absent and `archived` when it is false.
 The fallback stays `archived` though the old build's publishing meant a running market: redefining it as `market_days` would contradict `migrate_phase.py` and `migrate_is_draft_consistency.py`, which define a legacy published market as `archived` too, so one definition is kept and [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) does the moving.
 Until it runs, such a market reads as finished: its check-in page takes no check-in, and is served at all only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
+For one release it also reads the three phases E38/F04 folded into `applications` (`LEGACY_STAGE_PHASES`) as `migrate_to_one_stage.py` would leave them: `applications`, or `draft` for a Google Form market that imported nothing; and `applications_stopped_from_market_document()` reads a form market still stored in `applications_closed` or `review` as stopped, unless `applicationsStopped` says otherwise ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+`market_from_document()` takes `applications_stopped` from it, and nothing is written back; a later release drops the aliases.
 `load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.
 
 **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes both from their document readers, `phase_from_market_document()` and `intake_mode_from_market_document()`.

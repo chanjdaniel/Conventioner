@@ -47,7 +47,8 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
 
 - The rail reads five stages on both paths, and its More… holds actions that are not moves beside the moves that are.
 - Verdicts are open from the first application to Begin Assignment on both paths, as they already were; the phase gate on verdicts the walk first planned for the Google Form path was not built.
-- The deploy that ships this runs the migration first: the build before it reads `applications` as an unknown phase, and this one the old three, and either degrades an unknown phase to archived, read-only ([`docs/RELEASING.md`](../RELEASING.md#pre-deploy-database-migrations)).
+- **For one release this build reads the three old names as the migration would leave them** (`LEGACY_STAGE_PHASES`, `phase_from_market_document`): the stage, a form market whose applications had closed as stopped, and a Google Form market that imported nothing as draft, writing nothing back, while a move writes the new name.
+  So the deploy goes first and the migration after it, whenever the operator likes, and the deploy can be rolled back until the migration runs; a later release drops the aliases ([`docs/RELEASING.md`](../RELEASING.md#pre-deploy-database-migrations)).
 
 What the organizer meets of it: [the lifecycle](../business/flows/lifecycle.md), [taking applications](../business/flows/taking-applications.md), [reviewing applications](../business/flows/review.md), [review needs an import](../business/rules/review-needs-an-import.md) and [verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md).
 
