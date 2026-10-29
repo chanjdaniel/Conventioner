@@ -29,7 +29,7 @@ import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { useMarketStore } from '@/stores/market';
 import { tabNote } from '@/utils/marketGuide';
-import { pageOfRoute, tabOf } from '@/utils/marketPage';
+import { MARKET_PAGES, pageOfRoute, tabOf, type MarketPage } from '@/utils/marketPage';
 
 const props = defineProps<{
   market: Market | null;
@@ -46,12 +46,14 @@ const { status } = storeToRefs(store);
 /**
  * What the open tab says while its work is not here yet, or is over (E31/F03/S02). Every tab
  * stays on the bar for the market's whole life; one out of its phase shows this line in place of a
- * page that could only say "nothing yet".
+ * page that could only say "nothing yet". On a tab's pages only, never a flow it holds: a Google
+ * Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
  */
 const route = useRoute();
 const note = computed(() => {
   const where = pageOfRoute(route.name, route.params);
-  return props.market && where ? tabNote(props.market, tabOf(where)) : null;
+  if (!props.market || !where || !MARKET_PAGES.includes(where as MarketPage)) return null;
+  return tabNote(props.market, tabOf(where));
 });
 
 /**

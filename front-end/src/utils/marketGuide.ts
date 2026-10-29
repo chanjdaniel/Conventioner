@@ -318,8 +318,9 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   const stopped = Boolean(market.applicationsStopped);
   if (forward && blocker && !runFirst) {
     const stage = phase === MarketPhase.Applications;
+    // Work left to finish leads to the review; none at all is said as what the move waits on.
     const ask =
-      stage && blocker.id === UNDECIDED
+      stage && blocker.id === UNDECIDED && blocker.resolutionLink
         ? 'Finish deciding'
         : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
     return {

@@ -68,7 +68,7 @@ const condition = computed(() => {
           : 'This market is open for applications. New ones keep arriving here.';
       const deciding =
         undecided.value === 0
-          ? 'Every application has been decided.'
+          ? 'Nothing is waiting for a decision.'
           : `${undecidedPhrase} still to decide. Every one must be decided before this market can assign.`;
       return `${arriving} ${deciding}`;
     }
