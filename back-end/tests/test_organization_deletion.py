@@ -24,9 +24,7 @@ OWNER_EMAIL = "owner@example.com"
 ORG_ID = "org-1"
 
 MID_LIFECYCLE = [
-    MarketPhase.APPLICATIONS_OPEN,
-    MarketPhase.APPLICATIONS_CLOSED,
-    MarketPhase.REVIEW,
+    MarketPhase.APPLICATIONS,
     MarketPhase.ASSIGNMENT,
     MarketPhase.OFFERS,
     MarketPhase.MARKET_DAYS,
@@ -123,7 +121,7 @@ class TestItRefusesWhileAMarketIsUnderWay:
     def test_the_refusal_names_each_market_and_its_phase(self, org):
         """"You cannot delete this" without saying which market is a refusal only guessing answers."""
         org(
-            _market("m-1", MarketPhase.REVIEW, name="Spring Market"),
+            _market("m-1", MarketPhase.APPLICATIONS, name="Spring Market"),
             _market("m-2", MarketPhase.MARKET_DAYS, name="Summer Market"),
             _market("m-3", MarketPhase.DRAFT, name="A Draft"),
         )
@@ -139,7 +137,7 @@ class TestItRefusesWhileAMarketIsUnderWay:
     def test_one_live_market_blocks_the_whole_deletion(self, org):
         markets, _ = org(
             _market("draft", MarketPhase.DRAFT),
-            _market("live", MarketPhase.APPLICATIONS_OPEN),
+            _market("live", MarketPhase.APPLICATIONS),
         )
 
         with pytest.raises(OrgsApi.OrganizationHasLiveMarkets):
@@ -239,7 +237,7 @@ class TestTheConfirmationCanSayWhatItDestroys:
         assert draft["ran"] is False
 
     def test_it_lists_what_would_refuse_the_deletion(self, org):
-        org(_market("m-1", MarketPhase.REVIEW), _market("m-2", MarketPhase.DRAFT))
+        org(_market("m-1", MarketPhase.APPLICATIONS), _market("m-2", MarketPhase.DRAFT))
 
         preview = OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
 

@@ -154,9 +154,7 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
 # A market in any of these is mid-lifecycle: somebody is applying, being reviewed, being placed,
 # or trading today. Deleting the organization under it destroys work in progress, so it refuses.
 BLOCKING_PHASES: frozenset[str] = frozenset({
-    MarketPhase.APPLICATIONS_OPEN.value,
-    MarketPhase.APPLICATIONS_CLOSED.value,
-    MarketPhase.REVIEW.value,
+    MarketPhase.APPLICATIONS.value,
     MarketPhase.ASSIGNMENT.value,
     MarketPhase.OFFERS.value,
     MarketPhase.MARKET_DAYS.value,

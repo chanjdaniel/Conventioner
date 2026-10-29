@@ -70,10 +70,9 @@ import rejection_rules as RejectionRules
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
-    PASSED_THROUGH,
+    VALID_TRANSITIONS,
     PreconditionResult,
     evaluate_transition,
-    move_route,
     route_between,
     transition_verdicts,
 )
@@ -234,10 +233,11 @@ VERDICTS_SETTLED = (
 
 
 def review_is_open(phase: MarketPhase) -> bool:
-    """Whether this market can still get back to review, the one rule both the verdicts and the
-    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same
-    applications, so they close together; derived from the transition table rather than listed."""
-    return route_between(phase.value, MarketPhase.REVIEW.value) is not None
+    """Whether this market can still get back to the stage where applications are reviewed, the one
+    rule both the verdicts and the automatic rejections settle on (E36/F01/S01). A rule and a
+    reviewer judge the same applications, so they close together; derived from the transition table
+    rather than listed."""
+    return route_between(phase.value, MarketPhase.APPLICATIONS.value) is not None
 
 
 def verdict_refusal(
@@ -402,18 +402,9 @@ def rejection_facts(market: Market) -> Dict[str, Any]:
     }
 
 
-# The menu's own names for the moves back to draft (``pathTransitionLabel`` in
-# ``front-end/src/utils/marketGuide.ts``), from each phase a market can still get back from.
-_WAY_BACK = {
-    MarketPhase.APPLICATIONS_OPEN: {
-        IntakeMode.FORM: "Reopen for Editing",
-        IntakeMode.CSV: "Reopen for Editing",
-    },
-    MarketPhase.APPLICATIONS_CLOSED: {
-        IntakeMode.FORM: "Reopen Applications, then Reopen for Editing",
-        IntakeMode.CSV: "Import more responses, then Reopen for Editing",
-    },
-}
+# The menu's own name for the move back to draft (``pathTransitionLabel`` in
+# ``front-end/src/utils/marketGuide.ts``).
+_WAY_BACK = "Reopen for Editing"
 
 
 def _since_leaving_draft(market: Market) -> str:
@@ -421,7 +412,7 @@ def _since_leaving_draft(market: Market) -> str:
     responses rather than opening applications (E31/F03/S03, E32/F02/S01)."""
     if market.intake_mode is IntakeMode.FORM:
         return "once applications have opened"
-    return "once the market has moved on to importing"
+    return "once its responses have been imported"
 
 
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -442,9 +433,8 @@ def setup_lock_reason(market: Market) -> Optional[str]:
     """Why the setup may no longer change, or None while it can (E31/F01/S02).
 
     It settles on leaving draft, so a date an applicant chose or a section a vendor was placed in
-    cannot move under them. While the market can still go back to draft - nobody has applied, and it
-    is collecting or has just stopped - the reason names the moves that get it there, since that is
-    the way to change it.
+    cannot move under them. While the market can still go back to draft - nobody has applied - the
+    reason names the move that gets it there, since that is the way to change it.
     """
     if market.phase is MarketPhase.DRAFT:
         return None
@@ -452,10 +442,10 @@ def setup_lock_reason(market: Market) -> Optional[str]:
         f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
         "applicants and the assignment rely on it."
     )
-    way_back = _WAY_BACK.get(market.phase, {}).get(market.intake_mode)
-    if way_back and ApplicationsApi.count_applications_for_market(market.id) == 0:
+    can_return = (market.phase.value, MarketPhase.DRAFT.value) in VALID_TRANSITIONS
+    if can_return and ApplicationsApi.count_applications_for_market(market.id) == 0:
         return (
-            f"{settled} While no one has applied, go back to draft to change it: {way_back}, "
+            f"{settled} While no one has applied, go back to draft to change it: {_WAY_BACK}, "
             "under More… on the phase rail."
         )
     return settled
@@ -861,16 +851,18 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
+    # Stopping and resuming applications (E38/F04/S02): offered exactly when the endpoint would take
+    # it, with whether the form is stopped now.
+    market_dict['applicationsStopped'] = market.applications_stopped
+    market_dict['applicationsStopReason'] = admin_actions_refusal(
+        user_email, market, context.organization,
+    ) or ApplicantsApi.applications_stop_refusal(market)
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
         to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
-    # The phases this market's path steps through rather than stops in (E32/F02/S01), for the rail
-    # to leave off its stages. The moves themselves are the keys above; the browser keeps no copy
-    # of the rule that makes either.
-    market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
@@ -1502,14 +1494,14 @@ def finalization_update(
     If that edge is ever retired, this field becomes derivable and should be DELETED rather than
     maintained. Left here so that is a decision next time and not an archaeology problem.
 
-    A market may reach ``applications_open`` with no stored form at all: a form is its custom fields
+    A market may reach ``applications`` with no stored form at all: a form is its custom fields
     PLUS the essential questions the plan asks, and either half alone is a form. Such a market is
     still finalized, so it gets one with no custom fields rather than no stamp.
     """
     form_key = market_doc_key("application_form")
     stored_form = document.get(form_key)
 
-    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS_OPEN.value:
+    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS.value:
         stamp = datetime.now(timezone.utc).isoformat()
         published_key = market_doc_key("published_at")
         if isinstance(stored_form, dict):
@@ -1557,8 +1549,8 @@ def apply_phase_transition(
 ) -> None:
     """Write one phase change, conditional on the market still being where the caller thinks.
 
-    The ONE writer of a market's phase: the transition endpoint and the form-amendment chain
-    (E20/F03/S01) both move a market through it. A second copy is how the `isDraft` stamp and the
+    The ONE writer of a market's phase: every move, the transition endpoint's and a Google Form
+    market's first import's, comes through ``take_move`` to it. A second copy is how the `isDraft` stamp and the
     finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
     ONE atomic update, and one conditional on the stored phase: a failure between the phase and
@@ -1597,31 +1589,6 @@ def apply_phase_transition(
     raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
 
 
-def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
-    """Take a move's steps in order through the one phase writer, each recorded as the phase it
-    entered (E32/F02/S01). The first step is conditional on the document the caller loaded; each
-    later one re-reads it, because the phase history is pushed from the document, and is taken only
-    if the market still stands where the step before left it - a request that moved it in between
-    stops the walk there rather than being carried over.
-
-    Raises what ``apply_phase_transition`` raises, at the step where it happened; a conflict names
-    the whole move, from where the walk began to where it was headed, not the step it stopped at.
-    """
-    origin = phase_from_market_document(document).value
-    for index, target in enumerate(route):
-        if index:
-            document = markets_collection.find_one({"id": market_id})
-            if document is None:
-                raise MarketNotFoundError("Market not found")
-            standing = phase_from_market_document(document).value
-            if standing != route[index - 1]:
-                raise PhaseChangedUnderRequest(standing, origin, route[-1])
-        try:
-            apply_phase_transition(market_id, document, target, by=by)
-        except PhaseChangedUnderRequest as changed:
-            raise PhaseChangedUnderRequest(changed.actual_phase, origin, route[-1]) from changed
-
-
 class MoveUnavailable(BadRequestError):
     """The move is not open from the phase the market stands in: a 400."""
 
@@ -1629,18 +1596,16 @@ class MoveUnavailable(BadRequestError):
 def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
     """Judge a move and, when nothing blocks it, take it. Returns its blockers; none means taken.
 
-    The one way a market is moved: the transition endpoint and the operator's seeder
-    (``seed_test_markets.py``) both come here, so neither can take a move unjudged. A move on the
-    market's path may step through a phase it does not stop in, every step's guards judged before
-    the first is taken (E32/F02/S01). Who may move it is the caller's to ask first.
+    The one way a market is moved: the transition endpoint, a Google Form market's first import
+    (``csv_import.import_applications``) and the operator's seeder (``seed_test_markets.py``) all
+    come here, so none can take a move unjudged. Who may move it is the caller's to ask first.
 
-    Raises ``MoveUnavailable``, and what ``walk_route`` raises.
+    Raises ``MoveUnavailable``, and what ``apply_phase_transition`` raises.
     """
     market = context.market
     market_id = context.document["id"]
     from_phase = market.phase.value
-    route = move_route(market, to_phase)
-    if route is None:
+    if (from_phase, to_phase) not in VALID_TRANSITIONS:
         raise MoveUnavailable(
             f"Transition from '{from_phase}' to '{to_phase}' is not available in the current phase."
         )
@@ -1648,8 +1613,8 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     if blockers:
         return blockers
     # Through the one phase writer, so the phase, its two stamps and the phase history move in one
-    # atomic update a step (E26/F06/S03); a route of two steps is two such updates.
-    walk_route(market_id, context.document, route, by=by)
+    # atomic update (E26/F06/S03).
+    apply_phase_transition(market_id, context.document, to_phase, by=by)
 
     # Only after the phase is written.
     if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS.value:
@@ -2070,7 +2035,7 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
 def parsed_application_form(market_id: str, application_form_data: Any) -> ApplicationForm:
     """The form a request body proposes, or a ``BadRequestError`` naming each field it gets wrong.
 
-    The one parse of a proposed form, for the form write and the amendment alike.
+    The one parse of a proposed form, for the form write.
     """
     try:
         return ApplicationForm.model_validate(application_form_data)

@@ -10,7 +10,6 @@ import pytest
 
 from conftest import FakeMarketsCollection, sessions_load_through_get_user, stored_market
 import app as app_module
-import api.form_amendment as Amend
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
@@ -35,8 +34,6 @@ WRITES = {
     "plan": lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "user-1"),
     "review highlights": lambda: MarketsApi.save_review_highlights("market-123", [], "user-1"),
     "form": lambda: MarketsApi.save_application_form("market-123", FORM, "user-1"),
-    "form amendment": lambda: Amend.amend_application_form("market-123", FORM, "user-1"),
-    "resume amendment": lambda: Amend.resume_amendment("market-123", "user-1"),
     "assignment run": lambda: PlacementsApi.run_assignment("market-123", "user-1"),
     "place": lambda: PlacementsApi.write_placement(
         "market-123",

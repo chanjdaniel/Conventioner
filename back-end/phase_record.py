@@ -2,16 +2,16 @@
 
 Settles claims-and-room ticket 06. Before this there was no record of which phases a market passed
 through, so the archived rail read evidence instead - a stored assignment meant Assignment, a
-published form meant Applications Open - and no evidence distinguished "assigned, then archived"
+published form meant applications opened - and no evidence distinguished "assigned, then archived"
 from "assigned, published, ran, then archived". It always stopped at Assignment, and said the
 stronger thing anyway: "It was assigned but never published, so no check-in page went on the air",
 about a market whose check-in page had served a real market day (bug 8).
 
 **The record is written by the one phase writer**, ``MarketsApi.apply_phase_transition``, in the
 same atomic update that moves the phase, and by ``create_market`` for the ``draft`` every market
-starts in. It is a log, not a "furthest phase" field, because the machine has back edges (Reopen
-for Editing, the form amendment chain) and because a log answers the questions that come next -
-when applications opened, who published - which a single field cannot.
+starts in. It is a log, not a "furthest phase" field, because the machine has a back edge (Reopen
+for Editing) and because a log answers the questions that come next - when applications opened,
+who published - which a single field cannot.
 
 **On the market document, not beside it.** ``placement_history`` is a separate collection because
 placements are many and each names a vendor; a market enters a handful of phases in its life, the
@@ -103,7 +103,7 @@ def phases_reached(
     entered.add(MarketPhase.DRAFT.value)
     form = market_doc_field(document, "application_form")
     if isinstance(form, dict) and form.get(market_doc_key("published_at")):
-        entered.add(MarketPhase.APPLICATIONS_OPEN.value)
+        entered.add(MarketPhase.APPLICATIONS.value)
     assignment = market_doc_field(document, "assignment_object")
     if isinstance(assignment, dict) and assignment.get(market_doc_key("vendor_assignments")):
         entered.add(MarketPhase.ASSIGNMENT.value)

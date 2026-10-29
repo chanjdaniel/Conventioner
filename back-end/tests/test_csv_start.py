@@ -171,7 +171,7 @@ def test_two_columns_cannot_answer_the_same_essential_question():
 
 
 def test_a_market_that_left_draft_or_gained_questions_is_refused():
-    for doc in (_draft(phase="applications_open", isDraft=False),
+    for doc in (_draft(phase="applications", isDraft=False),
                 _draft(applicationForm={"fields": [{"key": "shop", "label": "Shop",
                                                     "type": "text"}]})):
         with pytest.raises(CsvStart.ConfirmRefused):

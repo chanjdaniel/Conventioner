@@ -50,48 +50,65 @@ logger = logging.getLogger(__name__)
 
 # Not a form answer: it identifies the applicant, so it lands on the document rather than in
 # ``form_data``. Every import must map it - without it a row names nobody.
-# Importing is an intake operation, so it belongs to the phases where a market is taking
-# applications. Once REVIEW has begun, the applicant set must stop moving under the reviewer:
-# rows appearing, changing, or returning to `open` beneath someone working through a list is the
-# hazard. The organizer is not stuck - `review -> applications_closed` is an existing edge, so the
-# way through is to reopen, import, and move forward again. That is deliberate and visible, and it
-# needs no new edges in the transition registry.
-IMPORT_PHASES = (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED)
+# Importing is how a Google Form market's vendors arrive (E38/F04/S01): its first import, in draft,
+# is its way into Review, and it takes that move itself once the rows are written; in Review "Redo
+# import" reads the whole responses file again, new rows and changed ones, while the review goes on.
+# From assignment on the applicants are settled, so nothing more is imported.
+IMPORT_PHASES = (MarketPhase.DRAFT, MarketPhase.APPLICATIONS)
 
 
 def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     """Why this market cannot be imported into right now, or None.
 
     Intake is exactly one mode, so importing is the CSV path's in every phase (E31/F03/S04): a form
-    market takes its applications on its own page.
+    market takes its applications on its own page. A draft's first import also waits on what would
+    keep it from entering Review (``first_import_blockers``), said by the first of them.
     """
     if intake_mode_from_market_document(market_doc) is IntakeMode.FORM:
         return (
             "This market takes applications on its own page, so nothing is imported into it."
         )
     phase = phase_from_market_document(market_doc)
-    if phase in IMPORT_PHASES:
-        return None
-    readable = phase.value.replace("_", " ")
-    if phase == MarketPhase.DRAFT:
+    if phase not in IMPORT_PHASES:
         return (
-            f"This market is still a draft, so it is not taking applications yet. "
-            f"Use Import responses on the phase rail first."
+            f"This market is in the {phase.value.replace('_', ' ')} phase, past review, so it takes "
+            "no more applications and nothing more can be imported."
         )
-    # The way back is offered only where the transition table has one (bug 42): this told a market
-    # in Assignment to "move back to applications closed", which no move does.
-    from guards import route_between
+    blockers = first_import_blockers(market_doc)
+    if blockers:
+        return blockers[0].message
+    return None
 
-    if route_between(phase.value, MarketPhase.APPLICATIONS_CLOSED.value) is None:
-        return (
-            f"This market is in the {readable} phase, past review, so it takes no more "
-            f"applications and nothing more can be imported."
-        )
-    return (
-        f"This market is in the {readable} phase, so importing would change who has applied "
-        f"while their applications are being decided. Use Import more "
-        f"responses, under More… on the phase rail, then import."
+
+def first_import_blockers(market_doc: Dict[str, Any]) -> List[Any]:
+    """What would keep a draft's first import from taking it into Review: every guard on the move
+    but the one the import itself satisfies by writing the rows. Empty once the market is in Review,
+    where an import moves nothing. Judged before a row is read, so a refused first import has
+    written nothing and leaves the market the draft it was."""
+    if phase_from_market_document(market_doc) is not MarketPhase.DRAFT:
+        return []
+    from guards import ResponsesImportedGuard, evaluate_transition
+
+    return evaluate_transition(
+        market_from_document(market_doc), MarketPhase.APPLICATIONS.value, None,
+        leaving_out=(ResponsesImportedGuard.id,),
     )
+
+
+def enter_review(market_id: str, by: Optional[str]) -> str:
+    """Take a draft that now holds imported responses into Review, through the one judged move, and
+    return the phase it is in. A market already past draft, or one the move refuses (no row was
+    written, or its setup changed under the import), is left where it stands."""
+    import api.markets as MarketsApi
+
+    context = MarketsApi.load_market_context(market_id)
+    if context is None or context.market is None:
+        return MarketPhase.DRAFT.value
+    if context.market.phase is MarketPhase.DRAFT:
+        blockers = MarketsApi.take_move(context, MarketPhase.APPLICATIONS.value, by=by)
+        if not blockers:
+            return MarketPhase.APPLICATIONS.value
+    return context.market.phase.value
 
 
 # The shapes a form export actually writes a timestamp in. Google Forms emits the spreadsheet's
@@ -1507,8 +1524,9 @@ def import_applications(
     csv_content: str,
     mapping: Dict[str, Any],
     resolutions: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
+    by: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
-    """Turn the mapped rows into applications.
+    """Turn the mapped rows into applications, and a draft holding them into Review.
 
     Refuses at the MAPPING level and tolerates at the ROW level: an unmapped required target
     imports nothing, because that is a configuration error and half a form is nonsense, but one
@@ -1663,6 +1681,11 @@ def import_applications(
     rejected = RejectionRules.judge(
         RejectionRules.Rulebook(market_from_document(market_doc)), market_id)
 
+    # Only now, the rows written: a draft's first import is its way into Review (E38/F04/S01).
+    phase = phase_from_market_document(market_doc).value
+    if phase == MarketPhase.DRAFT.value:
+        phase = enter_review(market_id, by)
+
     return {
         "created": created,
         "updated": updated,
@@ -1674,6 +1697,7 @@ def import_applications(
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
         "rejectedByRules": rejected,
+        "phase": phase,
     }, 200
 
 

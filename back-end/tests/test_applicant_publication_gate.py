@@ -315,7 +315,7 @@ class TestPublishingResultsOnAMarketWithNoApplicants:
     def _csv_market(self, monkeypatch):
         fake = FakeMarketsDb({
             "id": "market-1",
-            "phase": MarketPhase.APPLICATIONS_CLOSED.value,
+            "phase": MarketPhase.APPLICATIONS.value,
             "isDraft": False,
             "resultsPublished": False,
         })

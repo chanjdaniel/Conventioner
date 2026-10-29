@@ -90,7 +90,7 @@ def test_every_phase_after_draft_is_locked_in_the_words_of_its_path(serve, phase
     assert form.startswith("The application form is fixed")
     assert "once applications have opened" in form
     assert csv.startswith("The questions are fixed")
-    assert "once the market has moved on to importing" in csv
+    assert "once its responses have been imported" in csv
 
 
 def test_it_cannot_be_written(monkeypatch):
@@ -122,9 +122,7 @@ def test_an_archived_markets_form_says_it_is_archived(serve):
     "phase",
     [
         MarketPhase.DRAFT,
-        MarketPhase.APPLICATIONS_OPEN,
-        MarketPhase.APPLICATIONS_CLOSED,
-        MarketPhase.REVIEW,
+        MarketPhase.APPLICATIONS,
         MarketPhase.ASSIGNMENT,
     ],
 )
@@ -145,7 +143,7 @@ def test_a_market_with_no_assignment_is_not_out_of_date(serve):
     assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == []
 
 
-@pytest.mark.parametrize("phase", [MarketPhase.REVIEW, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED])
+@pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED])
 def test_outside_assignment_the_market_is_read_without_its_applications(serve, monkeypatch, phase):
     """Only `assignment` can act on it, so no other phase pays for reading the approved applications -
     least of all a running market, read on the day by everyone at once (E22/F03/S01)."""

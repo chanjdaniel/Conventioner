@@ -90,7 +90,7 @@ class TestItHoldsTheMarket:
                             lambda _id, statuses: counts[tuple(statuses)])
 
         result = AllApplicationsReviewedGuard().evaluate(
-            client_market(phase=MarketPhase.REVIEW), None)
+            client_market(phase=MarketPhase.APPLICATIONS), None)
 
         assert not result.passed
         assert "2 applications need a follow-up" in result.message

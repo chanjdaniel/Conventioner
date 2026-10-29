@@ -308,10 +308,11 @@ CHECK_IN_RECORD_PHASES = (MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED)
 # may sign in during any phase and always see their own application (the ruling recorded in
 # `api/applicants.py`); a draft is not published, so it answers as a market that does not exist.
 #
-# This was `applications_open` alone, which closed the whole surface the moment applications
-# closed - before most organizers publish a verdict, so a vendor could never read theirs (bug 20).
-# APPLYING is still open-only, and the save says so itself: a stranger applying to a closed market
-# was the old behaviour, and it stays wrong.
+# This was the open phase alone, which closed the whole surface the moment applications closed -
+# before most organizers publish a verdict, so a vendor could never read theirs (bug 20). APPLYING
+# is still the stage's alone, while the organizer takes applications, and the save says so itself
+# (`takes_applications` in `api/applicants.py`): a stranger applying to a closed market was the old
+# behaviour, and it stays wrong.
 APPLICANT_SURFACE_PHASES = tuple(phase for phase in MarketPhase if phase is not MarketPhase.DRAFT)
 
 
@@ -320,7 +321,7 @@ def non_draft_market_prefilter() -> Dict[str, Any]:
 
     This is a *prune*, not a judgement. A Mongo filter cannot decide whether a document is a
     draft, because ``{"phase": {"$ne": "draft"}}`` also matches a document that carries no
-    ``phase`` at all -- which is the legacy encoding of a draft -- and ``phase == 'applications_open'``
+    ``phase`` at all -- which is the legacy encoding of a draft -- and ``phase == 'applications'``
     does not exclude a draft written before the ``isDraft`` convention. The only place to trust a
     draft decision is ``phase_from_market_document``, which knows both conventions. This filter
     only removes the documents for which every possible encoding says "draft": the ones that
@@ -436,12 +437,13 @@ def applicant_intake_market_by_slug(
 
     The applicant surface: sign-in, the public form, and a vendor's own application, in every phase
     but draft (``APPLICANT_SURFACE_PHASES``) - an applicant may always read their own application.
-    Applying itself is gated to ``applications_open`` by the save, which says so in words.
+    Applying itself is gated to the stage by the save (``takes_applications``), which says so in
+    words.
 
     Its one requirement beyond publication is that the market's intake mode is ``form``, which the
-    phase cannot express: a CSV market passes through ``applications_open`` too - that is where the
-    import happens - so during that window its public application form would be live and accepting
-    strangers the organizer has no way to answer.
+    phase cannot express: a CSV market is in ``applications`` too - that is where its imported
+    responses are reviewed - so its public application form would be live and accepting strangers
+    the organizer has no way to answer.
 
     It is a function of its own rather than a flag on the check-in lookup because check-in must
     stay open to every market that runs: how a vendor entered a market has no bearing on whether
