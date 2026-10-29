@@ -44,7 +44,8 @@ SELL = ["Stickers", "Prints", "Keychains", "Jewelry", "Apparel", "Ceramic"]
 NONE_CLUB = "I am NOT a part of any of these clubs"
 ART, ANI, PRINT = "AMS Artelier at UBC", "UBC Ani", "UBC PRINT Arts and Crafts"
 
-# The synthetic five-day grid's options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
+# The synthetic five-day grid's options, as ``tests/fixtures/synthetic_form_exports.py`` writes
+# them.
 AFFILIATION = ["Yes, I am a current Example College student",
                "Yes, I am Example College alumni or staff"]
 MAKES = ["Stickers", "Keychains", "Art prints", "Jewellery", "Fibre arts (crochet, knitting, etc)",

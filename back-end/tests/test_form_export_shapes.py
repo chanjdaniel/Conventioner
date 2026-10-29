@@ -51,7 +51,7 @@ class TestTheFixtureStillHasTheShapesItExistsFor:
         assert len(multiline) >= 5, "the multi-line grid headers are the whole point of this fixture"
 
     def test_timestamps_are_unpadded_month_and_hour(self, rows):
-        """`8/22/2025 18:22:56` - what `datetime.fromisoformat` cannot read and text cannot order."""
+        """`8/22/2025 18:22:56`: what `datetime.fromisoformat` cannot read and text cannot order."""
         stamps = [r[1] for r in rows[1:] if len(r) > 1 and r[1]]
         assert stamps
         assert any(s.split("/")[0].lstrip("0") == s.split("/")[0] and len(s.split("/")[0]) == 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic Google Form response exports: the corpus the CSV proposal and the start are measured on.
+"""Synthetic Google Form response exports, the corpus the CSV proposal and start are measured on.
 
 Why this exists: three MVP blockers found on 2026-09-14 came from the *shape* of a real export, not
 from logic, and every CSV test in this suite used short single-line stems like
@@ -92,8 +92,8 @@ SHOP_WORDS = (
 
 # Words for the "Other" answers applicants type into a checkbox question.
 OTHER_MAKES = (
-    "bookmarks", "candles", "coasters", "earrings", "enamel pins", "fridge magnets", "greeting cards",
-    "hair clips", "journals", "lanyards", "mugs", "notebooks", "patches", "phone charms",
+    "bookmarks", "candles", "coasters", "earrings", "enamel pins", "fridge magnets",
+    "greeting cards", "hair clips", "journals", "lanyards", "mugs", "notebooks", "patches", "phone charms",
     "plushies", "postcards", "pouches", "rings", "scarves", "soaps", "tote bags", "zines",
 )
 OTHER_STYLES = (
@@ -152,7 +152,6 @@ NOTE_SENTENCES = (
 class Person:
     given: str
     family: str
-    preferred: str
     email: str
     handle: str
 
@@ -280,8 +279,10 @@ class FullName(Kind):
 
 @dataclass
 class PreferredName(Kind):
+    """The name an applicant goes by: their given name."""
+
     def cells(self, context):
-        return [person.preferred for person in context.people]
+        return [person.given for person in context.people]
 
 
 @dataclass
@@ -405,9 +406,8 @@ class MultiSelect(Kind):
 
     @staticmethod
     def _typed(rng, count):
-        answers = rng.sample([f"{style} {make}" for style in OTHER_STYLES for make in OTHER_MAKES],
-                             count)
-        return answers
+        return rng.sample([f"{style} {make}" for style in OTHER_STYLES for make in OTHER_MAKES],
+                          count)
 
 
 @dataclass
@@ -470,8 +470,7 @@ class Form:
         people = []
         for row, (first, last) in enumerate(zip(given, family)):
             handle = f"example{first}{last}{row}".lower()
-            people.append(Person(first, last, first,
-                                 f"{first}.{last}{row}@example.com".lower(), handle))
+            people.append(Person(first, last, f"{first}.{last}{row}@example.com".lower(), handle))
         return people
 
     def rows_of_cells(self) -> List[List[str]]:
