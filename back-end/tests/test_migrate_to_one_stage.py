@@ -171,3 +171,15 @@ def test_a_second_run_changes_nothing():
     assert db.markets.docs == after_first
     assert db.markets.writes == writes
     assert counts["updated"] == 0
+
+
+def test_a_stop_written_since_the_deploy_is_kept():
+    """The deploy reads the old names first, so an organizer may take applications again on a
+    closed market before the migration runs; the migration keeps what they chose."""
+    docs = _fixtures()
+    docs[1]["applicationsStopped"] = False
+    db = FakeDb(docs)
+
+    migrate(db)
+
+    assert _by_id(db.markets)["m2"]["applicationsStopped"] is False

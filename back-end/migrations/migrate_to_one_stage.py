@@ -2,9 +2,10 @@
 """Move every market into the one stage where applications arrive and are reviewed (E38/F04/S01).
 
 Why: ``applications_open``, ``applications_closed`` and ``review`` became one phase, ``applications``
-(shown "Review" on a Google Form market and "Applications" on one whose vendors apply on its page),
-and this build knows no other name for it. A market left in an old phase reads as an unknown one,
-which ``phase_from_market_document`` degrades to archived: read-only, its applicant form closed.
+(shown "Review" on a Google Form market and "Applications" on one whose vendors apply on its page).
+The build that ships it reads the old names as this script would leave them
+(``LEGACY_STAGE_PHASES`` in ``datatypes.py``), so the deploy comes first and this runs afterwards,
+whenever the operator likes; a later release drops those aliases once it has run on every database.
 
 What it writes, each market in one update conditional on the phase it read:
 
@@ -13,7 +14,7 @@ What it writes, each market in one update conditional on the phase it read:
   ``applications_closed`` or ``review``: such a market reached ``review`` only through
   ``applications_closed``, so its form was closed in both, and closing applications is now a fact
   about the form inside the stage (E38/F04/S02), so it keeps refusing new applications while its
-  review goes on;
+  review goes on; never over a stop the organizer set or cleared since the deploy;
 - ``phase: "draft"`` instead for a Google Form market that holds no application: the stage is entered
   by a first import (``ResponsesImportedGuard`` is its entry invariant), so a market that imported
   nothing waits in draft for it, its form's publication stamp cleared and a draft entry added to its
@@ -24,10 +25,8 @@ What it writes, each market in one update conditional on the phase it read:
 Safe to run repeatedly: a second run finds nothing to change. ``--dry-run`` prints what it would
 change, market by market, and the counts, and writes nothing.
 
-Run it immediately before the deploy that ships the stage. The old back end reads ``applications``
-as an unknown phase, so between this run and the new back end going live those markets read as
-archived (read-only, nothing written); the new back end reads the old names the same way, so the
-other order leaves them archived until this runs.
+Run it after the deploy that ships the stage, not before: the build before it reads
+``applications`` as an unknown phase, which degrades to archived.
 
 Usage, from ``back-end/`` (for production, put the URI on the command line, never in ``.env``):
     MONGODB_URI='mongodb+srv://...' python migrations/migrate_to_one_stage.py --dry-run
@@ -84,7 +83,8 @@ def change_for(doc: Dict[str, Any], applications: int) -> Dict[str, Any]:
         }] if history else history
     elif phase in OLD_PHASES:
         change["phase"] = STAGE
-        if phase in CLOSED_PHASES and own_form:
+        # Not over a stop the organizer set or cleared since the deploy, which read the same.
+        if phase in CLOSED_PHASES and own_form and "applicationsStopped" not in doc:
             change["applicationsStopped"] = True
     if history != _history(doc):
         change["phaseHistory"] = history

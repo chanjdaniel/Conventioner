@@ -54,6 +54,7 @@ from datatypes import (
     IntakeMode,
     Market,
     MarketPhase,
+    applications_stopped_from_market_document,
     intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
@@ -500,6 +501,10 @@ def market_from_document(
     market = Market(**model_data)
     object.__setattr__(market, "phase", phase_from_market_document(document))
     object.__setattr__(market, "intake_mode", intake_mode_from_market_document(document))
+    # Read like the phase, so a market still stored in an old closed phase reads as stopped.
+    object.__setattr__(
+        market, "applications_stopped", applications_stopped_from_market_document(document),
+    )
     return market
 
 

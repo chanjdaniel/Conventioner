@@ -73,6 +73,40 @@ def phase_label(phase: MarketPhase, intake_mode: Optional["IntakeMode"] = None) 
     return phase.value.replace("_", " ").title()
 
 
+#: The phases E38/F04/S01 folded into ``applications``, read as it for one release so the deploy can
+#: come before ``migrations/migrate_to_one_stage.py`` (Daniel's choice, review of T94): read, never
+#: written back. A later release drops them once the migration has run on every database.
+LEGACY_STAGE_PHASES = ("applications_open", "applications_closed", "review")
+#: The old phases an own-form market's form was closed in: ``review`` was reached only through
+#: ``applications_closed``.
+LEGACY_CLOSED_PHASES = ("applications_closed", "review")
+
+
+def _legacy_stage_phase(document: Dict[str, Any]) -> MarketPhase:
+    """An old stage phase as the migration would leave it: the stage, or, for a Google Form market
+    that imported nothing, draft, since the stage is entered by a first import."""
+    if intake_mode_from_market_document(document) is IntakeMode.CSV:
+        import api.applications as ApplicationsApi
+
+        if ApplicationsApi.count_applications_for_market(document.get("id", "")) == 0:
+            return MarketPhase.DRAFT
+    return MarketPhase.APPLICATIONS
+
+
+def applications_stopped_from_market_document(document: Dict[str, Any]) -> bool:
+    """Whether a stored market has stopped taking applications (E38/F04/S02).
+
+    The stored fact when there is one; else, for a form market still stored in an old closed phase,
+    true, as the migration would set it, since its form was closed.
+    """
+    if "applicationsStopped" in document:
+        return bool(document["applicationsStopped"])
+    return (
+        document.get("phase") in LEGACY_CLOSED_PHASES
+        and intake_mode_from_market_document(document) is IntakeMode.FORM
+    )
+
+
 def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     """Effective phase of a stored market document.
 
@@ -87,6 +121,8 @@ def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     same mapping rather than raising and taking down whatever list is being served.
     """
     stored_phase = document.get("phase")
+    if stored_phase in LEGACY_STAGE_PHASES:
+        return _legacy_stage_phase(document)
     if stored_phase:
         try:
             return MarketPhase(stored_phase)

@@ -41,6 +41,8 @@ from datatypes import (
     VendorAssignmentResult,
     VerdictGiver,
     MarketPhase,
+    LEGACY_STAGE_PHASES,
+    applications_stopped_from_market_document,
     phase_from_market_document,
     phase_label,
 )
@@ -192,7 +194,7 @@ def takes_applications(market_doc: Dict[str, Any]) -> bool:
     """
     return (
         phase_from_market_document(market_doc) is MarketPhase.APPLICATIONS
-        and not market_doc_field(market_doc, "applications_stopped", False)
+        and not applications_stopped_from_market_document(market_doc)
     )
 
 
@@ -653,7 +655,8 @@ def set_applications_stopped(market_id: str, stopped: bool) -> Tuple[Dict[str, A
     result = db["markets"].update_one(
         {
             "id": market_id,
-            "phase": MarketPhase.APPLICATIONS.value,
+            # An old stage phase too, read as the stage until the migration has run.
+            "phase": {"$in": [MarketPhase.APPLICATIONS.value, *LEGACY_STAGE_PHASES]},
             "intakeMode": IntakeMode.FORM.value,
         },
         {"$set": {"applicationsStopped": stopped}},
