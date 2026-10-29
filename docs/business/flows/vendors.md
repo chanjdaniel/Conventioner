@@ -73,7 +73,7 @@ For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, f
 7. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
 
 The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, and a seat is read from the stored placements the Result page draws.
-Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-` or `@` gains a leading quote, as the assignment's download does.
+Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
 No column set is saved between exports yet.
 Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
 

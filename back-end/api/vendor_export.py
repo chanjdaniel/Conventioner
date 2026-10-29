@@ -386,8 +386,8 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
 # ── the vendors and the file ─────────────────────────────────────────────────
 
 def _vendors(market: Market) -> List[Vendor]:
-    """Every application of the market, newest first as the Vendors page lists them, each with the
-    seats the stored placements give them."""
+    """Every application of the market, newest first as the Vendors page lists them (a vendor added
+    by hand, never submitted, last), each with the seats the stored placements give them."""
     seats: Dict[str, Dict[str, Any]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
         for email in set(row.assignment):
