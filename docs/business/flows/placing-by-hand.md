@@ -88,7 +88,7 @@ Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 ## J13. Placement history
 
 **Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Placement history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
+"Placement history" on the Result page opens the market's whole placement history, and a vendor's drawer has their own on its History tab.
 Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Placed <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Ran the assignment: N placements written, M pins preserved".
 Anyone who can read the market can read it.
 Covered by: `the-placement-history-dialog.spec.ts`.
