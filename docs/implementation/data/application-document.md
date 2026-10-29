@@ -79,7 +79,7 @@ Writing over `form_data` instead would last until the next re-import.
 `write_answer_updates` sets and unsets each update by its own dotted path, so two organizers updating different answers at once both land; an update does not move `updated_at`, which is the vendor's answers' time a verdict is conditioned on.
 
 **`effective_answers` is the one reader of the answers as the organizer reads them**: `form_data` with each update's value in its place.
-The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`) and the [automatic rejections](../../business/rules/automatic-rejections.md) read through it, and so does any reader added later that calls it.
+The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`) and the [automatic rejections](../../business/rules/automatic-rejections.md) read through it, and so does any reader added later that calls it.
 The applicant's own view serves `form_data`, what they wrote, and no update.
 The solver's input still reads `form_data`: the essential answers it reads cannot be updated yet (E41/F01/S02).
 
