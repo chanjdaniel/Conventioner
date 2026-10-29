@@ -24,7 +24,7 @@ const props = defineProps<{
   label: string;
   /** Where they were placed, when they were. */
   placement?: string | null;
-  /** What that seat costs for the day ("Gold, full table, $35"), where the market prices it.
+  /** What that table costs them for the day ("Gold, full table, $35"), where the market prices it.
    * The drawer is the organizers' own, so a vendor never reads it (E43/F01/S01, Q20.2). */
   price?: string | null;
   /** Why they were not, when they were not. */
@@ -60,7 +60,7 @@ const state = computed(() => {
  * An unplaced date offers it only when a seat is actually free, because the other three reasons
  * are answered in the plan or in the vendor's own answers, never at a table.
  */
-const actionLabel = computed(() => (placed.value ? 'Change placement' : 'Place them'));
+const actionLabel = computed(() => (placed.value ? 'Change assignment' : 'Assign them'));
 const canPlace = computed(() => placed.value || reasonIsActionable(props.reason));
 </script>
 

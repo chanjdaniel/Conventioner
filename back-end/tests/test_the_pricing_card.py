@@ -1,7 +1,7 @@
-"""The Pricing card, and a price on each placement (E43/F01/S01).
+"""The Pricing card, and a price on each assignment (E43/F01/S01).
 
-Market Setup holds a full-table price per day for each tier and what a half table costs; a
-placement's price is its table's, by the table's tier and by whether the seat is half or full. The
+Market Setup holds a full-table price per day for each tier and what a half table costs; an
+assignment's price is its table's, by the table's tier and by whether it is half the table or all of it. The
 prices are in cents, in the market's one currency, settle with the setup on leaving draft, and each
 change is recorded in the market's history.
 """
@@ -44,29 +44,29 @@ def _pricing(**change):
     })
 
 
-class TestAPlacementsPrice:
+class TestAnAssignmentsPrice:
     def test_a_full_table_costs_its_tiers_price(self):
-        assert Pricing.placement_price(_pricing(), "Gold", "Full Table") == 3500
+        assert Pricing.assignment_price(_pricing(), "Gold", "Full Table") == 3500
 
     @pytest.mark.parametrize("choice", ["Half Table", "Half Table (Left)", "Half Table (Right)"])
     def test_a_half_table_costs_the_half_tables_share(self, choice):
-        assert Pricing.placement_price(_pricing(), "Silver", choice) == 1500
+        assert Pricing.assignment_price(_pricing(), "Silver", choice) == 1500
 
     def test_the_price_follows_the_table_not_what_the_vendor_picked(self):
         """Q20: the tier of the table they sit at, even one they did not pick."""
-        assert Pricing.placement_price(_pricing(), "Gold", "Half Table (Left)") == 1750
+        assert Pricing.assignment_price(_pricing(), "Gold", "Half Table (Left)") == 1750
 
     def test_a_market_with_no_prices_prices_nothing(self):
-        assert Pricing.placement_price(None, "Gold", "Full Table") is None
-        assert Pricing.placement_price(_pricing(everyone_else=[]), "Gold", "Full Table") is None
+        assert Pricing.assignment_price(None, "Gold", "Full Table") is None
+        assert Pricing.assignment_price(_pricing(everyone_else=[]), "Gold", "Full Table") is None
 
     def test_a_tier_with_no_price_prices_nothing(self):
-        assert Pricing.placement_price(_pricing(), "Bronze", "Full Table") is None
-        assert Pricing.placement_price(_pricing(), "", "Full Table") is None
+        assert Pricing.assignment_price(_pricing(), "Bronze", "Full Table") is None
+        assert Pricing.assignment_price(_pricing(), "", "Full Table") is None
 
     def test_a_free_table_is_a_price(self):
         free = _pricing(everyone_else=[{"tier": "Gold", "cents": 0}])
-        assert Pricing.placement_price(free, "Gold", "Half Table") == 0
+        assert Pricing.assignment_price(free, "Gold", "Half Table") == 0
 
 
 class TestTheHalfPrice:
@@ -232,7 +232,7 @@ class TestTheTablesRead:
         assert status == 200
         return result["rows"]
 
-    def test_each_occupant_carries_their_seats_price(self, monkeypatch):
+    def test_each_vendor_at_a_table_carries_their_price(self, monkeypatch):
         rows = self._tables(monkeypatch, PRICED, [
             _row("Atrium 1", ["ana@example.com", "ana@example.com"], "Gold", "Full Table"),
             _row("Landing 1", ["ana@example.com", "ben@example.com"], "Silver", "Half Table"),

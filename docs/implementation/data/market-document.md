@@ -77,7 +77,7 @@ Each field's own rules are with the module that writes it; this node is the docu
 
 **The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed) and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
 A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
-What they mean and how a seat is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
+What they mean and how an assignment is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
 
 **The application form is stored as one validator returns it.**
 Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked; the writes on an existing market go through `prepared_application_form`, which asks [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) first:

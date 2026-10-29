@@ -40,7 +40,7 @@ describe('a price reads in the market currency', () => {
   });
 });
 
-describe('the date card says what the seat costs', () => {
+describe('the date card says what the assignment costs', () => {
   it('names the tier, the size and the price', () => {
     expect(priceLine({ tier: 'Gold', tableChoice: 'Full Table', priceCents: 3500 }, 'CAD')).toBe(
       'Gold, full table, $35',
@@ -50,7 +50,7 @@ describe('the date card says what the seat costs', () => {
     ).toBe('Silver, half table, $15');
   });
 
-  it('says nothing for a seat with no price', () => {
+  it('says nothing for an assignment with no price', () => {
     expect(priceLine({ tier: 'Gold', tableChoice: 'Full Table', priceCents: null }, 'CAD')).toBe(
       null,
     );

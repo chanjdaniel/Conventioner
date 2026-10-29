@@ -742,15 +742,13 @@ function swapSeats(withEmail: string): void {
 .status-message {
   padding: var(--space-12) 0;
   text-align: center;
-  color: var(--mm-black);
-  opacity: 0.7;
+  color: var(--mm-text-muted);
 }
 
 .empty-state {
   padding: var(--space-12) 0;
   text-align: center;
-  color: var(--mm-black);
-  opacity: 0.6;
+  color: var(--mm-text-muted);
 }
 
 .date-groups {
@@ -781,8 +779,7 @@ function swapSeats(withEmail: string): void {
 
 .date-heading-count {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.6;
+  color: var(--mm-text-muted);
 }
 
 .section-group {
@@ -863,8 +860,8 @@ function swapSeats(withEmail: string): void {
 
 .meta-tag {
   font-size: var(--text-xs);
-  color: var(--mm-black);
-  opacity: 0.65;
+  /* On an empty table's yellow ground too, where the plain muted ink falls short of AA. */
+  color: var(--mm-text-muted-on-beige);
 }
 
 .table-row-assignment {
@@ -887,8 +884,7 @@ function swapSeats(withEmail: string): void {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
   text-transform: uppercase;
-  color: var(--mm-black);
-  opacity: 0.55;
+  color: var(--mm-text-muted-on-beige);
   letter-spacing: 0.6px;
 }
 

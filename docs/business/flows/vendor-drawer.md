@@ -41,10 +41,10 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
 4. Three tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
-   - **Assignments:** one card per market date: where they sit, with "Change placement", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
-     Where the market prices its tables, a placed date says what the seat costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).
-     "Change placement" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
-   - **History:** their [placement history](placing-by-hand.md#j13-placement-history).
+   - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
+     Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).
+     "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
+   - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.

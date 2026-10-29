@@ -75,7 +75,7 @@ describe('an unplaced date states its reason in words', () => {
     const wrapper = card({ placement: null, reason: undefined });
 
     const text = wrapper.get('[data-testid="vendor-date-card-reason"]').text();
-    expect(text).toBe('Not placed');
+    expect(text).toBe('Not assigned');
     expect(text).not.toContain('—');
     expect(text).not.toBe('-');
   });
@@ -118,14 +118,14 @@ describe('a free table is actionable, the other reasons are reports', () => {
     });
 
     expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe(
-      'Change placement',
+      'Change assignment',
     );
   });
 
-  it('says place, not change, when there is nobody there yet', () => {
+  it('says assign, not change, when there is nobody there yet', () => {
     const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/tables' });
 
-    expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe('Place them');
+    expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe('Assign them');
   });
 
   it('offers nothing without somewhere to send them', () => {
@@ -137,7 +137,7 @@ describe('a free table is actionable, the other reasons are reports', () => {
 
 describe('placementReasonText', () => {
   it('falls back to a plain fact for a reason this build does not know', () => {
-    expect(placementReasonText('something_new' as never)).toBe('Not placed');
+    expect(placementReasonText('something_new' as never)).toBe('Not assigned');
   });
 
   it("says which limit stopped a vendor, theirs or the market's (bug 33)", () => {
@@ -150,7 +150,7 @@ describe('placementReasonText', () => {
   });
 });
 
-describe('a placed date says what the seat costs (E43/F01/S01)', () => {
+describe('an assigned date says what it costs (E43/F01/S01)', () => {
   it('shows its price where the market prices it', () => {
     const wrapper = card({ placement: 'Atrium 1 (Full Table)', price: 'Gold, full table, $35' });
 

@@ -5,7 +5,7 @@ describes:
   - back-end/api/added_vendors.py
   - back-end/api/markets.py#adding_refusal
   - back-end/assignment/vendor_input.py#approved_solver_vendors
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01
@@ -13,8 +13,8 @@ sources:
 
 # Adding a vendor who never applied
 
-From the assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never placed by the run, and is seated by hand.
-An address the market already holds an application for is refused: that vendor is seated on the Result page instead.
+From Assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never assigned when tables are allocated, and is assigned by hand.
+An address the market already holds an application for is refused: that vendor is assigned on the Result page instead.
 
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [The door on market day](../intents/the-door-on-market-day.md).
 

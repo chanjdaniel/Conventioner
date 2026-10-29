@@ -12,11 +12,11 @@ Then `## Why`; `## Who may` when roles matter; `## Where it is kept`, linking th
 One line per node, sorted by file name.
 
 - [A gated market answers as absent](a-gated-market-answers-as-absent.md) - a CSV market or a draft answers applicants exactly as no market at all; never a "not accepting" message
-- [A price follows the table](a-price-follows-the-table.md) - a seat costs its table's tier price for the day, a half table a share of it rounded half up; set on Market Setup, optional, settled with the setup
+- [A price follows the table](a-price-follows-the-table.md) - an assignment costs its table's tier price for the day, a half table a share of it rounded half up; set on Market Setup, optional, settled with the setup
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
 - [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
-- [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from the assignment on, added by name and address, approved, seated by hand, never in the run
+- [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from Assignment on, added by name and address, approved, assigned by hand, never in the table allocation
 - [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
 - [An archived market is read-only](an-archived-market-is-read-only.md) - nobody changes a finished market's record; roles and deletion are not changes
 - [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its check-in page stays up, marked ended, and takes no check-in

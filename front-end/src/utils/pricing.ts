@@ -1,8 +1,8 @@
 /**
  * The Pricing card's money (E43/F01/S01): a full table's price per day for each tier, in cents and
- * in the market's one currency, and what a seat costs as the drawer's date cards say it.
+ * in the market's one currency, and what an assignment costs as the drawer's date cards say it.
  *
- * The back end is the authority: it prices each seat (`back-end/pricing.py`, served on the tables
+ * The back end is the authority: it prices each assignment (`back-end/pricing.py`, served on the tables
  * read) and refuses a plan whose prices it would not keep. This only reads and writes the card.
  */
 import type { PricingObject } from '@/assets/types/datatypes';
@@ -34,14 +34,16 @@ export function formatPrice(cents: number, currency: string): string {
   }).format(cents / 100);
 }
 
-/** One seat as its date card prices it: "Gold, full table, $35"; null where it has no price. */
+/** One assignment as its date card prices it: "Gold, full table, $35"; null where it has no price. */
 export function priceLine(
-  seat: { tier: string; tableChoice: string; priceCents?: number | null },
+  assignment: { tier: string; tableChoice: string; priceCents?: number | null },
   currency: string,
 ): string | null {
-  if (seat.priceCents == null) return null;
-  const size = /half/i.test(seat.tableChoice) ? 'half table' : 'full table';
-  const parts = [seat.tier.trim(), size, formatPrice(seat.priceCents, currency)].filter(Boolean);
+  if (assignment.priceCents == null) return null;
+  const size = /half/i.test(assignment.tableChoice) ? 'half table' : 'full table';
+  const parts = [assignment.tier.trim(), size, formatPrice(assignment.priceCents, currency)].filter(
+    Boolean,
+  );
   const line = parts.join(', ');
   return line.charAt(0).toUpperCase() + line.slice(1);
 }

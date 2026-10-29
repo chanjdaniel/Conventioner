@@ -1,9 +1,9 @@
-"""What a placement costs, read from the market's Pricing card (E43/F01/S01).
+"""What an assignment costs, read from the market's Pricing card (E43/F01/S01).
 
 A price is for one table on one market day (Daniel, Q4), and it follows the table (Q20): the
-table's tier, and whether the seat is the whole table or half of it, even at a tier the vendor did
-not pick. Two vendors sharing a table each pay a half table. Prices are whole cents in the market's
-one currency; a market with no prices, or a tier the card leaves empty, prices nothing.
+table's tier, and whether the vendor has the whole table or half of it, even at a tier the vendor
+did not pick. Two vendors sharing a table each pay a half table. Prices are whole cents in the
+market's one currency; a market with no prices, or a tier the card leaves empty, prices nothing.
 
 The card names tiers and nothing else: no question of any one market's form is read here (Q14).
 """
@@ -23,7 +23,7 @@ def half_price(cents: int, percent: int) -> int:
 
 
 def is_half(table_choice: str) -> bool:
-    """Whether a seat is half a table: "Half Table", or a side of one."""
+    """Whether an assignment is half a table: "Half Table", or a side of one."""
     return "half" in (table_choice or "").lower()
 
 
@@ -34,8 +34,8 @@ def tier_price(pricing: Optional[PricingObject], tier: str) -> Optional[int]:
     return next((price.cents for price in pricing.everyone_else if price.tier == tier), None)
 
 
-def placement_price(pricing: Optional[PricingObject], tier: str, table_choice: str) -> Optional[int]:
-    """What one seat costs for its day: its tier's price, or the half-table share of it."""
+def assignment_price(pricing: Optional[PricingObject], tier: str, table_choice: str) -> Optional[int]:
+    """What one assignment costs for its day: its tier's price, or the half-table share of it."""
     full = tier_price(pricing, tier)
     if full is None or not is_half(table_choice):
         return full
@@ -43,12 +43,12 @@ def placement_price(pricing: Optional[PricingObject], tier: str, table_choice: s
 
 
 def row_prices(pricing: Optional[PricingObject], row: MarketTableRow) -> List[Dict[str, Any]]:
-    """Each occupant of one table-day with what their seat costs, none where it is unpriced.
+    """Each vendor at one table-day with what their assignment costs, none where it is unpriced.
 
-    A full table lists its vendor once, though they fill both seats.
+    A full table lists its vendor once, though they fill both halves.
     """
     occupants = list(dict.fromkeys(email for email in row.assignment if email))
-    cents = placement_price(pricing, row.tier, row.table_choice)
+    cents = assignment_price(pricing, row.tier, row.table_choice)
     if cents is None:
         return []
     return [{"email": email, "cents": cents} for email in occupants]

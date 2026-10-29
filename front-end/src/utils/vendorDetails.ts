@@ -47,7 +47,7 @@ export interface VendorTableAssignment {
   section: string;
   tier: string;
   location: string;
-  /** What this seat costs for its day, in cents, or null where the market prices nothing. */
+  /** What this assignment costs for its day, in cents, or null where the market prices nothing. */
   priceCents: number | null;
 }
 
@@ -265,7 +265,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return assignment ? assignmentSummary(assignment) : null;
   }
 
-  /** What their seat that day costs, as its date card says it: "Gold, full table, $35"; null where
+  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35"; null where
    * they hold none or the market prices nothing. */
   function priceOn(row: VendorRow, date: string): string | null {
     const assignment = row.assignmentsByDate.get(date);

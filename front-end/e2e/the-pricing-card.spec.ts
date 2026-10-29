@@ -9,11 +9,11 @@ import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 
 /**
- * The Pricing card, and a price on each placement (E43/F01/S01).
+ * The Pricing card, and a price on each assignment (E43/F01/S01).
  *
  * Market Setup gains a full-table price per day for each tier and what a half table costs, and
- * every placement shows its price on the drawer's date cards: the table's tier, half or full by the
- * seat, even at a tier the vendor did not pick (Q20).
+ * every assignment shows its price on the drawer's date cards: the table's tier, half or full, even
+ * at a tier the vendor did not pick (Q20).
  */
 const EDITOR = { email: 'e2e-pricing-editor@example.com', password: 'e2epassword123' };
 const SECOND_DATE = '2099-05-08';
@@ -56,7 +56,7 @@ test.describe('the Pricing card', () => {
     ensureVerifiedUser(EDITOR.email, EDITOR.password);
   });
 
-  test('an Editor prices Gold and Silver, and each placement shows its price', async ({
+  test('an Editor prices Gold and Silver, and each assignment shows its price', async ({
     browser,
     request,
   }) => {

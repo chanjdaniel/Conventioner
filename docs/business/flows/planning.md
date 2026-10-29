@@ -123,13 +123,13 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
 4. Expect "Plan saved"; a cell that is not an amount turns its border red and is not saved, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."
 
 A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables."
-Each placement then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
 The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## E7. Edit the plan after Draft
 
 **Status:** Works, as changed by E31/F01: the setup no longer changes after Draft (read from the code: `setup_lock_reason` in `back-end/api/markets.py`; `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
-Once the market leaves Draft every card on Market Setup is disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the assignment rely on it." (on the Google Form path, "once the market has moved on to importing").
+Once the market leaves Draft every card on Market Setup is disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once the market has moved on to importing").
 While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail." (from Applications Closed, two moves).
 The Application form card is not shown past Draft.
 On an archived market every page is read only, and says so (bug 30).

@@ -251,7 +251,7 @@ watch(marketId, loadAttendance, { immediate: true });
           />
         </div>
 
-        <p v-if="today.expected === 0" class="door-note">Nobody is placed on this date.</p>
+        <p v-if="today.expected === 0" class="door-note">Nobody is assigned on this date.</p>
         <p v-else-if="shown.length === 0" class="door-note">Nobody here matches.</p>
         <ul v-else class="door-list">
           <li

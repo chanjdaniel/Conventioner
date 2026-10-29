@@ -43,7 +43,7 @@ async function load(): Promise<void> {
   } catch {
     // A trail that cannot be read is worth saying so about, but it never blocks the screen it
     // sits on: nothing an organizer does depends on it.
-    loadError.value = 'The placement history could not be loaded.';
+    loadError.value = 'The assignment history could not be loaded.';
     entries.value = [];
   } finally {
     isLoading.value = false;
@@ -55,8 +55,8 @@ defineExpose({ reload: load });
 
 const emptyText = computed(() =>
   props.vendor
-    ? 'Nobody has changed this vendor’s placement.'
-    : 'No placements have been changed yet.',
+    ? 'Nobody has changed this vendor’s assignment.'
+    : 'No assignments have been changed yet.',
 );
 </script>
 

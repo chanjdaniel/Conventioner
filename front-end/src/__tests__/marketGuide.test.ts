@@ -110,7 +110,7 @@ describe('the next step', () => {
   });
 
   it('asks for a run before a result, and a check before publishing after one', () => {
-    expect(nextStep(market(MarketPhase.Assignment), TODAY).text).toMatch(/run the assignment/);
+    expect(nextStep(market(MarketPhase.Assignment), TODAY).text).toMatch(/allocate tables/);
     // Publish waits on the run, and the run - not its refusal - is what the sentence names.
     const unrun = market(MarketPhase.Assignment, {
       transitionBlockers: {
@@ -118,7 +118,7 @@ describe('the next step', () => {
       },
     });
     expect(nextStep(unrun, TODAY)).toMatchObject({
-      text: 'Set the rules and run the assignment.',
+      text: 'Set the rules and allocate tables.',
       page: 'assignment',
     });
     const run = market(MarketPhase.Assignment, {

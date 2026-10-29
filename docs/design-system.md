@@ -189,7 +189,7 @@ It is one written rule rather than a rearrangement per screen: the design langua
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
 - **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
 
-On the plan, Market Dates, Section Setup and Pricing are wide (Section Setup's columns need 654px, and at half width its tier select truncated; Pricing's columns are the tiers, and its rows grow with the price groups); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
+On the plan, Market Dates, Section Setup and Pricing are wide (Section Setup's columns need 654px, and at half width its tier select truncated; Pricing's columns are the tiers); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
@@ -255,6 +255,7 @@ The contract says which values are text and holds those to AA; it does not raise
 
 **Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
 Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
+It also serves Result's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
 
 **Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
 That check is what made the brand green darker rather than leaving each button to a judgement call.

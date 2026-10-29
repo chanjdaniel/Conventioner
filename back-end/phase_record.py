@@ -4,7 +4,7 @@ Settles claims-and-room ticket 06. Before this there was no record of which phas
 through, so the archived rail read evidence instead - a stored assignment meant Assignment, a
 published form meant Applications Open - and no evidence distinguished "assigned, then archived"
 from "assigned, published, ran, then archived". It always stopped at Assignment, and said the
-stronger thing anyway: "It was assigned but never published, so no check-in page went on the air",
+stronger thing anyway: "Its tables were allocated but it was never published, so no check-in page went on the air",
 about a market whose check-in page had served a real market day (bug 8).
 
 **The record is written by the one phase writer**, ``MarketsApi.apply_phase_transition``, in the

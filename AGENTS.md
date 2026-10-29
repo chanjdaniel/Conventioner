@@ -80,6 +80,7 @@ The market on screen:
 - Before changing the phase rail, read [the phase rail](docs/implementation/modules/phase-rail.md).
 - Before changing styles, tokens or a control's look, read [the design language](docs/design-system.md) and [every control is named](docs/implementation/conventions/every-control-is-named.md).
 - Before writing or changing a dialog, read [dialogs](docs/implementation/conventions/dialogs.md).
+- Before changing the Stats tab or what it counts, read [the market's statistics](docs/business/flows/stats.md).
 
 The market's lifecycle:
 
@@ -105,7 +106,7 @@ The assignment:
 - Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
-- Before changing the Pricing card or what a placement costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
+- Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
 
 The data and the back end:
 

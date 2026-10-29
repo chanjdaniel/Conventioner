@@ -83,7 +83,9 @@ test('Vendors lists every applicant, counts the run, and agrees with Result', as
   ).toHaveText('Rejected');
 
   await page.goto(marketScreenPath(marketId, 'result'));
-  await expect(page.getByTestId('result-vendors-placed')).toHaveText(/2\s+of\s+2\s+vendors placed/);
+  await expect(page.getByTestId('result-approved-assigned')).toHaveText(
+    /2\s+of\s+2\s+approved applicants assigned/,
+  );
 });
 
 test("each vendor's dates are counted against the dates they could have had", async ({
@@ -118,7 +120,7 @@ test('a date a vendor did not get says which limit stopped it, and offers no pla
     'Already has as many dates as they asked for',
     'Already has as many dates as they asked for',
   ]);
-  await expect(alice.getByText('Place them')).toHaveCount(0);
+  await expect(alice.getByText('Assign them')).toHaveCount(0);
 
   // Carol asked for all three; the market allows two.
   await page.goto(
@@ -128,5 +130,5 @@ test('a date a vendor did not get says which limit stopped it, and offers no pla
   await expect(carol.getByTestId('vendor-date-card-reason')).toHaveText([
     'Already has as many dates as the market allows per vendor',
   ]);
-  await expect(carol.getByText('Place them')).toHaveCount(0);
+  await expect(carol.getByText('Assign them')).toHaveCount(0);
 });

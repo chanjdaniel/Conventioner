@@ -16,15 +16,15 @@ sources:
 
 # A price follows the table
 
-A placement costs what its table costs for that day: the full-table price of the table's tier, or a half table's share of it when the seat is half a table, even at a tier the vendor did not pick.
+An assignment costs what its table costs for that day: the full-table price of the table's tier, or a half table's share of it when the vendor has half the table, even at a tier the vendor did not pick.
 The prices are set on Market Setup's Pricing card, are optional, and settle with the rest of the setup on leaving draft.
 
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 ## Why
 
-**A price is for one table on one market day** (Daniel, T92 Q4), so a vendor's cost is the sum of their placements, one per date, and two vendors sharing a table each pay a half table.
-**The price follows the table, not the vendor's answer** (Q20): a vendor seated by hand at a tier they did not accept is priced at that tier, which is why such a seat is flagged as one that sets their price ([why a vendor was not placed](why-a-vendor-was-not-placed.md)).
+**A price is for one table on one market day** (Daniel, T92 Q4), so a vendor's cost is the sum of their assignments, one per date, and two vendors sharing a table each pay a half table.
+**The price follows the table, not the vendor's answer** (Q20): a vendor assigned by hand at a tier they did not accept is priced at that tier, which is why such an assignment is flagged as one that sets their price ([why a vendor was not placed](why-a-vendor-was-not-placed.md)).
 **A half table costs a share of the full price**, 50% unless the organizer says otherwise, because the organizers' own forms said so ("half off by default").
 **The prices are set while the market is planned** (Q6), so they [settle with the setup on leaving draft](the-setup-settles-on-leaving-draft.md) and change again only if the market goes back.
 **Pricing is optional**: a tier left blank has no price, and a market with no prices shows no price anywhere.
@@ -49,7 +49,7 @@ Changing the prices is part of "Change Market Setup", an Editor's ([what each ro
   It is a list rather than a map by tier name because every market write camel-cases its keys, and a tier's name is the organizer's text.
 - The plan write (`prepared_plan` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) refuses a price below zero, a fraction of a cent, a price sent as text, an unknown currency, a share outside 0 to 100, a tier the plan does not have, and a tier priced twice (`pricing_refusal` in [`back-end/pricing.py`](../../../back-end/pricing.py)).
   A change after draft is refused with the setup's own reason, since `setup_part` includes the prices; and each change is recorded in [the market's history](../../implementation/data/history.md) as a `pricing` entry, before and after.
-- `placement_price` in `back-end/pricing.py` prices one seat; the tables read (`get_market_tables`) carries each occupant's price on their row as `prices`, `{email, cents}`, empty where the seat has none.
+- `assignment_price` in `back-end/pricing.py` prices one assignment; the tables read (`get_market_tables`) carries each vendor's price on their table's row as `prices`, `{email, cents}`, empty where the table has none.
   The drawer's date cards read it there ("Gold, full table, $35"; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
 - The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing); a tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it (`pricingAfterTierChange`).
 - `back-end/tests/test_the_pricing_card.py`, `front-end/src/__tests__/pricing.test.ts`, `elementPricing.test.ts` and `front-end/e2e/the-pricing-card.spec.ts` pin it.
