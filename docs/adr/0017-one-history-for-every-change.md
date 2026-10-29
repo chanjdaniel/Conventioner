@@ -34,7 +34,7 @@ The placement history's sharp edges hold for every entry: structured, never a se
 
 What stays where it is:
 
-- **An application's verdict fields and the market's `phaseHistory` stay as state**: the review and the guards read them, and a log is not a state anyone should have to fold. Each of their changes is also to be recorded in the history (E40/F01/S02).
+- **An application's verdict fields and the market's `phaseHistory` stay as state**: the review and the guards read them, and a log is not a state anyone should have to fold. Each of their changes is also recorded in the history (E40/F01/S02).
 - **The deletion trail stays apart**: it must outlive what it describes, and the history is deleted with its market.
 
 ## Consequences

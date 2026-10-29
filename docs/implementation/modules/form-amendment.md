@@ -52,7 +52,7 @@ Pre-flight cannot prevent a transport failure or a concurrent move between two h
 A hop that finds the market moved stops with `AmendmentStalled`, naming the phase it is in and the steps left; resume re-plans from the market's current phase rather than replaying the old walk.
 `_walk` logs the stall with the market's id before it raises, on the amendment and the resume alike.
 
-**The form is still written by `save_application_form` in `draft`**, the ordinary writer meeting the ordinary lock, so the D9 lock stays unbypassable ([the form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md)).
+**The form is still written by the ordinary writer in `draft`**, `write_application_form` (which `save_application_form` calls too) meeting the ordinary lock, so the D9 lock stays unbypassable ([the form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md)).
 
 **The chain is ADMIN by default, because it moves phases**: an amendment an EDITOR could run would walk a market through draft below the phase move's own bar ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 It loads through `_load_market_to_change`, so an archived market is refused.
