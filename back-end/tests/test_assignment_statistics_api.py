@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import api.market_actions as Actions
 import api.markets as MarketsApi
 
 
@@ -75,7 +76,7 @@ def test_get_assignment_statistics_returns_403_when_user_cannot_view(monkeypatch
     result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@example.com")
 
     assert status == 403
-    assert "does not have permission" in result["error"]
+    assert result["error"] == Actions.refusal_sentence(Actions.READ)
 
 def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
     monkeypatch.setattr(
@@ -237,7 +238,7 @@ def test_get_market_tables_returns_403_when_user_cannot_view(monkeypatch):
     result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
 
     assert status == 403
-    assert "does not have permission" in result["error"]
+    assert result["error"] == Actions.refusal_sentence(Actions.READ)
 
 def test_get_market_tables_returns_camel_case_rows(monkeypatch):
     monkeypatch.setattr(
@@ -441,7 +442,7 @@ def test_get_assignment_csv_returns_403_when_user_cannot_view(monkeypatch):
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@example.com")
 
     assert status == 403
-    assert "does not have permission" in result["error"]
+    assert result["error"] == Actions.refusal_sentence(Actions.EXPORT_CSV)
 
 
 def test_get_assignment_csv_returns_400_when_setup_missing(monkeypatch):

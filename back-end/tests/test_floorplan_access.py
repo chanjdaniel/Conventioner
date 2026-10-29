@@ -25,6 +25,7 @@ import app as app_module
 import api.floorplans as FloorplansApi
 import api.floorplans_analysis as FloorplansAnalysisApi
 import api.floorplans_placement as FloorplansPlacementApi
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.users as UsersApi
 import services.gridfs_service as GridfsService
@@ -159,8 +160,8 @@ class TestUploadingAnImage:
             assert images.metadata_of(page["gridfs_id"]) == {"marketId": MARKET_ID}
 
     @pytest.mark.parametrize("email,error", [
-        ("outsider@example.com", "User does not have permission to edit this market"),
-        ("viewer@example.com", "User does not have permission to edit this market"),
+        ("outsider@example.com", Actions.refusal_sentence(Actions.CHANGE_SETUP)),
+        ("viewer@example.com", Actions.refusal_sentence(Actions.CHANGE_SETUP)),
     ])
     def test_an_upload_by_anyone_but_an_editor_is_refused_and_stores_nothing(
         self, sign_in, market, images, email, error,
@@ -326,7 +327,9 @@ class TestTheRoutesThatTakeAnImage:
         response = route(sign_in("outsider@example.com"), hall)
 
         assert response.status_code == 403
-        assert "does not have permission" in response.get_json()["error"]
+        assert response.get_json()["error"] in {
+            Actions.refusal_sentence(Actions.READ), Actions.refusal_sentence(Actions.CHANGE_SETUP),
+        }
         assert list(images.files) == [ObjectId(hall)]
         assert model_calls == []
 
@@ -337,9 +340,7 @@ class TestTheRoutesThatTakeAnImage:
         response = route(sign_in("viewer@example.com"), hall)
 
         assert response.status_code == 403
-        assert response.get_json() == {
-            "error": "User does not have permission to edit this market"
-        }
+        assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
         assert list(images.files) == [ObjectId(hall)]
         assert model_calls == []
 
@@ -469,9 +470,7 @@ class TestPlacingTables:
         response = _place(sign_in(email))
 
         assert response.status_code == 403
-        assert response.get_json() == {
-            "error": "User does not have permission to edit this market"
-        }
+        assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
         assert placements == []
 
     def test_an_archived_market_is_refused(self, sign_in, market, placements):

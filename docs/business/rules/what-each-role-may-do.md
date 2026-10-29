@@ -5,10 +5,11 @@ describes:
   - back-end/api/markets.py#change_refusal
   - back-end/api/markets.py#admin_actions_refusal
   - back-end/api/markets.py#add_market_role
+  - back-end/api/market_actions.py
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/tests/test_an_organizations_admins_run_its_markets.py
   - back-end/utils/identity.py
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -17,12 +18,14 @@ sources:
   - E07
   - T15
   - decision/2026-10-20
+  - E39/F01/S01
 ---
 
 # What each role may do
 
 A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
 Each screen offers each person only what their role lets them do, and the server decides it.
+**Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
 
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
@@ -63,9 +66,11 @@ See [the organization document](../../implementation/data/organization-document.
 
 ## Where it is kept
 
-- The market read serves two per-person reasons, asked through the same `user_has_permission` the writes ask ([`back-end/api/markets.py`](../../../back-end/api/markets.py)):
-  `readOnlyReason` (`change_refusal`: archived, or below EDITOR) and `adminActionsReason` (`admin_actions_refusal`: that, or below ADMIN).
-  The verdicts' reason (`verdictLockReason`), adding a vendor's (`addVendorReason`) and publishing's (`publishResultsReason`) are built on them.
+- **Every check on a market asks a row of the table** in [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py), and a refusal is the row's sentence naming who may ("Only an Admin or the owner may move this market's phase."); no check names a role of its own, and [the market's actions](../../implementation/modules/market-actions.md) lists each route's row.
+  A rule of the market's life (archived, the verdicts settling, adding from the assignment on) is still asked where it was, and refuses whoever may.
+- The market read serves two per-person reasons, asked of the same rows the writes ask ([`back-end/api/markets.py`](../../../back-end/api/markets.py)):
+  `readOnlyReason` (`change_refusal`: archived, or the Market Setup row refuses) and `adminActionsReason` (`admin_actions_refusal`: that, or the Move the phase row refuses).
+  The verdicts' reason (`verdictLockReason`) and adding a vendor's (`addVendorReason`) ask their own rows after the archived rule, and publishing's (`publishResultsReason`) is `admin_actions_refusal` asking the Publish results row.
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.

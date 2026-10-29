@@ -24,12 +24,12 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional
 
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
-from api.permissions import user_has_permission
 from client_errors import ClientError
-from datatypes import IntakeMode, MarketPhase, MarketRole, User, market_name_slug
+from datatypes import IntakeMode, MarketPhase, User, market_name_slug
 from market_documents import market_doc_field, market_doc_filter
 
 TEST_ORGANIZATION = "Conventioner Test Organization"
@@ -132,8 +132,9 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
     market_id = context.document["id"]
     if context.market.phase != MarketPhase.DRAFT:
         return context.market.phase.value
-    # The move is ADMIN, as on the rail. The owner holds it; the endpoint asks, so this does too.
-    if not user_has_permission(owner.email, context.market, MarketRole.ADMIN, context.organization):
+    # The move is the table's phase row, as on the rail. The owner may; the endpoint asks, so this
+    # does too.
+    if not Actions.may(Actions.MOVE_PHASE, owner.email, context.market, context.organization):
         raise SeedError(f"{owner.email} may not move {test_market.name!r}.")
 
     MarketsApi.save_plan(market_id, {
