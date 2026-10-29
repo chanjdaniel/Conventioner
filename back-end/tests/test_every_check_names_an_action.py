@@ -327,16 +327,17 @@ def _sources():
         relative = path.relative_to(BACK_END).parts
         if relative[0] in ("tests", "migrations") or path in owners or "__pycache__" in relative:
             continue
-        yield path, ast.parse(path.read_text(), filename=str(path))
+        yield path.relative_to(BACK_END).as_posix(), ast.parse(path.read_text(), filename=str(path))
 
 
 #: What only the two role modules use: the old permission calls and the rank table.
 _RANKING = ("user_has_permission", "can_manage_roles", "ROLE_RANK")
 
 #: The resolvers of a person's role. Holding a role is how a check would compare one, so only the
-#: role modules call them, and the functions below, which serve the role itself to the client.
+#: role modules call them, and the functions below, which serve the role itself to the client:
+#: each by its module and its name, so a function of the same name elsewhere is searched.
 _RESOLVERS = ("get_user_market_role", "organization_market_role", "higher_role")
-_SERVE_THE_ROLE = ("get_market_for_user", "_summary_role")
+_SERVE_THE_ROLE = {("api/markets.py", "get_market_for_user"), ("api/markets.py", "_summary_role")}
 
 
 def _named(node: ast.AST) -> str:
@@ -346,29 +347,35 @@ def _named(node: ast.AST) -> str:
     return getattr(node, "id", "")
 
 
-def _role_thresholds(tree: ast.AST, function: str = ""):
-    """Where a source could ask a role threshold itself: any use of the ranking, and any use of a
-    role resolver outside the functions that serve the role to the client.
+def _role_thresholds(tree: ast.AST, module: str, function: str = ""):
+    """Where a source could ask a role threshold itself: any use of the ranking, any use of a
+    role resolver outside the functions that serve the role to the client, and any import of one
+    by name, which an alias would hide from the rest (``import ROLE_RANK as R``).
 
     Searching for the resolvers rather than for comparisons catches every way of comparing what
     they return - inline, against a tuple, through an annotated name or an attribute."""
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            yield from _role_thresholds(node, node.name)
+            yield from _role_thresholds(node, module, node.name)
+            continue
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name in _RANKING + _RESOLVERS:
+                    yield node.lineno, f"imports {alias.name}"
             continue
         name = _named(node) if isinstance(node, (ast.Name, ast.Attribute)) else ""
         if name in _RANKING:
             yield node.lineno, name
-        elif name in _RESOLVERS and function not in _SERVE_THE_ROLE:
+        elif name in _RESOLVERS and (module, function) not in _SERVE_THE_ROLE:
             yield node.lineno, f"{name} in {function or 'the module'}"
-        yield from _role_thresholds(node, function)
+        yield from _role_thresholds(node, module, function)
 
 
 def test_no_check_outside_the_actions_module_names_a_role():
     """A check that names a role of its own is a rule the table cannot change."""
     found = [
-        f"{path.relative_to(BACK_END)}:{line} {what}"
-        for path, tree in _sources() for line, what in _role_thresholds(tree)
+        f"{module}:{line} {what}"
+        for module, tree in _sources() for line, what in _role_thresholds(tree, module)
     ]
 
     assert found == []
@@ -397,9 +404,12 @@ def test_the_search_finds_a_check_that_names_a_role():
         "RANKS = ROLE_RANK\n"
         "def get_market_for_user(user, market):\n"
         "    return PermissionsApi.get_user_market_role(user, market).value\n"
+        "from api.permissions import get_user_market_role as role_of, ROLE_RANK as R\n"
+        "def aliased(user, market):\n"
+        "    return R[role_of(user, market)] >= 2\n"
     )
 
-    assert [what for _line, what in _role_thresholds(tree)] == [
+    assert [what for _line, what in _role_thresholds(tree, "api/markets.py")] == [
         "get_user_market_role in inline",
         "get_user_market_role in in_a_tuple",
         "get_user_market_role in annotated",
@@ -408,4 +418,17 @@ def test_the_search_finds_a_check_that_names_a_role():
         "get_user_market_role in ask",
         "user_has_permission",
         "ROLE_RANK",
+        "imports get_user_market_role",
+        "imports ROLE_RANK",
+    ]
+
+
+def test_a_function_named_as_one_that_serves_the_role_is_searched_in_another_module():
+    tree = ast.parse(
+        "def get_market_for_user(user, market):\n"
+        "    return PermissionsApi.get_user_market_role(user, market) == MarketRole.OWNER\n"
+    )
+
+    assert [what for _line, what in _role_thresholds(tree, "api/door.py")] == [
+        "get_user_market_role in get_market_for_user",
     ]
