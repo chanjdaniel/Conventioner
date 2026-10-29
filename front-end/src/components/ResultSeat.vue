@@ -193,15 +193,15 @@ const emit = defineEmits<{ open: []; view: [] }>();
 
 .seat-vacant {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.5;
+  /* Muted by a token, never by fading the ink: an empty table's yellow ground and a hovered
+     seat's beige need the darker muted ink, which holds AA on white too. */
+  color: var(--mm-text-muted-on-beige);
   font-style: italic;
 }
 
 .seat-unassigned {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.6;
+  color: var(--mm-text-muted-on-beige);
   font-style: italic;
 }
 
