@@ -21,7 +21,7 @@ describes:
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
-verified: 2026-10-28
+verified: 2026-10-30
 sources:
   - E02
   - E11/F01/S01
@@ -32,6 +32,7 @@ sources:
   - T15
   - T45
   - T79
+  - E41/F01/S01
 ---
 
 # E2E seeds
@@ -68,7 +69,7 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo; `dates` gives it more than the one date |
 | `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each |
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
-| `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
+| `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | `fields` gives its form its own questions, and `intakeMode: 'csv'` makes it a market to import into; it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
 | `seedTheScreens()` ([file](../../../front-end/e2e/helpers/seedTheScreens.ts)) | the stress markets the sweeps walk: one in every phase, names of about 70 characters, 40 applications in every review state, 36 vendors over four dates and three sections, settled rules, an archive and two CSV markets | for the [sweeps](../../design-system.md#what-keeps-this-true); its applications go in with one `insertApplications()` per market |
 | `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned |

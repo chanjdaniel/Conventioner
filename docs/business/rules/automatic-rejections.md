@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -16,6 +16,7 @@ sources:
   - E33/F03
   - E33/F03/S01
   - E33/F03/S02
+  - E41/F01/S01
 ---
 
 # Automatic rejections
@@ -40,10 +41,11 @@ A person's verdict, an overturned rejection included, is never read, and neither
 An application a rule meets is stored rejected, with the rule as its giver and the answer as its reason ("Answered “Half a table, shared” to “Table choice”", "Did not tick “I understand that no-shows”").
 One a rule rejected that no rule meets any longer, because the rule or the answers changed, returns to undecided; once results are published it stands instead, since its applicant has read the outcome.
 An applicant can change their answers only while applications are open, so a rejection that changing them undoes never reaches a seat.
+An organizer may [update a vendor's answer](an-update-is-kept-beside-the-vendors-answer.md) in any phase, and the rules read the answers as updated; they still judge only applications no person decided, so no approved vendor is rejected by one.
 
 **A question the application holds no answer to meets no rule**: a checkbox added since it was written, or a column an import left out, is not an unticked box.
 
-**The rules judge when something they read changes**: when the list is saved (every judgeable application of the market), when an applicant saves online (that application), and at the end of an import (the market, after any approval the import sent back to review), whose result says how many the rules rejected.
+**The rules judge when something they read changes**: when the list is saved (every judgeable application of the market), when an applicant saves online (that application), when an organizer updates a vendor's info (that application), and at the end of an import (the market, after any approval the import sent back to review), whose result says how many the rules rejected.
 Every write is conditioned on the application being as it was read, so a reviewer's verdict that lands in between is never overwritten ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 
 **The reason is the organizer's.**
@@ -64,7 +66,7 @@ They are not gated by the form's lock: the form freezes at the first application
 - The import judges at its end ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).
-- A save that changes the rules is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an amendment, an applicant's save, an import.
+- A save that changes the rules is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an amendment, an applicant's save, an organizer's update of a vendor's info, an import.
 
 ## Evidence
 

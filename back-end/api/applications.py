@@ -275,8 +275,8 @@ def _answers_by_address(market_id: str, keys: List[str]) -> Dict[str, Dict[str, 
 def effective_answers(application: Any) -> Dict[str, Any]:
     """An application's answers as the organizer reads them (E41/F01/S01): what the vendor gave,
     each updated answer read in its place. The one reader of them, for a stored document or an
-    ``Application`` alike, so every view, the search, the export and the automatic rejections
-    read an update by construction, and a reader added later does too.
+    ``Application`` alike, so the organizer's views, the search, the export and the automatic
+    rejections read an update by construction, as does any reader added later that calls it.
 
     ``form_data`` itself is never written over by an update; only the vendor (their own edit) and
     an import write it.
