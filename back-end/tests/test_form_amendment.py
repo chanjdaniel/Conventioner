@@ -241,18 +241,18 @@ class TestItWalksAndComesBack:
     def test_the_market_is_in_draft_while_the_form_is_written(self, markets, monkeypatch):
         """Through the ordinary writer, in the one phase the form is writable in.
 
-        Going around `save_application_form` would go around the D9 lock with it, which is the
+        Going around `write_application_form` would go around the D9 lock with it, which is the
         thing that keeps the form frozen once an applicant has answered.
         """
         fake = markets(MarketPhase.APPLICATIONS_OPEN)
         seen: list = []
-        real = MarketsApi.save_application_form
+        real = MarketsApi.write_application_form
 
-        def spy(market_id, data, user):
+        def spy(market, data):
             seen.append(fake.phase)
-            return real(market_id, data, user)
+            return real(market, data)
 
-        monkeypatch.setattr(MarketsApi, "save_application_form", spy)
+        monkeypatch.setattr(MarketsApi, "write_application_form", spy)
         Amend.amend_application_form("market-123", FORM_WITH_A_FIELD, "user-1")
 
         assert seen == ["draft"]

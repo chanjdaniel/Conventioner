@@ -1501,6 +1501,19 @@ def _merge_shape(
     }
 
 
+def import_counts(result: Dict[str, Any]) -> Dict[str, int]:
+    """What an import did, as the market's history records it: its counts, never its rows."""
+    return {
+        "row_count": result["rowCount"],
+        "created": result["created"],
+        "updated": result["updated"],
+        "unchanged": result["unchanged"],
+        "skipped": result["skipped"],
+        "returned_to_review": result["returnedToReview"],
+        "rejected_by_rules": result["rejectedByRules"],
+    }
+
+
 def import_applications(
     markets_collection: Any,
     market_doc: Dict[str, Any],

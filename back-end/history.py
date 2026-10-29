@@ -49,6 +49,37 @@ db = get_database()
 history_collection = db[HISTORY_COLLECTION]
 legacy_placement_collection = db[LEGACY_PLACEMENT_COLLECTION]
 
+#: The one verb no row of the table asks: an applicant submitting or editing their own
+#: application, whose sign-in is the check.
+APPLY = "apply"
+
+# What a change was, where one action covers several: kinds rather than a message, as for the
+# placements below, so a surface words them. ``docs/implementation/data/history.md`` lists each
+# with its subject and detail.
+RENAMED = "renamed"
+PLAN = "plan"
+FLOORPLAN = "floorplan"
+FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
+FORM = "form"
+REVIEW_HIGHLIGHTS = "review_highlights"
+REJECTION_RULES = "rejection_rules"
+RESUMED = "resumed"
+IMPORTED = "imported"
+STARTED = "started"
+VERDICT = "verdict"
+VERDICTS = "verdicts"
+FOLLOW_UP_OWNER = "follow_up_owner"
+NOTE = "note"
+REQUEST_HANDLED = "request_handled"
+RULES = "rules"
+CHECKED_IN = "checked_in"
+CHECK_IN_UNDONE = "check_in_undone"
+ROLE_GIVEN = "role_given"
+ROLE_CHANGED = "role_changed"
+ROLE_TAKEN = "role_taken"
+SUBMITTED = "submitted"
+EDITED = "edited"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -65,13 +96,32 @@ def record(
     and check-in will read it. Failing the request because the *record* of it could not be saved
     would tell the organizer their change did not land when it did.
     """
+    _write(market_id, actor, action.id, kind, vendors, subject, detail)
+
+
+def record_applicant(
+    market_id: str, applicant: str, kind: str, application_id: str, detail: Dict[str, Any],
+) -> None:
+    """An applicant's own change to their application, with the applicant as its actor.
+
+    No row of the table asks it - the applicant holds no role, and their sign-in is the check - so
+    its action is the history's own ``apply``.
+    """
+    _write(market_id, applicant, APPLY, kind, [applicant], {"application_id": application_id},
+           detail)
+
+
+def _write(
+    market_id: str, actor: str, action_id: str, kind: Optional[str], vendors: Iterable[str],
+    subject: Optional[Dict[str, Any]], detail: Optional[Dict[str, Any]],
+) -> None:
     try:
         history_collection.insert_one({
             "id": str(uuid.uuid4()),
             MARKET_ID_FIELD: market_id,
             "actor": actor,
             "at": _now(),
-            "action": action.id,
+            "action": action_id,
             "kind": kind,
             # Lowercased, because an address is a person and case is not part of who they are:
             # a vendor's own panel looks its entries up by this list.
@@ -80,7 +130,22 @@ def record(
             "detail": detail or {},
         })
     except Exception as e:  # pragma: no cover - defensive
-        logger.warning("Could not record %s on market %s: %s", kind or action.id, market_id, e)
+        logger.warning("Could not record %s on market %s: %s", kind or action_id, market_id, e)
+
+
+def changes(before: Dict[str, Any], after: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """An entry's detail: the fields that differ, as they were and as they are, or None when
+    nothing does - so a write that restates what is stored records nothing.
+
+    Never a whole document: a field the write left as it was is in neither half.
+    """
+    changed = [key for key in {**before, **after} if before.get(key) != after.get(key)]
+    if not changed:
+        return None
+    return {
+        "before": {key: before.get(key) for key in changed},
+        "after": {key: after.get(key) for key in changed},
+    }
 
 
 def delete_for_market(market_id: str) -> int:

@@ -24,10 +24,12 @@ import copy
 from datetime import date
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
+import history as History
 from client_errors import ConflictError
 from datatypes import MappingAuthor
 from market_documents import (
@@ -291,8 +293,10 @@ def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def confirm(market_doc: Dict[str, Any], body: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-    """Write everything the ledger holds, or nothing, and say which.
+def confirm(
+    market_doc: Dict[str, Any], body: Dict[str, Any], by: str,
+) -> Tuple[Dict[str, Any], int]:
+    """Write everything the ledger holds, or nothing, and say which; ``by`` is who started it.
 
     What ``confirmed_update`` refuses it raises as a client error, answered as raised: a
     ``ConfirmRefused`` or a locked form 409, a plan or a form the writers refuse 400.
@@ -306,4 +310,13 @@ def confirm(market_doc: Dict[str, Any], body: Dict[str, Any]) -> Tuple[Dict[str,
     if not result.matched_count:
         return {"error": "This market changed since its file was read, so nothing was written. "
                          "Start again from its Market Setup."}, 409
+    # One entry for the start, with its counts, as an import is one: what it was made from and what
+    # it made, not the plan and the form it wrote whole.
+    _error, headers, rows = CsvImport.parse_csv(body["csvContent"])
+    form = update[market_doc_key("application_form")]
+    History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED, detail={
+        "row_count": len(rows),
+        "column_count": len(headers),
+        "question_count": len(form.get("fields") or []),
+    })
     return {"written": True}, 200
