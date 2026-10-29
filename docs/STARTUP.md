@@ -324,15 +324,15 @@ Every step is reachable from the UI; none of it needs the API.
    Add the market dates, then the tiers, locations and sections, then the assignment options.
    Do this before the next step: what the market offers its applicants is derived from this plan,
    and a market that offers nothing has nothing to ask anybody about.
-5. **Import the vendors**, while the market is a draft: "Import responses" on the phase control
-   panel at the top of the market opens the import (a market whose vendors apply on its own page
-   instead enters its applications with "Open Applications").
+5. **Import the vendors**, while the market is a draft: "Import responses" on the phase rail at
+   the top of the market opens the import (a market whose vendors apply on its own page instead
+   enters its applications with "Open Applications").
    Upload the CSV your Google Form produced, map its columns onto the questions the solver reads,
    resolve any cell value the market does not recognise, then preview and confirm.
    Nothing is written until you confirm, and the preview says exactly what will happen.
    A Google Form market enters Review once the import is written.
    A draft whose setup would keep it out of Review says what it lacks before a file is picked.
-   If the panel refuses a move, it names what is missing and links to where to fix it.
+   If the rail refuses a move, it names what is missing and links to where to fix it.
 6. **Review the applications** on the Applications tab.
    Imported rows arrive awaiting review.
    Approve the ones a table should go to: **the solver reads approved applications and nothing

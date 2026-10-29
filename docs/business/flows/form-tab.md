@@ -87,7 +87,7 @@ The questions are editable only while the market is a draft and nobody has appli
 Once locked, the essential questions and "Your questions" are read only under the reason:
 
 - past Draft, on a market whose vendors apply on its page: "The application form is fixed: it cannot change once applications have opened, because applicants answer it.";
-- past Draft, on the Google Form path: "The questions are fixed: they cannot change once the market has moved on to importing, because your imports are mapped onto them.";
+- past Draft, on the Google Form path: "The questions are fixed: they cannot change once its responses have been imported, because your imports are mapped onto them.";
 - in Draft with an application: "Application form is locked. N applications have already been submitted for this market. The form cannot be modified once applicants have submitted."
 
 Covered by: `application-form.spec.ts` ("an existing application locks the form in the builder and on every route"), `what-to-show-and-when.spec.ts`, `screens-name-things.spec.ts`.

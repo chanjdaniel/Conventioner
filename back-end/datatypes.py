@@ -46,7 +46,7 @@ class MarketPhase(str, Enum):
     # The one stage in which applications arrive and are reviewed at once (E38/F04/S01): shown
     # "Review" on a Google Form market and "Applications" on one whose vendors apply on its page
     # (``phase_label``). It replaced ``applications_open``, ``applications_closed`` and ``review``;
-    # ``migrations/migrate_to_one_stage.py`` moved the markets stored in them.
+    # ``migrations/migrate_to_one_stage.py`` moves the markets stored in them.
     APPLICATIONS = "applications"
     ASSIGNMENT = "assignment"
     OFFERS = "offers"
