@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/market/MarketAssignmentTab.vue
   - front-end/src/components/ResultSummary.vue
   - front-end/src/utils/download.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -124,6 +124,7 @@ Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
 **Status:** Works (walked live; the published case read from the code as of E36/F04/S02).
 Once the market can no longer return to Assignment, or its results are published, the priority and options are read only and the page says why ("The assignment for this market is settled. …", or "Results are published, so the assignment is settled: …"); Assign is gone.
 A person who may change nothing reads the rules read only too, with no Assign, and is told why once, above the page; the page's own line says only the rules' lock (T15).
+Changing the rules asks both the Market Setup row and the Assignment row, since they ride in the plan, and Assign asks the Assignment row alone, so on a market whose owner set the two apart a person may be offered the run with the rules read only (E39/F01/S03).
 Covered by: `the-assignment-rules-close.spec.ts`.
 
 ## I7. Publish results

@@ -29,14 +29,14 @@ E39/F01/S01 gave every check a named action in one table with built-in defaults,
 **A market's permissions are a table of actions, each with the lowest role that may take it**, that role and every one above it (Owner > Admin > Editor > Viewer).
 The table's rows, their labels, groups and built-in defaults, and which rows are fixed are code, in [`back-end/api/market_actions.py`](../../back-end/api/market_actions.py).
 
-**A market stores only the rows it differs on**, in `permissions` on [the market document](../implementation/data/market-document.md): each an action id with the role it asks and where it came from.
+**A market stores only the rows it differs on**, in `permissions` on [the market document](../implementation/data/market-document.md): each an action id with the role it asks and where it came from (`MarketPermission` in [`back-end/datatypes.py`](../../back-end/datatypes.py)).
 A row the market does not hold reads its built-in default, so an absent field is the built-in table and no market needs a migration; a fixed row is never read from the market, whatever is stored.
 Every check asks `minimum_role(row, market)`, the market's row or the default, and the market read serves every row's answer from the same rows.
 
 **Where a row came from is one of three**: the built-in default (no row held), copied from the organization's default when the market was created (E39/F02 writes these), or changed on this market.
 An organization's default is a copy, not a live link: a market created from it holds its rows from then on, and a later change to the organization's default reaches only the markets created after it.
 
-**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default.
+**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default (`set_permission` and `reset_permission` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
 The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is, E39/F02).
 An archived market's table is part of its record, and is not changed.
 

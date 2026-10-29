@@ -1932,13 +1932,12 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
     """
     market, row = _row_to_change(market_id, action_id, requesting_user)
     before = Actions.held_row(row, market.permissions)
-    if before is None and row.id not in market.permissions:
+    if before is None:
         return Actions.table(market)
     markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
         f"{market_doc_key('permissions')}.{row.id}": "",
     }})
-    if before is not None:
-        _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
+    _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
     market.permissions.pop(row.id, None)
     return Actions.table(market)
 

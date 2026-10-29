@@ -97,6 +97,7 @@ Setting writes `permissions.<action>` to `{role, source: market}`, and resetting
 
 **Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`.
 `GET /markets/:id/permission-history` (`get_permission_history`, at Read) answers `{entries}`, the market's history narrowed to them, newest first.
+[`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
 
 ## What the screens read
 
