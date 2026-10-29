@@ -23,15 +23,14 @@ test('Export opens on "Unassigned only" and downloads exactly the unassigned ven
     TEST_USER.password,
     { tables: 1 },
   );
-  insertApplications([
-    {
-      ...approvedVendorApplication(marketId, 'carol@example.com', {
-        dates: [SEED_MARKET_DATE],
-        tiers: ['Gold'],
-      }),
-      status: 'reviewer_rejected',
-    },
-  ]);
+  const rejected = {
+    ...approvedVendorApplication(marketId, 'carol@example.com', {
+      dates: [SEED_MARKET_DATE],
+      tiers: ['Gold'],
+    }),
+    status: 'reviewer_rejected',
+  };
+  insertApplications([rejected]);
 
   const vendors = new VendorsPage(page);
   await vendors.goto(marketId);
