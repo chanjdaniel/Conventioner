@@ -60,7 +60,7 @@ That was weighed and accepted for the placements when the trail was decided, and
 
 ## Reading it
 
-`entries_for_market(market_id, vendor=None)` is a market's whole history newest first; nothing in the product reads it yet (E40/F01/S03 and S04 will).
+`entries_for_market(market_id, vendor=None)` is a market's whole history newest first; nothing in the product reads it yet, and E40/F01/S03 replaces it with a paged reader, since the history page shows a first page and loads more rather than the whole history at once.
 
 `GET /markets/:id/placement-history` (`get_placement_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `placement_entries`: the history narrowed to the `assign` action's placement kinds, newest first, each entry with only the fields it had before the widening (`id`, `market_id`, `actor`, `at`, `kind`, `vendors`, `detail`), so the drawer's History tab reads exactly what it always did.
 It is read at VIEWER: anyone who may see where vendors sit may see how they came to sit there.

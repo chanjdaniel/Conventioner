@@ -129,7 +129,7 @@ class TestReadingTheTrail:
             "organizer@x.test",
         )
 
-        entries = History.entries_for_market("market-123")
+        entries = History.placement_entries("market-123")
 
         assert len(entries) == 2
 
@@ -140,7 +140,7 @@ class TestReadingTheTrail:
             "organizer@x.test",
         )
 
-        entries = History.entries_for_market("market-123", "ben@example.com")
+        entries = History.placement_entries("market-123", "ben@example.com")
 
         assert [entry["vendors"] for entry in entries] == [["ben@example.com"]]
 
@@ -149,7 +149,7 @@ class TestReadingTheTrail:
             "market-123", placement(email="Ana@Example.com"), "organizer@x.test"
         )
 
-        assert History.entries_for_market("market-123", "ANA@EXAMPLE.COM")
+        assert History.placement_entries("market-123", "ANA@EXAMPLE.COM")
 
     def test_the_newest_entry_comes_first(self, history):
         History.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 1")
@@ -157,7 +157,7 @@ class TestReadingTheTrail:
         history.docs[0]["at"] = "2020-01-01T00:00:00+00:00"
         history.docs[1]["at"] = "2026-01-01T00:00:00+00:00"
 
-        assert [e["detail"]["table_code"] for e in History.entries_for_market("m")] == [
+        assert [e["detail"]["table_code"] for e in History.placement_entries("m")] == [
             "A 2", "A 1",
         ]
 
@@ -165,7 +165,7 @@ class TestReadingTheTrail:
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
         History.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
-        assert len(History.entries_for_market("m1")) == 1
+        assert len(History.placement_entries("m1")) == 1
 
 
 class TestTheEndpoint:
