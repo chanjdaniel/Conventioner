@@ -7,7 +7,7 @@ describes:
   - back-end/app.py#amend_application_form
   - back-end/app.py#resume_application_form_amendment
   - front-end/src/components/application/AmendFormDialog.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/the-order-of-the-work/07
   - wayfinding/the-order-of-the-work/map
@@ -31,7 +31,7 @@ When the column mapping shows the form asked the wrong thing, the organizer used
 | `POST /markets/:id/application-form/amendment` | the form, written and the market returned: 409 with the blockers when pre-flight refuses, 409 with where it stopped when it stalls |
 | `POST /markets/:id/application-form/amendment/resume` | finishes a stalled walk from wherever the market now is |
 
-All three are in [`back-end/app.py`](../../../back-end/app.py) and ask ADMIN.
+All three are in [`back-end/app.py`](../../../back-end/app.py) and ask the table's Amend a locked form row ([the market's actions](market-actions.md)), ADMIN by default.
 None catches anything: `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are client errors, answered from their own `body()` ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 ## Sharp edges
@@ -54,7 +54,7 @@ A hop that finds the market moved stops with `AmendmentStalled`, naming the phas
 
 **The form is still written by `save_application_form` in `draft`**, the ordinary writer meeting the ordinary lock, so the D9 lock stays unbypassable ([the form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md)).
 
-**The chain is ADMIN, because it moves phases**: an amendment an EDITOR could run would walk a market through draft below the phase move's own bar ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+**The chain is ADMIN by default, because it moves phases**: an amendment an EDITOR could run would walk a market through draft below the phase move's own bar ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 It loads through `_load_market_to_change`, so an archived market is refused.
 
 **Each hop is a real phase move**, written through `apply_phase_transition` under the organizer who ran it, so the [phase record](phase-record.md) holds every hop; it is the one mover besides `take_move` ([the guards](guards.md)).

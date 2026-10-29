@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -71,7 +71,7 @@ The endpoint's 409 stays, for a market that changed between the read and the cli
 
 **A market is created only through `create_owned_market` and moved only through `take_move`.**
 `POST /markets` creates through the one and the transition endpoint moves through the other, and the operator's seeder ([`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) calls both, so nothing makes a market someone else owns or takes a move unjudged.
-`take_move` asks nothing about who is moving the market: the endpoint asks ADMIN first.
+`take_move` asks nothing about who is moving the market: the endpoint, and the seeder, ask the table's Move the phase row first ([the market's actions](market-actions.md)).
 The one other mover is [the form amendment](form-amendment.md) chain (`api/form_amendment.py`), which judges its whole route with `judge_route` against the proposed form before its first step and writes each step through `apply_phase_transition`.
 
 **A rule about phases that is not about a move does not belong here.**
