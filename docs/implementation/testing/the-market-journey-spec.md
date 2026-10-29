@@ -3,13 +3,14 @@ layer: implementation
 kind: testing
 describes:
   - front-end/e2e/market-journey.spec.ts
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
   - E03/F02/S04
   - E04/F01/S02
   - E32/F02/S01
   - E36/F04/S02
+  - E38/F05/S01
 ---
 
 # The market journey spec
@@ -28,7 +29,7 @@ The glossary concept: [Market](../../business/concepts/market.md).
 2. Plan it on the one page: two dates still to come, a tier, two sections, a location.
 3. Leave draft by importing: on the CSV path the rail reads Draft, Import, Review ([the phase rail](../modules/phase-rail.md)), and the move lands on the import.
 4. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
-5. Begin Review, one move through the closed phase, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
+5. Begin Review, one move through the closed phase, switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
 6. Begin Assignment and run it.
 7. Read the result: the two approved hold tables and the rejected one holds none, read off the drawn grid so "not placed" is not "not loaded".
 
