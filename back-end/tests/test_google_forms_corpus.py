@@ -1,9 +1,10 @@
 """The five Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
 
-``five-day-grid.csv``, ``team-status-column.csv`` and ``no-timestamp.csv`` are synthetic, made by
-``tests/fixtures/synthetic_form_exports.py``, which ``tests/test_synthetic_form_exports.py`` holds
-to the byte. The other two are real application exports with the people replaced, made by
-``tests/fixtures/anonymise_form_export.py``; the real files never reach CI.
+``five-day-grid.csv``, ``team-status-column.csv``, ``no-timestamp.csv`` and ``four-day-grid.csv``
+are synthetic, made by ``tests/fixtures/synthetic_form_exports.py``, which
+``tests/test_synthetic_form_exports.py`` holds to the byte. The other one is a real application
+export with the people replaced, made by ``tests/fixtures/anonymise_form_export.py``; the real file
+never reaches CI.
 ``tests/test_data/README.md`` says what each one is. This is what stands
 between a regenerated or hand-edited copy and a fixture that silently stopped looking like a Google
 Form's export: the row count, the header row exactly as the form wrote it, and how often the
@@ -23,8 +24,8 @@ CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "
 # The header is pinned by hash because it is long and multi-line, and must survive byte for byte.
 SHAPES = {
     "fall-2023": (294, 12, "ebe3e57a30707eb9", 6, {"Full table": 170, "Half table": 117}),
-    "spring-2024": (361, 30, "076b61cb540acdc5", 22,
-                    {"Full table only": 154, "Either": 106, "Half table only": 99}),
+    "four-day-grid": (361, 30, "2f3edddd593cd11b", 22,
+                      {"Full table only": 154, "Either": 106, "Half table only": 99}),
     "no-timestamp": (237, 28, "198e45b6d32a99fd", 23,
                      {"Full table": 87, "Either": 66, "Half table": 65, "Full table, Either": 11,
                       "Half table, Either": 6, "Full table, Half table": 2}),

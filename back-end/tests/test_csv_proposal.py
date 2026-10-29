@@ -37,8 +37,6 @@ def upload():
     return {"type": "text", "options": None, "upload": True}
 
 
-SELL = ["Stickers", "Prints", "Keychains", "Jewelry", "Apparel", "Ceramic"]
-NONE_CLUB = "I am NOT a part of any of these clubs"
 ART, PRINT = "AMS Artelier at UBC", "UBC PRINT Arts and Crafts"
 
 # The synthetic files' options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
@@ -74,25 +72,24 @@ ANSWER_KEY = {
         27: ("I understand that if I do not come", c("checkbox")),
         28: ("Anything else", c("text")), 29: ("Column 1", ORG),
     },
-    "spring-2024": {
-        0: ("Fq", ORG), 1: ("Timestamp", TS), 2: ("Full Name", FULL), 3: ("Preferred Name", PREF),
+    "four-day-grid": {
+        0: ("Ck", ORG), 1: ("Timestamp", TS), 2: ("Full Name", FULL), 3: ("Preferred Name", PREF),
         4: ("Email Address", EMAIL), 5: ("Discord Username", c("text")),
         6: ("Business Name", c("text")), 7: ("Business Instagram", c("text")),
         8: ("Business Twitter", c("text")), 9: ("Business Website", c("text")),
         10: ("Other Business Socials", c("text")),
-        11: ("Do you have any tabling experience", c("text")),
-        12: ("What will you be selling", c("multi_select",
-                                     SELL + ["Woven (crochet, knitting etc)"])),
-        13: ("Please provide a link to your portfolio", c("text")),
-        14: ("I certify that the work", c("checkbox")),
-        15: ("Are you a UBC student?", c("select", ["Yes", "No"])),
-        16: ("Which clubs are you a member of?", c("multi_select", [NONE_CLUB, ART, PRINT])),
-        17: ("If applicable, please attach proof", upload()),
-        **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 22)},
-        22: ("Do you want to have a half table", CHOICE), 23: ("If you chose half table", SHARE),
-        24: ("I understand that there will be no table", c("checkbox")),
-        25: ("I understand that no-shows", c("checkbox")),
-        26: ("Additional comments", c("text")), 27: ("", EMPTY), 28: ("", EMPTY),
+        11: ("Tell us about any markets", c("text")),
+        12: ("What kinds of work will you sell", c("multi_select", MAKES)),
+        13: ("Please link to a portfolio", c("text")),
+        14: ("I certify that I designed", c("checkbox")),
+        15: ("Are you an Example College student?", c("select", ["Yes", "No"])),
+        16: ("Which clubs are you in?", c("multi_select", [NO_CLUB] + CLUBS[:2])),
+        17: ("If you are in a club above", upload()),
+        **{k: ("For each day of the fair, choose the table tiers", TIERS) for k in range(18, 22)},
+        22: ("Would you like a half table", CHOICE), 23: ("If you chose a half table", SHARE),
+        24: ("I understand that tables and days", c("checkbox")),
+        25: ("I understand that a vendor who does not come", c("checkbox")),
+        26: ("Any other comments", c("text")), 27: ("", EMPTY), 28: ("", EMPTY),
         29: ("", ORG),
     },
     "no-timestamp": {
@@ -165,7 +162,7 @@ EITHER_EMAIL = {"five-day-grid": (2, 5), "team-status-column": (2, 5)}
 
 # The two misses the rules were measured with: a clubs question almost nobody answered with two
 # clubs, read as one choice. They must come back marked, not silently wrong.
-KNOWN_TYPE_MISSES = {("spring-2024", 16), ("team-status-column", 22)}
+KNOWN_TYPE_MISSES = {("four-day-grid", 16), ("team-status-column", 22)}
 
 
 def _read(name):
@@ -277,7 +274,7 @@ class TestWhatAColumnCarries:
     def test_a_checkbox_questions_one_off_answers_are_listed_to_be_kept(self):
         """An answer that could not be listed could not be kept, so an applicant who gave only such
         answers lost their application (bug 4). All are listed; only the shared ones are kept."""
-        field = self._column("spring-2024", 12)["field"]
+        field = self._column("four-day-grid", 12)["field"]
         one_offs = [o for o in field["options"] if o["count"] == 1]
         assert len(one_offs) > 100 and not any(o["keep"] for o in one_offs)
         assert all(o["count"] >= 3 for o in field["options"] if o["keep"])
@@ -285,7 +282,7 @@ class TestWhatAColumnCarries:
     def test_each_applicants_answers_say_who_a_left_out_option_would_drop(self):
         """Indexes into the options, one list per applicant, so the ledger can count the applicants
         left with no answer for whichever options the organizer keeps."""
-        read = self._column("spring-2024", 12)["field"]["optionsByType"]["multi_select"]
+        read = self._column("four-day-grid", 12)["field"]["optionsByType"]["multi_select"]
         options, answers = read["options"], read["answers"]
         assert all(0 <= index < len(options) for answer in answers for index in answer)
         dropped = [a for a in answers if a and not any(options[i]["keep"] for i in a)]
@@ -333,7 +330,7 @@ class TestWhatAColumnCarries:
         assert label.endswith("UBC Makers Market!")
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "no-timestamp",
+    @pytest.mark.parametrize("name", ["fall-2023", "four-day-grid", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
         headers, rows = _read(name)
@@ -375,7 +372,7 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "no-timestamp",
+    @pytest.mark.parametrize("name", ["fall-2023", "four-day-grid", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_column_is_answered_by_more_than_responded(self, name):
         """A status-only row an organizer typed is not a response, so its cells are not answers:
@@ -390,7 +387,7 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
-    @pytest.mark.parametrize("name", ["five-day-grid", "spring-2024", "no-timestamp",
+    @pytest.mark.parametrize("name", ["five-day-grid", "four-day-grid", "no-timestamp",
                                   "team-status-column"])
     def test_a_tier_grid_answers_the_dates_as_well(self, name):
         """A day's row in the grid is a day the applicant can come: the import reads availability

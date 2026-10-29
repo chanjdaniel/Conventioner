@@ -16,26 +16,26 @@ sources:
 
 # Test data
 
-The back-end suite's realistic data: Google Form exports, three synthetic and two real ones with the people replaced.
+The back-end suite's realistic data: Google Form exports, four synthetic and one real one with the people replaced.
 How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
 ## [`google_forms/`](google_forms/)
 
 Five Google Form application exports.
-`five-day-grid.csv`, `team-status-column.csv` and `no-timestamp.csv` are synthetic, made by [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py) (below).
-The other two are real application exports, one per market, with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
+`five-day-grid.csv`, `team-status-column.csv`, `no-timestamp.csv` and `four-day-grid.csv` are synthetic, made by [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py) (below).
+The other is a real market's application export with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
 They are the realistic responses this suite has, and the form started from a CSV is built and measured against them.
 
 | File | Market days | Applications submitted | Rows | Columns |
 |---|---|---|---|---|
 | `fall-2023.csv` | Mon 20 - Fri 24 November 2023 | 19 September - 10 October 2023 | 294 | 12 |
-| `spring-2024.csv` | Mon 25 - Thu 28 March 2024 | 28 January - 13 February 2024 | 361 | 30 |
 | `five-day-grid.csv` | Mon 20 - Fri 24 October 2025 | 18 August - 3 September 2025 | 237 | 30 |
 | `team-status-column.csv` | Mon 20 - Fri 24 April 2026 | 23 February - 9 March 2026 | 250 | 35 |
 | `no-timestamp.csv` | Mon 19 - Fri 23 May 2025 | not recorded: this export has no timestamp column | 237 | 28 |
+| `four-day-grid.csv` | Mon 22 - Thu 25 April 2024 | 25 February - 12 March 2024 | 361 | 30 |
 
-The two anonymised files are real markets' application forms.
-Their submission dates are read from the anonymised timestamps, which the anonymiser moves by a few hours, so a boundary day may be off by one.
+The anonymised file is a real market's application form.
+Its submission dates are read from the anonymised timestamps, which the anonymiser moves by a few hours, so a boundary day may be off by one.
 
 ### What the anonymiser kept and what it invented
 
@@ -51,7 +51,7 @@ Every timestamp moves by one offset.
 The anonymiser refuses to write a file in which any source value of 4 or more characters that fewer than 3 applicants wrote appears, down to a single word inside a comment.
 `tests/test_google_forms_corpus.py` pins each file's row count, header row and table-size answer counts.
 
-### Regenerating the anonymised files
+### Regenerating the anonymised file
 
 ```
 python tests/fixtures/anonymise_form_export.py <real-export.csv> tests/test_data/google_forms/<name>.csv
@@ -63,13 +63,14 @@ Never commit a real export, and never hand-edit a copy: change the anonymiser, s
 
 ### The synthetic files
 
-`five-day-grid.csv`, `team-status-column.csv` and `no-timestamp.csv` are each described, header by header and column by column, in [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py), and written by it.
+`five-day-grid.csv`, `team-status-column.csv`, `no-timestamp.csv` and `four-day-grid.csv` are each described, header by header and column by column, in [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py), and written by it.
 Nothing in it comes from a real export: every header is written for the file, the people come from the generator's pools of common names, every address and link is at a fixture domain (an upload keeps the Google Drive host, with an invented file id, because the proposal knows an upload by that host), and every other answer is made from the generator's word lists.
 The organization is "Example College", the market "Example Makers Fair", and the clubs "Example College <craft> Society".
 Each column states its counts, so a file keeps its predecessor's rows, columns, column kinds, options and import outcome.
 236 of `five-day-grid.csv`'s 237 rows import, and the one refused has no full name.
 245 of `team-status-column.csv`'s 250 rows import: one has no full name, one gave a timestamp for its email address, two applicants stopped after the first page, and the last row is the organizer's `TEST` submission.
 235 of `no-timestamp.csv`'s 237 rows import, and the two refused gave something other than an address as their email: a name alone, and a name before their address.
+355 of `four-day-grid.csv`'s 361 rows import: one applicant chose None on every day, three rows are an applicant sending the form a second time, and the last two are the team's own, a checkbox column filled in beside no response.
 
 #### Why the shapes matter
 

@@ -14,7 +14,7 @@ import csv_start as CsvStart
 import essential_fields as EssentialFields
 
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
-YEARS = {"fall-2023": 2023, "spring-2024": 2024, "no-timestamp": 2025, "five-day-grid": 2025,
+YEARS = {"fall-2023": 2023, "four-day-grid": 2024, "no-timestamp": 2025, "five-day-grid": 2025,
          "team-status-column": 2026}
 
 
@@ -66,7 +66,7 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 # and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27). Another
 # 15 to 41 per export were skipped for a blank answer to a question the proposal guessed required
 # from how many answered it, until it stopped guessing (E33/F02/S01).
-IMPORTED = {"fall-2023": 277, "spring-2024": 355, "no-timestamp": 235, "five-day-grid": 236,
+IMPORTED = {"fall-2023": 277, "four-day-grid": 355, "no-timestamp": 235, "five-day-grid": 236,
             "team-status-column": 245}
 
 
@@ -110,14 +110,14 @@ def test_the_seam_keeps_ticked_boxes_and_table_choices(name):
 
 def test_the_plan_facts_form_and_ceiling_are_written():
     doc = _draft()
-    update = _confirmed_update(doc, _csv("spring-2024"), {"year": 2024})
+    update = _confirmed_update(doc, _csv("four-day-grid"), {"year": 2024})
     setup = update["setupObject"]
     assert [d["date"] for d in setup["marketDates"]] == [
-        "2024-03-25", "2024-03-26", "2024-03-27", "2024-03-28"]
+        "2024-04-22", "2024-04-23", "2024-04-24", "2024-04-25"]
     assert [t["name"] for t in setup["tiers"]] == ["Gold", "Silver", "Bronze"]
     assert setup["assignmentOptions"]["maxAssignmentsPerVendor"] is None  # none was sent
 
-    update = _confirmed_update(doc, _csv("spring-2024"), {"year": 2024, "ceiling": 3})
+    update = _confirmed_update(doc, _csv("four-day-grid"), {"year": 2024, "ceiling": 3})
     assert update["setupObject"]["assignmentOptions"]["maxAssignmentsPerVendor"] == 3
 
 
@@ -139,20 +139,21 @@ def test_the_form_asks_the_organizers_own_questions_in_file_order():
 
 def test_the_organizers_corrections_are_what_is_written():
     doc = _draft()
-    csv_text = _csv("spring-2024")
+    csv_text = _csv("four-day-grid")
     # The clubs question: one choice turned into several, a rare club kept; and the first,
     # left-out column brought back as a question.
     clubs = 16
     update = _confirmed_update(doc, csv_text, {"year": 2024, "rows": [
-        {"column": clubs, "type": "multi_select", "kept": ["AMS Artelier at UBC",
-                                                           "UBC PRINT Arts and Crafts"]},
+        {"column": clubs, "type": "multi_select", "kept": ["Example College Printmaking Society",
+                                                           "Example College Anime Society"]},
         {"column": 0, "fate": "custom"},
     ]})
     fields = {f["key"]: f for f in update["applicationForm"]["fields"]}
     club = next(f for k, f in fields.items() if k.startswith("which_clubs"))
     assert club["type"] == "multi_select"
-    assert club["options"] == ["AMS Artelier at UBC", "UBC PRINT Arts and Crafts"]
-    assert update["applicationForm"]["fields"][0]["label"] == "Fq"
+    assert club["options"] == ["Example College Printmaking Society",
+                               "Example College Anime Society"]
+    assert update["applicationForm"]["fields"][0]["label"] == "Ck"
 
 
 def test_a_plan_that_already_has_tiers_keeps_them_and_settles_the_rest_as_value_fixes():
@@ -198,12 +199,12 @@ def test_the_import_skips_a_saved_target_whose_question_was_deleted():
 def test_a_plan_that_already_has_a_ceiling_keeps_it():
     doc = _draft(setupObject={"priority": [], "locations": [], "sections": [], "marketDates": [],
                               "tiers": [], "assignmentOptions": {"maxAssignmentsPerVendor": 4}})
-    update = _confirmed_update(doc, _csv("spring-2024"), {"year": 2024, "ceiling": 3})
+    update = _confirmed_update(doc, _csv("four-day-grid"), {"year": 2024, "ceiling": 3})
     assert update["setupObject"]["assignmentOptions"]["maxAssignmentsPerVendor"] == 4
 
 
 def test_a_choice_with_no_option_kept_becomes_a_question_answered_in_words():
-    update = _confirmed_update(_draft(), _csv("spring-2024"), {"year": 2024, "rows": [
+    update = _confirmed_update(_draft(), _csv("four-day-grid"), {"year": 2024, "rows": [
         {"column": 16, "type": "select", "kept": []}]})
     club = next(f for f in update["applicationForm"]["fields"] if f["key"].startswith("which_clubs"))
     assert club["type"] == "text" and club["options"] == []

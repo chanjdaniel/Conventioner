@@ -17,8 +17,8 @@ CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "
 ANSWERS = {
     "five-day-grid": {"dates": ["10-20", "10-21", "10-22", "10-23", "10-24"], "year": 2025,
                       "tiers": ["Gold", "Silver", "Bronze"], "ceiling": None},
-    "spring-2024": {"dates": ["03-25", "03-26", "03-27", "03-28"], "year": 2024,
-                    "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 3},
+    "four-day-grid": {"dates": ["04-22", "04-23", "04-24", "04-25"], "year": 2024,
+                      "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 3},
     "no-timestamp": {"dates": ["05-19", "05-20", "05-21", "05-22", "05-23"], "year": 2025,
                      "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 2},
     "fall-2023": {"dates": ["11-20", "11-21", "11-22", "11-23", "11-24"], "year": 2023,

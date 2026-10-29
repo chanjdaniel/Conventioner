@@ -61,6 +61,21 @@ GIVEN_NAMES = (
     "Beatriz", "Cyrus", "Dara", "Elif", "Freya", "Goran", "Ines", "Kenji", "Lars", "Marco",
 )
 
+# Drawn on as well only by a form too large for the names above, so a smaller form's applicants
+# stay who they were.
+MORE_GIVEN_NAMES = (
+    "Abel", "Ada", "Agnes", "Alba", "Alma", "Ari", "Asha", "Aubrey", "Axel", "Bea", "Bella",
+    "Blake", "Bo", "Brody", "Cara", "Cole", "Dana", "Dante", "Dean", "Derek", "Dina", "Drew",
+    "Edgar", "Edith", "Elsa", "Emil", "Enzo", "Esme", "Ezra", "Flora", "Gia", "Gina", "Greta",
+    "Gus", "Hector", "Heidi", "Ida", "Ingrid", "Ivan", "Jada", "Jules", "Kara", "Kian", "Kofi",
+    "Leila", "Leon", "Lena", "Lia", "Lionel", "Lola", "Lorenzo", "Mabel", "Malik", "Mara",
+    "Maria", "Mateo", "Milo", "Mira", "Nell", "Nico", "Nils", "Noor", "Ola", "Orla", "Otto",
+    "Pablo", "Pia", "Rami", "Remy", "Rex", "Rina", "Rory", "Rumi", "Ruth", "Sadie", "Saul",
+    "Silas", "Suki", "Tessa", "Tobias", "Uri", "Vic", "Wade", "Willa", "Yuki", "Zane", "Zuri",
+    "Anya", "Bram", "Cleo", "Dev", "Elio", "Fern", "Hal", "Isla", "Juno", "Kit", "Lev", "Mae",
+    "Nate", "Odin", "Pip", "Rafa", "Sol", "Tam", "Ugo", "Val", "Wren", "Yan", "Zeke",
+)
+
 FAMILY_NAMES = (
     "Adams", "Ahmed", "Ali", "Allen", "Alvarez", "Anderson", "Bailey", "Baker", "Bell", "Bennett",
     "Brooks", "Brown", "Campbell", "Carter", "Castro", "Chan", "Chang", "Chen", "Clark", "Collins",
@@ -212,11 +227,13 @@ class Kind:
 
 @dataclass
 class Constant(Kind):
-    """Everyone's answer is the same text: a ticked certification box exports as its own text."""
+    """Everyone's answer is the same text: a ticked certification box exports as its own text.
+    Blank in ``blank_rows``."""
     value: str
+    blank_rows: Tuple[int, ...] = ()
 
     def cells(self, context):
-        return [self.value] * context.rows
+        return ["" if row in self.blank_rows else self.value for row in range(context.rows)]
 
 
 @dataclass
@@ -233,8 +250,10 @@ class Choice(Kind):
 class GridDay(Choice):
     """One day of a tier grid, a Choice whose "None" is never a row's answer on every day: nobody
     applies to a market they cannot come to. A row "None" on all the ``earlier`` days is given one
-    of this day's tiers."""
+    of this day's tiers, but for the first ``unavailable`` of them, who answered "None" every day
+    all the same, and whom the import refuses."""
     earlier: Tuple[int, ...] = ()
+    unavailable: int = 0
 
     def cells(self, context):
         absent = [row for row in context.open_rows if self.earlier
@@ -242,7 +261,8 @@ class GridDay(Choice):
         tiers = [value for value, count in self.counts.items() if value != "None"
                  for _ in range(count)]
         context.rng.shuffle(tiers)
-        given = dict(zip(absent, tiers))
+        given = dict(zip(absent[self.unavailable:], tiers))
+        given.update({row: "None" for row in absent[:self.unavailable]})
         left = dict(self.counts)
         for value in given.values():
             left[value] -= 1
@@ -319,10 +339,14 @@ class FullName(Kind):
 
 @dataclass
 class PreferredName(Kind):
-    """The name an applicant goes by: their given name."""
+    """The name an applicant goes by: their given name. Left blank by ``blank`` applicants, where
+    the form did not require it."""
+    blank: int = 0
 
     def cells(self, context):
-        return [person.given for person in context.people]
+        left = set(context.rng.sample(context.open_rows, self.blank)) if self.blank else set()
+        return ["" if row in left else person.given
+                for row, person in enumerate(context.people)]
 
 
 @dataclass
@@ -366,14 +390,35 @@ class Link(Kind):
     shared: Dict[str, int] = field(default_factory=dict)
 
     def cells(self, context):
-        rows = set(context.rng.sample(context.open_rows, self.count))
-        cells = [f"https://example.com/{self.path}/{p.handle}" if row in rows else ""
-                 for row, p in enumerate(context.people)]
-        if self.shared:
-            words = context.place(self.shared, [row for row in context.open_rows
-                                                if row not in rows])
-            cells = [cell or word for cell, word in zip(cells, words)]
-        return cells
+        return _accounts(context, self.count, self.shared,
+                         lambda person: f"https://example.com/{self.path}/{person.handle}")
+
+
+@dataclass
+class Social(Kind):
+    """A social account for ``count`` applicants, written as applicants write one: a handle with
+    its @, a bare handle, or a link at example.com; plus the short answers in ``shared``, as
+    ``Link`` has them."""
+    path: str
+    count: int
+    shared: Dict[str, int] = field(default_factory=dict)
+
+    def cells(self, context):
+        def written(person):
+            return context.rng.choice((f"@{person.handle}", person.handle,
+                                       f"https://example.com/{self.path}/{person.handle}"))
+        return _accounts(context, self.count, self.shared, written)
+
+
+def _accounts(context, count, shared, written) -> List[str]:
+    """``written(person)`` for ``count`` applicants, then each of the ``shared`` answers in exactly
+    as many of the rows left as its count."""
+    rows = set(context.rng.sample(context.open_rows, count))
+    cells = [written(p) if row in rows else "" for row, p in enumerate(context.people)]
+    if shared:
+        words = context.place(shared, [row for row in context.open_rows if row not in rows])
+        cells = [cell or word for cell, word in zip(cells, words)]
+    return cells
 
 
 @dataclass
@@ -491,6 +536,14 @@ class TableShare(Kind):
 
 
 @dataclass
+class Blank(Kind):
+    """A column with no answers: the empty columns a sheet carries after the form's last."""
+
+    def cells(self, context):
+        return [""] * context.rows
+
+
+@dataclass
 class Note(Kind):
     """An organizer's note in a column they added, on ``count`` rows."""
     count: int
@@ -504,10 +557,12 @@ class Note(Kind):
 
 @dataclass
 class Form:
-    """A form's export. Two kinds of row are the form's own rather than a column's: the
+    """A form's export. Three kinds of row are the form's own rather than a column's: the
     ``stopped`` applicants, who sent the form with every question from column ``stopped_at`` on
-    left blank, and, with ``test_from``, a last row the organizer sent to try the form, "TEST" in
-    every column from that one."""
+    left blank; with ``test_from``, a last row the organizer sent to try the form, "TEST" in
+    every column from that one; and the ``typed`` rows, where the organizer filled in the first
+    column and nobody answered the form. Each pair in ``repeats`` is one applicant sending the
+    form twice: the second row is the first row's person, with answers of its own."""
     file: str
     seed: int
     rows: int
@@ -515,11 +570,15 @@ class Form:
     stopped: Tuple[int, ...] = ()
     stopped_at: int = 0
     test_from: Optional[int] = None
+    typed: Tuple[int, ...] = ()
+    repeats: Tuple[Tuple[int, int], ...] = ()
 
     def people(self, rng: random.Random) -> List[Person]:
         """Distinct applicants: a few share a given name, as people do."""
         shared = max(self.rows // 20, 1)
-        given = rng.sample(GIVEN_NAMES, self.rows - shared)
+        pool = GIVEN_NAMES if self.rows - shared <= len(GIVEN_NAMES) \
+            else GIVEN_NAMES + MORE_GIVEN_NAMES
+        given = rng.sample(pool, self.rows - shared)
         given += rng.sample(given, shared)
         rng.shuffle(given)
         family = [rng.choice(FAMILY_NAMES) for _ in range(self.rows)]
@@ -527,6 +586,8 @@ class Form:
         for row, (first, last) in enumerate(zip(given, family)):
             handle = f"example{first}{last}{row}".lower()
             people.append(Person(first, last, f"{first}.{last}{row}@example.com".lower(), handle))
+        for first, again in self.repeats:
+            people[again] = people[first]
         return people
 
     def rows_of_cells(self) -> List[List[str]]:
@@ -536,9 +597,10 @@ class Form:
         for index, (_header, kind) in enumerate(self.columns):
             stopped = set(self.stopped) if self.stopped and index >= self.stopped_at else set()
             tested = {test_row} if self.test_from is not None and index >= self.test_from else set()
-            context.closed = frozenset(stopped | tested)
+            typed = set(self.typed) if index >= 1 else set()
+            context.closed = frozenset(stopped | tested | typed)
             cells = kind.cells(context)
-            for row in stopped:
+            for row in stopped | typed:
                 cells[row] = ""
             for row in tested:
                 cells[row] = "TEST"
@@ -1006,7 +1068,146 @@ NO_TIMESTAMP = Form(
     ],
 )
 
-FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN, NO_TIMESTAMP)
+FOUR_DAY_GRID_STEM = (
+    "For each day of the fair, choose the table tiers you would like. Choose None for a day you "
+    "are not free.\n"
+    "\n"
+    "Each vendor may table for up to 3 days, but please choose every day you are free.\n"
+    "\n"
+    "NOTE: \n"
+    "- Your table must be staffed for at least four hours on each day you are given; ask a friend "
+    "to cover it if you need a break.\n"
+    "- Of the tiers you choose, you will be given the best one that is still open.\n"
+    "- If none of the tiers you chose is open on a day, you may not get a table that day. [{}]"
+)
+
+FOUR_DAY_GRID = Form(
+    file="four-day-grid.csv",
+    seed=28,
+    rows=361,
+    # The last two rows are the team's: its checkbox column filled in beside no response. Three
+    # applicants sent the form twice.
+    typed=(359, 360),
+    repeats=((54, 55), (78, 79), (136, 216)),
+    columns=[
+        # The team's checkbox column, before the form's first.
+        ("Ck", Constant("FALSE", blank_rows=(211,))),
+        ("Timestamp", Timestamp(datetime(2024, 2, 25, 9, 0, 0), datetime(2024, 3, 12, 23, 0, 0))),
+        ("Full Name", FullName()),
+        ("Preferred Name", PreferredName(blank=72)),
+        ("Email Address", Email()),
+        ("Discord Username\n"
+         "\n"
+         "The team shares table numbers and day-of updates on the fair's Discord server.\n"
+         "\n"
+         "(the username, not the display name)",
+         Handle()),
+        ("Business Name", Business(repeats=3)),
+        ("Business Instagram (optional)", Social("instagram", count=324)),
+        ("Business Twitter (optional)",
+         Social("twitter", count=51, shared={"N/A": 6, "NA": 5, "n/a": 3})),
+        ("Business Website (optional)", Link("shop", count=155, shared={"NA": 4})),
+        ("Other Business Socials (optional)", Social("social", count=68, shared={"NA": 5})),
+        ("Tell us about any markets or fairs you have tabled at before.",
+         Prose(TABLING_SENTENCES, count=284, most=3, shared={"No": 3})),
+        ("What kinds of work will you sell?",
+         MultiSelect({"Stickers": 181, "Art prints": 167, "Keychains": 151, "Jewellery": 124,
+                      "Fibre arts (crochet, knitting, etc)": 65, "Clothing": 56, "Pottery": 15},
+                     rare=(5, 5, 4, 4, 4, 3, 3) + (2,) * 13 + (1,) * 201, only_rare=38)),
+        ("Please link to a portfolio or to photos of the work you plan to sell at Example Makers "
+         "Fair (a website, a social page or a shared folder).\n"
+         "\n"
+         "Make sure anyone with the link can open it, so the review team can look at your recent "
+         "work before applications close.",
+         Link("portfolio", count=359)),
+        ("I certify that I designed and made the work I will sell, and that none of it is resold, "
+         "dropshipped or traced. If a piece uses someone else's pattern, I will say so in my "
+         "comments and show that I may sell it. \n"
+         "\n"
+         "A vendor found breaking this rule may be asked to leave and may not be offered a table "
+         "again.\n"
+         "\n"
+         "(Work printed or put together for me by a manufacturer is fine, as long as the design "
+         "is mine.)",
+         Constant("I certify that the work is my own")),
+        ("Are you an Example College student?\n"
+         "\n"
+         "NOTE: Example College students are offered tables first, and we check every answer "
+         "against the college directory.",
+         Choice({"Yes": 186, "No": 173})),
+        # Read as one choice: hardly anyone named two clubs, and the rules cannot tell.
+        ("Which clubs are you in?",
+         Choice({"I am not a member of any of these clubs": 278,
+                 "Example College Printmaking Society": 62,
+                 "Example College Anime Society": 15,
+                 "Example College Printmaking Society, I am not a member of any of these clubs": 2,
+                 "Example College Printmaking Society, Example College Anime Society": 1,
+                 "ECVAS": 1})),
+        ("If you are in a club above, please upload proof that you are a member",
+         Upload(count=76)),
+        # Columns 18 to 21: the four days, the last keeping all but one applicant available on one
+        # of them.
+        *((FOUR_DAY_GRID_STEM.format(day),
+           GridDay(counts, earlier=() if day[:3] != "Thu" else (18, 19, 20),
+                   unavailable=0 if day[:3] != "Thu" else 1))
+          for day, counts in (
+            ("Mon, April 22nd", {"None": 93, "Gold": 91, "Gold, Silver": 58,
+                                 "Gold, Silver, Bronze": 56, "Silver": 33, "Bronze": 14,
+                                 "Silver, Bronze": 11, "Silver, Bronze, None": 2,
+                                 "Gold, Silver, Bronze, None": 1}),
+            ("Tue, April 23rd", {"None": 120, "Gold": 76, "Gold, Silver, Bronze": 50,
+                                 "Gold, Silver": 49, "Silver": 33, "Bronze": 16,
+                                 "Silver, Bronze": 12, "Silver, Bronze, None": 2,
+                                 "Bronze, None": 1}),
+            ("Wed, April 24th", {"None": 103, "Gold": 85, "Gold, Silver, Bronze": 57,
+                                 "Gold, Silver": 50, "Silver": 33, "Silver, Bronze": 15,
+                                 "Bronze": 14, "Gold, Silver, Bronze, None": 1,
+                                 "Silver, Bronze, None": 1}),
+            # One applicant left this day blank.
+            ("Thu, April 25th", {"None": 127, "Gold": 78, "Gold, Silver, Bronze": 51,
+                                 "Gold, Silver": 43, "Silver": 31, "Bronze": 17,
+                                 "Silver, Bronze": 9, "Gold, Silver, Bronze, None": 1,
+                                 "Silver, Bronze, None": 1}),
+        )),
+        ("Would you like a half table or full table?\n"
+         "\n"
+         "NOTE:\n"
+         "- A half table costs half as much as a full table.\n"
+         "- A half table is shared, perhaps with a vendor you do not know yet.\n"
+         "- There are fewer full tables, so choosing Either gives you a better chance of a table.",
+         Choice({"Full table only": 154, "Either": 106, "Half table only": 99})),
+        ("If you chose a half table, is there someone you would like to share it with?\n"
+         "\n"
+         "Please write their email address exactly.\n"
+         "\n"
+         "NOTE:\n"
+         "- They must send an application of their own.\n"
+         "- We will try to seat you together, but cannot promise it.\n"
+         "- The address must match the one on their application, so check it with them.\n"
+         "- You can only share if you both come on the same days and choose the same tiers.",
+         TableShare(applicants=68, outsiders=5, pairs=0,
+                    words={"No": 5, "N/A": 2, "n/a": 2, "Not sure yet": 2,
+                           "my friend from class": 1, "anyone is fine": 1, "Still deciding": 1,
+                           "none": 1, "Whoever needs a partner": 1, "I will ask around": 1,
+                           "nobody": 1, "Someone from my club": 1, "Not yet": 1, "no one": 1,
+                           "My sister": 1, "TBD": 1, "Will email you": 1,
+                           "A friend, applying soon": 1, "Not decided": 1, "Open to anyone": 1,
+                           "Maybe": 1, "Anyone": 1})),
+        ("I understand that tables and days cannot be swapped once the market days are confirmed.",
+         Constant("I understand")),
+        ("I understand that a vendor who does not come, without telling the team, will not be "
+         "refunded, and may not be offered a table at a later fair.",
+         Constant("I understand")),
+        ("Any other comments?",
+         Prose(COMMENT_SENTENCES, count=119, shared={"Thank you!": 2})),
+        # Two empty columns after the form's last, then the team's notes under no heading.
+        ("", Blank()),
+        ("", Blank()),
+        ("", Prose(NOTE_SENTENCES, count=4, most=1, shared={"Called, no answer yet.": 2})),
+    ],
+)
+
+FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN, NO_TIMESTAMP, FOUR_DAY_GRID)
 
 
 def main() -> None:

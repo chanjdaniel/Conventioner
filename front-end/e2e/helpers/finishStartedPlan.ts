@@ -40,7 +40,7 @@ export async function finishStartedPlan(
  */
 export const UPCOMING_YEAR: Record<string, number> = {
   'fall-2023': 2034,
-  'spring-2024': 2052,
+  'four-day-grid': 2052,
   'no-timestamp': 2031,
   'five-day-grid': 2031,
 };
