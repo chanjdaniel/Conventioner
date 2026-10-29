@@ -141,7 +141,7 @@ test.describe('The Result page', () => {
     }
   });
 
-  test('before the first run it says so, and where to run it', async ({
+  test('before the first run it says so, and where to allocate tables', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -155,6 +155,9 @@ test.describe('The Result page', () => {
     await page.goto(at(unrun.marketId, 'result'));
     const empty = page.getByTestId('result-empty');
     await expect(empty).toContainText('Nothing assigned yet', { timeout: 15000 });
+    await expect(
+      empty.getByRole('link', { name: 'Set the rules and allocate tables' }),
+    ).toBeVisible();
     // Where a run can happen, the tables stay: a vendor pinned before the first run is placed
     // around by it (E11/F02/S01), so they are offered for that and not as a result.
     await expect(page.getByTestId('result-pin-before-run')).toContainText(

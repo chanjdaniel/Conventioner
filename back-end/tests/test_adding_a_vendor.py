@@ -64,7 +64,7 @@ def test_an_editor_adds_a_vendor_while_assigning_or_on_the_day(stored, phase):
 def test_before_the_assignment_a_vendor_applies_instead(stored, phase):
     written = stored(phase)
 
-    with pytest.raises(AddedVendors.AddVendorRefused, match="assignment"):
+    with pytest.raises(AddedVendors.AddVendorRefused, match="from Assignment on"):
         AddedVendors.add_vendor("market-123", {"name": "A", "email": "a@example.com"}, ADDER)
 
     assert written == []

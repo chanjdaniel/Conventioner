@@ -37,7 +37,7 @@ A switch row (on or off rather than a role) arrives with the first story that ne
 ## The rules of a market's life are asked first
 
 The table says only who may.
-The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from the assignment on (`adding_refusal`), the assignment runs only in assignment (`assign_refusal`).
+The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from Assignment on (`adding_refusal`), tables are allocated only in Assignment (`assign_refusal`).
 Each check keeps the order it had, so every route answers each person as it did before the table.
 
 ## Each route's row

@@ -119,11 +119,11 @@ const frozenNote = computed(() => {
   if (has(MarketPhase.MarketDays)) return 'It was published and ran its market days.';
   if (has(MarketPhase.Assignment, MarketPhase.Offers)) {
     return whole
-      ? 'It was assigned but never published, so no check-in page went on the air.'
-      : 'It was assigned.';
+      ? 'Its tables were allocated but it was never published, so no check-in page went on the air.'
+      : 'Its tables were allocated.';
   }
   if (has(MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review)) {
-    return whole ? 'It opened applications but was never assigned.' : 'It opened applications.';
+    return whole ? 'It opened applications but never allocated tables.' : 'It opened applications.';
   }
   return whole ? 'It was abandoned before it opened applications.' : '';
 });

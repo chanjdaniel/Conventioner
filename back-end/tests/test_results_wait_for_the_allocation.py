@@ -47,7 +47,7 @@ class TestWhenResultsMayBePublished:
         MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW,
     ])
     def test_not_before_the_assignment(self, phase):
-        assert "assignment" in ApplicantsApi.publish_results_refusal(market(phase=phase))
+        assert "once tables have been allocated" in ApplicantsApi.publish_results_refusal(market(phase=phase))
 
     def test_not_before_a_run_is_stored(self):
         assert "Allocate tables" in ApplicantsApi.publish_results_refusal(market(seated=()))

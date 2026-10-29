@@ -115,7 +115,7 @@ test('deleting is a destructive dialog that opens on Cancel and says what goes',
   const dialog = page.getByTestId('manage-market-delete-window');
   await expect(dialog).toContainText(`Delete ${marketName}?`);
   await expect(page.getByTestId('manage-market-delete-consequence')).toContainText(
-    'its applications, its assignment, its check-in records',
+    'its applications, its assignments, its check-in records',
   );
   // A form market taking applications has a public page, and it goes too.
   await expect(page.getByTestId('manage-market-delete-public')).toHaveText(

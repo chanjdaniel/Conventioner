@@ -129,7 +129,7 @@ async function downloadCsv(): Promise<void> {
     <p v-if="outOfDate" class="note" data-testid="assignment-out-of-date">
       {{ outOfDate }}
       <RouterLink :to="marketPath(market.id, 'assignment')">Allocate tables again</RouterLink>
-      to bring it up to date.
+      to bring the result up to date.
     </p>
 
     <template v-if="!assigned">

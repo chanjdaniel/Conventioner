@@ -427,7 +427,7 @@ function closeAddUser() {
     @submit="handleDeleteConfirm"
   >
     <p class="confirm-text" data-testid="manage-market-delete-consequence">
-      This deletes the market with its applications, its assignment, its check-in records and the
+      This deletes the market with its applications, its assignments, its check-in records and the
       record of who changed what. It cannot be undone.
     </p>
     <p v-if="publicPages" class="confirm-text" data-testid="manage-market-delete-public">

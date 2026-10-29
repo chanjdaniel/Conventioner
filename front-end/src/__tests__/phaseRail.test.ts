@@ -219,7 +219,7 @@ describe('a market that left the spine', () => {
   it('says a market opened applications though it went back to draft after', () => {
     const reopened = archivedHaving(['draft', 'applications_open', 'archived']);
 
-    expect(reopened.text()).toContain('It opened applications but was never assigned.');
+    expect(reopened.text()).toContain('It opened applications but never allocated tables.');
   });
 
   it('says it was abandoned when its record never left draft', () => {
@@ -233,7 +233,7 @@ describe('a market that left the spine', () => {
       const rail = archivedHaving(['draft', 'assignment', 'archived'], false);
       const note = rail.get('[data-testid="phase-rail-frozen"]').text();
 
-      expect(note).toContain('It was assigned.');
+      expect(note).toContain('Its tables were allocated.');
       expect(note).not.toContain('never');
     });
 

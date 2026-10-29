@@ -268,7 +268,7 @@ def verdict_refusal(
 ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
 
 NOT_YET_ADDING = (
-    "A vendor is added by hand from the assignment on. Until then, vendors reach this market "
+    "A vendor is added by hand from Assignment on. Until then, vendors reach this market "
     "through its applications."
 )
 
@@ -459,7 +459,7 @@ def setup_lock_reason(market: Market) -> Optional[str]:
         return None
     settled = (
         f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
-        "applicants and the assignment rely on it."
+        "applicants and the table allocation rely on it."
     )
     way_back = _WAY_BACK.get(market.phase, {}).get(market.intake_mode)
     if way_back and ApplicationsApi.count_applications_for_market(market.id) == 0:
@@ -1272,7 +1272,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         return {"error": incomplete.message()}, 400
     stats = assigned_market.assignment_object.assignment_statistics
     if stats is None:
-        return {"error": "Unable to derive assignment statistics"}, 500
+        return {"error": "The result's statistics could not be counted."}, 500
 
     rows = derive_market_table_rows(assigned_market)
     stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)

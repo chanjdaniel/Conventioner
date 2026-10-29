@@ -7,7 +7,7 @@ The built-in defaults are the rules each check held before the table existed; a 
 nobody may change.
 
 The rules of a market's life are not rows: an archived market refuses every change, verdicts
-settle on entering assignment, a vendor is added from the assignment on. Each is asked where it
+settle on entering assignment, a vendor is added from Assignment on. Each is asked where it
 always was, and refuses whoever may.
 
 A story that gates a new action adds its row here with ``action(...)`` and asks it with
@@ -52,7 +52,7 @@ def action(
 
 READ = action(
     "read", "Reading",
-    "Read the market: its applications, assignment, statistics, attendance, history and "
+    "Read the market: its applications, assignments, statistics, attendance, history and "
     "floorplan export",
     MarketRole.VIEWER, "see this market", fixed=True)
 EXPORT_CSV = action(

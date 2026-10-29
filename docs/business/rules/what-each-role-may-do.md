@@ -68,7 +68,7 @@ See [the organization document](../../implementation/data/organization-document.
 ## Where it is kept
 
 - **Every check on a market asks a row of the table** in [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py), and a refusal is the row's sentence naming who may ("Only an Admin or the owner may move this market's phase."); no check names a role of its own, and [the market's actions](../../implementation/modules/market-actions.md) lists each route's row.
-  A rule of the market's life (archived, the verdicts settling, adding from the assignment on) is still asked where it was, and refuses whoever may.
+  A rule of the market's life (archived, the verdicts settling, adding from Assignment on) is still asked where it was, and refuses whoever may.
 - The market read serves two per-person reasons, asked of the same rows the writes ask ([`back-end/api/markets.py`](../../../back-end/api/markets.py)):
   `readOnlyReason` (`change_refusal`: archived, or the Market Setup row refuses) and `adminActionsReason` (`admin_actions_refusal`: that, or the Move the phase row refuses).
   The verdicts' reason (`verdictLockReason`) and adding a vendor's (`addVendorReason`) ask their own rows after the archived rule, and publishing's (`publishResultsReason`) is `admin_actions_refusal` asking the Publish results row.

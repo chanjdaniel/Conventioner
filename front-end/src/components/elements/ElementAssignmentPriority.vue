@@ -193,7 +193,7 @@ const dragOptions = computed(() => ({
         class="empty-hint"
         data-testid="priority-none-set"
       >
-        No priority rules were set for this assignment.
+        No priority rules were set for this market.
       </p>
       <p v-else-if="!readonly && fieldTargets.length === 0" class="empty-hint">
         Priority rules order vendors by an answer on your application form. Add a question with a

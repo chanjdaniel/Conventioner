@@ -298,7 +298,7 @@ class AssignmentComputedGuard:
     """
 
     id: str = "assignment_computed"
-    description: str = "An assignment has been computed"
+    description: str = "Tables have been allocated"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         assignment = market.assignment_object
@@ -377,7 +377,7 @@ class AllApplicationsReviewedGuard:
                 passed=False,
                 message=(
                     f"{' and '.join(waiting)}. Every application must be approved or rejected "
-                    "before assignment can begin."
+                    "before the market can enter Assignment."
                 ),
                 resolution_link="applications",
                 resolution_label="Finish deciding",
@@ -388,7 +388,7 @@ class AllApplicationsReviewedGuard:
                 passed=False,
                 message=(
                     "There are no applications for this market. "
-                    "At least one application must exist before assignment can begin."
+                    "At least one application must exist before the market can enter Assignment."
                 ),
                 resolution_link=None,
             )
@@ -605,7 +605,7 @@ class NoAskedForTierWithoutTablesGuard:
             message=(
                 f"{len(parts)} {tier_word} no tables, and approved applicants are waiting on "
                 f"them: {'; '.join(parts)}. Add a section at that tier, or reject those "
-                f"applications, before assigning."
+                f"applications, before allocating tables."
             ),
             # Add a section at that tier is Market Setup; reject those applications is
             # Applications. Naming one would quietly recommend it over the other.

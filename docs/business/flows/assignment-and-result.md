@@ -47,7 +47,7 @@ The first is called Assignment because that is the organizers' word for the whol
 An organizer's result is who sits where, which is the tables; so Result is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Result (its address redirects there, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
 A run lands on Result.
 Running again asks nothing: every hand placement is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-run-again-keeping-hand-placements)), and in Assignment nothing has yet been sent to anyone.
-Before the first run Result and Vendors say "Nothing assigned yet." with a link to set the rules and run them, or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+Before the first run Result and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
 
 How the solver places vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
@@ -113,7 +113,7 @@ Covered by: `the-result-page.spec.ts`, `tables.spec.ts`, `a-search-on-the-result
 ## J5. The result is out of date
 
 **Status:** Works (walked live; what can still change read from the code as of E31/F01 and E36/F01).
-When the rules, the plan or the approved applications change after a run, a note on the Result page says which: "Your rules changed since tables were allocated. Allocate tables again to bring it up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
+When the rules, the plan or the approved applications change after a run, a note on the Result page says which: "Your rules changed since tables were allocated. Allocate tables again to bring the result up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
 The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan and the applications change after a run only in the database, as specs do.
 The note shows only in Assignment, where running again is possible.

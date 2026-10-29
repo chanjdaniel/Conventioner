@@ -577,8 +577,8 @@ def publish_results_refusal(market: Market) -> Optional[str]:
         return "Results are already published."
     if market.phase is not MarketPhase.ASSIGNMENT:
         return (
-            "Results are published from the assignment, once it has been run, so each applicant "
-            "is told whether they have a table."
+            "Results are published once tables have been allocated, so each applicant is told "
+            "whether they have a table."
         )
     if not market.assignment_object.vendor_assignments:
         return "Allocate tables first: results tell each applicant whether they have a table."

@@ -79,7 +79,7 @@ function asks(key: string): boolean {
             ? 'Every application form asks these'
             : "Every market needs these answers, each read from a column of your Google Form's responses when you import"
         }}
-        - the table assignment reads them directly, so they cannot be removed. What they offer comes
+        - the table allocation reads them directly, so they cannot be removed. What they offer comes
         from your market plan{{ locked ? ' and is frozen with the rest of the form' : '' }}.
       </p>
       <span class="essential-badge" data-testid="essential-fields-badge">Always included</span>
