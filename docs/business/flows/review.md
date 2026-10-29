@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/application/ApplicationMonitor.vue
   - front-end/src/components/application/ApplicationsAll.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -28,6 +28,7 @@ sources:
   - E36/F01/S01
   - E27/F01/S03
   - bug/42
+  - E42/F01/S03
   - bug/43
   - E08/F04
   - E30/F01/S05
@@ -82,7 +83,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`).
+**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. Filters: "Any status", "To review", "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; "N of M" says how many show.
@@ -91,6 +92,8 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
    A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
    A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
+6. "Export", after "N of M", opens the vendor export on the filter and Mine ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "To review" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
+   So the review's lists (approved, rejected, needs follow-up) leave as a CSV before assignment as well as after.
 
 A selection is only ever the rows ticked, never "everything matching".
 The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count and the page's "N still to decide" move.
