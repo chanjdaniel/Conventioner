@@ -14,14 +14,19 @@ import { getFormattedTimestamp } from '@/utils/utils';
 /** Said beside an updated answer when what the vendor wrote has changed since the update. */
 export const CHANGED_SINCE = 'Their answer changed since your update.';
 
+/** "Updated by alex@market.test, Oct 19, 2026 at 5:04 PM": who updated an answer, and when. */
+export function updatedByLine(update: AnswerUpdate): string {
+  const when = update.at ? `, ${getFormattedTimestamp(update.at)}` : '';
+  return `Updated by ${update.by.email}${when}`;
+}
+
 /**
  * "Updated by alex@market.test, Oct 19, 2026 at 5:04 PM; they wrote Ember Ceramcs", with what they
  * wrote as the screen shows an answer.
  */
 export function updatedLine(update: AnswerUpdate, theyWrote: string): string {
-  const when = update.at ? `, ${getFormattedTimestamp(update.at)}` : '';
   const wrote = theyWrote.trim() ? `they wrote ${theyWrote.trim()}` : 'they left it blank';
-  return `Updated by ${update.by.email}${when}; ${wrote}`;
+  return `${updatedByLine(update)}; ${wrote}`;
 }
 
 /** An application's update of one answer, or undefined where the answer is the vendor's own. */

@@ -117,6 +117,40 @@ describe('the Update info dialog', () => {
     wrapper.unmount();
   });
 
+  it('keeps both of two answers changed before it renders again', async () => {
+    const wrapper = dialog();
+    const shop = wrapper.get(testid('update-info-input-shop')).element as HTMLInputElement;
+    const student = wrapper.get(testid('update-info-input-student')).element as HTMLSelectElement;
+
+    shop.value = 'Ember Ceramics';
+    shop.dispatchEvent(new Event('input'));
+    student.value = 'Yes';
+    student.dispatchEvent(new Event('change'));
+    await flushPromises();
+
+    expect(shop.value).toBe('Ember Ceramics');
+    expect(wrapper.find(testid('update-info-theirs-shop')).exists()).toBe(true);
+    expect(wrapper.find(testid('update-info-theirs-student')).exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('says beside an update that their answer changed since', () => {
+    const wrapper = dialog(
+      application({
+        formData: { shop: 'Ember Ceramics', student: 'No' },
+        answerUpdates: {
+          shop: { ...UPDATE, theyWrote: 'Ember Pottery', changedSince: true },
+        },
+      }),
+    );
+
+    expect(wrapper.get(testid('update-info-theirs-shop')).text()).toContain(
+      'They wrote: Ember Pottery',
+    );
+    expect(wrapper.get(testid('update-info-updated-shop')).text()).toContain(CHANGED_SINCE);
+    wrapper.unmount();
+  });
+
   it('cancels without sending anything', async () => {
     const wrapper = dialog();
     await wrapper.get(testid('update-info-input-shop')).setValue('Ember Ceramics');
@@ -136,8 +170,12 @@ describe('the Update info dialog', () => {
       }),
     );
 
+    // What they wrote is in the box beside it; the line says who and when.
+    expect(wrapper.get(testid('update-info-theirs-shop')).text()).toContain(
+      'They wrote: Ember Ceramcs',
+    );
     expect(wrapper.get(testid('update-info-updated-shop')).text()).toMatch(
-      /^Updated by sam@market\.test, .*; they wrote Ember Ceramcs$/,
+      /^Updated by sam@market\.test, .+\.$/,
     );
     await wrapper.get(testid('update-info-use-theirs-shop')).trigger('click');
 

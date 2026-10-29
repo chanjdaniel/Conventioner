@@ -17,10 +17,11 @@ import ApplicationFormFields from '@/components/application/ApplicationFormField
 import { getApiErrorMessage } from '@/utils/api';
 import { sortedFormFields } from '@/utils/applicationForm';
 import {
+  CHANGED_SINCE,
   sameAnswer,
   theirAnswer,
   updateOf,
-  updatedLine,
+  updatedByLine,
   updateVendorInfo,
 } from '@/utils/answerUpdates';
 import { ESSENTIAL_KEY_PREFIX, answerText, applicationAnswerRows } from '@/utils/essentialFields';
@@ -90,11 +91,24 @@ function useTheirs(field: FormField): void {
   draft.value = { ...draft.value, [field.key]: Array.isArray(value) ? [...value] : value };
 }
 
-/** Who updated it, while the dialog leaves that update as it is. */
+/**
+ * Who updated it, while the dialog leaves that update as it is; what they wrote is beside it
+ * already. Said with the change under it, when their answer moved since.
+ */
 function standingUpdate(field: FormField): string | null {
   const update = updateOf(props.application, field.key);
   if (!update || field.key in changed.value) return null;
-  return updatedLine(update, answerText(update.theyWrote));
+  return update.changedSince
+    ? `${updatedByLine(update)}. ${CHANGED_SINCE}`
+    : `${updatedByLine(update)}.`;
+}
+
+/**
+ * One question's change, into the draft. Only its own answer is taken from what the control sends:
+ * two controls changed before the dialog renders again each hold the draft as it was.
+ */
+function answered(field: FormField, value: Record<string, unknown>): void {
+  draft.value = { ...draft.value, [field.key]: value[field.key] };
 }
 
 /** An update this dialog takes away by putting their answer back. */
@@ -145,7 +159,12 @@ async function save(): Promise<void> {
         class="update-info-answer"
         :data-testid="`update-info-answer-${field.key}`"
       >
-        <ApplicationFormFields v-model="draft" :fields="[field]" prefix="update-info" />
+        <ApplicationFormFields
+          :modelValue="draft"
+          :fields="[field]"
+          prefix="update-info"
+          @update:modelValue="answered(field, $event)"
+        />
         <div
           v-if="differsFromTheirs(field)"
           class="update-info-theirs"
