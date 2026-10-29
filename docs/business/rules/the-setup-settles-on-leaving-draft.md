@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
@@ -49,15 +49,14 @@ If that edge is ever retired, `publishedAt` becomes derivable from the phase and
 A market's date is a day where the market is, and the server does not know where that is, so it refuses a date only once that day is over even at UTC-12 (`_earliest_calendar_day`).
 The screens read the viewer's own calendar (`calendarToday` in [`front-end/src/utils/marketGuide.ts`](../../../front-end/src/utils/marketGuide.ts)), so a refusal is one that calendar agrees with.
 
-**The way back is `applications_open -> draft`, while nobody has applied** (`NoApplicationsYetGuard`).
-From `applications_closed` it is two moves, Reopen first; the lock's words name the moves while the way is still open.
-The completeness guards are on `draft -> applications_open` alone: reopening closed applications re-enters the phase with a setup that settled long ago.
+**The way back is `applications -> draft`, while nobody has applied** (`NoApplicationsYetGuard`); the lock's words name the move while the way is still open.
+A Google Form market settles when its first import is written, which is when it leaves draft (E38/F04/S01), and the import says what its setup lacks before a row is read.
 
 ## Where it is kept
 
 - `setup_lock_reason` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) says the lock, served on the market as `setupLockReason` so Market Setup reads as settled.
   The plan write (`prepared_plan`) and the floorplan save (`back-end/api/floorplans_save.py`, [floorplan placement](../../implementation/modules/floorplan-placement.md)) refuse a change after draft; restating the stored setup is not a change (`setup_part` compares the two), because the plan saves itself in every phase.
   The intake mode is refused separately by the same write, and the assignment rules that ride in the same plan keep [their own lock](the-assignment-rules-close-with-the-assignment.md).
-- The three guards (`SetupHasDatesGuard`, `SetupHasALocationGuard`, `EveryTierHasTablesGuard`) are in [`back-end/guards.py`](../../../back-end/guards.py), on `draft -> applications_open`, kept by [the guards](../../implementation/modules/guards.md).
+- The three guards (`SetupHasDatesGuard`, `SetupHasALocationGuard`, `EveryTierHasTablesGuard`) are in [`back-end/guards.py`](../../../back-end/guards.py), on `draft -> applications`, kept by [the guards](../../implementation/modules/guards.md).
 - `back-end/tests/test_the_setup_settles_on_leaving_draft.py` and `test_the_setup_is_complete_before_it_settles.py` pin both halves.
 - A spec seeds a complete plan, and the room it wants, before it leaves draft ([E2E patterns](../../implementation/testing/e2e-patterns.md#market-dates-and-plans)).

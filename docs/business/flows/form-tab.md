@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -95,9 +95,10 @@ Covered by: `application-form.spec.ts` ("an existing application locks the form 
 ## F5. Reopen the market to fix the form
 
 **Status:** Works (walked live).
-From Applications Open (Import, on the Google Form path), More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+From Applications, More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+A Google Form market is a draft until its first import, so its form is edited in place; once anything is imported there is no way back.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
-The import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
+The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by: `every-move-lands.spec.ts` ("a move back lands on its phase's page too"), `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu").
 
 ## F6. Table type preference

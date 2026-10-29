@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/application/ApplicationMonitor.vue
   - front-end/src/components/application/ApplicationsAll.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -36,6 +36,7 @@ sources:
   - E34/F04/S01
   - E34/F04/S02
   - T15
+  - E38/F04/S01
 ---
 
 # Reviewing applications
@@ -44,8 +45,10 @@ sources:
 **Where they start:** the Applications page.
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
-Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
+A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."), then "N applications still to decide. Every one must be decided before this market can assign." or "Nothing is waiting for a decision."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views, chosen above it and kept in the address (`?view=all`, with the All view's filters): "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
@@ -101,31 +104,29 @@ The list is read again every 30 seconds while the tab is in view, and every verd
 "Choose what leads the card" on a card edits the highlights ([F3](form-tab.md#f3-what-a-reviewer-reads-first)) in place, without moving off the card.
 Covered by: `review-highlights.spec.ts`.
 
-## I4. Begin review
+## I4. Enter the review
 
-**Status:** Works (walked live; the Google Form path and the landing read from the code as of E32/F02/S01 and E32/F01/S01).
-From Applications Closed, "Begin Review"; on the Google Form path it is the main button in Import, one move through Applications Closed, refused until something has been imported ("Nothing has been imported yet. Import your Google Form's responses first.").
-It lands on Applications.
-Covered by: `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`.
+**Status:** Works (read from the code as of E38/F04/S01: `market-journey.spec.ts`, `every-move-lands.spec.ts`).
+An own-form market enters by "Open Applications" ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
+Covered by: `market-journey.spec.ts`, `every-move-lands.spec.ts`.
 
 ## I5. Begin assignment
 
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
-From Review, "Begin Assignment", disabled before the click with the rail naming the first blocker:
+From Review or Applications, "Begin Assignment", disabled before the click with the rail naming the first blocker:
 
 - any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before assignment can begin.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).
 
-It lands on Assignment, and the verdicts settle there.
+It lands on Assignment, and the verdicts settle there; an own-form market's application page closes with it.
 Covered by: `phase-state-machine.spec.ts`, `needs-a-follow-up.spec.ts`, `placement-pins.spec.ts`.
 
-## I6. Return to Applications Closed
+## I6. Bring in a late export
 
-**Status:** Works (walked live; the Google Form path read from the code as of E32/F02/S02).
-From Review, More…, "Return to Applications Closed", for example to reopen applications.
-On the Google Form path the same move is "Import more responses", back to Import to bring in a late export ([H2j](import.md#h2j-import-after-review-has-begun)).
+**Status:** Works (read from the code as of E38/F04/S03: `a-late-export.spec.ts`).
+On the Google Form path, More…, "Redo import": the import reads the whole responses file again, and the market stays in Review ([H2j](import.md#h2j-import-after-review-has-begun)).
 Covered by: `a-late-export.spec.ts`.
 
 Publishing the results, I7, is a step of the assignment: [the assignment and its result](assignment-and-result.md#i7-publish-results).
@@ -135,7 +136,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
 - [Needs follow-up](../rules/needs-follow-up.md): the third verdict, with an owner.
 - [Automatic rejections](../rules/automatic-rejections.md): the applications a rule rejected arrive decided, with the reason.
-- [Review needs an import](../rules/review-needs-an-import.md): on the Google Form path, Begin Review and Import more responses.
+- [Review needs an import](../rules/review-needs-an-import.md): on the Google Form path, the first import and Redo import.
 - [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).

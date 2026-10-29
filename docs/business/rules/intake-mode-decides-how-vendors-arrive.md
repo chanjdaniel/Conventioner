@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#save_plan
   - back-end/market_documents.py#market_serves_applicants
   - front-end/src/components/elements/ElementIntakeMode.vue
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06
@@ -29,7 +29,7 @@ The mode decides who fills the application form in, never whether there is one, 
 
 ## Why
 
-The phase cannot say this: a CSV market passes through `applications_open` too, because that is where its import happens, so without a mode its public application form would be live and taking applications from strangers the organizer has no way to answer.
+The phase cannot say this: a CSV market is in `applications` too, where its imported responses are reviewed, so without a mode its public application form would be live and taking applications from strangers the organizer has no way to answer.
 Switching the mode mid-lifecycle strands what the previous mode produced: flip a form market to CSV after people applied, and their pages go dark.
 **A market taken back to draft may change its mode again**, and that is safe: the way back is open only while nobody has applied ([the form locks at the first application](the-form-locks-at-the-first-application.md)), so nothing yet depends on how vendors were going to arrive, and its applicant pages close on the way back, as a draft's are.
 An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
@@ -57,7 +57,7 @@ After that an Editor changes it on Market Setup while the market is a draft, thr
   The refusal is derived from the stored phase rather than from a list of late phases; a body restating the stored mode is not a change, since the plan saves itself in every phase.
 - The control is [`ElementIntakeMode.vue`](../../../front-end/src/components/elements/ElementIntakeMode.vue), a plan card; the server is the authority, so a hidden or disabled control is never the rule.
 - `market_serves_applicants` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) is the one statement of "this market has an applicant surface", read by the applicant lookup and by `publish_results` ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
-- `import_refusal` in [the CSV import](../../implementation/modules/csv-import.md) refuses a form market, and its words name the CSV rail's moves ("Import responses", "Import more responses").
+- `import_refusal` in [the CSV import](../../implementation/modules/csv-import.md) refuses a form market; on the CSV path the rail offers "Import responses" from Draft and "Redo import" in Review ([review needs an import](review-needs-an-import.md)).
 - An application does not record how it arrived: the market's mode already says, so a field on the application would be a second copy ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
 - `back-end/tests/test_market_intake_mode.py` pins the default, the one writer and the freeze.
 

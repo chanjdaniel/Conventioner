@@ -8,7 +8,7 @@ describes:
   - back-end/api/organizations.py#OrganizationHasLiveMarkets
   - back-end/api/organizations.py#delete_organization
   - front-end/src/components/DeleteOrgDialog.vue
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/the-order-of-the-work/10
   - E20/F04/S01
@@ -28,7 +28,7 @@ No market is ever left belonging to nothing.
 Deleting an organization used to set each of its markets' `organizationId` to null: a market belonging to nothing, which is a state `POST /markets` refuses to produce, and which made those markets invisible to everyone who reached them through it.
 That update is **gone outright**, not kept as a fallback, since a fallback would preserve the exact state the rule exists to prevent.
 
-A market in `applications_open`, `applications_closed`, `review`, `assignment`, `offers` or `market_days` has someone applying, being reviewed, being placed, or trading today; deleting it destroys work in progress, so the organizer archives or deletes it first.
+A market in `applications`, `assignment`, `offers` or `market_days` has someone applying, being reviewed, being placed, or trading today; deleting it destroys work in progress, so the organizer archives or deletes it first.
 A draft is a plan nobody else has seen, and an archived market is finished, so both may go.
 
 **An archived market that ran is a record, and deleting it destroys one** ([an archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md)).

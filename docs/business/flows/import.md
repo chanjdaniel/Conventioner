@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -29,16 +29,18 @@ sources:
   - bug/37
   - bug/40
   - bug/42
+  - E38/F04/S01
+  - E38/F04/S03
 ---
 
 # Importing a Google Form's responses
 
-**Who:** the market's Admin or owner; an Editor is shown the import and told only an admin imports (bug 37).
-**Where they start:** a market whose vendors apply on the organizer's own Google Form, in Import (or Imported): either the rail's "Import responses" from Draft, which lands here, or "Import from CSV" on the Applications page.
+**Who:** the market's Admin or owner; an Editor is offered no import on the rail, and the import itself tells them only an admin imports (bug 37).
+**Where they start:** a market whose vendors apply on the organizer's own Google Form: in Draft the rail's main button "Import responses" for the first import, which takes the market into Review once written; in Review the rail's More…, "Redo import" (E38/F04).
 **Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 
-Importing is the Google Form path's alone, in every phase it imports in ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)): a market whose vendors apply on its own page offers no import, and the server refuses one with "This market takes applications on its own page, so nothing is imported into it."
-The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import applications", in four steps: Upload, Map columns, Preview, Confirm.
+Importing is the Google Form path's alone, in Draft and in Review ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)): a market whose vendors apply on its own page offers no import, and the server refuses one with "This market takes applications on its own page, so nothing is imported into it."
+The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import responses" for the first import and "Redo import" after it, in four steps: Upload, Map columns, Preview, Confirm.
 It is a full-width page of its own, not a dialog and not a card of Market Setup: mapping a dozen columns and then settling the answers that match nothing is too dense for either.
 It stands in the market frame at the workspace width like every market page, and keeps that width through all four steps, since a page that resized under the organizer at each Next would read as unsteady: Upload, Preview and Confirm centre a narrower panel (720px) inside it, and Map columns takes the whole width for its ledger and rail.
 A dialog opened from the import, such as the form amendment ([H2e](#h2e-add-a-question-for-a-column-with-nowhere-to-go)), is a dialog over a page, which holds only while the import is a page.
@@ -54,7 +56,7 @@ Its cost is that a first import is the least guided of the three.
 
 ## H2. Import applications from a CSV
 
-**Status:** Works (re-walked live on 2026-10-03; where it is offered read from the code as of E31/F03/S04 and E32/F02: `back-end/csv_import.py`, `front-end/src/utils/importPhase.ts`, `a-late-export.spec.ts`).
+**Status:** Works (re-walked live on 2026-10-03; where it is offered read from the code as of E31/F03/S04 and E38/F04: `back-end/csv_import.py`, `front-end/src/utils/importPhase.ts`, `a-late-export.spec.ts`).
 Each case below is one of its branches.
 Covered by: `csv-import.spec.ts`, `form-amendment.spec.ts`, `a-late-export.spec.ts`, `the-import-lines-up.spec.ts`, `market-journey.spec.ts`.
 
@@ -63,10 +65,11 @@ Covered by: `csv-import.spec.ts`, `form-amendment.spec.ts`, `a-late-export.spec.
 **Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02).
 On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word (a usability observation, not a bug).
 
-1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …").
+1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
+   A draft whose setup would keep it out of Review is told what it lacks before a file is picked ("This market is not ready for its first import"), and nothing is written.
 2. **Map columns:** every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
 3. **Preview** ("Preview import"): "N of M rows will be imported", "Each imported row becomes an application awaiting your review. Nothing has been written yet.", the first rows as they will be stored, "Where each answer comes from".
-4. **Confirm** ("Import N rows"): "Imported N new applications."; "Back to applications" returns to Applications (bug 16).
+4. **Confirm** ("Import N rows"): "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
 5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; a reviewer can overturn any of them." ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 For a market started from a Google Form, step 2 opens "Mapped when your form was started from this file." and needs no decisions; a later import opens "Restored from your last import."
@@ -90,31 +93,26 @@ A column whose options contain commas while its answers are comma-separated says
 **Status:** Works (walked live).
 "Number of dates you want" is not required of a file: a vendor with no answer is limited by their availability and the market's ceiling (bug 24, [what an import may leave unasked](../rules/what-an-import-may-leave-unasked.md)).
 The preview stays disabled until every required question is mapped; "Required questions" shows which are missing ("Still unmapped: …").
-A custom question can be made optional by reopening for editing ([F5](form-tab.md#f5-reopen-the-market-to-fix-the-form), before any application exists); an essential constraint cannot be switched off, so the only fix is a new column in the spreadsheet.
+A custom question can be made optional on Market Setup's form while the market is a draft, before its first import ([F5](form-tab.md#f5-reopen-the-market-to-fix-the-form)); an essential constraint cannot be switched off, so the only fix is a new column in the spreadsheet.
 
 ### H2e. Add a question for a column with nowhere to go
 
-**Status:** Works (code), only while no application exists yet.
+**Status:** Works (`form-amendment.spec.ts`), on a first import, while the market is a draft.
 
 1. A column that matches nothing shows "This column has nowhere to go…" and "Add a question for it".
-2. The dialog lists "Questions this market asks" and offers "Add a question" (Question, Answer key).
-3. It warns: "While this runs, this market's public application page is briefly unavailable." and that the form's publication date will be re-dated.
-4. Confirm: the market steps back to Draft, the form is written, and the market returns to the phase it started in; "Your upload and your mapping stay exactly as they are."
+2. The dialog "Fix the form" lists "Questions this market asks" and offers "Add a question" (Question, Answer key), prefilled from the column.
+3. Save: the form is written, as Market Setup would write it, and the market stays a draft; "Your upload and your mapping stay exactly as they are."
 
-Refused when it would leave the form asking nothing, or when a guard on the way back would fail; each blocker is named before anything moves.
-How the chain runs is [the form amendment](../../implementation/modules/form-amendment.md).
+Refused when it would leave the form asking nothing, which could not enter Review.
+Once anything is imported the questions are fixed, and the dead end says so in the lock's own words ("The questions are fixed: …") instead of offering the dialog.
+How it works is [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by: `form-amendment.spec.ts`.
 
 ### H2f. Stop asking a preference the form never asked
 
-**Status:** Works (walked live), only while no application exists yet.
+**Status:** Works (walked live), on a first import, while the market is a draft.
 On a market whose form does ask the preference, it says the file has no column for it, not that the form never asked (bug 40).
-"Your form never asked <question>. It is a preference, not a constraint…" with "Stop asking it", which runs the same chain as H2e to switch that essential question off.
-
-### H2g. Finish a fix that stalled
-
-**Status:** Works (code).
-If the H2e or H2f chain stops part way, the dialog says where it stopped and offers "Put the market back".
+"Your form never asked <question>. It is a preference, not a constraint…" with "Stop asking it", which opens the same dialog as H2e to switch that essential question off.
 
 ### H2h. Import a later export
 
@@ -128,7 +126,7 @@ Why a later export updates rather than adds, and why only a changed answer the s
 3. Confirm: "Imported N new applications, updated M."
 
 A first-come-first-served priority rule with no column mapped to "Submitted at" warns that "That rule will order nothing."
-On the Google Form path a later export comes in from Review with the rail's "Import more responses" (H2j).
+On the Google Form path a later export comes in from Review with the rail's "Redo import" (H2j).
 
 ### H2i. Rows that cannot be imported
 
@@ -138,10 +136,9 @@ A blank row says "Every column this import reads is empty."; an answer the organ
 
 ### H2j. Import after review has begun
 
-**Status:** Works (walked live; the review's side read from the code as of E32/F02/S02 and E32/F02/S03: `MarketApplicationsTab.vue`, `a-late-export.spec.ts`).
-"Import from CSV" is on the Applications page only while the market is importing (Import, or Imported for a market standing there).
-Review offers no import: the rail's More…, "Import more responses", takes the market back to Import in one move and lands here, keeping every verdict.
-A market in Review reached at its import's address is told "…importing would change who has applied while their applications are being decided. Use Import more responses, under More… on the phase rail, then import."
+**Status:** Works (read from the code as of E38/F04/S03: `MarketApplicationsTab.vue`, `PhaseRail.vue`, `a-late-export.spec.ts`).
+The Applications page offers no import on either path.
+In Review the rail's More…, "Redo import", opens the import; the whole responses file is read again, new rows added and changed ones updated (H2h), the market stays in Review, and every verdict is kept except as H2h says.
 From Assignment onwards it is refused for good, and says so: "…past review, so it takes no more applications and nothing more can be imported." (bug 42).
 
 ## The rules it obeys

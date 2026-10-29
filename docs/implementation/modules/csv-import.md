@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#inspect_application_import
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -22,6 +22,7 @@ sources:
   - bug/42
   - bug/27
   - E33/F03/S02
+  - E38/F04/S01
 ---
 
 # The CSV import
@@ -42,8 +43,11 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each ADMIN and
 ## Sharp edges
 
 **Importing is the CSV path's in every phase** (E31/F03/S04).
-`import_refusal` refuses a form market outright, and otherwise allows only `applications_open` and `applications_closed` (`IMPORT_PHASES`): once review begins, the applicant set must stop moving under the reviewer.
-Its words name the CSV rail's moves: from a draft, "Use Import responses on the phase rail first"; from review, "Use Import more responses, under More… on the phase rail"; past review, that nothing more can be imported, since no move leads back (bug 42).
+`import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
+In a draft it also refuses with the first of `first_import_blockers`, the move into Review judged less `ResponsesImportedGuard`, so a setup that would keep the market out is said before a row is read.
+
+**The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
+A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
 `_import_context` asks it on every endpoint, so a hidden button is never the rule; `_admin_market_document` asks ADMIN and refuses an archived market first.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 

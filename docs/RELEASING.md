@@ -228,7 +228,22 @@ python migrations/migrate_market_keys.py              # rewrites market document
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
 python migrations/create_applications_collection.py   # creates the applications collection and its indexes
 python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
+python migrations/migrate_to_one_stage.py             # moves markets in applications_open, applications_closed and review into applications (E38/F04)
 ```
+
+`migrate_to_one_stage.py` **must** be run immediately before the deploy that ships the one stage ([ADR 0016](adr/0016-one-stage-for-applications-and-review.md)), and before its front end goes out.
+It moves every market in `applications_open`, `applications_closed` or `review` into `applications`, keeps a market whose vendors apply on its page and that stood in `applications_closed` not taking applications (`applicationsStopped`), and renames those phases in every market's phase history.
+Neither build reads the other's phase names: the build before reads `applications` as an unknown phase, and this one the old three, and both degrade an unknown phase to archived, read-only, nothing written and no application taken.
+So run `--dry-run` first and read it, then run it, then start the deploy at once; for the minute between, those markets read as archived.
+From `back-end/`, with the production URI on the command line and never in `.env`:
+
+```bash
+MONGODB_URI='mongodb+srv://...' python migrations/migrate_to_one_stage.py --dry-run
+MONGODB_URI='mongodb+srv://...' python migrations/migrate_to_one_stage.py
+gh workflow run deploy.yml --ref main
+```
+
+It is idempotent: a second run says "Nothing to change".
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.

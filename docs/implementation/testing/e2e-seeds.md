@@ -21,7 +21,7 @@ describes:
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - E02
   - E11/F01/S01
@@ -68,7 +68,7 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo; `dates` gives it more than the one date |
 | `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each |
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
-| `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
+| `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications`, or a `csv` one left a draft for its first import | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
 | `seedTheScreens()` ([file](../../../front-end/e2e/helpers/seedTheScreens.ts)) | the stress markets the sweeps walk: one in every phase, names of about 70 characters, 40 applications in every review state, 36 vendors over four dates and three sections, settled rules, an archive and two CSV markets | for the [sweeps](../../design-system.md#what-keeps-this-true); its applications go in with one `insertApplications()` per market |
 | `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned |
@@ -88,7 +88,7 @@ It is how a spec puts an application on a market without signing in as an applic
 **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else** ([placements](../modules/placements.md)): that one call runs the solver and keeps what it produced.
 It used to be `GET /markets/{id}/assignment`, which only computes, followed by a whole-market PUT carrying the result; `assignmentObject` is what check-in reads, so a stale client copy overwriting it moved vendors on market day (E11/F01/S01), and that PUT is gone (E21/F03/S06).
 
-**A seed walks the market to `assignment` before it assigns** ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)): `applications_open`, `applications_closed`, `review`, `assignment`, each through `POST /markets/{id}/transition`, the only thing that moves a phase; no request body sets `phase` or `isDraft`.
+**A seed walks the market to `assignment` before it assigns** ([assign runs only in assignment](../../business/rules/assign-runs-only-in-assignment.md)): `applications`, then `assignment`, each through `POST /markets/{id}/transition`, its applications seeded first, since a `csv` market enters `applications` only holding some, the only thing that moves a phase; no request body sets `phase` or `isDraft`.
 
 **Publishing is `assignment -> market_days`**, and that move's entry invariant is that an assignment exists, so `seedPublishedMarketWithAssignments()` assigns before it publishes.
 A `form` market must publish its results first ([publish results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md)), so with `intakeMode: 'form'` the helper calls `POST /markets/{id}/publish-results` in between; absent, the market is a CSV market and needs neither.

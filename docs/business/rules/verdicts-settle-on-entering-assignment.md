@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#verdict_refusal
   - back-end/app.py#_reviewer_on
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/rejection-visibility/02
   - wayfinding/what-to-show-and-when/02
@@ -16,7 +16,7 @@ sources:
 
 # Verdicts settle on entering assignment
 
-Approving, rejecting, asking for a follow-up and claiming a card are open while the market can still get back to `review`, and closed from `assignment` on, with no way back.
+Approving, rejecting, asking for a follow-up and claiming a card are open while the market can still get back to `applications`, the stage where applications are reviewed, and closed from `assignment` on, with no way back.
 From there a verdict is the review's record, and a mistake is fixed with a seat placed or freed by hand ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
@@ -31,8 +31,8 @@ The automatic rejections settle by the same rule, since a rule and a reviewer ju
 **Review is rolling.**
 Verdicts are open from the first application on, so an organizer decides as applications arrive; the review phase does not open deciding, it says that nothing more is coming in and it is time to finish.
 
-**It is derived from the transition table, never listed**: `review_is_open` asks whether any route of `VALID_TRANSITIONS` leads back to `review` (`route_between`), so a phase added or an edge moved decides it with no edit here.
-Today that is open in every phase up to and including `review`, and closed in `assignment`, `offers`, `market_days` and `archived`.
+**It is derived from the transition table, never listed**: `review_is_open` asks whether any route of `VALID_TRANSITIONS` leads back to `applications` (`route_between`), so a phase added or an edge moved decides it with no edit here.
+Today that is open in `draft` and `applications`, and closed in `assignment`, `offers`, `market_days` and `archived`.
 
 ## Who may
 

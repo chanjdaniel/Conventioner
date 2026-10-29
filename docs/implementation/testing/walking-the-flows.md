@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-10-25
+verified: 2026-10-29
 sources:
   - E26
 ---
@@ -69,7 +69,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | [E Planning](../../business/flows/planning.md) | `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`, `plan-cards-share-a-row.spec.ts`, `plan-saves-once.spec.ts`, `untiered-plans-assign.spec.ts`, `intake-mode.spec.ts`, `floorplan.spec.ts`, `the-floorplan-beta-places-tables.spec.ts`, `what-to-show-and-when.spec.ts`, `the-words-say-what-is-true.spec.ts`, `alignment.spec.ts` | E6 grouping as a real gesture |
 | [F Form](../../business/flows/form-tab.md) | `application-form.spec.ts`, `essential-fields.spec.ts`, `ask-this-stays-off.spec.ts`, `section-preference.spec.ts`, `review-highlights.spec.ts`, `automatic-rejections.spec.ts`, `every-move-lands.spec.ts` | none noted |
 | [G Start from a Google Form](../../business/flows/starting-from-a-google-form.md) | `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts` | none noted (G5 then H2a runs on an anonymised export) |
-| [H Taking applications](../../business/flows/taking-applications.md) | `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `vendors-see-their-application-after-close.spec.ts` | none noted |
+| [H Taking applications](../../business/flows/taking-applications.md) | `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `taking-applications-stops-and-resumes.spec.ts`, `vendors-see-their-application-after-close.spec.ts`, `market-journey.spec.ts` | none noted |
 | [H2 Import](../../business/flows/import.md) | `csv-import.spec.ts`, `form-amendment.spec.ts`, `a-late-export.spec.ts`, `the-import-lines-up.spec.ts`, `market-journey.spec.ts` | none noted |
 | [H3 Applying online](../../business/flows/applying-online.md) | `applicant.spec.ts`, `a-first-time-vendor-applies.spec.ts`, `returning-vendors-edit-their-answers.spec.ts`, `vendors-see-their-application-after-close.spec.ts`, `intake-mode.spec.ts`, `essential-fields.spec.ts` | none noted |
 | [I Reviewing](../../business/flows/review.md) | `market-journey.spec.ts`, `review-highlights.spec.ts`, `needs-a-follow-up.spec.ts`, `a-verdict-says-who.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `the-all-view.spec.ts`, `automatic-rejections.spec.ts`, `phase-state-machine.spec.ts`, `result-and-review-read-cleanly.spec.ts` | I1 verdicts by keyboard (A and R; S and N are walked) |
@@ -96,7 +96,7 @@ Seed through the API rather than the UI when a spec is about a later step; the h
 | An assigned market | `seedAssignedMarket()` (`seedAssignedMarket.ts`) |
 | A published market ready for check-in | `seedPublishedMarketWithAssignments()` (`seeds.ts`); with `intakeMode: 'form'` it publishes the results first |
 | An application written straight to Mongo | `seedApplication()` (`seedApplication.ts`) |
-| A form-intake market and a vendor sign-in code | `seedApplicantMarket()` (a `form` market in `applications_open`, with no application) and `createApplicantLoginChallenge()` (`seedApplicantMarket.ts`); plant the challenge after the UI requests a code, because a request replaces it |
+| A form-intake market and a vendor sign-in code | `seedApplicantMarket()` (a `form` market in `applications`, with no application) and `createApplicantLoginChallenge()` (`seedApplicantMarket.ts`); plant the challenge after the UI requests a code, because a request replaces it |
 | A market opened by URL | `marketSetupPath()` / `marketScreenPath()` (`marketScreens.ts`) |
 
 Any fixture whose market serves applicants must set `intakeMode: "form"`; without it the applicant endpoints answer 404.

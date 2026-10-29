@@ -20,7 +20,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - E02
   - E03/F03
@@ -59,7 +59,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `slug` | derived from the name, persisted and uniquely indexed (below) |
 | `organizationId` | the one organization the market belongs to, fixed at creation; see [the organization document](organization-document.md) |
 | `roles` | a map from user id to `owner`, `admin`, `editor` or `viewer`, with exactly one `owner` |
-| `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
+| `phase` | the lifecycle, one of the six `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
 | `intakeMode` | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `applicant_intake_market_by_slug` |
@@ -69,7 +69,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
-| `formAmendment` | present only while [a form amendment](../modules/form-amendment.md) is walking the phases, naming where it returns |
+| `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
@@ -82,7 +82,7 @@ Every writer of `applicationForm` passes it through `_normalized_application_for
 - A `select` or `multi_select` has at least one option, each trimmed, non-blank and unique, since options are the stored answers; every other type's options are emptied.
 - `order` is rewritten to the field's position in the list.
 - `publishedAt` and `essentialOptions` are the server's, carried over from the stored form whatever the payload says; `unaskedEssentials` is the organizer's, and may name only a ranking.
-  `publishedAt` is stamped when the market moves from `draft` to `applications_open` and cleared when it returns to `draft`, in the update that moves the phase; `essentialOptions` is frozen by the first application's answers.
+  `publishedAt` is stamped when the market moves from `draft` to `applications` and cleared when it returns to `draft`, in the update that moves the phase; `essentialOptions` is frozen by the first application's answers.
 - A form with no custom fields is a form: whether it asks enough to open applications is the phase guard's question, counting the essential questions too.
 
 [`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts) (`applicationFormError`) mirrors these rules so the builder refuses a save before sending it; the back end is the authority.

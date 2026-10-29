@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/MarketPages.vue
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -41,6 +41,7 @@ A screen hands it the market from [the market store](market-store.md) and render
 - **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Assignment, Result and Vendors.
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
+  The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import opens from its draft Applications tab (E38/F04/S01).
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not beside a tab's note, which stands in for the page.
 

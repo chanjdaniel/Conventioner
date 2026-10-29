@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -53,7 +53,7 @@ The review says "Rejected automatically: <reason>", and "Approve instead" overtu
 
 ## Who may
 
-An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the market can still get back to `review`; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
+An Editor writes the list (`PUT /markets/:id/rejection-rules`, the whole list at once), while the market can still get back to `applications`, where applications are reviewed; from `assignment` on the rules are shown fixed, settling with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), and an archived market refuses anyone.
 They are not gated by the form's lock: the form freezes at the first application, and the rules are worth most once applications are arriving.
 
 ## Where it is kept
