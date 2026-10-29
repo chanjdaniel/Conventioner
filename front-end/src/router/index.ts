@@ -132,6 +132,13 @@ const router = createRouter({
       name: 'market-stats',
       component: () => import('@/views/StatsView.vue'),
     },
+    // Where Discord's approval screen sends the organizer back (E46/F01/S02), registered as a
+    // redirect in Discord's Developer Portal; it finishes connecting and goes on to Market Setup.
+    {
+      path: '/discord/connected',
+      name: 'discord-connected',
+      component: () => import('@/views/DiscordConnectedView.vue'),
+    },
     // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
     // preserve, so it can only send the organizer to choose a market.
     {

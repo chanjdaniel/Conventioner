@@ -32,6 +32,7 @@ import api.applicant_auth as ApplicantAuthApi
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import api.attendance as AttendanceApi
+import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
@@ -1390,6 +1391,8 @@ REQUIRED_BODIES = [
     ("put", "/markets/<market_id>/roles/<user_id>", None),
     ("post", "/markets", None),
     ("put", "/markets/<market_id>/plan", None),
+    ("post", "/markets/<market_id>/discord/connection", None),
+    ("put", "/markets/<market_id>/discord", None),
     ("put", "/markets/<market_id>/application-form", None),
     ("post", "/markets/<market_id>/transition", None),
     ("post", "/markets/<market_id>/vendors", None),
@@ -1449,6 +1452,10 @@ READS_NO_BODY = [
         (ApplicationsApi, "release_claim", None),
     ]),
     ("post", "/markets/<market_id>/publish-results", [(ApplicantsApi, "publish_results", HANDED_ON)]),
+    ("post", "/markets/<market_id>/discord/authorization",
+     [(DiscordConnectionApi, "start", {"url": "https://discord.com/oauth2/authorize"})]),
+    ("delete", "/markets/<market_id>/discord/connection",
+     [(DiscordConnectionApi, "disconnect", None)]),
 ]
 # Each write route in app.py with a body another module reads: the view hands `request` to the
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its

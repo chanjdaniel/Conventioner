@@ -26,6 +26,7 @@ export const MarketAction = {
   UpdateVendorInfo: 'update-vendor-info',
   Assign: 'assign',
   CheckIn: 'check-in',
+  ConnectDiscord: 'connect-discord',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',
   ManageAdmins: 'manage-admins',
   DeleteMarket: 'delete-market',

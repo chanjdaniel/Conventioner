@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
+import MarketDiscordCard from '@/components/market/MarketDiscordCard.vue';
 import {
   type SetupObject,
   type FormField,
@@ -491,6 +492,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
             {{ planSaveError }}
           </span>
         </div>
+
+        <!-- Discord, beneath the plan rather than in it (E46/F01/S02): a manual tool the organizer
+             runs whenever they choose, so it stays editable after the plan settles. -->
+        <div v-if="activeTab === 'setup'" class="plan-tools card-grid">
+          <MarketDiscordCard :market="market" @changed="refreshMarket" />
+        </div>
       </template>
     </MarketFrame>
   </div>
@@ -505,6 +512,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   gap: var(--space-2);
   /* In the plan's own gutter, under its cards' right edge: with none, "Plan saved" sat in the
      card's bottom-right corner, touching both edges (E26 re-walk). */
+  padding: 0 var(--space-6) var(--space-6);
+}
+
+/* The plan's gutter, as the plan's own grid has it, under "Plan saved". */
+.plan-tools {
+  align-self: stretch;
   padding: 0 var(--space-6) var(--space-6);
 }
 
