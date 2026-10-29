@@ -85,6 +85,18 @@ describe('the actions', () => {
     expect(reopen.text()).toBe('Reopen for Editing');
   });
 
+  it('ends the menu with archiving, after the moves back', async () => {
+    const rail = railFor(MarketPhase.Applications);
+
+    await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    const items = rail.findAll('[role="menuitem"]').map((item) => item.attributes('data-testid'));
+    expect(items).toEqual([
+      'phase-rail-action-redo-import',
+      'phase-transition-draft',
+      'phase-transition-archived',
+    ]);
+  });
+
   it('keeps archiving out of the forward action, in every phase', async () => {
     for (const phase of [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.Assignment]) {
       const rail = railFor(phase);

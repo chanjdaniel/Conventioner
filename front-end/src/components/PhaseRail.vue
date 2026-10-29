@@ -284,8 +284,12 @@ const fix = computed(() => {
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
+/** The menu's moves, back ones before archiving: the destructive move ends the list. */
+const MENU_ORDER: Record<string, number> = { back: 0, forward: 1, aside: 2, end: 3 };
 const otherTransitions = computed(() =>
-  availableTransitions.value.filter((to) => to !== forwardTransition.value),
+  availableTransitions.value
+    .filter((to) => to !== forwardTransition.value)
+    .sort((a, b) => MENU_ORDER[directionOf(a)] - MENU_ORDER[directionOf(b)]),
 );
 
 /** What the stage offers beside its moves (E38/F04), first in the menu: none is a move. */
