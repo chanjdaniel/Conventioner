@@ -136,9 +136,13 @@ function setQuery(change: Record<string, string | null>) {
   void router.replace({ query });
 }
 
+// Only once the list has been read: before that, or after a failed first load, it counts nothing.
 watch(
-  () => reviewQueue(applications.value, true).length,
-  (count) => emit('update:undecidedCount', count),
+  () => (readAt.value === null ? null : reviewQueue(applications.value, true).length),
+  (count) => {
+    if (count !== null) emit('update:undecidedCount', count);
+  },
+  { immediate: true },
 );
 
 const shown = computed(() =>

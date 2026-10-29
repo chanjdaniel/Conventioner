@@ -153,9 +153,12 @@ const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.ap
 // The surface above leads with this in the review phase, where clearing the queue is the whole of
 // what the market is waiting on (E18/F02/S03).
 // Everything still to decide, follow-ups included: each holds Begin Assignment (E34/F02/S01).
+// Only once the list has been read: before that, or after a failed first load, it counts nothing.
 watch(
-  () => reviewQueue(applications.value, true).length,
-  (count) => emit('update:undecidedCount', count),
+  () => (readAt.value === null ? null : reviewQueue(applications.value, true).length),
+  (count) => {
+    if (count !== null) emit('update:undecidedCount', count);
+  },
   { immediate: true },
 );
 
@@ -493,9 +496,12 @@ function submittedOn(app: Application): string {
       Loading applications...
     </div>
 
-    <div v-else-if="applications.length === 0" class="empty-state" data-testid="app-monitor-empty">
-      No applications received yet.
-    </div>
+    <!-- Said of a list that was read: under a failed load there is nothing to say it of. -->
+    <template v-else-if="applications.length === 0">
+      <div v-if="!errorMessage" class="empty-state" data-testid="app-monitor-empty">
+        No applications received yet.
+      </div>
+    </template>
 
     <template v-else>
       <div class="progress-row">

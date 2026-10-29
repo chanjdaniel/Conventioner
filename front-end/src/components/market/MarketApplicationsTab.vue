@@ -44,8 +44,11 @@ function showView(next: ReviewView) {
   void router.replace({ query: next === 'one' ? { ...route.query, view: 'one' } : query });
 }
 
-/** Published by the review queue, so this surface can lead with it while reviewing. */
-const undecided = ref(0);
+/**
+ * Published by the review's view once it has read its list, so this surface can lead with it while
+ * reviewing; null until then, so a list that failed to load is not counted as nothing left.
+ */
+const undecided = ref<number | null>(null);
 
 /** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
 const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
@@ -90,6 +93,9 @@ const condition = computed(() => {
         ? 'Review has not begun. The responses you import from your Google Form arrive here.'
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
+      if (undecided.value === null) {
+        return 'Every application must be decided before this market can assign.';
+      }
       return undecided.value === 0
         ? 'Every application has been decided. This market is ready to assign.'
         : `${undecidedPhrase} still to decide. Every one must be decided before this market can assign.`;
