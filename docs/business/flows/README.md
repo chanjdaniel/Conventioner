@@ -26,6 +26,7 @@ One line per node, sorted by file name.
 - [Planning the market](planning.md) - E: Market Setup's dates, tiers, locations, sections and intake, and the setup settling
 - [Reviewing applications](review.md) - I1 to I6: one by one and All, follow-ups, two reviewers at once, the moves around review
 - [Starting from a Google Form's responses](starting-from-a-google-form.md) - G: the upload, the proposal, confirm and cancel
+- [The market's statistics](stats.md) - N1, N2: the Stats tab, who applied and what they answered
 - [Taking applications](taking-applications.md) - H1, H1a, H4, H5: opening, closing and reopening applications on the online path
 - [The Google Form path](the-google-form-path.md) - P1 and P2: a market whose vendors' responses are imported, from creation to the end
 - [The mixed path](the-mixed-path.md) - P4: an online form plus imported stragglers, not offered

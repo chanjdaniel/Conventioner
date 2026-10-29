@@ -80,6 +80,7 @@ The market on screen:
 - Before changing the phase rail, read [the phase rail](docs/implementation/modules/phase-rail.md).
 - Before changing styles, tokens or a control's look, read [the design language](docs/design-system.md) and [every control is named](docs/implementation/conventions/every-control-is-named.md).
 - Before writing or changing a dialog, read [dialogs](docs/implementation/conventions/dialogs.md).
+- Before changing the Stats tab or what it counts, read [the market's statistics](docs/business/flows/stats.md).
 
 The market's lifecycle:
 
