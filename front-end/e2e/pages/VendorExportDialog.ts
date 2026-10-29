@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the Export vendors dialog (E42/F01/S01 and S02), wherever it opens from.
+ * Page object for the Export vendors dialog (E42/F01/S01 to S03), wherever it opens from.
  */
 export class VendorExportDialog {
   readonly page: Page;
@@ -10,6 +10,7 @@ export class VendorExportDialog {
   readonly window: Locator;
   readonly summary: Locator;
   readonly placed: Locator;
+  readonly mine: Locator;
   readonly previewHeader: Locator;
   readonly previewRows: Locator;
   readonly downloadButton: Locator;
@@ -20,6 +21,7 @@ export class VendorExportDialog {
     this.window = page.getByTestId('vendor-export-window');
     this.summary = page.getByTestId('vendor-export-summary');
     this.placed = page.getByTestId('vendor-export-placed');
+    this.mine = page.getByTestId('vendor-export-mine');
     this.previewHeader = page.getByTestId('vendor-export-preview-header');
     this.previewRows = page.getByTestId('vendor-export-preview-row');
     this.downloadButton = page.getByTestId('vendor-export-submit-button');

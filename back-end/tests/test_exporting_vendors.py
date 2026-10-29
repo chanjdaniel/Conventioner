@@ -434,6 +434,28 @@ class TestTheFilters:
         assert _emails(_file(filters={"statuses": ["added"]})[0]) == ["fay@example.com"]
         assert "fay@example.com" not in _emails(_file(filters={"statuses": ["approved"]})[0])
 
+    def test_mine_is_the_follow_ups_the_one_exporting_owns(self, market, applications):
+        """As the Applications tab's Mine (E42/F01/S03): a follow-up someone else owns is not
+        theirs, and neither is an application no longer waiting on a follow-up."""
+        market()
+        viewer = {"user_id": "user-viewer", "email": "Viewer@Market.test"}
+        applications.documents[3]["follow_up_owner"] = viewer
+        applications.documents[0]["follow_up_owner"] = viewer
+        applications.documents.append(_application(
+            "gus@example.com", "needs_follow_up", {EF.FULL_NAME_KEY: "Gus Lee"},
+            follow_up_owner=ADDED_BY))
+
+        assert _emails(_file(filters={"mine": True})[0]) == ["dee@example.com"]
+        assert _emails(_file(filters={"mine": False})[0]) == _emails(_file()[0])
+
+    def test_mine_narrows_the_statuses_chosen(self, market, applications):
+        market()
+        applications.documents[3]["follow_up_owner"] = {"email": "viewer@market.test"}
+
+        assert _emails(_file(filters={"mine": True, "statuses": ["approved"]})[0]) == []
+        assert _emails(_file(filters={"mine": True, "statuses": ["follow_up"]})[0]) == [
+            "dee@example.com"]
+
     def test_a_choice_answer_filter_takes_any_of_its_options(self, market):
         market()
 
@@ -459,6 +481,7 @@ class TestTheFilters:
         {"placed": "sometimes"},
         {"date": {"$ne": ""}},
         {"search": ["ana"]},
+        {"mine": "1"},
         {"answers": {"category": "Food"}},
         {"answers": {"business_name": ["x"]}},
         "approved",

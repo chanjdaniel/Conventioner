@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Export vendors (E42/F01/S01): the vendors a page shows, as a CSV for a Google Sheet and YAMM.
+ * Export vendors (E42/F01/S01): the vendors a page shows, as a CSV for a Google Sheet and YAMM,
+ * from the Vendors page or the Applications tab's All view (S03).
  *
  * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
  * under their headings, where they sit on each date under "Assignment" (S02), and the ticked ones
@@ -210,6 +211,12 @@ async function download(): Promise<void> {
               {{ status.label }}
             </label>
           </fieldset>
+
+          <!-- The Applications tab's Mine (S03), whose follow-ups the server reads as the asker's. -->
+          <label class="export-check export-field--wide">
+            <input v-model="filters.mine" type="checkbox" data-testid="vendor-export-mine" />
+            Mine: the follow-ups I own
+          </label>
 
           <div class="export-field">
             <label class="field-label" for="vendor-export-placed">Placed</label>

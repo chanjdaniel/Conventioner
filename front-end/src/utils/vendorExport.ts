@@ -1,13 +1,16 @@
 /**
- * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02).
+ * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02), from the
+ * Vendors page or the Applications tab's All view (S03).
  *
  * The export dialog opens on what a page shows, so the file holds the vendors the organizer was
  * looking at; the server builds the file and its preview from the filters the dialog sends
  * (`POST /markets/:id/vendor-export`), and says which columns and filters the market offers.
  */
+import { ApplicationStatus } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { hasPlaceFilter, type ResultFilters, type VendorsShown } from '@/utils/resultFilters';
+import type { AllViewFilter } from '@/utils/reviewQueue';
 
 export type ExportStatus = 'open' | 'follow_up' | 'approved' | 'rejected' | 'added';
 
@@ -26,6 +29,8 @@ export interface ExportFilters {
   search: string;
   /** A choice question's options, any of which the vendor chose. */
   answers: Record<string, string[]>;
+  /** Only the follow-ups the one exporting owns, as the All view's Mine. */
+  mine: boolean;
 }
 
 export const NO_FILTERS: ExportFilters = Object.freeze({
@@ -37,6 +42,7 @@ export const NO_FILTERS: ExportFilters = Object.freeze({
   size: '',
   search: '',
   answers: {},
+  mine: false,
 }) as ExportFilters;
 
 /**
@@ -62,6 +68,20 @@ export function vendorsPageSeed(page: {
     tier: page.filters.tier,
     size: page.filters.choice,
   };
+}
+
+/** The statuses each of the All view's filters lists; a vendor added by hand is approved there. */
+const ALL_VIEW_STATUSES: Record<AllViewFilter, ExportStatus[]> = {
+  all: [],
+  undecided: ['open'],
+  [ApplicationStatus.NeedsFollowUp]: ['follow_up'],
+  [ApplicationStatus.ReviewerApproved]: ['approved', 'added'],
+  [ApplicationStatus.ReviewerRejected]: ['rejected'],
+};
+
+/** The Applications tab's All view, its status filter and Mine, as the export's filters. */
+export function applicationsAllSeed(view: { filter: AllViewFilter; mine: boolean }): ExportFilters {
+  return { ...NO_FILTERS, statuses: [...ALL_VIEW_STATUSES[view.filter]], mine: view.mine };
 }
 
 /** Which heading the dialog lists a column under. */

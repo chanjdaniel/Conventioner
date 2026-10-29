@@ -28,6 +28,7 @@ import essential_fields as EssentialFields
 from assignment.csv_output import as_text_cell
 from client_errors import BadRequestError
 from datatypes import Application, ApplicationStatus, FormField, Market
+from utils.email_address import normalized_email
 from utils.request_body import string_field
 
 logger = logging.getLogger(__name__)
@@ -261,7 +262,8 @@ class Filters:
 
     ``placed`` is "placed" or "unplaced", on ``date`` or, with none, on any date. A section, a tier
     and a size describe a seat, so they hold only of the vendors placed, and of the same seat.
-    ``answers`` is a choice question's options, any of which the vendor chose.
+    ``answers`` is a choice question's options, any of which the vendor chose. ``follow_ups_of`` is
+    Mine, as the Applications tab has it: the follow-ups that address owns, the one exporting's.
     """
 
     statuses: Tuple[str, ...] = ()
@@ -272,6 +274,7 @@ class Filters:
     size: str = ""
     search: str = ""
     answers: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
+    follow_ups_of: str = ""
 
 
 def _text(body: Dict[str, Any], key: str, allowed: Optional[Tuple[str, ...]] = None) -> str:
@@ -289,9 +292,9 @@ def _strings(value: Any, key: str) -> Tuple[str, ...]:
     return tuple(value)
 
 
-def read_filters(body: Any, questions: List[Dict[str, Any]]) -> Filters:
+def read_filters(body: Any, questions: List[Dict[str, Any]], requesting_user: str) -> Filters:
     """The filters a request names, each checked for its type. A key the export does not know is
-    left alone, so a page may send what it holds."""
+    left alone, so a page may send what it holds. Mine is the requesting user's follow-ups."""
     if body is None:
         return Filters()
     if not isinstance(body, dict):
@@ -311,6 +314,10 @@ def read_filters(body: Any, questions: List[Dict[str, Any]]) -> Filters:
             raise ExportInvalid("An answer filtered by is not a choice this market's form asks.")
         answers[key] = _strings(options, "answers")
 
+    mine = body.get("mine", False)
+    if not isinstance(mine, bool):
+        raise ExportInvalid("The filter 'mine' is not one the export reads.")
+
     return Filters(
         statuses=statuses,
         placed=_text(body, "placed", PLACED),
@@ -320,6 +327,7 @@ def read_filters(body: Any, questions: List[Dict[str, Any]]) -> Filters:
         size=_text(body, "size", SIZES),
         search=_text(body, "search"),
         answers=answers,
+        follow_ups_of=normalized_email(requesting_user) if mine else "",
     )
 
 
@@ -352,9 +360,20 @@ def _search_matches(vendor: Vendor, needle: str) -> bool:
     return needle in vendor.email or needle in name
 
 
+def _followed_up_by(vendor: Vendor, address: str) -> bool:
+    owner = vendor.application.follow_up_owner
+    return (
+        status_of(vendor.application) == "follow_up"
+        and owner is not None
+        and normalized_email(owner.email) == address
+    )
+
+
 def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
     """Whether the filters keep this vendor."""
     if filters.statuses and status_of(vendor.application) not in filters.statuses:
+        return False
+    if filters.follow_ups_of and not _followed_up_by(vendor, filters.follow_ups_of):
         return False
     if not _placed_matches(vendor, filters):
         return False
@@ -399,7 +418,7 @@ def _build(market_id: str, body: Any, requesting_user: str) -> Export:
     market = MarketsApi._load_market_for(market_id, requesting_user, Actions.EXPORT_CSV)
     if not isinstance(body, dict):
         raise ExportInvalid("The export's request is not one it reads.")
-    filters = read_filters(body.get("filters"), offered_questions(market))
+    filters = read_filters(body.get("filters"), offered_questions(market), requesting_user)
     columns = _chosen_columns(body.get("columns"), offered_columns(market))
     rows = [
         [as_text_cell(column.cell(vendor)) for column in columns]

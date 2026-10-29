@@ -1,5 +1,5 @@
 /**
- * Exporting the vendors to a CSV (E42/F01/S01).
+ * Exporting the vendors to a CSV (E42/F01/S01), from the Vendors page or the Applications tab (S03).
  *
  * "Export" opens on what the page shows: its filters and search become the dialog's, so the file
  * holds the vendors the organizer was looking at. The columns are ticked and put in order; the
@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import {
+  applicationsAllSeed,
   chosenColumns,
   columnGroups,
   defaultOrder,
@@ -22,6 +23,7 @@ import {
 } from '@/utils/vendorExport';
 import { filenameFrom } from '@/utils/download';
 import type { ResultFilters } from '@/utils/resultFilters';
+import { ApplicationStatus } from '@/assets/types/datatypes';
 
 const posted: { url: string; body: unknown }[] = [];
 let answer: (body: { columns?: string[] }) => ExportPreview;
@@ -96,6 +98,38 @@ describe('the seed the Vendors page gives the export', () => {
 
   it('carries the search, as typed but trimmed', () => {
     expect(vendorsPageSeed({ shown: null, filters: NOTHING, search: '  ana ' }).search).toBe('ana');
+  });
+});
+
+describe('the seed the Applications tab’s All view gives the export', () => {
+  it('is no filter at all on any status', () => {
+    expect(applicationsAllSeed({ filter: 'all', mine: false })).toEqual(NO_FILTERS);
+  });
+
+  it('turns "To review" into the open applications', () => {
+    expect(applicationsAllSeed({ filter: 'undecided', mine: false }).statuses).toEqual(['open']);
+  });
+
+  it('turns a verdict into its status', () => {
+    expect(
+      applicationsAllSeed({ filter: ApplicationStatus.NeedsFollowUp, mine: false }).statuses,
+    ).toEqual(['follow_up']);
+    expect(
+      applicationsAllSeed({ filter: ApplicationStatus.ReviewerRejected, mine: false }).statuses,
+    ).toEqual(['rejected']);
+  });
+
+  it('counts a vendor added by hand among the approved, as the All view lists them', () => {
+    expect(
+      applicationsAllSeed({ filter: ApplicationStatus.ReviewerApproved, mine: false }).statuses,
+    ).toEqual(['approved', 'added']);
+  });
+
+  it('carries Mine', () => {
+    expect(applicationsAllSeed({ filter: 'all', mine: true })).toEqual({
+      ...NO_FILTERS,
+      mine: true,
+    });
   });
 });
 
@@ -257,6 +291,18 @@ describe('the dialog', () => {
       '4 vendors, 3 columns',
     );
     expect(wrapper.findAll('[data-testid="vendor-export-preview-row"]')).toHaveLength(3);
+    wrapper.unmount();
+  });
+
+  it('opens on Mine and asks for the follow-ups the one exporting owns', async () => {
+    const wrapper = await opened({ ...NO_FILTERS, mine: true });
+
+    expect(posted[0]?.body).toMatchObject({ filters: { mine: true } });
+    const mine = wrapper.get('[data-testid="vendor-export-mine"]');
+    expect((mine.element as HTMLInputElement).checked).toBe(true);
+    expect(wrapper.get('label:has([data-testid="vendor-export-mine"])').text()).toBe(
+      'Mine: the follow-ups I own',
+    );
     wrapper.unmount();
   });
 
