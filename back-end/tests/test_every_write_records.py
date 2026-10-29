@@ -549,6 +549,8 @@ NOT_A_CHANGE = {
     ("POST", f"{M}/csv-proposal"): "reads a file and keeps nothing",
     ("POST", f"{M}/applications/import/inspect"): "reads a file and keeps nothing",
     ("POST", f"{M}/applications/import/preview"): "reads a file and keeps nothing",
+    ("POST", f"{M}/vendor-export"): "an export, a read",
+    ("POST", f"{M}/vendor-export/preview"): "an export's preview, a read",
     ("POST", "/public/markets/<market_slug>/applicant-login/request-code"):
         "a vendor signing in changes nothing on the market",
     ("POST", "/public/markets/<market_slug>/applicant-login/verify-code"):
