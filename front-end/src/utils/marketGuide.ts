@@ -222,7 +222,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   }),
   [MarketPhase.Review]: ({ path }) => ({
     page: 'applications',
-    statement: `${REVIEW_LEAD[path]} Every application is decided: begin assignment.`,
+    statement: `${REVIEW_LEAD[path]} Every application is decided: Begin Assignment.`,
   }),
   // Worked on the rules until there is a result, and on the result after.
   [MarketPhase.Assignment]: ({ assigned, published }) =>

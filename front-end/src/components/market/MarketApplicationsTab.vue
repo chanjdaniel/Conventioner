@@ -89,8 +89,8 @@ const condition = computed(() => {
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       return undecided.value === 0
-        ? 'Every application has been decided. This market is ready to allocate tables.'
-        : `${undecidedPhrase} still to decide. Every one must be decided before this market can allocate tables.`;
+        ? 'Every application has been decided. This market is ready to enter Assignment.'
+        : `${undecidedPhrase} still to decide. Every one must be decided before this market can enter Assignment.`;
     // Past review every application is decided, and the assignment is made from them (ticket 02).
     // The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with an assignment.
     case MarketPhase.Assignment:

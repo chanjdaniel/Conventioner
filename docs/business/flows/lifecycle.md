@@ -88,7 +88,7 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Draft | "Plan the market and its application form, then open applications." | "Plan the market, from your Google Form's responses or by hand, then import the responses." |
 | Applications Open / Import | "Applications are open on your application page. Review them as they arrive, and close applications when you stop taking them." | "Import your Google Form's responses, then begin review." |
 | Applications Closed / Imported | "Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen." | as Import |
-| Review | "Nothing more is coming in. Every application is decided: begin assignment." | "Every imported response is here. Every application is decided: begin assignment." |
+| Review | "Nothing more is coming in. Every application is decided: Begin Assignment." | "Every imported response is here. Every application is decided: Begin Assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the result, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
