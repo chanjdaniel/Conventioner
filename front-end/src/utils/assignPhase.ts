@@ -24,14 +24,8 @@ export function assignRefusal(phase: string | undefined | null): string | null {
   if (current === 'draft' || current === '') {
     return 'This market is still a draft. Plan it, take its applications in and review them - the assignment runs once the market reaches the assignment phase.';
   }
-  if (current === 'applications_open') {
-    return 'Applications are still coming in. Review them as they arrive - the assignment runs once the market reaches the assignment phase.';
-  }
-  if (current === 'applications_closed') {
-    return 'Applications are closed. Review them, then move the market to the assignment phase to run the assignment.';
-  }
-  if (current === 'review') {
-    return 'This market is still in review. Move it to the assignment phase to run the assignment.';
+  if (current === 'applications') {
+    return "This market's applications are still being reviewed. Decide every one, then move the market to the assignment phase to run the assignment.";
   }
   if (current === 'archived') {
     return 'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';

@@ -48,7 +48,7 @@ function railFor(
         id: 'market-1',
         name: 'Riverside',
         phase: MarketPhase.Draft,
-        transitionBlockers: { [MarketPhase.ApplicationsOpen]: blockers },
+        transitionBlockers: { [MarketPhase.Applications]: blockers },
         ...overrides,
       } as Market,
     },
@@ -56,7 +56,7 @@ function railFor(
   });
 }
 
-const move = '[data-testid="phase-transition-applications_open"]';
+const move = '[data-testid="phase-transition-applications"]';
 const fix = '[data-testid="phase-rail-fix"]';
 
 describe('a refused move offers its fix', () => {

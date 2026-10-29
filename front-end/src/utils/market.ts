@@ -69,8 +69,8 @@ export async function fetchMarkets(): Promise<Market[]> {
  *
  * Every field the server sends is carried: the payload is spread first and the fields named below
  * are normalised over it. The parser used to list fields by name, and each one the server added and
- * the list missed - `intakeMode`, `transitionBlockers`, `setupLockReason`, `phasesPassedThrough` -
- * was silently dropped, until a screen behaved as though the server had never said it.
+ * the list missed - `intakeMode`, `transitionBlockers`, `setupLockReason` - was silently dropped,
+ * until a screen behaved as though the server had never said it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseMarketFromApi(market: any): Market {
@@ -165,9 +165,6 @@ export function parseMarketFromApi(market: any): Market {
     // What would refuse each move open from the phase, keyed by phase (E31/F02/S01), and why the
     // setup can no longer change (E31/F01/S02). Dropped here, the rail offered every move as before.
     transitionBlockers: market.transitionBlockers,
-    // The phases the market's path steps through (E32/F02/S01). Dropped here, the rail drew the
-    // stepped-through phase as a stage on every Google Form market.
-    phasesPassedThrough: market.phasesPassedThrough,
     setupLockReason: market.setupLockReason,
   };
 }

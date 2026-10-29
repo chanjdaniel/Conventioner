@@ -63,14 +63,14 @@ async function move(market: Partial<Market>, toPhase: string) {
 }
 
 describe('a move lands on the page for the phase it enters', () => {
-  it('Begin Review lands on the review', async () => {
-    await move({ phase: MarketPhase.ApplicationsClosed }, MarketPhase.Review);
+  it('Open Applications lands on the review', async () => {
+    await move({ phase: MarketPhase.Draft }, MarketPhase.Applications);
 
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/applications');
   });
 
   it('Begin Assignment lands on the assignment', async () => {
-    await move({ phase: MarketPhase.Review }, MarketPhase.Assignment);
+    await move({ phase: MarketPhase.Applications }, MarketPhase.Assignment);
 
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/assignment');
   });
@@ -85,7 +85,7 @@ describe('a move lands on the page for the phase it enters', () => {
   });
 
   it('a move back lands on its phase’s page too', async () => {
-    await move({ phase: MarketPhase.ApplicationsOpen }, MarketPhase.Draft);
+    await move({ phase: MarketPhase.Applications }, MarketPhase.Draft);
 
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/setup');
   });
@@ -95,7 +95,7 @@ describe('a move lands on the page for the phase it enters', () => {
       response: { status: 409, data: { blockers: [{ id: 'x', message: 'Not yet.' }] } },
     });
 
-    await move({ phase: MarketPhase.Review }, MarketPhase.Assignment);
+    await move({ phase: MarketPhase.Applications }, MarketPhase.Assignment);
 
     expect(router.push).not.toHaveBeenCalled();
   });

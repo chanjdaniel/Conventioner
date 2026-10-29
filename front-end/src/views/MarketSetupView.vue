@@ -11,7 +11,6 @@ import {
   type IncompleteApplication,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
 import {
   SETUP_VIEW_PAGES,
@@ -177,21 +176,13 @@ watch(
 );
 
 /**
- * Why this person cannot import here, or null. Importing is an admin action, so who is asking
- * comes first (bug 37); then whether the phase takes applications at all.
- */
-const importRefusalReason = computed(
-  () => market.value?.adminActionsReason || importRefusal(market.value?.phase),
-);
-
-/**
  * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then in this
  * market's phase.
  *
- * The same arrangement as importing: the server enforces it, and this lets the button say no
- * before it is pressed rather than after. Safe to freeze now that a placement can be changed by
- * hand from the Tables view - shipping the freeze first would have stranded an organizer on
- * market day with archiving a running market as their only move.
+ * The server enforces it, and this lets the button say no before it is pressed rather than after.
+ * Safe to freeze now that a placement can be changed by hand from the Tables view - shipping the
+ * freeze first would have stranded an organizer on market day with archiving a running market as
+ * their only move.
  */
 // The server's word on whether the run may happen (E36/F04/S02): its phase, and not once results
 // are published. The phase mirror stands in only until the market has been read.
@@ -420,7 +411,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'applications'"
           :market="market"
           :visible="activeTab === 'applications'"
-          :importRefusalReason="importRefusalReason"
         />
 
         <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable

@@ -26,13 +26,15 @@ describe('parseMarketFromApi', () => {
     expect(market.setupLockReason).toBe('The setup is settled.');
   });
 
-  it('carries the phases its path steps through, which the rail leaves off (E32/F02/S01)', () => {
+  it('carries whether applications are stopped, and why that cannot change (E38/F04/S02)', () => {
     const market = parseMarketFromApi({
       ...apiMarket,
-      phasesPassedThrough: ['applications_closed'],
+      applicationsStopped: true,
+      applicationsStopReason: null,
     });
 
-    expect(market.phasesPassedThrough).toEqual(['applications_closed']);
+    expect(market.applicationsStopped).toBe(true);
+    expect(market.applicationsStopReason).toBeNull();
   });
 
   it('round-trips the market lifecycle phase', () => {
@@ -73,7 +75,7 @@ describe('parseMarketFromApi', () => {
     const floorplans = [{ id: 'fp-1', tableTypes: [{ name: 'Full' }] }];
     const market = parseMarketFromApi({
       ...apiMarket,
-      phase: 'applications_open',
+      phase: 'applications',
       intakeMode: 'form',
       resultsPublished: true,
       applicationFormLockReason: 'Application form can only be edited while in draft.',
@@ -144,9 +146,7 @@ describe('openMarket', () => {
    */
   it.each([
     MarketPhase.Draft,
-    MarketPhase.ApplicationsOpen,
-    MarketPhase.ApplicationsClosed,
-    MarketPhase.Review,
+    MarketPhase.Applications,
     MarketPhase.Assignment,
     MarketPhase.Offers,
     MarketPhase.MarketDays,

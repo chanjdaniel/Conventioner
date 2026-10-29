@@ -52,7 +52,7 @@ const facts = computed<SummaryFact[]>(() => [
       </h3>
     </template>
     <template #badge>
-      <PhaseBadge :phase="market.phase" />
+      <PhaseBadge :phase="market.phase" :intake-mode="market.intakeMode" />
     </template>
     <template #actions>
       <!-- Manage stays a visible control rather than moving behind a `...`: it is where a market
