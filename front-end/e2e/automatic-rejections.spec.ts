@@ -130,7 +130,7 @@ test.describe('Automatic rejections', () => {
 });
 
 test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
-  test('an import rejects the rows a rule meets, and a reviewer overturns one', async ({
+  test('an import rejects the rows a rule meets, and the owner overturns one', async ({
     authenticatedPage: page,
   }) => {
     const seed = await seedApplicantMarket(
@@ -171,7 +171,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       'Rejected automatically: Answered “Half a table, shared” to “Table choice”',
     );
 
-    // Overturning it makes it the reviewer's.
+    // Overturning it, a change of verdict and so an Admin's or the owner's, makes it theirs.
     await theo.getByTestId('app-monitor-decided-approve-button').click();
     await expect(theo.getByTestId('app-monitor-decided-giver')).toHaveText(
       new RegExp(`^Approved by ${TEST_USER.email}, `),
