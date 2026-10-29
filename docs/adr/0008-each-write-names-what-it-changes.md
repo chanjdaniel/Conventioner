@@ -3,7 +3,7 @@ layer: implementation
 kind: adr
 describes:
   - back-end/tests/test_the_market_put_is_gone.py
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - wayfinding/the-market-frame/03
   - wayfinding/the-market-frame/04
@@ -39,6 +39,7 @@ Every write names the part of the market it changes, through an endpoint that ac
 | Review highlights ([the rule](../business/rules/review-highlights.md)), automatic rejections | `PUT /markets/:id/review-highlights`, `PUT /markets/:id/rejection-rules` |
 | A phase move, publishing results | `POST /markets/:id/transition`, `POST /markets/:id/publish-results` |
 | Roles | `POST`/`PUT`/`DELETE /markets/:id/roles` |
+| A row of the market's permission table, its owner's only ([ADR 0019](0019-a-markets-permissions-are-a-table.md)) | `PUT`/`DELETE /markets/:id/permissions/<action>` |
 
 A market's organization is fixed at creation: it is the market's container and an access grant at once, and Manage Market names it in one read-only line rather than offering to change it.
 No two markets share a slug, the public address: creating or renaming a market is refused when its slug is taken, not only its exact name, since "Café Market" and "Cafe Market" are one address, and the unique `market_slug` index holds it ([the market document](../implementation/data/market-document.md)).

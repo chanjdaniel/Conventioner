@@ -10,11 +10,16 @@ describes:
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
   - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
-verified: 2026-10-29
+  - back-end/api/markets.py#set_permission
+  - back-end/api/markets.py#reset_permission
+  - back-end/api/markets.py#get_permission_history
+  - back-end/tests/test_the_market_keeps_its_own_rows.py
+verified: 2026-10-30
 sources:
   - E39
   - E39/F01/S01
   - E39/F01/S02
+  - E39/F01/S03
   - E42/F01/S01
 ---
 
@@ -23,6 +28,7 @@ sources:
 [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py) is the table of who may do what on a market: one row per action, each saying the lowest role that may take it.
 Every permission check on a market in the back end asks a row, and none names a role of its own.
 The rows are the rule [what each role may do](../../business/rules/what-each-role-may-do.md), and their built-in defaults are the thresholds each check held before the table existed (E39/F01/S01).
+A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, [ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
 
 ## The interface
 
@@ -30,10 +36,12 @@ The rows are the rule [what each role may do](../../business/rules/what-each-rol
 `action(...)` adds a row to `ACTIONS` and returns it, and refuses an id the table already has; each row is a module constant (`MOVE_PHASE`, `ASSIGN`, ...).
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
+The row asks the role `minimum_role(row, market)` gives: the market's own row where it holds one, else the row's default (below).
 The person's role is the one `get_user_market_role` resolves (the market's own and the one its organization gives, the higher counting, [the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)), and `refusal` ranks it through `user_has_permission` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), which nothing else calls.
-`role_refusal(row, role)` asks a row of a role already resolved, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`); both rank through `role_reaches`, the one ranking.
+`role_refusal(row, role, rows)` asks a row of a role already resolved, on a market holding `rows`, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`) and passes the document's stored rows; both rank through `role_reaches`, the one ranking.
 
-**A refusal is a sentence naming who may**: `refusal_sentence(row)` is "Only <who> may <may_what>.", <who> being "someone who holds a role", "an Editor, an Admin or the owner", "an Admin or the owner" or "the market's owner".
+**A refusal is a sentence naming who may**: `refusal_sentence(row, required)` is "Only <who> may <may_what>.", <who> naming `required`, the role the row asks on the market refusing (its default when not given): "someone who holds a role", "an Editor, an Admin or the owner", "an Admin or the owner" or "the market's owner".
+So with "Check vendors in" set to Admin on a market, an Editor there is told "Only an Admin or the owner may check vendors in at this market."
 A route answers it as its 403 body, through a `ForbiddenError` or a `{"error": ...}` it returns ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **`roles_row(role)`** is the row that gives or takes a role: Editor and Viewer roles one row, Admin roles (and the Owner role, which a market's one owner already holds) another.
@@ -67,15 +75,38 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
-| Change this table (`change-the-table`) | Owner, fixed | nothing yet: the market keeps its own rows in a later story |
+| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`) |
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
+
+## A market's own rows
+
+**A market stores only the rows it differs on**, in `permissions` on [the market document](../data/market-document.md): a map from action id to `{role, source}` (`MarketPermission` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), `source` being `market` (changed here by its owner) or `organization` (copied from the organization's default at creation, which E39/F02 writes).
+A row the market does not hold reads its default, so a market without the field reads the built-in table and needs no migration.
+`held_row(row, rows)` is the market's own row or None: never for a fixed row, whatever is stored, nor for a stored role or source this build does not know, nor for a row of the wrong shape, and a stored id the table no longer has is never asked.
+**A stored row this build cannot read never fails the market's read**: `MarketPermission` keeps its role and source as plain strings, so an unknown value parses and reads as the default, and `Market` drops a row of the wrong shape as it parses (not a map, no string role or source, or `permissions` not a map at all; `drop_unreadable_permissions` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), so the read, every write and the markets list read such a row alike, as its default.
+Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
+`create_market` writes `permissions: {}` whatever the create body carried.
+
+**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`) and whether it is `fixed`.
+A control asks `actionRefusals`, never this.
+
+**One write, the owner's only**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), and `DELETE` on the same path returns it to its built-in default (`reset_permission`); each answers the market's table.
+Both load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.
+Then the row: one the table does not have is "This market's table has no such row.", a fixed one "Who may take the row "<label>" is fixed, so it cannot be changed.", and a role other than the four stored values is "A row's role is one of viewer, editor, admin or owner."; every refusal is a 400 or 403 with its sentence, and stores and records nothing.
+Setting the role a row already asks, or resetting a row the market does not hold, stores and records nothing.
+Setting writes `permissions.<action>` to `{role, source: market}`, and resetting unsets it, whether it was changed here or copied from the organization.
+
+**Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`.
+`GET /markets/:id/permission-history` (`get_permission_history`, at Read) answers `{entries}`, the market's history narrowed to them, newest first.
+[`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
 
 ## What the screens read
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+`TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
 The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage on the row that gives roles.
 
 **`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
@@ -97,7 +128,7 @@ The two functions that serve the role are allowed by module and name, so a funct
 The search cannot see a raw read of `market.roles` or `organization.admins`: comparing a stored role there looks, by syntax, exactly like keeping the one-owner invariant (`add_market_role` refusing a second owner), so such a read is for review to catch.
 The same file pins every row's default, label, group and fixed flag against the epic's table, and for each row that its default role may, that every role above may, and that the role below is refused with its sentence; and which row each loader-backed write and read asks.
 
-**A test that fakes who may patches `user_has_permission` or `Actions.refusal`**: the first still sees the row's default role, so a fake that answers by role keeps working.
+**A test that fakes who may patches `user_has_permission` or `Actions.refusal`**: the first still sees the role the row asks on the market (its default unless the market holds the row), so a fake that answers by role keeps working.
 
 ## Why
 

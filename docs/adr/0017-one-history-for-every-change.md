@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/history.py
   - back-end/migrations/migrate_placement_history.py
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - E40/F01/S01
   - T92
@@ -39,7 +39,7 @@ What stays where it is:
 
 ## Consequences
 
-- Every write that changes a market records through `record`, at the place it already asks its E39 action (E40/F01/S02); a later record (changes to a market's own permission rows (E39/F01/S03), corrections to a vendor's info, payments, Discord runs) writes here rather than keeping a list of its own.
+- Every write that changes a market records through `record`, at the place it already asks its E39 action (E40/F01/S02); so do the changes to a market's own permission rows (E39/F01/S03), and a later record (corrections to a vendor's info, payments, Discord runs) writes here rather than keeping a list of its own.
 - Recording who now attaches an organizer's identity to every change on a market, which may be exported, shared or handed to a successor organizer; that was accepted for placements and is widened on Daniel's word.
 - The placement endpoint and the drawer's History tab answer as before, by narrowing the history to the `assign` action's placement kinds and to the fields a placement entry always had.
 - A database older than the move holds its entries in `placement_history` until the migration runs, so until then the placement trail reads that collection beside `history`: the History tab answers as before from the deploy on, and the release can be rolled back until the migration has run. The migration is idempotent and forward-only, and a later release removes the fallback once every database is moved.
