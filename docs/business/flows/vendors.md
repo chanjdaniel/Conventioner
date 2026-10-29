@@ -46,8 +46,8 @@ Covered by: `adding-a-vendor.spec.ts`.
 ## J12. Find out why a vendor was not placed
 
 **Status:** Works (walked live); a vendor at their date limit, or at the market's ceiling, is told so (bug 33).
-On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be placed".
-Only the last offers "Place them", which opens the Result page on that date, searched for them; a date stopped by a limit offers no placing.
+On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be assigned".
+Only the last offers "Assign them", which opens the Result page on that date, searched for them; a date stopped by a limit offers no placing.
 Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why"), `vendors-and-limits.spec.ts`.
 
 ## Superseded

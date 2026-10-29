@@ -232,8 +232,8 @@ def admin_actions_refusal(
 
 
 VERDICTS_SETTLED = (
-    "The review is closed: the verdicts settled when this market began its assignment. To seat "
-    "someone or free a seat, change the placement on the Result page."
+    "The review is closed: the verdicts settled when this market entered Assignment. To assign "
+    "someone or free a seat, change the assignment on the Result page."
 )
 
 
@@ -345,16 +345,16 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
 
 ASSIGNMENT_RULES_SETTLED = (
-    "The assignment for this market is settled. A rule only takes effect when the assignment "
-    "runs, and this market can no longer run it. Change a single placement on the Result page "
-    "instead."
+    "The table allocation for this market is settled. A rule only takes effect when tables are "
+    "allocated, and this market can no longer allocate them. Change a single assignment on the "
+    "Result page instead."
 )
 
 
 ASSIGNMENT_RULES_PUBLISHED = (
-    "Results are published, so the assignment is settled: a rule only takes effect when the "
-    "assignment runs, and it is not run again once applicants have been told. Change a single "
-    "placement on the Result page instead."
+    "Results are published, so the table allocation is settled: a rule only takes effect when "
+    "tables are allocated, and they are not allocated again once applicants have been told. Change "
+    "a single assignment on the Result page instead."
 )
 
 

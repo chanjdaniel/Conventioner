@@ -80,7 +80,7 @@ const emit = defineEmits<{ open: []; view: [] }>();
     <span :class="vacantLabel === 'Unassigned' ? 'seat-unassigned' : 'seat-vacant'">{{
       vacantLabel
     }}</span>
-    <span class="seat-button-hint" data-testid="tables-seat-hint">Place someone</span>
+    <span class="seat-button-hint" data-testid="tables-seat-hint">Assign someone</span>
   </button>
 </template>
 

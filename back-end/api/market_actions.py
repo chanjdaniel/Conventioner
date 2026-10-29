@@ -85,8 +85,8 @@ WRITE_VENDOR_NOTES = action(
     "write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR,
     "write notes on this market's vendors")
 ASSIGN = action(
-    "assign", "Assignment", "Run the assignment, change its rules, and place, swap or free seats",
-    MarketRole.EDITOR, "run this market's assignment, change its rules or place its vendors")
+    "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
+    MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")
 CHECK_IN = action(
     "check-in", "The door", "Check vendors in", MarketRole.EDITOR,
     "check vendors in at this market")

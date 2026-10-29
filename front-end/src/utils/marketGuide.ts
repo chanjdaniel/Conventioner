@@ -238,7 +238,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             statement:
               'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
-        : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
+        : { page: 'assignment', statement: 'Set the rules and allocate tables.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'result' : 'assignment',
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,

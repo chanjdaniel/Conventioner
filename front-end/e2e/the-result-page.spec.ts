@@ -6,7 +6,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 /**
  * The Result page is the assignment, read and changed (E22/F04/S04, from the-assignment-tab 01).
  *
- * Top to bottom: a summary strip (vendors placed, tables used, unassigned, satisfaction, Download
+ * Top to bottom: a summary strip (approved applicants assigned, tables used, unassigned, satisfaction, Download
  * CSV), the tables grid with its seat editing - the Tables screen, moved in - and the placement
  * history. The old results page, its quick links and its Unassigned Tables list are gone: the
  * grid's "empty" filter shows those tables on the grid itself.
@@ -30,8 +30,10 @@ test.describe('The Result page', () => {
     );
     await page.goto(at(marketId, 'result'));
 
-    const placed = page.getByTestId('result-vendors-placed');
-    await expect(placed).toHaveText(/^\d+ of \d+ vendors placed\s*$/, { timeout: 15000 });
+    const assigned = page.getByTestId('result-approved-assigned');
+    await expect(assigned).toHaveText(/^\d+ of \d+ approved applicants assigned\s*$/, {
+      timeout: 15000,
+    });
     // A table counted once per date is a table-day; "tables" read as 177 tables in a room of 59
     // (known gap 7, 2026-10-18 dry run).
     await expect(page.getByTestId('result-tables-used')).toHaveText(
@@ -49,12 +51,12 @@ test.describe('The Result page', () => {
     await expect(page.locator('.assignment-results')).toHaveCount(0);
     await expect(page.getByTestId('assignment-results-view-tables-button')).toHaveCount(0);
 
-    const before = await placed.textContent();
+    const before = await assigned.textContent();
     const tables = new TablesPage(page);
     const seat = page.getByTestId('tables-seat-occupied').first();
     await tables.change(seat);
     await tables.freeSeat();
-    await expect(placed).not.toHaveText(before ?? '', { timeout: 10000 });
+    await expect(assigned).not.toHaveText(before ?? '', { timeout: 10000 });
   });
 
   /**
@@ -155,7 +157,9 @@ test.describe('The Result page', () => {
     await expect(empty).toContainText('Nothing assigned yet', { timeout: 15000 });
     // Where a run can happen, the tables stay: a vendor pinned before the first run is placed
     // around by it (E11/F02/S01), so they are offered for that and not as a result.
-    await expect(page.getByTestId('result-pin-before-run')).toContainText('the run places');
+    await expect(page.getByTestId('result-pin-before-run')).toContainText(
+      'allocating tables assigns',
+    );
     await expect(page.getByTestId('tables-count-empty')).toBeVisible();
     await empty.getByRole('link').click();
     await expect(page).toHaveURL(new RegExp(`/markets/${unrun.marketId}/assignment$`));

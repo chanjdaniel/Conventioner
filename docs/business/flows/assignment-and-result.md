@@ -40,7 +40,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
 The Assignment tab holds three pages: Assignment (the rules and the run, [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Result (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
-Before a run the rail says "Set the rules and run the assignment."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."
+Before a run the rail says "Set the rules and allocate tables."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."
 **Setting the rules and running them is one page; reading and changing what they produced is another.**
 The first is called Assignment because that is the organizers' word for the whole job; what it sets are the assignment rules, and what the solver produces is the assignment, read on Result ([Assignment](../concepts/assignment.md)).
 An organizer's result is who sits where, which is the tables; so Result is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Result (its address redirects there, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
@@ -66,7 +66,7 @@ Covered by: `market-pipeline.spec.ts`, `the-assignment-tabs-pages.spec.ts`, `the
 
 **Status:** Works (walked live; the blank share read from the code as of E27, `assignment-options.spec.ts`).
 Under "Assignment Options", "Max assignments per vendor" ("The most dates any one vendor can be given. Leave blank for no ceiling.", at most the number of market dates) and "Max half table proportion per section (%)" (0 to 100; "Leave blank for 30%, the default.").
-Assign stays disabled only while a value is out of range: "Correct the assignment options above to run the assignment."
+"Allocate tables" stays disabled only while a value is out of range: "Correct the assignment rules above to allocate tables."
 Covered by: `assignment-options.spec.ts`.
 
 ### J2a. No ceiling on dates
@@ -75,10 +75,10 @@ Covered by: `assignment-options.spec.ts`.
 Leave "Max assignments per vendor" blank ("No ceiling") and run with no limit ([the ceiling on dates per vendor](../rules/max-assignments-ceiling.md)).
 Covered by: `assignment-options.spec.ts`.
 
-## J3. Run the assignment
+## J3. Allocate tables
 
 **Status:** Works (re-walked live on 2026-10-03, with and without tiers; bug 23).
-"Assign" lands on Result.
+"Allocate tables" lands on Result.
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
 Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `untiered-plans-assign.spec.ts`.
 
@@ -97,9 +97,9 @@ The button is disabled with the reason; the server refuses too, in every phase b
 
 **Status:** Works (walked live; the search, the statistics, the download and the marks read from the code as of E35/F02/S01, E35/F03 and E36/F02/S03).
 
-1. Summary: "N of M vendors placed", "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
+1. Summary: "N of M approved applicants assigned" (M every approved applicant, N those of them with an assignment), "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
 2. "Statistics" opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job: a card per question (per date, section, tier and table size), each answer a row with its count, its share of all placements and a bar against the largest in its card, every row a filter of the tables.
-   "Placement history" ([J13](placing-by-hand.md#j13-placement-history)) and "Download CSV", whose columns are Name (the name the vendor chose, else their full name), Full name, Email and Approval ("Approved", or "Not approved" for a seat given by hand to someone the review did not approve), then one per date holding "<table> - <table choice>" where they sit that day.
+   "Assignment history" ([J13](placing-by-hand.md#j13-assignment-history)) and "Download CSV", whose columns are Name (the name the vendor chose, else their full name), Full name, Email and Approval ("Approved", or "Not approved" for a seat given by hand to someone the review did not approve), then one per date holding "<table> - <table choice>" where they sit that day.
 3. "Search" ("Name, business, email or table") keeps the tables whose label matches, or that seat a vendor matching by address, by either name, or by a short answer (80 characters or fewer) to one of the form's text or email questions, such as a business name, a business email or a handle; a choice, a number or a date is shared by many and finds nobody.
    A whole address matches that vendor alone, and the search is kept in the address as typed (`?search=`).
    Filters by Date, Section, Tier and Table, shown as removable chips with "Clear all"; "N of M tables" and counts of assigned, partial and empty tables, each a filter of its own and each counting only what the search keeps.
@@ -121,7 +121,7 @@ Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
 ## J14. The rules close with the assignment
 
 **Status:** Works (walked live; the published case read from the code as of E36/F04/S02).
-Once the market can no longer return to Assignment, or its results are published, the priority and options are read only and the page says why ("The assignment for this market is settled. …", or "Results are published, so the assignment is settled: …"); Assign is gone.
+Once the market can no longer return to Assignment, or its results are published, the priority and options are read only and the page says why ("The table allocation for this market is settled. …", or "Results are published, so the table allocation is settled: …"); "Allocate tables" is gone.
 A person who may change nothing reads the rules read only too, with no Assign, and is told why once, above the page; the page's own line says only the rules' lock (T15).
 Covered by: `the-assignment-rules-close.spec.ts`.
 
@@ -130,7 +130,7 @@ Covered by: `the-assignment-rules-close.spec.ts`.
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
 On a market whose vendors apply on its own page only, from the Applications page; a Google Form market has nobody to tell, and offers no button.
 
-1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is offered in Assignment once a current run is stored; until then it is disabled and says why ("Run the assignment first: …", "The assignment is out of date. Run it again before publishing, …").
+1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is offered in Assignment once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The assignment is out of date. Run it again before publishing, …").
    In Assignment the rail leads there: Publish Market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
 2. "Publish results" asks first: 'N applicants will read "You have a table". M will read "You did not get assigned".' and "Publishing cannot be undone, and the assignment cannot be run again after it: seats change only by hand."
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).

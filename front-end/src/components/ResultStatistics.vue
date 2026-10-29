@@ -34,7 +34,7 @@ const groups = computed(() =>
   <section class="result-statistics" data-testid="result-statistics" aria-label="Statistics">
     <p class="result-statistics-total" data-testid="result-statistics-total">
       <strong>{{ statistics.totalAssignments }}</strong>
-      {{ statistics.totalAssignments === 1 ? 'placement' : 'placements' }} in all, one per vendor
+      {{ statistics.totalAssignments === 1 ? 'assignment' : 'assignments' }} in all, one per vendor
       per date
     </p>
     <div class="result-statistics-groups">
@@ -44,7 +44,7 @@ const groups = computed(() =>
         :title="group.title"
         :rows="group.rows"
         :testid="`result-statistics-${group.filter}`"
-        whole="placements"
+        whole="assignments"
         action="Show these tables"
       />
     </div>

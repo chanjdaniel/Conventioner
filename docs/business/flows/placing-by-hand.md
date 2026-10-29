@@ -31,7 +31,7 @@ sources:
 
 Every seat on the Result page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
 "Change" shows at rest, not on hover, since it is the only way to a held seat's dialog and a touch has no hover; a seat on a market that can no longer change draws as text, with nothing to press.
-Before a run the tables are drawn already, so a seat can be given first: "Anyone you place below first keeps their table: the run places everyone else around them."
+Before a run the tables are drawn already, so a seat can be given first: "Anyone you assign below first keeps their table: allocating tables assigns everyone else around them."
 A hand placement warns about every answer it overrides and never blocks on one; what it may not do is seat someone with no application, or two people in one seat ([a seat only for an applicant](../rules/a-seat-only-for-an-applicant.md)).
 **Every answer a hand change can cross is said before it is made, and the list is grouped, never filtered**, so overriding an answer is always one pick away.
 The two ceilings are separate sentences because they are separate promises: "This gives them 2 dates; they asked for at most 1." is the vendor's own answer, "…the market allows at most 1 per vendor." the organizer's rule for everyone.
@@ -46,11 +46,11 @@ Every change goes through [the one writer of placements](../../implementation/mo
 
 **Status:** Works (walked live; who is offered read from the code as of E36/F02/S02, `placing-someone-not-approved.spec.ts`); check-in sends the vendor to the seat placed (bug 1, [K2](market-day-door.md#k2-a-vendor-looks-up-their-table-and-checks-in)).
 
-1. Click a free seat ("Place someone" shows on the pointer); the dialog is titled with the table, and names the date, section and tier.
+1. Click a free seat ("Assign someone" shows on the pointer); the dialog is titled with the table, and names the date, section and tier.
 2. "Who sits here": "Choose a vendor…", grouped as "Fits this seat", "Would override their answers", "Not approved" and "Added by hand"; every applicant without a table on that date is offered, and "Every vendor who applied already has a table on this date." when none is left.
 3. For a half table with both halves free, "Which seat": left or right.
 4. Warnings name what the placement overrides: not available that date, asked for a whole table, a tier they did not accept ("…which sets their price."), their own date limit or the market's, and "Not approved: rejected." for someone not approved.
-5. "Place them here".
+5. "Assign them here".
 
 A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
 A seat held by someone not approved is marked "Not approved" on the Result page and in the drawer, and the next run keeps them there.
@@ -67,13 +67,13 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-a
 ## J8. Free a seat
 
 **Status:** Works (walked live).
-In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are placed again.").
+In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
 Covered by: `placement-edit.spec.ts`.
 
 ## J9. Run again, keeping hand placements
 
 **Status:** Works (walked live).
-Every hand placement is a pin; on Assignment, "Run again" says "Keeps your N hand placements; places everyone else again." (or "Places everyone again." with none) and seats pins first.
+Every hand placement is a pin; on Assignment, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
 Covered by: `placement-pins.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 ## J10. A pin the plan no longer holds
@@ -85,11 +85,11 @@ It blocks Begin Assignment ([I5](review.md#i5-begin-assignment)) until moved or 
 In Assignment its table is marked "No longer in the plan - move or free this vendor", the vendor's drawer says "This table is no longer in the plan. Move them or free the seat before publishing.", and Publish Market is refused until it is re-placed or freed.
 Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 
-## J13. Placement history
+## J13. Assignment history
 
 **Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Placement history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
-Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Placed <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Ran the assignment: N placements written, M pins preserved".
+"Assignment history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
+Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved".
 Anyone who can read the market can read it.
 Covered by: `the-placement-history-dialog.spec.ts`.
 

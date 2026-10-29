@@ -43,7 +43,7 @@ THE_TABLE = [
     ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
     ("assign", "Assignment",
-     "Run the assignment, change its rules, and place, swap or free seats", MarketRole.EDITOR,
+     "Allocate tables, change the assignment rules, and assign, swap or free seats", MarketRole.EDITOR,
      False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",

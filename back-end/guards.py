@@ -309,10 +309,10 @@ class AssignmentComputedGuard:
                 passed=False,
                 message=(
                     "No assignment has been computed for this market, so its check-in page could "
-                    "not tell anyone where to stand. Run the assignment first."
+                    "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="assignment",
-                resolution_label="Run the assignment",
+                resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -419,11 +419,11 @@ class NoApprovedApplicationsGuard:
                 passed=False,
                 message=(
                     f"{approved_count} {app_word} still approved but not yet "
-                    "assigned or unassigned. Run the assignment solver before "
+                    "assigned or unassigned. Allocate tables before "
                     "sending offers."
                 ),
                 resolution_link="assignment",
-                resolution_label="Run the assignment",
+                resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -629,7 +629,7 @@ class NoOrphanedPinGuard:
     """
 
     id: str = "no_orphaned_pin"
-    description: str = "Every hand-placed vendor's seat still exists in the plan"
+    description: str = "Every hand-assigned vendor's seat still exists in the plan"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         orphans = orphaned_pins(
@@ -642,7 +642,7 @@ class NoOrphanedPinGuard:
             f"{pin.email} at {pin.table_code} on {pin.date}"
             for pin in sorted(orphans, key=lambda pin: (pin.date, pin.table_code, pin.email))
         )
-        pin_word = "placement names a seat" if len(orphans) == 1 else "placements name seats"
+        pin_word = "assignment names a seat" if len(orphans) == 1 else "assignments name seats"
         return PreconditionResult(
             id=self.id,
             passed=False,

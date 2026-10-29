@@ -644,8 +644,8 @@ function cancelPending() {
       @submit="confirmPending"
     >
       <p class="rail-confirm-text">
-        Publishing puts this market's check-in page on the air: every vendor you placed can look
-        themselves up and check in on the day. The assignment they see is the one you have now.
+        Publishing puts this market's check-in page on the air: every vendor you assigned can look
+        themselves up and check in on the day. The tables they see are the ones you have now.
       </p>
       <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
     </AppDialog>
@@ -674,7 +674,7 @@ function cancelPending() {
       <!-- What happens to the one public page a market that ran has (bug 9): said here, before
            it happens, rather than discovered at the door. -->
       <p v-if="ran" class="rail-confirm-text" data-testid="archive-confirm-check-in">
-        Its check-in page stays up as a record: vendors can still look up where they were placed,
+        Its check-in page stays up as a record: vendors can still look up where they were assigned,
         but nobody can check in.
       </p>
     </AppDialog>
@@ -819,7 +819,7 @@ function cancelPending() {
   flex: 0 0 auto;
   /* No narrower than the address's floor beside the actions, so a row that cannot hold them moves
      the whole end onto a row of its own. At 0 it stayed beside the spine and its buttons ran out of
-     the card: a form market assigning, with Run the assignment, Publish Market and More beside the
+     the card: a form market assigning, with Allocate tables, Publish Market and More beside the
      application page, lost More off the edge at 1440. */
   min-width: min-content;
   margin-left: auto;

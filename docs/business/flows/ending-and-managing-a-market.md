@@ -43,7 +43,7 @@ Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../
 **Status:** Works (re-walked live on 2026-10-03; archiving as the step onward and the landing read from the code as of E31/F02/S03 and E32/F01/S01).
 
 1. Once every market date has passed, "Archive Market" is the rail's main button and the rail says "The market has run. Archive it to keep it as the record of what happened."; until then it is under More….
-2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were placed, but nobody can check in."; focus on Cancel; "Archive".
+2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were assigned, but nobody can check in."; focus on Cancel; "Archive".
 3. Expect the rail frozen with "This market is archived. It was published and ran its market days." (bug 8), landing on Result; every page is read only (bug 30), and Attendance keeps the record, every vendor who never checked in reading "Did not come".
 4. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in (bug 9).
 

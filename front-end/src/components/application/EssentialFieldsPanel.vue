@@ -217,7 +217,7 @@ function asks(key: string): boolean {
         data-testid="essential-section-not-asked"
       >
         {{ doesNot }} for a section ranking, so every vendor is treated equally on it. Vendors are
-        still placed in sections; nobody states a preference.
+        still assigned in sections; nobody states a preference.
       </p>
       <div v-else-if="options.sections.length" class="essential-chips">
         <span

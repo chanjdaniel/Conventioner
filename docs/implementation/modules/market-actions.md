@@ -54,7 +54,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results` |
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
-| Run the assignment, change its rules, and place, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
+| Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |

@@ -230,7 +230,7 @@ test.describe('What to show, and when', () => {
     await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('result-empty')).toContainText('Nothing assigned yet');
     await expect(page.getByTestId('phase-rail-next')).toHaveText(
-      /Set the rules and run the assignment\./,
+      /Set the rules and allocate tables\./,
     );
     await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
 

@@ -167,7 +167,8 @@ async function downloadCsv(): Promise<void> {
       <NothingAssigned :market="market" testid="result-empty">
         <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
         <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
-          Anyone you place below first keeps their table: the run places everyone else around them.
+          Anyone you assign below first keeps their table: allocating tables assigns everyone else
+          around them.
         </span>
       </NothingAssigned>
       <span class="result-actions">
@@ -177,14 +178,14 @@ async function downloadCsv(): Promise<void> {
           data-testid="result-history-button"
           @click="historyOpen = true"
         >
-          Placement history
+          Assignment history
         </button>
       </span>
     </template>
     <div v-else class="result-strip" data-testid="result-strip">
-      <span class="result-figure" data-testid="result-vendors-placed">
+      <span class="result-figure" data-testid="result-approved-assigned">
         <strong>{{ statistics?.totalAssignedVendors ?? '…' }}</strong> of
-        {{ statistics?.totalVendors ?? '…' }} vendors placed
+        {{ statistics?.totalVendors ?? '…' }} approved applicants assigned
       </span>
       <span class="result-figure" data-testid="result-tables-used">
         <strong>{{ statistics?.totalAssignedTables ?? '…' }}</strong> of
@@ -217,7 +218,7 @@ async function downloadCsv(): Promise<void> {
           data-testid="result-history-button"
           @click="historyOpen = true"
         >
-          Placement history
+          Assignment history
         </button>
         <button
           type="button"

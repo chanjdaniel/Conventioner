@@ -227,18 +227,18 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
         )
     if phase is MarketPhase.APPLICATIONS_OPEN:
         return (
-            "Applications are still coming in. Review them as they arrive - the assignment runs "
+            "Applications are still coming in. Review them as they arrive - tables are allocated "
             "once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_CLOSED:
         return (
             "Applications are closed. Review them, then move the market to the assignment phase "
-            "to run the assignment."
+            "to allocate tables."
         )
     if phase is MarketPhase.REVIEW:
         return (
-            "This market is still in review. Move it to the assignment phase to run the "
-            "assignment."
+            "This market is still in review. Move it to the assignment phase to allocate "
+            "tables."
         )
     if phase is MarketPhase.ARCHIVED:
         return MarketsApi.ARCHIVED_REFUSAL
@@ -246,14 +246,15 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     # placement is what is wanted here, and the Result page is where that happens (E11/F03,
     # E22/F04/S04).
     return (
-        "The assignment for this market is settled. Change a single placement on the Result page "
-        "instead of re-running it."
+        "The table allocation for this market is settled. Change a single assignment on the Result "
+        "page instead of allocating tables again."
     )
 
 
 RESULTS_PUBLISHED_REFUSAL = (
-    "Results are published, so the assignment is settled: applicants have been told whether they "
-    "have a table, and a run could move them. Change a single placement on the Result page instead."
+    "Results are published, so the table allocation is settled: applicants have been told whether "
+    "they have a table, and allocating again could move them. Change a single assignment on the "
+    "Result page instead."
 )
 
 
