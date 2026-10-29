@@ -517,11 +517,7 @@ test.describe('The applications surface says where the market stands', () => {
     const csv = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     seedApplicationWithStatus(csv.marketId, 'open', 'imported@example.com');
     await transitionViaPage(page, csv.marketId, 'applications');
-    await conditionOf(csv.marketId);
-    // Said once the queue has been read, which counts what is still to decide.
-    const line = page.getByTestId('market-setup-applications-condition');
-    await expect(line).toContainText('still to decide');
-    const imported = (await line.innerText()).trim();
+    const imported = await conditionOf(csv.marketId);
 
     expect(
       new Set([taking, notTaking, imported]).size,

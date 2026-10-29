@@ -47,7 +47,8 @@ sources:
 
 Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."), then "N applications still to decide. Every one must be decided before this market can assign." or "Nothing is waiting for a decision."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+How many are left to decide is the rail's to say, as the blocker on Begin Assignment.
 The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views, chosen above it and kept in the address (`?view=all`, with the All view's filters): "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
@@ -96,7 +97,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
 
 A selection is only ever the rows ticked, never "everything matching".
-The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count and the page's "N still to decide" move.
+The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count moves.
 
 ## I3. Choose what leads the card
 

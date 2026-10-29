@@ -27,7 +27,7 @@ These are the online path's moves ([the online path](the-online-path.md)): appli
 A market whose vendors apply on the organizer's own Google Form enters Review by its first import instead, and has nothing to stop ([the Google Form path](the-google-form-path.md)).
 How vendors apply while the market takes applications is [applying online](applying-online.md).
 
-**Applications arrive and are reviewed in one phase** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), so one Applications page serves it, and says in words, at its top, where the market stands: "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive.", then how many are still to decide.
+**Applications arrive and are reviewed in one phase** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)), so one Applications page serves it, and says in words, at its top, where the market stands: "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."; how many are left to decide is the rail's to say.
 A verdict can be given from the first application ([review](review.md)); Begin Assignment ends the phase, and with it the applicant form.
 
 ## H1. Open applications

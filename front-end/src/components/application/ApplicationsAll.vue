@@ -22,7 +22,6 @@ import {
   allViewApplications,
   allViewFilter,
   reviewAnswers,
-  reviewQueue,
 } from '@/utils/reviewQueue';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
@@ -34,8 +33,6 @@ import AppDialog from '@/components/AppDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 
 const props = defineProps<{ market: Market | null }>();
-/** What is still to decide, follow-ups included, for the page's own line about it. */
-const emit = defineEmits<{ 'update:undecidedCount': [count: number] }>();
 
 const route = useRoute();
 const router = useRouter();
@@ -100,11 +97,6 @@ function setQuery(change: Record<string, string | null>) {
   }
   void router.replace({ query });
 }
-
-watch(
-  () => reviewQueue(applications.value, true).length,
-  (count) => emit('update:undecidedCount', count),
-);
 
 const shown = computed(() =>
   allViewApplications(applications.value, filter.value, mine.value, me.value),

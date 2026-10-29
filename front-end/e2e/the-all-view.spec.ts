@@ -59,10 +59,6 @@ test('every application, filtered, held and decided from the drawer', async ({
     await all.switchTo();
     await expect(page).toHaveURL(/view=all/);
     await expect(all.rows).toHaveCount(3);
-    // The page's own line counts what is left from this view too.
-    await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
-      '3 applications still to decide',
-    );
     await expect(all.holders().filter({ hasText: SECOND.email })).toHaveText(
       `${SECOND.email} is looking at this`,
     );

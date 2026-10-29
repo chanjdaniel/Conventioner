@@ -9,7 +9,7 @@
  * State arrives as props rather than being reached for, so a later story can mount this under a
  * different parent without rewriting it.
  */
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
@@ -39,9 +39,6 @@ function showView(all: boolean) {
   });
 }
 
-/** Published by the review queue, so this surface can lead with it while reviewing. */
-const undecided = ref(0);
-
 /** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
 const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
 
@@ -55,23 +52,16 @@ const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
  * (E31/F02/S02), so these describe the page rather than repeat it.
  */
 const condition = computed(() => {
-  const undecidedPhrase =
-    undecided.value === 1 ? '1 application' : `${undecided.value} applications`;
   switch (props.market?.phase) {
-    case MarketPhase.Applications: {
-      // What arrives here, and how: only a form market's applications arrive by themselves; a CSV
-      // market's come in by import (bug 16), and nothing on it suggests vendors apply here.
-      const arriving = csvMarket.value
+    // What arrives here, and how: only a form market's applications arrive by themselves; a CSV
+    // market's come in by import (bug 16), and nothing on it suggests vendors apply here. How many
+    // are left to decide is the rail's to say, with the step they hold.
+    case MarketPhase.Applications:
+      return csvMarket.value
         ? 'Every response you imported from your Google Form is here.'
         : props.market?.applicationsStopped
           ? 'This market is not taking applications. No new ones will arrive.'
           : 'This market is open for applications. New ones keep arriving here.';
-      const deciding =
-        undecided.value === 0
-          ? 'Nothing is waiting for a decision.'
-          : `${undecidedPhrase} still to decide. Every one must be decided before this market can assign.`;
-      return `${arriving} ${deciding}`;
-    }
     // Past the stage every application is decided, and the assignment is made from them (ticket
     // 02). The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with a seat.
     case MarketPhase.Assignment:
@@ -119,14 +109,8 @@ const condition = computed(() => {
         All
       </button>
     </div>
-    <ApplicationsAll v-if="allView" :market="market" @update:undecidedCount="undecided = $event" />
-    <ApplicationMonitor
-      v-else
-      :market="market"
-      :visible="visible"
-      :named="namedApplication"
-      @update:undecidedCount="undecided = $event"
-    />
+    <ApplicationsAll v-if="allView" :market="market" />
+    <ApplicationMonitor v-else :market="market" :visible="visible" :named="namedApplication" />
   </div>
 </template>
 
