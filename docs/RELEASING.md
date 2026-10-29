@@ -232,7 +232,7 @@ python migrations/migrate_to_one_stage.py             # moves markets in applica
 ```
 
 `migrate_to_one_stage.py` **must** be run immediately before the deploy that ships the one stage ([ADR 0016](adr/0016-one-stage-for-applications-and-review.md)), and before its front end goes out.
-It moves every market in `applications_open`, `applications_closed` or `review` into `applications`, keeps a market whose vendors apply on its page and that stood in `applications_closed` or `review` (reached only through `applications_closed`) not taking applications (`applicationsStopped`), and renames those phases in every market's phase history.
+It moves every market in `applications_open`, `applications_closed` or `review` into `applications`, keeps a market whose vendors apply on its page and that stood in `applications_closed` or `review` (reached only through `applications_closed`) not taking applications (`applicationsStopped`), returns a Google Form market that imported nothing to draft to wait for its first import (the dry run names each), and renames those phases in every market's phase history.
 Neither build reads the other's phase names: the build before reads `applications` as an unknown phase, and this one the old three, and both degrade an unknown phase to archived, read-only, nothing written and no application taken.
 So run `--dry-run` first and read it, then run it, then start the deploy at once; for the minute between, those markets read as archived.
 From `back-end/`, with the production URI on the command line and never in `.env`:

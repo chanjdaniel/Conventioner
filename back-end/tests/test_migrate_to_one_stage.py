@@ -1,5 +1,6 @@
 """The migration into the one stage (E38/F04/S01) moves fixture markets from each old phase, keeps a
-closed form market not taking applications, renames the phase history, and changes nothing twice."""
+form market whose applications had closed not taking them, returns a Google Form market that
+imported nothing to draft, renames the phase history, and changes nothing twice."""
 import copy
 from types import SimpleNamespace
 
@@ -58,6 +59,9 @@ def _fixtures():
         {"_id": 7, "id": "m7", "name": "Fixture Form Review", "intakeMode": "form",
          "phase": "review", "phaseHistory": [_entry("draft"), _entry("applications_open"),
                                              _entry("applications_closed"), _entry("review")]},
+        {"_id": 8, "id": "m8", "name": "Fixture Google Form Nothing Imported", "intakeMode": "csv",
+         "phase": "applications_open", "applicationForm": {"fields": [], "publishedAt": "2026-10-01"},
+         "phaseHistory": [_entry("draft"), _entry("applications_open")]},
         {"_id": 5, "id": "m5", "name": "Fixture Archived", "intakeMode": "form", "phase": "archived",
          "phaseHistory": [_entry("draft"), _entry("review"), _entry("assignment"), _entry("archived")]},
         {"_id": 6, "id": "m6", "name": "Fixture Draft", "intakeMode": "form", "phase": "draft",
@@ -69,9 +73,17 @@ def _by_id(markets):
     return {doc["id"]: doc for doc in markets.docs}
 
 
+class FakeApplications:
+    """Every market holds one application but m8, a Google Form market that imported nothing."""
+
+    def count_documents(self, query):
+        return 0 if query["market_id"] == "m8" else 1
+
+
 class FakeDb:
     def __init__(self, docs):
         self.markets = FakeMarkets(docs)
+        self.applications = FakeApplications()
 
 
 def test_every_market_in_an_old_phase_enters_the_stage():
@@ -111,6 +123,24 @@ def test_the_phase_history_names_only_phases_this_build_knows():
     assert archived[1]["by"] == "owner@example.com"
 
 
+def test_a_google_form_market_that_imported_nothing_waits_in_draft(capsys):
+    """The stage is entered by a first import, so one with nothing in it goes back for it."""
+    db = FakeDb(_fixtures())
+
+    migrate(db)
+
+    nothing = _by_id(db.markets)["m8"]
+    assert nothing["phase"] == "draft"
+    assert nothing["isDraft"] is True
+    assert nothing["applicationForm.publishedAt"] is None
+    assert [entry["phase"] for entry in nothing["phaseHistory"]] == [
+        "draft", "applications", "draft",
+    ]
+    assert "Fixture Google Form Nothing Imported: applications_open -> draft" in (
+        capsys.readouterr().out
+    )
+
+
 def test_the_dry_run_counts_each_old_phase_and_writes_nothing(capsys):
     db = FakeDb(_fixtures())
     before = copy.deepcopy(db.markets.docs)
@@ -122,9 +152,11 @@ def test_the_dry_run_counts_each_old_phase_and_writes_nothing(capsys):
         "applications_open": 1, "applications_closed": 2, "review": 2,
     }
     assert counts["stopped"] == 2
+    assert counts["to_draft"] == 1
     assert counts["history_only"] == 1
     out = capsys.readouterr().out
     assert "Would move 5 market(s) into applications" in out
+    assert "Would return 1 Google Form market(s) that imported nothing to draft" in out
     assert "Fixture Closed Form: applications_closed -> applications (not taking applications)" in out
 
 

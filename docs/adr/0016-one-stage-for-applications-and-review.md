@@ -41,7 +41,7 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
 - **A late Google Form export is a Redo import** under More…, which reads the whole responses file again while the market stays in Review (E38/F04/S03); the Applications tab offers no import on either path.
 - **Every move is one edge again.**
   With no phase left to step through, `PASSED_THROUGH`, the two-step routes and `phasesPassedThrough` went, and the form amendment's walk down to draft and back went with them: a Google Form market reaches the import with no application only in draft, where its form is writable.
-- [`migrations/migrate_to_one_stage.py`](../../back-end/migrations/migrate_to_one_stage.py) moved every market in the three phases into the stage, kept an own-form market whose applications had closed (in `applications_closed` or `review`) not taking applications, and renamed their phase history.
+- [`migrations/migrate_to_one_stage.py`](../../back-end/migrations/migrate_to_one_stage.py) moved every market in the three phases into the stage, kept an own-form market whose applications had closed (in `applications_closed` or `review`) not taking applications, returned a Google Form market that had imported nothing to draft, since the stage is entered by a first import, and renamed their phase history.
 
 ## Consequences
 
