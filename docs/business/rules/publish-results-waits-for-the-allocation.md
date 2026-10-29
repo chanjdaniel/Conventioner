@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py
   - back-end/guards.py#ResultsPublishedGuard
   - back-end/app.py#publish_market_results
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
