@@ -61,6 +61,7 @@ Covered by: `taking-applications-stops-and-resumes.spec.ts`, `returning-vendors-
 **Status:** Works (read from the code as of E38/F04/S02; `taking-applications-stops-and-resumes.spec.ts`).
 In Applications, while stopped, More…, "Take applications again": the application page takes them again, and nothing else changes.
 Begin Assignment closes the form whether or not it was stopped, and there is no way back from Assignment.
+A stop belongs to its stay in Applications: Reopen for Editing clears it, so Open Applications afterwards opens the form.
 Covered by: `taking-applications-stops-and-resumes.spec.ts`.
 
 ## Superseded

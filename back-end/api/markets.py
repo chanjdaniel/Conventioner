@@ -1516,6 +1516,19 @@ def finalization_update(
     return {}
 
 
+def taking_applications_update(to_phase: str) -> Dict[str, Any]:
+    """A stop belongs to the one stay in the stage it was made in (E38/F04/S02).
+
+    Reopen for Editing and then Open Applications is opening applications, so a stop made before
+    must not leave the form shut; cleared on entering draft and on entering the stage, in the
+    update that moves the phase. Elsewhere it is left alone: past the stage the phase closes the
+    form whatever the flag says.
+    """
+    if to_phase in (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
+        return {market_doc_key("applications_stopped"): False}
+    return {}
+
+
 class PhaseChangedUnderRequest(ConflictError):
     """The market's stored phase was not what this write expected: a 409.
 
@@ -1575,6 +1588,7 @@ def apply_phase_transition(
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
                 **finalization_update(from_phase, to_phase, document),
+                **taking_applications_update(to_phase),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
         },

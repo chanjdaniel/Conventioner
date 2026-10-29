@@ -37,7 +37,7 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
 - **The way out is Begin Assignment**, guarded by every application being decided, and it closes the applicant form: applying is the stage's alone.
   The way back to draft stays open while nobody has applied.
 - **Stopping applications is a fact about the form, not a phase**: `applicationsStopped` on the market, set by "Stop taking applications" and "Take applications again" on the rail's More… (E38/F04/S02).
-  While it is set the applicant form refuses in the words a closed market used, and reviewing goes on.
+  While it is set the applicant form refuses in the words a closed market used, and reviewing goes on; the phase writer clears it on entering draft and on entering the stage, so a stop never outlives its stay.
 - **A late Google Form export is a Redo import** under More…, which reads the whole responses file again while the market stays in Review (E38/F04/S03); the Applications tab offers no import on either path.
 - **Every move is one edge again.**
   With no phase left to step through, `PASSED_THROUGH`, the two-step routes and `phasesPassedThrough` went, and the form amendment's walk down to draft and back went with them: a Google Form market reaches the import with no application only in draft, where its form is writable.

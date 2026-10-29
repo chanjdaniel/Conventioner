@@ -124,3 +124,34 @@ class TestTheAction:
 
         assert status == 409
         assert markets.last_update is None
+
+
+class TestAStopBelongsToItsStay:
+    """Reopen for Editing, then Open Applications, opens applications: a stop made before does not
+    leave the form shut (review of T94, finding 2)."""
+
+    def _move(self, monkeypatch, phase, to_phase, stopped=True):
+        import api.markets as MarketsApi
+        from conftest import FakeMarketsCollection
+
+        markets = FakeMarketsCollection(_doc(phase=phase, applicationsStopped=stopped))
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        MarketsApi.apply_phase_transition("market-123", markets.doc, to_phase, by="owner@example.com")
+        return markets.last_update["$set"]
+
+    def test_going_back_to_draft_clears_it(self, monkeypatch):
+        written = self._move(monkeypatch, MarketPhase.APPLICATIONS.value, MarketPhase.DRAFT.value)
+
+        assert written["applicationsStopped"] is False
+
+    def test_opening_applications_again_clears_it(self, monkeypatch):
+        written = self._move(monkeypatch, MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value)
+
+        assert written["applicationsStopped"] is False
+
+    def test_entering_assignment_leaves_it_to_the_phase(self, monkeypatch):
+        written = self._move(
+            monkeypatch, MarketPhase.APPLICATIONS.value, MarketPhase.ASSIGNMENT.value,
+        )
+
+        assert "applicationsStopped" not in written
