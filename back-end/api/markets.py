@@ -1811,7 +1811,7 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
     
     if result.modified_count > 0:
         _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
-                     _stored_role(user_role_value), None)
+                     market.roles[user_id], None)
     return result.modified_count > 0
 
 
@@ -1861,13 +1861,6 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
         _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
                      current_role, new_role)
     return result.modified_count > 0
-
-
-def _stored_role(value: Optional[str]) -> Optional[MarketRole]:
-    try:
-        return MarketRole(value) if value else None
-    except ValueError:
-        return None
 
 
 def _record_role(
