@@ -357,7 +357,11 @@ def write_placement(
     stored = market.assignment_object.vendor_assignments
     left = next((existing for existing in stored
                  if existing.email == placement.email and existing.date == placement.date), None)
-    kept = [existing for existing in stored if existing is not left]
+    kept = [
+        existing
+        for existing in stored
+        if not (existing.email == placement.email and existing.date == placement.date)
+    ]
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)

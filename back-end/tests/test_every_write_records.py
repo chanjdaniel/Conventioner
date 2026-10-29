@@ -670,6 +670,8 @@ class TestWhatAnEntryHolds:
         [entry] = world.history.documents
         assert entry["detail"]["row_count"] == ROWS
         assert entry["detail"]["created"] == ROWS
+        assert entry["detail"]["rejected_by_rules"] == 0
+        assert entry["detail"]["returned_by_rules"] == 0
 
     def test_an_applicants_edit_holds_the_answers_it_changed_as_given(self, client, world):
         _applicant(first=False)(client, world)
@@ -746,6 +748,20 @@ class TestWhatAnEntryHolds:
         assert "InvalidDocument" in caplog.text and MARKET in caplog.text
         assert "Ember" not in caplog.text and VENDOR not in caplog.text
 
+    def test_a_hand_placement_moves_a_vendor_who_held_two_rows_that_date(self, client, world):
+        """One seat per vendor per date, even on a market that stored two (an old run)."""
+        _seats(VENDOR)(world)
+        rows = world.markets.doc["assignmentObject"]["vendorAssignments"]
+        rows.append({**rows[0], "tableCode": "Hall A 3"})
+
+        client.put(f"/markets/{MARKET}/placements", json=placement(email=VENDOR, table_code="Hall A 2"))
+
+        seats = [row["tableCode"] for row in world.markets.doc["assignmentObject"]["vendorAssignments"]
+                 if row["email"] == VENDOR and row["date"] == DATE]
+        assert seats == ["Hall A 2"]
+        [entry] = world.history.documents
+        assert entry["detail"]["before"]["table_code"] == "Hall A 1"
+
     def test_a_hand_placement_names_the_seat_it_moved_the_vendor_from(self, client, world):
         _seats(VENDOR)(world)
 
@@ -805,6 +821,39 @@ class TestWhatAnEntryHolds:
 
         [entry] = world.history.documents
         assert entry["detail"]["rejected"] == 0 and entry["detail"]["returned"] == 0
+
+    def test_rules_that_no_longer_meet_an_application_count_it_returned(self, client, world):
+        world.market(MarketPhase.REVIEW, applicationForm={"fields": [STUDENT]},
+                     rejectionRules=[{"key": "student", "answers": ["No"]}])
+        world.applications.insert_one(_application(
+            "app-1", VENDOR, status="reviewer_rejected", form_data={"student": "No"},
+            verdict_by={"kind": "rule", "rule": "student"}, verdict_at="2026-10-02T00:00:00Z"))
+
+        client.put(f"/markets/{MARKET}/rejection-rules", json={"rules": []})
+
+        [entry] = world.history.documents
+        assert entry["detail"]["returned"] == 1 and entry["detail"]["rejected"] == 0
+        assert world.applications.find_one({"id": "app-1"})["status"] == "open"
+
+    def test_an_edit_no_rule_meets_any_more_says_it_was_returned(self, client, world):
+        world.markets.doc = copy.deepcopy(_applicant_market_doc(
+            rejectionRules=[{"key": "student", "answers": ["No"]}]))
+        world.markets.doc["applicationForm"]["fields"].append(STUDENT)
+        world.patch(ApplicantsApi, "authenticate_request",
+                    lambda _header: {"market_id": MARKET, "email": VENDOR})
+
+        def apply(student):
+            return client.put("/public/markets/test-market/applicant/application", json={
+                "formData": {**VALID_ANSWERS, "business_name": "Ember Ceramics",
+                             "student": student}})
+
+        assert apply("No").status_code == 200
+        world.history.documents.clear()
+        assert apply("Yes").status_code == 200
+
+        [entry] = world.history.documents
+        assert entry["detail"]["returned_by_rules"] is True
+        assert entry["detail"]["rejected_by_rules"] is False
 
     def test_a_form_save_counts_what_the_rules_decided_against_it(self, client, world):
         _save_form(client, world)
