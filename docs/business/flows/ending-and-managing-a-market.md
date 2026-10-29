@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -18,16 +18,17 @@ sources:
   - bug/43
   - bug/47
   - T15
+  - E40/F01/S03
 ---
 
 # Ending and managing a market
 
 **Who:** the market's Admin or owner archives it and manages who has access; only the owner deletes it ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, rename or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
+**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, read the history, rename or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md) and [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
-Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds its people, its organization, its name and its deletion.
+Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 
 ## P6. Ending early, or not at all
 
@@ -69,6 +70,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
 5. A refused change is said beneath that person's row, which keeps the role they hold.
 
+Beneath the people, "History" lists every change on the market, newest first, for whoever may read it: [L6](reading-the-markets-history.md#l6-read-the-markets-history).
 The organization line says "Belongs to <organization>. Its members can view it."
 Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`.
 

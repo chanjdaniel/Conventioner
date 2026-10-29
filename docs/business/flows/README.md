@@ -24,6 +24,7 @@ One line per node, sorted by file name.
 - [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it
 - [Placing by hand](placing-by-hand.md) - J6 to J10, J13: placing, swapping and freeing a seat, pins, the placement history
 - [Planning the market](planning.md) - E: Market Setup's dates, tiers, locations, sections and intake, and the setup settling
+- [Reading the market's history](reading-the-markets-history.md) - L6: Manage market's History section, its filters and its pages
 - [Reviewing applications](review.md) - I1 to I6: one by one and All, follow-ups, two reviewers at once, the moves around review
 - [Starting from a Google Form's responses](starting-from-a-google-form.md) - G: the upload, the proposal, confirm and cancel
 - [Taking applications](taking-applications.md) - H1, H1a, H4, H5: opening, closing and reopening applications on the online path

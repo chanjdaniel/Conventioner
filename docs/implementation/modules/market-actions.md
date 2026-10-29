@@ -10,12 +10,13 @@ describes:
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
   - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - E39
   - E39/F01/S01
   - E39/F01/S02
   - E42/F01/S01
+  - E40/F01/S03
 ---
 
 # The market's actions
@@ -51,7 +52,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 | Row (`id`) | Default | Asked by |
 | --- | --- | --- |
-| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, tables, placement history, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
+| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, tables, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
+| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section) and `GET /markets/:id/placement-history` (the placement trail) |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
@@ -75,10 +77,10 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
-`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage on the row that gives roles.
 
-**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
+**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
 The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".

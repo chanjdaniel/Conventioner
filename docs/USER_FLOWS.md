@@ -53,7 +53,7 @@ A bug the status once named is cited where its fix changed what a step says.
 - [I. Reviewing applications](business/flows/review.md) - I1 to I6, with the All view; I7 is with [the assignment](business/flows/assignment-and-result.md#i7-publish-results)
 - [J. Assigning tables](business/flows/assignment-and-result.md) - I7, J1 to J5, J2a, J3a, J3b, J14; [placing by hand](business/flows/placing-by-hand.md) - J6 to J10, J13; [vendors](business/flows/vendors.md) - J11, J12, J15; and [the vendor drawer](business/flows/vendor-drawer.md)
 - [K. Publishing and market days](business/flows/market-day-door.md) - K1 to K5; [K6](#k6-send-offers-instead-of-publishing) is planned, below
-- [L. Ending and managing a market](business/flows/ending-and-managing-a-market.md) - L1 to L5, with P6
+- [L. Ending and managing a market](business/flows/ending-and-managing-a-market.md) - L1 to L5, with P6; [reading the market's history](business/flows/reading-the-markets-history.md) - L6
 - [M. Offers and outcomes (planned)](#m-offers-and-outcomes-planned) - M1 to M5; planned, below
 
 ## Planned, not built

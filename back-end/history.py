@@ -12,8 +12,9 @@ must outlive what it describes and this history is deleted with its market.
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
 kind where one action covers several changes, the vendors it is about, whatever else it is about,
 and a structured detail. The wording belongs to whichever surface shows it
-(``front-end/src/utils/placementHistory.ts`` for the placements) and must be changeable without a
-migration - the same rule ``placement_reasons`` follows.
+(``front-end/src/utils/marketHistory.ts`` for the whole history, ``placementHistory.ts`` for the
+drawer's placements) and must be changeable without a migration - the same rule
+``placement_reasons`` follows.
 
 **A run is one entry**, not none and not one per placement. Omitting runs would leave the history
 lying by omission, because a placement that changed between two hand edits would have no
