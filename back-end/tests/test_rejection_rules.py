@@ -110,7 +110,7 @@ class TestTheWrite:
     def saved(self, monkeypatch):
         writes = []
         monkeypatch.setattr(MarketsApi, "_load_market_to_change",
-                            lambda market_id, user, role, action: self.market)
+                            lambda market_id, user, action: self.market)
         monkeypatch.setattr(MarketsApi.markets_collection, "update_one",
                             lambda query, update: writes.append((query, update)))
         return writes

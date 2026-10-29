@@ -20,7 +20,7 @@ import api.door as DoorApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
-import api.permissions as PermissionsApi
+import api.market_actions as Actions
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -878,12 +878,9 @@ def transition_market(market_id: str) -> Response:
 
     market = context.market
 
-    if not PermissionsApi.user_has_permission(
-        user_email, market, MarketRole.ADMIN, context.organization
-    ):
-        return jsonify({
-            "error": "User does not have permission to manage this market's phase"
-        }), 403
+    refused = Actions.refusal(Actions.MOVE_PHASE, user_email, market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
 
     from_phase = market.phase.value
     blockers = MarketsApi.take_move(context, to_phase.value, by=user_email)
@@ -923,12 +920,9 @@ def pending_offers_count(market_id: str) -> Response:
     if context is None or context.market is None:
         return jsonify({"error": "Market not found"}), 404
 
-    if not PermissionsApi.user_has_permission(
-        user_email, context.market, MarketRole.VIEWER, context.organization
-    ):
-        return jsonify({
-            "error": "User does not have permission to view this market"
-        }), 403
+    refused = Actions.refusal(Actions.READ, user_email, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
 
     count = ApplicationsApi.count_applications_with_status(
         market_id, ApplicationStatus.ASSIGNMENT_SENT.value,
@@ -940,7 +934,7 @@ def pending_offers_count(market_id: str) -> Response:
 @app.route('/markets/<market_id>/assignment', methods=['GET'])
 @login_required
 def get_assigned_market(market_id: str) -> Response:
-    """Get an assigned market. Requires VIEW permission."""
+    """Get an assigned market. Asks ``Actions.READ``."""
     result, status_code = MarketsApi.get_assigned_market(market_id, authenticated_email())
     return jsonify(result), status_code
 
@@ -948,7 +942,7 @@ def get_assigned_market(market_id: str) -> Response:
 @app.route('/markets/<market_id>/assignment', methods=['POST'])
 @login_required
 def run_assignment(market_id: str) -> Response:
-    """Run the solver and store what it produced. Requires EDIT permission.
+    """Run the solver and store what it produced. Asks ``Actions.ASSIGN``.
 
     The write half of the GET above. The browser used to do this itself, by PUTting the market
     back with the assignment it had just been handed; ``assignmentObject`` is server-owned now,
@@ -961,7 +955,8 @@ def run_assignment(market_id: str) -> Response:
 @app.route('/markets/<market_id>/vendors', methods=['POST'])
 @login_required
 def add_vendor(market_id: str) -> Response:
-    """Add a vendor who never applied (E36/F03/S01). EDITOR, in assignment and market days.
+    """Add a vendor who never applied (E36/F03/S01). Asks ``Actions.ADD_VENDOR``, in assignment and
+    market days.
 
     Body: { "name": "...", "email": "..." }
     """
@@ -976,10 +971,10 @@ def add_vendor(market_id: str) -> Response:
 @app.route('/markets/<market_id>/placements', methods=['PUT'])
 @login_required
 def write_placement(market_id: str) -> Response:
-    """Place one vendor in one seat on one date. Requires EDIT permission.
+    """Place one vendor in one seat on one date. Asks ``Actions.ASSIGN``.
 
-    The same bar as every other market write: an EDITOR can already rewrite the tiers, sections
-    and table counts the whole assignment is computed from.
+    EDITOR by default, the same bar as every other market write: an EDITOR can already rewrite the
+    tiers, sections and table counts the whole assignment is computed from.
     """
     data = json_object(required=True)
 
@@ -992,7 +987,7 @@ def write_placement(market_id: str) -> Response:
 @app.route('/markets/<market_id>/placement-history', methods=['GET'])
 @login_required
 def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when. Requires VIEW permission.
+    """Who changed a placement, to what, and when. Asks ``Actions.READ``.
 
     ``?vendor=`` narrows it to the entries about one person, for their detail panel.
     """
@@ -1005,7 +1000,7 @@ def get_placement_history(market_id: str) -> Response:
 @app.route('/markets/<market_id>/placements/swap', methods=['POST'])
 @login_required
 def swap_placements(market_id: str) -> Response:
-    """Trade two vendors' seats on one date, atomically. Requires EDIT permission."""
+    """Trade two vendors' seats on one date, atomically. Asks ``Actions.ASSIGN``."""
     data = json_object(required=False)
     emails = data.get("emails")
     if not isinstance(emails, list):
@@ -1023,7 +1018,7 @@ def swap_placements(market_id: str) -> Response:
 @app.route('/markets/<market_id>/placements', methods=['DELETE'])
 @login_required
 def remove_placement(market_id: str) -> Response:
-    """Free the seat one vendor holds on one date. Requires EDIT permission.
+    """Free the seat one vendor holds on one date. Asks ``Actions.ASSIGN``.
 
     The counterpart of the PUT above, and the reason no operation displaces an occupant:
     freeing a seat first is safe, and mirrors what an organizer physically does.
@@ -1041,7 +1036,7 @@ def remove_placement(market_id: str) -> Response:
 @app.route('/markets/<market_id>/assignment-statistics', methods=['GET'])
 @login_required
 def get_assignment_statistics(market_id: str) -> Response:
-    """Get assignment statistics derived on-demand. Requires VIEW permission."""
+    """Get assignment statistics derived on-demand. Asks ``Actions.READ``."""
     result, status_code = MarketsApi.get_assignment_statistics(market_id, authenticated_email())
     return jsonify(result), status_code
 
@@ -1049,7 +1044,7 @@ def get_assignment_statistics(market_id: str) -> Response:
 @app.route('/markets/<market_id>/assignment-csv', methods=['GET'])
 @login_required
 def get_assignment_csv(market_id: str) -> Response:
-    """Download assignment results as a CSV file. Requires VIEW permission."""
+    """Download assignment results as a CSV file. Asks ``Actions.EXPORT_CSV``."""
     result, status_code = MarketsApi.get_assignment_csv(market_id, authenticated_email())
     if status_code == 200:
         from flask import make_response
@@ -1063,7 +1058,7 @@ def get_assignment_csv(market_id: str) -> Response:
 @app.route('/markets/<market_id>/tables', methods=['GET'])
 @login_required
 def get_market_tables(market_id: str) -> Response:
-    """Get table-level assignments derived on-demand. Requires VIEW permission."""
+    """Get table-level assignments derived on-demand. Asks ``Actions.READ``."""
     result, status_code = MarketsApi.get_market_tables(market_id, authenticated_email())
     return jsonify(result), status_code
 
@@ -1205,7 +1200,7 @@ def public_save_applicant_application(market_slug: str) -> Response:
 @app.route('/markets/<market_id>/applications', methods=['GET'])
 @login_required
 def list_market_applications(market_id: str) -> Response:
-    """List all applications for a market. Requires VIEWER+ permission."""
+    """List all applications for a market. Asks ``Actions.READ``."""
     requesting_user = authenticated_email()
 
     context = MarketsApi.load_market_context(market_id)
@@ -1214,10 +1209,9 @@ def list_market_applications(market_id: str) -> Response:
     if context.market is None:
         return jsonify({"error": "Invalid market data"}), 400
 
-    if not PermissionsApi.user_has_permission(
-        requesting_user, context.market, MarketRole.VIEWER, context.organization
-    ):
-        return jsonify({"error": "User does not have permission to view this market"}), 403
+    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
 
     result, status_code = ApplicantsApi.list_market_applications(market_id)
     return jsonify(result), status_code
@@ -1229,7 +1223,7 @@ def _reviewer_on(market_id: str):
 
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
     card - asked through ``verdict_refusal``, the same rule the market read serves as
-    ``verdictLockReason``: EDITOR, while the review is open (E36/F01/S01).
+    ``verdictLockReason``: the table's verdicts row, while the review is open (E36/F01/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)
@@ -1360,8 +1354,9 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     return jsonify(result), status_code
 
 
-def _admin_market_document(market_id: str, requesting_user: str, refused: str):
-    """The stored market document, once ADMIN is established; ``refused`` is the 403's words.
+def _importing_market_document(market_id: str, requesting_user: str):
+    """The stored market document, once the asker may import applications or start the market
+    from a CSV - the table's one row for both (E39/F01/S01).
 
     Returns ``(market_doc, error_response, status)``; the document is the raw stored one, because
     that is what the essential-offering derivation and the shared write path both read.
@@ -1374,9 +1369,9 @@ def _admin_market_document(market_id: str, requesting_user: str, refused: str):
         return None, {"error": "Market not found"}, 404
     if context.market is None:
         return None, {"error": "Invalid market data"}, 400
-    if not PermissionsApi.user_has_permission(
-        requesting_user, context.market, MarketRole.ADMIN, context.organization
-    ):
+    refused = Actions.refusal(
+        Actions.IMPORT_APPLICATIONS, requesting_user, context.market, context.organization)
+    if refused:
         return None, {"error": refused}, 403
     # Every caller prepares or makes a write, and an archived market takes none (bug 30).
     archived = MarketsApi.archived_refusal(context.market)
@@ -1390,9 +1385,9 @@ def _admin_market_document(market_id: str, requesting_user: str, refused: str):
 
 
 def _import_context(market_id: str, requesting_user: str):
-    """Load the market and check ADMIN and the phase for the import endpoints."""
-    market_doc, error, status = _admin_market_document(
-        market_id, requesting_user, "User does not have permission to import applications")
+    """Load the market and ask ``Actions.IMPORT_APPLICATIONS`` and the phase for the import
+    endpoints."""
+    market_doc, error, status = _importing_market_document(market_id, requesting_user)
     if error:
         return None, error, status
 
@@ -1415,10 +1410,10 @@ def csv_proposal_typesafe() -> Response:
 @login_required
 def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
-    nothing: the file is read and let go. Requires ADMIN+, as the import it prepares does."""
-    market_doc, error, status_code = _admin_market_document(
-        market_id, authenticated_email(),
-        "User does not have permission to set up this market")
+    nothing: the file is read and let go. Asks ``Actions.IMPORT_APPLICATIONS``, as the import it
+    prepares does."""
+    market_doc, error, status_code = _importing_market_document(
+        market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
 
@@ -1434,10 +1429,10 @@ def propose_from_csv(market_id: str) -> Response:
 @login_required
 def confirm_csv_proposal(market_id: str) -> Response:
     """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
-    or nothing. The file is sent again and not kept. Requires ADMIN+, as the proposal does."""
-    market_doc, error, status_code = _admin_market_document(
-        market_id, authenticated_email(),
-        "User does not have permission to set up this market")
+    or nothing. The file is sent again and not kept. Asks ``Actions.IMPORT_APPLICATIONS``, as the
+    proposal does."""
+    market_doc, error, status_code = _importing_market_document(
+        market_id, authenticated_email())
     if error:
         return jsonify(error), status_code
 
@@ -1449,7 +1444,8 @@ def confirm_csv_proposal(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/import/inspect', methods=['POST'])
 @login_required
 def inspect_application_import(market_id: str) -> Response:
-    """Read a CSV's columns and say what they can be mapped to. Writes nothing. Requires ADMIN+."""
+    """Read a CSV's columns and say what they can be mapped to. Writes nothing. Asks
+    ``Actions.IMPORT_APPLICATIONS``."""
     market_doc, error, status_code = _import_context(
         market_id, authenticated_email(),
     )
@@ -1467,7 +1463,8 @@ def inspect_application_import(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/import/preview', methods=['POST'])
 @login_required
 def preview_application_import(market_id: str) -> Response:
-    """Report cell values that name nothing this market offers. Writes nothing. Requires ADMIN+."""
+    """Report cell values that name nothing this market offers. Writes nothing. Asks
+    ``Actions.IMPORT_APPLICATIONS``."""
     market_doc, error, status_code = _import_context(
         market_id, authenticated_email(),
     )
@@ -1493,7 +1490,7 @@ def preview_application_import(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/import', methods=['POST'])
 @login_required
 def import_applications(market_id: str) -> Response:
-    """Import the mapped CSV rows as applications awaiting review. Requires ADMIN+."""
+    """Import the mapped CSV rows as applications awaiting review. Asks ``Actions.IMPORT_APPLICATIONS``."""
     market_doc, error, status_code = _import_context(
         market_id, authenticated_email(),
     )
@@ -1521,7 +1518,7 @@ def import_applications(market_id: str) -> Response:
 @app.route('/markets/<market_id>/publish-results', methods=['POST'])
 @login_required
 def publish_market_results(market_id: str) -> Response:
-    """Publish review results, making verdicts visible to applicants. Requires ADMIN+."""
+    """Publish review results, making verdicts visible to applicants. Asks ``Actions.PUBLISH_RESULTS``."""
     requesting_user = authenticated_email()
 
     context = MarketsApi.load_market_context(market_id)
@@ -1530,10 +1527,10 @@ def publish_market_results(market_id: str) -> Response:
     if context.market is None:
         return jsonify({"error": "Invalid market data"}), 400
 
-    if not PermissionsApi.user_has_permission(
-        requesting_user, context.market, MarketRole.ADMIN, context.organization
-    ):
-        return jsonify({"error": "User does not have permission to publish results"}), 403
+    refused = Actions.refusal(
+        Actions.PUBLISH_RESULTS, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
     refusal = MarketsApi.archived_refusal(context.market)
     if refusal:
         return jsonify({"error": refusal}), 403
@@ -1545,7 +1542,8 @@ def publish_market_results(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications-stopped', methods=['POST'])
 @login_required
 def set_applications_stopped(market_id: str) -> Response:
-    """Stop taking applications, or take them again (E38/F04/S02). Requires ADMIN+, as a phase move.
+    """Stop taking applications, or take them again (E38/F04/S02). Asks the table's Stop taking
+    applications row, Admin by default.
 
     Body: { "stopped": true | false }
     """
@@ -1559,10 +1557,10 @@ def set_applications_stopped(market_id: str) -> Response:
         return jsonify({"error": "Market not found"}), 404
     if context.market is None:
         return jsonify({"error": "Invalid market data"}), 400
-    if not PermissionsApi.user_has_permission(
-        authenticated_email(), context.market, MarketRole.ADMIN, context.organization
-    ):
-        return jsonify({"error": "User does not have permission to manage this market's applications"}), 403
+    refused = Actions.refusal(
+        Actions.STOP_APPLICATIONS, authenticated_email(), context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
 
     result, status_code = ApplicantsApi.set_applications_stopped(market_id, stopped)
     return jsonify(convert_keys_to_camel_case(result)), status_code
@@ -1571,7 +1569,7 @@ def set_applications_stopped(market_id: str) -> Response:
 @app.route('/markets/<market_id>/attendance', methods=['GET'])
 @login_required
 def get_market_attendance(market_id: str) -> Response:
-    """Who is expected on each market date and who has come (E29/F01/S01). Requires VIEWER.
+    """Who is expected on each market date and who has come (E29/F01/S01). Asks ``Actions.READ``.
 
     ``{dates, roster}``: every vendor the stored assignment places, per date, with when they
     checked in and which organizer did it, if one did.
@@ -1584,17 +1582,17 @@ def get_market_attendance(market_id: str) -> Response:
     if context.market is None:
         return jsonify({"error": "Invalid market data"}), 400
 
-    if not PermissionsApi.user_has_permission(
-        requesting_user, context.market, MarketRole.VIEWER, context.organization
-    ):
-        return jsonify({"error": "User does not have permission to view this market"}), 403
+    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
 
     market_doc = AttendanceApi.markets_collection.find_one({"id": market_id})
     return jsonify(AttendanceApi.attendance_roster(market_doc)), 200
 
 
 def _door_write(market_id: str, write) -> Response:
-    """An organizer's check-in or its undo: body ``{vendorEmail, date}``, EDITOR (E29/F01/S02)."""
+    """An organizer's check-in or its undo: body ``{vendorEmail, date}``, asking
+    ``Actions.CHECK_IN`` (E29/F01/S02)."""
     data = json_object(required=False)
     result, status_code = write(
         market_id,
@@ -1608,14 +1606,14 @@ def _door_write(market_id: str, write) -> Response:
 @app.route('/markets/<market_id>/attendance', methods=['POST'])
 @login_required
 def organizer_check_in(market_id: str) -> Response:
-    """An organizer checks a vendor in at the door. Requires EDIT permission."""
+    """An organizer checks a vendor in at the door. Asks ``Actions.CHECK_IN``."""
     return _door_write(market_id, DoorApi.check_in)
 
 
 @app.route('/markets/<market_id>/attendance', methods=['DELETE'])
 @login_required
 def organizer_undo_check_in(market_id: str) -> Response:
-    """An organizer takes back a check-in. Requires EDIT permission."""
+    """An organizer takes back a check-in. Asks ``Actions.CHECK_IN``."""
     return _door_write(market_id, DoorApi.undo_check_in)
 
 

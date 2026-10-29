@@ -41,7 +41,7 @@ An archived market refuses anyone.
 
 ## Where it is kept
 
-- `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the role check and `review_is_open`; the market read serves it per person as `verdictLockReason`, so every review screen offers exactly what the write takes.
+- `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the archived rule, the table's Give verdicts and follow-ups row and `review_is_open`; the market read serves it per person as `verdictLockReason`, so every review screen offers exactly what the write takes.
 - `_reviewer_on` in [`back-end/app.py`](../../../back-end/app.py) is the one gate of every review write (a verdict, a selection's verdicts, a follow-up's owner, a claim), and answers a refusal with a 403 in its words.
 - `review_is_open` reads the table kept by [the guards](../../implementation/modules/guards.md); the verdict itself is stored on [the application document](../../implementation/data/application-document.md#statuses).
 - `back-end/tests/test_a_verdict_says_who.py` pins it in every phase, and holds the verdicts' lock and the automatic rejections' lock equal in each.

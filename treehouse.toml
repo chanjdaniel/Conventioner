@@ -13,8 +13,9 @@
 # The th-lease.sh wrapper leases AND pre-warms in one step.
 
 # Pool size. Each worktree carries its own node_modules (hundreds of MB), so keep
-# this modest. Raise for more parallel agents.
-max_trees = 4
+# this modest; the agent team's machine-wide cap on worktrees (T98) bounds the total
+# across projects. Raise for more parallel agents.
+max_trees = 9
 
 # Empty => worktrees live under $HOME/.treehouse/.
 root = ""

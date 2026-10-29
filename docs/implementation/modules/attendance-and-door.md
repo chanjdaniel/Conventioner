@@ -15,7 +15,7 @@ describes:
   - back-end/app.py#organizer_undo_check_in
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/App.vue#fitsAPhone
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -51,8 +51,8 @@ The `(market_id, vendor_email)` index is in [the lookup indexes](../data/lookup-
 | `GET /public/markets/<slug>/check-in` | anyone | which market this is, its dates, and whether it has `ended` |
 | `GET /public/markets/<slug>/vendors/<email>/assignments` | anyone | that vendor's seats, each with when they checked in |
 | `POST`/`DELETE /public/markets/<slug>/attendance/checkin` | anyone | the vendor's own check-in, or its undo |
-| `GET /markets/<id>/attendance` | VIEWER | the roster |
-| `POST`/`DELETE /markets/<id>/attendance` | EDITOR | the organizer's check-in, or its undo |
+| `GET /markets/<id>/attendance` | the Read row: any role | the roster |
+| `POST`/`DELETE /markets/<id>/attendance` | the Check vendors in row: EDITOR by default | the organizer's check-in, or its undo |
 
 ## Sharp edges
 
@@ -64,10 +64,10 @@ The roster, the vendor's lookup and the check-in all read the same stored rows, 
 **A check-in needs a stored placement for that vendor on that date**, or it is a 404.
 A placement is dated by the market date itself, so no reader maps anything back to a date.
 
-**An organizer checks a vendor in through `api/door.py`**: EDITOR, the bar every market write sets, so a door volunteer is added to the market as an editor.
+**An organizer checks a vendor in through `api/door.py`**: the table's Check vendors in row ([the market's actions](market-actions.md)), EDITOR by default, the bar every market write sets, so a door volunteer is added to the market as an editor.
 It loads through the change loader (`_load_market_to_change`), so an archived market's record is never changed, and refuses with a 409 outside `market_days`.
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
-`_door_write` catches nothing: a market that does not exist answers 404, an archived one or a role short of EDITOR 403, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
+`_door_write` catches nothing: a market that does not exist answers 404, an archived one or a person the row refuses 403 with its sentence, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
 
 **An archived market that ran is still served, as a record** ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).

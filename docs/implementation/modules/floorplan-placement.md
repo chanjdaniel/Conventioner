@@ -19,7 +19,7 @@ describes:
   - front-end/src/utils/canvasColor.ts
   - front-end/src/components/floorplan/AutoPlaceButton.vue
   - front-end/src/components/floorplan/FloorplanEditor.vue#loadBackgroundImage
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - bug/38
   - E26/F09/S01
@@ -46,22 +46,22 @@ The zone is the room less a wall buffer (1500 mm unless configured) and the obst
 
 ## Who may use the floorplan routes
 
-Every floorplan action is checked against the caller's role on the floorplan's market, the way saving a floorplan to a market always was.
+Every floorplan action asks its row of the table ([the market's actions](market-actions.md)) on the floorplan's market, the way saving a floorplan to a market always did.
 The roles are [what each role may do](../../business/rules/what-each-role-may-do.md) says, and a route that changes the floorplan keeps [an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md).
-[`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, role, edits=...)` checks a market the request names, `image_refusal(gridfs_id, role, edits=...)` checks the market an image was uploaded for, and each answers None or the refusal the route returns.
-They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a role below the one asked 403, and, for a route that changes the floorplan (`edits`), an archived market 403.
+[`back-end/api/floorplans_access.py`](../../../back-end/api/floorplans_access.py) is the one place a floorplan route decides it: `market_refusal(market_id, action, edits=...)` asks on a market the request names, `image_refusal(gridfs_id, action, edits=...)` asks on the market an image was uploaded for, and each answers None or the refusal the route returns.
+They answer in save's order: no market named 400, unknown market 404, unreadable market data 400, a person the row refuses 403 with its sentence, and, for a route that changes the floorplan (`edits`), an archived market 403.
 A route checks access right after it has read the id it is checked by, before the rest of its body, its key check or its image read.
 
 | Route | Needs | Archived market |
 | --- | --- | --- |
-| `POST /floorplans/upload` | EDITOR on the `market_id` sent | refused |
-| `POST /floorplans/place-tables` | EDITOR on the `market_id` sent | refused |
-| `DELETE /floorplans/<id>` | EDITOR on the image's market | refused |
-| `POST /floorplans/analyze` | EDITOR on the image's market | refused |
-| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | EDITOR on the image's market | refused |
-| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | VIEWER on the image's market, signed in | allowed |
+| `POST /floorplans/upload` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
+| `POST /floorplans/place-tables` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
+| `DELETE /floorplans/<id>` | Change Market Setup (EDITOR) on the image's market | refused |
+| `POST /floorplans/analyze` | Change Market Setup (EDITOR) on the image's market | refused |
+| `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market | refused |
+| `POST /floorplans/export` ([`floorplans_export.py`](../../../back-end/api/floorplans_export.py)) | the Read row (any role) on the image's market, signed in | allowed |
 | `GET /floorplans/<id>` | nothing: public by opaque id | allowed |
-| `POST /floorplans/save-to-market` | EDITOR, and a setup that has not settled (409) | refused |
+| `POST /floorplans/save-to-market` | Change Market Setup (EDITOR), and a setup that has not settled (409) | refused |
 
 The wizard's steps are an editor's work on a market that can still change, which is when the front end offers the wizard at all.
 **The export's audience is the people on the market**: it is a read of the plan, a rendering of the hall with its table codes, so it needs a sign-in and any role, and an archived market still exports.

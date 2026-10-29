@@ -1,23 +1,23 @@
 """An organizer checks a vendor in at the door, or undoes it (E29/F01/S02).
 
 The vendor's own check-in is public and keyed by the market's address; this is the organizer's,
-keyed by the market's id and held to the bar every market write sets - EDITOR - so a volunteer at
-the door is added as an editor. It loads through the change loader, so an archived market's record
-is never changed, and it writes through ``record_attendance``, so the two doors record alike.
+keyed by the market's id and held to the table's "Check vendors in" row, EDITOR by default, so a
+volunteer at the door is added as an editor. It loads through the change loader, so an archived
+market's record is never changed, and it writes through ``record_attendance``, so the two doors
+record alike.
 """
 from typing import Any, Dict, Tuple
 
 import api.attendance as AttendanceApi
+import api.market_actions as Actions
 import api.markets as MarketsApi
-from datatypes import MarketPhase, MarketRole
+from datatypes import MarketPhase
 
 NOT_PUBLISHED = "Vendors are checked in once the market is published."
 
 
 def _market_on_its_days(market_id: str, requesting_user: str):
-    market = MarketsApi._load_market_to_change(
-        market_id, requesting_user, MarketRole.EDITOR, "check vendors in at",
-    )
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CHECK_IN)
     return market if market.phase is MarketPhase.MARKET_DAYS else None
 
 

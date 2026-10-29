@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.applicants as ApplicantsApi  # noqa: E402
 import api.applications as ApplicationsApi  # noqa: E402
+import api.market_actions as Actions  # noqa: E402
 import api.markets as MarketsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 from conftest import FakeApplicationsCollection, sessions_load_through_get_user  # noqa: E402
@@ -143,7 +144,7 @@ class TestWhenAVerdictMayChange:
 
     @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS])
     def test_open_while_the_review_is(self, phase, monkeypatch):
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
 
         assert MarketsApi.verdict_refusal("e@x.test", client_market(phase=phase), None) is None
@@ -151,7 +152,7 @@ class TestWhenAVerdictMayChange:
     @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
                                        MarketPhase.MARKET_DAYS])
     def test_settled_on_entering_assignment(self, phase, monkeypatch):
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
 
         assert MarketsApi.verdict_refusal(
@@ -160,7 +161,7 @@ class TestWhenAVerdictMayChange:
     @pytest.mark.parametrize("phase", list(MarketPhase))
     def test_the_verdicts_and_the_automatic_rejections_settle_together(self, phase, monkeypatch):
         """One rule, not two that agree today: a rule and a reviewer judge the same applications."""
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market
 
         verdicts_open = MarketsApi.verdict_refusal(
@@ -169,7 +170,7 @@ class TestWhenAVerdictMayChange:
         assert verdicts_open == rules_open or phase is MarketPhase.ARCHIVED
 
     def test_a_person_who_may_not_change_the_market_is_told_that_first(self, monkeypatch):
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: "Viewers read.")
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: "Viewers read.")
         from conftest import client_market
 
         assert MarketsApi.verdict_refusal(

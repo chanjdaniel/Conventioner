@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - back-end/csv_import.py
-  - back-end/app.py#_admin_market_document
+  - back-end/app.py#_importing_market_document
   - back-end/app.py#_import_context
   - back-end/app.py#inspect_application_import
   - back-end/app.py#preview_application_import
@@ -32,7 +32,7 @@ The form is not the product's, so nothing is matched by header name: the organiz
 
 ## Its interface
 
-Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each ADMIN and each through `_import_context`:
+Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking the table's import row (Admin by default) and each through `_import_context`:
 
 | Endpoint | What it does |
 | --- | --- |
@@ -48,7 +48,7 @@ In a draft it also refuses with the first of `first_import_blockers`, the move i
 
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
-`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_admin_market_document` asks ADMIN and refuses an archived market first.
+`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) and refuses an archived market first.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
