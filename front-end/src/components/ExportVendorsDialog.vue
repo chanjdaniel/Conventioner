@@ -219,16 +219,16 @@ async function download(): Promise<void> {
           </label>
 
           <div class="export-field">
-            <label class="field-label" for="vendor-export-placed">Placed</label>
+            <label class="field-label" for="vendor-export-placed">Assigned</label>
             <select
               id="vendor-export-placed"
               v-model="filters.placed"
               class="field field--select"
               data-testid="vendor-export-placed"
             >
-              <option value="">Placed or not</option>
-              <option value="placed">Placed</option>
-              <option value="unplaced">Not placed</option>
+              <option value="">Assigned or not</option>
+              <option value="placed">Assigned</option>
+              <option value="unplaced">Not assigned</option>
             </select>
           </div>
 

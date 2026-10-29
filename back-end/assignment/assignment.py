@@ -936,7 +936,7 @@ class IncompleteApplicationsError(ValueError):
 
 NOTHING_TO_ASSIGN = (
     "No applications have been approved for this market yet, so there is nothing to assign. "
-    "Approve applications on the Applications tab, then assign."
+    "Approve applications on the Applications tab, then allocate tables."
 )
 
 

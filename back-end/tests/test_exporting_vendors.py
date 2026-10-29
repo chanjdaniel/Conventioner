@@ -285,7 +285,7 @@ class TestTheAssignmentColumns:
              "Sun 2 Aug - half or full",
              "Mon 3 Aug - table", "Mon 3 Aug - section", "Mon 3 Aug - tier",
              "Mon 3 Aug - half or full",
-             "Dates placed"],
+             "Dates assigned"],
             ["ana@example.com",
              "Atrium 1", "Atrium", "Gold", "Full table",
              "Hall 2", "Hall", "Silver", "Full table",
@@ -353,7 +353,7 @@ class TestTheAssignmentColumns:
         content, _filename = _file(
             filters={"search": "ana@"}, columns=["date:Opening night:table", "datesPlaced"])
 
-        assert _rows(content) == [["Opening night - table", "Dates placed"], ["Atrium 1", "1"]]
+        assert _rows(content) == [["Opening night - table", "Dates assigned"], ["Atrium 1", "1"]]
 
     def test_a_seat_on_a_date_the_plan_no_longer_holds_is_not_counted(self, market):
         """The count is the date groups filled, so it never says more than the row shows."""
@@ -537,7 +537,7 @@ class TestThePreview:
                 for part, words in (("table", "table"), ("section", "section"),
                                     ("tier", "tier"), ("size", "half or full"))
             ),
-            {"id": "datesPlaced", "label": "Dates placed", "group": "assignment"},
+            {"id": "datesPlaced", "label": "Dates assigned", "group": "assignment"},
         ]
         assert offered["groups"] == [
             {"id": "vendor", "label": "Vendor"},

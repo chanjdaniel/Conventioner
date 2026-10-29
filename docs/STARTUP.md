@@ -336,7 +336,7 @@ Every step is reachable from the UI; none of it needs the API.
    Imported rows arrive awaiting review.
    Approve the ones a table should go to: **the solver reads approved applications and nothing
    else**, so an application left unreviewed takes no part in assignment.
-8. **Generate the assignment** by running "Assign" from Market Setup.
+8. **Generate the assignment** by choosing "Allocate tables" on the Assignment page.
 9. **View the results** and download the CSV.
 
 **Where do I get a CSV?**

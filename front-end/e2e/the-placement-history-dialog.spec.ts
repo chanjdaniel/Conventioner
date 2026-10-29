@@ -76,6 +76,6 @@ test('after a run, a viewer opens the history too', async ({
     const theirs = new TablesPage(viewer);
     await theirs.goto(seed.marketId);
     await theirs.openHistory();
-    await expect(theirs.historyEntries.first()).toContainText('Ran the assignment');
+    await expect(theirs.historyEntries.first()).toContainText('Allocated tables');
   });
 });

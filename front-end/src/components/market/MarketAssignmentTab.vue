@@ -95,7 +95,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         @click="emit('assign')"
         data-testid="market-setup-assign-button"
       >
-        {{ handPlacements === null ? 'Assign' : 'Run again' }}
+        {{ handPlacements === null ? 'Allocate tables' : 'Allocate tables again' }}
       </button>
       <p
         v-if="handPlacements !== null && !assignRefusalReason"
@@ -104,8 +104,8 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       >
         {{
           handPlacements
-            ? `Keeps your ${handPlacements} hand placement${handPlacements === 1 ? '' : 's'}; places everyone else again.`
-            : 'Places everyone again.'
+            ? `Keeps your ${handPlacements} hand assignment${handPlacements === 1 ? '' : 's'}; allocates tables for everyone else again.`
+            : 'Allocates tables for everyone again.'
         }}
       </p>
       <!-- The phase comes first: a market that may not be assigned at all is not waiting on
@@ -122,7 +122,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         class="assign-disabled-hint"
         data-testid="market-setup-assign-hint"
       >
-        Correct the assignment options above to run the assignment.
+        Correct the assignment rules above to allocate tables.
       </p>
       <div v-if="assignError" class="assign-error-banner" data-testid="market-setup-assign-error">
         <!-- A refusal that names applicants hands the organizer to each one: their name with

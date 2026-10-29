@@ -100,8 +100,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
   });
 
   it("disables it with the server's reason until results may be published", async () => {
-    const reason =
-      'Run the assignment first: results tell each applicant whether they have a table.';
+    const reason = 'Allocate tables first: results tell each applicant whether they have a table.';
     const wrapper = await mounted(
       marketTaking(IntakeMode.Form, { publishWaitsReason: reason, publishOutcomes: null }),
     );

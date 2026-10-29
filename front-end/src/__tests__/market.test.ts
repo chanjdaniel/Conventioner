@@ -90,7 +90,7 @@ describe('parseMarketFromApi', () => {
   });
 
   it('keeps why the assignment rules are settled, and reads open rules as no lock', () => {
-    const settled = 'The assignment for this market is settled.';
+    const settled = 'The table allocation for this market is settled.';
     expect(
       parseMarketFromApi({ ...apiMarket, assignmentRulesLockReason: settled })
         .assignmentRulesLockReason,

@@ -60,7 +60,7 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
   switch (entry.kind) {
     case 'placed':
       return [
-        text('Placed '),
+        text('Assigned '),
         who(entry.vendors[0]),
         text(` at ${detail.tableCode} (${detail.tableChoice})`),
       ];
@@ -87,14 +87,14 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
     case 'assigned':
       return [
         text(
-          `Ran the assignment: ${plural(detail.placementsWritten ?? 0, 'placement', 'placements')} written` +
+          `Allocated tables: ${plural(detail.placementsWritten ?? 0, 'assignment', 'assignments')} written` +
             (detail.pinsPreserved
               ? `, ${plural(detail.pinsPreserved, 'pin', 'pins')} preserved`
               : ''),
         ),
       ];
     default:
-      return [text('Changed a placement')];
+      return [text('Changed an assignment')];
   }
 }
 

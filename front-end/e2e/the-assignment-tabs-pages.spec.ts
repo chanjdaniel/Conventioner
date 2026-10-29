@@ -38,7 +38,7 @@ test.describe("The Assignment tab's pages", () => {
     await expect(page.locator('.assignment-results')).toHaveCount(0);
 
     const run = page.getByTestId('market-setup-assign-button');
-    await expect(run).toHaveText('Assign');
+    await expect(run).toHaveText('Allocate tables');
     await run.click();
 
     await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
@@ -46,8 +46,10 @@ test.describe("The Assignment tab's pages", () => {
 
     await page.getByTestId('market-pages-assignment').click();
     await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignment$`));
-    await expect(run).toHaveText('Run again');
-    await expect(page.getByTestId('market-setup-rerun-keeps')).toHaveText('Places everyone again.');
+    await expect(run).toHaveText('Allocate tables again');
+    await expect(page.getByTestId('market-setup-rerun-keeps')).toHaveText(
+      'Allocates tables for everyone again.',
+    );
   });
 
   test('the page row is only on the Assignment tab, and pinned with the frame', async ({

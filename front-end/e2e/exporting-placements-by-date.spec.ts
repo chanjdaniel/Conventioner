@@ -83,7 +83,7 @@ test('a vendor placed on two of three dates exports two seats and one empty date
   const header = [
     'Email',
     ...HEADINGS.flatMap((day) => PARTS.map((part) => `${day} - ${PART_WORDS[part]}`)),
-    'Dates placed',
+    'Dates assigned',
   ];
   const seat = (date: string) => [seatOn(date)!, 'Hall A', 'Gold', 'Full table'];
   const row = [VENDOR, ...seat(DATES[0]), '', '', '', '', ...seat(DATES[2]), '2'];
