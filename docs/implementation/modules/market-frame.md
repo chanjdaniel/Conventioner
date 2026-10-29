@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/MarketPages.vue
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -42,6 +42,7 @@ A screen hands it the market from [the market store](market-store.md) and render
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+  The server sets it when the market is archived or none of the table's changing actions is the person's ([the market's actions](market-actions.md#what-the-screens-read)); the frame decides nothing about who may.
   Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not beside a tab's note, which stands in for the page.
 
 These are the frame's words: the market bar, a tab, the phase rail and a phase; "Market Setup" names a tab, never the page, and the plan is what it edits, each card of it a plan card.
@@ -68,7 +69,7 @@ The pinned block's height is measured (a `ResizeObserver`) and published as `--m
 The card is at least the height of the window under the banner, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
-The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Assignment page why its rules settled; each still disables its controls for a person who may change nothing, but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
+The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Assignment page why its rules settled; each disables a control on the table's answer for the action it takes (`mayTake`, [the market store](market-store.md#where-a-screens-permission-comes-from)), but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
 The floorplan flow stands in for its wizard on either reason and says only the setup's.
 
 **Every market screen is `--workspace-max` wide, and the frame sets it.**

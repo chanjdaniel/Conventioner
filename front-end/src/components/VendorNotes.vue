@@ -24,7 +24,7 @@ const props = withDefaults(
     marketId: string;
     email: string;
     entry?: VendorNoteEntry;
-    /** EDITOR and up, on a market that is not archived: the market's `readOnlyReason` is null. */
+    /** The table's "Write vendor notes" answer for this person, on a market not archived. */
     canWrite: boolean;
     /** The review card shows the request among the answers already. */
     showRequest?: boolean;

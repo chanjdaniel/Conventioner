@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14
@@ -36,7 +36,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 1. Click a vendor where they appear; the drawer opens on its Application tab, wherever it was opened, and the page behind it holds still and cannot be reached.
 2. The head, "Vendor detail": the vendor's name, their address beside it when they have a name, and their verdict with who gave it ("Approved by <email>, <date and time>"), or "Added by <email>, …" for a vendor added by hand.
    Opened from the review's All view, the application's status sits under the head, with who holds it open, and Reject, Needs follow-up and Approve beside it while the review is open; everywhere else the verdict and its giver only read.
-   The drawer offers verdicts on the server's one rule, `verdictLockReason`, never on a list of phases of its own, so it and the review cannot disagree.
+   The drawer offers verdicts on the server's answers, the verdicts row's and `verdictsSettledReason`, never on a list of phases of its own, so it and the review cannot disagree.
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
 4. Three tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).

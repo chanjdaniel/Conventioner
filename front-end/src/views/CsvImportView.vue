@@ -12,6 +12,7 @@
  * scannable: the eye goes to the exceptions. Designs built around the act of assigning opened
  * with nothing left to assign.
  */
+import { MarketAction, actionRefusal } from '@/utils/marketActions';
 import { computed, onMounted, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
@@ -109,8 +110,8 @@ const { market, refresh: refreshMarket } = useOpenMarket(marketId);
  * before the organizer picks a file beats letting them choose one and then refusing it.
  */
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
-/** Importing is an admin action: who is asking comes before the phase (bug 37). */
-const roleRefusal = computed(() => market.value?.adminActionsReason ?? null);
+/** Importing is the table's import row: who is asking comes before the phase (bug 37). */
+const roleRefusal = computed(() => actionRefusal(market.value, MarketAction.ImportApplications));
 const takingApplications = computed(() => canImportInto(marketPhase.value) && !roleRefusal.value);
 const phaseRefusal = computed(() => roleRefusal.value || importRefusal(marketPhase.value));
 

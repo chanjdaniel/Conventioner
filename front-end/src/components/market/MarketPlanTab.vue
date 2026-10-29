@@ -42,7 +42,7 @@ const props = defineProps<{
   /** Why starting from a Google Form's responses cannot, as the server serves it on the market;
    * null when it can (E24/F04/S02). */
   csvStartRefusal: string | null;
-  /** This person may change nothing on the market; the frame says why (T15). */
+  /** This person may not change the setup, the table's Market Setup row (E39/F01/S02). */
   readOnly: boolean;
   /** Why the setup has settled, as the server serves it; null while it can change (E31/F01/S02). */
   setupLockReason: string | null;

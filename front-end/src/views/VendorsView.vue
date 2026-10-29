@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, ref, watch } from 'vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
@@ -112,7 +113,9 @@ const filteredVendors = computed(() => {
 
 /** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
 const adding = ref(false);
-const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
+const canAdd = computed(
+  () => mayTake(market.value, MarketAction.AddVendor) && !market.value?.addingVendorsReason,
+);
 async function vendorAdded(email: string): Promise<void> {
   adding.value = false;
   // A write is followed by a re-read: the market's own facts count them too (publishOutcomes).
@@ -126,6 +129,8 @@ async function vendorAdded(email: string): Promise<void> {
  * taken as it opens, so the file holds who the organizer was looking at.
  */
 const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(market.value, MarketAction.ExportCsv));
 const exportSeed = ref<ExportFilters>(NO_FILTERS);
 function openExport(): void {
   exportSeed.value = vendorsPageSeed({
@@ -180,6 +185,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             </button>
           </div>
           <button
+            v-if="mayExport"
             type="button"
             class="btn btn--secondary btn--compact"
             data-testid="vendors-export-button"
