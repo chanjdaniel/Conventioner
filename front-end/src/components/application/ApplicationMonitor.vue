@@ -314,8 +314,10 @@ async function refresh() {
   } finally {
     refreshing.value = false;
   }
-  // A refused verdict's card stays as it now stands, until the reviewer moves on.
+  // A refused verdict's card stays as it now stands, until the reviewer moves on: its message is
+  // the card's. Any other error was the last read's or the last hand-out's, which this one replaces.
   if (refusedOn.value) return;
+  errorMessage.value = '';
   const at = up ? undecided.value.findIndex((app) => app.id === up) : -1;
   if (at >= 0) cursor.value = at;
   else if (decides.value) await takeNext(null);

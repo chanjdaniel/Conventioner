@@ -19,6 +19,9 @@ import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 const SECOND = { email: 'e2e-refresh-reviewer@example.com', password: 'e2erefreshreviewer1' };
 /** The list's own read, not a write to one application under it. */
 const THE_LIST = /\/markets\/[^/]+\/applications(\?.*)?$/;
+/** The API's read of it, not the page of the same address nor a write. */
+const isTheListRead = (request: import('@playwright/test').Request) =>
+  request.method() === 'GET' && ['xhr', 'fetch'].includes(request.resourceType());
 
 async function reviewingMarket(request: import('@playwright/test').APIRequestContext) {
   ensureVerifiedUser(SECOND.email, SECOND.password);
@@ -76,7 +79,7 @@ test("All: a second reviewer's verdict shows on Refresh, and the ticks stay", as
 
   // A refresh that cannot reach the server says so, and the list stays as it was.
   await page.route(THE_LIST, (route) =>
-    route.request().method() === 'GET' ? route.abort() : route.continue(),
+    isTheListRead(route.request()) ? route.abort() : route.continue(),
   );
   await refresh.click();
   await expect(page.getByTestId('applications-refresh-error')).toHaveText(
@@ -121,4 +124,50 @@ test("One by one: Refresh brings others' verdicts into the counts, and keeps the
   await expect(monitor.tally).toContainText('1 reviewed · 0 approved · 1 rejected');
   await expect(monitor.email).toHaveText('theo@thistle.test');
   await expect(monitor.progress).toContainText('1 of 2 to review');
+});
+
+test('Refresh recovers from a list that failed to load, in both views', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await reviewingMarket(request);
+  const all = new ApplicationsAllPage(page);
+  const monitor = new ApplicationMonitorPage(page);
+  const refresh = page.getByTestId('applications-refresh');
+  const failRead = () =>
+    page.route(THE_LIST, (route) =>
+      isTheListRead(route.request()) ? route.abort() : route.continue(),
+    );
+
+  // All: the first read fails, so the page says so; a Refresh that reads the list shows it.
+  await failRead();
+  await all.goto(marketId);
+  await expect(page.getByText('Failed to load applications')).toBeVisible();
+  await page.unroute(THE_LIST);
+  await refresh.click();
+  await expect(all.rows).toHaveCount(3);
+  await expect(all.selectAll).toBeVisible();
+  await expect(page.getByText('Failed to load applications')).toHaveCount(0);
+
+  // One by one: the same, and its own refresh failing says so and keeps the card.
+  await failRead();
+  await monitor.goto(marketId);
+  await expect(page.getByText('Failed to load applications')).toBeVisible();
+  await page.unroute(THE_LIST);
+  await refresh.click();
+  await expect(monitor.progress).toContainText('of 3 to review');
+  await expect(monitor.card).toBeVisible();
+  await expect(page.getByText('Failed to load applications')).toHaveCount(0);
+  const up = ((await monitor.email.textContent()) ?? '').trim();
+
+  await failRead();
+  await refresh.click();
+  await expect(page.getByTestId('applications-refresh-error')).toHaveText(
+    'Could not refresh. The list is as it was last read.',
+  );
+  await expect(monitor.email).toHaveText(up);
+  await page.unroute(THE_LIST);
+  await refresh.click();
+  await expect(page.getByTestId('applications-refresh-error')).toHaveCount(0);
+  await expect(monitor.email).toHaveText(up);
 });

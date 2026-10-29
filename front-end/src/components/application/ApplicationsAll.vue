@@ -54,10 +54,11 @@ const readAt = ref<number | null>(null);
 const refreshing = ref(false);
 const refreshError = ref('');
 
-/** The one read: the list, and when. */
+/** The one read: the list, and when. A list read is no longer one that failed to load. */
 async function read() {
   applications.value = await fetchMarketApplications(marketId.value);
   readAt.value = Date.now();
+  errorMessage.value = '';
   refreshError.value = '';
 }
 
