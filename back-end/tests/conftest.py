@@ -545,11 +545,13 @@ def market_records(monkeypatch):
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
+        placement_history=FakeApplicationsCollection(),
     )
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
     monkeypatch.setattr(History, "history_collection", fakes.history)
+    monkeypatch.setattr(History, "legacy_placement_collection", fakes.placement_history)
     return fakes
 
 class FakeAttemptsCollection:

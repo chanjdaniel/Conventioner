@@ -41,9 +41,13 @@ logger = logging.getLogger(__name__)
 
 HISTORY_COLLECTION = "history"
 MARKET_ID_FIELD = "market_id"
+# The placement history's old collection, read beside ``history`` until every database has run
+# ``migrations/migrate_placement_history.py``; a later release removes it (ADR 0017).
+LEGACY_PLACEMENT_COLLECTION = "placement_history"
 
 db = get_database()
 history_collection = db[HISTORY_COLLECTION]
+legacy_placement_collection = db[LEGACY_PLACEMENT_COLLECTION]
 
 
 def _now() -> str:
@@ -86,13 +90,21 @@ def entries_for_market(market_id: str, vendor: Optional[str] = None) -> List[Dic
     nobody, so it is not in a vendor's list: it says what happened to the market, and the question
     a vendor's panel is asking is what happened to *them*.
     """
-    return _newest_first(_vendor_query({MARKET_ID_FIELD: market_id}, vendor), {"_id": 0})
+    query = _vendor_query({MARKET_ID_FIELD: market_id}, vendor)
+    return _newest_first(history_collection.find(query, {"_id": 0}))
 
 
 def delete_for_market(market_id: str) -> int:
-    """Take a market's history with the market. Returns how many entries went."""
-    result = history_collection.delete_many({MARKET_ID_FIELD: market_id})
-    return result.deleted_count
+    """Take a market's history with the market. Returns how many entries went.
+
+    Its entries not yet moved out of ``placement_history`` go too, or the migration would carry
+    them into the history of a market that no longer exists.
+    """
+    query = {MARKET_ID_FIELD: market_id}
+    return (
+        history_collection.delete_many(query).deleted_count
+        + legacy_placement_collection.delete_many(query).deleted_count
+    )
 
 
 def _vendor_query(query: Dict[str, Any], vendor: Optional[str]) -> Dict[str, Any]:
@@ -101,10 +113,8 @@ def _vendor_query(query: Dict[str, Any], vendor: Optional[str]) -> Dict[str, Any
     return query
 
 
-def _newest_first(query: Dict[str, Any], projection: Dict[str, Any]) -> List[Dict[str, Any]]:
-    entries = list(history_collection.find(query, projection))
-    entries.sort(key=lambda entry: entry.get("at") or "", reverse=True)
-    return entries
+def _newest_first(entries: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(entries, key=lambda entry: entry.get("at") or "", reverse=True)
 
 
 # --- Placements: the ``assign`` action's seat changes, and the trail the drawer reads ---------
@@ -184,8 +194,18 @@ def record_assignment_run(
 
 def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict[str, Any]]:
     """The placement trail: this market's history narrowed to placements, newest first, each entry
-    in the shape it had before the history widened."""
-    query = _vendor_query({
-        MARKET_ID_FIELD: market_id, "action": ASSIGN.id, "kind": {"$in": list(PLACEMENT_KINDS)},
-    }, vendor)
-    return _newest_first(query, {"_id": 0, **{field: 1 for field in _PLACEMENT_FIELDS}})
+    in the shape it had before the history widened.
+
+    Until a database has run ``migrations/migrate_placement_history.py``, its older entries are
+    still in ``placement_history``, so they are read from there too: without them, between the
+    deploy and the migration, a vendor's History tab would say nobody changed a placement someone
+    did. The two never hold the same entry, because the migration deletes each one it moves.
+    """
+    query = _vendor_query(
+        {MARKET_ID_FIELD: market_id, "kind": {"$in": list(PLACEMENT_KINDS)}}, vendor,
+    )
+    projection = {"_id": 0, **{field: 1 for field in _PLACEMENT_FIELDS}}
+    return _newest_first([
+        *history_collection.find({**query, "action": ASSIGN.id}, projection),
+        *legacy_placement_collection.find(query, projection),
+    ])

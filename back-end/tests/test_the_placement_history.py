@@ -22,6 +22,7 @@ from test_the_placement_endpoint import SETUP_OBJECT, placement
 def history(monkeypatch):
     fake = FakeHistoryCollection()
     monkeypatch.setattr(History, "history_collection", fake)
+    monkeypatch.setattr(History, "legacy_placement_collection", FakeHistoryCollection())
     return fake
 
 

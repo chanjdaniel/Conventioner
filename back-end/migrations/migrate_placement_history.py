@@ -7,10 +7,11 @@ actor, time, kind, vendors and detail - and gains the two fields the wider histo
 (``assign``, the ``E39`` action a placement is) and its subject (the table-day it is about, as
 ``history.placement_subject`` reads it from the detail). The old collection is dropped once empty.
 
-Run it after the release that carries ``history.py`` is deployed, ``--dry-run`` first: until then
-the drawer's History tab shows only the entries written since. Safe to run repeatedly: an entry is
-written by its ``_id`` before it leaves the old collection, so a second run, or one after a run
-that stopped part-way, moves only what is left and doubles nothing.
+Run it after the release that carries ``history.py`` is deployed, ``--dry-run`` first, whenever is
+convenient: that release reads ``placement_history`` beside ``history`` until a later one removes the
+fallback, so the drawer's History tab answers as before either side of it. Safe to run repeatedly:
+an entry is written by its ``_id`` before it leaves the old collection, so a second run, or one
+after a run that stopped part-way, moves only what is left and doubles nothing.
 
 Usage (the production database address passed inline, never from back-end/.env):
     MONGODB_URI='<URI>' python migrations/migrate_placement_history.py [--dry-run]
@@ -21,15 +22,12 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-PLACEMENT_HISTORY_COLLECTION = "placement_history"
-
-
 def migrate_placement_history(db: Any, dry_run: bool = False) -> int:
     """Returns how many entries moved, or would move on a dry run."""
     from api.market_actions import ASSIGN
-    from history import HISTORY_COLLECTION, placement_subject
+    from history import HISTORY_COLLECTION, LEGACY_PLACEMENT_COLLECTION, placement_subject
 
-    old = db[PLACEMENT_HISTORY_COLLECTION]
+    old = db[LEGACY_PLACEMENT_COLLECTION]
     entries = list(old.find({}))
     if dry_run or not entries:
         return len(entries)

@@ -47,6 +47,15 @@ class FakeHistoryCollection:
 def history(monkeypatch):
     fake = FakeHistoryCollection()
     monkeypatch.setattr(History, "history_collection", fake)
+    monkeypatch.setattr(History, "legacy_placement_collection", FakeHistoryCollection())
+    return fake
+
+
+@pytest.fixture
+def placement_history(monkeypatch):
+    """The old ``placement_history`` collection, on a database the migration has not moved yet."""
+    fake = FakeHistoryCollection()
+    monkeypatch.setattr(History, "legacy_placement_collection", fake)
     return fake
 
 
@@ -165,6 +174,51 @@ class TestThePlacementView:
         assert [e["vendors"] for e in History.placement_entries("m1", "W@x.test")] == [
             ["w@x.test"],
         ]
+
+
+class TestThePlacementViewBeforeTheMigration:
+    """Until ``migrate_placement_history.py`` runs, the older entries are still in
+    ``placement_history``, without ``action`` or ``subject``, and the trail reads them as before."""
+
+    def old_entry(self, market_id, at, table_code, vendor="v@x.test"):
+        return {
+            "_id": f"oid-{table_code}", "id": f"old-{table_code}", "market_id": market_id,
+            "actor": "a@x.test", "at": at, "kind": History.FREED, "vendors": [vendor],
+            "detail": {"date": "2026-08-01", "table_code": table_code},
+        }
+
+    def test_both_stores_answer_newest_first_in_the_old_shape(self, history, placement_history):
+        placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "Old 1"))
+        placement_history.insert_one(self.old_entry("m1", "2026-03-01T00:00:00+00:00", "Old 2"))
+        placement_history.insert_one(self.old_entry("m2", "2026-02-01T00:00:00+00:00", "Other"))
+        History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "New 1")
+        history.docs[0]["at"] = "2026-02-01T00:00:00+00:00"
+
+        entries = History.placement_entries("m1")
+
+        assert [e["detail"]["table_code"] for e in entries] == ["Old 2", "New 1", "Old 1"]
+        assert all(
+            set(e) == {"id", "market_id", "actor", "at", "kind", "vendors", "detail"}
+            for e in entries
+        )
+
+    def test_a_vendor_reads_their_old_entries_too(self, history, placement_history):
+        placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))
+        placement_history.insert_one(
+            self.old_entry("m1", "2026-01-02T00:00:00+00:00", "A 2", vendor="w@x.test")
+        )
+
+        assert [e["vendors"] for e in History.placement_entries("m1", "W@x.test")] == [
+            ["w@x.test"],
+        ]
+
+    def test_deleting_a_market_takes_its_unmoved_entries_too(self, history, placement_history):
+        placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))
+        placement_history.insert_one(self.old_entry("m2", "2026-01-01T00:00:00+00:00", "A 2"))
+        History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 3")
+
+        assert History.delete_for_market("m1") == 2
+        assert [e["market_id"] for e in placement_history.docs] == ["m2"]
 
 
 def test_deleting_a_market_takes_every_entry_of_its_history(history):
