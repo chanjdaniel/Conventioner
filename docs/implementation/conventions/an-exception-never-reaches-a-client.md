@@ -89,6 +89,7 @@ describes:
 verified: 2026-10-28
 sources:
   - T74
+  - E38/F06/S01
 ---
 
 # An exception never reaches a client
@@ -182,7 +183,7 @@ A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
 
 So do the applicant, review, import and door routes: every public route an applicant or a vendor at the door calls, the application list, the review's verdicts, selections, next card, claims and follow-up owners, the [CSV start](../modules/csv-proposal-and-start.md)'s proposal and confirm, the [application import](../modules/csv-import.md)'s inspect, preview and import, Publish Results, and [attendance and the door](../modules/attendance-and-door.md).
-None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, and the permission 403s the routes ask themselves.
+None catches anything, and each keeps its literal answers: the applicant's expired session 401, a gated market's answer as absent (decided in the applicants API, unchanged), `Invalid status: <status>`, `csvContent is required`, the import's phase 409 with its `phase`, the permission 403s the routes ask themselves, and the verdict's 403 to someone who may give one but not change it ("Only an Admin or the owner of this market changes a verdict already given.", decided in the applicants API).
 A status a request names is read by `_named_status`, which names none for anything but a status's own string, as `_named_phase` does for a phase.
 A follow-up owner the market does not offer answers its `BadRequestError`, 400; `confirm` in [`back-end/csv_start.py`](../../../back-end/csv_start.py) lets a `ConfirmRefused`, a locked form and a refused plan or form reach the handler as raised; a door write on a market that does not exist, is archived or cannot be read answers what the change loader raises.
 Two lines these routes reach are kept free of an applicant's address for the 500 log: an application that keeps losing its upsert race (`find_or_create_application` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) is named by its market, and an application document that cannot be parsed (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)) logs `parse_failure_detail`, never its answers.

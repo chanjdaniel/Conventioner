@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/application/ApplicationMonitor.vue
   - front-end/src/components/application/ApplicationsAll.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -36,11 +36,12 @@ sources:
   - E34/F04/S01
   - E34/F04/S02
   - T15
+  - E38/F06/S01
 ---
 
 # Reviewing applications
 
-**Who:** the market's Editor, Admin or owner gives verdicts; a Viewer reads the queue with Next and decides nothing; moving the market (I4 to I6) is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
+**Who:** the market's Editor, Admin or owner gives verdicts; changing one already given (I2) is an Admin's or the owner's; a Viewer reads the queue with Next and decides nothing; moving the market (I4 to I6) is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Applications page.
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
@@ -67,18 +68,20 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
-A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); the card then offers its verdicts again only to someone who may change one (I2).
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`.
 
 ## I2. Change a decision
 
-**Status:** Works (walked live; the giver read from the code as of E34/F01/S01).
-"Show N reviewed" lists decided applications by email, each with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change read from the code as of E38/F06/S01).
+"Show N reviewed" lists decided applications by email, each with its verdict and who gave it, and, to an Admin or the owner, "Approve instead" on a rejection or "Reject instead" on an approval.
+A verdict is approved or rejected, and changing one already given, an automatic rejection's included, is an Admin's or the owner's: to an Editor the list says "Only an Admin or the owner of this market changes a verdict already given." once above its rows and offers no change, the All view gives a decided row no tick and its drawer no verdict, and the server refuses one ([what each role may do](../rules/what-each-role-may-do.md)).
+Moving an approved or rejected application back to needs follow-up is changing it too; deciding a follow-up is giving a verdict.
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
-Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it").
+Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it"), `changing-a-verdict-is-an-admins.spec.ts`.
 
 ## The All view
 
@@ -86,9 +89,9 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. Filters: "Any status", "To review", "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; "N of M" says how many show.
-3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs.
+3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on a decided application only to an Admin or the owner, and to an Editor the reason instead (I2).
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
-   A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
+   A row another reviewer has open cannot be ticked, nor, to an Editor, a decided one (I2), and a filter that hides a ticked row unticks it.
    A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
 
@@ -136,7 +139,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [Needs follow-up](../rules/needs-follow-up.md): the third verdict, with an owner.
 - [Automatic rejections](../rules/automatic-rejections.md): the applications a rule rejected arrive decided, with the reason.
 - [Review needs an import](../rules/review-needs-an-import.md): on the Google Form path, Begin Review and Import more responses.
-- [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.
+- [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's; changing a verdict and moves are an Admin's.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 - [Vendor notes](../rules/vendor-notes.md): the card shows the vendor's request among their answers and the notes below them.

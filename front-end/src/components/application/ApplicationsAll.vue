@@ -28,7 +28,7 @@ import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVerdictActions } from '@/utils/verdictActions';
-import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
@@ -147,6 +147,16 @@ const opened = computed(() =>
 
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
 const decides = computed(() => !props.market?.verdictLockReason);
+/**
+ * Why this person may not change a verdict already given (E38/F06/S01), or null: an Editor gives
+ * verdicts and changes none, so a decided application offers them no verdict in the drawer and no
+ * tick in the list; an Admin or the owner changes any.
+ */
+const changeReason = computed(() => props.market?.verdictChangeReason ?? null);
+/** Whether this application takes a verdict from this person: decided, it is a change. */
+function decidesOn(app: Application): boolean {
+  return decides.value && (!changeReason.value || !isDecided(app));
+}
 
 const saving = ref(false);
 const verdictMessage = ref('');
@@ -209,6 +219,15 @@ const selected = ref<Set<string>>(new Set());
 function heldElsewhere(app: Application): string | null {
   const holder = app.heldBy?.email;
   return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+}
+/**
+ * Why this row cannot be ticked, or null: another reviewer has it open, or it is decided and this
+ * person changes no verdict (E38/F06/S01).
+ */
+function untickable(app: Application): string | null {
+  const holder = heldElsewhere(app);
+  if (holder) return `${holder} has it open`;
+  return decidesOn(app) ? null : changeReason.value;
 }
 function toggle(app: Application, ticked: boolean) {
   const next = new Set(selected.value);
@@ -355,10 +374,11 @@ async function decideSelection() {
           type="checkbox"
           class="all-tick"
           :checked="selected.has(app.id)"
-          :disabled="!!heldElsewhere(app)"
+          :disabled="!!untickable(app)"
+          :title="untickable(app) ?? undefined"
           :aria-label="
-            heldElsewhere(app)
-              ? `${app.applicantEmail}: ${heldElsewhere(app)} has it open`
+            untickable(app)
+              ? `${app.applicantEmail}: ${untickable(app)}`
               : `Select ${app.applicantEmail}`
           "
           data-testid="applications-all-tick"
@@ -420,7 +440,14 @@ async function decideSelection() {
             >
           </p>
           <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
-          <div v-if="decides" class="drawer-buttons">
+          <p
+            v-else-if="decides && !decidesOn(opened)"
+            class="all-meta"
+            data-testid="applications-all-drawer-locked"
+          >
+            {{ changeReason }}
+          </p>
+          <div v-if="decidesOn(opened)" class="drawer-buttons">
             <button
               type="button"
               class="btn btn--destructive btn--compact"

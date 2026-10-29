@@ -157,11 +157,12 @@ export function parseMarketFromApi(market: any): Market {
     // says it reached. Undefined on a read that does not carry it, such as the list.
     phasesReached: market.phasesReached,
     phaseRecordComplete: market.phaseRecordComplete,
-    // Why this person cannot change this market, take its admin actions or give verdicts; null
-    // while they can (E26/F06/S01, E26/F08/S01, E34).
+    // Why this person cannot change this market, take its admin actions, give verdicts or change
+    // one; null while they can (E26/F06/S01, E26/F08/S01, E34, E38/F06/S01).
     readOnlyReason: market.readOnlyReason,
     adminActionsReason: market.adminActionsReason,
     verdictLockReason: market.verdictLockReason,
+    verdictChangeReason: market.verdictChangeReason,
     // What would refuse each move open from the phase, keyed by phase (E31/F02/S01), and why the
     // setup can no longer change (E31/F01/S02). Dropped here, the rail offered every move as before.
     transitionBlockers: market.transitionBlockers,

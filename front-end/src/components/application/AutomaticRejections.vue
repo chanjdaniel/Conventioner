@@ -66,7 +66,7 @@ function toggle(key: string, answer: string, rejects: boolean) {
   <div class="rejections" data-testid="automatic-rejections">
     <p class="rejections-help">
       An application that gives one of these answers arrives in review already rejected, with the
-      reason. A reviewer can overturn it, and the applicant never sees the reason.
+      reason. An Admin or the owner can overturn it, and the applicant never sees the reason.
     </p>
     <p v-if="lockReason" class="rejections-locked" data-testid="rejection-rules-locked">
       {{ lockReason }}

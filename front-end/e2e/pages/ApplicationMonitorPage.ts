@@ -31,6 +31,7 @@ export class ApplicationMonitorPage {
   readonly decidedToggle: Locator;
   readonly decidedRows: Locator;
   readonly decidedEmails: Locator;
+  readonly decidedLocked: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -51,6 +52,7 @@ export class ApplicationMonitorPage {
     this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
+    this.decidedLocked = page.getByTestId('app-monitor-decided-locked');
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */
@@ -106,11 +108,21 @@ export class ApplicationMonitorPage {
     await this.waitForReviewed(applicantEmail, 'Rejected', before);
   }
 
+  /** One applicant's row in the reviewed list. */
+  decidedRow(applicantEmail: string): Locator {
+    return this.decidedRows.filter({
+      has: this.page.getByTestId('app-monitor-decided-email').getByText(applicantEmail),
+    });
+  }
+
   /** The verdict recorded for one applicant, read from the reviewed list. */
   decidedStatusOf(applicantEmail: string): Locator {
-    return this.decidedRows
-      .filter({ has: this.page.getByTestId('app-monitor-decided-email').getByText(applicantEmail) })
-      .getByTestId('app-monitor-decided-status');
+    return this.decidedRow(applicantEmail).getByTestId('app-monitor-decided-status');
+  }
+
+  /** "Approve instead" or "Reject instead" on one applicant's row: changing a verdict. */
+  insteadOf(applicantEmail: string, verdict: 'approve' | 'reject'): Locator {
+    return this.decidedRow(applicantEmail).getByTestId(`app-monitor-decided-${verdict}-button`);
   }
 
   /** The applicants still awaiting a verdict, gathered by walking the queue once. */

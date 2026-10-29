@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
@@ -16,11 +16,12 @@ sources:
   - E33/F03
   - E33/F03/S01
   - E33/F03/S02
+  - E38/F06/S01
 ---
 
 # Automatic rejections
 
-An organizer may name answers that reject an application: an application that gives one arrives in review already rejected, with the answer as its reason, and a reviewer may overturn it.
+An organizer may name answers that reject an application: an application that gives one arrives in review already rejected, with the answer as its reason, and an Admin or the owner may overturn it.
 A rule's rejection is a real one, but it never touches a verdict a person gave, and its reason is the organizer's, never the applicant's.
 
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
@@ -28,7 +29,8 @@ A rule's rejection is a real one, but it never touches a verdict a person gave, 
 ## Why
 
 A real market rejects every applicant who will not agree to its no-show terms, or who is not one of the affiliations it accepts, and each of those was a manual rejection, one card at a time.
-A rule does that work and says why on the card, so a reviewer spends their attention where judgement is needed and can still disagree.
+A rule does that work and says why on the card, so a reviewer spends their attention where judgement is needed, and an Admin or the owner can still disagree.
+A rule's rejection is a verdict already given, so overturning it is changing a verdict, which is theirs alone ([what each role may do](what-each-role-may-do.md)); an Editor reads it and its reason.
 
 **A rule names one choice question and the answers to it that reject.**
 The question is one of the organizer's own selects, multi-selects or checkboxes, or an essential choice the market asks: the table choice, or the available dates.
@@ -47,7 +49,7 @@ An applicant can change their answers only while applications are open, so a rej
 Every write is conditioned on the application being as it was read, so a reviewer's verdict that lands in between is never overwritten ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 
 **The reason is the organizer's.**
-The review says "Rejected automatically: <reason>", and "Approve instead" overturns it, the verdict becoming the reviewer's; the applicant reads "Submitted" whatever a rule decided ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)), since a rule judges an application in the request that saves it, and anything more would tell them the moment they submitted.
+The review says "Rejected automatically: <reason>", and "Approve instead", offered to an Admin or the owner, overturns it, the verdict becoming theirs; the applicant reads "Submitted" whatever a rule decided ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)), since a rule judges an application in the request that saves it, and anything more would tell them the moment they submitted.
 
 **The rules are served as they stand against the current form**: a rule on a question the form no longer asks, or an answer it no longer offers, is left out of what the market read serves and of the next save, so a form change never makes the list unsavable.
 

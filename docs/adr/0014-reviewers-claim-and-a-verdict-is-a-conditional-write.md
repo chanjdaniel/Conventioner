@@ -7,7 +7,7 @@ describes:
   - back-end/api/applications.py#CLAIM_LEASE
   - back-end/api/applicants.py#review_selection
   - front-end/src/utils/reviewClaims.ts
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#11
   - brain-dump/2026-10-19#23
@@ -15,6 +15,7 @@ sources:
   - E34/F03/S01
   - E34/F03/S02
   - E34/F04/S02
+  - E38/F06/S01
 status: accepted
 ---
 
@@ -52,6 +53,8 @@ A verdict on a selection (`review_selection` in [`back-end/api/applicants.py`](.
 
 - Every writer of an application's status that may race a reviewer must pass what it read; one that writes unconditionally can overwrite a verdict silently again.
   An application is stored with `verdict_at: null` until its first verdict, and the condition reads null and absent alike.
+- Changing a verdict is an Admin's or the owner's (E38/F06/S01, [what each role may do](../business/rules/what-each-role-may-do.md)), and the same write carries that rule too: for a reviewer who gives verdicts but changes none, `unless_decided` matches only an application that is not approved or rejected, so a verdict that lands between their read and their write is refused as a change would be, and named like any other.
+  A selection skips a decided row for them with the reason, before any write.
 - The claim is advisory: a reviewer can still be refused a verdict, so the review must always be able to show the application as it now stands.
 - A card left idle for five minutes can be handed to another reviewer; the first reviewer's verdict on it is still taken, unless the other has changed it since, when it is refused like any other.
 - The organizer's view serves `heldBy` while a claim stands, so the All view names the holder on the row, refuses to tick it, and reads the list again every 30 seconds while the tab is in view.

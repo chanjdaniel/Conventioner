@@ -278,6 +278,12 @@ export interface Market {
    */
   verdictLockReason?: string | null;
   /**
+   * Why the person reading cannot change a verdict already given - approved or rejected - or null
+   * while they can (E38/F06/S01): an Editor gives verdicts and changes none; an Admin or the owner
+   * changes them, automatic rejections included. Set whenever `verdictLockReason` is.
+   */
+  verdictChangeReason?: string | null;
+  /**
    * Why the person reading cannot add a vendor who never applied, or null while they can
    * (E36/F03/S01): below EDITOR, or outside the assignment and market days.
    */

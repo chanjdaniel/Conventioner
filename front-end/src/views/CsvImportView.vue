@@ -1256,7 +1256,8 @@ function startOver() {
         </h2>
         <p v-if="rejectedByRules" class="import-note" data-testid="import-result-rejected-note">
           {{ rejectedByRules }} {{ rejectedByRules === 1 ? 'was' : 'were' }} rejected by your
-          automatic rejections, each with its reason; a reviewer can overturn any of them.
+          automatic rejections, each with its reason; an Admin or the owner can overturn any of
+          them.
         </p>
         <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
           {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}

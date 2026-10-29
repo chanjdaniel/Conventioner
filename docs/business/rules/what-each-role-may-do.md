@@ -4,11 +4,13 @@ kind: rule
 describes:
   - back-end/api/markets.py#change_refusal
   - back-end/api/markets.py#admin_actions_refusal
+  - back-end/api/markets.py#verdict_change_refusal
   - back-end/api/markets.py#add_market_role
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/tests/test_an_organizations_admins_run_its_markets.py
+  - back-end/tests/test_changing_a_verdict_is_an_admins.py
   - back-end/utils/identity.py
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -17,11 +19,12 @@ sources:
   - E07
   - T15
   - decision/2026-10-20
+  - E38/F06/S01
 ---
 
 # What each role may do
 
-A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
+A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights and the automatic rejections, gives verdicts, and checks vendors in; an Admin or the owner also changes a verdict already given, moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
 Each screen offers each person only what their role lets them do, and the server decides it.
 
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
@@ -32,6 +35,8 @@ A Viewer was once shown every editing control, and each edit appeared to work un
 A control the write would refuse is a control that lies, so the market read says, per person, what each write would answer.
 An Editor works on the market (the plan, the seats, the review) but takes none of the actions that move it or bring people in or tell them: a phase move puts a public page on or off the air, publishing results tells applicants, an import adds applicants.
 A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdict records who gave it.
+Changing one is an Admin's or the owner's (E38/F06/S01): a verdict is approved or rejected, and once given it is the team's decision, so an Editor who gives first verdicts cannot turn another reviewer's approval into a rejection, nor overturn an automatic rejection.
+Moving an application out of open or needs follow-up into approved or rejected is giving a verdict; moving an approved or rejected one back to needs follow-up is changing one, a reading of the QC walk that decided the rest and may still be revisited.
 An organization's admins run its markets ([the decision of 2026-10-20](../../records/DECISION_2026-10-20.md)): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
 
 ## Who may
@@ -39,8 +44,8 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | Role | May |
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV export, the floorplan export, attendance and the placement history |
-| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, running the assignment and placing, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
-| Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
+| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, running the assignment and placing, swapping or freeing a seat, highlights, automatic rejections, verdicts on open applications and follow-ups, follow-ups, vendor notes, check-ins at the door |
+| Admin | everything an Editor may, and changing a verdict already given (an automatic rejection's included), phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 Whoever creates a market is its owner, and a market has exactly one.
@@ -66,6 +71,8 @@ See [the organization document](../../implementation/data/organization-document.
 - The market read serves two per-person reasons, asked through the same `user_has_permission` the writes ask ([`back-end/api/markets.py`](../../../back-end/api/markets.py)):
   `readOnlyReason` (`change_refusal`: archived, or below EDITOR) and `adminActionsReason` (`admin_actions_refusal`: that, or below ADMIN).
   The verdicts' reason (`verdictLockReason`), adding a vendor's (`addVendorReason`) and publishing's (`publishResultsReason`) are built on them.
+  Changing a verdict's (`verdictChangeReason`, `verdict_change_refusal`) is `verdictLockReason`, or below ADMIN: "Only an Admin or the owner of this market changes a verdict already given."
+  The verdict writes ask it of each application as they write it, since only its stored status says whether the write is a change: one approved or rejected is answered 403 with it, or skipped with it from a selection, and the write itself refuses a decided application for that reviewer (`unless_decided` on [the application document](../../implementation/data/application-document.md#statuses)), so a verdict landing in between is never written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.
@@ -75,10 +82,12 @@ See [the organization document](../../implementation/data/organization-document.
 - **Adding a person never changes a role.**
   `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's two answers.
+- [`back-end/tests/test_changing_a_verdict_is_an_admins.py`](../../../back-end/tests/test_changing_a_verdict_is_an_admins.py) pins giving and changing per role and transition, an automatic rejection included; `changing-a-verdict-is-an-admins.spec.ts` walks an Editor offered no change on any review screen and an Admin changing one.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - A follow-up's owner is anyone with a role on the market by this rule, explicit or through its organization, members included ([needs follow-up](needs-follow-up.md)).
 
 ## Superseded
 
 Verdicts were an admin action, served on `adminActionsReason`; they and follow-ups drop to an Editor, and phase moves stay an Admin's (brain-dump/2026-10-19#22, E34/F01/S01).
+One gate then covered giving and changing a verdict, so an Editor was offered "Approve instead" on any rejection; changing one became an Admin's or the owner's (E38/F06/S01).
 Organization membership gave only Viewer on its markets, even to its owner and admins, and a role on the market replaced the organization's rather than adding to it; an organization's owner and admins became Admin, and the higher role counts (T15, decision/2026-10-20).

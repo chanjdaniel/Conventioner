@@ -21,6 +21,7 @@ sources:
   - E34/F02/S01
   - E34/F03/S02
   - E36/F03/S01
+  - E38/F06/S01
 ---
 
 # The application document
@@ -83,6 +84,7 @@ The applicant never reads a status: their page reads "Submitted" until results a
 `update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
 Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
 Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+With `unless_decided` it writes only on an application that is not `reviewer_approved` or `reviewer_rejected` (`is_decided`), for a reviewer who may give a verdict but not change one ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).

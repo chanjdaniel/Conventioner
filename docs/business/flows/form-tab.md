@@ -21,6 +21,7 @@ sources:
   - E32/F02/S01
   - E33/F01/S02
   - T15
+  - E38/F06/S01
 ---
 
 # Building the application form
@@ -76,7 +77,7 @@ Covered by: `application-form.spec.ts`.
 
 **Status:** Works (walked live; the Review setup step and the automatic rejections read from the code as of E33/F01 and E33/F03/S01, and `automatic-rejections.spec.ts`).
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
-Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. A reviewer can overturn it, and the applicant never sees the reason."
+Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason."
 The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
 Covered by: `review-highlights.spec.ts`, `automatic-rejections.spec.ts`.
 
