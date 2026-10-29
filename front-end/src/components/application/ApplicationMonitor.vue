@@ -38,7 +38,9 @@ import { useMarketStore } from '@/stores/market';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
+import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
@@ -660,7 +662,14 @@ function submittedOn(app: Application): string {
         <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
           <template v-for="answer in leading" :key="answer.key">
             <dt>{{ answer.label }}</dt>
-            <dd><AnswerValue :value="answer.value" /></dd>
+            <dd :data-testid="`app-monitor-answer-${answer.key}`">
+              <AnswerValue :value="answer.value" />
+              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
+              <AnswerUpdateNote
+                :update="updateOf(current, answer.key)"
+                :testid="`app-monitor-answer-${answer.key}`"
+              />
+            </dd>
           </template>
         </dl>
 
@@ -687,7 +696,14 @@ function submittedOn(app: Application): string {
           <dl class="answers">
             <template v-for="answer in rest" :key="answer.key">
               <dt>{{ answer.label }}</dt>
-              <dd><AnswerValue :value="answer.value" /></dd>
+              <dd :data-testid="`app-monitor-answer-${answer.key}`">
+                <AnswerValue :value="answer.value" />
+                <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
+                <AnswerUpdateNote
+                  :update="updateOf(current, answer.key)"
+                  :testid="`app-monitor-answer-${answer.key}`"
+                />
+              </dd>
             </template>
           </dl>
         </details>
@@ -695,7 +711,14 @@ function submittedOn(app: Application): string {
         <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
           <template v-for="answer in rest" :key="answer.key">
             <dt>{{ answer.label }}</dt>
-            <dd><AnswerValue :value="answer.value" /></dd>
+            <dd :data-testid="`app-monitor-answer-${answer.key}`">
+              <AnswerValue :value="answer.value" />
+              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
+              <AnswerUpdateNote
+                :update="updateOf(current, answer.key)"
+                :testid="`app-monitor-answer-${answer.key}`"
+              />
+            </dd>
           </template>
         </dl>
         <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
