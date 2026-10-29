@@ -470,7 +470,7 @@ class TestPlacingTables:
         response = _place(sign_in(email))
 
         assert response.status_code == 403
-        assert response.get_json() == {"error": Actions.refusal_sentence(Actions.ASSIGN)}
+        assert response.get_json() == {"error": Actions.refusal_sentence(Actions.CHANGE_SETUP)}
         assert placements == []
 
     def test_an_archived_market_is_refused(self, sign_in, market, placements):

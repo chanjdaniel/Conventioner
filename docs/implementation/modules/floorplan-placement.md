@@ -55,7 +55,7 @@ A route checks access right after it has read the id it is checked by, before th
 | Route | Needs | Archived market |
 | --- | --- | --- |
 | `POST /floorplans/upload` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
-| `POST /floorplans/place-tables` | the Assignment row (EDITOR) on the `market_id` sent | refused |
+| `POST /floorplans/place-tables` | Change Market Setup (EDITOR) on the `market_id` sent | refused |
 | `DELETE /floorplans/<id>` | Change Market Setup (EDITOR) on the image's market | refused |
 | `POST /floorplans/analyze` | Change Market Setup (EDITOR) on the image's market | refused |
 | `POST /floorplans/calibrate` ([`floorplans_calibrate.py`](../../../back-end/api/floorplans_calibrate.py)) | Change Market Setup (EDITOR) on the image's market | refused |

@@ -73,7 +73,7 @@ def place_tables():
         if not data:
             return jsonify({"error": "Request body must be valid JSON"}), 400
 
-        refusal = market_refusal(string_field(data, "market_id"), Actions.ASSIGN, edits=True)
+        refusal = market_refusal(string_field(data, "market_id"), Actions.CHANGE_SETUP, edits=True)
         if refusal:
             return refusal
 

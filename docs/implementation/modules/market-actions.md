@@ -45,7 +45,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | --- | --- | --- |
 | Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, tables, placement history, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv` |
-| Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market` |
+| Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
 | Amend a locked form (`amend-form`) | Admin | the three `/markets/:id/application-form/amendment` routes |
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
@@ -54,7 +54,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results` |
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
-| Run the assignment, change its rules, and place, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, `POST /floorplans/place-tables`, and a plan write that changes the assignment rules |
+| Run the assignment, change its rules, and place, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
