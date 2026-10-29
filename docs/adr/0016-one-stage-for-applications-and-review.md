@@ -49,7 +49,7 @@ It is named by the intake path, never stored twice: "Review" on a Google Form ma
 - Verdicts are open from the first application to Begin Assignment on both paths, as they already were; the phase gate on verdicts the walk first planned for the Google Form path was not built.
 - The deploy that ships this runs the migration first: the build before it reads `applications` as an unknown phase, and this one the old three, and either degrades an unknown phase to archived, read-only ([`docs/RELEASING.md`](../RELEASING.md#pre-deploy-database-migrations)).
 
-What the organizer meets of it: [the lifecycle](../business/flows/lifecycle.md), [taking applications](../business/flows/taking-applications.md), [reviewing applications](../business/flows/review.md) and [review needs an import](../business/rules/review-needs-an-import.md).
+What the organizer meets of it: [the lifecycle](../business/flows/lifecycle.md), [taking applications](../business/flows/taking-applications.md), [reviewing applications](../business/flows/review.md), [review needs an import](../business/rules/review-needs-an-import.md) and [verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md).
 
 ## Considered and rejected
 

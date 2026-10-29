@@ -31,8 +31,8 @@ A market's application form may be edited only while the market is a draft and n
 An applicant answers the form as it stands; a question that moved after they answered would leave their answer meaning something they never said, or a required answer they were never asked.
 The form is editable in `draft` alone, and the way back to draft (`applications -> draft`) is open only while no application exists (`NoApplicationsYetGuard`).
 That guard is not redundant with the lock: the lock runs when the form is written, the guard when the market moves, and applicant submission is gated to `applications`, so a count of zero is stable in `draft` and a race while applications are open; gating the going back is what makes the lock race-free.
-A form found wrong after leaving draft, while nobody has applied, is fixed through [the form amendment](../../implementation/modules/form-amendment.md), which walks the market back to draft and forward again; after the first application nothing changes it.
-A Google Form market's first import runs in draft, so the import fixes its form there, before the first application, and moves no phase to do it.
+A form found wrong after leaving draft, while nobody has applied, is fixed by Reopen for Editing; after the first application nothing changes it.
+A Google Form market's first import runs in draft, so the import fixes its form there through [the form amendment](../../implementation/modules/form-amendment.md), before the first application, and moves no phase to do it.
 Writing a question in place from the import, while applications are open, was rejected: it carries the same race, and it would be a second writer of the form.
 
 ## Where it is kept
@@ -52,4 +52,4 @@ Writing a question in place from the import, while applications are open, was re
 ## Superseded
 
 The way back to draft was first paired with a dead end in the import: a column the organizer wanted to keep said it had nowhere to go and told them to return the market to draft themselves, the price accepted for one writer and no race (wayfinding/real-market-readiness/05).
-The form amendment now takes that walk for them from inside the import, still writing the form only in draft and only through its one judgement (E20/F03).
+The form amendment then took that walk for them from inside the import, writing the form only in draft (E20/F03); since the first import runs in draft, it writes the form there with no walk at all (E38/F04/S01).

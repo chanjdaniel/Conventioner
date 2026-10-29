@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05

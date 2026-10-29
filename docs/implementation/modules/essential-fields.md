@@ -7,7 +7,7 @@ describes:
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/v0-1-0/map
@@ -75,6 +75,7 @@ The plan itself settles earlier still, on leaving draft.
 Every layer that asks "does this market have a form?" counts the essential questions as well as the custom fields: `FormHasFieldsGuard` in [`back-end/guards.py`](../../../back-end/guards.py), which keeps a market from opening applications, and `_asks_nothing` in [`back-end/application_write.py`](../../../back-end/application_write.py), which refuses an application to a market that asks nothing.
 When `_asks_nothing` counted custom fields alone, a market could open applications and then refuse every application it received, by import and by applicant alike.
 Both read `plan_derived_asked_keys`, the asked questions less the name, preferred name and request: those are asked unconditionally, so counting them would leave both unable to say no, and a market whose plan offers nothing to apply for is still refused.
+The applicant's form reads its front-end mirror, `planDerivedAskedKeys`, so a market asking the essential questions alone offers its form and its Save; it once told vendors it had no form.
 `_normalized_application_form` stores a form with no custom fields ([the market document](../data/market-document.md#the-fields-that-matter)).
 
 ## The reserved prefix
