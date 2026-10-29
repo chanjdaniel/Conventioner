@@ -22,6 +22,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 def migrate_placement_history(db: Any, dry_run: bool = False) -> int:
     """Returns how many entries moved, or would move on a dry run."""
     from api.market_actions import ASSIGN
