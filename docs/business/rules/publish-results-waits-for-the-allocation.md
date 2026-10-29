@@ -54,6 +54,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.
 - `ResultsPublishedGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
 - `back-end/tests/test_publishing_settles_the_assignment.py` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it; a seed that publishes a `form` market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
+- Publishing is recorded in [the market's history](../../implementation/data/history.md) (`publish-results`), with who published.
 
 ## Superseded
 
