@@ -55,6 +55,9 @@ def _fixtures():
          "phase": "applications_closed"},
         {"_id": 4, "id": "m4", "name": "Fixture Review", "intakeMode": "csv", "phase": "review",
          "phaseHistory": [_entry("draft"), _entry("applications_open"), _entry("review")]},
+        {"_id": 7, "id": "m7", "name": "Fixture Form Review", "intakeMode": "form",
+         "phase": "review", "phaseHistory": [_entry("draft"), _entry("applications_open"),
+                                             _entry("applications_closed"), _entry("review")]},
         {"_id": 5, "id": "m5", "name": "Fixture Archived", "intakeMode": "form", "phase": "archived",
          "phaseHistory": [_entry("draft"), _entry("review"), _entry("assignment"), _entry("archived")]},
         {"_id": 6, "id": "m6", "name": "Fixture Draft", "intakeMode": "form", "phase": "draft",
@@ -77,7 +80,7 @@ def test_every_market_in_an_old_phase_enters_the_stage():
     migrate(db)
 
     markets = _by_id(db.markets)
-    assert [markets[m]["phase"] for m in ("m1", "m2", "m3", "m4")] == ["applications"] * 4
+    assert [markets[m]["phase"] for m in ("m1", "m2", "m3", "m4", "m7")] == ["applications"] * 5
     assert markets["m5"]["phase"] == "archived"
     assert markets["m6"]["phase"] == "draft"
 
@@ -89,6 +92,8 @@ def test_a_closed_form_market_keeps_refusing_new_applications():
 
     markets = _by_id(db.markets)
     assert markets["m2"]["applicationsStopped"] is True
+    # A form market reached review only through the closed phase, so its form was closed too.
+    assert markets["m7"]["applicationsStopped"] is True
     # A Google Form market has no application page to stop, and an open one keeps taking them.
     assert "applicationsStopped" not in markets["m3"]
     assert "applicationsStopped" not in markets["m1"]
@@ -114,12 +119,12 @@ def test_the_dry_run_counts_each_old_phase_and_writes_nothing(capsys):
 
     assert db.markets.docs == before
     assert {phase: counts[phase] for phase in OLD_PHASES} == {
-        "applications_open": 1, "applications_closed": 2, "review": 1,
+        "applications_open": 1, "applications_closed": 2, "review": 2,
     }
-    assert counts["stopped"] == 1
+    assert counts["stopped"] == 2
     assert counts["history_only"] == 1
     out = capsys.readouterr().out
-    assert "Would move 4 market(s) into applications" in out
+    assert "Would move 5 market(s) into applications" in out
     assert "Fixture Closed Form: applications_closed -> applications (not taking applications)" in out
 
 

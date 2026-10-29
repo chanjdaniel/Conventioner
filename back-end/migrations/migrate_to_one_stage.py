@@ -10,8 +10,10 @@ What it writes, each market in one update conditional on the phase it read:
 
 - ``phase: "applications"`` for a market in any of the three old phases;
 - ``applicationsStopped: true`` for a market whose vendors apply on its page and that stood in
-  ``applications_closed``: closing applications is now a fact about the form inside the stage
-  (E38/F04/S02), so it keeps refusing new applications while its review goes on;
+  ``applications_closed`` or ``review``: such a market reached ``review`` only through
+  ``applications_closed``, so its form was closed in both, and closing applications is now a fact
+  about the form inside the stage (E38/F04/S02), so it keeps refusing new applications while its
+  review goes on;
 - every phase-history entry naming an old phase renamed ``applications``, on every market, so the
   rail reads how far an archived market got from names it knows.
 
@@ -36,6 +38,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 OLD_PHASES = ("applications_open", "applications_closed", "review")
 STAGE = "applications"
+#: The old phases an own-form market's form was closed in: ``review`` was reached only through
+#: ``applications_closed``.
+CLOSED_PHASES = ("applications_closed", "review")
 
 
 def _history(doc: Dict[str, Any]) -> List[Any]:
@@ -57,7 +62,7 @@ def change_for(doc: Dict[str, Any]) -> Dict[str, Any]:
     phase = doc.get("phase")
     if phase in OLD_PHASES:
         change["phase"] = STAGE
-        if phase == "applications_closed" and doc.get("intakeMode") == "form":
+        if phase in CLOSED_PHASES and doc.get("intakeMode") == "form":
             change["applicationsStopped"] = True
     history = _history(doc)
     renamed = _renamed(history)
