@@ -67,7 +67,7 @@ The answer carries the vendors' names against their addresses, so the trail read
 `market_id` is a [lookup index](lookup-indexes.md).
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
-The organizer reads the placements as [the placement history](../../business/flows/placing-by-hand.md#j13-assignment-history).
+The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
 
 ## The move from `placement_history`
 
