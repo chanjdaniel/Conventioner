@@ -4,8 +4,10 @@ kind: module
 describes:
   - back-end/api/market_actions.py
   - back-end/api/permissions.py#user_has_permission
+  - back-end/api/permissions.py#role_reaches
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
+  - back-end/api/markets.py#ARCHIVED_STILL_TAKES
   - back-end/api/markets.py#deprecated_screen_reasons
   - back-end/tests/test_every_screen_asks_the_table.py
 verified: 2026-10-29
