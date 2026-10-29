@@ -740,8 +740,7 @@ function swapSeats(withEmail: string): void {
 .status-message {
   padding: var(--space-12) 0;
   text-align: center;
-  color: var(--mm-black);
-  opacity: 0.7;
+  color: var(--mm-text-muted);
 }
 
 .empty-state {
