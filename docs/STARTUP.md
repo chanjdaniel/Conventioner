@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-27
+verified: 2026-10-30
 ---
 
 # Conventioner - Development Startup Guide
@@ -567,6 +567,12 @@ It is **optional**, and nothing in the product calls it: the floorplan wizard dr
 
 Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`.
 If neither key is set, the endpoint answers with an error and nothing else changes.
+
+### Discord Setup (Optional)
+
+The Discord card on Market Setup connects a market to a Discord server through Conventioner's bot ([the Discord connection](implementation/modules/discord.md)).
+It is **optional**: without its values the card says Discord is not set up, and nothing else changes.
+To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` from the Discord Developer Portal in the root `.env` (forwarded by `docker-compose.yml`), and add `http://127.0.0.1:5173/discord/connected` to the application's OAuth2 redirects.
 
 ### Backend Structure
 

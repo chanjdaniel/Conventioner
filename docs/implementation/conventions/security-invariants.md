@@ -25,7 +25,7 @@ describes:
   - docker-compose.yml
   - scripts/real_data_check.py
   - .githooks/
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - T74
   - T84

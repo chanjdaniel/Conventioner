@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-10-28
+verified: 2026-10-30
 ---
 # Technology Stack
 
