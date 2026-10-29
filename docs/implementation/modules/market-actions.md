@@ -71,7 +71,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 ## What the screens read
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
-`get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and costs one user read rather than one per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
+`get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage on the row that gives roles.
 
