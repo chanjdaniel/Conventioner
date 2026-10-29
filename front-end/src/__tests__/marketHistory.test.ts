@@ -41,7 +41,7 @@ function sentence(overrides: Partial<MarketHistoryEntry>, labels = {}): string {
 }
 
 describe('what an entry says', () => {
-  it('words a move from one seat to another', () => {
+  it('words a move from one table to another', () => {
     expect(
       sentence({
         detail: {
@@ -56,13 +56,13 @@ describe('what an entry says', () => {
     );
   });
 
-  it('words a placement with no seat left, or none known, without a "from"', () => {
-    const placed = { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' };
-    expect(sentence({ detail: { ...placed, before: null } })).toBe(
-      'dana@ember.test placed [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
+  it('words an assignment with no table left, or none known, without a "from"', () => {
+    const assigned = { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' };
+    expect(sentence({ detail: { ...assigned, before: null } })).toBe(
+      'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
     );
-    expect(sentence({ detail: placed })).toBe(
-      'dana@ember.test placed [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
+    expect(sentence({ detail: assigned })).toBe(
+      'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
     );
   });
 
@@ -183,13 +183,13 @@ describe('what an entry opens to', () => {
     });
   });
 
-  it('shows a placement’s seat left and seat taken, or that the seat left is unknown', () => {
+  it('shows an assignment’s table left and table taken, or that the table left is unknown', () => {
     expect(
       entryChanges(entry({ detail: { date: '2026-11-19', table_code: 'B7', before: null } }))
         .changed,
-    ).toEqual([{ field: 'Seat', before: 'none', after: 'B7' }]);
+    ).toEqual([{ field: 'Table', before: 'none', after: 'B7' }]);
     expect(entryChanges(entry({ detail: { table_code: 'B7' } })).changed).toEqual([
-      { field: 'Seat', before: 'unknown', after: 'B7' },
+      { field: 'Table', before: 'unknown', after: 'B7' },
     ]);
   });
 

@@ -15,7 +15,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  * Every change on a market, read in Manage market's History section (E40/F01/S03).
  *
  * The changes are made the way the screens make them, through the API, on a fixture market: a
- * setup change and a run of renames in draft, a verdict in review, a seat placed by hand in
+ * setup change and a run of renames in draft, a verdict in review, a table assigned by hand in
  * assignment, and a colleague given a role and then a different one. The section reads them back
  * newest first, each a sentence, a page at a time.
  */
@@ -118,7 +118,7 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
     `${me} changed ${COLLEAGUE.email} from Editor to Viewer`,
     `${me} gave ${COLLEAGUE.email} the Editor role`,
     expect.stringMatching(
-      new RegExp(`^${me} placed ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`),
+      new RegExp(`^${me} assigned ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`),
     ),
     `${me} moved the market from Review to Assignment`,
     `${me} set ${VENDOR} to Approved`,
@@ -127,7 +127,7 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
 
   // Older entries come beneath the newest, in the same open dialog.
   await manage.historyLoadMore.click();
-  // The form, the setup change, the renames, four phase moves, the verdict, the seat, two roles.
+  // The form, the setup change, the renames, four phase moves, the verdict, the assignment, two roles.
   await expect(manage.historySentences).toHaveCount(2 + RENAMES + 4 + 1 + 1 + 2);
   const all = await manage.historySentences.allInnerTexts();
   expect(all.slice(-2)).toEqual([
@@ -158,7 +158,7 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
   await manage.historyKind.selectOption('');
   await manage.historyVendor.fill(VENDOR);
   await expect(manage.historySentences).toHaveCount(2);
-  await expect(manage.historySentences.first()).toContainText(`placed ${VENDOR}`);
+  await expect(manage.historySentences.first()).toContainText(`assigned ${VENDOR}`);
   await expect(manage.historySentences.last()).toContainText('to Approved');
 
   // Who may be narrowed to is whoever changed something here: the colleague only received.

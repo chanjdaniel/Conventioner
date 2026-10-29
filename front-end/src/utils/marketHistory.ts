@@ -4,7 +4,8 @@
  * The back end stores each entry structured - the table's action, a finer kind, the vendors, a
  * subject and a detail of the fields before and after (`back-end/history.py`,
  * `docs/implementation/data/history.md`) - and the wording is here, so a sentence can change
- * without a migration or a back-end release, as `placementHistory.ts` words the placements.
+ * without a migration or a back-end release, as `placementHistory.ts` words the assignment
+ * history. The organizer's words: assign and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { getRoleDisplayName } from '@/utils/permissions';
@@ -55,7 +56,7 @@ function day(value: unknown): string {
   return value ? getShortDate(String(value)) : '';
 }
 
-function seat(value: unknown): string {
+function table(value: unknown): string {
   const at = asDetail(value);
   const code = str(at.table_code);
   return at.table_choice ? `${code} (${str(at.table_choice)})` : code;
@@ -105,11 +106,11 @@ export function entryParts(
   switch (`${entry.action}/${entry.kind ?? ''}`) {
     case 'assign/placed': {
       const on = onDay(detail.date);
-      const to = seat(detail);
-      if (detail.before && seat(detail.before) !== to) {
-        return [actor, text('moved '), vendor, text(` from ${seat(detail.before)} to ${to}${on}`)];
+      const to = table(detail);
+      if (detail.before && table(detail.before) !== to) {
+        return [actor, text('moved '), vendor, text(` from ${table(detail.before)} to ${to}${on}`)];
       }
-      return [actor, text('placed '), vendor, text(` at ${to}${on}`)];
+      return [actor, text('assigned '), vendor, text(` at ${to}${on}`)];
     }
     case 'assign/freed':
       return [
@@ -147,7 +148,7 @@ export function entryParts(
       return [
         actor,
         text(
-          `ran the assignment: ${plural(written, 'placement', 'placements')} written` +
+          `allocated tables: ${plural(written, 'assignment', 'assignments')} written` +
             (pins ? `, ${plural(pins, 'pin', 'pins')} kept` : ''),
         ),
       ];
@@ -331,8 +332,8 @@ export interface RecordedField {
 
 /**
  * What an entry opens to: the fields the change set, before and after, and whatever else it
- * recorded. A placement's seat is its before and after: the seat left, when the entry knows it,
- * and the seat taken.
+ * recorded. An assignment's table is its before and after: the table left, when the entry knows
+ * it, and the table taken.
  */
 export function entryChanges(entry: MarketHistoryEntry): {
   changed: ChangedField[];
@@ -340,9 +341,9 @@ export function entryChanges(entry: MarketHistoryEntry): {
 } {
   const detail = asDetail(entry.detail);
   if (entry.action === 'assign' && entry.kind === 'placed') {
-    const left = 'before' in detail ? (detail.before ? seat(detail.before) : 'none') : 'unknown';
+    const left = 'before' in detail ? (detail.before ? table(detail.before) : 'none') : 'unknown';
     return {
-      changed: [{ field: 'Seat', before: left, after: seat(detail) }],
+      changed: [{ field: 'Table', before: left, after: table(detail) }],
       recorded: detail.date ? [{ field: 'Date', value: day(detail.date) }] : [],
     };
   }

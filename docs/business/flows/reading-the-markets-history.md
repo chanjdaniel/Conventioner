@@ -25,7 +25,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 
 1. "Manage" on the market's row opens "Manage market"; "History" lists the newest 25 changes, newest first, inside the dialog's own scrolling.
 2. Each change is one sentence and its time: "e2e@example.com moved Ana Rivera from A3 (Full Table) to B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Market Setup: sections", "Ana Rivera applied".
-   A seat placed before the history kept the seat left reads "placed ... at", without a "from".
+   An assignment made before the history kept the table left reads "assigned ... at", without a "from"; allocating tables reads "allocated tables: 40 assignments written".
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase, a status and a role read as the screens name them.
 5. "Load more", under the list while older changes remain, adds the next 25 beneath, in the open dialog.

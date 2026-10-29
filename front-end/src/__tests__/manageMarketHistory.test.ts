@@ -23,7 +23,7 @@ const RouterLinkStub = {
   template: '<a :href="JSON.stringify(to)"><slot /></a>',
 };
 
-function placed(id: string, minutes: number, vendor = 'ana@ember.test'): MarketHistoryEntry {
+function assigned(id: string, minutes: number, vendor = 'ana@ember.test'): MarketHistoryEntry {
   return {
     id,
     actor: 'dana@ember.test',
@@ -78,15 +78,15 @@ beforeEach(() => {
 describe('the History section', () => {
   it('shows the newest page, and Load more adds the older ones beneath it', async () => {
     const asked = serve(
-      { entries: [placed('e3', 3), placed('e2', 2)], next: 'cursor-2' },
-      { entries: [placed('e1', 1)], next: null },
+      { entries: [assigned('e3', 3), assigned('e2', 2)], next: 'cursor-2' },
+      { entries: [assigned('e1', 1)], next: null },
     );
     const wrapper = mountHistory();
     await flushPromises();
 
     expect(sentences(wrapper)).toEqual([
-      'dana@ember.test placed Ana Rivera ana@ember.test at A3 on Nov 19, 2026',
-      'dana@ember.test placed Ana Rivera ana@ember.test at A2 on Nov 19, 2026',
+      'dana@ember.test assigned Ana Rivera ana@ember.test at A3 on Nov 19, 2026',
+      'dana@ember.test assigned Ana Rivera ana@ember.test at A2 on Nov 19, 2026',
     ]);
 
     await wrapper.get('[data-testid="market-history-load-more"]').trigger('click');
@@ -98,7 +98,7 @@ describe('the History section', () => {
   });
 
   it('asks the server again, narrowed, for each filter', async () => {
-    const asked = serve({ entries: [placed('e1', 1)], next: null });
+    const asked = serve({ entries: [assigned('e1', 1)], next: null });
     const wrapper = mountHistory();
     await flushPromises();
 
@@ -126,7 +126,7 @@ describe('the History section', () => {
   });
 
   it('does not narrow by a vendor the filter has not settled on, and says why', async () => {
-    const asked = serve({ entries: [placed('e1', 1)], next: null });
+    const asked = serve({ entries: [assigned('e1', 1)], next: null });
     const wrapper = mountHistory();
     await flushPromises();
 
@@ -140,7 +140,7 @@ describe('the History section', () => {
   });
 
   it('links a vendor to their drawer on the Vendors page', async () => {
-    serve({ entries: [placed('e1', 1)], next: null });
+    serve({ entries: [assigned('e1', 1)], next: null });
     const wrapper = mountHistory();
     await flushPromises();
 
@@ -153,7 +153,7 @@ describe('the History section', () => {
     serve({
       entries: [
         {
-          ...placed('e1', 1),
+          ...assigned('e1', 1),
           action: 'manage-editors-and-viewers',
           kind: 'role_changed',
           vendors: [],
