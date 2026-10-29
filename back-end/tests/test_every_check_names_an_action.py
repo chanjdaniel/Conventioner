@@ -228,6 +228,98 @@ class TestThePlanWrite:
         assert rows == [Actions.ASSIGN]
 
 
+#: Dev's rule for giving and taking roles, before the table (``can_manage_roles``): the owner gives
+#: and takes every role, an Admin only Editor and Viewer ones, and nobody else any.
+def _managed_before_the_table(requester, *roles):
+    if requester is MarketRole.OWNER:
+        return True
+    return requester is MarketRole.ADMIN and all(
+        role in (MarketRole.EDITOR, MarketRole.VIEWER) for role in roles)
+
+
+#: The roles Manage market gives, takes and changes; the one Owner is never one of them.
+_GIVEN = [MarketRole.ADMIN, MarketRole.EDITOR, MarketRole.VIEWER]
+
+
+class TestRolesAskTheirRows:
+    """Giving, taking and changing a role asks ``roles_row`` of each role involved, and answers
+    every requester as ``can_manage_roles`` did before the table, the yes cases as the no."""
+
+    @pytest.fixture
+    def market_holding(self, monkeypatch, holding):
+        """A market whose person ``target`` holds ``target_role``, asked by one holding ``asker``.
+        Returns the roles as the last write left them, and the rows asked."""
+        def make(asker, target_role=None):
+            holding(asker)
+            roles = {"user-1": "owner"}
+            if target_role is not None:
+                roles["target"] = target_role.value
+            doc = stored_market(MarketPhase.REVIEW, roles=roles)
+            monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: (
+                MarketsApi.MarketContext(doc, MarketsApi.market_from_document(doc), None, None)))
+            monkeypatch.setattr(MarketsApi, "markets_collection", SimpleNamespace(
+                update_one=lambda _q, update: doc.update(roles=update["$set"]["roles"])
+                or SimpleNamespace(modified_count=1)))
+            monkeypatch.setattr(MarketsApi.UsersApi, "get_user", lambda email: SimpleNamespace(
+                id=email, email=email))
+            asked = []
+            refusal = Actions.refusal
+            monkeypatch.setattr(Actions, "refusal", lambda row, *a: asked.append(row) or refusal(
+                row, *a))
+            return (lambda: dict(doc["roles"])), asked
+        return make
+
+    @pytest.mark.parametrize("asker", LADDER, ids=str)
+    @pytest.mark.parametrize("role", _GIVEN, ids=str)
+    def test_adding(self, market_holding, asker, role):
+        roles, asked = market_holding(asker)
+
+        if _managed_before_the_table(asker, role):
+            MarketsApi.add_market_role("market-123", "target", role, "u@x.test")
+            assert roles()["target"] == role.value
+        else:
+            with pytest.raises(ForbiddenError):
+                MarketsApi.add_market_role("market-123", "target", role, "u@x.test")
+            assert "target" not in roles()
+        assert asked == [Actions.roles_row(role)]
+
+    @pytest.mark.parametrize("asker", LADDER, ids=str)
+    @pytest.mark.parametrize("role", _GIVEN, ids=str)
+    def test_removing(self, market_holding, asker, role):
+        roles, asked = market_holding(asker, role)
+
+        if _managed_before_the_table(asker, role):
+            MarketsApi.remove_market_role("market-123", "target", "u@x.test")
+            assert "target" not in roles()
+        else:
+            with pytest.raises(ForbiddenError):
+                MarketsApi.remove_market_role("market-123", "target", "u@x.test")
+            assert roles()["target"] == role.value
+        assert asked == [Actions.roles_row(role)]
+
+    @pytest.mark.parametrize("asker", LADDER, ids=str)
+    @pytest.mark.parametrize("taken,given", [
+        (taken, given) for taken in _GIVEN for given in _GIVEN if taken is not given
+    ], ids=str)
+    def test_changing(self, market_holding, asker, taken, given):
+        roles, asked = market_holding(asker, taken)
+
+        if _managed_before_the_table(asker, taken, given):
+            MarketsApi.update_market_role("market-123", "target", given, "u@x.test")
+            assert roles()["target"] == given.value
+            assert asked == [Actions.roles_row(taken), Actions.roles_row(given)]
+        else:
+            with pytest.raises(ForbiddenError):
+                MarketsApi.update_market_role("market-123", "target", given, "u@x.test")
+            assert roles()["target"] == taken.value
+
+    def test_the_rows_are_the_editors_and_viewers_and_the_admins(self):
+        assert Actions.roles_row(MarketRole.EDITOR) is Actions.MANAGE_EDITORS_AND_VIEWERS
+        assert Actions.roles_row(MarketRole.VIEWER) is Actions.MANAGE_EDITORS_AND_VIEWERS
+        assert Actions.roles_row(MarketRole.ADMIN) is Actions.MANAGE_ADMINS
+        assert Actions.roles_row(MarketRole.OWNER) is Actions.MANAGE_ADMINS
+
+
 def _sources():
     """Every server source but the tests and the two modules that own roles."""
     owners = {BACK_END / "api" / "market_actions.py", BACK_END / "api" / "permissions.py"}

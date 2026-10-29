@@ -1747,16 +1747,13 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         if owner_count <= 1:
             raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
     
-    user_role_value = roles.get(user_id)
-    if user_role_value:
-        try:
-            user_role = MarketRole(user_role_value)
-        except ValueError:
-            user_role = MarketRole.VIEWER
-        refused = Actions.refusal(Actions.roles_row(user_role), requesting_user, market, organization)
-        if refused:
-            raise ForbiddenError(refused)
-    
+    # The role as the market model read it, which takes only the four roles: every removal asks
+    # the row of the role it takes.
+    refused = Actions.refusal(
+        Actions.roles_row(market.roles[user_id]), requesting_user, market, organization)
+    if refused:
+        raise ForbiddenError(refused)
+
     del roles[user_id]
     
     result = markets_collection.update_one(
@@ -1784,10 +1781,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     if not current_role_value:
         raise BadRequestError("User does not have a role in this market")
 
-    try:
-        current_role = MarketRole(current_role_value)
-    except ValueError:
-        current_role = MarketRole.VIEWER  # Default if invalid
+    current_role = market.roles[user_id]
 
     # Owners cannot have their role changed
     if current_role == MarketRole.OWNER:
