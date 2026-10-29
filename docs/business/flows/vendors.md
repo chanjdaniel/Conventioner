@@ -19,6 +19,7 @@ sources:
   - bug/33
   - E28/F02/S02
   - E42/F01/S01
+  - E42/F01/S02
 ---
 
 # Vendors
@@ -56,19 +57,23 @@ Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff scr
 
 ## J15. Export the vendors to a CSV
 
-**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`).
+**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`).
 For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
 
 1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved vendors not placed, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors placed there; and the search.
 2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; placed or not, on any date or on one; for the placed, the seat's section, tier and size; and the options of each of the form's choice questions, any of which the vendor chose.
-3. The columns are listed ticked first, in the file's order, then the rest: Name (the full name), Preferred name, Email, Status and each of the form's own questions; Name, Email and Status are ticked to begin with. A column is ticked, and moved by dragging or with its up and down buttons.
-4. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
-5. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
+3. The columns are ticked under three headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none) and "Assignment".
+   Name, Email and Status are ticked to begin with.
+4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates placed", how many of the market's dates they hold one on.
+   The seats are the stored placements the Result page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
+5. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
+6. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
+7. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
 
 The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, and a seat is read from the stored placements the Result page draws.
 Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-` or `@` gains a leading quote, as the assignment's download does.
 No column set is saved between exports yet.
-Covered by: `exporting-vendors.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
+Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
 
 ## Superseded
 
