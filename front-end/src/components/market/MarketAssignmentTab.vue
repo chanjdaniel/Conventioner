@@ -33,7 +33,7 @@ const props = defineProps<{
   /** The applications a refused run named, each linked to where it can be dealt with (bug 42). */
   assignIncomplete: IncompleteApplication[];
   marketId: string;
-  /** This person may change nothing on the market; the frame says why (T15). */
+  /** This person may not change the rules or run them, by the table (E39/F01/S02). */
   readOnly: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;

@@ -1306,8 +1306,9 @@ def _reviewer_on(market_id: str):
     verdicts here, or an error response (E34).
 
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
-    card - asked through ``verdict_refusal``, the same rule the market read serves as
-    ``verdictLockReason``: the table's verdicts row, while the review is open (E36/F01/S01).
+    card - asked through ``verdict_refusal``, the same rules the market read serves as the
+    verdicts row's answer and ``verdictsSettledReason``: the table's verdicts row, while the review
+    is open (E36/F01/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)

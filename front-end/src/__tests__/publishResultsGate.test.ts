@@ -16,6 +16,7 @@ import {
   type Application,
   type Market,
 } from '@/assets/types/datatypes';
+import { answersRefusing } from './support/servedAnswers';
 
 const fetchMarketApplications = vi.fn();
 const publishResults = vi.fn();
@@ -51,7 +52,8 @@ function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): M
     id: 'm1',
     applicationForm: { fields: [] },
     intakeMode,
-    publishResultsReason: null,
+    actionRefusals: answersRefusing(),
+    publishWaitsReason: null,
     publishOutcomes: { haveATable: 3, notAssigned: 2 },
     ...publish,
   } as unknown as Market;
@@ -101,7 +103,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
     const reason =
       'Run the assignment first: results tell each applicant whether they have a table.';
     const wrapper = await mounted(
-      marketTaking(IntakeMode.Form, { publishResultsReason: reason, publishOutcomes: null }),
+      marketTaking(IntakeMode.Form, { publishWaitsReason: reason, publishOutcomes: null }),
     );
 
     expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(true);

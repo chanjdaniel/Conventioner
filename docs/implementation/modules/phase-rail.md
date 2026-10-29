@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -56,7 +56,7 @@ Only the one forward step is on the rail; every other move is in the "More…" m
 Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
-Someone below ADMIN (`adminActionsReason`) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.
 The rail navigates there itself: it once emitted an event no screen listened to, so every move landed on the server and the organizer stayed where they had clicked, an import's result still drawn (E32/F01/S01).
