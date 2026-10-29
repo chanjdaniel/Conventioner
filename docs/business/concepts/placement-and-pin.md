@@ -6,7 +6,7 @@ verified: 2026-10-22
 
 # Placement and pin
 
-**Placed as** and **Table** are defined in [the glossary](../../../CONTEXT.md#placing), under Placing, beside Table code, Table type and Table choice; this node gathers what the graph says about a vendor's seat at a table, and the pin that holds one.
+**Assigned as** and **Table** are defined in [the glossary](../../../CONTEXT.md#assigning), under Assigning, beside Table code, Table type and Table choice; this node gathers what the graph says about a vendor's seat at a table, and the pin that holds one.
 
 ## Rules
 
