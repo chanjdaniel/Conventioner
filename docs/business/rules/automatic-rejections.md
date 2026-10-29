@@ -64,7 +64,7 @@ They are not gated by the form's lock: the form freezes at the first application
 - The import judges at its end ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).
-- Saving the rules is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an amendment, an applicant's save, an import.
+- A save that changes the rules is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an amendment, an applicant's save, an import.
 
 ## Evidence
 

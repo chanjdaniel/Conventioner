@@ -51,7 +51,7 @@ Notes are beside a page's work, never its subject, so a failed read shows the pa
 
 `back-end/tests/test_vendor_notes.py` pins the writes, the roles, the archive and the deletion; `front-end/e2e/vendor-notes.spec.ts` walks a request and a note from Vendors to the door, where it is handled.
 
-**Each note and each handled mark records into [the market's history](../data/history.md)** (`note`, `request_handled`) with the value it replaced, which `write_note` and `mark_request_handled` return; an import's sheet lines record nothing of their own, as part of the import's one entry.
+**A note that changes, and a handled mark that changes, record into [the market's history](../data/history.md)** (`note`, `request_handled`) with the value each replaced, which `write_note` and `mark_request_handled` return; an import's sheet lines record nothing of their own, as part of the import's one entry.
 
 ## Why
 

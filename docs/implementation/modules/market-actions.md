@@ -67,7 +67,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 **The market read's screen reasons keep their words** until each screen asks its own row (E39/F01/S02): `readOnlyReason` (`change_refusal`) asks Market Setup and says "You can view this market but not change it.", `adminActionsReason` (`admin_actions_refusal`) asks that and then Move the phase, and `publishResultsReason` asks that and then Publish results, in the same words as `adminActionsReason`.
 `verdictLockReason` and `addVendorReason` answer with their rows' sentences, which no screen shows.
 
-**Each write a row permits records into [the market's history](../data/history.md) under the row's id**, and `back-end/tests/test_every_write_records.py` fails on a row no write records unless it says why.
+**A write that changes a market records into [the market's history](../data/history.md) under its row's id**, and `back-end/tests/test_every_write_records.py` fails on a write route or a row that records nothing unless it says why there.
 
 ## Sharp edges
 
