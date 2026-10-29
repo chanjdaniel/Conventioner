@@ -36,7 +36,8 @@ AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
 TOKEN_URL = "https://discord.com/api/oauth2/token"
 
 # The permissions the approval screen asks for (https://docs.discord.com/developers/topics/permissions):
-# Manage Roles to give the market's role, Create Instant Invite for the invites a later story sends.
+# Manage Roles to give the market's role, and Create Instant Invite (E46/F01/S02), so the bot may
+# make invites to the server.
 MANAGE_ROLES = 1 << 28
 CREATE_INSTANT_INVITE = 1 << 0
 BOT_PERMISSIONS = MANAGE_ROLES | CREATE_INSTANT_INVITE
