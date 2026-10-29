@@ -1444,7 +1444,8 @@ def _importing_market_document(market_id: str, requesting_user: str):
 
 
 def _import_context(market_id: str, requesting_user: str):
-    """Load the market and ask ``Actions.IMPORT_APPLICATIONS`` and the phase for the import endpoints."""
+    """Load the market and ask ``Actions.IMPORT_APPLICATIONS`` and the phase for the import
+    endpoints."""
     market_doc, error, status = _importing_market_document(market_id, requesting_user)
     if error:
         return None, error, status
@@ -1468,7 +1469,8 @@ def csv_proposal_typesafe() -> Response:
 @login_required
 def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
-    nothing: the file is read and let go. Asks ``Actions.IMPORT_APPLICATIONS``, as the import it prepares does."""
+    nothing: the file is read and let go. Asks ``Actions.IMPORT_APPLICATIONS``, as the import it
+    prepares does."""
     market_doc, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
@@ -1486,7 +1488,8 @@ def propose_from_csv(market_id: str) -> Response:
 @login_required
 def confirm_csv_proposal(market_id: str) -> Response:
     """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
-    or nothing. The file is sent again and not kept. Asks ``Actions.IMPORT_APPLICATIONS``, as the proposal does."""
+    or nothing. The file is sent again and not kept. Asks ``Actions.IMPORT_APPLICATIONS``, as the
+    proposal does."""
     market_doc, error, status_code = _importing_market_document(
         market_id, authenticated_email())
     if error:
@@ -1500,7 +1503,8 @@ def confirm_csv_proposal(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/import/inspect', methods=['POST'])
 @login_required
 def inspect_application_import(market_id: str) -> Response:
-    """Read a CSV's columns and say what they can be mapped to. Writes nothing. Asks ``Actions.IMPORT_APPLICATIONS``."""
+    """Read a CSV's columns and say what they can be mapped to. Writes nothing. Asks
+    ``Actions.IMPORT_APPLICATIONS``."""
     market_doc, error, status_code = _import_context(
         market_id, authenticated_email(),
     )
@@ -1518,7 +1522,8 @@ def inspect_application_import(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/import/preview', methods=['POST'])
 @login_required
 def preview_application_import(market_id: str) -> Response:
-    """Report cell values that name nothing this market offers. Writes nothing. Asks ``Actions.IMPORT_APPLICATIONS``."""
+    """Report cell values that name nothing this market offers. Writes nothing. Asks
+    ``Actions.IMPORT_APPLICATIONS``."""
     market_doc, error, status_code = _import_context(
         market_id, authenticated_email(),
     )
@@ -1617,7 +1622,8 @@ def get_market_attendance(market_id: str) -> Response:
 
 
 def _door_write(market_id: str, write) -> Response:
-    """An organizer's check-in or its undo: body ``{vendorEmail, date}``, asking ``Actions.CHECK_IN`` (E29/F01/S02)."""
+    """An organizer's check-in or its undo: body ``{vendorEmail, date}``, asking
+    ``Actions.CHECK_IN`` (E29/F01/S02)."""
     data = json_object(required=False)
     result, status_code = write(
         market_id,

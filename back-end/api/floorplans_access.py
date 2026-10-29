@@ -3,9 +3,10 @@ The one place a floorplan route decides who may use it.
 
 Every floorplan action asks its row of the table (``api.market_actions``) on the floorplan's
 market: a route that names a market asks on that market, and a route that takes an image id asks on
-the market the image was uploaded for. Each function answers None when the caller may go on, or the refusal to answer
-with (a JSON body and a status), in the order save-to-market answers: unknown market or image 404,
-then no role 403, then an archived market 403 for a route that changes something.
+the market the image was uploaded for. Each function answers None when the caller may go on, or
+the refusal to answer with (a JSON body and a status), in the order save-to-market answers: unknown
+market or image 404, then a person the row refuses 403 with its sentence, then an archived market
+403 for a route that changes something.
 
 Call these only from a route carrying ``@login_required``.
 """

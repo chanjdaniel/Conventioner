@@ -2,8 +2,9 @@
 
 The vendor's own check-in is public and keyed by the market's address; this is the organizer's,
 keyed by the market's id and held to the table's "Check vendors in" row, EDITOR by default, so a
-volunteer at the door is added as an editor. It loads through the change loader, so an archived market's record
-is never changed, and it writes through ``record_attendance``, so the two doors record alike.
+volunteer at the door is added as an editor. It loads through the change loader, so an archived
+market's record is never changed, and it writes through ``record_attendance``, so the two doors
+record alike.
 """
 from typing import Any, Dict, Tuple
 

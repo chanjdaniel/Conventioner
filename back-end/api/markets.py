@@ -884,7 +884,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
     # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
-    # and so name one (the table's verdicts row): the organization's people too, if the reader is one.
+    # and so name one (the table's verdicts row): the organization's people too, if the reader is
+    # one.
     may_give_verdicts = Actions.may(
         Actions.GIVE_VERDICTS, user_email, market, context.organization,
     )
@@ -1315,8 +1316,8 @@ def get_placement_history(
 ) -> tuple[Dict[str, Any], int]:
     """This market's placement trail, newest first. Asks ``Actions.READ``.
 
-    Read on the Read row, written on the Assignment row: the trail describes the market, and anyone who may look at
-    where vendors are sitting may look at how they came to be sitting there.
+    Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
+    who may look at where vendors are sitting may look at how they came to be sitting there.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -2018,7 +2019,8 @@ def follow_up_owner(
 def save_rejection_rules(
     market_id: str, rules: Any, requesting_user: str
 ) -> List[Dict[str, Any]]:
-    """Set which answers reject an application automatically (E33/F03/S01). Asks ``Actions.CHANGE_FORM``.
+    """Set which answers reject an application automatically (E33/F03/S01). Asks
+    ``Actions.CHANGE_FORM``.
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
     rules are worth most once applications arrive, which is when the form freezes. Refused once the
