@@ -234,7 +234,7 @@ python migrations/migrate_user_emails.py              # stores every account add
 That build reads the three old names as this script would leave them (`LEGACY_STAGE_PHASES` in `back-end/datatypes.py`), writing nothing back, so nothing waits on the script and the deploy can be rolled back until it has run; a later release drops those aliases once it has run on every database.
 It moves every market in `applications_open`, `applications_closed` or `review` into `applications`, keeps a market whose vendors apply on its page and that stood in `applications_closed` or `review` (reached only through `applications_closed`) not taking applications (`applicationsStopped`, never over a stop the organizer set or cleared since the deploy), returns a Google Form market that imported nothing to draft to wait for its first import (the dry run names each), and renames those phases in every market's phase history.
 Production held 2 markets when it was written: 1 in an old phase (a market whose vendors apply on its page, in `review`, which comes out not taking applications) and 1 in `market_days`, whose phase history alone is renamed.
-Run `--dry-run` first and read it, then run it without, from `back-end/`, as the script's Usage says.
+Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
 It is idempotent: a second run says "Nothing to change".
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
