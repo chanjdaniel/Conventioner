@@ -24,6 +24,9 @@ const props = defineProps<{
   label: string;
   /** Where they were placed, when they were. */
   placement?: string | null;
+  /** What that seat costs for the day ("Gold, full table, $35"), where the market prices it.
+   * The drawer is the organizers' own, so a vendor never reads it (E43/F01/S01, Q20.2). */
+  price?: string | null;
   /** Why they were not, when they were not. */
   reason?: PlacementReason;
   /**
@@ -81,6 +84,9 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
       >
         {{ actionLabel }}
       </a>
+      <span v-if="price" class="vendor-date-card-price" data-testid="vendor-date-card-price">
+        {{ price }}
+      </span>
       <span v-if="overridden" class="vendor-date-card-flag" data-testid="vendor-date-card-override">
         {{ overrideText(overrides) }}
       </span>
@@ -155,6 +161,13 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 .vendor-date-card--unplaced .vendor-date-card-detail {
   color: var(--mm-text-muted);
   font-style: italic;
+}
+
+.vendor-date-card-price {
+  display: block;
+  margin-top: var(--space-hairline);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .vendor-date-card-flag {

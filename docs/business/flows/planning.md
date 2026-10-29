@@ -3,7 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
-verified: 2026-10-29
+  - front-end/src/components/elements/ElementPricing.vue
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -24,6 +25,7 @@ sources:
   - bug/38
   - E23/F02/S01
   - T15
+  - E43/F01/S01
 ---
 
 # Planning the market
@@ -32,14 +34,14 @@ sources:
 **Where they start:** Market Setup, the page a draft opens on ([`MarketPlanTab.vue`](../../../front-end/src/components/market/MarketPlanTab.vue)).
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
-Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form.
+Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, Pricing, How vendors apply, and Application form.
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
-The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates and Section Setup are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
+The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
@@ -109,6 +111,20 @@ The wizard makes no AI calls; placement is a geometry solver ([floorplan placeme
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by: `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures), `the-floorplan-beta-places-tables.spec.ts`.
+
+## E9. Pricing
+
+**Status:** Works (E43/F01/S01; `the-pricing-card.spec.ts`).
+Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
+
+1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the one row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
+3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
+4. Expect "Plan saved"; a cell that is not an amount turns its border red and is not saved, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."
+
+A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables."
+Each placement then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
+The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## E7. Edit the plan after Draft
 

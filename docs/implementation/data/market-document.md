@@ -20,7 +20,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - E02
   - E03/F03
@@ -28,6 +28,7 @@ sources:
   - E21/F03/S06
   - E26/F06/S03
   - E01/F06
+  - E43/F01/S01
 ---
 
 # The market document
@@ -63,7 +64,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
 | `intakeMode` | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `applicant_intake_market_by_slug` |
-| `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options and floorplans; null on a market whose plan was never saved |
+| `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options, floorplans and `pricing`; null on a market whose plan was never saved |
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |
 | `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate` and `madeFrom` (what the run read); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md) |
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
@@ -73,6 +74,10 @@ The other collections differ: applications and the placement trail are stored sn
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
+
+**The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed) and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
+A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
+What they mean and how a seat is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
 
 **The application form is stored as one validator returns it.**
 Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked; the writes on an existing market go through `prepared_application_form`, which asks [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) first:

@@ -189,7 +189,7 @@ It is one written rule rather than a rearrangement per screen: the design langua
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
 - **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
 
-On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
+On the plan, Market Dates, Section Setup and Pricing are wide (Section Setup's columns need 654px, and at half width its tier select truncated; Pricing's columns are the tiers, and its rows grow with the price groups); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).

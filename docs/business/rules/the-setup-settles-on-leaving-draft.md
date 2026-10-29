@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
@@ -20,11 +20,12 @@ sources:
   - E31/F01/S01
   - E31/F01/S02
   - E18
+  - E43/F01/S01
 ---
 
 # The setup settles on leaving draft
 
-Everything on Market Setup (the dates, the locations, the tiers, the sections and their tables, the floorplans, and how vendors reach the market) is settled once the market leaves draft, and may change again only if it goes back.
+Everything on Market Setup (the dates, the locations, the tiers, the sections and their tables, the floorplans, the prices, and how vendors reach the market) is settled once the market leaves draft, and may change again only if it goes back.
 So leaving draft requires a complete setup: dates none of which has passed, a location, and tables at every tier, each its own blocker line.
 
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).

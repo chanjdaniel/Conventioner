@@ -63,6 +63,7 @@ import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import history as History
+import pricing as Pricing
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
@@ -457,13 +458,14 @@ def _since_leaving_draft(market: Market) -> str:
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
     """The part of a plan that is the setup, in one comparable shape (E31/F01/S02).
 
-    Everything on Market Setup: the dates, tiers, locations, sections and their tables, and the
-    floorplans. Not the assignment rules (``made_from.assignment_rules``), which ride in the same
-    object and keep a lock of their own.
+    Everything on Market Setup: the dates, tiers, locations, sections and their tables, the
+    floorplans and the prices (E43/F01/S01). Not the assignment rules
+    (``made_from.assignment_rules``), which ride in the same object and keep a lock of their own.
     """
     if plan is None:
         return {}
-    shape = plan.model_dump(include={"market_dates", "tiers", "locations", "sections", "floorplans"})
+    shape = plan.model_dump(
+        include={"market_dates", "tiers", "locations", "sections", "floorplans", "pricing"})
     shape["floorplans"] = shape.get("floorplans") or []
     return shape
 
@@ -1507,8 +1509,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
+    pricing = market.setup_object.pricing if market.setup_object else None
     return {
-        "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
+        # Each occupant's price rides on their row, for the organizer's eyes only: this read is
+        # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
+        "rows": [
+            {**convert_keys_to_camel_case(row.model_dump()),
+             "prices": Pricing.row_prices(pricing, row)}
+            for row in rows
+        ],
         # Name against address, for the surfaces that only ever knew the address. Sent with
         # the rows rather than fetched separately so the grid and its occupants' names can
         # never be a request apart.
@@ -2000,8 +2009,8 @@ def _record_plan(
     market: Market, plan: SetupObject, update: Dict[str, Any], requesting_user: str,
 ) -> None:
     """A plan write as the actions it took: Market Setup's fields and the intake mode as one
-    entry, the assignment rules as another, each only when it changed - the plan saves as the
-    organizer types, and restating it changes nothing."""
+    entry, the prices as another, the assignment rules as a third, each only when it changed - the
+    plan saves as the organizer types, and restating it changes nothing."""
     def setup() -> Optional[Dict[str, Any]]:
         stored = market.setup_object.model_dump() if market.setup_object else {}
         proposed = plan.model_dump()
@@ -2014,6 +2023,9 @@ def _record_plan(
 
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
+    History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   detail=lambda: History.changes(
+                       Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
                    detail=lambda: History.changes(
                        assignment_rules(market.setup_object), assignment_rules(plan)))
@@ -2036,6 +2048,9 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
             "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
             "default."
         )
+    priced = Pricing.pricing_refusal(plan)
+    if priced:
+        raise BadRequestError(priced)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:

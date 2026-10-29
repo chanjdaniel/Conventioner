@@ -103,6 +103,19 @@ export interface AssignmentOptionObject {
   maxHalfTableProportionPerSection: number | null;
 }
 
+/** One tier's price for a full table on one market day, in cents (E43/F01/S01). */
+export interface TierPrice {
+  tier: string;
+  cents: number;
+}
+
+/** The Pricing card: the market's one currency, the half table's share, and a price per tier. */
+export interface PricingObject {
+  currency: string;
+  halfTablePercent: number;
+  everyoneElse: TierPrice[];
+}
+
 export interface SetupObject {
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
@@ -111,6 +124,8 @@ export interface SetupObject {
   sections: SectionObject[];
   assignmentOptions: AssignmentOptionObject;
   floorplans?: FloorplanObject[];
+  /** Null or absent on a market never priced, which shows no price anywhere. */
+  pricing?: PricingObject | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

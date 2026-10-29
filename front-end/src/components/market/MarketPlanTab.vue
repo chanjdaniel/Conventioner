@@ -11,8 +11,9 @@
  * is deliberately not here: it is a sibling of the settings panel rather than part of any tab body.
  *
  * ONE SCROLLING PAGE OF ORDERED SECTIONS (E18/F01/S01), laid out by the card grid (E23/F01/S01):
- * Market Dates and Section Setup are wide, Tier Setup sits beside Location Setup, and How vendors
- * apply beside Application form. The grid's rule is in `primitives.css` and `docs/design-system.md`.
+ * Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How
+ * vendors apply beside Application form. Pricing follows the sections because its columns are the
+ * tiers they give tables (E43/F01/S01). The grid's rule is in `primitives.css` and `docs/design-system.md`.
  *
  * Not a step wizard. The surface must be resumable, and it must never force a walk-through to
  * change one value later, so the order is communicated by POSITION rather than enforced by
@@ -30,6 +31,7 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
+import ElementPricing from '@/components/elements/ElementPricing.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
 import type { IntakeMode, SetupObject } from '@/assets/types/datatypes';
@@ -148,6 +150,18 @@ const intakeEditable = computed(() => props.intakeEditable);
           Set up sections from a floorplan instead
         </button>
         <ElementSectionSetup
+          :setupObject="setupObject"
+          @update:setupObject="(value) => emit('update:setupObject', value)"
+        />
+      </template>
+    </ElementSettingContainer>
+
+    <ElementSettingContainer class="card-grid__wide" data-testid="plan-card-pricing">
+      <template #setting-title>
+        <h2>Pricing</h2>
+      </template>
+      <template #setting-content>
+        <ElementPricing
           :setupObject="setupObject"
           @update:setupObject="(value) => emit('update:setupObject', value)"
         />

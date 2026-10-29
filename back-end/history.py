@@ -58,6 +58,7 @@ APPLY = "apply"
 # with its subject and detail.
 RENAMED = "renamed"
 PLAN = "plan"
+PRICING = "pricing"
 FLOORPLAN = "floorplan"
 FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
 FORM = "form"
