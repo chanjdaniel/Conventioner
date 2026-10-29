@@ -184,10 +184,11 @@ const NOBODY: Record<string, string> = {
   font-variant-numeric: tabular-nums;
 }
 
-/* Cards of one width however many there are, so a card added later lines up with these. */
+/* The cards share the page's whole width rather than leaving its right half empty (Daniel, T104);
+   a card added later may want columns of one width again. */
 .stats-ledgers {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   align-items: start;
   gap: var(--space-4);
 }
