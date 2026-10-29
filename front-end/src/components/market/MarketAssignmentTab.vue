@@ -39,10 +39,10 @@ const props = defineProps<{
    */
   readOnly: boolean;
   /**
-   * This person may run the assignment, by the table's Assignment row alone: a market's owner may
-   * set it apart from Market Setup's (E39/F01/S03).
+   * This person may allocate tables, by the table's Assignment row alone: a market's owner may set
+   * it apart from Market Setup's (E39/F01/S03).
    */
-  mayRun: boolean;
+  mayAllocate: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
   /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
@@ -93,9 +93,9 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       </ElementSettingContainer>
     </section>
 
-    <!-- Nothing can run once the rules are settled, or for a person the Assignment row refuses,
-         so there is no button to explain. -->
-    <div v-if="mayRun && !rulesLockReason" class="assign-actions">
+    <!-- Nothing can be allocated once the rules are settled, or by a person the Assignment row
+         refuses, so there is no button to explain. -->
+    <div v-if="mayAllocate && !rulesLockReason" class="assign-actions">
       <button
         type="button"
         class="btn btn--primary done-button"

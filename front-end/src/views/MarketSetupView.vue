@@ -358,7 +358,12 @@ const handleAssign = async () => {
   assignError.value = '';
   assignIncomplete.value = [];
   try {
-    await updateMarket();
+    // Allocating reads the plan as the server holds it, so a pending edit is written first - by
+    // someone who may change the plan. Allocating asks the Assignment row alone, and a market's
+    // owner may set it apart from Change Market Setup (E39/F01/S03): to anyone that row refuses,
+    // the rules are read only, there is nothing of theirs to save, and the plan's write would
+    // refuse the allocation they may make.
+    if (mayTake(market.value, MarketAction.ChangeSetup)) await updateMarket();
 
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
@@ -453,7 +458,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignIncomplete="assignIncomplete"
           :marketId="market.id"
           :readOnly="!rulesWritable"
-          :mayRun="mayTake(market, MarketAction.Assign)"
+          :mayAllocate="mayTake(market, MarketAction.Assign)"
           :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"

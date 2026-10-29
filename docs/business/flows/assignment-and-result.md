@@ -124,7 +124,8 @@ Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
 **Status:** Works (walked live; the published case read from the code as of E36/F04/S02).
 Once the market can no longer return to Assignment, or its results are published, the priority and options are read only and the page says why ("The table allocation for this market is settled. …", or "Results are published, so the table allocation is settled: …"); "Allocate tables" is gone.
 A person who may change nothing reads the rules read only too, with no Assign, and is told why once, above the page; the page's own line says only the rules' lock (T15).
-Changing the rules asks both the Market Setup row and the Assignment row, since they ride in the plan, and Assign asks the Assignment row alone, so on a market whose owner set the two apart a person may be offered the run with the rules read only (E39/F01/S03).
+Changing the rules asks both the Market Setup row and the Assignment row, since they ride in the plan, and Allocate tables asks the Assignment row alone, so on a market whose owner set the two apart a person may be offered Allocate tables with the rules read only (E39/F01/S03).
+Pressing it writes a pending plan edit first only for someone who may change the plan; to anyone else the rules are read only and nothing of theirs is waiting, so the press goes straight to the run, which the plan's write would otherwise refuse.
 Covered by: `the-assignment-rules-close.spec.ts`.
 
 ## I7. Publish results

@@ -148,7 +148,11 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
     expect(wrapper.find('[data-testid="plan-setup-settled"]').exists()).toBe(false);
   });
 
-  function mountAssignment(readOnly: boolean, rulesLockReason: string | null, mayRun = !readOnly) {
+  function mountAssignment(
+    readOnly: boolean,
+    rulesLockReason: string | null,
+    mayAllocate = !readOnly,
+  ) {
     return mount(MarketAssignmentTab, {
       props: {
         setupObject: SETUP,
@@ -159,7 +163,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
         assignIncomplete: [],
         marketId: 'market-1',
         readOnly,
-        mayRun,
+        mayAllocate,
         rulesLockReason,
         handPlacements: null,
       },
@@ -191,11 +195,11 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
     expect(wrapper.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
   });
 
-  it('the rules: the run follows the Assignment row alone, apart from the rules (E39/F01/S03)', () => {
-    const mayRunOnly = mountAssignment(true, null, true);
+  it('the rules: Allocate tables follows the Assignment row alone, apart from the rules (E39/F01/S03)', () => {
+    const mayAllocateOnly = mountAssignment(true, null, true);
 
-    expect(mayRunOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
-    expect(mayRunOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(true);
+    expect(mayAllocateOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
+    expect(mayAllocateOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(true);
 
     const mayChangeOnly = mountAssignment(false, null, false);
 
@@ -203,7 +207,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
     expect(mayChangeOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
   });
 
-  it('the rules: nothing runs once they are settled, whoever may run', () => {
+  it('the rules: nothing is allocated once they are settled, whoever may allocate', () => {
     const wrapper = mountAssignment(false, 'The rules are settled.', true);
 
     expect(wrapper.find('[data-testid="market-setup-assign-button"]').exists()).toBe(false);
