@@ -5,6 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import { CHANGED_SINCE, sameAnswer, updatedLine } from '@/utils/answerUpdates';
 import {
@@ -215,6 +216,20 @@ describe('the words beside an updated answer', () => {
 
   it('say when their answer changed since', () => {
     expect(CHANGED_SINCE).toBe('Their answer changed since your update.');
+  });
+});
+
+describe('a multi-select answer', () => {
+  it('reads one way beside an update, in the drawer, the dialog and the review card', () => {
+    const update = {
+      ...UPDATE,
+      value: ['Pins'],
+      over: ['Prints', 'Cards'],
+      theyWrote: ['Prints', 'Cards'],
+    };
+    const note = mount(AnswerUpdateNote, { props: { update, testid: 'note' } });
+
+    expect(note.get(testid('note-updated')).text()).toMatch(/; they wrote Prints · Cards$/);
   });
 });
 

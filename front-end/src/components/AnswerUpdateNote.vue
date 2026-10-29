@@ -12,15 +12,11 @@ import { answerText } from '@/utils/essentialFields';
 
 const props = defineProps<{
   update: AnswerUpdate | null | undefined;
-  /** What the vendor wrote, as the screen shows an answer; else as the review shows one. */
-  theyWrote?: string;
   testid: string;
 }>();
 
 const line = computed(() =>
-  props.update
-    ? updatedLine(props.update, props.theyWrote ?? answerText(props.update.theyWrote))
-    : '',
+  props.update ? updatedLine(props.update, answerText(props.update.theyWrote)) : '',
 );
 </script>
 

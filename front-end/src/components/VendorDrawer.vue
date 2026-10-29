@@ -278,7 +278,6 @@ useInertBehind(
                   <AnswerValue :value="field.value" />
                   <AnswerUpdateNote
                     :update="field.update"
-                    :theyWrote="field.theyWrote"
                     :testid="`vendors-detail-answer-${field.key}`"
                   />
                 </dd>

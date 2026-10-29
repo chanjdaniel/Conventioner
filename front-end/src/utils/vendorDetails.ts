@@ -1,7 +1,8 @@
 import { computed, ref, type Ref } from 'vue';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
-import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+// One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
+import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -85,8 +86,6 @@ export interface SubmittedAnswer {
   value: string;
   /** An organizer's update of it, or null where the answer is the vendor's own. */
   update: AnswerUpdate | null;
-  /** What the vendor wrote, as the drawer shows an answer, where it was updated. */
-  theyWrote: string;
 }
 
 function extractEmail(raw: unknown): string {
@@ -101,13 +100,6 @@ function errorText(err: unknown, fallback: string): string {
   const resp = (err as { response?: { data?: { error?: string } } })?.response;
   if (resp?.data?.error) return resp.data.error;
   return err instanceof Error && err.message ? err.message : fallback;
-}
-
-function answerText(value: unknown): string {
-  if (value == null) return '';
-  if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return String(value);
 }
 
 function assignmentSummary(assignment: VendorTableAssignment): string {
@@ -276,7 +268,6 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
           label: field.label || field.key,
           value: answerText(row.answers[field.key]) || 'Not answered',
           update: update ?? null,
-          theyWrote: update ? answerText(update.theyWrote) : '',
         };
       });
   }
