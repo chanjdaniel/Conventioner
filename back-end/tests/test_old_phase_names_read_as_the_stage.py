@@ -123,3 +123,20 @@ def test_a_stop_is_taken_on_a_market_still_stored_under_an_old_name(monkeypatch)
 
     assert status == 200, body
     assert "applications_open" in filters[-1]["phase"]["$in"]
+
+
+def test_a_history_naming_the_old_phases_reads_as_having_entered_the_stage():
+    """An archived market's rail says how far it got from its record, before the migration too."""
+    import phase_record as PhaseRecord
+
+    doc = stored_market(MarketPhase.ARCHIVED, phaseHistory=[
+        {"phase": "draft", "enteredAt": "2026-10-01T00:00:00+00:00", "by": "owner@example.com"},
+        {"phase": "applications_open", "enteredAt": "2026-10-02T00:00:00+00:00", "by": None},
+        {"phase": "review", "enteredAt": "2026-10-03T00:00:00+00:00", "by": None},
+        {"phase": "archived", "enteredAt": "2026-10-04T00:00:00+00:00", "by": None},
+    ])
+
+    reached = PhaseRecord.phases_reached(doc, lambda _id: False)
+
+    assert reached.complete
+    assert reached.phases == {"draft", "applications", "archived"}

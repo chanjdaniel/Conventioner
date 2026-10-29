@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 from assignment.utils import convert_keys_to_camel_case
-from datatypes import MarketPhase, PhaseEntry, phase_from_market_document
+from datatypes import LEGACY_STAGE_PHASES, MarketPhase, PhaseEntry, phase_from_market_document
 from market_documents import market_doc_field, market_doc_key
 
 
@@ -91,7 +91,12 @@ def phases_reached(
     surface needs this answer, and could not import a module that imported it.
     """
     record = _record(document)
-    entered = {entry["phase"] for entry in record if isinstance(entry.get("phase"), str)}
+    # An entry still naming a phase E38/F04 folded into the stage reads as the stage, as the
+    # phase does, until the migration renames it (dropped with the aliases).
+    entered = {
+        MarketPhase.APPLICATIONS.value if entry["phase"] in LEGACY_STAGE_PHASES else entry["phase"]
+        for entry in record if isinstance(entry.get("phase"), str)
+    }
     entered.add(phase_from_market_document(document).value)
 
     # Every market starts in draft, and `create_market` dates that entry. A record that opens any
