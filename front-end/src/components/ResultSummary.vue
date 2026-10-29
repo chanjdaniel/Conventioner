@@ -17,6 +17,7 @@ import NothingAssigned from '@/components/NothingAssigned.vue';
 import PlacementHistoryDialog from '@/components/PlacementHistoryDialog.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { marketPath } from '@/utils/market';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
@@ -105,27 +106,6 @@ const historyOpen = ref(false);
 const downloadError = ref('');
 const isDownloading = ref(false);
 
-function filenameFrom(header: string | undefined, fallback: string): string {
-  const match = header?.match(/filename="?([^";]+)"?/i);
-  return match?.[1] ?? fallback;
-}
-
-/** The error the server gave, whether it came back as JSON or inside the blob asked for. */
-async function errorFrom(err: unknown): Promise<string> {
-  const data =
-    err && typeof err === 'object' && 'response' in err
-      ? (err as { response?: { data?: unknown } }).response?.data
-      : undefined;
-  try {
-    const parsed = data instanceof Blob ? JSON.parse(await data.text()) : data;
-    const message = (parsed as { error?: unknown } | undefined)?.error;
-    if (typeof message === 'string' && message) return message;
-  } catch {
-    // Not JSON: fall through to the plain message.
-  }
-  return 'Failed to download CSV.';
-}
-
 async function downloadCsv(): Promise<void> {
   downloadError.value = '';
   isDownloading.value = true;
@@ -134,20 +114,9 @@ async function downloadCsv(): Promise<void> {
       `/markets/${encodeURIComponent(props.market.id)}/assignment-csv`,
       { responseType: 'blob' },
     );
-    const filename = filenameFrom(
-      (response.headers as Record<string, string | undefined>)['content-disposition'],
-      `${props.market.name || 'market'}_assigned.csv`,
-    );
-    const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    saveCsv(response, `${props.market.name || 'market'}_assigned.csv`);
   } catch (err: unknown) {
-    downloadError.value = await errorFrom(err);
+    downloadError.value = await downloadErrorMessage(err, 'Failed to download CSV.');
   } finally {
     isDownloading.value = false;
   }

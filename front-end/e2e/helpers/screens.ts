@@ -388,6 +388,16 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // The preview's rows, not the dialog: its fields and table arrive with the first preview.
+    name: 'the export dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'vendors'), 'vendors-list-item', [
+      'vendors-export-button',
+      'vendor-export-preview-row',
+    ]),
+  },
+  {
     name: 'the attendance',
     who: 'organizer',
     sizes: FITS_A_PHONE,

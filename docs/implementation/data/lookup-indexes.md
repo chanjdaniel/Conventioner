@@ -28,7 +28,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `users` | `id`; `verification_token`; `password_reset_token`; `login_id` (each signed-in request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id)) |
 | `applications` | `id` |
 | `attendance` | `market_id, vendor_email` |
-| `placement_history` | `market_id` |
+| `history` | `market_id` ([the market's history](history.md)) |
 | `vendor_notes` | `market_id, vendor_email` |
 | `deletion_trail` | `organization_id` ([market deletion](../modules/market-deletion.md)) |
 

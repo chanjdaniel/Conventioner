@@ -36,7 +36,7 @@ A move of two steps (a CSV market's Begin Review) is two updates and two entries
 **It is a log, not a "furthest phase" field** ([ADR 0012](../../adr/0012-a-market-remembers-every-phase-it-entered.md)), because the machine has back edges (Reopen for Editing, the form amendment chain) and because a log answers the next questions, when applications opened and who published, which a single field cannot.
 
 **On the market document, not beside it.**
-A market enters a handful of phases in its life, the rail reads them on every market screen, and the one market store already holds the document; placements are many and each names a vendor, which is why [the placement history](../data/placement-history.md) is its own collection.
+A market enters a handful of phases in its life, the rail reads them on every market screen, and the one market store already holds the document; a market's changes are many and most name a vendor, which is why [the market's history](../data/history.md) is its own collection.
 
 **A market older than the record is read from what it can prove.**
 A record whose first entry is not a dated `draft` began partway through the market's life: `push_entries` starts such a record with the phase the market was already in, undated, so it never passes for a whole one.

@@ -38,7 +38,7 @@ verified: 2026-10-22
 - [The assignment solver](../../implementation/modules/assignment-solver.md): `assign_market` over the approved applications.
 - [Placements](../../implementation/modules/placements.md): the one writer of the stored assignment.
 - [What an assignment was made from](../../implementation/modules/made-from.md): the fingerprints a run records.
-- [The placement history](../../implementation/data/placement-history.md): who changed the assignment, to what, and when.
+- [The market's history](../../implementation/data/history.md): who changed the assignment, to what, and when.
 - [ADR 0002: A pin is a placement row](../../adr/0002-a-pin-is-a-placement-row.md).
 - [ADR 0003: Applications are the solver's only input](../../adr/0003-applications-are-the-solvers-only-input.md).
 - [ADR 0004: A priority rule names a target](../../adr/0004-a-priority-rule-names-a-target.md).

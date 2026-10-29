@@ -3,7 +3,10 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/VendorsView.vue
-verified: 2026-10-28
+  - front-end/src/components/ExportVendorsDialog.vue
+  - front-end/src/utils/vendorExport.ts
+  - back-end/api/vendor_export.py
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -15,11 +18,14 @@ sources:
   - bug/10
   - bug/33
   - E28/F02/S02
+  - E42/F01/S01
+  - E42/F01/S02
+  - E42/F01/S03
 ---
 
 # Vendors
 
-**Who:** anyone who can read the market; placing and adding are an Editor's ([what each role may do](../rules/what-each-role-may-do.md)).
+**Who:** anyone who can read the market; placing and adding are an Editor's, and exporting is anyone's who holds a role ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Vendors page, the Assignment tab's third page, or the Result page's "N unassigned".
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
@@ -49,6 +55,27 @@ Covered by: `adding-a-vendor.spec.ts`.
 On the drawer's Assignments tab each date the vendor did not get states why, in words: "Not available on this date", "Already has as many dates as they asked for", "Already has as many dates as the market allows per vendor", "No table at a tier they accept", "Every table they accept is taken", or "A table is free - they could be assigned".
 Only the last offers "Assign them", which opens the Result page on that date, searched for them; a date stopped by a limit offers no placing.
 Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff screen and told why"), `vendors-and-limits.spec.ts`.
+
+## J15. Export the vendors to a CSV
+
+**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`).
+For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
+
+1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved vendors not placed, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors placed there; and the search.
+   The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
+2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; placed or not, on any date or on one; for the placed, the seat's section, tier and size; and the options of each of the form's choice questions, any of which the vendor chose.
+3. The columns are ticked under three headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none) and "Assignment".
+   Name, Email and Status are ticked to begin with.
+4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates placed", how many of the market's dates they hold one on.
+   The seats are the stored placements the Result page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
+5. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
+6. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
+7. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
+
+The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, and a seat is read from the stored placements the Result page draws.
+Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
+No column set is saved between exports yet.
+Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
 
 ## Superseded
 

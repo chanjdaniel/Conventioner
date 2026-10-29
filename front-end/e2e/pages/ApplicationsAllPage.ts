@@ -21,6 +21,7 @@ export class ApplicationsAllPage {
   readonly drawer: Locator;
   readonly drawerVerdict: Locator;
   readonly drawerHolder: Locator;
+  readonly exportButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -34,6 +35,7 @@ export class ApplicationsAllPage {
     this.drawer = page.getByTestId('vendors-detail-panel');
     this.drawerVerdict = page.getByTestId('applications-all-drawer-verdict');
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
+    this.exportButton = page.getByTestId('applications-all-export-button');
   }
 
   /** Straight to the All view by its address, as a bookmark would. */

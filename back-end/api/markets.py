@@ -62,7 +62,7 @@ from market_documents import (
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
-import placement_history as PlacementHistory
+import history as History
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
@@ -1314,7 +1314,8 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 def get_placement_history(
     market_id: str, requesting_user: str, vendor: Optional[str] = None
 ) -> tuple[Dict[str, Any], int]:
-    """This market's placement trail, newest first. Asks ``Actions.READ``.
+    """This market's placement trail - its history narrowed to placements - newest first. Asks
+    ``Actions.READ``.
 
     Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
     who may look at where vendors are sitting may look at how they came to be sitting there.
@@ -1329,7 +1330,7 @@ def get_placement_history(
     if refused:
         return {"error": refused}, 403
 
-    entries = PlacementHistory.entries_for_market(market_id, vendor)
+    entries = History.placement_entries(market_id, vendor)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as
@@ -1338,12 +1339,15 @@ def get_placement_history(
     }, 200
 
 
-def _market_csv_filename(market_name: Optional[str], market_id: str) -> str:
-    """Build a deterministic, filesystem-safe CSV filename for assignment downloads."""
+def _market_csv_filename(
+    market_name: Optional[str], market_id: str, kind: str = "assigned",
+) -> str:
+    """Build a deterministic, filesystem-safe CSV filename for a market's downloads: the
+    assignment's, or the vendors' export (``kind``)."""
     name = (market_name or market_id or "market").strip() or "market"
     safe = "".join(c if c.isalnum() or c in (" ", "-", "_") else " " for c in name)
     safe = "_".join(safe.split())
-    return f"{safe}_assigned.csv"
+    return f"{safe}_{kind}.csv"
 
 
 def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
