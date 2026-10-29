@@ -19,7 +19,7 @@ The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) 
 
 ## Prerequisites
 
-- `treehouse` on your PATH, at the version the team home pins in `machine/tools.lock`
+- `treehouse` on your PATH, at the version the team's code pins in `~/agent-team/bin/lib/tools.lock`
   (not treehouse's `install.sh`, which installs the latest release, not the pin):
   `team-doctor` checks it, and its `tool treehouse` line's fix is the pinned install command.
 - Node 24.22.1, the one `.nvmrc` pins (`nvm install` in the repository), for the front-end, and Docker for the back-end

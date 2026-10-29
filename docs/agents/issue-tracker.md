@@ -8,12 +8,13 @@ GitHub is used for pull requests only.
 
 ## Where things live
 
-- **The durable backlog** is `~/agent-team/projects/conventioner/backlog/`, and **the Wayfinder maps** are `~/agent-team/projects/conventioner/wayfinding/<effort>/`.
-  `~/agent-team` is the team home, a checkout of the private repo `chanjdaniel/agent-team`; its `projects/conventioner/` also holds the brain dumps (`brain-dump/`), the QC walk (`qc/`) and the plan-era review pages (`lavish/`).
+- **The durable backlog** is `~/agent-team-records/projects/conventioner/backlog/`, and **the Wayfinder maps** are `~/agent-team-records/projects/conventioner/wayfinding/<effort>/`.
+  `~/agent-team-records` is the team home, a checkout of the private repo `chanjdaniel/agent-team-records`; its `projects/conventioner/` also holds the brain dumps (`brain-dump/`) and the QC walks (`qc/`).
+  The team's code, its toolkits and scripts, is `~/agent-team` (`chanjdaniel/agent-team`), which holds no planning.
 - **The history came with it**: the planning was imported from Conventioner `dev` at `4aa7e30429768dbe09bc8037abd115486f6fd7fb` (the source sha), and `git log --follow` on a file in the team home lists the commits Conventioner had for it.
   Until then it was `.scratch/` and four `.lavish/` pages in this repo.
   The 2026-10-23 history rewrite removed those from every commit, so the planning lives only in the team home now; the source sha still holds the rest of this repo, such as `docs/MVP_KNOWN_GAPS.md`.
-  `~/agent-team/projects/conventioner/README.md` records the import.
+  `~/agent-team-records/projects/conventioner/README.md` records the import.
 - **`.scratch/` is transient and task-local**: it is ignored, exists only in a worktree with a task in flight, and dies with that worktree.
   The one exception is `.scratch/examples/` in the primary checkout, which holds real applicants' data (the organizers' Google Form exports): never commit, quote or paste from it.
 - The team home is outside this repo, so this file and the knowledge graph name its paths in backticks, never as relative links.
@@ -22,9 +23,9 @@ GitHub is used for pull requests only.
 
 The team home holds two kinds of thing, and conflating them is the main way this system rots.
 
-- **Work items** (`~/agent-team/projects/conventioner/backlog/`) are things to *build*.
+- **Work items** (`~/agent-team-records/projects/conventioner/backlog/`) are things to *build*.
   They form an Epic > Feature > Story hierarchy and live as long as the work does.
-- **Wayfinder maps** (`~/agent-team/projects/conventioner/wayfinding/<effort>/`) are open *questions* to resolve.
+- **Wayfinder maps** (`~/agent-team-records/projects/conventioner/wayfinding/<effort>/`) are open *questions* to resolve.
   A map exists to burn down uncertainty about direction; it is closed and archived once the way is clear.
 
 A Wayfinder map is upstream of the backlog.
@@ -39,7 +40,7 @@ Three levels, modelled on Azure DevOps but with the Story/PBI distinction collap
 A Story is sized to fit one fresh agent context window, which is exactly what a PBI would have been.
 
 ```
-~/agent-team/projects/conventioner/backlog/
+~/agent-team-records/projects/conventioner/backlog/
   E01-<slug>/
     epic.md
     F01-<slug>/
@@ -123,14 +124,14 @@ Each skill writes to a fixed place, in the worktree's `.scratch/` or in the team
 
 ## When a skill says "fetch the relevant ticket"
 
-- A work-item id (`E01/F02/S03`), whether passed by the user or found in a commit message, is read at its path under `~/agent-team/projects/conventioner/backlog/`.
+- A work-item id (`E01/F02/S03`), whether passed by the user or found in a commit message, is read at its path under `~/agent-team-records/projects/conventioner/backlog/`.
 - The task's spec is `.scratch/spec.md` and its tickets are `.scratch/tickets/`.
 - **`/code-review`** finds the spec at `.scratch/spec.md`, or asks when there is none, and resolves any work-item id in the commit messages under review at its team-home path.
 
 ## Resolving provenance
 
 A knowledge-graph node's `sources`, a code comment or a commit message names where a decision came from with one of these strings; none of them is a link.
-Paths here are under `~/agent-team/projects/conventioner/` unless they say otherwise.
+Paths here are under `~/agent-team-records/projects/conventioner/` unless they say otherwise.
 
 | `sources` string | Where it resolves |
 | --- | --- |
@@ -159,14 +160,14 @@ The five canonical triage roles map onto the `status` field:
 Used by `/wayfinder`, which creates and works maps in the team home.
 The **map** is a file with one **child** file per ticket.
 
-- **Map**: `~/agent-team/projects/conventioner/wayfinding/<effort>/map.md` (the Destination / Notes / Decisions-so-far / Not-yet-specified / Out-of-scope body).
-- **Child ticket**: `~/agent-team/projects/conventioner/wayfinding/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body.
+- **Map**: `~/agent-team-records/projects/conventioner/wayfinding/<effort>/map.md` (the Destination / Notes / Decisions-so-far / Not-yet-specified / Out-of-scope body).
+- **Child ticket**: `~/agent-team-records/projects/conventioner/wayfinding/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body.
   A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `open`/`claimed`/`resolved`.
 - **Blocking**: a `Blocked by: NN, NN` line near the top.
   A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `~/agent-team/projects/conventioner/wayfinding/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Frontier**: scan `~/agent-team-records/projects/conventioner/wayfinding/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
 
-A resolution that implies buildable work creates or updates items under `~/agent-team/projects/conventioner/backlog/` and links them from the `## Answer` section.
+A resolution that implies buildable work creates or updates items under `~/agent-team-records/projects/conventioner/backlog/` and links them from the `## Answer` section.
 The map itself never holds a work breakdown.
