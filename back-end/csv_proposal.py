@@ -70,22 +70,28 @@ LEFT_OUT_EMPTY = "empty"
 
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 URL = re.compile(r"https?://|www\.|\.com\b|\.ca\b", re.IGNORECASE)
-HANDLE = re.compile(r"(^|\W)@\s*\w")
+HANDLE = re.compile(r"(^|\s)@\w")
 PHONE = re.compile(r"\+?\d[\d\s().-]{8,}\d")
-# What else names someone, for ``_identifying`` alone: ``URL`` above also describes a column's
-# shape to TypeSafe, and that measured description stays as it was.
+# The wider net, for what is kept and what is sent (``_names_someone``). The rules read through the
+# four above, which the answer key was measured with: a wider view changes what they propose (an
+# earlier draft took "500-1000" out of a question answered with ranges, which then read as Text).
 SPELLED_EMAIL = re.compile(
     r"[\w.+-]+\s*[\[(]?\s*\bat\b\s*[\])]?\s*[\w-]+\s*[\[(]?\s*\bdot\b\s*[\])]?\s*\w+",
     re.IGNORECASE)
 # A domain without its scheme ("linktr.ee/makers"): a letter after the last dot, two or more of
 # them, so "3.5 inch" and "e.g." are not one.
 DOMAIN = re.compile(r"\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b", re.IGNORECASE)
-# A local phone number, 7 digits with or without its separator, or any longer run of digits.
-SHORT_PHONE = re.compile(r"\b\d{3}[\s.-]?\d{4}\b|\b\d{7,}\b")
-# A street address: a number, up to three words, a street word; or a unit or suite number.
+# A handle wherever its @ sits: after any punctuation ("IG:@makers") or before a space.
+ANY_HANDLE = re.compile(r"(^|\W)@\s*\w")
+# A local phone number, 7 digits with or without one separator, or any longer run of digits.
+SHORT_PHONE = re.compile(r"\b(\d{3})[\s.-]?(\d{4})\b|\b\d{7,}\b")
+# A street address: a number (an ordinal too), a name of one to three words ("W 4th"), a street
+# word; a unit, suite or apartment number; or a post office box. The name is what keeps "3 way
+# split" from being one.
 STREET = re.compile(
-    r"\b\d+[a-z]?\s+(?:[a-z]+\s+){0,3}(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|"
-    r"lane|crescent|court|place|highway|hwy)\b\.?|\b(?:unit|suite|apt|apartment)\s*#?\s*\d",
+    r"\b\d+(?:st|nd|rd|th)?\s+(?:[a-z0-9]+\s+){1,3}(?:street|st|avenue|ave|road|rd|boulevard|blvd|"
+    r"drive|dr|lane|crescent|cres|court|place|pl|way|terrace|ter|highway|hwy)\b\.?"
+    r"|\b(?:unit|suite|ste|apt|apartment)\.?\s*#?\s*\d|\bp\.?\s*o\.?\s*box\s*\d",
     re.IGNORECASE)
 NUMBER = re.compile(r"^\s*\$?\d+(\.\d+)?\s*$")
 DRIVE_UPLOAD = re.compile(r"^https://drive\.google\.com/open\?id=")
@@ -129,12 +135,36 @@ KEY_MAX = 40
 
 
 def _identifying(value: str) -> bool:
-    """Whether a value names someone: an address, however it is spelled; a link, with or without
-    its scheme; a handle, wherever its @ sits; a phone number of 7 digits or more; a street address.
-    What it misses (a bare name, a shop name, a handle with no @) only uniqueness catches, which is
-    why a value is also kept only when at least SHARED_BY applicants gave it."""
-    return any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, HANDLE,
-                                                      PHONE, SHORT_PHONE, STREET))
+    """The privacy view's filter, as the rules were measured with it: an address, a link with its
+    scheme or a .com or .ca, a handle after a space, a phone number of 10 characters or more."""
+    return bool(EMAIL.search(value) or URL.search(value) or HANDLE.search(value)
+                or PHONE.search(value))
+
+
+def _names_someone(value: str) -> bool:
+    """Whether a value names someone, for what the start keeps (E38/F02/S01): an address, also
+    spelled out; a link, with or without its scheme; a handle, wherever its @ sits; a phone number
+    of 7 digits or more; a street address, unit or post office box.
+
+    A run of digits and separators is a phone number only with 10 digits or more, or as 3 and 4
+    digits: "9.30 - 4.30" is a time and "500-1000" a range of numbers (both ends a multiple of ten,
+    the lower first), and a question offers both. What no pattern sees (a bare name, a shop's name,
+    a handle with no @, a postal code) only SHARED_BY guards.
+    """
+    if any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, ANY_HANDLE,
+                                                  STREET)):
+        return True
+    if any(sum(c.isdigit() for c in found.group()) >= 10 for found in PHONE.finditer(value)):
+        return True
+    return any(not _a_range(found) for found in SHORT_PHONE.finditer(value))
+
+
+def _a_range(found: "re.Match[str]") -> bool:
+    """Whether 3 and 4 digits around a separator are a range of numbers rather than a phone."""
+    if found.group(1) is None:
+        return False
+    low, high = int(found.group(1)), int(found.group(2))
+    return low < high and low % 10 == 0 and high % 10 == 0
 
 
 def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:
@@ -389,14 +419,14 @@ def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Di
 def kept_readings(field: Dict[str, Any]) -> Dict[str, List[str]]:
     """Both readings of a column's answers as the start keeps them (E38/F02/S01): the options the
     Review step keeps by default - at least SHARED_BY applicants chose each, and for a
-    multi-select at least OPTION_SHARE of the answers - less any holding an address, link, handle
-    or phone number. Values only, most chosen first: the privacy view, never a count or a person.
+    multi-select at least OPTION_SHARE of the answers - less any that names someone
+    (``_names_someone``). Values only, most chosen first: never a count or a person.
     """
     by_type = field.get("optionsByType") or {}
 
     def kept(reading: Optional[Dict[str, Any]]) -> List[str]:
         return [option["value"] for option in (reading or {}).get("options", [])
-                if not option["rare"] and not _identifying(option["value"])]
+                if not option["rare"] and not _names_someone(option["value"])]
 
     return {"select": kept(by_type.get("select")),
             "multiSelect": kept(by_type.get("multi_select"))}
@@ -687,7 +717,7 @@ def _team_candidates(columns: List[_Column], proposed: List[Dict[str, Any]]) -> 
     """The free-text questions not everyone answered, after the form's last certain one: where a
     team's notes headed like a question ("Comments (internal)") would sit, and the rules cannot
     tell. A question nearly everyone answered is certain to be the form's. A header that itself
-    holds an email, link, handle or phone number is not sent, and is not asked."""
+    holds anything that names someone (either filter) is not sent, and is not asked."""
     def answered_by_nearly_all(c: Dict[str, Any]) -> bool:
         return columns[c["index"]].answered_share >= NEARLY_ALL
 
@@ -698,14 +728,14 @@ def _team_candidates(columns: List[_Column], proposed: List[Dict[str, Any]]) -> 
     return [c["index"] for c in proposed
             if c["index"] > after and c["fate"] == FATE_CUSTOM and c["field"]
             and c["field"]["type"] == "text" and not answered_by_nearly_all(c)
-            and not _identifying(c["header"])]
+            and not _identifying(c["header"]) and not _names_someone(c["header"])]
 
 
 def _ceiling_candidate(columns: List[_Column]) -> Optional[Tuple[int, str]]:
     """The first header naming a number of days the ceiling rule did not read, and the sentence
     that names it, which is what the proposal quotes back."""
     for index, column in enumerate(columns):
-        if _identifying(column.header):
+        if _identifying(column.header) or _names_someone(column.header):
             continue
         for sentence in _sentences(column.header):
             if DAYS_MENTIONED.search(sentence):

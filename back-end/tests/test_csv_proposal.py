@@ -455,23 +455,42 @@ IDENTIFYING = [
     "Shop at example.org", "Visit Example.Net/shop", "makers.example.io", "linktr.ee/makers",
     "bit.ly/makers", "HTTPS://EXAMPLE.CA", "twitter.com/makers", "www.example.com",
     "@makers", "IG:@makers", "Prints (@makers)", "@ makers",
-    "Call 555-0199", "5550199", "604 555 0199", "+1 (604) 555-0199",
-    "123 Main Street Unit 4", "Unit 4 - 42 Fake Ave", "Suite 200",
+    "Call 555-0199", "5550199", "555.0199", "604 555 0199", "604.555.0199", "+1 (604) 555-0199",
+    "+44 20 7946 0958", "1234567",
+    "123 Main Street Unit 4", "Unit 4 - 42 Fake Ave", "Suite 200", "1234 Fake St.", "42 Fake Dr",
+    "42 Fake Pl", "42 Fake Cres", "42 Fake Way", "42 Fake Terrace", "42 W 4th St", "Apt. 3",
+    "Ste 200", "PO Box 123", "P.O. Box 123",
 ]
-# Answers a choice question really offers, which the filter must leave alone.
+# Answers a choice question really offers, which the filter must leave alone: ranges and times
+# above all, which share a phone number's digits and separators.
 NAMING_NOBODY = [
     "Prints", "Prints, Stickers", "Woven (crochet, knitting, etc)", "Art (e.g. prints)", "N/A",
     "2 days", "3", "Full table", "Half table, shared", "Monday, November 17", "2024-2025",
-    "$25", "3.5 inch pins", "1st time vendor", "Ph.D student", "Accepted", "Gold Tier",
-    "Jewellery & Accessories", "I agree to the terms", "Thursday 10:00 - 4:00",
+    "2023 - 2024", "$25", "$5.50", "3.5 inch pins", "10x10", "1st time vendor", "Ph.D student",
+    "Accepted", "Gold Tier", "Jewellery & Accessories", "I agree to the terms",
+    "Thursday 10:00 - 4:00", "9.30 - 4.30", "10.00 - 16.00", "11.30-12.30", "14.11.2025",
+    "500-1000", "100-1000", "250-1000", "100 1000", "1000-5000", "Under 100", "Booth 12",
+    "3 way split", "Either way is fine",
 ]
 
 
 @pytest.mark.parametrize("value", IDENTIFYING)
-def test_an_answer_that_names_someone_is_identifying(value):
-    assert CsvProposal._identifying(value)
+def test_an_answer_that_names_someone_is_never_kept(value):
+    assert CsvProposal._names_someone(value)
 
 
 @pytest.mark.parametrize("value", NAMING_NOBODY)
-def test_an_answer_that_names_nobody_is_not(value):
-    assert not CsvProposal._identifying(value)
+def test_an_answer_that_names_nobody_is_kept(value):
+    assert not CsvProposal._names_someone(value)
+
+
+def test_the_rules_read_through_the_filter_they_were_measured_with():
+    """The wider filter guards what is kept; the rules' privacy view stays the measured one, so a
+    question answered with ranges of numbers is still a choice (review of E38/F02/S01)."""
+    ranges = ["Under 100", "100-500", "500-1000", "1000-5000", "Over 5000"]
+    rows = [[f"vendor{i:02d}@example.com", ranges[i % 5]] for i in range(30)]
+    proposed = CsvProposal.proposal(["Email Address", "How many followers do you have?"], rows)
+    field = proposed["columns"][1]["field"]
+    assert field["type"] == "select"
+    # Every range is kept: six applicants chose each, so they come alphabetically.
+    assert CsvProposal.kept_readings(field)["select"] == sorted(ranges)
