@@ -8,7 +8,9 @@ import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  heldElsewhere,
   reviewView,
+  selectAll,
 } from '@/utils/reviewQueue';
 import { statusLabel } from '@/utils/verdicts';
 
@@ -86,5 +88,31 @@ describe('which view the review opens on (E38/F05/S01)', () => {
     ]);
     expect(ALL_VIEW_FILTERS[1].id).toBe('undecided');
     expect(ALL_VIEW_FILTERS[1].label).toBe(statusLabel(ApplicationStatus.Open));
+  });
+});
+
+describe('Select all (E38/F05/S02)', () => {
+  const held = (id: string, status: ApplicationStatus, holder: string): Application =>
+    ({ ...app(id, status), heldBy: { email: holder } }) as Application;
+  const ROWS = [
+    app('a', ApplicationStatus.Open),
+    held('b', ApplicationStatus.Open, 'sam@market.test'),
+    held('c', ApplicationStatus.UnderReview, 'Alex@Market.test'),
+    app('d', ApplicationStatus.ReviewerApproved),
+  ];
+
+  it('ticks every row the filter shows, and nothing it hides', () => {
+    const shown = allViewApplications(ROWS, 'undecided', false, 'alex@market.test');
+    expect(selectAll(shown, 'alex@market.test').ids).toEqual(['a', 'c']);
+  });
+
+  it('skips the rows another reviewer has open, and counts them', () => {
+    expect(selectAll(ROWS, 'alex@market.test')).toEqual({ ids: ['a', 'c', 'd'], skipped: 1 });
+  });
+
+  it("reads a row the viewer has open as theirs, whatever the address's case", () => {
+    expect(heldElsewhere(ROWS[2], 'alex@market.test')).toBeNull();
+    expect(heldElsewhere(ROWS[1], 'alex@market.test')).toBe('sam@market.test');
+    expect(heldElsewhere(ROWS[0], 'alex@market.test')).toBeNull();
   });
 });

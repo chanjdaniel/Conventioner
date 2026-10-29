@@ -15,6 +15,8 @@ export class ApplicationsAllPage {
   readonly rows: Locator;
   readonly mine: Locator;
   readonly selection: Locator;
+  readonly selectAll: Locator;
+  readonly selectAllSkipped: Locator;
   readonly confirmWindow: Locator;
   readonly confirmButton: Locator;
   readonly result: Locator;
@@ -28,6 +30,8 @@ export class ApplicationsAllPage {
     this.rows = page.getByTestId('applications-all-row');
     this.mine = page.getByTestId('applications-all-mine');
     this.selection = page.getByTestId('applications-all-selection');
+    this.selectAll = page.getByTestId('applications-all-select-all');
+    this.selectAllSkipped = page.getByTestId('applications-all-select-all-skipped');
     this.confirmWindow = page.getByTestId('applications-all-confirm-window');
     this.confirmButton = page.getByTestId('applications-all-confirm-submit-button');
     this.result = page.getByTestId('applications-all-result');

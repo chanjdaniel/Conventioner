@@ -38,6 +38,7 @@ sources:
   - E34/F04/S02
   - T15
   - E38/F05/S01
+  - E38/F05/S02
 ---
 
 # Reviewing applications
@@ -91,11 +92,13 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs.
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
+   "Select all" ticks every row the filter and Mine show, and none they hide; it leaves the rows another reviewer has open, and says so ("N applications not selected: another reviewer has them open.").
    A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
    A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
 
-A selection is only ever the rows ticked, never "everything matching".
+A selection is only ever the rows ticked, one by one or by Select all, which ticks the rows on screen: each is in front of the reviewer and counted in the confirmation, and nothing past them is decided.
+The list is not paged, so the rows shown are every match today; if it ever is paged, Select all still means the rows shown.
 The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count and the page's "N still to decide" move.
 
 ## I3. Choose what leads the card
@@ -152,4 +155,5 @@ Its specs and gaps are in [walking the flows](../../implementation/testing/walki
   A walk of a real 232-row export showed the card carried nothing to decide on, so the question was closed unanswered and replaced by what a reviewer must see (wayfinding/real-market-readiness/04).
 - That answer chose triage with no bulk action at all, so no application could be approved without being looked at (wayfinding/real-market-readiness/04), and bulk approve was ruled out again, twice (wayfinding/readable-journey/map, wayfinding/claims-and-room/map).
   The organizers asked for bulk verdicts, and the All view gives them, on ticked rows only and confirmed by count, never on "everything matching" (brain-dump/2026-10-19#10, E34/F04).
+  On the 2026-10-29 walk Daniel chose to add "Select all": it ticks the rows the filter shows, still confirmed by count and written only where each is as the reviewer saw it (E38/F05/S02).
 - Its third verdict, Skip, became "Needs follow-up", a stored status with an owner, beside "Next", which passes over a card and decides nothing (brain-dump/2026-10-19#9, E34/F02/S01).

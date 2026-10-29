@@ -256,3 +256,76 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
   // Omar was never ticked, and is left as he was.
   await expect(all.statusOf('omar@kiln.test')).toHaveText('Open');
 });
+
+/**
+ * Select all ticks the rows the filter shows, and only those (E38/F05/S02): a row another reviewer
+ * has open is left, and said so; the verdict is still confirmed by its count.
+ */
+test('Select all ticks the open rows shown, skipping the one held elsewhere', async ({
+  authenticatedPage: page,
+  browser,
+  request,
+}) => {
+  ensureVerifiedUser(SECOND.email, SECOND.password);
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
+  seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
+  seedApplicationWithStatus(marketId, 'reviewer_approved', 'omar@kiln.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
+  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: SECOND.email, role: 'editor' },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+
+  const all = new ApplicationsAllPage(page);
+  await withUser(browser, SECOND.email, SECOND.password, async (other) => {
+    // The other reviewer is handed the first card, Nadia's.
+    await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, { data: {} });
+  });
+  await all.goto(marketId);
+  await all.filter('undecided');
+  await expect(all.rows).toHaveCount(3);
+  await expect(all.tickOf('nadia@ember.test')).toBeDisabled();
+
+  await all.selectAll.click();
+  await expect(all.tickOf('theo@thistle.test')).toBeChecked();
+  await expect(all.tickOf('ines@loom.test')).toBeChecked();
+  await expect(all.tickOf('nadia@ember.test')).not.toBeChecked();
+  await expect(all.selectAllSkipped).toHaveText(
+    '1 application not selected: another reviewer has it open.',
+  );
+  await expect(all.selection).toContainText('2 applications selected');
+
+  // Every status shows the approved row too; it was not ticked, and the open ones stay ticked.
+  await all.filter('all');
+  await expect(all.rows).toHaveCount(4);
+  await expect(all.tickOf('omar@kiln.test')).not.toBeChecked();
+  await expect(all.selection).toContainText('2 applications selected');
+  await expect(all.selectAllSkipped).toHaveCount(0);
+
+  // A filter that hides the ticked rows unticks them, and Clear clears, as before.
+  await all.filter('reviewer_approved');
+  await expect(all.selection).toHaveCount(0);
+  await all.filter('undecided');
+  await all.selectAll.click();
+  await page.getByTestId('applications-all-selection-clear').click();
+  await expect(all.selection).toHaveCount(0);
+  await expect(all.tickOf('theo@thistle.test')).not.toBeChecked();
+
+  // Decided by count, as a selection ticked by hand is.
+  await all.selectAll.click();
+  await all.decideSelection('approve');
+  await expect(all.confirmWindow).toContainText('Approve 2 applications?');
+  await all.confirmButton.click();
+  await expect(all.result).toContainText('2 applications approved.');
+  await expect(all.rows).toHaveCount(1);
+});

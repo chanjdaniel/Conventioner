@@ -21,8 +21,10 @@ import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  heldElsewhere as heldBySomeoneElse,
   reviewAnswers,
   reviewQueue,
+  selectAll,
 } from '@/utils/reviewQueue';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
@@ -201,21 +203,35 @@ watch(
 // --- A verdict on a selection (E34/F04/S02) ---------------------------------------------------
 
 /**
- * The ticked applications. Only ever what the reviewer ticked: there is no action on "everything
- * matching the filter", so no verdict reaches an application nobody looked at the row of.
+ * The ticked applications. Only ever rows ticked on screen, one by one or by Select all, which
+ * ticks the rows shown (E38/F05/S02): there is no action on "everything matching" beyond them, so
+ * no verdict reaches an application whose row was not in front of the reviewer, counted.
  */
 const selected = ref<Set<string>>(new Set());
 /** One another reviewer has open cannot be ticked; it says who. */
 function heldElsewhere(app: Application): string | null {
-  const holder = app.heldBy?.email;
-  return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+  return heldBySomeoneElse(app, me.value);
 }
+/** How many rows Select all left unticked because someone else has them open, to say so. */
+const skippedHeld = ref(0);
 function toggle(app: Application, ticked: boolean) {
   const next = new Set(selected.value);
   if (ticked) next.add(app.id);
   else next.delete(app.id);
   selected.value = next;
+  skippedHeld.value = 0;
 }
+function tickAllShown() {
+  const { ids, skipped } = selectAll(shown.value, me.value);
+  selected.value = new Set(ids);
+  skippedHeld.value = skipped;
+}
+function clearSelection() {
+  selected.value = new Set();
+  skippedHeld.value = 0;
+}
+// Another filter is another set of rows: what Select all skipped was said of the last one.
+watch([filter, mine], () => (skippedHeld.value = 0));
 // A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
 watch(shown, (rows) => {
   const visible = new Set(rows.map((a) => a.id));
@@ -247,7 +263,7 @@ async function decideSelection() {
     const answer = await reviewSelection(props.market.id, picked, status);
     result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
     asking.value = null;
-    selected.value = new Set();
+    clearSelection();
     await load();
     void details.load();
     void marketStore.refresh();
@@ -300,7 +316,27 @@ async function decideSelection() {
       </p>
     </div>
 
-    <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
+    <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
+    <div v-if="decides && shown.length" class="all-select-all">
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-select-all"
+        @click="tickAllShown"
+      >
+        Select all
+      </button>
+      <span
+        v-if="skippedHeld"
+        class="all-meta"
+        role="status"
+        data-testid="applications-all-select-all-skipped"
+        >{{ plural(skippedHeld) }} not selected: another reviewer has
+        {{ skippedHeld === 1 ? 'it' : 'them' }} open.</span
+      >
+    </div>
+
+    <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
     <div
       v-if="decides && selected.size"
       class="all-selection"
@@ -335,7 +371,7 @@ async function decideSelection() {
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="applications-all-selection-clear"
-        @click="selected = new Set()"
+        @click="clearSelection"
       >
         Clear
       </button>
@@ -594,6 +630,13 @@ async function decideSelection() {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+.all-select-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .all-list {

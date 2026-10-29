@@ -9,9 +9,10 @@
  * or click, and a count of what is left.
  *
  * **This view decides one application at a time.** A verdict on several is the All view's
- * (`ApplicationsAll`, E34/F04/S02): rows the reviewer ticks, one by one, a confirmation naming the
- * count, and never "approve all matching" - a verdict nobody read would reach the approved set,
- * which is the solver's entire input (`assign_market` reads `reviewer_approved` and nothing else).
+ * (`ApplicationsAll`, E34/F04/S02): rows the reviewer ticks, one by one or with Select all over the
+ * rows shown (E38/F05/S02), and a confirmation naming the count - never "approve all matching" past
+ * what is on screen, since the approved set is the solver's entire input (`assign_market` reads
+ * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';

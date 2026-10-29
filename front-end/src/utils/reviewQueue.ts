@@ -171,3 +171,18 @@ export function allViewApplications(
     ),
   );
 }
+
+/** Who else has this application open, if anyone but the viewer does: its tick is not theirs. */
+export function heldElsewhere(application: Application, me: string): string | null {
+  const holder = application.heldBy?.email;
+  return holder && holder.toLowerCase() !== me.trim().toLowerCase() ? holder : null;
+}
+
+/**
+ * What Select all ticks (E38/F05/S02): every row shown - the filter and Mine already applied - but
+ * those another reviewer has open, which cannot be ticked one by one either; and how many it left.
+ */
+export function selectAll(shown: Application[], me: string): { ids: string[]; skipped: number } {
+  const free = shown.filter((a) => !heldElsewhere(a, me));
+  return { ids: free.map((a) => a.id), skipped: shown.length - free.length };
+}
