@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/market/MarketAssignmentTab.vue
   - front-end/src/components/ResultSummary.vue
   - front-end/src/utils/download.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -43,13 +43,13 @@ sources:
 The Assignment tab holds three pages: Assignment (the rules and the run, [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Result (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
 Before a run the rail says "Set the rules and allocate tables."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."
 **Setting the rules and running them is one page; reading and changing what they produced is another.**
-The first is called Assignment because that is the organizers' word for the whole job; what it sets are the assignment rules, and what the solver produces is the assignment, read on Result ([Assignment](../concepts/assignment.md)).
+The first is called Assignment because that is the organizers' word for the whole job; what it sets are the assignment rules, and what the solver produces is the table allocation, read on Result as assignments ([Assignment](../concepts/assignment.md)).
 An organizer's result is who sits where, which is the tables; so Result is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Result (its address redirects there, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
-A run lands on Result.
-Running again asks nothing: every hand placement is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-run-again-keeping-hand-placements)), and in Assignment nothing has yet been sent to anyone.
+Allocating tables lands on Result.
+Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
 Before the first run Result and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
 
-How the solver places vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
+How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
 **Task:** "Give each approved vendor their tables, putting current students first, and no vendor more than 3 days."
 
@@ -99,7 +99,7 @@ The button is disabled with the reason; the server refuses too, in every phase b
 **Status:** Works (walked live; the search, the statistics, the download and the marks read from the code as of E35/F02/S01, E35/F03 and E36/F02/S03).
 
 1. Summary: "N of M approved applicants assigned" (M every approved applicant, N those of them with an assignment), "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
-2. "Statistics" opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job: a card per question (per date, section, tier and table size), each answer a row with its count, its share of all placements and a bar against the largest in its card, every row a filter of the tables.
+2. "Statistics" opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job: a card per question (per date, section, tier and table size), each answer a row with its count, its share of all assignments and a bar against the largest in its card, every row a filter of the tables.
    "Assignment history" ([J13](placing-by-hand.md#j13-assignment-history)) and "Download CSV" ([`download.ts`](../../../front-end/src/utils/download.ts)), whose columns are Name (the name the vendor chose, else their full name), Full name, Email and Approval ("Approved", or "Not approved" for a seat given by hand to someone the review did not approve), then one per date holding "<table> - <table choice>" where they sit that day.
 3. "Search" ("Name, business, email or table") keeps the tables whose label matches, or that seat a vendor matching by address, by either name, or by a short answer (80 characters or fewer) to one of the form's text or email questions, such as a business name, a business email or a handle; a choice, a number or a date is shared by many and finds nobody.
    A whole address matches that vendor alone, and the search is kept in the address as typed (`?search=`).
@@ -142,7 +142,7 @@ Covered by: `results-wait-for-the-allocation.spec.ts`, `vendors-see-their-applic
 ## The rules it obeys
 
 - [Assign runs only in assignment](../rules/assign-runs-only-in-assignment.md).
-- [Priority and tie-breaks](../rules/priority-and-tie-breaks.md), [the half-table share](../rules/half-table-share.md), [the ceiling on dates per vendor](../rules/max-assignments-ceiling.md), [tier filters, section prefers](../rules/tier-filters-section-prefers.md), [table-share pairing](../rules/table-share-pairing.md) and [dates fill one at a time](../rules/dates-fill-in-calendar-order.md): how the run places.
+- [Priority and tie-breaks](../rules/priority-and-tie-breaks.md), [the half-table share](../rules/half-table-share.md), [the ceiling on dates per vendor](../rules/max-assignments-ceiling.md), [tier filters, section prefers](../rules/tier-filters-section-prefers.md), [table-share pairing](../rules/table-share-pairing.md) and [dates fill one at a time](../rules/dates-fill-in-calendar-order.md): how the run assigns.
 - [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md).
 - [An assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md).
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md).

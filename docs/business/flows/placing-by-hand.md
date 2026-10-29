@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
@@ -70,10 +70,10 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-a
 In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
 Covered by: `placement-edit.spec.ts`.
 
-## J9. Run again, keeping hand placements
+## J9. Allocate tables again, keeping hand assignments
 
 **Status:** Works (walked live).
-Every hand placement is a pin; on Assignment, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
+Every hand assignment is a pin; on Assignment, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
 Covered by: `placement-pins.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 ## J10. A pin the plan no longer holds
