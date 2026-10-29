@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 PREVIEW_ROWS = 3
 
 #: Spreadsheets read accents in a UTF-8 file only when it says it is one.
-BYTE_ORDER_MARK = "﻿"
+BYTE_ORDER_MARK = "\ufeff"
 
 
 class ExportInvalid(BadRequestError):

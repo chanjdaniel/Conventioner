@@ -122,7 +122,7 @@ def _file(filters=None, columns=None):
 
 
 def _rows(content: str):
-    assert content.startswith("﻿")
+    assert content.startswith("\ufeff")
     return list(csv.reader(io.StringIO(content[1:])))
 
 
@@ -155,7 +155,7 @@ class TestTheFile:
 
         content, _filename = _file()
 
-        assert content.startswith("﻿")
+        assert content.startswith("\ufeff")
         assert ["Benoît Éclair", "ben@example.com", "Approved"] in _rows(content)
 
     def test_it_is_named_for_the_market_and_the_day(self, market, monkeypatch):

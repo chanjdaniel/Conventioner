@@ -228,6 +228,14 @@ test('every field on every other organizer screen and dialog has a name', async 
     await named(screen);
   }
 
+  // The export, with "Placed" chosen so a seat's section, tier and size are walked too (E42/F01/S01).
+  await page.goto(marketScreenPath(published.marketId, 'vendors'));
+  await page.getByTestId('vendors-export-button').click();
+  await expect(page.getByTestId('vendor-export-summary')).not.toBeEmpty();
+  await page.getByTestId('vendor-export-placed').selectOption('placed');
+  await named('the export dialog');
+  await page.keyboard.press('Escape');
+
   // The placement history, opened with the run's entry in it (E35/F03/S03).
   const tables = new TablesPage(page);
   await tables.goto(published.marketId);
