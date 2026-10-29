@@ -5,33 +5,16 @@
  * chosen 2026-10-20. The counts are the server's; nothing here adds or drops one.
  */
 import type { AssignmentStatistics } from '@/assets/types/datatypes';
+import { ledgerRows, type Counted, type LedgerRow } from '@/utils/barLedger';
 import { getShortDate } from '@/utils/utils';
 
 /** The result filter a row narrows the tables to when chosen. */
 export type LedgerFilter = 'date' | 'section' | 'tier' | 'choice';
 
-export interface LedgerRow {
-  label: string;
-  /** What the row sets its filter to. */
-  value: string;
-  count: number;
-  /** Its share of all placements, a whole percent. */
-  share: number;
-  /** Its bar, as a percent of the largest count in its group. */
-  bar: number;
-}
-
 export interface LedgerGroup {
   title: string;
   filter: LedgerFilter;
   rows: LedgerRow[];
-}
-
-/** One answer as the server counts it: what it reads as, what it filters by, how many. */
-interface Counted {
-  label: string;
-  value: string;
-  count: number;
 }
 
 /**
@@ -55,18 +38,11 @@ function tableSizes(perChoice: Record<string, number>): Counted[] {
 
 export function statisticsLedger(statistics: AssignmentStatistics): LedgerGroup[] {
   const total = statistics.totalAssignments ?? 0;
-  const group = (title: string, filter: LedgerFilter, entries: Counted[]): LedgerGroup => {
-    const largest = Math.max(0, ...entries.map((entry) => entry.count));
-    return {
-      title,
-      filter,
-      rows: entries.map((entry) => ({
-        ...entry,
-        share: total ? Math.round((entry.count / total) * 100) : 0,
-        bar: largest ? (entry.count / largest) * 100 : 0,
-      })),
-    };
-  };
+  const group = (title: string, filter: LedgerFilter, entries: Counted[]): LedgerGroup => ({
+    title,
+    filter,
+    rows: ledgerRows(entries, total),
+  });
   const named = (counts: Record<string, number> | undefined): Counted[] =>
     Object.entries(counts ?? {}).map(([name, count]) => ({ label: name, value: name, count }));
 

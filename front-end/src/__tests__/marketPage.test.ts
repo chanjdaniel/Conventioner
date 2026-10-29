@@ -14,9 +14,9 @@ import { MarketPhase } from '@/assets/types/datatypes';
 /**
  * How a market's pages are reached (E22/F04/S02, from the-assignment-tab ticket 02).
  *
- * The bar carries Market Setup, Application Form, Applications, Assignment, and Attendance once the
- * market is published. The Assignment tab holds three pages - Assignment, Result, Vendors - and a
- * tab opens the page the market is worked on in its phase: the one carrying the dot.
+ * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance and Stats in
+ * every phase. The Assignment tab holds three pages - Assignment, Result, Vendors - and a tab opens
+ * the page the market is worked on in its phase: the one carrying the dot.
  */
 describe('the page a market is worked on in its phase', () => {
   it('opens a draft on the PLAN, not the form', () => {
@@ -57,10 +57,18 @@ describe('the page a market is worked on in its phase', () => {
 });
 
 describe('the tabs', () => {
-  it('are the same five in every phase, Attendance included', () => {
+  it('are the same six in every phase, Attendance and Stats included', () => {
     // Attendance included from draft, so the bar keeps one shape for the market's whole life
-    // (E31/F03/S02); a tab out of its phase says when it matters instead of disappearing.
-    expect(tabsFor()).toEqual(['setup', 'form', 'applications', 'assignment', 'attendance']);
+    // (E31/F03/S02); a tab out of its phase says when it matters instead of disappearing. Stats
+    // reads the market from its first application to its archive (E45/F01/S01).
+    expect(tabsFor()).toEqual([
+      'setup',
+      'form',
+      'applications',
+      'assignment',
+      'attendance',
+      'stats',
+    ]);
   });
 
   it('put every page under exactly one tab', () => {
@@ -74,6 +82,7 @@ describe('the tabs', () => {
     expect(tabOf('vendors')).toBe('assignment');
     expect(tabOf('import')).toBe('applications');
     expect(tabOf('floorplan')).toBe('setup');
+    expect(tabOf('stats')).toBe('stats');
   });
 });
 
@@ -87,6 +96,7 @@ describe('the page a tab opens', () => {
     expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('assignment');
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
+    expect(pageForTab('stats', MarketPhase.Review, false)).toBe('stats');
   });
 });
 
@@ -101,6 +111,7 @@ describe('the page a route is', () => {
     expect(pageOfRoute('market-result', {})).toBe('result');
     expect(pageOfRoute('vendors', {})).toBe('vendors');
     expect(pageOfRoute('attendance-status', {})).toBe('attendance');
+    expect(pageOfRoute('market-stats', {})).toBe('stats');
     expect(pageOfRoute('import-applications', {})).toBe('import');
     expect(pageOfRoute('floorplan-editor', {})).toBe('floorplan');
   });

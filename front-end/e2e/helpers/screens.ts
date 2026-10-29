@@ -393,6 +393,13 @@ export const SCREENS: Screen[] = [
     sizes: FITS_A_PHONE,
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
+  {
+    // Who applied, as a ledger of bars (E45/F01/S01).
+    name: 'the stats',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'stats'), 'stats-status'),
+  },
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {
     name: 'the navigation drawer, at the door',
