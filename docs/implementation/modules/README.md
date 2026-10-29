@@ -20,6 +20,7 @@ One line per node, sorted by file name.
 - [The form amendment](form-amendment.md) - fixing the form from inside the import: no new edge, pre-flight not rollback, ADMIN
 - [The guards and the phase move](guards.md) - `guards.py`: every precondition, the validated registry, paths that step through a phase, the one phase writer
 - [What an assignment was made from](made-from.md) - `madeFrom` fingerprints: the one place they are computed, written only by a run
+- [The market's actions](market-actions.md) - `market_actions.py`: the table of who may do what, one row per action, every check asking a row, each route's row
 - [Market deletion, and the deletion trail](market-deletion.md) - every record a market keeps goes with it by either door; the trail written before anything is destroyed
 - [The market frame](market-frame.md) - `MarketFrame` and `MarketBar`: the bar and tabs, the sticky top, the arrival states, the one width
 - [The market guide](market-guide.md) - `marketGuide.ts`, the one table of what each screen says per phase and path

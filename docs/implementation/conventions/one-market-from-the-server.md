@@ -5,7 +5,7 @@ describes:
   - front-end/src/utils/market.ts#parseMarketFromApi
   - front-end/src/__tests__/noMarketInTheBrowser.test.ts
   - back-end/api/markets.py#get_market_for_user
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/02

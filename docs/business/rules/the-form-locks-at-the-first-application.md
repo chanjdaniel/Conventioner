@@ -8,7 +8,7 @@ describes:
   - back-end/api/markets.py#ApplicationFormLockedError
   - back-end/guards.py#NoApplicationsYetGuard
   - front-end/e2e/helpers/seedApplication.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/real-market-readiness/05
   - wayfinding/the-order-of-the-work/07

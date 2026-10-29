@@ -9,6 +9,7 @@ import pytest
 from conftest import FakeMarketsCollection, stored_market
 
 import api.added_vendors as AddedVendors
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import assignment.vendor_input as VendorInput
@@ -107,14 +108,14 @@ class TestWhoMayAdd:
 
     def test_the_read_offers_it_to_an_editor_on_the_day(self, monkeypatch):
         from conftest import client_market
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
 
         assert MarketsApi.add_vendor_refusal(
             "e@x.test", client_market(phase=MarketPhase.MARKET_DAYS), None) is None
 
     def test_a_viewer_is_told_first_that_they_may_not_change_the_market(self, monkeypatch):
         from conftest import client_market
-        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: "Viewers read.")
+        monkeypatch.setattr(Actions, "refusal", lambda *_a: "Viewers read.")
 
         assert MarketsApi.add_vendor_refusal(
             "e@x.test", client_market(phase=MarketPhase.MARKET_DAYS), None) == "Viewers read."

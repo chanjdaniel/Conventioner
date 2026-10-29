@@ -10,9 +10,10 @@ two functions here are the only things that may change it:
 - ``run_assignment`` runs the solver and stores the result, replacing the browser's fetch-then-PUT.
 - ``write_placement`` writes one vendor into one seat on one date.
 
-Both are gated on ``MarketRole.EDITOR``, the same bar as every other market write and deliberately
-not stricter: an EDITOR can already rewrite the tiers, sections and table counts the whole
-assignment is computed from, so withholding "move one vendor between two seats" protects nothing.
+Both ask the table's Assignment row (``Actions.ASSIGN``, E39/F01/S01), whose default is EDITOR, the
+same bar as every other market write and deliberately not stricter: an EDITOR can already rewrite
+the tiers, sections and table counts the whole assignment is computed from, so withholding "move
+one vendor between two seats" protects nothing.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -27,13 +28,13 @@ from assignment.utils import convert_keys_to_camel_case
 from datatypes import (
     Market,
     MarketPhase,
-    MarketRole,
     SectionObject,
     SetupObject,
     VendorAssignmentResult,
     table_code_for,
 )
 import api.applications as ApplicationsApi
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError
@@ -272,7 +273,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     handed; with ``assignment_object`` server-owned that round-trip no longer stores anything,
     and it should never have been the client's job to decide what the solver said.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
 
     refusal = assign_refusal(market)
     if refusal is not None:
@@ -332,7 +333,7 @@ def write_placement(
     operation of its own (E11/F03/S01), because a write that quietly displaces an occupant is
     how a vendor is silently unassigned on market day.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
 
     placement = _placement_for(
         market,
@@ -379,7 +380,7 @@ def remove_placement(
     Removing a placement nobody holds is not an error: the caller asked for that seat to be
     empty, and it is.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
 
     email = (email or "").strip()
     date = (date or "").strip()
@@ -419,7 +420,7 @@ def swap_placements(
     This exists instead of a "move" that displaces whoever is already there. A move is how a
     vendor is silently unassigned; a swap says out loud that two people are changing places.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
 
     date = (date or "").strip()
     first_email = (first_email or "").strip()

@@ -29,9 +29,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
+import api.market_actions as Actions
 import api.markets as MarketsApi
 from client_errors import ConflictError
-from datatypes import ApplicationForm, Market, MarketPhase, MarketRole, phase_label
+from datatypes import ApplicationForm, Market, MarketPhase, phase_label
 from guards import PreconditionResult, judge_route, route_between
 from market_documents import market_doc_key, market_doc_set
 from assignment.utils import convert_keys_to_camel_case
@@ -240,10 +241,11 @@ def amend_application_form(
 ) -> Dict[str, Any]:
     """Write the form and return the market to the phase it started in.
 
-    ADMIN, not EDITOR: this moves the market's phase, and the phase endpoint's own bar is ADMIN.
-    An amendment that let an EDITOR walk a market through draft would be a way around that bar.
+    Asks ``Actions.AMEND_FORM``, ADMIN by default and not EDITOR: this moves the market's phase,
+    and the phase move's own row is ADMIN by default. An amendment that let an EDITOR walk a market
+    through draft would be a way around that bar.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.AMEND_FORM)
     plan = plan_for(market)
 
     availability = amendment_availability(market)
@@ -283,7 +285,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     replaying what was left of the old walk, because the reason a chain stalls is that the market
     is no longer where the walk believed.
     """
-    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.AMEND_FORM)
     pending = market.form_amendment
     if pending is None:
         raise AmendmentUnavailable("This market has no unfinished form amendment.")

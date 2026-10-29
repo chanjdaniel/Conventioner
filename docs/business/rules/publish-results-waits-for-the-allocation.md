@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py
   - back-end/guards.py#ResultsPublishedGuard
   - back-end/app.py#publish_market_results
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
@@ -50,7 +50,7 @@ An ADMIN or the owner, as with every action that tells people outside the market
 ## Where it is kept
 
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule: refused on a CSV market, once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
-  `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks ADMIN and the archived rule first.
+  `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
 - The market read serves the admin check and the rule as one `publishResultsReason`, and the counts as `publishOutcomes`, so the button is offered exactly when the endpoint would take it.
   The button ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) is drawn on the Applications page from `assignment` on only, disabled with that reason until a current run is stored.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.

@@ -3,12 +3,12 @@ layer: implementation
 kind: module
 describes:
   - back-end/csv_import.py
-  - back-end/app.py#_admin_market_document
+  - back-end/app.py#_importing_market_document
   - back-end/app.py#_import_context
   - back-end/app.py#inspect_application_import
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -31,7 +31,7 @@ The form is not the product's, so nothing is matched by header name: the organiz
 
 ## Its interface
 
-Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each ADMIN and each through `_import_context`:
+Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking the table's import row (Admin by default) and each through `_import_context`:
 
 | Endpoint | What it does |
 | --- | --- |
@@ -44,7 +44,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each ADMIN and
 **Importing is the CSV path's in every phase** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows only `applications_open` and `applications_closed` (`IMPORT_PHASES`): once review begins, the applicant set must stop moving under the reviewer.
 Its words name the CSV rail's moves: from a draft, "Use Import responses on the phase rail first"; from review, "Use Import more responses, under More… on the phase rail"; past review, that nothing more can be imported, since no move leads back (bug 42).
-`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_admin_market_document` asks ADMIN and refuses an archived market first.
+`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) and refuses an archived market first.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).

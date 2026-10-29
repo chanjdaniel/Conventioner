@@ -12,7 +12,7 @@ from flask_login import login_required
 from PIL import Image as PILImage
 
 from api.floorplans_access import image_refusal, market_refusal
-from datatypes import MarketRole
+import api.market_actions as Actions
 from services.gridfs_service import upload_image, get_image, delete_image
 from utils.pdf_converter import pdf_to_images, is_pdf
 
@@ -63,7 +63,7 @@ def upload_floorplan():
     """
     try:
         market_id = request.form.get("market_id")
-        refusal = market_refusal(market_id, MarketRole.EDITOR, edits=True)
+        refusal = market_refusal(market_id, Actions.CHANGE_SETUP, edits=True)
         if refusal:
             return refusal
 
@@ -152,7 +152,7 @@ def delete_floorplan(gridfs_id: str):
     The caller must be an editor of the image's market, on a market that is not archived.
     """
     try:
-        refusal = image_refusal(gridfs_id, MarketRole.EDITOR, edits=True)
+        refusal = image_refusal(gridfs_id, Actions.CHANGE_SETUP, edits=True)
         if refusal:
             return refusal
 

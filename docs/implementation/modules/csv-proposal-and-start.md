@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05
@@ -27,7 +27,7 @@ A draft can be started from its Google Form's responses (E24).
 
 ## Its interface
 
-Three endpoints in [`back-end/app.py`](../../../back-end/app.py), the two that touch a market ADMIN and refusing an archived one, as the import they prepare does:
+Three endpoints in [`back-end/app.py`](../../../back-end/app.py), the two that touch a market asking the import's row (Admin by default, through `_importing_market_document`) and refusing an archived one, as the import they prepare does:
 
 | Endpoint | What it does |
 | --- | --- |
