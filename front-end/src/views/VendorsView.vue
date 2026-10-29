@@ -11,6 +11,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import AddVendorDialog from '@/components/AddVendorDialog.vue';
+import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import { hasAssignment } from '@/utils/marketPage';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
@@ -30,6 +31,7 @@ import { useResultFilters } from '@/utils/useResultFilters';
 import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
+import { NO_FILTERS, vendorsPageSeed, type ExportFilters } from '@/utils/vendorExport';
 
 const router = useRouter();
 const route = useRoute();
@@ -122,6 +124,21 @@ async function vendorAdded(email: string): Promise<void> {
   drawer.open(email);
 }
 
+/**
+ * The vendors shown, as a CSV (E42/F01/S01): the dialog opens on this page's filters and search,
+ * taken as it opens, so the file holds who the organizer was looking at.
+ */
+const exporting = ref(false);
+const exportSeed = ref<ExportFilters>(NO_FILTERS);
+function openExport(): void {
+  exportSeed.value = vendorsPageSeed({
+    shown: shown.value,
+    filters: filters.value,
+    search: filterText.value,
+  });
+  exporting.value = true;
+}
+
 const totalVendorCount = computed(() => vendors.value.length);
 const runVendorCount = computed(() => runVendors.value.length);
 const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAssigned).length);
@@ -165,6 +182,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               Rejected only<span v-if="shown === 'rejected'" aria-hidden="true"> &times;</span>
             </button>
           </div>
+          <button
+            type="button"
+            class="btn btn--secondary btn--compact"
+            data-testid="vendors-export-button"
+            @click="openExport"
+          >
+            Export
+          </button>
           <button
             v-if="canAdd"
             type="button"
@@ -276,6 +301,12 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
       :market-id="marketId"
       @close="adding = false"
       @added="vendorAdded"
+    />
+    <ExportVendorsDialog
+      :open="exporting"
+      :market-id="marketId"
+      :seed="exportSeed"
+      @close="exporting = false"
     />
     <VendorDrawer
       :market="market"

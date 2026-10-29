@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/layout-detectors.spec.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
