@@ -33,11 +33,11 @@ A route answers it as its 403 body, through a `ForbiddenError` or a `{"error": .
 **A story that gates a new action adds a row with `action(...)` and asks it**; it never compares a role itself.
 A switch row (on or off rather than a role) arrives with the first story that needs one.
 
-## The rules of a market's life are asked first
+## The rules of a market's life keep their place
 
 The table says only who may.
 The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from the assignment on (`adding_refusal`), the assignment runs only in assignment (`assign_refusal`).
-Each check keeps the order it had, so every route answers each person as it did before the table.
+Each check keeps the order it had, so every route answers each person as it did before the table: a write that loads through `_load_market_to_change`, `market_refusal`, `_importing_market_document`, `save_floorplan_to_market` and publish-results ask the row first and the archived rule after it; `verdict_refusal` and `add_vendor_refusal` ask the archived rule first.
 
 ## Each route's row
 
