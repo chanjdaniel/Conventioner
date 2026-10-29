@@ -479,6 +479,10 @@ class Market(BaseModel):
     # the first entry and `apply_phase_transition` the rest, in the update that moves the phase;
     # no request body can write it. `phase_record` reads it. Empty on a market that predates it.
     phase_history: List["PhaseEntry"] = Field(default_factory=list)
+    # The rows of the table this market differs on (E39/F01/S03), by action id; a row it does not
+    # hold reads its built-in default, so absent is the built-in table and needs no migration.
+    # Server-owned: written only by its owner's one write (`set_permission`, `reset_permission`).
+    permissions: Dict[str, "MarketPermission"] = Field(default_factory=dict)
 
     @computed_field
     def is_draft(self) -> bool:
@@ -624,6 +628,20 @@ class FormAmendment(BaseModel):
 
     return_phase: str
     started_at: str
+
+
+class MarketPermission(BaseModel):
+    """One row a market holds of the table (E39/F01/S03): the role it asks, and where it came from.
+
+    Plain strings, not ``MarketRole``, for ``PhaseEntry``'s reason: a stored value this build does
+    not know must not fail the whole market's parse. ``api.market_actions`` reads a row it cannot
+    understand as the built-in default, as it reads a row the market does not hold.
+    ``source`` is ``market`` (changed on this market by its owner) or ``organization`` (copied from
+    the organization's default when the market was created, E39/F02).
+    """
+
+    role: str
+    source: str
 
 
 class PhaseEntry(BaseModel):

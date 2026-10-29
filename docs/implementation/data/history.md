@@ -5,10 +5,11 @@ describes:
   - back-end/history.py
   - back-end/api/markets.py#get_placement_history
   - back-end/migrations/migrate_placement_history.py
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
+  - E39/F01/S03
 ---
 
 # The market's history
@@ -65,6 +66,9 @@ It is read at VIEWER: anyone who may see where vendors sit may see how they came
 `?vendor=` narrows it to the entries naming one person, for their detail panel; a run names nobody, so it is never in a vendor's list.
 The answer carries the vendors' names against their addresses, so the trail reads as people.
 `market_id` is a [lookup index](lookup-indexes.md).
+
+**A change to the market's table** is an entry of the `change-the-table` action, kind `permission_set` or `permission_reset`, written by its owner's write ([a market's own rows](../modules/market-actions.md#a-markets-own-rows), the rule [what each role may do](../../business/rules/what-each-role-may-do.md)): its subject is the row, `{action}`, its detail the row's `{role, source}` before and after (`source` `built-in`, `organization` or `market`), and it names no vendor.
+`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to them, newest first, read at VIEWER like the placements.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
 The organizer reads the placements as [the placement history](../../business/flows/placing-by-hand.md#j13-placement-history).

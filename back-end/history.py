@@ -33,7 +33,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from api.market_actions import ASSIGN, Action
+from api.market_actions import ASSIGN, CHANGE_THE_TABLE, Action
 from db_config import get_database
 from utils.email_address import normalized_email
 
@@ -203,3 +203,20 @@ def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict
         *(entry for entry in legacy_placement_collection.find(query, projection)
           if entry.get("id") not in moved_ids),
     ])
+
+
+# --- The table: a market owner's changes to who may do what (E39/F01/S03) -------------------
+
+# A row set to a role, and a row returned to its built-in default. Each entry's subject is the row,
+# ``{action}``, and its detail the row's ``role`` and ``source`` before and after.
+PERMISSION_SET = "permission_set"
+PERMISSION_RESET = "permission_reset"
+
+_PERMISSION_FIELDS = ("id", MARKET_ID_FIELD, "actor", "at", "action", "kind", "subject", "detail")
+
+
+def permission_entries(market_id: str) -> List[Dict[str, Any]]:
+    """This market's history narrowed to the changes to its table, newest first."""
+    query = {MARKET_ID_FIELD: market_id, "action": CHANGE_THE_TABLE.id}
+    projection = {"_id": 0, **{field: 1 for field in _PERMISSION_FIELDS}}
+    return _newest_first(history_collection.find(query, projection))

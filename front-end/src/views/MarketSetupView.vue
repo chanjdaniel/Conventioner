@@ -453,6 +453,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignIncomplete="assignIncomplete"
           :marketId="market.id"
           :readOnly="!rulesWritable"
+          :mayRun="mayTake(market, MarketAction.Assign)"
           :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"

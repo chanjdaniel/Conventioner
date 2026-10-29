@@ -148,7 +148,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
     expect(wrapper.find('[data-testid="plan-setup-settled"]').exists()).toBe(false);
   });
 
-  function mountAssignment(readOnly: boolean, rulesLockReason: string | null) {
+  function mountAssignment(readOnly: boolean, rulesLockReason: string | null, mayRun = !readOnly) {
     return mount(MarketAssignmentTab, {
       props: {
         setupObject: SETUP,
@@ -159,6 +159,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
         assignIncomplete: [],
         marketId: 'market-1',
         readOnly,
+        mayRun,
         rulesLockReason,
         handPlacements: null,
       },
@@ -188,5 +189,23 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
 
     expect(wrapper.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
     expect(wrapper.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
+  });
+
+  it('the rules: the run follows the Assignment row alone, apart from the rules (E39/F01/S03)', () => {
+    const mayRunOnly = mountAssignment(true, null, true);
+
+    expect(mayRunOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(true);
+    expect(mayRunOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(true);
+
+    const mayChangeOnly = mountAssignment(false, null, false);
+
+    expect(mayChangeOnly.find('[data-testid="market-setup-assign-button"]').exists()).toBe(false);
+    expect(mayChangeOnly.getComponent('[data-testid="rules"]').props('readonly')).toBe(false);
+  });
+
+  it('the rules: nothing runs once they are settled, whoever may run', () => {
+    const wrapper = mountAssignment(false, 'The rules are settled.', true);
+
+    expect(wrapper.find('[data-testid="market-setup-assign-button"]').exists()).toBe(false);
   });
 });
