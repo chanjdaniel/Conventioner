@@ -62,7 +62,7 @@ from market_documents import (
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
-import placement_history as PlacementHistory
+import history as History
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
@@ -1314,7 +1314,8 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 def get_placement_history(
     market_id: str, requesting_user: str, vendor: Optional[str] = None
 ) -> tuple[Dict[str, Any], int]:
-    """This market's placement trail, newest first. Asks ``Actions.READ``.
+    """This market's placement trail - its history narrowed to placements - newest first. Asks
+    ``Actions.READ``.
 
     Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
     who may look at where vendors are sitting may look at how they came to be sitting there.
@@ -1329,7 +1330,7 @@ def get_placement_history(
     if refused:
         return {"error": refused}, 403
 
-    entries = PlacementHistory.entries_for_market(market_id, vendor)
+    entries = History.placement_entries(market_id, vendor)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as

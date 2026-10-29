@@ -38,7 +38,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError
-import placement_history as PlacementHistory
+import history as History
 from utils.email_address import normalized_email
 
 # The three seats a table holds. A table holds two, and a placement therefore always names a
@@ -303,7 +303,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         assignment.assignment_date,
         MadeFrom.fingerprint(market.setup_object, vendors),
     )
-    PlacementHistory.record_assignment_run(
+    History.record_assignment_run(
         market_id,
         requesting_user,
         placements_written=len(assignment.vendor_assignments),
@@ -362,7 +362,7 @@ def write_placement(
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
-    PlacementHistory.record_placed(market_id, requesting_user, placement)
+    History.record_placed(market_id, requesting_user, placement)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
@@ -400,7 +400,7 @@ def remove_placement(
     if freed:
         _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
         for placement in freed:
-            PlacementHistory.record_freed(
+            History.record_freed(
                 market_id, requesting_user, email, date, placement.table_code
             )
 
@@ -455,7 +455,7 @@ def swap_placements(
     _store_vendor_assignments(market_id, placements, market.assignment_object.assignment_date)
     # One entry, because it was one action: a trade recorded as two placements reads as two
     # unrelated decisions a week later.
-    PlacementHistory.record_swapped(
+    History.record_swapped(
         market_id,
         requesting_user,
         date,

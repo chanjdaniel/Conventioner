@@ -1,8 +1,8 @@
 """What was deleted, by whom, and when (E20/F04/S01).
 
-Nothing recorded this. ``placement_history`` covers placements only, and it is deleted WITH its
-market - which is right for a trail describing something that still exists, and useless for one
-describing something that does not.
+Nothing recorded this. The market's ``history`` is deleted WITH its market - which is right for a
+record describing something that still exists, and useless for one describing something that does
+not - so this trail stays apart from it (ADR 0017).
 
 Deleting an organization destroys markets, and an archived market holds the placement record of a
 market that actually ran plus a check-in URL the public could still reach. That is a decision the

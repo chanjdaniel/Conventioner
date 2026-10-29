@@ -48,7 +48,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Database
 - **MongoDB 7** - NoSQL document database
   - Primary data storage
-  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `placement_history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
+  - Collections: `users`, `organizations`, `markets`, `applications`, `attendance`, `history`, `vendor_notes`, `deletion_trail`, `applicant_login_challenges`, `floorplan_templates`, `schema_migrations`, and the GridFS bucket `floorplan_images` for floorplan uploads
   - Connection via PyMongo 4.18, to `MONGODB_URI` when it is set (production's Atlas cluster), otherwise to `MONGODB_HOST` and its siblings
   - Database name: `conventioner`
 
