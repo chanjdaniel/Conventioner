@@ -1,12 +1,12 @@
 /**
  * A chart per choice question (E45/F01/S02): the server's counts read as one ledger card per
- * question, narrowed to every applicant, the approved or the placed.
+ * question, narrowed to every applicant, the approved or the assigned.
  */
 import { describe, expect, it } from 'vitest';
 import { answerGroup, questionLedgers, type AnswerCounts } from '@/utils/answerCounts';
 
 const COUNTS: AnswerCounts = {
-  groups: { all: 5, approved: 3, placed: 0 },
+  groups: { all: 5, approved: 3, assigned: 0 },
   questions: [
     {
       key: 'selling',
@@ -24,7 +24,7 @@ const COUNTS: AnswerCounts = {
           { kind: 'option', answer: 'Stickers', count: 0 },
           { kind: 'other', count: 2 },
         ],
-        placed: [
+        assigned: [
           { kind: 'option', answer: 'Prints', count: 0 },
           { kind: 'option', answer: 'Stickers', count: 0 },
         ],
@@ -72,14 +72,14 @@ describe('a chart per choice question', () => {
   });
 
   it('shares nothing in a group nobody is in', () => {
-    const [placed] = questionLedgers(COUNTS, 'placed');
+    const [assigned] = questionLedgers(COUNTS, 'assigned');
 
-    expect(placed.rows.map((row) => row.share)).toEqual([0, 0]);
+    expect(assigned.rows.map((row) => row.share)).toEqual([0, 0]);
   });
 
   it('reads the group from the address, every applicant for one it does not know', () => {
     expect(answerGroup('approved')).toBe('approved');
-    expect(answerGroup('placed')).toBe('placed');
+    expect(answerGroup('assigned')).toBe('assigned');
     expect(answerGroup(undefined)).toBe('all');
     expect(answerGroup('everyone')).toBe('all');
   });

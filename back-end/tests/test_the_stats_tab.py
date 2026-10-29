@@ -8,7 +8,7 @@ time each of the others applied, which the page turns into days in the reader's 
 A chart per choice question: each select, multi-select and checkbox question of the market's form,
 each option with how many gave it, a multi-select counting every option ticked, every answer the
 form does not offer counted once as "Other", and those who gave none as "No answer". Free-text
-questions are not counted. The counts come for every application, the approved ones and the placed
+questions are not counted. The counts come for every application, the approved ones and the assigned
 ones, so the page's switch between them asks nothing more of the server.
 """
 from types import SimpleNamespace
@@ -66,7 +66,7 @@ APPLICATIONS = [
         "business_name": "Kiln", "selling": ["Jewelry", "Candles", "Soap"], "returning": "Yes",
         "own_work": True,
     }),
-    # Rejected, and seated by hand anyway: placed, never approved.
+    # Rejected, and assigned by hand anyway: assigned, never approved.
     _application("lena@forge.test", "reviewer_rejected", {
         "business_name": "Forge", "selling": [], "returning": "", "own_work": False,
     }),
@@ -144,8 +144,8 @@ class TestWhoApplied:
 
 
 class TestTheAnswerCounts:
-    def test_the_groups_are_every_application_the_approved_and_the_placed(self):
-        assert _counted()["groups"] == {"all": 5, "approved": 3, "placed": 2}
+    def test_the_groups_are_every_application_the_approved_and_the_assigned(self):
+        assert _counted()["groups"] == {"all": 5, "approved": 3, "assigned": 2}
 
     def test_only_choice_questions_are_counted_in_the_forms_order(self):
         questions = _counted()["questions"]
@@ -176,17 +176,17 @@ class TestTheAnswerCounts:
             ("option", "Yes", 2), ("option", "No", 0), ("none", None, 1),
         ]
 
-    def test_placed_narrows_every_chart_to_those_with_a_seat(self):
+    def test_assigned_narrows_every_chart_to_those_with_an_assignment(self):
         selling, returning, own_work = _counted()["questions"]
 
-        assert _rows(selling, "placed") == [
+        assert _rows(selling, "assigned") == [
             ("option", "Prints", 0), ("option", "Stickers", 0), ("option", "Jewelry", 1),
             ("other", None, 1), ("none", None, 1),
         ]
-        assert _rows(returning, "placed") == [
+        assert _rows(returning, "assigned") == [
             ("option", "Yes", 1), ("option", "No", 0), ("none", None, 1),
         ]
-        assert _rows(own_work, "placed") == [("option", "Yes", 1), ("option", "No", 1)]
+        assert _rows(own_work, "assigned") == [("option", "Yes", 1), ("option", "No", 1)]
 
     def test_a_select_answer_the_form_no_longer_offers_is_other(self):
         retired = [_application("ines@loom.test", "open", {"returning": "Maybe"})]
@@ -210,7 +210,7 @@ class TestTheAnswerCounts:
     def test_a_market_nobody_applied_to_counts_every_option_at_zero(self):
         counted = _counted(applications=[], seated=())
 
-        assert counted["groups"] == {"all": 0, "approved": 0, "placed": 0}
+        assert counted["groups"] == {"all": 0, "approved": 0, "assigned": 0}
         assert _rows(counted["questions"][1], "all") == [("option", "Yes", 0), ("option", "No", 0)]
 
 
@@ -258,8 +258,8 @@ class TestTheRoute:
         body = response.get_json()
         assert body["applicants"]["total"] == 5
         assert body["applicants"]["statuses"]["reviewer_approved"] == 3
-        assert body["answers"]["groups"] == {"all": 5, "approved": 3, "placed": 2}
-        assert _rows(body["answers"]["questions"][0], "placed") == [
+        assert body["answers"]["groups"] == {"all": 5, "approved": 3, "assigned": 2}
+        assert _rows(body["answers"]["questions"][0], "assigned") == [
             ("option", "Prints", 0), ("option", "Stickers", 0), ("option", "Jewelry", 1),
             ("other", None, 1), ("none", None, 1),
         ]

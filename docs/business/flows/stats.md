@@ -41,15 +41,15 @@ Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Ap
 1. "What they answered" shows a card per question of the form that offers choices (select, multi-select or checkbox), titled by the question, in the form's order; a free-text question, and the essential questions about dates, tiers and tables, are not charted.
 2. Each option the question offers is a row, one nobody chose included, at zero; a multi-select counts every option ticked, so its shares add up to more than 100%; a checkbox reads "Yes" and "No".
 3. Every answer the question does not offer, written in under "Other" on a Google Form or an option since taken off, is one row, "Other", counting each applicant once however many they wrote; those who gave no answer are a row, "No answer". Either is left out when nobody is in it.
-4. A switch, "All applicants", "Approved" and "Placed", narrows every card at once, with "N of M" beside it; the choice is kept in the address (`?among=approved`, `?among=placed`), so a reload or a shared link opens on it.
-   Approved is the All view's Approved, those added by hand among them; Placed is everyone the stored assignment gives a table on any date, whatever their verdict, as the outcome they are told is read.
+4. A switch, "All", "Approved" and "Assigned", narrows every card at once, with "N of M" beside it; the choice is kept in the address (`?among=approved`, `?among=assigned`), so a reload or a shared link opens on it.
+   Approved is the All view's Approved, those added by hand among them; Assigned is everyone with an assignment, a table on any date, whatever their verdict, as the outcome they are told is read.
    A share is of the group chosen.
-5. A group nobody is in says so instead of charting noughts: "Nobody is approved yet.", "Nobody has a table yet."
+5. A group nobody is in says so instead of charting noughts: "Nobody is approved yet.", "Nobody is assigned yet."
    A form with no question to chart says "The form asks no question with choices to count."
 
 A row leads nowhere: the All view filters by status, not by an answer.
 The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as stored.
-Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the placed"), `test_the_stats_tab.py`.
+Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned"), `test_the_stats_tab.py`.
 
 ## The rules it obeys
 

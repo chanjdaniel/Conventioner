@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, by status and by
  * the day each applied (E45/F01/S01), and a chart per choice question, narrowed to the approved or
- * the placed (E45/F01/S02).
+ * the assigned (E45/F01/S02).
  */
 export class StatsPage {
   readonly page: Page;
@@ -44,8 +44,8 @@ export class StatsPage {
     return this.days.nth(index).getByTestId('stats-day-count');
   }
 
-  /** The switch's button for a group: `all`, `approved` or `placed`. */
-  among(group: 'all' | 'approved' | 'placed'): Locator {
+  /** The switch's button for a group: `all`, `approved` or `assigned`. */
+  among(group: 'all' | 'approved' | 'assigned'): Locator {
     return this.page.getByTestId(`stats-among-${group}`);
   }
 

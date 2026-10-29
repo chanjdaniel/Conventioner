@@ -1,6 +1,6 @@
 /**
  * What the applicants answered, as the Stats tab charts it (E45/F01/S02): a ledger card per choice
- * question of the form, narrowed to every applicant, the approved or the placed.
+ * question of the form, narrowed to every applicant, the approved or the assigned.
  *
  * Counted on the server, with who applied, in the Stats tab's one answer (`utils/marketStats.ts`):
  * each option the question offers, "Other" for every answer it does not (written in on a Google
@@ -9,13 +9,13 @@
  */
 import { ledgerRows, type LedgerRow } from '@/utils/barLedger';
 
-export type AnswerGroup = 'all' | 'approved' | 'placed';
+export type AnswerGroup = 'all' | 'approved' | 'assigned';
 
 /** The groups a chart narrows to, in the switch's order; `whole` is what a share is of. */
 export const ANSWER_GROUPS: { id: AnswerGroup; label: string; whole: string }[] = [
-  { id: 'all', label: 'All applicants', whole: 'applicants' },
+  { id: 'all', label: 'All', whole: 'applicants' },
   { id: 'approved', label: 'Approved', whole: 'approved applicants' },
-  { id: 'placed', label: 'Placed', whole: 'placed vendors' },
+  { id: 'assigned', label: 'Assigned', whole: 'assigned applicants' },
 ];
 
 /** The group an address names, or every applicant for one it does not know. */

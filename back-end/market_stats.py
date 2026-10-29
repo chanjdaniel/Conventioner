@@ -14,8 +14,8 @@ offer - written in under "Other" on a Google Form, or an option since taken off 
 applicant as ``other``, and an applicant who gave none counts as ``none``; both rows are left out
 at zero. A free-text question is not counted: its answers are words, not choices. Every count
 comes three times, for each group the page can narrow to: every application, the approved ones
-(the All view's "Approved", those added by hand among them) and the placed ones (anyone the stored
-assignment seats on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
+(the All view's "Approved", those added by hand among them) and the assigned ones (anyone with an
+assignment, a table on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
 """
 from typing import Any, Dict, Iterable, List, Set
 
@@ -25,7 +25,7 @@ from datatypes import ApplicationStatus, FormField, Market
 from utils.email_address import normalized_email
 
 CHOICE_TYPES = ("select", "multi_select", "checkbox")
-GROUPS = ("all", "approved", "placed")
+GROUPS = ("all", "approved", "assigned")
 
 # A checkbox's two answers, as its rows read.
 _TICKED = "Yes"
@@ -80,7 +80,7 @@ def count_answers(
         "approved": [
             a for a in applications if a.get("status") == ApplicationStatus.REVIEWER_APPROVED.value
         ],
-        "placed": [
+        "assigned": [
             a for a in applications
             if normalized_email(a.get("applicant_email") or "") in seated
         ],

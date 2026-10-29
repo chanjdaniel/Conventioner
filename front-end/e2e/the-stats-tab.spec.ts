@@ -14,7 +14,7 @@ import { StatsPage } from './pages/StatsPage';
  * The Stats tab (E45/F01/S01): a sixth tab on the market bar, open in every phase and to anyone who
  * reads the market, starting with who applied - by status and by the day each applied - counted as
  * the Applications tab counts them; then a chart per choice question of the form, narrowed to the
- * approved or the placed (E45/F01/S02).
+ * approved or the assigned (E45/F01/S02).
  */
 const VIEWER = { email: 'e2e-stats-viewer@example.com', password: 'e2estatsviewer1' };
 
@@ -219,7 +219,7 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
 
 const SELLING = 'What will you be selling at the event?';
 
-test('a chart per choice question counts each option, groups "Other", and narrows to the approved and the placed', async ({
+test('a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -275,9 +275,9 @@ test('a chart per choice question counts each option, groups "Other", and narrow
   }
   const stats = new StatsPage(page);
 
-  // Before anyone has a seat, Placed says so rather than charting noughts.
-  await page.goto(`${marketScreenPath(marketId, 'stats')}?among=placed`);
-  await expect(page.getByTestId('stats-among-nobody')).toHaveText('Nobody has a table yet.', {
+  // Before anyone has a table, Assigned says so rather than charting noughts.
+  await page.goto(`${marketScreenPath(marketId, 'stats')}?among=assigned`);
+  await expect(page.getByTestId('stats-among-nobody')).toHaveText('Nobody is assigned yet.', {
     timeout: 15000,
   });
   await expect(stats.amongCount).toHaveText('0 of 5');
@@ -361,9 +361,9 @@ test('a chart per choice question counts each option, groups "Other", and narrow
     ['No', 2],
   ]);
 
-  // Placed is whoever holds a seat, Lena among them though rejected, Priya not though approved.
-  await stats.among('placed').click();
-  await expect(page).toHaveURL(/[?&]among=placed/);
+  // Assigned is whoever has a table, Lena among them though rejected, Priya not though approved.
+  await stats.among('assigned').click();
+  await expect(page).toHaveURL(/[?&]among=assigned/);
   await expect(stats.amongCount).toHaveText('3 of 5');
   await expectCounts('selling', [
     ['Prints', 1],
@@ -379,7 +379,7 @@ test('a chart per choice question counts each option, groups "Other", and narrow
 
   // The address keeps it: a reload, or a link shared, opens on the same group.
   await page.reload();
-  await expect(stats.among('placed')).toHaveAttribute('aria-pressed', 'true', { timeout: 15000 });
+  await expect(stats.among('assigned')).toHaveAttribute('aria-pressed', 'true', { timeout: 15000 });
   await expect(stats.answerCount('selling', 'Stickers')).toHaveText('1');
   await stats.among('all').click();
   await expect(page).not.toHaveURL(/among=/);

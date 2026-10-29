@@ -8,7 +8,7 @@
  * application by its status, counted as the Applications tab's All view filters them, and by the
  * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
  * answered: a card per choice question of the form (`utils/answerCounts.ts`), narrowed by a
- * switch, kept in the address as `among`, to the approved or the placed (E45/F01/S02). Stats
+ * switch, kept in the address as `among`, to the approved or the assigned (E45/F01/S02). Stats
  * reads; it changes nothing, so a Viewer sees all of it and nothing here is disabled.
  */
 import { computed, ref, watch } from 'vue';
@@ -58,7 +58,7 @@ const ledgers = computed(() => (answers.value ? questionLedgers(answers.value, a
 /** Nobody in the group yet, said instead of charts of noughts. */
 const NOBODY: Record<string, string> = {
   approved: 'Nobody is approved yet.',
-  placed: 'Nobody has a table yet.',
+  assigned: 'Nobody is assigned yet.',
 };
 </script>
 
