@@ -68,7 +68,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
-A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); the card then offers its verdicts again only to someone who may change one (I2).
+A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); a card someone else approved or rejected then offers its verdicts only to someone who may change one (I2).
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`.
