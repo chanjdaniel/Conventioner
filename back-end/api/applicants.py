@@ -586,7 +586,10 @@ def review_selection(
             subject={"application_ids": written},
             detail=lambda: {
                 "before": {app_id: _verdict_state(was[app_id]) for app_id in written},
-                "after": {app_id: {"status": new_status.value} for app_id in written},
+                "after": {
+                    app_id: _verdict_state(ApplicationsApi.find_application_by_id(app_id))
+                    for app_id in written
+                },
             },
         )
     return {"written": written, "skipped": skipped}, 200

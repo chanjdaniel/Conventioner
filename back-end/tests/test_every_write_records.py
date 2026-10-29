@@ -718,6 +718,34 @@ class TestWhatAnEntryHolds:
         assert [entry["detail"]["after"]["status"] for entry in world.history.documents] == [
             "reviewer_approved", "reviewer_rejected"]
 
+    def test_a_selection_marked_follow_up_records_its_owner(self, client, world):
+        world.market(MarketPhase.REVIEW)
+        world.applications.insert_one(_application("app-1", VENDOR))
+
+        client.post(f"/markets/{MARKET}/applications/verdicts", json={
+            "status": "needs_follow_up", "applications": [{"id": "app-1"}]})
+
+        [entry] = world.history.documents
+        assert entry["detail"] == {
+            "before": {"app-1": {"status": "open"}},
+            "after": {"app-1": {"status": "needs_follow_up", "follow_up_owner": OWNER}},
+        }
+
+    def test_a_selection_moved_from_follow_up_drops_the_owner(self, client, world):
+        world.market(MarketPhase.REVIEW)
+        world.applications.insert_one(_application(
+            "app-1", VENDOR, status="needs_follow_up",
+            follow_up_owner={"user_id": "user-sam", "email": SAM}))
+
+        client.post(f"/markets/{MARKET}/applications/verdicts", json={
+            "status": "reviewer_approved", "applications": [{"id": "app-1"}]})
+
+        [entry] = world.history.documents
+        assert entry["detail"] == {
+            "before": {"app-1": {"status": "needs_follow_up", "follow_up_owner": SAM}},
+            "after": {"app-1": {"status": "reviewer_approved"}},
+        }
+
     def test_a_review_claim_records_nothing(self, client, world):
         world.market(MarketPhase.REVIEW)
         world.applications.insert_one(_application("app-1", VENDOR))

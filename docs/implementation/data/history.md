@@ -71,7 +71,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `import-applications` | `imported` | an import, one entry however many rows | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
 | `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
 | `give-verdicts` | `verdict` | one verdict, or a follow-up | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
-| `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id: its `status` (and owner) before, the `status` after |
+| `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
