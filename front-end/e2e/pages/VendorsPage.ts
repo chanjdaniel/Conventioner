@@ -19,6 +19,8 @@ export class VendorsPage {
   readonly dateFilterChip: Locator;
   readonly clearAllFilterButton: Locator;
   readonly summary: Locator;
+  readonly unassignedOnly: Locator;
+  readonly exportButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -35,6 +37,8 @@ export class VendorsPage {
     this.dateFilterChip = page.getByTestId('vendors-filter-chip-date');
     this.clearAllFilterButton = page.getByTestId('vendors-filter-chip-clear-all');
     this.summary = page.getByTestId('vendors-summary');
+    this.unassignedOnly = page.getByTestId('vendors-filter-unassigned');
+    this.exportButton = page.getByTestId('vendors-export-button');
   }
 
   async goto(marketId: string): Promise<void> {
