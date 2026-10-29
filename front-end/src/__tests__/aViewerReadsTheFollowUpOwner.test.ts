@@ -12,6 +12,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
+import { answersRefusing } from './support/servedAnswers';
 
 const fetchMarketApplications = vi.fn();
 
@@ -45,19 +47,20 @@ function followUpApplication(email: string): Application {
   } as unknown as Application;
 }
 
-function market(verdictLockReason: string | null, peopleOnMarket: string[]): Market {
+/** The market as the read serves it: the verdicts row refused with `refused`, or allowed. */
+function market(refused: string | null, peopleOnMarket: string[]): Market {
   return {
     id: 'm1',
-    verdictLockReason,
+    actionRefusals: { ...answersRefusing(), [MarketAction.GiveVerdicts]: refused },
     peopleOnMarket,
     applicationForm: { fields: [] },
   } as unknown as Market;
 }
 
 /** Mount the review on a card that needs a follow-up, asking for follow-ups to be walked. */
-async function mountFollowUpCard(verdictLockReason: string | null, peopleOnMarket: string[]) {
+async function mountFollowUpCard(refused: string | null, peopleOnMarket: string[]) {
   const wrapper = mount(ApplicationMonitor, {
-    props: { market: market(verdictLockReason, peopleOnMarket), visible: true },
+    props: { market: market(refused, peopleOnMarket), visible: true },
   });
   await vi.waitFor(() => {
     expect(wrapper.find('[data-testid="app-monitor-include-follow-ups"]').exists()).toBe(true);

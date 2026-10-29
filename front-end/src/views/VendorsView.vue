@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, ref, watch } from 'vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
@@ -110,7 +111,9 @@ const filteredVendors = computed(() => {
 
 /** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
 const adding = ref(false);
-const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
+const canAdd = computed(
+  () => mayTake(market.value, MarketAction.AddVendor) && !market.value?.addingVendorsReason,
+);
 async function vendorAdded(email: string): Promise<void> {
   adding.value = false;
   // A write is followed by a re-read: the market's own facts count them too (publishOutcomes).

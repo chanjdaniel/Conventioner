@@ -1,76 +1,41 @@
-import { MarketRole } from '@/assets/types/datatypes';
+import { type Market, MarketRole } from '@/assets/types/datatypes';
+import { MarketAction, mayTake } from '@/utils/marketActions';
+
+type Answered = Pick<Market, 'actionRefusals'> | null | undefined;
 
 /**
- * Permission hierarchy: Owner > Admin > Editor > Viewer
+ * The row of the table that gives and takes each role, as `roles_row` rules on the server: Editor
+ * and Viewer roles one, Admin roles another. None for the Owner: a market has one, and nobody
+ * changes or takes it through Manage market (bug 43 - the owner's own row offered a select the
+ * server refused every use of); handing it on is a transfer, not a role change.
  */
-const roleHierarchy: Record<MarketRole, number> = {
-  [MarketRole.Owner]: 4,
-  [MarketRole.Admin]: 3,
-  [MarketRole.Editor]: 2,
-  [MarketRole.Viewer]: 1,
+const ROW_OF_ROLE: Record<MarketRole, MarketAction | null> = {
+  [MarketRole.Owner]: null,
+  [MarketRole.Admin]: MarketAction.ManageAdmins,
+  [MarketRole.Editor]: MarketAction.ManageEditorsAndViewers,
+  [MarketRole.Viewer]: MarketAction.ManageEditorsAndViewers,
 };
 
+/** The roles Manage market gives, in the order it offers them. */
+export const GIVEN_ROLES: MarketRole[] = [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
+
 /**
- * Check if user role has required permission level.
+ * Whether the person looking may give, take or change `role` on this market: the table's answer
+ * for the row that gives it.
  */
-export function hasPermission(userRole: MarketRole, requiredRole: MarketRole): boolean {
-  return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
+export function canManageRoles(market: Answered, role: MarketRole): boolean {
+  const row = ROW_OF_ROLE[role];
+  return row !== null && mayTake(market, row);
 }
 
 /**
- * Check if user can edit (Owner, Admin, or Editor).
+ * The roles someone holding `targetRole` may be changed TO: those the person looking may give,
+ * other than the one held, and none when the role held is not theirs to take, as
+ * `update_market_role` asks the row of both.
  */
-export function canEdit(userRole: MarketRole): boolean {
-  return hasPermission(userRole, MarketRole.Editor);
-}
-
-/**
- * Check if user can view (all roles).
- */
-export function canView(userRole: MarketRole): boolean {
-  return hasPermission(userRole, MarketRole.Viewer);
-}
-
-/**
- * Check if user can manage roles with target_role.
- * - Owner can manage all roles
- * - Admin can manage Editor and Viewer only
- */
-export function canManageRoles(userRole: MarketRole, targetRole: MarketRole): boolean {
-  // Owner can manage all roles
-  if (userRole === MarketRole.Owner) {
-    return true;
-  }
-
-  // Admin can manage Editor and Viewer
-  if (userRole === MarketRole.Admin) {
-    return targetRole === MarketRole.Editor || targetRole === MarketRole.Viewer;
-  }
-
-  return false;
-}
-
-/**
- * Whether the current user may change the target user's role, as `update_market_role` rules: never
- * an owner's (bug 43 - the owner's own row offered a select the server refused every use of), an
- * admin's only by an owner, and otherwise whoever may manage that role.
- */
-export function canChangeRole(currentUserRole: MarketRole, targetRole: MarketRole): boolean {
-  if (targetRole === MarketRole.Owner) return false;
-  return canManageRoles(currentUserRole, targetRole);
-}
-
-/**
- * The roles the target may be changed TO: those the current user may grant, other than the one
- * they hold. Never Owner - a market has one, and handing it on is a transfer, not a role change.
- */
-export function getRolesForChange(
-  targetRole: MarketRole,
-  currentUserRole: MarketRole,
-): MarketRole[] {
-  return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer].filter(
-    (role) => role !== targetRole && canManageRoles(currentUserRole, role),
-  );
+export function getRolesForChange(market: Answered, targetRole: MarketRole): MarketRole[] {
+  if (!canManageRoles(market, targetRole)) return [];
+  return GIVEN_ROLES.filter((role) => role !== targetRole && canManageRoles(market, role));
 }
 
 /**

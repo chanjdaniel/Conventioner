@@ -130,6 +130,15 @@ def refusal(
     return refusal_sentence(row)
 
 
+def role_refusal(row: Action, role: Optional[MarketRole]) -> Optional[str]:
+    """``refusal`` for a role already resolved: the markets list resolves each entry's role from the
+    documents it holds (``_summary_role``), and asks the row of that rather than resolving it again.
+    """
+    if PermissionsApi.role_reaches(role, row.default):
+        return None
+    return refusal_sentence(row)
+
+
 def may(
     row: Action, user_email: str, market: Market, organization: Optional[Organization],
 ) -> bool:

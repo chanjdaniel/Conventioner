@@ -6,6 +6,7 @@
  * the mocked API serve that market, and waits for the store to receive it.
  */
 import type { Mock } from 'vitest';
+import { answersRefusing } from './servedAnswers';
 
 export const MARKET_ID = 'market-1';
 
@@ -23,7 +24,11 @@ export function serveMarket(
   market: Record<string, unknown>,
   otherwise: (url: string) => unknown = () => Promise.resolve({ data: {} }),
 ): void {
+  // Served as its owner reads it, every action allowed, unless the market says what it answers.
+  const served = { actionRefusals: answersRefusing(), ...market };
   get.mockImplementation((url: string) =>
-    url === `/markets/${market.id}` ? Promise.resolve({ data: { market } }) : otherwise(url),
+    url === `/markets/${market.id}`
+      ? Promise.resolve({ data: { market: served } })
+      : otherwise(url),
   );
 }

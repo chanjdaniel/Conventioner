@@ -7,6 +7,7 @@
  * owns, all in the address. A row opens the vendor drawer, which carries Approve, Reject and Needs
  * follow-up while the market is still deciding, each written only on what the reviewer saw.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -146,7 +147,9 @@ const opened = computed(() =>
 );
 
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
-const decides = computed(() => !props.market?.verdictLockReason);
+const decides = computed(
+  () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
 
 const saving = ref(false);
 const verdictMessage = ref('');
