@@ -1,5 +1,5 @@
 /**
- * The vendors, exported to a CSV (E42/F01/S01).
+ * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02).
  *
  * The export dialog opens on what a page shows, so the file holds the vendors the organizer was
  * looking at; the server builds the file and its preview from the filters the dialog sends
@@ -64,14 +64,20 @@ export function vendorsPageSeed(page: {
   };
 }
 
+/** Which heading the dialog lists a column under. */
+export type ExportGroupId = 'vendor' | 'answers' | 'assignment';
+
 export interface ExportColumn {
   id: string;
   label: string;
+  group: ExportGroupId;
 }
 
 /** What the market offers the dialog, as the server says it. */
 export interface ExportOffered {
   columns: ExportColumn[];
+  /** The headings, in the order the dialog lists them. */
+  groups: { id: ExportGroupId; label: string }[];
   defaultColumns: string[];
   statuses: { id: ExportStatus; label: string }[];
   dates: string[];
@@ -87,36 +93,55 @@ export interface ExportPreview {
   offered: ExportOffered;
 }
 
-/** One column in the dialog's list: ticked or not, where it stands in the list. */
-export interface ColumnChoice extends ExportColumn {
-  ticked: boolean;
+export interface ColumnGroup {
+  id: ExportGroupId;
+  label: string;
+  columns: ExportColumn[];
 }
 
 /**
- * Every column the market offers: the ticked ones first, in the order named, so the file's order
- * reads from the top of the list; then the rest, in the market's order.
+ * The columns under their headings, in the market's order: who the vendor is, their answers, then
+ * where they sit. A heading with no column under it, as a form with no question of its own, is
+ * left out.
  */
-export function columnChoices(offered: ExportColumn[], ticked: string[]): ColumnChoice[] {
-  const first = ticked
-    .map((id) => offered.find((column) => column.id === id))
-    .filter((column): column is ExportColumn => Boolean(column));
-  const rest = offered.filter((column) => !ticked.includes(column.id));
-  return [
-    ...first.map((column) => ({ ...column, ticked: true })),
-    ...rest.map((column) => ({ ...column, ticked: false })),
-  ];
+export function columnGroups(offered: Pick<ExportOffered, 'columns' | 'groups'>): ColumnGroup[] {
+  return offered.groups
+    .map((group) => ({
+      ...group,
+      columns: offered.columns.filter((column) => column.group === group.id),
+    }))
+    .filter((group) => group.columns.length);
 }
 
-/** The ticked columns, in the order the list puts them: the file's columns. */
-export function chosenColumns(choices: ColumnChoice[]): string[] {
-  return choices.filter((choice) => choice.ticked).map((choice) => choice.id);
+/** The columns ticked when the dialog opens, in the file's order. */
+export function defaultOrder(
+  offered: Pick<ExportOffered, 'columns' | 'defaultColumns'>,
+): ExportColumn[] {
+  return offered.defaultColumns
+    .map((id) => offered.columns.find((column) => column.id === id))
+    .filter((column): column is ExportColumn => Boolean(column));
+}
+
+/** The file's columns with one ticked, at the end, or unticked. */
+export function tickedColumn(
+  order: ExportColumn[],
+  column: ExportColumn,
+  ticked: boolean,
+): ExportColumn[] {
+  const rest = order.filter((each) => each.id !== column.id);
+  return ticked ? [...rest, column] : rest;
+}
+
+/** The ticked columns, in the order they are put: the file's columns. */
+export function chosenColumns(order: ExportColumn[]): string[] {
+  return order.map((column) => column.id);
 }
 
 /** The list with one column moved `by` places, never past either end. */
-export function movedColumn(choices: ColumnChoice[], index: number, by: number): ColumnChoice[] {
+export function movedColumn<T>(order: T[], index: number, by: number): T[] {
   const to = index + by;
-  if (to < 0 || to >= choices.length || by === 0) return choices;
-  const next = choices.slice();
+  if (to < 0 || to >= order.length || by === 0) return order;
+  const next = order.slice();
   const [moved] = next.splice(index, 1);
   next.splice(to, 0, moved!);
   return next;

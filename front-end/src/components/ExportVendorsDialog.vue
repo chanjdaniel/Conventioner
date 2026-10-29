@@ -2,10 +2,11 @@
 /**
  * Export vendors (E42/F01/S01): the vendors a page shows, as a CSV for a Google Sheet and YAMM.
  *
- * It opens on the page's filters (`seed`), shows them and lets them change; the columns are ticked
- * and put in order, by dragging or with each row's move buttons. Before the download it says how
- * many vendors and columns the file holds and shows its first rows, which the server builds from
- * the same filters as the file.
+ * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
+ * under their headings, where they sit on each date under "Assignment" (S02), and the ticked ones
+ * are put in order beneath, by dragging or with each row's move buttons. Before the download it
+ * says how many vendors and columns the file holds and shows its first rows, which the server
+ * builds from the same filters as the file.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
@@ -17,12 +18,14 @@ import { getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import {
   chosenColumns,
-  columnChoices,
+  columnGroups,
+  defaultOrder,
   downloadExport,
   exportSummary,
   fetchExportPreview,
   movedColumn,
-  type ColumnChoice,
+  tickedColumn,
+  type ExportColumn,
   type ExportFilters,
   type ExportPreview,
 } from '@/utils/vendorExport';
@@ -34,7 +37,9 @@ const emit = defineEmits<{ close: [] }>();
 const PREVIEW_DELAY_MS = 250;
 
 const filters = ref<ExportFilters>(copyOf(props.seed));
-const choices = ref<ColumnChoice[]>([]);
+/** The ticked columns, in the file's order. */
+const order = ref<ExportColumn[]>([]);
+let started = false;
 const preview = ref<ExportPreview | null>(null);
 const previewError = ref('');
 const error = ref('');
@@ -51,7 +56,8 @@ function copyOf(seed: ExportFilters): ExportFilters {
 }
 
 const offered = computed(() => preview.value?.offered ?? null);
-const columns = computed(() => chosenColumns(choices.value));
+const columns = computed(() => chosenColumns(order.value));
+const groups = computed(() => (offered.value ? columnGroups(offered.value) : []));
 
 async function ask(): Promise<void> {
   const mine = ++asked;
@@ -60,12 +66,13 @@ async function ask(): Promise<void> {
     const answer = await fetchExportPreview(
       props.marketId,
       filters.value,
-      choices.value.length ? columns.value : undefined,
+      started ? columns.value : undefined,
     );
     if (mine !== asked) return;
-    const first = !choices.value.length;
+    const first = !started;
     if (first) {
-      choices.value = columnChoices(answer.offered.columns, answer.offered.defaultColumns);
+      order.value = defaultOrder(answer.offered);
+      started = true;
     }
     for (const question of answer.offered.questions) filters.value.answers[question.key] ??= [];
     preview.value = answer;
@@ -99,7 +106,8 @@ watch(
   (open) => {
     if (!open) return;
     filters.value = copyOf(props.seed);
-    choices.value = [];
+    order.value = [];
+    started = false;
     preview.value = null;
     previewError.value = '';
     error.value = '';
@@ -119,7 +127,15 @@ watch(
 onBeforeUnmount(() => clearTimeout(timer));
 
 function move(index: number, by: number): void {
-  choices.value = movedColumn(choices.value, index, by);
+  order.value = movedColumn(order.value, index, by);
+}
+
+function isTicked(column: ExportColumn): boolean {
+  return order.value.some((each) => each.id === column.id);
+}
+
+function tick(column: ExportColumn, event: Event): void {
+  order.value = tickedColumn(order.value, column, (event.target as HTMLInputElement).checked);
 }
 
 const placed = computed(() => filters.value.placed === 'placed');
@@ -292,29 +308,47 @@ async function download(): Promise<void> {
 
       <fieldset class="export-section">
         <legend class="export-legend">Columns</legend>
-        <p class="export-hint">Tick the columns to export, and drag them into order.</p>
+        <fieldset
+          v-for="group in groups"
+          :key="group.id"
+          class="export-group"
+          :data-testid="`vendor-export-group-${group.id}`"
+        >
+          <legend class="field-label">{{ group.label }}</legend>
+          <div class="export-picks">
+            <label v-for="column in group.columns" :key="column.id" class="export-check">
+              <input
+                type="checkbox"
+                name="vendor-export-column"
+                :checked="isTicked(column)"
+                :data-testid="`vendor-export-column-${column.id}`"
+                @change="tick(column, $event)"
+              />
+              {{ column.label }}
+            </label>
+          </div>
+        </fieldset>
+
+        <h3 class="field-label export-order-title" id="vendor-export-order-title">
+          In the file, in this order
+        </h3>
+        <p v-if="!order.length" class="export-hint">Tick a column above to export it.</p>
         <draggable
-          v-model="choices"
+          v-else
+          v-model="order"
           tag="ol"
           class="export-columns"
           item-key="id"
           handle=".drag-handle"
           :animation="150"
+          aria-labelledby="vendor-export-order-title"
         >
           <template #item="{ element, index }">
-            <li class="export-column">
+            <li class="export-column" data-testid="vendor-export-order-item">
               <span class="drag-handle" aria-hidden="true"
                 ><IconClickDrag class="drag-handle__icon"
               /></span>
-              <label class="export-check export-column-label">
-                <input
-                  v-model="element.ticked"
-                  type="checkbox"
-                  name="vendor-export-column"
-                  :data-testid="`vendor-export-column-${element.id}`"
-                />
-                {{ element.label }}
-              </label>
+              <span class="export-column-label">{{ element.label }}</span>
               <button
                 type="button"
                 class="export-move"
@@ -329,7 +363,7 @@ async function download(): Promise<void> {
                 type="button"
                 class="export-move"
                 :aria-label="`Move ${element.label} down`"
-                :disabled="index === choices.length - 1"
+                :disabled="index === order.length - 1"
                 :data-testid="`vendor-export-move-down-${element.id}`"
                 @click="move(index, 1)"
               >
@@ -451,6 +485,40 @@ async function download(): Promise<void> {
   cursor: pointer;
 }
 
+/* A heading's columns, two to a row as the filters above are. */
+.export-group {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+/* Apart as the filters above are, so a heading reads as the next group's, not the last row's. */
+.export-group + .export-group {
+  margin-top: var(--space-1);
+}
+
+.export-group > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.export-picks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .export-picks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.export-order-title {
+  margin: var(--space-2) 0 0;
+}
+
 .export-columns {
   list-style: none;
   margin: 0;
@@ -481,6 +549,8 @@ async function download(): Promise<void> {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .export-move {

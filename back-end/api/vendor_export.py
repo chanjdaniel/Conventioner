@@ -1,4 +1,4 @@
-"""The market's vendors, exported to a CSV (E42/F01/S01).
+"""The market's vendors, exported to a CSV (E42/F01/S01, its placement columns S02).
 
 An organizer exports the vendors a page shows, choosing the columns, as a file for a Google Sheet and
 a mail merge (YAMM). The dialog that asks starts from the page's filters; the file is built here from
@@ -7,8 +7,8 @@ is the same rows, cut to three.
 
 A vendor is an application of the market, one row each, whatever its status: the review's lists are
 exported as well as the assignment's. Where they sit is read from the stored placements the
-Assignments page draws (``derive_market_table_rows``), so a filter on a seat finds what that page
-shows.
+Assignments page draws (``derive_market_table_rows``), pins and seats moved by hand included, so a
+filter on a seat finds what that page shows, and each date's seat columns export it.
 
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
@@ -80,6 +80,7 @@ def _status_text(application: Application) -> str:
 # ── columns ───────────────────────────────────────────────────────────────────
 
 ANSWER_PREFIX = "answer:"
+DATE_PREFIX = "date:"
 
 #: Ticked when the dialog opens: who, how to reach them, and where they stand.
 DEFAULT_COLUMNS = ["name", "email", "status"]
@@ -88,11 +89,20 @@ DEFAULT_COLUMNS = ["name", "email", "status"]
 CHOICE_TYPES = ("select", "multi_select", "checkbox")
 
 
+#: The headings the dialog lists the columns under, in its order.
+GROUPS: List[Tuple[str, str]] = [
+    ("vendor", "Vendor"),
+    ("answers", "Answers"),
+    ("assignment", "Assignment"),
+]
+
+
 @dataclass(frozen=True)
 class Column:
     id: str
     label: str
     cell: Callable[["Vendor"], str]
+    group: str = "vendor"
 
 
 @dataclass
@@ -141,6 +151,58 @@ def _organizers_questions(market: Market) -> List[FormField]:
     )
 
 
+def _market_dates(market: Market) -> List[str]:
+    setup = market.setup_object
+    return [market_date.date for market_date in setup.market_dates] if setup else []
+
+
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def date_heading(date: str) -> str:
+    """A market date as a column's heading: "Wed 18 Nov", in English whatever the server's locale;
+    a date that is not a calendar day as the organizer wrote it."""
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return date
+    return f"{_WEEKDAYS[day.weekday()]} {day.day} {_MONTHS[day.month - 1]}"
+
+
+def _size_text(seat: Any) -> str:
+    return "Half table" if "half" in seat.table_choice.lower() else "Full table"
+
+
+#: What a seat is exported as, per date: the column's id part, its heading's words and its cell.
+SEAT_PARTS: List[Tuple[str, str, Callable[[Any], str]]] = [
+    ("table", "table", lambda seat: seat.table_code),
+    ("section", "section", lambda seat: seat.section),
+    ("tier", "tier", lambda seat: seat.tier),
+    ("size", "half or full", _size_text),
+]
+
+
+def _assignment_columns(market: Market) -> List[Column]:
+    """Each market date's seat, empty on a date the vendor holds none, then how many dates they
+    hold one on: one row carries their whole assignment."""
+    dates = _market_dates(market)
+
+    def seat(date: str, part: Callable[[Any], str]) -> Callable[[Vendor], str]:
+        return lambda vendor: part(vendor.seats[date]) if date in vendor.seats else ""
+
+    return [
+        *(
+            Column(f"{DATE_PREFIX}{date}:{part_id}", f"{date_heading(date)} - {words}",
+                   seat(date, part), "assignment")
+            for date in dates
+            for part_id, words, part in SEAT_PARTS
+        ),
+        Column("datesPlaced", "Dates placed",
+               lambda vendor: str(sum(1 for date in dates if date in vendor.seats)), "assignment"),
+    ]
+
+
 def offered_columns(market: Market) -> List[Column]:
     """Every column the market's vendors can be exported with, in the order the dialog lists them."""
     def answer(key: str) -> Callable[[Vendor], str]:
@@ -153,9 +215,10 @@ def offered_columns(market: Market) -> List[Column]:
         Column("status", "Status", lambda vendor: _status_text(vendor.application)),
         *(
             Column(f"{ANSWER_PREFIX}{question.key}", question.label or question.key,
-                   answer(question.key))
+                   answer(question.key), "answers")
             for question in _organizers_questions(market)
         ),
+        *_assignment_columns(market),
     ]
 
 
@@ -357,12 +420,13 @@ def preview(market_id: str, body: Any, requesting_user: str) -> Tuple[Dict[str, 
         "rows": export.rows[:PREVIEW_ROWS],
         "offered": {
             "columns": [
-                {"id": column.id, "label": column.label}
+                {"id": column.id, "label": column.label, "group": column.group}
                 for column in offered_columns(export.market)
             ],
+            "groups": [{"id": group, "label": label} for group, label in GROUPS],
             "defaultColumns": DEFAULT_COLUMNS,
             "statuses": [{"id": status, "label": label} for status, label in STATUSES],
-            "dates": [market_date.date for market_date in setup.market_dates] if setup else [],
+            "dates": _market_dates(export.market),
             "sections": [section.name for section in setup.sections] if setup else [],
             "tiers": [tier.name for tier in setup.tiers] if setup else [],
             "questions": offered_questions(export.market),

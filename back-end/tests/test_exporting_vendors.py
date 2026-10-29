@@ -258,6 +258,112 @@ class TestTheFile:
 
         assert _rows(content)[1] == ["eve@example.com", ""]
 
+
+def _date_columns(date):
+    return [f"date:{date}:{part}" for part in ("table", "section", "tier", "size")]
+
+
+class TestTheAssignmentColumns:
+    """Each market date's seat as columns, so one row carries a vendor's whole assignment
+    (E42/F01/S02)."""
+
+    def test_a_vendor_placed_on_two_of_three_dates_fills_two_date_groups_and_leaves_one_empty(
+            self, market):
+        doc = market()
+        doc["setupObject"] = {**PLAN, "marketDates": [
+            {"date": "2099-08-01"}, {"date": "2099-08-02"}, {"date": "2099-08-03"}]}
+
+        content, _filename = _file(filters={"search": "ana@"}, columns=[
+            "email", *_date_columns("2099-08-01"), *_date_columns("2099-08-02"),
+            *_date_columns("2099-08-03"), "datesPlaced"])
+
+        assert _rows(content) == [
+            ["Email",
+             "Sat 1 Aug - table", "Sat 1 Aug - section", "Sat 1 Aug - tier",
+             "Sat 1 Aug - half or full",
+             "Sun 2 Aug - table", "Sun 2 Aug - section", "Sun 2 Aug - tier",
+             "Sun 2 Aug - half or full",
+             "Mon 3 Aug - table", "Mon 3 Aug - section", "Mon 3 Aug - tier",
+             "Mon 3 Aug - half or full",
+             "Dates placed"],
+            ["ana@example.com",
+             "Atrium 1", "Atrium", "Gold", "Full table",
+             "Hall 2", "Hall", "Silver", "Full table",
+             "", "", "", "",
+             "2"],
+        ]
+
+    def test_a_vendor_never_placed_has_empty_seats_and_no_dates(self, market):
+        market()
+
+        content, _filename = _file(
+            filters={"search": "ben@"}, columns=[*_date_columns("2099-08-01"), "datesPlaced"])
+
+        assert _rows(content)[1] == ["", "", "", "", "0"]
+
+    def test_a_half_table_says_half(self, market):
+        doc = market()
+        doc["assignmentObject"]["vendorAssignments"] = [
+            *PLACEMENTS,
+            _placed("ben@example.com", "2099-08-01", "Atrium 2", "Atrium", "Gold",
+                    choice="Half Table (Left)"),
+        ]
+
+        content, _filename = _file(
+            filters={"search": "ben@"}, columns=_date_columns("2099-08-01"))
+
+        assert _rows(content)[1] == ["Atrium 2", "Atrium", "Gold", "Half table"]
+
+    def test_a_vendor_added_by_hand_exports_their_seats_like_anyone(self, market):
+        market()
+
+        content, _filename = _file(filters={"search": "fay@"}, columns=[
+            "status", *_date_columns("2099-08-02"), "datesPlaced"])
+
+        assert _rows(content)[1] == ["Added by hand", "Hall 1", "Hall", "Silver", "Full table", "1"]
+
+    def test_a_pin_and_a_seat_moved_by_hand_export_where_the_assignments_page_shows_them(
+            self, market):
+        """The columns read the stored placements, the rows the Assignments page draws: a seat
+        an organizer pinned a vendor in, or swapped them into, is the seat exported. Both are a
+        stored row flagged as placed by hand (ADR 0002)."""
+        doc = market()
+        doc["assignmentObject"]["vendorAssignments"] = [
+            {**_placed("ana@example.com", "2099-08-01", "Atrium 3", "Atrium", "Gold"),
+             "handPlaced": True},
+            {**_placed("ana@example.com", "2099-08-02", "Hall 1", "Hall", "Silver"),
+             "handPlaced": True},
+            {**_placed("fay@example.com", "2099-08-02", "Hall 2", "Hall", "Silver"),
+             "handPlaced": True},
+        ]
+
+        content, _filename = _file(filters={"search": "@example.com"}, columns=[
+            "email", "date:2099-08-01:table", "date:2099-08-02:table"])
+
+        rows = {row[0]: row[1:] for row in _rows(content)[1:]}
+        assert rows["ana@example.com"] == ["Atrium 3", "Hall 1"]
+        assert rows["fay@example.com"] == ["", "Hall 2"]
+
+    def test_a_date_that_is_not_a_calendar_day_heads_its_columns_as_written(self, market):
+        doc = market()
+        doc["setupObject"] = {**PLAN, "marketDates": [{"date": "Opening night"}]}
+        doc["assignmentObject"]["vendorAssignments"] = [
+            _placed("ana@example.com", "Opening night", "Atrium 1", "Atrium", "Gold")]
+
+        content, _filename = _file(
+            filters={"search": "ana@"}, columns=["date:Opening night:table", "datesPlaced"])
+
+        assert _rows(content) == [["Opening night - table", "Dates placed"], ["Atrium 1", "1"]]
+
+    def test_a_seat_on_a_date_the_plan_no_longer_holds_is_not_counted(self, market):
+        """The count is the date groups filled, so it never says more than the row shows."""
+        doc = market()
+        doc["setupObject"] = {**PLAN, "marketDates": [{"date": "2099-08-01"}]}
+
+        content, _filename = _file(filters={"search": "ana@"}, columns=["datesPlaced"])
+
+        assert _rows(content)[1] == ["1"]
+
     def test_a_column_the_market_does_not_offer_is_refused(self, market):
         market()
 
@@ -394,14 +500,26 @@ class TestThePreview:
         offered = _preview()["offered"]
 
         assert offered["columns"] == [
-            {"id": "name", "label": "Name"},
-            {"id": "preferredName", "label": "Preferred name"},
-            {"id": "email", "label": "Email"},
-            {"id": "status", "label": "Status"},
-            {"id": "answer:business_name", "label": "Business name"},
-            {"id": "answer:category", "label": "Category"},
-            {"id": "answer:tags", "label": "Tags"},
-            {"id": "answer:student", "label": "UBC student"},
+            {"id": "name", "label": "Name", "group": "vendor"},
+            {"id": "preferredName", "label": "Preferred name", "group": "vendor"},
+            {"id": "email", "label": "Email", "group": "vendor"},
+            {"id": "status", "label": "Status", "group": "vendor"},
+            {"id": "answer:business_name", "label": "Business name", "group": "answers"},
+            {"id": "answer:category", "label": "Category", "group": "answers"},
+            {"id": "answer:tags", "label": "Tags", "group": "answers"},
+            {"id": "answer:student", "label": "UBC student", "group": "answers"},
+            *(
+                {"id": f"date:{date}:{part}", "label": f"{day} - {words}", "group": "assignment"}
+                for date, day in (("2099-08-01", "Sat 1 Aug"), ("2099-08-02", "Sun 2 Aug"))
+                for part, words in (("table", "table"), ("section", "section"),
+                                    ("tier", "tier"), ("size", "half or full"))
+            ),
+            {"id": "datesPlaced", "label": "Dates placed", "group": "assignment"},
+        ]
+        assert offered["groups"] == [
+            {"id": "vendor", "label": "Vendor"},
+            {"id": "answers", "label": "Answers"},
+            {"id": "assignment", "label": "Assignment"},
         ]
         assert offered["defaultColumns"] == ["name", "email", "status"]
         assert offered["statuses"] == [

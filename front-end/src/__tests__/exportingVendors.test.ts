@@ -10,11 +10,13 @@ import { flushPromises, mount } from '@vue/test-utils';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import {
   chosenColumns,
-  columnChoices,
+  columnGroups,
+  defaultOrder,
   exportSummary,
   localDay,
   movedColumn,
   NO_FILTERS,
+  tickedColumn,
   vendorsPageSeed,
   type ExportPreview,
 } from '@/utils/vendorExport';
@@ -98,36 +100,66 @@ describe('the seed the Vendors page gives the export', () => {
 });
 
 describe('the columns', () => {
-  const offered = [
-    { id: 'name', label: 'Name' },
-    { id: 'email', label: 'Email' },
-    { id: 'status', label: 'Status' },
-    { id: 'answer:category', label: 'Category' },
-  ];
+  const offered = {
+    columns: [
+      { id: 'name', label: 'Name', group: 'vendor' },
+      { id: 'email', label: 'Email', group: 'vendor' },
+      { id: 'status', label: 'Status', group: 'vendor' },
+      { id: 'answer:category', label: 'Category', group: 'answers' },
+      { id: 'date:2099-08-01:table', label: 'Sat 1 Aug - table', group: 'assignment' },
+      { id: 'datesPlaced', label: 'Dates placed', group: 'assignment' },
+    ],
+    groups: [
+      { id: 'vendor', label: 'Vendor' },
+      { id: 'answers', label: 'Answers' },
+      { id: 'assignment', label: 'Assignment' },
+    ],
+    defaultColumns: ['email', 'name'],
+  };
+  const column = (id: string) => offered.columns.find((c) => c.id === id)!;
 
-  it('lists every column, the ticked ones first in their order', () => {
-    const choices = columnChoices(offered, ['email', 'name']);
-
-    expect(choices.map((c) => [c.id, c.ticked])).toEqual([
-      ['email', true],
-      ['name', true],
-      ['status', false],
-      ['answer:category', false],
+  it('lists the columns under their groups, the assignment after the answers', () => {
+    expect(columnGroups(offered).map((g) => [g.label, g.columns.map((c) => c.id)])).toEqual([
+      ['Vendor', ['name', 'email', 'status']],
+      ['Answers', ['answer:category']],
+      ['Assignment', ['date:2099-08-01:table', 'datesPlaced']],
     ]);
   });
 
-  it('exports the ticked ones in the order they are listed', () => {
-    let choices = columnChoices(offered, ['name', 'email', 'answer:category']);
-    choices = movedColumn(choices, 2, -2);
+  it('leaves out a group with no column, as a form with no question of its own', () => {
+    const noAnswers = {
+      ...offered,
+      columns: offered.columns.filter((c) => c.group !== 'answers'),
+    };
 
-    expect(chosenColumns(choices)).toEqual(['answer:category', 'name', 'email']);
+    expect(columnGroups(noAnswers).map((g) => g.id)).toEqual(['vendor', 'assignment']);
+  });
+
+  it('starts from the default columns, in their order', () => {
+    expect(chosenColumns(defaultOrder(offered))).toEqual(['email', 'name']);
+  });
+
+  it('puts a column ticked at the end of the file, and takes one unticked out', () => {
+    let order = defaultOrder(offered);
+    order = tickedColumn(order, column('datesPlaced'), true);
+    order = tickedColumn(order, column('datesPlaced'), true);
+    order = tickedColumn(order, column('email'), false);
+
+    expect(chosenColumns(order)).toEqual(['name', 'datesPlaced']);
+  });
+
+  it('exports the ticked ones in the order they are put', () => {
+    let order = tickedColumn(defaultOrder(offered), column('answer:category'), true);
+    order = movedColumn(order, 2, -2);
+
+    expect(chosenColumns(order)).toEqual(['answer:category', 'email', 'name']);
   });
 
   it('moves a column no further than either end', () => {
-    const choices = columnChoices(offered, []);
+    const order = defaultOrder(offered);
 
-    expect(movedColumn(choices, 0, -1)).toBe(choices);
-    expect(movedColumn(choices, 3, 1)).toBe(choices);
+    expect(movedColumn(order, 0, -1)).toBe(order);
+    expect(movedColumn(order, 1, 1)).toBe(order);
   });
 });
 
@@ -151,11 +183,18 @@ describe('what the dialog says', () => {
 
 const OFFERED: ExportPreview['offered'] = {
   columns: [
-    { id: 'name', label: 'Name' },
-    { id: 'preferredName', label: 'Preferred name' },
-    { id: 'email', label: 'Email' },
-    { id: 'status', label: 'Status' },
-    { id: 'answer:category', label: 'Category' },
+    { id: 'name', label: 'Name', group: 'vendor' },
+    { id: 'preferredName', label: 'Preferred name', group: 'vendor' },
+    { id: 'email', label: 'Email', group: 'vendor' },
+    { id: 'status', label: 'Status', group: 'vendor' },
+    { id: 'answer:category', label: 'Category', group: 'answers' },
+    { id: 'date:2099-08-01:table', label: 'Sat 1 Aug - table', group: 'assignment' },
+    { id: 'datesPlaced', label: 'Dates placed', group: 'assignment' },
+  ],
+  groups: [
+    { id: 'vendor', label: 'Vendor' },
+    { id: 'answers', label: 'Answers' },
+    { id: 'assignment', label: 'Assignment' },
   ],
   defaultColumns: ['name', 'email', 'status'],
   statuses: [
@@ -228,9 +267,7 @@ describe('the dialog', () => {
     posted.length = 0;
 
     await wrapper.get('[data-testid="vendor-export-column-answer:category"]').setValue(true);
-    for (const _ of [1, 2]) {
-      await wrapper.get('[data-testid="vendor-export-move-up-answer:category"]').trigger('click');
-    }
+    await wrapper.get('[data-testid="vendor-export-move-up-answer:category"]').trigger('click');
     await vi.runAllTimersAsync();
     await flushPromises();
 
@@ -240,6 +277,28 @@ describe('the dialog', () => {
     expect(wrapper.get('[data-testid="vendor-export-preview-header"]').text()).toContain(
       'Category',
     );
+    wrapper.unmount();
+  });
+
+  it('groups the columns, the assignment’s under "Assignment" after the answers', async () => {
+    const wrapper = await opened();
+
+    const groups = wrapper.findAll('[data-testid^="vendor-export-group-"]');
+    expect(groups.map((g) => g.get('legend').text())).toEqual(['Vendor', 'Answers', 'Assignment']);
+    expect(wrapper.get('[data-testid="vendor-export-group-assignment"]').text()).toContain(
+      'Sat 1 Aug - table',
+    );
+    wrapper.unmount();
+  });
+
+  it('lists only the ticked columns to put in order', async () => {
+    const wrapper = await opened();
+
+    await wrapper.get('[data-testid="vendor-export-column-datesPlaced"]').setValue(true);
+
+    expect(
+      wrapper.findAll('[data-testid="vendor-export-order-item"]').map((i) => i.text()),
+    ).toEqual(['Name', 'Email', 'Status', 'Dates placed']);
     wrapper.unmount();
   });
 

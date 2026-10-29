@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the Export vendors dialog (E42/F01/S01), wherever it opens from.
+ * Page object for the Export vendors dialog (E42/F01/S01 and S02), wherever it opens from.
  */
 export class VendorExportDialog {
   readonly page: Page;
@@ -29,8 +29,14 @@ export class VendorExportDialog {
     return this.page.getByTestId(`vendor-export-status-${id}`);
   }
 
+  /** A column's box, under its heading. */
   column(id: string): Locator {
     return this.page.getByTestId(`vendor-export-column-${id}`);
+  }
+
+  /** The heading a column is listed under (E42/F01/S02). */
+  group(id: 'vendor' | 'answers' | 'assignment'): Locator {
+    return this.page.getByTestId(`vendor-export-group-${id}`);
   }
 
   async moveUp(id: string): Promise<void> {
