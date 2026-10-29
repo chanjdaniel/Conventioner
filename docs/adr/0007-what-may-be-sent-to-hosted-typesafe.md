@@ -53,6 +53,7 @@ The tickets are the form-started-from-a-CSV map's, named in `sources`.
 - Sending a value later, for accuracy, means re-measuring the threshold with it and narrowing this ADR in a new one; the proposal's privacy view of values (answers at least 3 applicants gave) is for the rules on the server, not for TypeSafe.
 - TypeSafe can only make a column less uncertain: it never overrides a confident rule, and its answer is a pre-filled choice the organizer sees and can change.
 - What counts as holding an email, link, handle or phone number widened when the start began keeping answers (E38/F02/S01, [the CSV proposal and start](../implementation/modules/csv-proposal-and-start.md)): a link without its scheme, a handle after any punctuation, a 7-digit phone number, an address spelled out and a street address count too, so a heading holding one is not sent either. That only narrows what is sent; no heading of the five exports moved.
+  What may be *kept* of an applicant's answers rests on this ADR's uniqueness rule too, and is [ADR 0018](0018-what-of-an-applicants-answers-the-market-may-keep.md).
 - [Releasing](../RELEASING.md#optional-hosted-typesafe) lists the variable for a deployment; it is not among the boot requirements.
 
 ## Considered and rejected
