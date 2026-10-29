@@ -238,40 +238,38 @@ def _sources():
         yield path, ast.parse(path.read_text(), filename=str(path))
 
 
-def _called(node: ast.Call) -> str:
-    func = node.func
-    return func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+#: What only the two role modules use: the old permission calls and the rank table.
+_RANKING = ("user_has_permission", "can_manage_roles", "ROLE_RANK")
+
+#: The resolvers of a person's role. Holding a role is how a check would compare one, so only the
+#: role modules call them, and the functions below, which serve the role itself to the client.
+_RESOLVERS = ("get_user_market_role", "organization_market_role", "higher_role")
+_SERVE_THE_ROLE = ("get_market_for_user", "_summary_role")
 
 
-def _role_thresholds(tree: ast.AST):
-    """Where a source asks a role threshold itself: the old permission calls, the rank table, or a
-    role it looked up compared to a ``MarketRole``."""
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _called(node) in ("user_has_permission", "can_manage_roles"):
-            yield node.lineno, _called(node)
-        if isinstance(node, (ast.Name, ast.Attribute)) and (
-            getattr(node, "id", None) == "ROLE_RANK" or getattr(node, "attr", None) == "ROLE_RANK"
-        ):
-            yield node.lineno, "ROLE_RANK"
-    for function in ast.walk(tree):
-        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+def _named(node: ast.AST) -> str:
+    """The name a reference uses, ``PermissionsApi.higher_role`` and ``higher_role`` alike."""
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return getattr(node, "id", "")
+
+
+def _role_thresholds(tree: ast.AST, function: str = ""):
+    """Where a source could ask a role threshold itself: any use of the ranking, and any use of a
+    role resolver outside the functions that serve the role to the client.
+
+    Searching for the resolvers rather than for comparisons catches every way of comparing what
+    they return - inline, against a tuple, through an annotated name or an attribute."""
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield from _role_thresholds(node, node.name)
             continue
-        looked_up = {
-            target.id
-            for node in ast.walk(function)
-            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
-            and _called(node.value) == "get_user_market_role"
-            for target in node.targets if isinstance(target, ast.Name)
-        }
-        for node in ast.walk(function):
-            if not isinstance(node, ast.Compare):
-                continue
-            operands = [node.left, *node.comparators]
-            names = {o.id for o in operands if isinstance(o, ast.Name)}
-            roles = [o for o in operands if isinstance(o, ast.Attribute)
-                     and isinstance(o.value, ast.Name) and o.value.id == "MarketRole"]
-            if names & looked_up and roles:
-                yield node.lineno, f"{(names & looked_up).pop()} compared to MarketRole"
+        name = _named(node) if isinstance(node, (ast.Name, ast.Attribute)) else ""
+        if name in _RANKING:
+            yield node.lineno, name
+        elif name in _RESOLVERS and function not in _SERVE_THE_ROLE:
+            yield node.lineno, f"{name} in {function or 'the module'}"
+        yield from _role_thresholds(node, function)
 
 
 def test_no_check_outside_the_actions_module_names_a_role():
@@ -285,16 +283,37 @@ def test_no_check_outside_the_actions_module_names_a_role():
 
 
 def test_the_search_finds_a_check_that_names_a_role():
-    """The search above is only as good as what it catches."""
+    """The search above is only as good as what it catches: each way a check could compare a role."""
     tree = ast.parse(
-        "def delete(user, market):\n"
-        "    role = PermissionsApi.get_user_market_role(user, market)\n"
-        "    if role != MarketRole.OWNER:\n"
-        "        raise ForbiddenError('no')\n"
+        "def inline(user, market):\n"
+        "    return PermissionsApi.get_user_market_role(user, market) != MarketRole.OWNER\n"
+        "def in_a_tuple(user, market):\n"
+        "    role = get_user_market_role(user, market)\n"
+        "    return role in (MarketRole.ADMIN, MarketRole.OWNER)\n"
+        "def annotated(user, market):\n"
+        "    role: MarketRole = PermissionsApi.get_user_market_role(user, market)\n"
+        "    return role == MarketRole.OWNER\n"
+        "def through_the_organization(user, org):\n"
+        "    return PermissionsApi.higher_role(None, PermissionsApi.organization_market_role(\n"
+        "        user, org.owner, org.admins, org.members)) == MarketRole.ADMIN\n"
+        "class Asker:\n"
+        "    def ask(self, user, market):\n"
+        "        self.role = PermissionsApi.get_user_market_role(user, market)\n"
+        "        return self.role is MarketRole.OWNER\n"
         "def write(user, market):\n"
         "    return PermissionsApi.user_has_permission(user, market, MarketRole.EDITOR)\n"
+        "RANKS = ROLE_RANK\n"
+        "def get_market_for_user(user, market):\n"
+        "    return PermissionsApi.get_user_market_role(user, market).value\n"
     )
 
     assert [what for _line, what in _role_thresholds(tree)] == [
-        "user_has_permission", "role compared to MarketRole",
+        "get_user_market_role in inline",
+        "get_user_market_role in in_a_tuple",
+        "get_user_market_role in annotated",
+        "higher_role in through_the_organization",
+        "organization_market_role in through_the_organization",
+        "get_user_market_role in ask",
+        "user_has_permission",
+        "ROLE_RANK",
     ]

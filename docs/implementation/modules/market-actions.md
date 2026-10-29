@@ -68,7 +68,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 ## Sharp edges
 
-**No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every server source for a `user_has_permission` or `can_manage_roles` call, `ROLE_RANK`, or a role looked up with `get_user_market_role` and compared to a `MarketRole`, and fails on any.
+**No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every other server source for any use of `user_has_permission`, `can_manage_roles` or `ROLE_RANK`, and of the role resolvers `get_user_market_role`, `organization_market_role` and `higher_role` outside the two functions that serve the role itself to the client (`get_market_for_user`, `_summary_role`), and fails on any.
+Holding a role is how a check would compare one, so searching for the resolvers catches a comparison in any shape, inline, against a tuple, through an annotated name or kept on an attribute; `test_the_search_finds_a_check_that_names_a_role` pins each shape.
 The same file pins every row's default, label, group and fixed flag against the epic's table, and for each row that its default role may, that every role above may, and that the role below is refused with its sentence; and which row each loader-backed write and read asks.
 
 **A test that fakes who may patches `user_has_permission` or `Actions.refusal`**: the first still sees the row's default role, so a fake that answers by role keeps working.
