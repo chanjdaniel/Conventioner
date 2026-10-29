@@ -9,7 +9,7 @@ describes:
   - back-end/guards.py#SetupHasALocationGuard
   - back-end/guards.py#EveryTierHasTablesGuard
   - back-end/guards.py#_earliest_calendar_day
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
