@@ -31,8 +31,9 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
-    GRID_HEADER, NONE_WORDS, collapse_header, column_groups, normalized_submitted_at,
-    parse_csv, parse_date, resolve_value, split_options, tiers_answer_dates,
+    GRID_HEADER, NONE_WORDS, RESERVED_TARGETS, collapse_header, column_groups,
+    normalized_submitted_at, parse_csv, parse_date, resolve_value, split_options,
+    tiers_answer_dates,
 )
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
@@ -797,8 +798,9 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
               for index in group.columns}
     decisions = _classify(columns)
     # The organizer's own questions take their keys first: only theirs are ever stored, so a
-    # "Notes" column left out must not push a question called "Notes" to ``notes_2``.
-    taken_keys: Set[str] = set()
+    # "Notes" column left out must not push a question called "Notes" to ``notes_2``. The import's
+    # own targets are taken from the start: a column called "Applicant email" is ``applicant_email_2``.
+    taken_keys: Set[str] = set(RESERVED_TARGETS)
     order = sorted(range(len(columns)), key=lambda i: decisions[i]["fate"] != FATE_CUSTOM)
     fields = {i: _field(columns[i], taken_keys) if columns[i].filled else None for i in order}
     proposed = []

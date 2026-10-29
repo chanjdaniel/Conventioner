@@ -175,6 +175,9 @@ SUBMITTED_AT_LABEL = "Submitted at"
 # import replaces and which never touches the note written in the app - and never an answer, since
 # the vendor did not write it.
 SHEET_NOTE_TARGET = "sheet_note"
+# The targets that are not questions: no question's key may be one, or the mapping would hold one
+# column under two meanings (E38/F02).
+RESERVED_TARGETS = (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET, SHEET_NOTE_TARGET)
 SHEET_NOTE_LABEL = "From your sheet (your own notes)"
 
 # Header text Google Forms uses, so the obvious mapping can be offered rather than asked for.

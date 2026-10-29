@@ -67,6 +67,7 @@ Who applied, when and the essential questions are not kept: none is a question t
 A later import does not refresh it: the form locks at the first application, so it is never read after one.
 
 **A left-out column is saved in the mapping under the key a question made from it would have.**
+A key the mapping already holds is never replaced by one.
 The import restores only the targets the form has, so that target waits unread until the organizer adds the question from the Questions tab, and the first import then restores it with the rest; a question added by hand under the same key is restored to that column too.
 
 **The proposal writes the import's own mapping, and there is one mapping format** (`csv_import.mapping_payload`, saved `madeBy: start`).
@@ -81,7 +82,7 @@ No heading is matched loosely: only its spacing and line breaks are ignored (`co
 
 **The questions keep the Google Form's words; the product writes none.**
 A heading's first line is the label and everything after its first line break is help text (`label_and_help`); a first line over 120 characters keeps its first sentence as the label and moves the rest into help text, and one with no sentence end stays whole, since a long label reads fine and a broken one does not (bug 41).
-The key is the label's slug, cut to 40 characters on a word boundary, with `_2` and on for a repeat (`key_for`).
+The key is the label's slug, cut to 40 characters on a word boundary, with `_2` and on for a repeat (`key_for`); the import's own targets (`RESERVED_TARGETS`: who applied, when, the sheet's note) count as taken, so a column called "Applicant email" is `applicant_email_2`.
 Renaming a question in the form builder keeps its key, so the mapping survives; an edited key or a deleted question leaves a saved target the import's restore skips, and that column asks for a mapping like a new one, because a whole-form save cannot tell a rename from a delete and an add.
 
 **The rules read values, never header words**, except the words Google itself writes (`Timestamp`) and the review columns organizers add beside a form ("Status", "Notes"): header wording is what the next organizer changes, and value rules survived that where keyword rules did not.

@@ -305,7 +305,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     # question from the Questions tab (E38/F02/S02), and the first import then restores it too.
     for first, choice in choices.items():
         field = by_row[first]["field"]
-        if field and choice["fate"] == CsvProposal.FATE_LEFT_OUT:
+        if field and choice["fate"] == CsvProposal.FATE_LEFT_OUT and field["key"] not in mapping:
             mapping[field["key"]] = ledger[first]
     return {
         **plan_update,

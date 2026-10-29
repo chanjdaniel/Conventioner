@@ -5,6 +5,8 @@ it closes: the import of the same file afterwards restores every column and matc
 Run on the anonymised exports in ``tests/test_data/google_forms/``.
 """
 import copy
+import csv
+import io
 import os
 
 import pytest
@@ -449,3 +451,23 @@ def test_a_create_body_cannot_set_what_the_start_writes(monkeypatch):
 
     assert fake.inserted.get("exampleColumns") is None
     assert fake.inserted.get("importMapping") is None
+
+
+def test_a_left_out_column_never_takes_a_target_the_import_reads():
+    """A second email column headed "Applicant email" is left out as a repeat; its key must not
+    be the identity target's, or the first import reads who applied from the wrong column."""
+    _error, headers, rows = CsvImport.parse_csv(_example())
+    extended = [headers + ["Applicant email", "Sheet note"]] + [
+        row + [row[1], "Paid"] for row in rows]
+    buffer = io.StringIO()
+    csv.writer(buffer, lineterminator="\n").writerows(extended)
+    update = CsvStart.confirmed_update(_draft(), buffer.getvalue(), {"rows": [
+        {"column": len(headers) + 1, "fate": "left_out"}]})
+
+    targets = update["importMapping"]["targets"]
+    assert targets[CsvImport.APPLICANT_EMAIL_TARGET] == ["Email Address"]
+    assert CsvImport.SHEET_NOTE_TARGET not in targets
+    kept = {c["label"]: c["key"] for c in update["exampleColumns"]}
+    assert kept["Applicant email"] not in CsvImport.RESERVED_TARGETS
+    assert kept["Sheet note"] not in CsvImport.RESERVED_TARGETS
+    assert targets[kept["Applicant email"]] == ["Applicant email"]
