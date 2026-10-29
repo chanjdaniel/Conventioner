@@ -132,7 +132,7 @@ Tests and CI:
 
 ### Issue tracker
 
-- The durable Epic > Feature > Story backlog and the Wayfinder maps live in the team home, `~/agent-team/projects/conventioner/{backlog,wayfinding}/` (the private `chanjdaniel/agent-team` repo), not in this repo.
+- The durable Epic > Feature > Story backlog and the Wayfinder maps live in the team home, `~/agent-team-records/projects/conventioner/{backlog,wayfinding}/` (the private `chanjdaniel/agent-team-records` repo), not in this repo.
 - `.scratch/` is the task's transient, ignored working folder: `/to-spec` writes `.scratch/spec.md` and `/to-tickets` writes `.scratch/tickets/`.
 - A Story's status moves in the team home as its Conventioner PR merges; GitHub is used for pull requests only, and its issue tracker is deliberately empty.
 - [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) has the rest: the hierarchy, who moves status, and where every work-item id and `sources` string resolves.
