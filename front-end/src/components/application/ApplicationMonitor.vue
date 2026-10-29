@@ -16,12 +16,8 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
-import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
-import {
-  fetchMarketApplications,
-  reassignFollowUp,
-  publishResults as publishResultsApi,
-} from '@/utils/applicantApi';
+import { ApplicationStatus } from '@/assets/types/datatypes';
+import { fetchMarketApplications, reassignFollowUp } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import {
   asksNothingDistinguishing,
@@ -31,9 +27,6 @@ import {
   reviewed,
 } from '@/utils/reviewQueue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
-import AppDialog from '@/components/AppDialog.vue';
-import { outcomeHeadline } from '@/utils/applicantOutcome';
-import { useMarketStore } from '@/stores/market';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
@@ -61,9 +54,6 @@ const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
-const publishLoading = ref(false);
-const publishError = ref('');
-const resultsPublished = ref(false);
 const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
@@ -84,27 +74,6 @@ const givers = computed(
   () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
 );
 
-/**
- * Does publishing results mean anything on this market?
- *
- * `resultsPublished` is what makes a reviewer's verdict visible to the applicant instead of
- * `under_review` - and every endpoint that reads it goes through
- * `applicant_intake_market_by_slug`, which serves form-intake markets only. On a CSV market the
- * flag has no reader at all, so the button was a no-op with a confident label. It is absent
- * there, and the endpoint refuses too, because a hidden button is not a rule.
- */
-const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
-
-/**
- * Why results cannot be published yet, as the server judges it (E36/F04/S01): they wait for a
- * current run in assignment, so each applicant is told whether they have a table.
- */
-const publishReason = computed(() => props.market?.publishResultsReason ?? null);
-const outcomes = computed(() => props.market?.publishOutcomes ?? null);
-const confirmingPublish = ref(false);
-/** The two outcomes in the applicant's own words (E36/F05/S02), worded once. */
-const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
-const NOT_ASSIGNED = outcomeHeadline({ outcome: 'not_assigned' });
 /** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
 function reDecidable(app: Application): boolean {
   return (
@@ -195,8 +164,6 @@ const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
  * assignment. Viewers, archived markets and settled ones read the applications and their verdicts.
  */
 const decides = computed(() => !props.market?.verdictLockReason);
-/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
-const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
 
 /**
  * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
@@ -249,12 +216,6 @@ watch(
     // Leaving the review lets the held card go at once, not five minutes later.
     else if (!visible) claims.release();
   },
-  { immediate: true },
-);
-
-watch(
-  () => props.market?.resultsPublished,
-  (published) => (resultsPublished.value = published ?? false),
   { immediate: true },
 );
 
@@ -461,22 +422,6 @@ onUnmounted(() => {
   window.removeEventListener('pointerdown', active);
 });
 
-async function handlePublish() {
-  if (!props.market || publishLoading.value) return;
-  publishLoading.value = true;
-  publishError.value = '';
-  try {
-    await publishResultsApi(props.market.id);
-    resultsPublished.value = true;
-    confirmingPublish.value = false;
-    void useMarketStore().refresh();
-  } catch (err) {
-    publishError.value = getApiErrorMessage(err, 'Failed to publish results');
-  } finally {
-    publishLoading.value = false;
-  }
-}
-
 /** The applicant's own words in answer to the table-share question, for its notice. */
 function shareWords(app: Application): string {
   return String(app.formData?.[TABLE_SHARE_ANSWER_KEY] ?? '');
@@ -489,66 +434,7 @@ function submittedOn(app: Application): string {
 
 <template>
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
-    <div class="monitor-header">
-      <h2>Applications</h2>
-      <div v-if="marketHasApplicants && publishes" class="monitor-actions">
-        <button
-          v-if="!resultsPublished"
-          class="publish-button"
-          :disabled="publishLoading || Boolean(publishReason)"
-          @click="confirmingPublish = true"
-          data-testid="app-monitor-publish-button"
-        >
-          {{ publishLoading ? 'Publishing...' : 'Publish Results' }}
-        </button>
-        <span
-          v-if="!resultsPublished && publishReason"
-          class="publish-hint"
-          data-testid="app-monitor-publish-hint"
-          >{{ publishReason }}</span
-        >
-        <!-- What it does, said beside it: optional, never the rail's next step (E31/F03/S04). -->
-        <span
-          v-else-if="!resultsPublished"
-          class="publish-hint"
-          data-testid="app-monitor-publish-hint"
-        >
-          Tells every applicant, on their application page, whether they have a table.
-        </span>
-        <span
-          v-if="resultsPublished"
-          class="chip chip--positive"
-          data-testid="app-monitor-published-badge"
-        >
-          Results published
-        </span>
-      </div>
-    </div>
-
-    <p v-if="publishError" class="error-state">{{ publishError }}</p>
     <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
-
-    <!-- What publishing tells whom, before it does (E36/F04/S01): it cannot be undone. -->
-    <AppDialog
-      :open="confirmingPublish"
-      title="Publish results"
-      testid="publish-results"
-      :confirm-label="publishLoading ? 'Publishing…' : 'Publish results'"
-      :confirm-disabled="publishLoading"
-      :error="publishError"
-      @close="confirmingPublish = false"
-      @submit="handlePublish"
-    >
-      <p v-if="outcomes" class="publish-outcomes">
-        {{ outcomes.haveATable }}
-        {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
-        "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
-      </p>
-      <p class="publish-outcomes">
-        Publishing cannot be undone, and the assignment cannot be run again after it: seats change
-        only by hand.
-      </p>
-    </AppDialog>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...
@@ -878,53 +764,6 @@ function submittedOn(app: Application): string {
 <style scoped>
 .monitor-panel {
   padding: var(--space-4) 0;
-}
-
-.monitor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
-}
-
-.monitor-header h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-  color: var(--mm-black);
-}
-
-.monitor-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.publish-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-sm);
-}
-
-.publish-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.publish-outcomes {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.publish-hint {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  max-width: 24ch;
 }
 
 .loading-state,

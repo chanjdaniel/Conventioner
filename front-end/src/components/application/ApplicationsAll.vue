@@ -259,33 +259,45 @@ async function decideSelection() {
 
 <template>
   <div class="all-view" data-testid="applications-all">
-    <div class="all-filters">
-      <div class="all-status" role="group" aria-label="Show applications">
-        <button
-          v-for="option in ALL_VIEW_FILTERS"
-          :key="option.id"
-          type="button"
-          class="btn btn--compact"
-          :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
-          :aria-pressed="option.id === filter"
-          :data-testid="`applications-all-filter-${option.id}`"
-          @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+    <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
+    <div class="all-filter-group">
+      <span id="applications-all-filter-label" class="field-label">Filter</span>
+      <div class="all-filters">
+        <div
+          class="all-status"
+          role="group"
+          aria-labelledby="applications-all-filter-label"
+          aria-describedby="applications-all-filter-hint"
         >
-          {{ option.label }}
-        </button>
+          <button
+            v-for="option in ALL_VIEW_FILTERS"
+            :key="option.id"
+            type="button"
+            class="btn btn--compact"
+            :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
+            :aria-pressed="option.id === filter"
+            :data-testid="`applications-all-filter-${option.id}`"
+            @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <label class="all-mine">
+          <input
+            type="checkbox"
+            :checked="mine"
+            data-testid="applications-all-mine"
+            @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
+          />
+          Mine: the follow-ups I own
+        </label>
+        <span class="all-count" data-testid="applications-all-count">
+          {{ shown.length }} of {{ applications.length }}
+        </span>
       </div>
-      <label class="all-mine">
-        <input
-          type="checkbox"
-          :checked="mine"
-          data-testid="applications-all-mine"
-          @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
-        />
-        Mine: the follow-ups I own
-      </label>
-      <span class="all-count" data-testid="applications-all-count">
-        {{ shown.length }} of {{ applications.length }}
-      </span>
+      <p id="applications-all-filter-hint" class="all-filter-hint">
+        Open is not decided yet. Needs follow-up waits on someone reaching out to the applicant.
+      </p>
     </div>
 
     <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
@@ -490,6 +502,22 @@ async function decideSelection() {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.all-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.all-filter-group .field-label {
+  margin-bottom: 0;
+}
+
+.all-filter-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .all-filters {

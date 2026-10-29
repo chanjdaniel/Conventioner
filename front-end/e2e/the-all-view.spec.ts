@@ -57,10 +57,10 @@ test('every application, filtered, held and decided from the drawer', async ({
     });
     expect(next.ok()).toBeTruthy();
 
+    // The tab opens on All, with nothing in the address to say so (E38/F05/S01).
     await page.goto(marketScreenPath(marketId, 'applications'));
-    await all.switchTo();
-    await expect(page).toHaveURL(/view=all/);
     await expect(all.rows).toHaveCount(3);
+    await expect(page).not.toHaveURL(/view=/);
     // The page's own line counts what is left from this view too.
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
       '3 applications still to decide',
@@ -95,6 +95,62 @@ test('every application, filtered, held and decided from the drawer', async ({
   await all.drawerButton('approve').click();
   await expect(all.statusOf('ines@loom.test')).toHaveText('Approved');
   await expect(all.giverOf('ines@loom.test')).toContainText(`Approved by ${TEST_USER.email}`);
+});
+
+/**
+ * All comes first and is the default, and both controls say what they are in words that are also
+ * their names (E38/F05/S01); saved links to All, and to One by one at an application, still open
+ * what they did.
+ */
+test('the review opens on All, its views and its filter named on screen', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  const theo = seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
+
+  const all = new ApplicationsAllPage(page);
+  await page.goto(marketScreenPath(marketId, 'applications'));
+  const views = page.getByRole('group', { name: 'How do you want to review?' });
+  await expect(views.getByRole('button')).toHaveText(['All', 'One by one']);
+  await expect(views.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  const filter = page.getByRole('group', { name: 'Filter' });
+  await expect(filter.getByRole('button')).toHaveText([
+    'Any status',
+    'Open',
+    'Needs follow-up',
+    'Approved',
+    'Rejected',
+  ]);
+  await expect(page.getByText('Open is not decided yet.')).toBeVisible();
+  expect(await namelessControls(page), 'the All view').toEqual([]);
+
+  // "Open" keeps the address it had as "To review", and lists what awaits a verdict.
+  await all.filter('undecided');
+  await expect(page).toHaveURL(/status=undecided/);
+  await expect(all.rows).toHaveCount(2);
+
+  // One by one has its own address, and All drops it again.
+  await views.getByRole('button', { name: 'One by one' }).click();
+  await expect(page).toHaveURL(/view=one/);
+  await expect(page.getByTestId('app-monitor-card')).toBeVisible();
+  await views.getByRole('button', { name: 'All' }).click();
+  await expect(page).not.toHaveURL(/view=/);
+  await expect(all.rows).toHaveCount(2);
+
+  // A saved link to All, and a link to one application, open what they did.
+  await all.goto(marketId);
+  await expect(all.rows).toHaveCount(2);
+  await page.goto(`${marketScreenPath(marketId, 'applications')}?application=${theo}`);
+  await expect(page.getByTestId('app-monitor-email')).toHaveText('theo@thistle.test');
 });
 
 /**

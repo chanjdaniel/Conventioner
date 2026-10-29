@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, oneByOnePath } from './helpers/marketScreens';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
@@ -106,7 +106,7 @@ test('the review card reads as one card, and a verdict is not drawn like the act
   });
   expect(highlighted.ok(), await highlighted.text()).toBeTruthy();
 
-  await page.goto(marketSetupPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   const monitor = new ApplicationMonitorPage(page);
   await monitor.waitForLoaded();
 
@@ -165,7 +165,7 @@ test('a web address in an answer is a link the reviewer can open, and nothing el
     essential_full_name: 'Nadia Ember',
   });
 
-  await page.goto(marketSetupPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   const monitor = new ApplicationMonitorPage(page);
   await monitor.waitForLoaded();
 

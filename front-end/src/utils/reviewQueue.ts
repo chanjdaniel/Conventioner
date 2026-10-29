@@ -113,10 +113,25 @@ export function reviewed(applications: Application[]): Application[] {
   );
 }
 
-/** The All view's status filters (E34/F04/S01), as the address names them. */
+/**
+ * The review's two views (E34/F04/S01), All first and the default (E38/F05/S01): an address with no
+ * `view` opens All, and One by one is `view=one` - or a named application with no `view`, which is a
+ * link to one card (bug 42).
+ */
+export type ReviewView = 'all' | 'one';
+
+export function reviewView(query: Record<string, unknown>): ReviewView {
+  if (query.view === 'one') return 'one';
+  return !query.view && query.application ? 'one' : 'all';
+}
+
+/**
+ * The All view's status filters (E34/F04/S01), as the address names them. The undecided read
+ * "Open", the status an undecided application shows (E38/F05/S01); its address is still `undecided`.
+ */
 export const ALL_VIEW_FILTERS = [
   { id: 'all', label: 'Any status' },
-  { id: 'undecided', label: 'To review' },
+  { id: 'undecided', label: 'Open' },
   { id: ApplicationStatus.NeedsFollowUp, label: 'Needs follow-up' },
   { id: ApplicationStatus.ReviewerApproved, label: 'Approved' },
   { id: ApplicationStatus.ReviewerRejected, label: 'Rejected' },
@@ -130,7 +145,7 @@ export function allViewFilter(asked: unknown): AllViewFilter {
 }
 
 /**
- * The applications the All view lists: those with the status asked for - "To review" is every one
+ * The applications the All view lists: those with the status asked for - "Open" is every one
  * awaiting a verdict - and, with Mine, only the follow-ups the viewer owns.
  */
 export function allViewApplications(

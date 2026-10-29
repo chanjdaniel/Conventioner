@@ -50,9 +50,9 @@ test('publishing waits for a run, then says who will read what before it tells t
   const rail = await page.getByTestId('phase-rail').boundingBox();
   const more = await page.getByTestId('phase-rail-menu-button').boundingBox();
   expect(more!.x + more!.width).toBeLessThanOrEqual(rail!.x + rail!.width);
-  const publish = page.getByTestId('app-monitor-publish-button');
+  const publish = page.getByTestId('applications-publish-button');
   await expect(publish).toBeDisabled();
-  await expect(page.getByTestId('app-monitor-publish-hint')).toHaveText(
+  await expect(page.getByTestId('applications-publish-hint')).toHaveText(
     'Run the assignment first: results tell each applicant whether they have a table.',
   );
 
@@ -71,7 +71,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await expect(confirm).toContainText('1 will read "You did not get assigned"');
   await confirm.getByTestId('publish-results-submit-button').click();
   await expect(confirm).toBeHidden();
-  await expect(page.getByTestId('app-monitor-published-badge')).toBeVisible();
+  await expect(page.getByTestId('applications-published-badge')).toBeVisible();
 
   // Publishing settles the assignment: no run after it, and its rules read as settled.
   await page.goto(marketSetupPath(market.marketId, 'assignment'));

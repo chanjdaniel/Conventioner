@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
 
-type AllViewFilter = 'all' | 'open' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
+type AllViewFilter =
+  'all' | 'undecided' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
 type Verdict = 'approve' | 'reject' | 'follow-up';
 
 /**
@@ -36,12 +37,12 @@ export class ApplicationsAllPage {
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
   }
 
-  /** Straight to the All view by its address, as a bookmark would. */
+  /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */
   async goto(marketId: string): Promise<void> {
     await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
   }
 
-  /** From the one-by-one review, by its switch. */
+  /** Back from the one-by-one review, by its switch. */
   async switchTo(): Promise<void> {
     await this.page.getByTestId('applications-view-all').click();
   }

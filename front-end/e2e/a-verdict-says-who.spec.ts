@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 
@@ -48,7 +48,7 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
   }
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await monitor.reject('theo@thistle.test');
@@ -65,7 +65,7 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
   });
 
   await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await expect(monitor.approveButton).toHaveCount(0);

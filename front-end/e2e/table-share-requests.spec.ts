@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { completePlan, ensureTestOrg, loginViaApi, SEED_MARKET_DATE } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
@@ -114,7 +114,7 @@ test.describe('A table-share request that pairs nobody is shown', () => {
     }
 
     await signIn(page);
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     const notice = page.getByTestId('app-monitor-table-share-notice');

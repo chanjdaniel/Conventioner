@@ -36,3 +36,11 @@ export function marketScreenPath(
 ): string {
   return `/markets/${encodeURIComponent(marketId)}/${screen}`;
 }
+
+/**
+ * The review's One by one view (E38/F05/S01): the Applications tab opens on All, so a spec that
+ * walks the queue asks for this one by its address, as a bookmark would.
+ */
+export function oneByOnePath(marketId: string): string {
+  return `${marketScreenPath(marketId, 'applications')}?view=one`;
+}

@@ -152,10 +152,12 @@ test.describe('The MVP journey', () => {
     // One move from importing to review, the closed phase stepped through, landing on the review.
     await setup.advancePhaseTo('review', 'Review');
     await expect(page).toHaveURL(/\/applications$/);
+    // The page opens on All (E38/F05/S01); this walk decides one card at a time.
+    await monitor.switchTo();
     await monitor.waitForLoaded();
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
-    // time, so the count of work left is the assertion - there is no list of all three to count.
+    // time, so the count of work left is the assertion.
     await expect(monitor.progress).toContainText('of 3 to review');
     await expect(monitor.tally).toContainText('0 reviewed');
     // The card carries the answers the verdict is supposed to rest on, not just an address.

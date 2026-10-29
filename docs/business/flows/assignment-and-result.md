@@ -4,7 +4,8 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketAssignmentTab.vue
   - front-end/src/components/ResultSummary.vue
-verified: 2026-10-28
+  - front-end/src/components/application/PublishResults.vue
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -31,6 +32,7 @@ sources:
   - E35/F03/S01
   - E35/F03/S02
   - T15
+  - E38/F05/S01
 ---
 
 # The assignment and its result
@@ -128,7 +130,7 @@ Covered by: `the-assignment-rules-close.spec.ts`.
 ## I7. Publish results
 
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
-On a market whose vendors apply on its own page only, from the Applications page; a Google Form market has nobody to tell, and offers no button.
+On a market whose vendors apply on its own page only, from the Applications page, above both of the review's views ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)); a Google Form market has nobody to tell, and offers no button.
 
 1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is offered in Assignment once a current run is stored; until then it is disabled and says why ("Run the assignment first: …", "The assignment is out of date. Run it again before publishing, …").
    In Assignment the rail leads there: Publish Market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.

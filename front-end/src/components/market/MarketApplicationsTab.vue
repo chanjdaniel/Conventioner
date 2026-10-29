@@ -14,10 +14,12 @@ import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
+import PublishResults from '@/components/application/PublishResults.vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { intakeModeOf } from '@/utils/marketGuide';
 import { canImportInto } from '@/utils/importPhase';
+import { reviewView, type ReviewView } from '@/utils/reviewQueue';
 
 const props = defineProps<{
   market: Market | null;
@@ -32,14 +34,14 @@ const route = useRoute();
 const namedApplication = computed(() => String(route.query.application ?? ''));
 
 /**
- * One by one, or All (E34/F04/S01): the review's two views, the choice in the address so a reload
- * or a shared link opens the same one.
+ * All, or One by one (E34/F04/S01): the review's two views, the choice in the address so a reload
+ * or a shared link opens the same one. All is first and the default (E38/F05/S01), so it drops
+ * `view`, and the application a link named with it: a named application is One by one's card.
  */
-const allView = computed(() => route.query.view === 'all');
-function showView(all: boolean) {
-  void router.replace({
-    query: all ? { ...route.query, view: 'all' } : withoutQueryKey(route.query, 'view'),
-  });
+const view = computed(() => reviewView(route.query));
+function showView(next: ReviewView) {
+  const query = withoutQueryKey(withoutQueryKey(route.query, 'view'), 'application');
+  void router.replace({ query: next === 'one' ? { ...route.query, view: 'one' } : query });
 }
 
 /** Published by the review queue, so this surface can lead with it while reviewing. */
@@ -116,6 +118,8 @@ const condition = computed(() => {
     >
       {{ condition }}
     </p>
+    <!-- A step for the market, over whichever view is open (E38/F05/S01). -->
+    <PublishResults :market="market" />
     <!-- The button used to be live in every phase and navigate to a page whose only
          content was the refusal. It is drawn only while the market is importing now; the
          refusal it can still carry is the person's - only an admin imports (bug 37). -->
@@ -141,29 +145,46 @@ const condition = computed(() => {
         Bring in the responses you already collected, as a CSV from any form tool or spreadsheet.
       </span>
     </div>
-    <div class="review-views" role="group" aria-label="How to review">
-      <button
-        type="button"
-        class="btn btn--compact"
-        :class="allView ? 'btn--secondary' : 'btn--primary'"
-        :aria-pressed="!allView"
-        data-testid="applications-view-one"
-        @click="showView(false)"
+    <!-- Which view, said over the switch and named by those words (E38/F05/S01). -->
+    <div class="review-views">
+      <span id="review-views-label" class="field-label">How do you want to review?</span>
+      <div
+        class="review-views-switch"
+        role="group"
+        aria-labelledby="review-views-label"
+        aria-describedby="review-views-hint"
       >
-        One by one
-      </button>
-      <button
-        type="button"
-        class="btn btn--compact"
-        :class="allView ? 'btn--primary' : 'btn--secondary'"
-        :aria-pressed="allView"
-        data-testid="applications-view-all"
-        @click="showView(true)"
-      >
-        All
-      </button>
+        <button
+          type="button"
+          class="btn btn--compact"
+          :class="view === 'all' ? 'btn--primary' : 'btn--secondary'"
+          :aria-pressed="view === 'all'"
+          data-testid="applications-view-all"
+          @click="showView('all')"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          class="btn btn--compact"
+          :class="view === 'one' ? 'btn--primary' : 'btn--secondary'"
+          :aria-pressed="view === 'one'"
+          data-testid="applications-view-one"
+          @click="showView('one')"
+        >
+          One by one
+        </button>
+      </div>
+      <p id="review-views-hint" class="review-views-hint">
+        All lists every application, to filter and decide several at once. One by one shows one
+        application at a time, with every answer.
+      </p>
     </div>
-    <ApplicationsAll v-if="allView" :market="market" @update:undecidedCount="undecided = $event" />
+    <ApplicationsAll
+      v-if="view === 'all'"
+      :market="market"
+      @update:undecidedCount="undecided = $event"
+    />
     <ApplicationMonitor
       v-else
       :market="market"
@@ -176,8 +197,18 @@ const condition = computed(() => {
 
 <style scoped>
 .review-views {
+  margin-bottom: var(--space-4);
+}
+
+.review-views-switch {
   display: flex;
   gap: var(--space-1);
+}
+
+.review-views-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .applications-condition {
@@ -194,7 +225,9 @@ const condition = computed(() => {
   padding: var(--space-6);
 }
 
-.settings-body-stacked {
+/* Both classes, to outrank the 32px gap `MarketSetupView`'s own `.settings-body` puts on this root:
+   the rows here space themselves. */
+.settings-body.settings-body-stacked {
   flex-direction: column;
   gap: 0;
   /* The review queue grows with the application in front of the organizer, and the reviewed list
