@@ -1391,6 +1391,8 @@ REQUIRED_BODIES = [
     ("put", "/public/markets/<market_slug>/applicant/application", None),
     ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.REVIEW),
     ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
+    ("post", "/markets/<market_id>/vendor-export", None),
+    ("post", "/markets/<market_id>/vendor-export/preview", None),
 ]
 OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/name", None),

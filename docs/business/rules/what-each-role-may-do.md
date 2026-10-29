@@ -19,6 +19,7 @@ sources:
   - T15
   - decision/2026-10-20
   - E39/F01/S01
+  - E42/F01/S01
 ---
 
 # What each role may do
@@ -41,7 +42,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 
 | Role | May |
 | --- | --- |
-| Viewer | read the market: its applications, its result and tables, the statistics and the CSV export, the floorplan export, attendance and the placement history |
+| Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance and the placement history |
 | Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, running the assignment and placing, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
 | Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |

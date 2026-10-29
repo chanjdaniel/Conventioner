@@ -19,6 +19,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
+import api.vendor_export as VendorExportApi
 from client_errors import ForbiddenError
 from datatypes import MarketPerson, MarketPhase, MarketRole
 
@@ -160,6 +161,8 @@ EACH_LOAD_ASKS = [
     (lambda: FormAmendmentApi.amend_application_form("market-123", {}, "u@x.test"),
      Actions.AMEND_FORM),
     (lambda: FormAmendmentApi.resume_amendment("market-123", "u@x.test"), Actions.AMEND_FORM),
+    (lambda: VendorExportApi.preview("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
+    (lambda: VendorExportApi.export("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
 ]
 
 

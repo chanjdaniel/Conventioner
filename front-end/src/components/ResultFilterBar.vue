@@ -55,6 +55,7 @@ const chips = computed(() => {
           class="field"
           :value="filters.search"
           placeholder="Name, business, email or table"
+          :name="`${testid}-filter-search`"
           :data-testid="`${testid}-filter-search`"
           @input="setFilter('search', ($event.target as HTMLInputElement).value)"
         />
@@ -64,6 +65,7 @@ const chips = computed(() => {
         <select
           class="field field--select"
           :value="filters.date"
+          :name="`${testid}-filter-date`"
           :data-testid="`${testid}-filter-date`"
           @change="setFilter('date', ($event.target as HTMLSelectElement).value)"
         >
@@ -78,6 +80,7 @@ const chips = computed(() => {
         <select
           class="field field--select"
           :value="filters.section"
+          :name="`${testid}-filter-section`"
           :data-testid="`${testid}-filter-section`"
           @change="setFilter('section', ($event.target as HTMLSelectElement).value)"
         >
@@ -93,6 +96,7 @@ const chips = computed(() => {
         <select
           class="field field--select"
           :value="filters.tier"
+          :name="`${testid}-filter-tier`"
           :data-testid="`${testid}-filter-tier`"
           @change="setFilter('tier', ($event.target as HTMLSelectElement).value)"
         >
@@ -107,6 +111,7 @@ const chips = computed(() => {
         <select
           class="field field--select"
           :value="filters.choice"
+          :name="`${testid}-filter-choice`"
           :data-testid="`${testid}-filter-choice`"
           @change="setFilter('choice', ($event.target as HTMLSelectElement).value)"
         >
