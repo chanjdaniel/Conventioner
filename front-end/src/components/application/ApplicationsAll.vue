@@ -430,6 +430,10 @@ async function decideSelection() {
 
     <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
+    <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
+    <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
+      No applications received yet.
+    </p>
     <p v-else-if="!shown.length" class="all-empty" data-testid="applications-all-empty">
       No application matches.
     </p>

@@ -114,11 +114,16 @@ test('the review opens on All, its views and its filter named on screen', async 
     { intakeMode: 'form' },
   );
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  const all = new ApplicationsAllPage(page);
+  // Before anyone applies, it says nothing has come in, not that nothing matches.
+  await page.goto(marketScreenPath(marketId, 'applications'));
+  await expect(page.getByTestId('applications-all-empty')).toHaveText(
+    'No applications received yet.',
+  );
+
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   const theo = seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-
-  const all = new ApplicationsAllPage(page);
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.reload();
   const views = page.getByRole('group', { name: 'How do you want to review?' });
   await expect(views.getByRole('button')).toHaveText(['All', 'One by one']);
   await expect(views.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
