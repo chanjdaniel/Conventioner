@@ -287,6 +287,12 @@ export interface Market {
    * (E36/F04/S01): an admin's, on a form market in assignment with a current run.
    */
   publishResultsReason?: string | null;
+  /**
+   * Why the person reading may not publish this market's results at all, or null while they may
+   * (E38/F05): the table's Publish results row alone, so the button is drawn for whoever may and
+   * `publishResultsReason` says whether it can be pressed yet.
+   */
+  publishResultsActionReason?: string | null;
   /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
   assignRefusalReason?: string | null;
   /** How many applicants will read each outcome, while results may be published; else null. */

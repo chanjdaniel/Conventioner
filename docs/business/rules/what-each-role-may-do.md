@@ -19,6 +19,7 @@ sources:
   - T15
   - decision/2026-10-20
   - E39/F01/S01
+  - E38/F05
 ---
 
 # What each role may do
@@ -70,7 +71,7 @@ See [the organization document](../../implementation/data/organization-document.
   A rule of the market's life (archived, the verdicts settling, adding from the assignment on) is still asked where it was, and refuses whoever may.
 - The market read serves two per-person reasons, asked of the same rows the writes ask ([`back-end/api/markets.py`](../../../back-end/api/markets.py)):
   `readOnlyReason` (`change_refusal`: archived, or the Market Setup row refuses) and `adminActionsReason` (`admin_actions_refusal`: that, or the Move the phase row refuses).
-  The verdicts' reason (`verdictLockReason`) and adding a vendor's (`addVendorReason`) ask their own rows after the archived rule, and publishing's (`publishResultsReason`) is `admin_actions_refusal` asking the Publish results row.
+  The verdicts' reason (`verdictLockReason`) and adding a vendor's (`addVendorReason`) ask their own rows after the archived rule, and publishing's (`publishResultsReason`) is `admin_actions_refusal` asking the Publish results row, then the rule that results wait for the allocation; `publishResultsActionReason` is the row alone, which decides whether the Applications page draws Publish Results at all.
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.

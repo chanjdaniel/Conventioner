@@ -61,3 +61,31 @@ def test_an_archived_market_is_read_only_whoever_holds_it(role):
 
     assert MarketsApi.change_refusal("u@x", archived, None) == MarketsApi.ARCHIVED_REFUSAL
     assert MarketsApi.admin_actions_refusal("u@x", archived, None) == MarketsApi.ARCHIVED_REFUSAL
+
+
+@pytest.mark.parametrize("held,publishes", [
+    (MarketRole.VIEWER, False),
+    (MarketRole.EDITOR, False),
+    (MarketRole.ADMIN, True),
+    (MarketRole.OWNER, True),
+])
+def test_the_publish_results_row_alone_says_who_may_publish(role, held, publishes):
+    """The Applications page draws Publish Results by its own row, the rule apart (E38/F05)."""
+    role(held)
+
+    refused = MarketsApi.publish_results_action_refusal("u@x", market(), None)
+
+    assert (refused is None) is publishes
+
+
+def test_an_admin_with_nothing_run_may_publish_but_not_yet(role):
+    """The row says who; the rule says when, and the screen shows it disabled with why."""
+    import api.applicants as ApplicantsApi
+    from datatypes import IntakeMode
+    role(MarketRole.ADMIN)
+    nothing_run = MarketsApi.market_from_document(
+        stored_market(MarketPhase.ASSIGNMENT, intakeMode=IntakeMode.FORM.value))
+
+    assert MarketsApi.publish_results_action_refusal("u@x", nothing_run, None) is None
+    assert ApplicantsApi.publish_results_refusal(nothing_run).startswith(
+        "Run the assignment first")

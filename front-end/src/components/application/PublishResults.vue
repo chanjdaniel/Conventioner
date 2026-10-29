@@ -36,10 +36,13 @@ const FROM_THE_ASSIGNMENT: readonly string[] = [
   MarketPhase.MarketDays,
 ];
 const itsPhase = computed(() => FROM_THE_ASSIGNMENT.includes(props.market?.phase ?? ''));
-/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
-const publishes = computed(
-  () => !props.market?.adminActionsReason && !props.market?.readOnlyReason,
-);
+/**
+ * Whether this person may publish results at all: the table's Publish results row (E39/F01/S01),
+ * served on its own (E38/F05), not the row that moves the phase. Whether they can yet is
+ * `publishReason`, which disables the button and says why.
+ */
+// Null, not absent: a market read that does not say who may publish draws nothing.
+const publishes = computed(() => props.market?.publishResultsActionReason === null);
 
 /**
  * Why results cannot be published yet, as the server judges it (E36/F04/S01): they wait for a

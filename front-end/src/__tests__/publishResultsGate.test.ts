@@ -28,6 +28,7 @@ function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): M
     publishResultsReason: null,
     publishOutcomes: { haveATable: 3, notAssigned: 2 },
     phase: MarketPhase.Assignment,
+    publishResultsActionReason: null,
     ...publish,
   } as unknown as Market;
 }
@@ -104,5 +105,38 @@ describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
       marketTaking(IntakeMode.Form, { phase: MarketPhase.MarketDays, resultsPublished: true }),
     );
     expect(days.find('[data-testid="applications-published-badge"]').exists()).toBe(true);
+  });
+});
+
+describe('who may publish: the Publish results row (E39/F01, E38/F05)', () => {
+  it('offers none to someone the row refuses', async () => {
+    const refused = 'Only an Admin or the owner may take this action on this market.';
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, {
+        publishResultsActionReason: refused,
+        publishResultsReason: refused,
+      }),
+    );
+
+    expect(wrapper.find(button).exists()).toBe(false);
+  });
+
+  it('offers none on a market read that does not say who may', async () => {
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, { publishResultsActionReason: undefined }),
+    );
+
+    expect(wrapper.find(button).exists()).toBe(false);
+  });
+
+  it('asks its own row, not the one that moves the phase', async () => {
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, {
+        adminActionsReason: 'Only an Admin or the owner may take this action on this market.',
+        publishResultsActionReason: null,
+      }),
+    );
+
+    expect(wrapper.find(button).exists()).toBe(true);
   });
 });

@@ -231,6 +231,19 @@ def admin_actions_refusal(
     return EDITOR_REFUSAL
 
 
+def publish_results_action_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person may not publish this market's results at all, or None while they may: the
+    table's Publish results row alone, the archived rule first (E38/F05).
+
+    Served as ``publishResultsActionReason``, so the Applications page draws Publish Results for
+    whoever may, and ``publishResultsReason`` - this, or the rule that results wait for the
+    allocation - says whether it can be pressed yet.
+    """
+    return admin_actions_refusal(user_email, market, organization, action=Actions.PUBLISH_RESULTS)
+
+
 VERDICTS_SETTLED = (
     "The review is closed: the verdicts settled when this market began its assignment. To seat "
     "someone or free a seat, change the placement on the Result page."
@@ -860,9 +873,11 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
     # Results wait for the allocation (E36/F04/S01): offered exactly when the endpoint would take
     # them, with how many will read each outcome for the confirmation.
-    publish_reason = admin_actions_refusal(
-        user_email, market, context.organization, Actions.PUBLISH_RESULTS,
-    ) or ApplicantsApi.publish_results_refusal(market)
+    publish_action_reason = publish_results_action_refusal(
+        user_email, market, context.organization,
+    )
+    publish_reason = publish_action_reason or ApplicantsApi.publish_results_refusal(market)
+    market_dict['publishResultsActionReason'] = publish_action_reason
     market_dict['publishResultsReason'] = publish_reason
     market_dict['publishOutcomes'] = (
         None if publish_reason else ResultOutcome.outcome_counts(market)
