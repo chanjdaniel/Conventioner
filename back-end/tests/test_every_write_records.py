@@ -363,6 +363,13 @@ def _follow_up_owner(client, world):
                       json={"ownerEmail": SAM})
 
 
+def _update_info(client, world):
+    world.market(MarketPhase.REVIEW, applicationForm={"fields": [QUESTION]})
+    world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
+    return client.put(f"/markets/{MARKET}/applications/app-1/answers",
+                      json={"answers": {"shop": "Ember Ceramics"}})
+
+
 # --- The market's life ------------------------------------------------------------------------------
 
 def _move_phase(client, world):
@@ -500,6 +507,10 @@ WRITES = [
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
+    Write("a vendor's info updated", "PUT", f"{M}/applications/<application_id>/answers",
+          Actions.UPDATE_VENDOR_INFO, None, _update_info, vendors=(VENDOR,),
+          subject={"application_id": "app-1"},
+          detail_keys=("rejected_by_rules", "returned_by_rules")),
     Write("a phase move", "POST", f"{M}/transition", Actions.MOVE_PHASE, None, _move_phase),
     Write("publishing results", "POST", f"{M}/publish-results", Actions.PUBLISH_RESULTS, None,
           _publish),

@@ -120,7 +120,10 @@ def _application_response_organizer(
         "id": app.id,
         "marketId": app.market_id,
         "applicantEmail": app.applicant_email,
-        "formData": app.form_data,
+        # The answers as the organizer reads them, each update in its place (E41/F01/S01), and
+        # beside them who updated which, and what the vendor wrote.
+        "formData": ApplicationsApi.effective_answers(app),
+        "answerUpdates": _answer_updates_payload(app),
         "status": app.status.value,
         "applicationType": app.application_type.value,
         "mainApplicationId": app.main_application_id,
@@ -136,6 +139,24 @@ def _application_response_organizer(
         # Who recorded a vendor who never applied, and when (E36/F03/S01).
         "addedBy": app.added_by.as_wire() if app.added_by else None,
         "addedAt": app.added_at,
+    }
+
+
+def _answer_updates_payload(app: Application) -> Dict[str, Any]:
+    """Each updated answer (E41/F01/S01): the value read, who updated it and when, what the vendor
+    wrote, and whether that has changed since the update was made over it (a re-import, or their
+    own edit), which the organizer is told."""
+    theirs = app.form_data or {}
+    return {
+        key: {
+            "value": update.value,
+            "by": update.by.as_wire(),
+            "at": update.at,
+            "over": update.over,
+            "theyWrote": theirs.get(key),
+            "changedSince": theirs.get(key) != update.over,
+        }
+        for key, update in app.answer_updates.items()
     }
 
 

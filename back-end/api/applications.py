@@ -20,7 +20,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from datatypes import (
-    Application, ApplicationStatus, ApplicationType, FormField, MarketPerson, VerdictGiver,
+    AnswerUpdate, Application, ApplicationStatus, ApplicationType, FormField, MarketPerson, VerdictGiver,
 )
 from db_config import get_database
 import essential_fields as EssentialFields
@@ -32,6 +32,7 @@ MARKET_ID_FIELD = "market_id"
 APPLICANT_EMAIL_FIELD = "applicant_email"
 APPLICATION_TYPE_FIELD = "application_type"
 STATUS_FIELD = "status"
+ANSWER_UPDATES_FIELD = "answer_updates"
 APPLICANT_IDENTITY_INDEX = "market_applicant_type_unique"
 
 db = get_database()
@@ -261,13 +262,52 @@ def _answers_by_address(market_id: str, keys: List[str]) -> Dict[str, Dict[str, 
     projection of those keys alone, since 232 applications' worth of ``form_data`` is not a thing to
     read in order to show a name."""
     ensure_application_indexes()
-    projection = {"_id": 0, APPLICANT_EMAIL_FIELD: 1, **{f"form_data.{key}": 1 for key in keys}}
+    projection = {"_id": 0, APPLICANT_EMAIL_FIELD: 1, **{
+        f"{field}.{key}": 1 for key in keys for field in ("form_data", ANSWER_UPDATES_FIELD)}}
     answers: Dict[str, Dict[str, Any]] = {}
     for doc in applications_collection.find(market_filter(market_id), projection):
         email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
         if email:
-            answers[email] = doc.get("form_data") or {}
+            answers[email] = effective_answers(doc)
     return answers
+
+
+def effective_answers(application: Any) -> Dict[str, Any]:
+    """An application's answers as the organizer reads them (E41/F01/S01): what the vendor gave,
+    each updated answer read in its place. The one reader of them, for a stored document or an
+    ``Application`` alike, so every view, the search, the export and the automatic rejections
+    read an update by construction, and a reader added later does too.
+
+    ``form_data`` itself is never written over by an update; only the vendor (their own edit) and
+    an import write it.
+    """
+    if isinstance(application, Application):
+        answers, updates = application.form_data, application.answer_updates
+    else:
+        answers = application.get("form_data")
+        updates = application.get(ANSWER_UPDATES_FIELD)
+    effective = dict(answers or {})
+    for key, update in (updates or {}).items():
+        effective[key] = update.value if isinstance(update, AnswerUpdate) else update.get("value")
+    return effective
+
+
+def write_answer_updates(
+    app_id: str, updates: Dict[str, AnswerUpdate], cleared: Iterable[str],
+) -> bool:
+    """Store these updates of an application's answers, and take the ``cleared`` ones away, each by
+    its own question's path, so two organizers updating different answers at once both land."""
+    ensure_application_indexes()
+    update: Dict[str, Any] = {}
+    if updates:
+        update["$set"] = {
+            f"{ANSWER_UPDATES_FIELD}.{key}": value.model_dump() for key, value in updates.items()}
+    gone = {f"{ANSWER_UPDATES_FIELD}.{key}": "" for key in cleared}
+    if gone:
+        update["$unset"] = gone
+    if not update:
+        return True
+    return applications_collection.update_one({"id": app_id}, update).matched_count > 0
 
 
 def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:

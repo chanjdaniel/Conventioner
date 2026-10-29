@@ -472,10 +472,20 @@ class FakeApplicationsCollection:
         return SimpleNamespace(inserted_id=str(len(self.documents)))
 
     def _apply(self, doc, update):
+        # A dotted path reaches into the sub-document, as Mongo's does.
         for key, value in (update.get("$set") or {}).items():
-            doc[key] = value
+            *parents, last = key.split(".")
+            target = doc
+            for part in parents:
+                target = target.setdefault(part, {})
+            target[last] = value
         for key in (update.get("$unset") or {}):
-            doc.pop(key, None)
+            *parents, last = key.split(".")
+            target = doc
+            for part in parents:
+                target = target.get(part) if isinstance(target, dict) else None
+            if isinstance(target, dict):
+                target.pop(last, None)
         return doc
 
     def update_one(self, query, update):
