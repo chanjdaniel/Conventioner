@@ -5,7 +5,8 @@ describes:
   - front-end/src/views/StatsView.vue
   - front-end/src/utils/applicantStats.ts
   - front-end/src/utils/answerCounts.ts
-  - back-end/answer_counts.py
+  - front-end/src/utils/marketStats.ts
+  - back-end/market_stats.py
 verified: 2026-10-29
 sources:
   - E45/F01/S01
@@ -19,20 +20,23 @@ sources:
 
 The Stats page ([`StatsView.vue`](../../../front-end/src/views/StatsView.vue)) reads the market's figures as cards of bars: each row an answer with its count, its share of the whole and a bar against the largest in its card, rather than a chart library.
 Before anyone applies it says "Nobody has applied yet." and nothing else.
+Both sections are counted on the server and read in one small answer (`GET /markets/<id>/stats`, [`back-end/market_stats.py`](../../../back-end/market_stats.py), read by [`marketStats.ts`](../../../front-end/src/utils/marketStats.ts)), so the page never downloads the applications to count them, however many applied.
 
 ## N1. See who applied
 
 **Status:** Works (read from the code as of E45/F01/S01: `the-stats-tab.spec.ts`).
 
-1. "Who applied" totals the market's [applications](../concepts/application.md), counted in the browser from the list the Applications tab reads ([`applicantStats.ts`](../../../front-end/src/utils/applicantStats.ts)): "7 applications in all, 1 of them added by hand".
+1. "Who applied" totals the market's [applications](../concepts/application.md): "7 applications in all, 1 of them added by hand".
 2. "By status" counts them as the Applications tab's All view filters them: To review, Needs follow-up, Approved and Rejected, each count what that filter lists; a row opens the All view on its filter.
+   The server counts every application by its stored status, and the page counts those into the filters through the All view's own test ([`applicantStats.ts`](../../../front-end/src/utils/applicantStats.ts)), so the two pages agree.
 3. "Applied per day" counts those who applied by the day they did, earliest first, in the reader's own calendar; a vendor added by hand never applied, so is on no day.
+   The server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.
 
 Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does").
 
 ## N2. See what they answered
 
-**Status:** Works (read from the code as of E45/F01/S02: `the-stats-tab.spec.ts`, `test_a_chart_per_choice_question.py`).
+**Status:** Works (read from the code as of E45/F01/S02: `the-stats-tab.spec.ts`, `test_the_stats_tab.py`).
 
 1. "What they answered" shows a card per question of the form that offers choices (select, multi-select or checkbox), titled by the question, in the form's order; a free-text question, and the essential questions about dates, tiers and tables, are not charted.
 2. Each option the question offers is a row, one nobody chose included, at zero; a multi-select counts every option ticked, so its shares add up to more than 100%; a checkbox reads "Yes" and "No".
@@ -44,8 +48,8 @@ Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Ap
    A form with no question to chart says "The form asks no question with choices to count."
 
 A row leads nowhere: the All view filters by status, not by an answer.
-The counts are made on the server (`GET /markets/<id>/answer-counts`, [`back-end/answer_counts.py`](../../../back-end/answer_counts.py), read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts)), so the page reads one small answer however many applied; they read the answers as stored.
-Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the placed"), `test_a_chart_per_choice_question.py`.
+The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as stored.
+Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the placed"), `test_the_stats_tab.py`.
 
 ## The rules it obeys
 

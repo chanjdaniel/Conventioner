@@ -2,13 +2,11 @@
  * What the applicants answered, as the Stats tab charts it (E45/F01/S02): a ledger card per choice
  * question of the form, narrowed to every applicant, the approved or the placed.
  *
- * Counted on the server (`GET /markets/:id/answer-counts`, `back-end/answer_counts.py`), so the
- * page reads one small answer however many applied: each option the question offers, "Other" for
- * every answer it does not (written in on a Google Form, or an option since taken off), and "No
- * answer". A row leads nowhere: the Applications tab's All view filters by status only, not by an
- * answer.
+ * Counted on the server, with who applied, in the Stats tab's one answer (`utils/marketStats.ts`):
+ * each option the question offers, "Other" for every answer it does not (written in on a Google
+ * Form, or an option since taken off), and "No answer". A row leads nowhere: the Applications
+ * tab's All view filters by status only, not by an answer.
  */
-import { api } from '@/utils/api';
 import { ledgerRows, type LedgerRow } from '@/utils/barLedger';
 
 export type AnswerGroup = 'all' | 'approved' | 'placed';
@@ -45,11 +43,6 @@ export interface AnswerCounts {
   groups: Record<AnswerGroup, number>;
   /** The form's choice questions, in its order. */
   questions: QuestionCounts[];
-}
-
-export async function fetchAnswerCounts(marketId: string): Promise<AnswerCounts> {
-  const { data } = await api.get(`/markets/${marketId}/answer-counts`);
-  return data as AnswerCounts;
 }
 
 export interface QuestionLedger {

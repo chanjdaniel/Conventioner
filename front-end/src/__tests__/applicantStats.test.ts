@@ -1,10 +1,11 @@
 /**
- * Who applied, as the Stats tab counts it (E45/F01/S01): by status, as the Applications tab's All
- * view filters, and by the day each applied, in the reader's own calendar.
+ * Who applied, as the Stats tab counts it (E45/F01/S01): the server's counts by stored status, read
+ * as the Applications tab's All view filters, and the times each applied, read as days in the
+ * reader's own calendar.
  */
 import { describe, expect, it } from 'vitest';
 import { ApplicationStatus, type Application } from '@/assets/types/datatypes';
-import { applicantStats } from '@/utils/applicantStats';
+import { applicantStats, type ApplicantCounts } from '@/utils/applicantStats';
 import { ALL_VIEW_FILTERS, allViewApplications } from '@/utils/reviewQueue';
 
 let next = 0;
@@ -23,6 +24,19 @@ function app(status: ApplicationStatus, submittedAt?: string, added = false): Ap
   } as Application;
 }
 
+/** What the server sends for these applications (`back-end/market_stats.py#count_applicants`). */
+function counted(applications: Application[]): ApplicantCounts {
+  const statuses: Record<string, number> = {};
+  for (const a of applications) statuses[a.status] = (statuses[a.status] ?? 0) + 1;
+  const applied = applications.filter((a) => !a.addedBy);
+  return {
+    total: applications.length,
+    addedByHand: applications.length - applied.length,
+    statuses,
+    submittedAt: applied.flatMap((a) => (a.submittedAt ? [a.submittedAt] : [])),
+  };
+}
+
 // Local times, so the day each falls on is the same wherever the suite runs.
 const APPS = [
   app(ApplicationStatus.Open, '2026-09-01T09:00:00'),
@@ -35,7 +49,7 @@ const APPS = [
 ];
 
 describe('who applied', () => {
-  const stats = applicantStats(APPS, 'm1');
+  const stats = applicantStats(counted(APPS), 'm1');
   const row = (label: string) => stats.byStatus.find((r) => r.label === label)!;
 
   it('counts every application, and those added by hand apart', () => {
@@ -77,7 +91,7 @@ describe('who applied', () => {
 
   it('still counts a status the All view has no filter for, so the rows add up', () => {
     const odd = applicantStats(
-      [...APPS, app(ApplicationStatus.Cancelled, '2026-09-04T10:00:00')],
+      counted([...APPS, app(ApplicationStatus.Cancelled, '2026-09-04T10:00:00')]),
       'm1',
     );
     const cancelled = odd.byStatus.find((r) => r.label === 'Cancelled')!;
@@ -98,13 +112,18 @@ describe('who applied', () => {
 
   it("reads a day in the reader's own calendar, not the server's", () => {
     const at = new Date(2026, 8, 5, 23, 45).toISOString();
-    expect(applicantStats([app(ApplicationStatus.Open, at)], 'm1').byDay[0].value).toBe(
+    expect(applicantStats(counted([app(ApplicationStatus.Open, at)]), 'm1').byDay[0].value).toBe(
       '2026-09-05',
     );
   });
 
+  it('puts a time it cannot read on no day', () => {
+    const odd = applicantStats({ ...counted(APPS), submittedAt: ['not a time'] }, 'm1');
+    expect(odd.byDay).toEqual([]);
+  });
+
   it('is nothing for a market nobody has applied to', () => {
-    const none = applicantStats([], 'm1');
+    const none = applicantStats(counted([]), 'm1');
     expect(none.total).toBe(0);
     expect(none.byDay).toEqual([]);
     expect(none.byStatus.every((r) => r.count === 0 && r.share === 0 && r.bar === 0)).toBe(true);

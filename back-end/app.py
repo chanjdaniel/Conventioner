@@ -16,13 +16,13 @@ import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import typesafe_client as TypeSafe
+import market_stats as MarketStats
 import api.attendance as AttendanceApi
 import api.door as DoorApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
 import api.market_actions as Actions
-import answer_counts as AnswerCounts
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -1277,10 +1277,10 @@ def list_market_applications(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
-@app.route('/markets/<market_id>/answer-counts', methods=['GET'])
+@app.route('/markets/<market_id>/stats', methods=['GET'])
 @login_required
-def get_answer_counts(market_id: str) -> Response:
-    """What the applicants answered to each choice question, for the Stats tab. Asks ``Actions.READ``."""
+def get_market_stats(market_id: str) -> Response:
+    """The Stats tab's figures: who applied, and what they answered. Asks ``Actions.READ``."""
     requesting_user = authenticated_email()
 
     context = MarketsApi.load_market_context(market_id)
@@ -1293,7 +1293,7 @@ def get_answer_counts(market_id: str) -> Response:
     if refused:
         return jsonify({"error": refused}), 403
 
-    return jsonify(AnswerCounts.answer_counts_for_market(context.market)), 200
+    return jsonify(MarketStats.stats_for_market(context.market)), 200
 
 
 def _reviewer_on(market_id: str):

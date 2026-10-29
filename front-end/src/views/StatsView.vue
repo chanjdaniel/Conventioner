@@ -3,26 +3,20 @@
  * The Stats tab (E45/F01/S01): the market's figures, from its first application to its archive,
  * open in every phase and to anyone who reads the market.
  *
- * It starts with who applied: every application by its status and by the day it arrived, as a
- * ledger of bars (`BarLedger`), counted from the list the Applications tab reads
- * (`utils/applicantStats.ts`), so the two never disagree. Then what they answered: a card per
- * choice question of the form, counted on the server (`utils/answerCounts.ts`) and narrowed by a
+ * Both sections are counted on the server and read in one small answer (`utils/marketStats.ts`),
+ * so the page never downloads the applications to count them. It starts with who applied: every
+ * application by its status, counted as the Applications tab's All view filters them, and by the
+ * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
+ * answered: a card per choice question of the form (`utils/answerCounts.ts`), narrowed by a
  * switch, kept in the address as `among`, to the approved or the placed (E45/F01/S02). Stats
  * reads; it changes nothing, so a Viewer sees all of it and nothing here is disabled.
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
-import type { Application } from '@/assets/types/datatypes';
-import { fetchMarketApplications } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { applicantStats } from '@/utils/applicantStats';
-import {
-  ANSWER_GROUPS,
-  answerGroup,
-  fetchAnswerCounts,
-  questionLedgers,
-  type AnswerCounts,
-} from '@/utils/answerCounts';
+import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
+import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
@@ -32,39 +26,24 @@ const router = useRouter();
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market } = useOpenMarket(marketId);
 
-const applications = ref<Application[] | null>(null);
+const figures = ref<MarketStats | null>(null);
 const errorMessage = ref('');
-
-const answers = ref<AnswerCounts | null>(null);
-const answersError = ref('');
-
-async function loadApplications(): Promise<void> {
-  errorMessage.value = '';
-  try {
-    applications.value = await fetchMarketApplications(marketId.value);
-  } catch (err: unknown) {
-    errorMessage.value = getApiErrorMessage(err, 'The applications could not be loaded.');
-  }
-}
-
-async function loadAnswers(): Promise<void> {
-  answersError.value = '';
-  try {
-    answers.value = await fetchAnswerCounts(marketId.value);
-  } catch (err: unknown) {
-    answersError.value = getApiErrorMessage(err, 'The answers could not be counted.');
-  }
-}
 
 async function load(): Promise<void> {
   if (!marketId.value) return;
-  await Promise.all([loadApplications(), loadAnswers()]);
+  errorMessage.value = '';
+  try {
+    figures.value = await fetchMarketStats(marketId.value);
+  } catch (err: unknown) {
+    errorMessage.value = getApiErrorMessage(err, 'The figures could not be counted.');
+  }
 }
 watch(marketId, load, { immediate: true });
 
 const stats = computed(() =>
-  applications.value ? applicantStats(applications.value, marketId.value) : null,
+  figures.value ? applicantStats(figures.value.applicants, marketId.value) : null,
 );
+const answers = computed(() => figures.value?.answers ?? null);
 
 /** Who the charts count, in the address beside the page. */
 const among = computed(() => answerGroup(route.query.among));
@@ -89,7 +68,7 @@ const NOBODY: Record<string, string> = {
       <section class="stats-section" aria-labelledby="stats-applicants-title">
         <h2 id="stats-applicants-title" class="stats-title">Who applied</h2>
         <p v-if="errorMessage" class="stats-error" role="alert">{{ errorMessage }}</p>
-        <p v-else-if="!stats" class="stats-note">Loading applications…</p>
+        <p v-else-if="!stats" class="stats-note">Counting…</p>
         <p v-else-if="!stats.total" class="stats-note" data-testid="stats-applicants-none">
           Nobody has applied yet.
         </p>
@@ -122,19 +101,13 @@ const NOBODY: Record<string, string> = {
       </section>
       <!-- Nobody applied: the section above says so, and a chart of noughts says nothing more. -->
       <section
-        v-if="answersError || !answers || answers.groups.all"
+        v-if="answers?.groups.all"
         class="stats-section"
         aria-labelledby="stats-answers-title"
         data-testid="stats-answers"
       >
         <h2 id="stats-answers-title" class="stats-title">What they answered</h2>
-        <p v-if="answersError" class="stats-error" role="alert">{{ answersError }}</p>
-        <p v-else-if="!answers" class="stats-note">Counting answers…</p>
-        <p
-          v-else-if="!answers.questions.length"
-          class="stats-note"
-          data-testid="stats-answers-none"
-        >
+        <p v-if="!answers.questions.length" class="stats-note" data-testid="stats-answers-none">
           The form asks no question with choices to count.
         </p>
         <template v-else>

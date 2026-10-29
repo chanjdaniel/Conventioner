@@ -1,18 +1,21 @@
-"""What a market's applicants answered to each choice question, counted for the Stats tab
-(E45/F01/S02).
+"""The Stats tab's figures, counted on the server (E45/F01/S01, S02), so the page reads one small
+answer however many applied and never downloads the applications to count them.
 
-Each select, multi-select and checkbox question of the form gets a row per option it offers, in
-the form's order, with how many applicants gave it; a multi-select counts every option ticked, so
-its rows add up to more than its applicants. An answer the form does not offer - written in under
-"Other" on a Google Form, or an option since taken off - counts once per applicant as ``other``,
-and an applicant who gave none counts as ``none``; both rows are left out at zero. A free-text
-question is not counted: its answers are words, not choices.
+Who applied: every application by its stored status, how many were added by hand, and the time
+each of the others applied. Statuses go out as stored, and the page counts them into the
+Applications tab's All view filters, which are decided by status alone, so the two agree; times go
+out rather than days because the server keeps no time zone for a market, and a day is the
+reader's.
 
-Counted here, rather than in the browser from every application, so the page reads one small
-answer however many applied. Every count comes three times, for each group the page can narrow
-to: every application, the approved ones (the All view's "Approved", those added by hand among
-them) and the placed ones (anyone the stored assignment seats on any date, verdict or not, as
-their outcome reads: ``result_outcome.py``).
+What they answered: each select, multi-select and checkbox question of the form gets a row per
+option it offers, in the form's order, with how many applicants gave it; a multi-select counts
+every option ticked, so its rows add up to more than its applicants. An answer the form does not
+offer - written in under "Other" on a Google Form, or an option since taken off - counts once per
+applicant as ``other``, and an applicant who gave none counts as ``none``; both rows are left out
+at zero. A free-text question is not counted: its answers are words, not choices. Every count
+comes three times, for each group the page can narrow to: every application, the approved ones
+(the All view's "Approved", those added by hand among them) and the placed ones (anyone the stored
+assignment seats on any date, verdict or not, as their outcome reads: ``result_outcome.py``).
 """
 from typing import Any, Dict, Iterable, List, Set
 
@@ -29,14 +32,39 @@ _TICKED = "Yes"
 _UNTICKED = "No"
 
 
-def answer_counts_for_market(market: Market) -> Dict[str, Any]:
-    """The counts for a market, from its stored form, applications and assignment."""
+def stats_for_market(market: Market) -> Dict[str, Any]:
+    """The figures for a market, from its stored form, applications and assignment."""
     form = market.application_form
-    return count_answers(
-        form.fields if form else [],
-        ApplicationsApi.list_applications_for_market(market.id),
-        ResultOutcome.seated_addresses(market),
-    )
+    applications = ApplicationsApi.list_applications_for_market(market.id)
+    return {
+        "applicants": count_applicants(applications),
+        "answers": count_answers(
+            form.fields if form else [], applications, ResultOutcome.seated_addresses(market),
+        ),
+    }
+
+
+def count_applicants(applications: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Every application by its stored status, and when each that was not added by hand applied.
+
+    Only the times are sent, never who: the page needs nothing more to count them by day.
+    """
+    statuses: Dict[str, int] = {}
+    submitted: List[str] = []
+    added = 0
+    for application in applications:
+        status = str(application.get("status") or "")
+        statuses[status] = statuses.get(status, 0) + 1
+        if application.get("added_by"):
+            added += 1
+        elif application.get("submitted_at"):
+            submitted.append(str(application["submitted_at"]))
+    return {
+        "total": len(applications),
+        "addedByHand": added,
+        "statuses": statuses,
+        "submittedAt": submitted,
+    }
 
 
 def count_answers(

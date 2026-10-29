@@ -1,22 +1,26 @@
-"""A chart per choice question on the Stats tab (E45/F01/S02).
+"""The Stats tab's figures, counted on the server (E45/F01/S01, S02).
 
-Each select, multi-select and checkbox question of the market's form is counted on the server, so
-the page never fetches every application to count them: each option with how many gave it, a
-multi-select counting every option ticked, every answer the form does not offer counted once as
-"Other", and those who gave none as "No answer". Free-text questions are not counted. The counts
-come for every application, the approved ones and the placed ones, so the page's switch between
-them asks nothing more of the server.
+Both sections are counted here, so the page never fetches every application to count them.
+
+Who applied: every application by its stored status, how many were added by hand, and only the
+time each of the others applied, which the page turns into days in the reader's own calendar.
+
+A chart per choice question: each select, multi-select and checkbox question of the market's form,
+each option with how many gave it, a multi-select counting every option ticked, every answer the
+form does not offer counted once as "Other", and those who gave none as "No answer". Free-text
+questions are not counted. The counts come for every application, the approved ones and the placed
+ones, so the page's switch between them asks nothing more of the server.
 """
 from types import SimpleNamespace
 
 import pytest
 
 from conftest import FakeMarketsCollection, sessions_load_through_get_user, stored_market
-import answer_counts as AnswerCounts
 import app as app_module
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import market_stats as MarketStats
 import api.users as UsersApi
 from datatypes import FormField, MarketPhase
 
@@ -101,11 +105,45 @@ def _rows(question, among):
 
 
 def _counted(fields=FORM, applications=APPLICATIONS, seated=("omar@kiln.test", "lena@forge.test")):
-    return AnswerCounts.count_answers(
+    return MarketStats.count_answers(
         [FormField(**field) for field in fields], applications, set(seated))
 
 
-class TestTheCounts:
+class TestWhoApplied:
+    def test_every_application_is_counted_by_its_stored_status(self):
+        counted = MarketStats.count_applicants(APPLICATIONS)
+
+        assert counted["total"] == 5
+        assert counted["statuses"] == {
+            "open": 1, "reviewer_approved": 3, "reviewer_rejected": 1,
+        }
+
+    def test_a_vendor_added_by_hand_is_counted_apart_and_never_applied(self):
+        counted = MarketStats.count_applicants(APPLICATIONS)
+
+        assert counted["addedByHand"] == 1
+        assert counted["submittedAt"] == ["2026-09-01T12:00:00Z"] * 4
+
+    def test_only_when_each_applied_is_sent_never_who(self):
+        counted = MarketStats.count_applicants(APPLICATIONS)
+
+        assert set(counted) == {"total", "addedByHand", "statuses", "submittedAt"}
+
+    def test_an_application_with_no_time_is_on_no_day(self):
+        undated = [_application("ines@loom.test", "open", {}, submitted_at=None)]
+
+        counted = MarketStats.count_applicants(undated)
+
+        assert counted["total"] == 1
+        assert counted["submittedAt"] == []
+
+    def test_a_market_nobody_applied_to_counts_nothing(self):
+        assert MarketStats.count_applicants([]) == {
+            "total": 0, "addedByHand": 0, "statuses": {}, "submittedAt": [],
+        }
+
+
+class TestTheAnswerCounts:
     def test_the_groups_are_every_application_the_approved_and_the_placed(self):
         assert _counted()["groups"] == {"all": 5, "approved": 3, "placed": 2}
 
@@ -212,28 +250,30 @@ def _signed_in(monkeypatch, email):
 
 
 class TestTheRoute:
-    def test_a_viewer_reads_the_counts_of_the_stored_market(self, monkeypatch, market):
+    def test_a_viewer_reads_the_figures_of_the_stored_market(self, monkeypatch, market):
         response = _signed_in(monkeypatch, "viewer@market.test").get(
-            "/markets/market-123/answer-counts")
+            "/markets/market-123/stats")
 
         assert response.status_code == 200
         body = response.get_json()
-        assert body["groups"] == {"all": 5, "approved": 3, "placed": 2}
-        assert _rows(body["questions"][0], "placed") == [
+        assert body["applicants"]["total"] == 5
+        assert body["applicants"]["statuses"]["reviewer_approved"] == 3
+        assert body["answers"]["groups"] == {"all": 5, "approved": 3, "placed": 2}
+        assert _rows(body["answers"]["questions"][0], "placed") == [
             ("option", "Prints", 0), ("option", "Stickers", 0), ("option", "Jewelry", 1),
             ("other", None, 1), ("none", None, 1),
         ]
 
     def test_someone_who_may_not_read_the_market_is_refused(self, monkeypatch, market):
         response = _signed_in(monkeypatch, "outsider@x.test").get(
-            "/markets/market-123/answer-counts")
+            "/markets/market-123/stats")
 
         assert response.status_code == 403
         assert response.get_json()["error"] == Actions.refusal_sentence(Actions.READ)
 
     def test_a_market_that_does_not_exist_is_not_found(self, monkeypatch, market):
         response = _signed_in(monkeypatch, "owner@market.test").get(
-            "/markets/no-such-market/answer-counts")
+            "/markets/no-such-market/stats")
 
         assert response.status_code == 404
 
@@ -242,7 +282,7 @@ class TestTheRoute:
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(no_form))
 
         response = _signed_in(monkeypatch, "owner@market.test").get(
-            "/markets/market-123/answer-counts")
+            "/markets/market-123/stats")
 
         assert response.status_code == 200
-        assert response.get_json()["questions"] == []
+        assert response.get_json()["answers"]["questions"] == []
