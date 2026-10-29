@@ -108,8 +108,7 @@ class Vendor:
 
     @property
     def answers(self) -> Dict[str, Any]:
-        """Every answer, keyed by question. The one place the export reads them, so an answer the
-        organizer updated is read here when updating lands (E41/F01/S01)."""
+        """Every answer, keyed by question: the one place the export reads them."""
         return self.application.form_data or {}
 
 
