@@ -73,9 +73,12 @@ def update_vendor_info(
     ApplicationsApi.write_answer_updates(application_id, updates, cleared)
     stored = ApplicationsApi.find_application_by_id(application_id) or doc
     after = ApplicationsApi.effective_answers(stored)
-    # The rules judge what the organizer now reads, as they judge an applicant's own save.
+    # The rules judge what the organizer now reads, as they judge an applicant's own save, while
+    # the review is open: they settle with the verdicts on entering assignment, and an application
+    # they returned to undecided after that is one no verdict could decide again.
+    judging = (updates or cleared) and MarketsApi.review_is_open(market.phase)
     verdicts = (RejectionRules.judge(RejectionRules.Rulebook(market), market_id, application_id)
-                if updates or cleared else RejectionRules.Judged())
+                if judging else RejectionRules.Judged())
     History.record(
         market_id, updater.email, Actions.UPDATE_VENDOR_INFO,
         vendors=[doc.get("applicant_email")], subject={"application_id": application_id},

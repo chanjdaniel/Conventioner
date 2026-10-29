@@ -307,6 +307,47 @@ class TestTheAutomaticRejectionsJudgeTheUpdate:
         assert _stored(applications)["status"] == "reviewer_rejected"
         assert market_records.history.documents[-1]["detail"]["rejected_by_rules"] is True
 
+    def _rejected_by_the_rule(self, market, phase):
+        """Rejected by the rule "No" on the student question, as a rule's verdict is stored."""
+        applications = market(phase, rejectionRules=[{"key": "student", "answers": ["No"]}])
+        applications.update_one({"id": "app-1"}, {"$set": {
+            "status": "reviewer_rejected", "verdict_by": {"kind": "rule", "rule": "student"},
+            "verdict_at": "2026-05-03T00:00:00+00:00", "verdict_reason": "Answered No"}})
+        return applications
+
+    def test_in_review_an_update_past_a_rule_returns_it_to_undecided(
+            self, market, market_records):
+        applications = self._rejected_by_the_rule(market, MarketPhase.REVIEW)
+
+        _update({"student": "Yes"})
+
+        assert _stored(applications)["status"] == "open"
+        assert market_records.history.documents[-1]["detail"]["returned_by_rules"] is True
+
+    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS])
+    def test_past_review_the_update_stands_and_the_verdict_stays(
+            self, market, market_records, phase):
+        """The rules settle with the verdicts on entering assignment: an application they return to
+        undecided then is one no verdict could decide again."""
+        applications = self._rejected_by_the_rule(market, phase)
+
+        _update({"student": "Yes"})
+
+        stored = _stored(applications)
+        assert stored["answer_updates"]["student"]["value"] == "Yes"
+        assert stored["status"] == "reviewer_rejected"
+        assert stored["verdict_by"] == {"kind": "rule", "rule": "student"}
+        detail = market_records.history.documents[-1]["detail"]
+        assert detail["returned_by_rules"] is False and detail["rejected_by_rules"] is False
+
+    def test_past_review_an_update_that_meets_a_rule_rejects_nobody(self, market):
+        applications = market(MarketPhase.ASSIGNMENT,
+                              rejectionRules=[{"key": "student", "answers": ["Yes"]}])
+
+        _update({"student": "Yes"})
+
+        assert _stored(applications)["status"] == "open"
+
 
 class TestAReImportKeepsTheUpdate:
     @pytest.fixture

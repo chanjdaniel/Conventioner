@@ -33,7 +33,8 @@ The answers the assignment reads (the [essential questions](../concepts/essentia
 - "Update info" in [the vendor drawer](../flows/vendor-drawer.md) opens a dialog of the vendor's own questions, each in its question's control, with Save and Cancel ([`UpdateInfoDialog.vue`](../../../front-end/src/components/UpdateInfoDialog.vue)); Cancel and Escape change nothing.
 - Each answer that differs from what the vendor wrote shows "They wrote: ..." beside it, with "Use their answer", which puts their answer back; saved, that takes the update away.
 - An answer is held to what the form holds the vendor's to, with the form's own message.
-- The [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save.
+- While the review is open, the [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save: an update past a rule returns the application to undecided, and one that meets a rule rejects it.
+  From assignment on, the rules have settled with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), so an update stands and the verdict stays.
 - The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)).
 - A [re-import](../../implementation/modules/csv-import.md) writes the file's answers as the vendor's own and leaves every update standing.
 
