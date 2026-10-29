@@ -443,3 +443,35 @@ class TestWhoMayAsk:
     def test_an_unreadable_file_is_a_bad_request(self):
         result, status = CsvProposal.propose(_market(), "")
         assert status == 400
+
+
+# --- What names someone (E38/F02/S01) -------------------------------------------------------------
+
+# Invented values only. Each names a person or a shop: an address, however it is spelled, a link
+# with or without its scheme, a handle wherever its @ sits, a phone number of 7 digits or more, and a
+# street address. The start keeps answers on the market, so the filter is a guarantee, not a hint.
+IDENTIFYING = [
+    "makers@example.com", "MAKERS@EXAMPLE.COM", "info AT example DOT com", "info[at]example[dot]com",
+    "Shop at example.org", "Visit Example.Net/shop", "makers.example.io", "linktr.ee/makers",
+    "bit.ly/makers", "HTTPS://EXAMPLE.CA", "twitter.com/makers", "www.example.com",
+    "@makers", "IG:@makers", "Prints (@makers)", "@ makers",
+    "Call 555-0199", "5550199", "604 555 0199", "+1 (604) 555-0199",
+    "123 Main Street Unit 4", "Unit 4 - 42 Fake Ave", "Suite 200",
+]
+# Answers a choice question really offers, which the filter must leave alone.
+NAMING_NOBODY = [
+    "Prints", "Prints, Stickers", "Woven (crochet, knitting, etc)", "Art (e.g. prints)", "N/A",
+    "2 days", "3", "Full table", "Half table, shared", "Monday, November 17", "2024-2025",
+    "$25", "3.5 inch pins", "1st time vendor", "Ph.D student", "Accepted", "Gold Tier",
+    "Jewellery & Accessories", "I agree to the terms", "Thursday 10:00 - 4:00",
+]
+
+
+@pytest.mark.parametrize("value", IDENTIFYING)
+def test_an_answer_that_names_someone_is_identifying(value):
+    assert CsvProposal._identifying(value)
+
+
+@pytest.mark.parametrize("value", NAMING_NOBODY)
+def test_an_answer_that_names_nobody_is_not(value):
+    assert not CsvProposal._identifying(value)

@@ -69,8 +69,23 @@ LEFT_OUT_EMPTY = "empty"
 
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 URL = re.compile(r"https?://|www\.|\.com\b|\.ca\b", re.IGNORECASE)
-HANDLE = re.compile(r"(^|\s)@\w")
+HANDLE = re.compile(r"(^|\W)@\s*\w")
 PHONE = re.compile(r"\+?\d[\d\s().-]{8,}\d")
+# What else names someone, for ``_identifying`` alone: ``URL`` above also describes a column's
+# shape to TypeSafe, and that measured description stays as it was.
+SPELLED_EMAIL = re.compile(
+    r"[\w.+-]+\s*[\[(]?\s*\bat\b\s*[\])]?\s*[\w-]+\s*[\[(]?\s*\bdot\b\s*[\])]?\s*\w+",
+    re.IGNORECASE)
+# A domain without its scheme ("linktr.ee/makers"): a letter after the last dot, two or more of
+# them, so "3.5 inch" and "e.g." are not one.
+DOMAIN = re.compile(r"\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b", re.IGNORECASE)
+# A local phone number, 7 digits with or without its separator, or any longer run of digits.
+SHORT_PHONE = re.compile(r"\b\d{3}[\s.-]?\d{4}\b|\b\d{7,}\b")
+# A street address: a number, up to three words, a street word; or a unit or suite number.
+STREET = re.compile(
+    r"\b\d+[a-z]?\s+(?:[a-z]+\s+){0,3}(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|"
+    r"lane|crescent|court|place|highway|hwy)\b\.?|\b(?:unit|suite|apt|apartment)\s*#?\s*\d",
+    re.IGNORECASE)
 NUMBER = re.compile(r"^\s*\$?\d+(\.\d+)?\s*$")
 DRIVE_UPLOAD = re.compile(r"^https://drive\.google\.com/open\?id=")
 DATE_LIKE = re.compile(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$")
@@ -113,8 +128,12 @@ KEY_MAX = 40
 
 
 def _identifying(value: str) -> bool:
-    return bool(EMAIL.search(value) or URL.search(value) or HANDLE.search(value)
-                or PHONE.search(value))
+    """Whether a value names someone: an address, however it is spelled; a link, with or without
+    its scheme; a handle, wherever its @ sits; a phone number of 7 digits or more; a street address.
+    What it misses (a bare name, a shop name, a handle with no @) only uniqueness catches, which is
+    why a value is also kept only when at least SHARED_BY applicants gave it."""
+    return any(pattern.search(value) for pattern in (EMAIL, SPELLED_EMAIL, URL, DOMAIN, HANDLE,
+                                                      PHONE, SHORT_PHONE, STREET))
 
 
 def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:

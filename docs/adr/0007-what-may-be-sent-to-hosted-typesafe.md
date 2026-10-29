@@ -15,6 +15,7 @@ sources:
   - wayfinding/the-form-started-from-a-csv/04
   - wayfinding/the-form-started-from-a-csv/map
   - E24/F02/S03
+  - E38/F02/S01
 status: accepted
 ---
 
@@ -51,6 +52,7 @@ The tickets are the form-started-from-a-CSV map's, named in `sources`.
 - [`back-end/csv_proposal.py`](../../back-end/csv_proposal.py) builds every state sent (`_team_column_state`, `_ceiling_state`, `_shape`, and the candidates in `_team_candidates`); [`back-end/typesafe_client.py`](../../back-end/typesafe_client.py) only carries it, over plain HTTP, since the SDK is pre-1.0 and needs a newer Pydantic than the back end runs.
 - Sending a value later, for accuracy, means re-measuring the threshold with it and narrowing this ADR in a new one; the proposal's privacy view of values (answers at least 3 applicants gave) is for the rules on the server, not for TypeSafe.
 - TypeSafe can only make a column less uncertain: it never overrides a confident rule, and its answer is a pre-filled choice the organizer sees and can change.
+- What counts as holding an email, link, handle or phone number widened when the start began keeping answers (E38/F02/S01, [the CSV proposal and start](../implementation/modules/csv-proposal-and-start.md)): a link without its scheme, a handle after any punctuation, a 7-digit phone number, an address spelled out and a street address count too, so a heading holding one is not sent either. That only narrows what is sent; no heading of the five exports moved.
 - [Releasing](../RELEASING.md#optional-hosted-typesafe) lists the variable for a deployment; it is not among the boot requirements.
 
 ## Considered and rejected
