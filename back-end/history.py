@@ -199,13 +199,18 @@ def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict
     Until a database has run ``migrations/migrate_placement_history.py``, its older entries are
     still in ``placement_history``, so they are read from there too: without them, between the
     deploy and the migration, a vendor's History tab would say nobody changed a placement someone
-    did. The two never hold the same entry, because the migration deletes each one it moves.
+    did. An entry can be in both for a moment - the migration writes each one to ``history``
+    before it deletes it from the old collection, and a run can stop between the two - so an old
+    entry whose id ``history`` already holds is left out.
     """
     query = _vendor_query(
         {MARKET_ID_FIELD: market_id, "kind": {"$in": list(PLACEMENT_KINDS)}}, vendor,
     )
     projection = {"_id": 0, **{field: 1 for field in _PLACEMENT_FIELDS}}
+    moved = list(history_collection.find({**query, "action": ASSIGN.id}, projection))
+    moved_ids = {entry.get("id") for entry in moved}
     return _newest_first([
-        *history_collection.find({**query, "action": ASSIGN.id}, projection),
-        *legacy_placement_collection.find(query, projection),
+        *moved,
+        *(entry for entry in legacy_placement_collection.find(query, projection)
+          if entry.get("id") not in moved_ids),
     ])

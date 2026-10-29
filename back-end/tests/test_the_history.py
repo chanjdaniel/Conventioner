@@ -202,6 +202,14 @@ class TestThePlacementViewBeforeTheMigration:
             for e in entries
         )
 
+    def test_an_entry_in_both_stores_is_listed_once(self, history, placement_history):
+        """A migration stopped between its writes and its delete leaves an entry in both."""
+        old = self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1")
+        placement_history.insert_one(old)
+        history.insert_one({**old, "action": Actions.ASSIGN.id, "subject": {}})
+
+        assert [e["id"] for e in History.placement_entries("m1")] == ["old-A 1"]
+
     def test_a_vendor_reads_their_old_entries_too(self, history, placement_history):
         placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))
         placement_history.insert_one(
