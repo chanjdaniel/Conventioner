@@ -22,7 +22,7 @@ of them. The organizer's choices are the only thing the request adds.
 """
 import copy
 from datetime import date
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -220,9 +220,18 @@ def _day(value: str, days: Dict[str, Dict[str, Any]], year: Optional[int],
     return made if made in plan_dates else None
 
 
+class Confirmed(NamedTuple):
+    """The one ``$set`` a confirm writes, and what it was made from and made, for its history
+    entry."""
+
+    update: Dict[str, Any]
+    counts: Dict[str, int]
+
+
 def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
-                     body: Dict[str, Any]) -> Dict[str, Any]:
-    """The one ``$set`` confirm writes: plan, form and mapping, judged but not yet written.
+                     body: Dict[str, Any]) -> Confirmed:
+    """The one ``$set`` confirm writes: plan, form and mapping, judged but not yet written, with the
+    file's row and column counts and the questions the form asks.
 
     Raises ``ConfirmRefused`` for a request that cannot be written, and lets the plan's and the
     form's own writers raise for what they refuse (``BadRequestError``, ``ApplicationFormLockedError``).
@@ -271,11 +280,18 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     settled = {kind: values for kind, values in (body.get("settled") or {}).items()
                if isinstance(values, dict)}
     resolutions = _resolutions(would_be, csv_content, mapping, proposal, year, settled)
-    return {
-        **plan_update,
-        market_doc_key("application_form"): form,
-        market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by=MappingAuthor.START),
-    }
+    return Confirmed(
+        update={
+            **plan_update,
+            market_doc_key("application_form"): form,
+            market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by=MappingAuthor.START),
+        },
+        counts={
+            "row_count": len(rows),
+            "column_count": len(headers),
+            "question_count": len(form.get("fields") or []),
+        },
+    )
 
 
 def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -303,20 +319,15 @@ def confirm(
     """
     if not isinstance(body.get("csvContent"), str):
         return {"error": "csvContent is required"}, 400
-    update = confirmed_update(market_doc, body["csvContent"], body)
+    confirmed = confirmed_update(market_doc, body["csvContent"], body)
 
     result = MarketsApi.markets_collection.update_one(still_startable(market_doc),
-                                                      {"$set": update})
+                                                      {"$set": confirmed.update})
     if not result.matched_count:
         return {"error": "This market changed since its file was read, so nothing was written. "
                          "Start again from its Market Setup."}, 409
     # One entry for the start, with its counts, as an import is one: what it was made from and what
     # it made, not the plan and the form it wrote whole.
-    _error, headers, rows = CsvImport.parse_csv(body["csvContent"])
-    form = update[market_doc_key("application_form")]
-    History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED, detail={
-        "row_count": len(rows),
-        "column_count": len(headers),
-        "question_count": len(form.get("fields") or []),
-    })
+    History.record(market_doc["id"], by, Actions.IMPORT_APPLICATIONS, kind=History.STARTED,
+                   detail=confirmed.counts)
     return {"written": True}, 200

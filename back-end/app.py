@@ -1575,7 +1575,7 @@ def import_applications(market_id: str) -> Response:
     if status_code == 200:
         # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
         History.record(market_id, authenticated_email(), Actions.IMPORT_APPLICATIONS,
-                       kind=History.IMPORTED, detail=CsvImport.import_counts(result))
+                       kind=History.IMPORTED, detail=lambda: CsvImport.import_counts(result))
     return jsonify(result), status_code
 
 

@@ -64,6 +64,6 @@ def add_vendor(
     History.record(
         market_id, adder.email, Actions.ADD_VENDOR, vendors=[address],
         subject={"application_id": application.id},
-        detail=History.changes({}, {"name": name, "status": application.status.value}),
+        detail=lambda: History.changes({}, {"name": name, "status": application.status.value}),
     )
     return {"application": convert_keys_to_camel_case(application.model_dump())}, 201

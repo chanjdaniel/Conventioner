@@ -165,7 +165,7 @@ def delete_floorplan(gridfs_id: str):
         History.record(
             market_id, authenticated_email(), Actions.CHANGE_SETUP,
             kind=History.FLOORPLAN_IMAGE_DELETED, subject={"image_id": gridfs_id},
-            detail=History.changes({"image_id": gridfs_id}, {"image_id": None}),
+            detail=lambda: History.changes({"image_id": gridfs_id}, {"image_id": None}),
         )
 
         return jsonify({"message": "Image deleted successfully"}), 200

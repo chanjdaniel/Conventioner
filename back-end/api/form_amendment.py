@@ -268,7 +268,7 @@ def amend_application_form(
     # In draft, which is the one phase the form is writable in - so this goes through the ordinary
     # writer and meets the ordinary lock, rather than around it.
     in_draft = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    saved = MarketsApi.write_application_form(in_draft, application_form_data)
+    saved, verdicts = MarketsApi.write_application_form(in_draft, application_form_data)
 
     _walk(market_id, plan.up, plan, requesting_user)
     _clear_intent(market_id)
@@ -277,7 +277,8 @@ def amend_application_form(
     History.record(
         market_id, requesting_user, Actions.AMEND_FORM,
         subject={"return_phase": plan.return_phase},
-        detail={**(MarketsApi.form_changes(market, saved) or {}), "hops": len(plan.hops)},
+        detail=lambda: {**(MarketsApi.form_changes(market, saved) or {}), **verdicts.counts(),
+                        "hops": len(plan.hops)},
     )
 
     return {
@@ -317,7 +318,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     History.record(
         market_id, requesting_user, Actions.AMEND_FORM, kind=History.RESUMED,
         subject={"return_phase": target},
-        detail={**(History.changes({"phase": market.phase.value}, {"phase": target}) or {}),
-                "hops": len(steps)},
+        detail=lambda: {**History.changes({"phase": market.phase.value}, {"phase": target}),
+                        "hops": len(steps)},
     )
     return {"phase": target, "hops": len(steps)}

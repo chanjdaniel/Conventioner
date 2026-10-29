@@ -160,8 +160,8 @@ def save_floorplan_to_market():
         stored = existing_setup if isinstance(existing_setup, dict) else {}
         History.record(
             market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
-            subject={"floorplan_id": floorplan.get("id")},
-            detail=History.changes(
+            subject=lambda: {"floorplan_id": floorplan.get("id")},
+            detail=lambda: History.changes(
                 {"sections": stored.get("sections"), "locations": stored.get("locations"),
                  "floorplan_ids": [fp.get("id") for fp in stored.get("floorplans") or []]},
                 {"sections": sections_data, "locations": list(locations_data.values()),

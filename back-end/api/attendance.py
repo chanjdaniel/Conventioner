@@ -156,7 +156,7 @@ def record_attendance(
         return {"error": "No assignment found for this vendor on this date"}, 404
 
     checked_in_at = datetime.now(timezone.utc).isoformat()
-    attendance_collection.update_one(
+    written = attendance_collection.update_one(
         {
             "market_id": market_id,
             "vendor_email": target_email,
@@ -174,20 +174,29 @@ def record_attendance(
         upsert=True,
     )
 
-    _record_door(market_id, vendor_email, target_date, checked_in_by, History.CHECKED_IN, True)
+    # Only a vendor not yet here is a change: checking in again is a new time, not a new arrival.
+    if written.upserted_id is not None:
+        _record_door(market_id, vendor_email, target_date, checked_in_by, History.CHECKED_IN, True)
     return {"message": "Checked in", "checkedInAt": checked_in_at}, 200
 
 
 def _record_door(
     market_id: str, vendor_email: str, date: str, by: Optional[str], kind: str, here: bool,
 ) -> None:
-    """A check-in or its undo, by the organizer who made it, or by the vendor at their own door."""
+    """A check-in or its undo, by the organizer who made it; or, made on the vendors' own check-in
+    page, by nobody the history can name - that page asks only an address and a date, so it proves
+    no one - and marked as the page's."""
     vendor = normalized_email(vendor_email)
     History.record(
-        market_id, by or vendor, Actions.CHECK_IN, kind=kind, vendors=[vendor],
+        market_id, by, Actions.CHECK_IN, kind=kind, vendors=[vendor],
         subject={"date": date.strip()},
-        detail=History.changes({"checked_in": not here}, {"checked_in": here}),
+        detail=lambda: {**History.changes({"checked_in": not here}, {"checked_in": here}),
+                        **({} if by else {"via": CHECK_IN_PAGE})},
     )
+
+
+#: The ``via`` of a check-in or its undo made on the vendors' public check-in page.
+CHECK_IN_PAGE = "check_in_page"
 
 
 def attendance_roster(market_doc: Dict[str, Any]) -> Dict[str, Any]:

@@ -1674,7 +1674,7 @@ def import_applications(
     # The rules judge what this import wrote - after any approval it sent back to review - and
     # anything else still undecided (E33/F03/S02).
     rejected = RejectionRules.judge(
-        RejectionRules.Rulebook(market_from_document(market_doc)), market_id)
+        RejectionRules.Rulebook(market_from_document(market_doc)), market_id).rejected
 
     return {
         "created": created,

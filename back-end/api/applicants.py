@@ -371,15 +371,18 @@ def save_applicant_application(
             ApplicationsApi.delete_application(app_doc.get("id", ""))
         return {"error": error}, 422
 
-    answers = History.changes(app_doc.get("form_data") or {}, app.form_data or {})
-    if answers:
-        History.record_applicant(
-            market_id, email, History.EDITED if existing else History.SUBMITTED, app.id, answers)
+    answered = app_doc.get("form_data") or {}
 
     # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
     # Read whole, through the canonical parse: the applicant's projection carries only what they see.
     market = market_from_document(db["markets"].find_one({"id": market_id}))
-    if RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id):
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id)
+    # After the rules, so the entry says what they did to it: no rule records an entry of its own.
+    saved = app
+    History.record_applicant(
+        market_id, email, History.EDITED if existing else History.SUBMITTED, app.id,
+        lambda: _with_rules(History.changes(answered, saved.form_data or {}), verdicts))
+    if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
     results_published = bool(market_doc.get("resultsPublished"))
@@ -511,10 +514,21 @@ def review_application(
     History.record(
         market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICT,
         vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
-        detail={"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
+        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
     )
     app = Application(**stored)
     return {"application": _application_response_organizer(app)}, 200
+
+
+def _with_rules(
+    answers: Optional[Dict[str, Any]], verdicts: RejectionRules.Judged,
+) -> Optional[Dict[str, Any]]:
+    """An applicant's changed answers, and whether the rules rejected or returned the application
+    as they landed; answers saved unchanged record nothing."""
+    if not answers:
+        return None
+    return {**answers, "rejected_by_rules": bool(verdicts.rejected),
+            "returned_by_rules": bool(verdicts.returned)}
 
 
 def _verdict_state(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -570,7 +584,7 @@ def review_selection(
             market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICTS,
             vendors=[was[app_id].get("applicant_email") for app_id in written],
             subject={"application_ids": written},
-            detail={
+            detail=lambda: {
                 "before": {app_id: _verdict_state(was[app_id]) for app_id in written},
                 "after": {app_id: {"status": new_status.value} for app_id in written},
             },
@@ -588,16 +602,14 @@ def reassign_follow_up(
         return {"error": "Application not found for this market."}, 404
     if not ApplicationsApi.reassign_follow_up_owner(application_id, owner):
         return {"error": "Only an application that needs a follow-up has an owner."}, 409
-    detail = History.changes(
-        {"follow_up_owner": (app_doc.get("follow_up_owner") or {}).get("email")},
-        {"follow_up_owner": owner.email},
+    History.record(
+        market_id, by, Actions.GIVE_VERDICTS, kind=History.FOLLOW_UP_OWNER,
+        vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
+        detail=lambda: History.changes(
+            {"follow_up_owner": (app_doc.get("follow_up_owner") or {}).get("email")},
+            {"follow_up_owner": owner.email},
+        ),
     )
-    if detail:
-        History.record(
-            market_id, by, Actions.GIVE_VERDICTS, kind=History.FOLLOW_UP_OWNER,
-            vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
-            detail=detail,
-        )
     app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200
 
@@ -665,5 +677,6 @@ def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
         {"$set": {"resultsPublished": True}},
     )
     History.record(market_id, by, Actions.PUBLISH_RESULTS,
-                   detail=History.changes({"results_published": False}, {"results_published": True}))
+                   detail=lambda: History.changes(
+                       {"results_published": False}, {"results_published": True}))
     return {"results_published": True}, 200

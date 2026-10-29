@@ -33,8 +33,10 @@ import api.markets as MarketsApi  # noqa: E402
 import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
+import csv_import as CsvImport  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
+from bson.errors import InvalidDocument  # noqa: E402
 from datatypes import MarketPerson, MarketPhase  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
 from test_csv_proposal_api import CSV as A_GOOGLE_FORM_EXPORT  # noqa: E402
@@ -48,6 +50,8 @@ VENDOR = "vendor@example.com"
 SAM = "sam@example.com"
 DATE = "2026-08-01"
 QUESTION = {"key": "shop", "label": "Shop", "type": "text"}
+STUDENT = {"key": "student", "label": "Are you a student?", "type": "select",
+           "options": ["Yes", "No"], "required": True}
 
 
 def _value(doc: Dict[str, Any], dotted: str) -> Any:
@@ -129,6 +133,7 @@ class Attendance(FakeApplicationsCollection):
         result = super().update_one(query, update)
         if not result.matched_count and upsert:
             self.insert_one({**query, **update.get("$set", {})})
+            return SimpleNamespace(matched_count=0, modified_count=0, upserted_id="new")
         return result
 
 
@@ -203,11 +208,14 @@ class Write:
     action: Any
     kind: Optional[str]
     send: Callable[[Any, Any], Any]
-    actor: str = OWNER
+    #: None for the vendors' public check-in page, which proves nobody.
+    actor: Optional[str] = OWNER
     vendors: Tuple[str, ...] = ()
     subject: Dict[str, Any] = None
     #: False for an entry of counts - an import, a run - rather than fields before and after.
     before_after: bool = True
+    #: Keys the detail must hold, beyond before and after.
+    detail_keys: Tuple[str, ...] = ()
 
     @property
     def action_id(self) -> str:
@@ -505,7 +513,8 @@ WRITES = [
     Write("an assignment run", "POST", f"{M}/assignment", Actions.ASSIGN, History.ASSIGNED, _run,
           before_after=False),
     Write("a hand placement", "PUT", f"{M}/placements", Actions.ASSIGN, History.PLACED, _place,
-          vendors=(VENDOR,), before_after=False),
+          vendors=(VENDOR,), before_after=False,
+          detail_keys=("date", "table_code", "table_choice", "before")),
     Write("a swap", "POST", f"{M}/placements/swap", Actions.ASSIGN, History.SWAPPED, _swap,
           vendors=(VENDOR, "ben@example.com"), before_after=False),
     Write("a seat freed", "DELETE", f"{M}/placements", Actions.ASSIGN, History.FREED, _free,
@@ -517,11 +526,11 @@ WRITES = [
           History.CHECK_IN_UNDONE, _door(organizer=True, undo=True), vendors=(VENDOR,),
           subject={"date": DATE}),
     Write("a vendor's own check-in", "POST", PUBLIC_DOOR, Actions.CHECK_IN, History.CHECKED_IN,
-          _door(organizer=False, undo=False), actor=VENDOR, vendors=(VENDOR,),
-          subject={"date": DATE}),
+          _door(organizer=False, undo=False), actor=None, vendors=(VENDOR,),
+          subject={"date": DATE}, detail_keys=("via",)),
     Write("a vendor's own check-in undone", "DELETE", PUBLIC_DOOR, Actions.CHECK_IN,
-          History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=VENDOR,
-          vendors=(VENDOR,), subject={"date": DATE}),
+          History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=None,
+          vendors=(VENDOR,), subject={"date": DATE}, detail_keys=("via",)),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,
           History.ROLE_GIVEN, _give_role, subject=SAM_BY_ID),
     Write("a role changed", "PUT", f"{M}/roles/<user_id>", Actions.MANAGE_ADMINS,
@@ -615,6 +624,29 @@ def test_a_write_records_one_entry(write, client, world):
         assert set(before) == set(after)
     else:
         assert entry["detail"]
+    assert set(write.detail_keys) <= set(entry["detail"])
+
+
+#: What the entries' details are built from: each raising stands for a detail that cannot be built.
+DETAIL_BUILDERS = [
+    (History, "changes"), (History, "placement_subject"), (MarketsApi, "form_changes"),
+    (CsvImport, "import_counts"), (ApplicantsApi, "_verdict_state"), (UsersApi, "get_user_by_id"),
+]
+
+
+@pytest.mark.parametrize("write", WRITES, ids=lambda write: write.name)
+def test_a_detail_that_cannot_be_built_never_fails_the_write(write, client, world):
+    """Built inside the store's guard, so it fails as the insert would: losing the entry, never
+    answering a change that landed with a 500."""
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("the detail could not be built")
+
+    for module, name in DETAIL_BUILDERS:
+        world.patch(module, name, broken)
+
+    response = write.send(client, world)
+
+    assert response.status_code < 300, response.get_json()
 
 
 @pytest.mark.parametrize("write", WRITES, ids=lambda write: write.name)
@@ -643,7 +675,8 @@ class TestWhatAnEntryHolds:
         [entry] = world.history.documents
         assert entry["actor"] == VENDOR
         assert entry["detail"] == {
-            "before": {"business_name": "Acme"}, "after": {"business_name": "Ember Ceramics"}}
+            "before": {"business_name": "Acme"}, "after": {"business_name": "Ember Ceramics"},
+            "rejected_by_rules": False, "returned_by_rules": False}
 
     def test_a_plan_write_holds_only_the_cards_it_changed(self, client, world):
         _plan({"marketDates": [{"date": "2099-08-02"}]})(client, world)
@@ -698,3 +731,87 @@ class TestWhatAnEntryHolds:
         assert entry["actor"] == OWNER
         assert entry["detail"] == {
             "before": {"phase": "draft"}, "after": {"phase": "applications_open"}}
+
+    def test_a_failed_entry_logs_its_ids_never_its_values(self, client, world, caplog):
+        """A driver's message can quote the document it refused, and an entry holds answers."""
+        def refuse(_document):
+            raise InvalidDocument("cannot encode object: 'Ember Ceramics'")
+
+        world.patch(world.history, "insert_one", refuse)
+
+        _applicant(first=True)(client, world)
+
+        assert "InvalidDocument" in caplog.text and MARKET in caplog.text
+        assert "Ember" not in caplog.text and VENDOR not in caplog.text
+
+    def test_a_hand_placement_names_the_seat_it_moved_the_vendor_from(self, client, world):
+        _seats(VENDOR)(world)
+
+        client.put(f"/markets/{MARKET}/placements", json=placement(email=VENDOR, table_code="Hall A 2"))
+
+        [entry] = world.history.documents
+        assert entry["detail"]["table_code"] == "Hall A 2"
+        assert entry["detail"]["before"] == {"table_code": "Hall A 1", "table_choice": "Full Table"}
+
+    def test_a_vendor_checked_in_again_records_nothing_new(self, client, world):
+        _door(organizer=True, undo=False)(client, world)
+        client.post(f"/markets/{MARKET}/attendance", json={"vendorEmail": VENDOR, "date": DATE})
+
+        assert len(world.history.documents) == 1
+
+    def test_the_check_in_page_names_nobody_and_says_it_was_the_page(self, client, world):
+        _door(organizer=False, undo=False)(client, world)
+        client.post("/public/markets/test-market/attendance/checkin",
+                    json={"vendorEmail": VENDOR, "date": DATE})
+
+        [entry] = world.history.documents
+        assert entry["actor"] is None
+        assert entry["vendors"] == [VENDOR]
+        assert entry["detail"]["via"] == AttendanceApi.CHECK_IN_PAGE
+
+    def test_a_move_counts_the_offers_it_turned_to_refusals(self, client, world):
+        world.market(MarketPhase.OFFERS, setupObject=COMPLETE_PLAN)
+        world.patch(MarketsApi, "evaluate_transition", lambda *_a: [])
+        world.applications.insert_one(_application("app-1", VENDOR, status="assignment_sent"))
+        world.patch(world.applications, "update_many", lambda query, update: SimpleNamespace(
+            modified_count=sum(world.applications.update_one({**query, "id": doc["id"]}, update)
+                               .modified_count for doc in list(world.applications.documents)
+                               if mongo_matches(doc, query))), raising=False)
+
+        client.post(f"/markets/{MARKET}/transition", json={"toPhase": "market_days"})
+
+        [entry] = world.history.documents
+        assert entry["detail"]["swept"] == 1
+
+    def test_an_application_a_rule_rejects_as_it_arrives_says_so(self, client, world):
+        world.markets.doc = copy.deepcopy(_applicant_market_doc(
+            rejectionRules=[{"key": "student", "answers": ["No"]}]))
+        world.markets.doc["applicationForm"]["fields"].append(STUDENT)
+        world.patch(ApplicantsApi, "authenticate_request",
+                    lambda _header: {"market_id": MARKET, "email": VENDOR})
+
+        response = client.put("/public/markets/test-market/applicant/application", json={
+            "formData": {**VALID_ANSWERS, "business_name": "Ember Ceramics", "student": "No"}})
+
+        assert response.status_code == 200, response.get_json()
+
+        [entry] = world.history.documents
+        assert entry["detail"]["rejected_by_rules"] is True
+
+    def test_saving_the_rules_counts_what_they_rejected_and_returned(self, client, world):
+        _rejection_rules(client, world)
+
+        [entry] = world.history.documents
+        assert entry["detail"]["rejected"] == 0 and entry["detail"]["returned"] == 0
+
+    def test_a_form_save_counts_what_the_rules_decided_against_it(self, client, world):
+        _save_form(client, world)
+
+        [entry] = world.history.documents
+        assert {"rejected", "returned"} <= set(entry["detail"])
+
+    def test_an_amendment_counts_what_the_rules_decided_against_it(self, client, world):
+        _amend_form(client, world)
+
+        [entry] = world.history.documents
+        assert {"rejected", "returned", "hops"} <= set(entry["detail"])
