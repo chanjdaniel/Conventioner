@@ -302,7 +302,7 @@ async function loadApplications() {
  * failed refresh says so beside the button and keeps the list.
  */
 async function refresh() {
-  if (!props.market || refreshing.value) return;
+  if (!props.market || refreshing.value || saving.value) return;
   refreshing.value = true;
   const up = current.value?.id ?? null;
   try {
@@ -481,7 +481,7 @@ function submittedOn(app: Application): string {
       v-if="!loading"
       class="monitor-freshness"
       :readAt="readAt"
-      :refreshing="refreshing"
+      :refreshing="refreshing || saving"
       :failed="refreshError"
       @refresh="refresh"
     />

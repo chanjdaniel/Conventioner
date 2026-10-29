@@ -97,7 +97,8 @@ async function reread() {
  * on every re-read - and a failed one says so beside the button and keeps the list.
  */
 async function refresh() {
-  if (!marketId.value || refreshing.value) return;
+  // Not while a verdict is being written, as the background re-read waits too.
+  if (!marketId.value || refreshing.value || saving.value) return;
   refreshing.value = true;
   try {
     await read();
@@ -308,7 +309,7 @@ async function decideSelection() {
   <div class="all-view" data-testid="applications-all">
     <ListFreshness
       :readAt="readAt"
-      :refreshing="refreshing"
+      :refreshing="refreshing || saving"
       :failed="refreshError"
       @refresh="refresh"
     />
@@ -354,7 +355,7 @@ async function decideSelection() {
     </div>
 
     <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
-    <div v-if="decides && shown.length" class="all-select-all">
+    <div v-if="decides && shown.length && !errorMessage" class="all-select-all">
       <button
         type="button"
         class="btn btn--secondary btn--compact"
