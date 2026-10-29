@@ -102,7 +102,7 @@ test.describe('Changing a placement on the Tables view', () => {
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible();
     const link = card.getByTestId('vendor-date-card-place-link');
-    await expect(link).toHaveText(/Change placement|Place them/);
+    await expect(link).toHaveText(/Change assignment|Assign them/);
     await link.click();
 
     // Scoped to the date, which is what makes the Tables view's filters reachable at all.

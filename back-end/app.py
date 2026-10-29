@@ -17,6 +17,7 @@ import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import typesafe_client as TypeSafe
+import market_stats as MarketStats
 import api.attendance as AttendanceApi
 import api.door as DoorApi
 import api.applications as ApplicationsApi
@@ -1315,6 +1316,25 @@ def list_market_applications(market_id: str) -> Response:
 
     result, status_code = ApplicantsApi.list_market_applications(market_id)
     return jsonify(result), status_code
+
+
+@app.route('/markets/<market_id>/stats', methods=['GET'])
+@login_required
+def get_market_stats(market_id: str) -> Response:
+    """The Stats tab's figures: who applied, and what they answered. Asks ``Actions.READ``."""
+    requesting_user = authenticated_email()
+
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
+
+    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
+
+    return jsonify(MarketStats.stats_for_market(context.market)), 200
 
 
 def _reviewer_on(market_id: str):

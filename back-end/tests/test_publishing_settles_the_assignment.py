@@ -1,7 +1,8 @@
-"""Publishing settles the assignment (E36/F04/S02).
+"""Publishing settles the table allocation (E36/F04/S02).
 
-Once applicants have been told whether they have a table, a run could move them: so the assignment
-is not run again, its rules lock with it, and seats change only by hand. And a market whose vendors
+Once applicants have been told whether they have a table, allocating again could move them: so
+tables are not allocated again, the assignment rules lock with it, and assignments change only by
+hand. And a market whose vendors
 apply on its page does not go live until they have been told.
 """
 import pytest

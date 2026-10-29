@@ -30,5 +30,5 @@ export function outOfDateLine(
     named.length === 1
       ? named[0]
       : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
-  return `${list.charAt(0).toUpperCase()}${list.slice(1)} changed since this assignment ran.`;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)} changed since tables were allocated.`;
 }

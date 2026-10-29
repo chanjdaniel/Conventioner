@@ -65,8 +65,8 @@ const emit = defineEmits<{
           <li>Auto-place as many tables as you need</li>
         </ul>
         <p class="card-caveat">
-          This release places one table type, so a floorplan's table variety is not used in
-          assignment yet.
+          This release places one table type, so a floorplan's table variety is not used when tables
+          are allocated yet.
         </p>
         <button class="btn btn--secondary card-action" type="button">Try the beta</button>
       </div>

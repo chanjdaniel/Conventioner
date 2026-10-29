@@ -96,7 +96,7 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
   );
   await page.getByTestId('vendor-drawer-tab-assignments').click();
   await expect(page.getByTestId('vendor-date-card-override')).toContainText(
-    'Placed by hand, though not approved',
+    'Assigned by hand, though not approved',
   );
   await page.getByTestId('vendors-detail-close').click();
 

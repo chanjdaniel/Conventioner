@@ -8,7 +8,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment._magnitude_score
   - back-end/csv_import.py#orders_by_submitted_at
   - front-end/src/components/elements/ElementAssignmentPriority.vue
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/02
   - wayfinding/v0-1-0/03
@@ -22,15 +22,15 @@ sources:
 # Priority and tie-breaks
 
 On each date, vendors take their turn in one order: whoever has fewest dates so far, then the organizer's priority rules, then the most constrained, then whoever applied first.
-The organizer's rules decide who is placed first when demand exceeds tables; the tie-breaks after them make the same market assign the same way every time.
+The organizer's rules decide who is assigned first when demand exceeds tables; the tie-breaks after them make the same market assign the same way every time.
 
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 ## The order of turns
 
-1. **Fewest dates placed so far**, so dates are shared out before anyone gets a second.
+1. **Fewest dates assigned so far**, so dates are shared out before anyone gets a second.
 2. **The organizer's rules**, in rule order, compared as a whole: an earlier rule always outranks a later one, and a later rule only breaks a tie the earlier ones left.
-3. **Most constrained first, among vendors the rules leave equal**: fewest available days, then fewest tiers across those days (Gold and Silver on three days is 6, Gold on one day is 1), so a vendor who will take less is placed before one who will take more.
+3. **Most constrained first, among vendors the rules leave equal**: fewest available days, then fewest tiers across those days (Gold and Silver on three days is 6, Gold on one day is 1), so a vendor who will take less is assigned before one who will take more.
 4. **Earliest submission.**
 5. **The address**, a last resort that is always distinct, so two vendors nothing else separates are still ordered by something the market can explain rather than by what the database returned.
 

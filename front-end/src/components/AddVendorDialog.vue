@@ -57,7 +57,7 @@ async function add(): Promise<void> {
     @submit="add"
   >
     <p class="add-vendor-note">
-      For someone who never applied. They are added as approved, and you seat them on the Result
+      For someone who never applied. They are added as approved, and you assign them on the Result
       page.
     </p>
     <label class="field-label" for="add-vendor-name">Name</label>

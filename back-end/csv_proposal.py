@@ -825,7 +825,7 @@ def _unanswered(key: str) -> Dict[str, str]:
     """
     if key == EssentialFields.MAX_DATES_KEY:
         return {"why": "No column in your file answers it, so each imported applicant may be "
-                       "placed on every date they can attend, up to your ceiling. Online "
+                       "assigned on every date they can attend, up to your ceiling. Online "
                        "applicants are still asked."}
     return {"why": "No column in your file answers it"}
 

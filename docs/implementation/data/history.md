@@ -125,7 +125,7 @@ The answer carries the vendors' names against their addresses, so the trail read
 **Every reader of the history is one of the market's readers**, behind its Read row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
-The organizer reads the placements as [the placement history](../../business/flows/placing-by-hand.md#j13-placement-history).
+The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
 
 ## The move from `placement_history`
 

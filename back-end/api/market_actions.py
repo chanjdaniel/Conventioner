@@ -7,7 +7,7 @@ The built-in defaults are the rules each check held before the table existed; a 
 nobody may change.
 
 The rules of a market's life are not rows: an archived market refuses every change, verdicts
-settle on entering assignment, a vendor is added from the assignment on. Each is asked where it
+settle on entering assignment, a vendor is added from Assignment on. Each is asked where it
 always was, and refuses whoever may.
 
 A story that gates a new action adds its row here with ``action(...)`` and asks it with
@@ -52,7 +52,8 @@ def action(
 
 READ = action(
     "read", "Reading",
-    "Read the market: its applications, assignment, statistics, attendance and floorplan export",
+    "Read the market: its applications, assignments, statistics, attendance and floorplan "
+    "export",
     MarketRole.VIEWER, "see this market", fixed=True)
 READ_HISTORY = action(
     "read-history", "Reading", "Read the market's history", MarketRole.VIEWER,
@@ -87,8 +88,8 @@ WRITE_VENDOR_NOTES = action(
     "write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR,
     "write notes on this market's vendors")
 ASSIGN = action(
-    "assign", "Assignment", "Run the assignment, change its rules, and place, swap or free seats",
-    MarketRole.EDITOR, "run this market's assignment, change its rules or place its vendors")
+    "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
+    MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")
 CHECK_IN = action(
     "check-in", "The door", "Check vendors in", MarketRole.EDITOR,
     "check vendors in at this market")
