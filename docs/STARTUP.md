@@ -577,7 +577,7 @@ To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCOR
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, organizations, permissions, applications, applicants, applicant_auth, attendance, floorplans)
+- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, discord_connection, and the floorplan modules)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)
