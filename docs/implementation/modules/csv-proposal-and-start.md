@@ -61,7 +61,8 @@ For each ledger row the organizer confirmed as a question of their own or left o
 A reading keeps only the options the Review step keeps by default, those at least 3 applicants chose (`SHARED_BY`, and for a multi-select at least `OPTION_SHARE` of the answers), less any that names someone (`_identifying`); values only, most chosen first.
 `_identifying` finds an address however it is spelled ("info AT example DOT com"), a link with or without its scheme ("linktr.ee/makers"), a handle wherever its `@` sits ("IG:@makers", "@ makers"), a phone number of 7 digits or more, and a street address or unit number; what no pattern sees (a bare name, a shop's name, a handle without its `@`) only `SHARED_BY` guards, and `test_csv_proposal.py` pins both lists.
 That is safe to keep for the reason it was safe to read: an answer 3 applicants share names none of them, which is the uniqueness rule [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) measured, and the headings are the organizer's own words, which the import mapping already keeps.
-Nothing kept leaves the server but to the market's own readers, who see the applications themselves.
+Nothing kept leaves the server but to everyone who may read the market, a Viewer and up, organization members included, on the market's read and the Markets list; each of them already reads every application.
+It is server-owned: the start writes it, and a create body that carries it, or an import mapping, is stored without either (`create_market`).
 Who applied, when and the essential questions are not kept: none is a question to add or retype.
 A later import does not refresh it: the form locks at the first application, so it is never read after one.
 

@@ -430,3 +430,22 @@ def test_a_question_added_from_a_left_out_column_is_restored_by_the_first_import
     restored, missing, _new, preview = _first_import(after, csv_text)
     assert restored["status"] == [6] and missing == []
     assert [u for u in preview["unmatched"] if u["target"] == "status"] == []
+
+
+def test_a_create_body_cannot_set_what_the_start_writes(monkeypatch):
+    """The example file's columns and the import mapping are written by the start and the import
+    alone: a forged option planted at creation would be offered by "Add from your file"."""
+    from conftest import FakeMarketsCollection, client_market
+    import api.markets as MarketsApi
+
+    fake = FakeMarketsCollection(None)
+    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    forged = [{"headers": ["X"], "key": "forged", "label": "Forged", "type": "select",
+               "question": False, "options": {"select": ["FORGED"], "multi_select": []}}]
+    MarketsApi.create_market(client_market(
+        example_columns=forged,
+        import_mapping={"targets": {"forged": ["X"]}, "headers": ["X"], "made_by": "start"},
+    ), "user-1")
+
+    assert fake.inserted.get("exampleColumns") is None
+    assert fake.inserted.get("importMapping") is None

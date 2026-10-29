@@ -1063,6 +1063,10 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
+    # Server-owned too: the import mapping is the import's and the start's to write, and what the
+    # start kept of its file the start's alone (E38/F02), so a new market carries neither.
+    market_dict["import_mapping"] = None
+    market_dict["example_columns"] = None
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
