@@ -5,7 +5,8 @@ describes:
   - front-end/src/stores/market.ts
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
-verified: 2026-10-22
+  - front-end/src/utils/marketActions.ts
+verified: 2026-10-29
 sources:
   - wayfinding/the-market-frame/03
   - wayfinding/claims-and-room/02
@@ -13,6 +14,7 @@ sources:
   - E21/F02/S05
   - E21/F02
   - E21/F02/S04
+  - E39/F01/S02
 ---
 
 # The market store
@@ -32,6 +34,33 @@ The rules it keeps for all code are [one market, from the server](../conventions
 
 Screens do not call the store directly: [`useOpenMarket`](../../../front-end/src/utils/openMarket.ts) takes the route's market id, opens the market on arrival and whenever the id changes, re-reads it when the organizer comes back to the browser tab (`visibilitychange`), and returns `{ market, status, refresh }`.
 Every view routed by market id uses it, and hands the market to [the market frame](market-frame.md).
+
+## Where a screen's permission comes from
+
+**From the market in the store, never from a role.**
+The market read carries the table's answer for the person asking, per action, as `actionRefusals` ([the market's actions](market-actions.md#what-the-screens-read)), and a screen asks it through one helper, [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts): `mayTake(market, MarketAction.CheckIn)`, or `actionRefusal(...)` for the sentence to say.
+A market that carries no answer for an action refuses it, so nothing is offered before the server has said.
+Each control asks the row of the action it takes:
+
+| Screen | Control | Row |
+| --- | --- | --- |
+| The phase rail | every move | Move the phase |
+| Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
+| Market Setup, the Assignment page | the rules and Assign | Run the assignment (and Change Market Setup, since the rules ride in the plan) |
+| The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
+| Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
+| Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null |
+| Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
+| Result, and the drawer's link to it | Change on a seat | Run the assignment |
+| Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
+| The drawer, the review card and Attendance | vendor notes | Write vendor notes |
+| Attendance | Check in, Undo | Check vendors in, in market days |
+| Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
+| Manage market | Rename; Delete | Change Market Setup; Delete the market |
+| The markets list | Manage | Give and take Editor and Viewer roles |
+
+The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
+None of the role-shaped reasons the screens read before stays on the read: every screen that read one is in the table above.
 
 ## Sharp edges
 

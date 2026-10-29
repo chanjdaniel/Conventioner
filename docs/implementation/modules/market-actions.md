@@ -5,10 +5,13 @@ describes:
   - back-end/api/market_actions.py
   - back-end/api/permissions.py#user_has_permission
   - back-end/tests/test_every_check_names_an_action.py
+  - back-end/api/markets.py#action_refusals
+  - back-end/tests/test_every_screen_asks_the_table.py
 verified: 2026-10-29
 sources:
   - E39
   - E39/F01/S01
+  - E39/F01/S02
 ---
 
 # The market's actions
@@ -24,6 +27,7 @@ The rows are the rule [what each role may do](../../business/rules/what-each-rol
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
 The person's role is the one `get_user_market_role` resolves (the market's own and the one its organization gives, the higher counting, [the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)), and `refusal` ranks it through `user_has_permission` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), which nothing else calls.
+`role_refusal(row, role)` asks a row of a role already resolved, for the markets list, which resolves each entry's role from the documents it holds (`_summary_role`); both rank through `role_reaches`, the one ranking.
 
 **A refusal is a sentence naming who may**: `refusal_sentence(row)` is "Only <who> may <may_what>.", <who> being "someone who holds a role", "an Editor, an Admin or the owner", "an Admin or the owner" or "the market's owner".
 A route answers it as its 403 body, through a `ForbiddenError` or a `{"error": ...}` it returns ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
@@ -37,7 +41,7 @@ A switch row (on or off rather than a role) arrives with the first story that ne
 
 The table says only who may.
 The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from the assignment on (`adding_refusal`), the assignment runs only in assignment (`assign_refusal`).
-Each check keeps the order it had, so every route answers each person as it did before the table: a write that loads through `_load_market_to_change`, `market_refusal`, `_importing_market_document`, `save_floorplan_to_market` and publish-results ask the row first and the archived rule after it; `verdict_refusal` and `add_vendor_refusal` ask the archived rule first.
+Each check keeps the order it had, so every route answers each person as it did before the table: a write that loads through `_load_market_to_change`, `market_refusal`, `_importing_market_document`, `save_floorplan_to_market` and publish-results ask the row first and the archived rule after it; `verdict_refusal` asks the archived rule first.
 
 ## Each route's row
 
@@ -63,8 +67,20 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
-**The market read's screen reasons keep their words** until each screen asks its own row (E39/F01/S02): `readOnlyReason` (`change_refusal`) asks Market Setup and says "You can view this market but not change it.", `adminActionsReason` (`admin_actions_refusal`) asks that and then Move the phase, and `publishResultsReason` asks that and then Publish results, in the same words as `adminActionsReason`.
-`verdictLockReason` and `addVendorReason` answer with their rows' sentences, which no screen shows.
+## What the screens read
+
+**The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
+Each row is asked by `refusal`, the question its writes ask; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
+`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+The markets list serves the same answers for each entry's role (`role_action_refusals`), so a card offers Manage on the row that gives roles.
+
+**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
+
+**The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
+The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) are gone, as are `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal`.
+
+**A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.
+`test_the_screens_name_exactly_the_tables_rows` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py), which pins every answer the read serves, fails when the front end's ids and the table's differ, and `noScreenComparesARole.test.ts` when a source file compares or ranks a market role, or reads the role the person holds.
 
 ## Sharp edges
 

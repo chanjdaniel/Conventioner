@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/VendorsView.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02

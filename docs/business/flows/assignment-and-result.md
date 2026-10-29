@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/market/MarketAssignmentTab.vue
   - front-end/src/components/ResultSummary.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
