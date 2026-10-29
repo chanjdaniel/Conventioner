@@ -129,6 +129,8 @@ async function vendorAdded(email: string): Promise<void> {
  * taken as it opens, so the file holds who the organizer was looking at.
  */
 const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(market.value, MarketAction.ExportCsv));
 const exportSeed = ref<ExportFilters>(NO_FILTERS);
 function openExport(): void {
   exportSeed.value = vendorsPageSeed({
@@ -183,6 +185,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             </button>
           </div>
           <button
+            v-if="mayExport"
             type="button"
             class="btn btn--secondary btn--compact"
             data-testid="vendors-export-button"

@@ -58,6 +58,7 @@ Each control asks the row of the action it takes:
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
 | The markets list | Manage | Give and take Editor and Viewer roles |
+| Vendors, Applications' All view, and Result | Export; Download CSV | Export CSV |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
 No screen reads the role-shaped reasons the screens read before: every screen that read one is in the table above.

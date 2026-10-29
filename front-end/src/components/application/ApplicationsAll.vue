@@ -137,6 +137,8 @@ function holderOf(app: Application): string | null {
 
 /** The applications shown, as a CSV: the dialog opens on the filter and Mine, taken as it opens. */
 const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
 const exportSeed = ref<ExportFilters>(NO_FILTERS);
 function openExport(): void {
   exportSeed.value = applicationsAllSeed({ filter: filter.value, mine: mine.value });
@@ -301,6 +303,7 @@ async function decideSelection() {
         {{ shown.length }} of {{ applications.length }}
       </span>
       <button
+        v-if="mayExport"
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="applications-all-export-button"
