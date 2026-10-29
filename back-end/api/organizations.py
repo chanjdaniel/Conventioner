@@ -6,7 +6,13 @@ from typing import Optional, Dict, Any, List
 from pymongo.results import UpdateResult, DeleteResult
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
-from datatypes import MarketPhase, market_name_slug, phase_from_market_document, phase_label
+from datatypes import (
+    MarketPhase,
+    intake_mode_from_market_document,
+    market_name_slug,
+    phase_from_market_document,
+    phase_label,
+)
 from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
@@ -182,7 +188,7 @@ def _market_summary(document: Dict[str, Any]) -> Dict[str, Any]:
         "id": document.get("id"),
         "name": name,
         "phase": phase.value,
-        "phase_label": phase_label(phase),
+        "phase_label": phase_label(phase, intake_mode_from_market_document(document)),
         "ran": ran,
         "placements": len(placements),
         # The check-in page an archived market keeps is the one URL deleting it takes off the air

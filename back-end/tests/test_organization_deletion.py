@@ -31,12 +31,13 @@ MID_LIFECYCLE = [
 ]
 
 
-def _market(market_id, phase, name=None, placements=0, reached=None):
+def _market(market_id, phase, name=None, placements=0, reached=None, intake_mode=None):
     """A stored market document, camelCase as every write leaves one.
 
     ``reached`` is its phase history, the record of where it has been (E26/F06/S03).
+    ``intake_mode`` is stored as ``intakeMode``; absence means CSV, the write path's own default.
     """
-    return {
+    document = {
         "id": market_id,
         "name": name or f"Market {market_id}",
         "slug": market_id,
@@ -51,6 +52,9 @@ def _market(market_id, phase, name=None, placements=0, reached=None):
             for entered in (reached or ["draft", phase.value])
         ],
     }
+    if intake_mode is not None:
+        document["intakeMode"] = intake_mode
+    return document
 
 
 class Markets:
@@ -244,6 +248,19 @@ class TestTheConfirmationCanSayWhatItDestroys:
         assert preview["can_delete"] is False
         assert [m["id"] for m in preview["blocking_markets"]] == ["m-1"]
         assert [m["id"] for m in preview["markets_to_delete"]] == ["m-2"]
+
+    def test_the_stage_reads_review_on_a_google_form_market(self, org):
+        """The one stage is named by intake (E38/F04/S01): Review on a Google Form market."""
+        org(
+            _market("m-1", MarketPhase.APPLICATIONS, intake_mode="csv"),
+            _market("m-2", MarketPhase.APPLICATIONS, intake_mode="form"),
+        )
+
+        preview = OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
+
+        by_id = {m["id"]: m for m in preview["blocking_markets"]}
+        assert by_id["m-1"]["phase_label"] == "Review"
+        assert by_id["m-2"]["phase_label"] == "Applications"
 
     def test_only_the_owner_may_see_it(self, org, monkeypatch):
         org(_market("m-1", MarketPhase.DRAFT))
