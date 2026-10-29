@@ -47,7 +47,7 @@ def add_vendor(
         raise AddVendorInvalid("Give the vendor's email address.")
     if ApplicationsApi.find_application_by_email(market_id, address) is not None:
         raise AddVendorRefused(
-            f"{address} already has an application in this market. Seat them on the Result page."
+            f"{address} already has an application in this market. Assign them on the Result page."
         )
 
     now = datetime.now(timezone.utc).isoformat()

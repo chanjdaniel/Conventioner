@@ -27,7 +27,7 @@ BACK_END = Path(__file__).resolve().parent.parent
 
 #: The epic's table (E39), the rows E38 registers left out: (id, group, label, default, fixed).
 THE_TABLE = [
-    ("read", "Reading", "Read the market: its applications, assignment, statistics, attendance, "
+    ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance, "
      "history and floorplan export", MarketRole.VIEWER, True),
     ("export-csv", "Reading", "Export CSV", MarketRole.VIEWER, False),
     ("change-setup", "Market Setup",
@@ -45,8 +45,8 @@ THE_TABLE = [
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
     ("update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR, False),
     ("assign", "Assignment",
-     "Run the assignment, change its rules, and place, swap or free seats", MarketRole.EDITOR,
-     False),
+     "Allocate tables, change the assignment rules, and assign, swap or free seats",
+     MarketRole.EDITOR, False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
      MarketRole.ADMIN, False),

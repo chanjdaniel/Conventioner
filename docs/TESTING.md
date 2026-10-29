@@ -286,8 +286,8 @@ The page objects in `front-end/e2e/pages/` are `LoginPage`, `NewMarketPage`, `Ma
 `OrganizationsPage`, `ManageMarketPage`, `PasswordResetPage`, `ApplicationFormPage`,
 `FloorplanWorkflowPage`, `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`,
 `CsvImportPage`, `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage`,
-`ApplicationMonitorPage`, `VendorExportDialog` (the export dialog, wherever it opens) and
-`UpdateInfoDialog` (the vendor drawer's Update info dialog).
+`ApplicationMonitorPage`, `StatsPage`, `VendorExportDialog` (the export dialog, wherever it
+opens) and `UpdateInfoDialog` (the vendor drawer's Update info dialog).
 
 ### Bypassing CAPTCHA and email in tests
 

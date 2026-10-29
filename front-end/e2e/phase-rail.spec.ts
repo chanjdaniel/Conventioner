@@ -47,6 +47,7 @@ test.describe('The phase rail', () => {
       marketScreenPath(seed.marketId, 'result'),
       marketScreenPath(seed.marketId, 'vendors'),
       marketScreenPath(seed.marketId, 'attendance'),
+      marketScreenPath(seed.marketId, 'stats'),
     ]) {
       await openMarket(page, path);
       const rail = page.getByTestId('phase-rail');

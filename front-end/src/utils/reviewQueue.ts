@@ -130,6 +130,16 @@ export function allViewFilter(asked: unknown): AllViewFilter {
 }
 
 /**
+ * Whether the All view lists an application of this status under this filter: a filter is decided
+ * by status alone, so the Stats tab can count the filters from counts by status.
+ */
+export function allViewLists(filter: AllViewFilter, status: string): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'undecided') return AWAITING.includes(status);
+  return status === filter;
+}
+
+/**
  * The applications the All view lists: those with the status asked for - "To review" is every one
  * awaiting a verdict - and, with Mine, only the follow-ups the viewer owns.
  */
@@ -139,13 +149,7 @@ export function allViewApplications(
   mine: boolean,
   me: string,
 ): Application[] {
-  const shown = applications.filter((a) =>
-    filter === 'all'
-      ? true
-      : filter === 'undecided'
-        ? AWAITING.includes(a.status)
-        : a.status === filter,
-  );
+  const shown = applications.filter((a) => allViewLists(filter, a.status));
   if (!mine) return inArrivalOrder(shown);
   const viewer = me.trim().toLowerCase();
   return inArrivalOrder(

@@ -58,7 +58,7 @@ test('a market that opened applications says so, though it went back to draft', 
 
   await page.goto(marketSetupPath(marketId, 'setup'));
   const frozen = page.getByTestId('phase-rail-frozen');
-  await expect(frozen).toContainText('It opened applications but was never assigned.', {
+  await expect(frozen).toContainText('It opened applications but never allocated tables.', {
     timeout: 15000,
   });
   await expect(page.locator('[data-phase="applications_open"]')).toHaveAttribute(

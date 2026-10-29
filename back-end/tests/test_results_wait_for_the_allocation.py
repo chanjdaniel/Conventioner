@@ -47,10 +47,10 @@ class TestWhenResultsMayBePublished:
         MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW,
     ])
     def test_not_before_the_assignment(self, phase):
-        assert "assignment" in ApplicantsApi.publish_results_refusal(market(phase=phase))
+        assert "once tables have been allocated" in ApplicantsApi.publish_results_refusal(market(phase=phase))
 
     def test_not_before_a_run_is_stored(self):
-        assert "Run the assignment" in ApplicantsApi.publish_results_refusal(market(seated=()))
+        assert "Allocate tables" in ApplicantsApi.publish_results_refusal(market(seated=()))
 
     def test_not_while_the_run_is_out_of_date(self, monkeypatch):
         monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: ["applications"])

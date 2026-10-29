@@ -32,13 +32,13 @@ const WORDING: Record<PlacementReason, string> = {
   at_market_ceiling: 'Already has as many dates as the market allows per vendor',
   no_table_at_their_tier: 'No table at a tier they accept',
   taken: 'Every table they accept is taken',
-  free: 'A table is free - they could be placed',
+  free: 'A table is free - they could be assigned',
 };
 
 /** The reason in words. An unrecognized one reads as the plain fact, never as punctuation. */
 export function placementReasonText(reason: PlacementReason | undefined): string {
-  if (!reason) return 'Not placed';
-  return WORDING[reason] ?? 'Not placed';
+  if (!reason) return 'Not assigned';
+  return WORDING[reason] ?? 'Not assigned';
 }
 
 /**
@@ -94,10 +94,10 @@ export function overrideText(overrides: readonly PlacementOverride[] | undefined
   // A decision overridden, said before any answer (E36/F02/S03): the review left them out.
   if (overrides?.includes('not_approved')) {
     const crossed = named.length ? `, and against their answer: ${named.join('; ')}` : '';
-    return `Placed by hand, though not approved${crossed}`;
+    return `Assigned by hand, though not approved${crossed}`;
   }
   if (named.length === 0) return '';
-  return `Placed by hand against their answer: ${named.join('; ')}`;
+  return `Assigned by hand against their answer: ${named.join('; ')}`;
 }
 
 /** Email and date to what that placement overrides, for a quick lookup per card. */

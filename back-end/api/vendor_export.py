@@ -200,7 +200,7 @@ def _assignment_columns(market: Market) -> List[Column]:
             for date in dates
             for part_id, words, part in SEAT_PARTS
         ),
-        Column("datesPlaced", "Dates placed",
+        Column("datesPlaced", "Dates assigned",
                lambda vendor: str(sum(1 for date in dates if date in vendor.seats)), "assignment"),
     ]
 

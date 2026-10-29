@@ -68,7 +68,7 @@ function consequence(market: MarketSummary): string {
   const parts: string[] = [market.phaseLabel];
   if (market.ran) parts.push('it ran');
   if (market.placements) {
-    parts.push(`${market.placements} placement${market.placements === 1 ? '' : 's'}`);
+    parts.push(`${market.placements} assignment${market.placements === 1 ? '' : 's'}`);
   }
   return parts.join(' · ');
 }

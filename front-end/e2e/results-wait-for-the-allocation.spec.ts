@@ -45,7 +45,7 @@ test('publishing waits for a run, then says who will read what before it tells t
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(marketSetupPath(market.marketId, 'applications'));
-  // The rail's end - the application page, Run the assignment, Publish Market, More - takes a row of
+  // The rail's end - the application page, Allocate tables, Publish Market, More - takes a row of
   // its own rather than running out of the card, which lost More off the edge at 1440.
   const rail = await page.getByTestId('phase-rail').boundingBox();
   const more = await page.getByTestId('phase-rail-menu-button').boundingBox();
@@ -53,7 +53,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   const publish = page.getByTestId('app-monitor-publish-button');
   await expect(publish).toBeDisabled();
   await expect(page.getByTestId('app-monitor-publish-hint')).toHaveText(
-    'Run the assignment first: results tell each applicant whether they have a table.',
+    'Allocate tables first: results tell each applicant whether they have a table.',
   );
 
   await post(request, `/markets/${market.marketId}/assignment`);
@@ -76,7 +76,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   // Publishing settles the assignment: no run after it, and its rules read as settled.
   await page.goto(marketSetupPath(market.marketId, 'assignment'));
   await expect(page.getByTestId('assignment-rules-settled')).toContainText(
-    'Results are published, so the assignment is settled',
+    'Results are published, so the table allocation is settled',
   );
   await expect(page.getByTestId('market-setup-assign-button')).toHaveCount(0);
   // Seats still change by hand: freed, and given back.

@@ -141,7 +141,7 @@ describe('the columns', () => {
       { id: 'status', label: 'Status', group: 'vendor' },
       { id: 'answer:category', label: 'Category', group: 'answers' },
       { id: 'date:2099-08-01:table', label: 'Sat 1 Aug - table', group: 'assignment' },
-      { id: 'datesPlaced', label: 'Dates placed', group: 'assignment' },
+      { id: 'datesPlaced', label: 'Dates assigned', group: 'assignment' },
     ],
     groups: [
       { id: 'vendor', label: 'Vendor' },
@@ -223,7 +223,7 @@ const OFFERED: ExportPreview['offered'] = {
     { id: 'status', label: 'Status', group: 'vendor' },
     { id: 'answer:category', label: 'Category', group: 'answers' },
     { id: 'date:2099-08-01:table', label: 'Sat 1 Aug - table', group: 'assignment' },
-    { id: 'datesPlaced', label: 'Dates placed', group: 'assignment' },
+    { id: 'datesPlaced', label: 'Dates assigned', group: 'assignment' },
   ],
   groups: [
     { id: 'vendor', label: 'Vendor' },
@@ -344,7 +344,7 @@ describe('the dialog', () => {
 
     expect(
       wrapper.findAll('[data-testid="vendor-export-order-item"]').map((i) => i.text()),
-    ).toEqual(['Name', 'Email', 'Status', 'Dates placed']);
+    ).toEqual(['Name', 'Email', 'Status', 'Dates assigned']);
     wrapper.unmount();
   });
 

@@ -232,7 +232,7 @@ class TestEveryOtherModulesRefusals:
         response = client.put("/markets/market-123/placements", json={"date": "2026-08-01"})
 
         assert_answered_as_raised(response, raised)
-        assert response.get_json() == {"error": "A placement must name the vendor it places."}
+        assert response.get_json() == {"error": "An assignment must name the vendor it assigns."}
 
     def test_a_seat_someone_else_holds(self, client, monkeypatch):
         taken = PlacementsApi.SeatTakenError("ana@example.com already holds Hall A 1.")
@@ -931,7 +931,7 @@ class TestTheAssignmentAndPlacementRoutes:
         assert response.status_code == 409
         assert response.get_json() == {"error": (
             "ana@example.com already has an application in this market. "
-            "Seat them on the Result page."
+            "Assign them on the Result page."
         )}
 
     def test_a_placement_for_someone_who_never_applied(self, client):
@@ -995,7 +995,7 @@ class TestTheAssignmentAndPlacementRoutes:
 
         assert response.status_code == 400
         assert response.get_json() == {
-            "error": "Removing a placement must name the vendor and the date.",
+            "error": "Removing an assignment must name the vendor and the date.",
         }
 
     def test_freeing_a_seat_on_a_market_that_does_not_exist(self, client):

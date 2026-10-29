@@ -558,8 +558,8 @@ function submittedOn(app: Application): string {
         "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
       <p class="publish-outcomes">
-        Publishing cannot be undone, and the assignment cannot be run again after it: seats change
-        only by hand.
+        Publishing cannot be undone, and tables cannot be allocated again after it: assignments
+        change only by hand.
       </p>
     </AppDialog>
 

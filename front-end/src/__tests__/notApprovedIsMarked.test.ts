@@ -9,18 +9,18 @@ import { ApplicationStatus } from '@/assets/types/datatypes';
 
 describe('what a placement by hand overrides', () => {
   it('says first that they were not approved', () => {
-    expect(overrideText(['not_approved'])).toBe('Placed by hand, though not approved');
+    expect(overrideText(['not_approved'])).toBe('Assigned by hand, though not approved');
   });
 
   it('then every answer it crosses', () => {
     expect(overrideText(['tier', 'not_approved'])).toBe(
-      'Placed by hand, though not approved, and against their answer: a tier they did not accept, which sets their price',
+      'Assigned by hand, though not approved, and against their answer: a tier they did not accept, which sets their price',
     );
   });
 
   it('reads as before for an approved vendor', () => {
     expect(overrideText(['date'])).toBe(
-      'Placed by hand against their answer: a date they did not offer',
+      'Assigned by hand against their answer: a date they did not offer',
     );
   });
 });
