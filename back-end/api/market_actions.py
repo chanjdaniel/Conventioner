@@ -131,8 +131,9 @@ def refusal(
 
 
 def role_refusal(row: Action, role: Optional[MarketRole]) -> Optional[str]:
-    """``refusal`` for a role already resolved: the markets list resolves each entry's role from the
-    documents it holds (``_summary_role``), and asks the row of that rather than resolving it again.
+    """``refusal`` for a role already resolved: the market read resolves the person's role once and
+    asks every row of it, and the markets list resolves each entry's role from the documents it
+    holds (``_summary_role``); each asks the row of that rather than resolving it again.
     """
     if PermissionsApi.role_reaches(role, row.default):
         return None

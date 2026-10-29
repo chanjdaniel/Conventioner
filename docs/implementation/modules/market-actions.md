@@ -28,7 +28,7 @@ The rows are the rule [what each role may do](../../business/rules/what-each-rol
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
 The person's role is the one `get_user_market_role` resolves (the market's own and the one its organization gives, the higher counting, [the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)), and `refusal` ranks it through `user_has_permission` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), which nothing else calls.
-`role_refusal(row, role)` asks a row of a role already resolved, for the markets list, which resolves each entry's role from the documents it holds (`_summary_role`); both rank through `role_reaches`, the one ranking.
+`role_refusal(row, role)` asks a row of a role already resolved, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`); both rank through `role_reaches`, the one ranking.
 
 **A refusal is a sentence naming who may**: `refusal_sentence(row)` is "Only <who> may <may_what>.", <who> being "someone who holds a role", "an Editor, an Admin or the owner", "an Admin or the owner" or "the market's owner".
 A route answers it as its 403 body, through a `ForbiddenError` or a `{"error": ...}` it returns ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
