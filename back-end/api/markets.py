@@ -212,23 +212,18 @@ def _answers(
     }
 
 
-def action_refusals(
-    user_email: str, market: Market, organization: Optional[Organization],
-) -> Dict[str, Optional[str]]:
-    """What this person is told of every action on this market, by row id (E39/F01/S02).
-
-    Each row is asked by ``Actions.refusal``, the question its writes ask. Served on the market as
-    ``actionRefusals``, so every screen offers a control on the answer of the action it takes.
-    The rules of a market's life other than the archived one are each served on their own.
-    """
-    return _answers(
-        market.phase, lambda row: Actions.refusal(row, user_email, market, organization))
-
-
 def role_action_refusals(
     role: Optional[MarketRole], phase: MarketPhase,
 ) -> Dict[str, Optional[str]]:
-    """``action_refusals`` for a role already resolved, as the markets list holds each entry's."""
+    """What a person holding ``role`` is told of every action on a market in ``phase``, by row id
+    (E39/F01/S02).
+
+    Each row is asked by ``Actions.role_refusal`` of the role already resolved, the ranking the
+    writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
+    markets list from the documents it holds. Served as ``actionRefusals``, so every screen offers
+    a control on the answer of the action it takes. The rules of a market's life other than the
+    archived one are each served on their own.
+    """
     return _answers(phase, lambda row: Actions.role_refusal(row, role))
 
 
@@ -811,9 +806,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market = context.market
     org_dict = context.organization_dict
 
-    if not Actions.may(Actions.READ, user_email, market, context.organization):
-        return None
+    # The person's role, resolved once: every answer below is asked of it (E39/F01/S02).
     user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
+    if Actions.role_refusal(Actions.READ, user_role):
+        return None
 
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
@@ -858,9 +854,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['phasesReached'] = sorted(reached.phases)
     market_dict['phaseRecordComplete'] = reached.complete
     # What this person is told of every action here, by row (E39/F01/S02), and why they may change
-    # nothing at all (E26/F06/S01, T15): asked by the question every write asks, served so each
-    # screen offers no control the server would refuse.
-    refusals = action_refusals(user_email, market, context.organization)
+    # nothing at all (E26/F06/S01, T15): asked of the role resolved above by the ranking every
+    # write asks, served so each screen offers no control the server would refuse.
+    refusals = role_action_refusals(user_role, market.phase)
     market_dict['actionRefusals'] = refusals
     market_dict['readOnlyReason'] = read_only_reason(market, refusals)
     # The rules of the market's life the table never overrides, each on its own: the verdicts
@@ -892,9 +888,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
     # and so name one (the table's verdicts row): the organization's people too, if the reader is
     # one.
-    may_give_verdicts = Actions.may(
-        Actions.GIVE_VERDICTS, user_email, market, context.organization,
-    )
+    may_give_verdicts = Actions.role_refusal(Actions.GIVE_VERDICTS, user_role) is None
     reader = UsersApi.get_user(user_email) if may_give_verdicts else None
     ids = (
         PermissionsApi.follow_up_owners_for(

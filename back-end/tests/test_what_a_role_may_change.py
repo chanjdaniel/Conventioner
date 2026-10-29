@@ -10,16 +10,11 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from datatypes import MarketPhase, MarketRole
 
-RANK = {MarketRole.VIEWER: 0, MarketRole.EDITOR: 1, MarketRole.ADMIN: 2, MarketRole.OWNER: 3}
-
 
 @pytest.fixture
 def role(monkeypatch):
     def holding(held):
-        monkeypatch.setattr(
-            PermissionsApi, "user_has_permission",
-            lambda _user, _market, needed, _org=None: RANK[held] >= RANK[needed],
-        )
+        monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: held)
     return holding
 
 
@@ -29,7 +24,8 @@ def market(phase=MarketPhase.ASSIGNMENT):
 
 def told(market_, user="u@x"):
     """Why this person may change nothing here, and what they are told of moving the phase."""
-    refusals = MarketsApi.action_refusals(user, market_, None)
+    role = PermissionsApi.get_user_market_role(user, market_, None)
+    refusals = MarketsApi.role_action_refusals(role, market_.phase)
     return MarketsApi.read_only_reason(market_, refusals), refusals["move-phase"]
 
 

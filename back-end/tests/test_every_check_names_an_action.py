@@ -187,7 +187,9 @@ def test_each_load_asks_its_row_and_refuses_in_its_words(call, row, monkeypatch)
 def test_the_market_read_asks_the_read_row(monkeypatch):
     """A person the Read row refuses is served no market at all, as if it were not there."""
     asked = []
-    monkeypatch.setattr(Actions, "refusal", lambda action, *_a: asked.append(action) or "No.")
+    monkeypatch.setattr(MarketsApi.PermissionsApi, "get_user_market_role", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        Actions, "role_refusal", lambda action, _role: asked.append(action) or "No.")
     monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
         market=client_market(), document={}, organization=None, organization_dict=None))
 
