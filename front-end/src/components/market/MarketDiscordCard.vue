@@ -145,7 +145,12 @@ async function disconnect(): Promise<void> {
 
         <template v-if="connected">
           <p class="discord-server" data-testid="discord-server">
-            Connected to <strong>{{ connection?.guildName || 'a Discord server' }}</strong>
+            <span>
+              Connected to
+              <strong class="discord-server-name">{{
+                connection?.guildName || 'a Discord server'
+              }}</strong>
+            </span>
             <button
               v-if="editable"
               type="button"
@@ -301,6 +306,11 @@ async function disconnect(): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+/* Weight does not inherit here (the design language, Weight). */
+.discord-server-name {
+  font-weight: 600;
 }
 
 .discord-choices {
