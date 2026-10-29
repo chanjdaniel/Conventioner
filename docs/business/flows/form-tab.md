@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketFormTab.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - brain-dump/2026-10-19#5
   - brain-dump/2026-10-19#6
@@ -21,6 +21,7 @@ sources:
   - E32/F02/S01
   - E33/F01/S02
   - T15
+  - E38/F02/S02
 ---
 
 # Building the application form
@@ -71,6 +72,15 @@ Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`, `ask-this-
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_` and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."
 Covered by: `application-form.spec.ts`.
+
+On a market started from its Google Form's responses, the questions also draw on the file it was started from, which the start kept the answers of, as far as they name nobody ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)); the start itself is one-shot, and this is where what it got wrong is fixed (E38/F02):
+
+4. Change a question the start made to Select and its options are its column's answers; to Multi-Select, the options inside them ("Filled from the answers in your file.").
+   Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
+5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
+
+A question that did not come from the file behaves as above, and a market not started from one offers neither.
+Covered by: `the-questions-come-from-the-file.spec.ts`.
 
 ## F3. What a reviewer reads first
 

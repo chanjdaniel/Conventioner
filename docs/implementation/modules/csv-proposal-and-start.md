@@ -8,6 +8,7 @@ describes:
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
+  - front-end/src/utils/exampleColumns.ts
 verified: 2026-10-29
 sources:
   - wayfinding/the-form-started-from-a-csv/03
@@ -19,6 +20,7 @@ sources:
   - E24/F03/S03
   - E33/F02/S01
   - E38/F02/S01
+  - E38/F02/S02
 ---
 
 # The CSV proposal and start
@@ -54,7 +56,7 @@ A market that changed since is written nothing, and told to start again.
 **The file is sent twice and stored never; what the start keeps of it is the privacy view.**
 Confirm reads it again rather than trusting the browser's copy of the columns, and re-runs the rules on it; the organizer's choices for each ledger row are the only thing the request adds, and the browser sends one for every row, so what TypeSafe settled reaches confirm as the organizer's choice, never by asking again.
 
-**The start keeps what the file said of each question of the organizer's own and each left-out column** (`exampleColumns`, E38/F02/S01), so the Questions tab can fill a question's options, or add a question from a left-out column, after the file is gone.
+**The start keeps what the file said of each question of the organizer's own and each left-out column** (`exampleColumns`, E38/F02/S01), so the Questions tab can fill a question's options, or add a question from a left-out column, after the file is gone ([building the application form](../../business/flows/form-tab.md#f2-custom-questions), [`exampleColumns.ts`](../../../front-end/src/utils/exampleColumns.ts)).
 For each ledger row the organizer confirmed as a question of their own or left out, and that had answers, it keeps the headings, the key its question has or would have, the label and help text, the type written or read, whether it became a question, and both readings of its answers as choices (`kept_readings`): whole answers for Select, the options inside them for Multi-Select.
 A reading keeps only the options the Review step keeps by default, those at least 3 applicants chose (`SHARED_BY`, and for a multi-select at least `OPTION_SHARE` of the answers), less any holding an address, link, handle or phone number (`_identifying`); values only, most chosen first.
 That is safe to keep for the reason it was safe to read: an answer 3 applicants share names none of them, which is the uniqueness rule [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) measured, and the headings are the organizer's own words, which the import mapping already keeps.
