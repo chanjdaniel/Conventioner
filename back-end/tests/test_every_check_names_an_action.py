@@ -184,6 +184,17 @@ def test_each_load_asks_its_row_and_refuses_in_its_words(call, row, monkeypatch)
     assert str(refused.value) == Actions.refusal_sentence(row)
 
 
+def test_the_market_read_asks_the_read_row(monkeypatch):
+    """A person the Read row refuses is served no market at all, as if it were not there."""
+    asked = []
+    monkeypatch.setattr(Actions, "refusal", lambda action, *_a: asked.append(action) or "No.")
+    monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
+        market=client_market(), document={}, organization=None, organization_dict=None))
+
+    assert MarketsApi.get_market_for_user("u@x.test", "market-123") is None
+    assert asked == [Actions.READ]
+
+
 class TestThePlanWrite:
     """The assignment rules ride in the plan, and are the Assignment row's: a plan write asks
     Market Setup, and Assignment too when it changes them."""

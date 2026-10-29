@@ -806,9 +806,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market = context.market
     org_dict = context.organization_dict
 
-    user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
-    if user_role is None:
+    if not Actions.may(Actions.READ, user_email, market, context.organization):
         return None
+    user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
 
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
