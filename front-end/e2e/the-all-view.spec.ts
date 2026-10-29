@@ -280,7 +280,7 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
     { intakeMode: 'form' },
   );
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
-  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
   seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
   seedApplicationWithStatus(marketId, 'reviewer_approved', 'omar@kiln.test');
@@ -310,6 +310,19 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
   );
   await expect(all.selection).toContainText('2 applications selected');
 
+  // The other reviewer lets Nadia's card go: once the list is read again, nothing is held, so the
+  // line no longer says so; the ticks stay as they were.
+  await withUser(browser, SECOND.email, SECOND.password, async (other) => {
+    const released = await other.request.delete(
+      `${BACKEND_URL}/markets/${marketId}/applications/${nadia}/claim`,
+    );
+    expect(released.ok(), await released.text()).toBeTruthy();
+  });
+  await page.getByTestId('applications-refresh').click();
+  await expect(all.tickOf('nadia@ember.test')).toBeEnabled();
+  await expect(all.selectAllSkipped).toHaveCount(0);
+  await expect(all.selection).toContainText('2 applications selected');
+
   // Every status shows the approved row too; it was not ticked, and the open ones stay ticked.
   await all.filter('all');
   await expect(all.rows).toHaveCount(4);
@@ -329,8 +342,9 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
   // Decided by count, as a selection ticked by hand is.
   await all.selectAll.click();
   await all.decideSelection('approve');
-  await expect(all.confirmWindow).toContainText('Approve 2 applications?');
+  // Nadia was let go, so Select all takes her too now.
+  await expect(all.confirmWindow).toContainText('Approve 3 applications?');
   await all.confirmButton.click();
-  await expect(all.result).toContainText('2 applications approved.');
-  await expect(all.rows).toHaveCount(1);
+  await expect(all.result).toContainText('3 applications approved.');
+  await expect(all.rows).toHaveCount(0);
 });

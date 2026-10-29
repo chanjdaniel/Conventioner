@@ -269,6 +269,9 @@ watch([filter, mine], () => (skippedHeld.value = 0));
 watch(shown, (rows) => {
   const visible = new Set(rows.map((a) => a.id));
   selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+  // What Select all left out is said only while it is still held: a re-read that shows a row let
+  // go, or gone, says fewer (E38/F05/S02).
+  skippedHeld.value = Math.min(skippedHeld.value, rows.filter((a) => heldElsewhere(a)).length);
 });
 
 const VERDICT_WORDS: Partial<Record<ApplicationStatus, { verb: string; done: string }>> = {
