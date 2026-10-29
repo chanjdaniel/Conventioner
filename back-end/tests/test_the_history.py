@@ -33,8 +33,6 @@ class FakeHistoryCollection:
 
     def find(self, query, projection=None):
         found = [doc for doc in self.docs if self._matches(doc, query)]
-        if projection == {"_id": 0}:
-            return [{k: v for k, v in doc.items() if k != "_id"} for doc in found]
         return [mongo_project(dict(doc), projection) for doc in found]
 
     def delete_many(self, query):
@@ -131,25 +129,6 @@ class TestAPlacementEntry:
         assert entry["subject"] == {}
 
 
-class TestReadingIt:
-    def test_a_market_reads_every_entry_newest_first(self, history):
-        History.record("m1", "a@x.test", Actions.CHANGE_SETUP)
-        History.record("m1", "a@x.test", Actions.CHECK_IN, vendors=["v@x.test"])
-        History.record("m2", "a@x.test", Actions.CHANGE_SETUP)
-        history.docs[0]["at"] = "2020-01-01T00:00:00+00:00"
-        history.docs[1]["at"] = "2026-01-01T00:00:00+00:00"
-
-        assert [e["action"] for e in History.entries_for_market("m1")] == [
-            "check-in", "change-setup",
-        ]
-
-    def test_a_vendor_reads_the_entries_naming_them(self, history):
-        History.record("m1", "a@x.test", Actions.CHANGE_SETUP)
-        History.record("m1", "a@x.test", Actions.CHECK_IN, vendors=["v@x.test"])
-
-        assert [e["action"] for e in History.entries_for_market("m1", "V@X.test")] == ["check-in"]
-
-
 class TestThePlacementView:
     """The placement endpoint and the drawer's History tab answer as they did before the widening."""
 
@@ -235,5 +214,4 @@ def test_deleting_a_market_takes_every_entry_of_its_history(history):
     History.record("m2", "a@x.test", Actions.CHANGE_SETUP)
 
     assert History.delete_for_market("m1") == 2
-    assert History.entries_for_market("m1") == []
-    assert len(History.entries_for_market("m2")) == 1
+    assert History.delete_for_market("m2") == 1

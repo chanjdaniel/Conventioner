@@ -207,8 +207,8 @@ class TestTheTrailIsKeptWithTheMarket:
         gone = History.delete_for_market("m1")
 
         assert gone == 1
-        assert History.entries_for_market("m1") == []
-        assert len(History.entries_for_market("m2")) == 1
+        assert History.placement_entries("m1") == []
+        assert len(History.placement_entries("m2")) == 1
 
 
 def test_a_trail_that_cannot_be_written_does_not_break_the_placement(collection, monkeypatch):
@@ -239,4 +239,4 @@ def test_deleting_a_market_deletes_its_trail_through_the_endpoint(monkeypatch, h
 
     MarketsApi.delete_market("market-123", "owner@example.com")
 
-    assert History.entries_for_market("market-123") == []
+    assert History.placement_entries("market-123") == []

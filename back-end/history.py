@@ -83,17 +83,6 @@ def record(
         logger.warning("Could not record %s on market %s: %s", kind or action.id, market_id, e)
 
 
-def entries_for_market(market_id: str, vendor: Optional[str] = None) -> List[Dict[str, Any]]:
-    """This market's history, newest first.
-
-    ``vendor`` narrows it to the entries about one person, for their detail panel. A run names
-    nobody, so it is not in a vendor's list: it says what happened to the market, and the question
-    a vendor's panel is asking is what happened to *them*.
-    """
-    query = _vendor_query({MARKET_ID_FIELD: market_id}, vendor)
-    return _newest_first(history_collection.find(query, {"_id": 0}))
-
-
 def delete_for_market(market_id: str) -> int:
     """Take a market's history with the market. Returns how many entries went.
 
