@@ -113,7 +113,7 @@ Covered by: `the-result-page.spec.ts`, `tables.spec.ts`, `a-search-on-the-result
 ## J5. The result is out of date
 
 **Status:** Works (walked live; what can still change read from the code as of E31/F01 and E36/F01).
-When the rules, the plan or the approved applications change after a run, a note on the Result page says which: "Your rules changed since this assignment ran. Run it again to bring it up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
+When the rules, the plan or the approved applications change after a run, a note on the Result page says which: "Your rules changed since tables were allocated. Allocate tables again to bring it up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
 The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan and the applications change after a run only in the database, as specs do.
 The note shows only in Assignment, where running again is possible.
@@ -131,7 +131,7 @@ Covered by: `the-assignment-rules-close.spec.ts`.
 **Status:** Works (re-walked live on 2026-10-03; where and when it is offered, and what a vendor reads, changed since, read from the code as of E36/F04 and E36/F05: `back-end/api/applicants.py`, `results-wait-for-the-allocation.spec.ts`).
 On a market whose vendors apply on its own page only, from the Applications page; a Google Form market has nobody to tell, and offers no button.
 
-1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is offered in Assignment once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The assignment is out of date. Run it again before publishing, …").
+1. "Publish Results", beside "Tells every applicant, on their application page, whether they have a table.", is offered in Assignment once a current run is stored; until then it is disabled and says why ("Allocate tables first: …", "The table allocation is out of date. Allocate tables again before publishing, …").
    In Assignment the rail leads there: Publish Market is disabled with "Applicants have not been told whether they have a table. Publish the results before the market goes live." and "Publish results" as the main button.
 2. "Publish results" asks first: 'N applicants will read "You have a table". M will read "You did not get assigned".' and "Publishing cannot be undone, and the assignment cannot be run again after it: seats change only by hand."
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).

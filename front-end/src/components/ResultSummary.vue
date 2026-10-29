@@ -128,7 +128,7 @@ async function downloadCsv(): Promise<void> {
     <!-- A fact, not an error: no dismiss, and running again is what clears it (E22/F03/S02). -->
     <p v-if="outOfDate" class="note" data-testid="assignment-out-of-date">
       {{ outOfDate }}
-      <RouterLink :to="marketPath(market.id, 'assignment')">Run it again</RouterLink>
+      <RouterLink :to="marketPath(market.id, 'assignment')">Allocate tables again</RouterLink>
       to bring it up to date.
     </p>
 

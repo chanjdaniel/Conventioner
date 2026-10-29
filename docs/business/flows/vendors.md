@@ -45,7 +45,7 @@ Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 **Adding a vendor who never applied.**
-From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you seat them on the Result page.", with Name and Email; "Add vendor".
+From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Result page.", with Name and Email; "Add vendor".
 They are listed as "Added", offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
 Covered by: `adding-a-vendor.spec.ts`.
 

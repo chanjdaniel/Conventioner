@@ -116,7 +116,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | Review → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
 | Review → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
 | Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
-| Into Market Days | No assignment is stored | "No assignment has been computed for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
+| Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
 | Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.

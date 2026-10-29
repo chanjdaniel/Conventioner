@@ -126,7 +126,7 @@ def _applicant_address(market: Market, email: str) -> str:
     """
     address = normalized_email(email)
     if not address:
-        raise PlacementError("A placement must name the vendor it places.")
+        raise PlacementError("An assignment must name the vendor it assigns.")
     if not has_applied(market.id, address):
         raise PlacementError(
             f"{address} has no application in this market, so they cannot be given a seat. "
@@ -141,7 +141,7 @@ def _placement_for(
     """Build the row a placement writes, validating it against the market's own plan."""
     setup_object = market.setup_object
     if setup_object is None:
-        raise PlacementError("Market has no plan, so it has no tables to place anyone at.")
+        raise PlacementError("Market has no plan, so it has no tables to assign anyone to.")
 
     email = _applicant_address(market, email)
 
@@ -223,7 +223,7 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     if phase is MarketPhase.DRAFT:
         return (
             "This market is still a draft. Plan it, take its applications in and review them - "
-            "the assignment runs once the market reaches the assignment phase."
+            "tables are allocated once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_OPEN:
         return (
@@ -386,7 +386,7 @@ def remove_placement(
     email = (email or "").strip()
     date = (date or "").strip()
     if not email or not date:
-        raise PlacementError("Removing a placement must name the vendor and the date.")
+        raise PlacementError("Removing an assignment must name the vendor and the date.")
 
     kept = [
         existing

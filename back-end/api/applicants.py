@@ -584,8 +584,8 @@ def publish_results_refusal(market: Market) -> Optional[str]:
         return "Allocate tables first: results tell each applicant whether they have a table."
     if changed_since_run(market):
         return (
-            "The assignment is out of date. Run it again before publishing, so applicants are "
-            "told what the market will hold."
+            "The table allocation is out of date. Allocate tables again before publishing, so "
+            "applicants are told what the market will hold."
         )
     return None
 

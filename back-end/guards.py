@@ -308,7 +308,7 @@ class AssignmentComputedGuard:
                 id=self.id,
                 passed=False,
                 message=(
-                    "No assignment has been computed for this market, so its check-in page could "
+                    "No tables have been allocated for this market, so its check-in page could "
                     "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="assignment",

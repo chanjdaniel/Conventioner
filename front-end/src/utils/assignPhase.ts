@@ -22,10 +22,10 @@ export function assignRefusal(phase: string | undefined | null): string | null {
   const current = String(phase ?? '');
   if (canAssignIn(current)) return null;
   if (current === 'draft' || current === '') {
-    return 'This market is still a draft. Plan it, take its applications in and review them - the assignment runs once the market reaches the assignment phase.';
+    return 'This market is still a draft. Plan it, take its applications in and review them - tables are allocated once the market reaches the assignment phase.';
   }
   if (current === 'applications_open') {
-    return 'Applications are still coming in. Review them as they arrive - the assignment runs once the market reaches the assignment phase.';
+    return 'Applications are still coming in. Review them as they arrive - tables are allocated once the market reaches the assignment phase.';
   }
   if (current === 'applications_closed') {
     return 'Applications are closed. Review them, then move the market to the assignment phase to allocate tables.';

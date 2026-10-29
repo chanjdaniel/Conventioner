@@ -201,8 +201,9 @@ function asks(key: string): boolean {
         <span class="essential-type-badge">optional</span>
       </div>
       <p class="essential-item-detail">
-        The only optional essential question. An applicant who names a partner is seated with them
-        when possible; one who leaves it blank may be paired with anyone else sharing.
+        The only optional essential question. An applicant who names a partner is assigned to the
+        same table as them when possible; one who leaves it blank may be paired with anyone else
+        sharing.
       </p>
     </div>
 

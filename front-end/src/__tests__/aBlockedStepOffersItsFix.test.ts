@@ -99,12 +99,12 @@ describe('before a run', () => {
   const NOT_RUN: PreconditionResult = {
     id: 'assignment_computed',
     passed: false,
-    message: 'No assignment has been computed for this market. Run the assignment first.',
+    message: 'No tables have been allocated for this market. Allocate tables first.',
     resolutionLink: 'assignment',
-    resolutionLabel: 'Run the assignment',
+    resolutionLabel: 'Allocate tables',
   };
 
-  it('Publish waits on running the assignment, offered from any other page', () => {
+  it('Publish waits on allocating tables, offered from any other page', () => {
     const rail = railFor(
       [],
       {
@@ -115,7 +115,7 @@ describe('before a run', () => {
     );
 
     const button = rail.get(fix);
-    expect(button.text()).toBe('Run the assignment');
+    expect(button.text()).toBe('Allocate tables');
     expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/assignment');
     expect(
       rail.get('[data-testid="phase-transition-market_days"]').attributes('disabled'),
