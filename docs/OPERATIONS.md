@@ -68,6 +68,7 @@ Values are never committed, and the app refuses to boot on a blank, a placeholde
 | `RESEND_API_KEY` | back end | Resend dashboard, API keys |
 | `RECAPTCHA_SECRET_KEY` | back end | reCAPTCHA admin console, the property's secret |
 | `TYPESAFE_API_KEY` | back end | TypeSafe console (optional; unset means the rules alone) |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` | back end | Discord Developer Portal, the Conventioner application: OAuth2's client id and secret, Bot's token (optional, all three or none; unset means Discord is off) |
 | `VITE_FLASK_HOST` | front end, **build time** | `https://api.conventioner.io` |
 | `VITE_RECAPTCHA_SITE_KEY` | front end, **build time** | the same reCAPTCHA property's site key |
 | `VERCEL_TOKEN` | GitHub, environment `production`, secret | vercel.com/account/tokens, scoped to the team |

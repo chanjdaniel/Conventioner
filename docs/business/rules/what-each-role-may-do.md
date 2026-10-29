@@ -51,7 +51,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance and the assignment history |
 | Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), check-ins at the door |
-| Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
+| Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers; connect the market to Discord and choose its role ([the Discord connection](../../implementation/modules/discord.md)) |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 Whoever creates a market is its owner, and a market has exactly one.

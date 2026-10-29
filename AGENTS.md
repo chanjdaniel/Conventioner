@@ -107,6 +107,7 @@ The assignment:
 - Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
+- Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
 
 The data and the back end:
 

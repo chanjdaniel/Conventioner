@@ -57,7 +57,7 @@ That is why the floorplan solver `pyckingsolver` lives in `requirements-floorpla
 ## 4. Environment variables
 
 Set on each project's **Production** environment (Settings, Environment Variables); [OPERATIONS.md](OPERATIONS.md#configuration-and-secrets) lists every one with its value or source.
-The back end needs `MONGODB_URI`, `SECRET_KEY`, `SESSION_TYPE=null`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXY_HOPS=1`, `FRONTEND_URL`, `FROM_EMAIL`, `RESEND_API_KEY` and `RECAPTCHA_SECRET_KEY` (and optionally `TYPESAFE_API_KEY`); the front end needs `VITE_FLASK_HOST` and `VITE_RECAPTCHA_SITE_KEY` at build time.
+The back end needs `MONGODB_URI`, `SECRET_KEY`, `SESSION_TYPE=null`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXY_HOPS=1`, `FRONTEND_URL`, `FROM_EMAIL`, `RESEND_API_KEY` and `RECAPTCHA_SECRET_KEY` (and optionally `TYPESAFE_API_KEY`, and `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` together); the front end needs `VITE_FLASK_HOST` and `VITE_RECAPTCHA_SITE_KEY` at build time.
 Nothing reads `FLASK_ENV`, `USE_HTTPS`, `MONGODB_DB` or the separate `MONGODB_HOST`/`MONGODB_USER`/`MONGODB_PASSWORD` variables in production; do not set them.
 
 All six of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY` and `TRUSTED_PROXY_HOPS` are **boot-time requirements**: the function refuses to start without them, so a deployment that is missing one serves nothing at all.

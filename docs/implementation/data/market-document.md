@@ -30,6 +30,7 @@ sources:
   - E26/F06/S03
   - E01/F06
   - E39/F01/S03
+  - E46/F01/S02
 ---
 
 # The market document
@@ -72,6 +73,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
+| `discord` | the Discord server the market is connected to and what [its card](../modules/discord.md) chose (`guildId`, `guildName`, `roleId`, `roleName`, `usernameQuestion`, `inviteLink`, `connectedBy`, `connectedAt`), written only by the card's routes; absent is not connected, and a market disconnected keeps only `usernameQuestion`; the `discordGuildId` and `discordWebhookUrl` some old documents carry are E18/F05's removed fields, read by nothing |
 | `formAmendment` | present only while [a form amendment](../modules/form-amendment.md) is walking the phases, naming where it returns |
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
 
