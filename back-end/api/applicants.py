@@ -471,6 +471,7 @@ def _changed_since_seen(doc: Dict[str, Any], seen: Optional[Dict[str, Any]] = No
 def review_application(
     market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
     owner: Optional[MarketPerson] = None, seen: Optional[Dict[str, Any]] = None,
+    change_refused: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
     always sees raw status.
@@ -481,6 +482,10 @@ def review_application(
     verdict is written only if it still is (E34/F03/S01). Two reviewers at once used to mean the last
     verdict silently won; now the second is refused with a 409 naming who changed it and to what,
     and the application as it stands, so they decide again on what is really there.
+
+    ``change_refused`` is why this reviewer may not change a verdict already given, or None while
+    they may (``verdict_change_refusal``, E38/F06/S01): an application the reviewer saw approved or
+    rejected is then refused with it, a 403, and one decided since they saw it is the 409 above.
     """
     if new_status not in ApplicationsApi.MARKED_STATUSES:
         return {"error": f"Invalid review status: {new_status.value}"}, 400
@@ -488,9 +493,13 @@ def review_application(
     app_doc = ApplicationsApi.find_application_by_id(application_id)
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
+    # Asked of what the reviewer saw: one decided since they opened it is the 409 below, naming who.
+    if change_refused and ApplicationsApi.is_decided(seen or app_doc):
+        return {"error": change_refused}, 403
 
     written = ApplicationsApi.update_application_status(
-        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen)
+        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen,
+        unless_decided=bool(change_refused))
     if not written:
         now = ApplicationsApi.find_application_by_id(application_id)
         if now is None:
@@ -506,7 +515,7 @@ def review_application(
 
 def review_selection(
     market_id: str, selection: List[Tuple[str, Optional[Dict[str, Any]]]],
-    new_status: ApplicationStatus, by: VerdictGiver,
+    new_status: ApplicationStatus, by: VerdictGiver, change_refused: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """One verdict for a ticked selection (E34/F04/S02). Organizer only.
 
@@ -514,7 +523,8 @@ def review_selection(
     another reviewer holds open is not written at all, nor one of another market. The answer says
     which were written and, for each skipped, why - never an action on "everything matching". One
     already at the status asked for is skipped too: a follow-up marked again would quietly change
-    hands.
+    hands. One already approved or rejected is skipped with ``change_refused`` when it is set: this
+    reviewer gives verdicts but changes none (E38/F06/S01).
     """
     if new_status not in ApplicationsApi.MARKED_STATUSES:
         return {"error": f"Invalid review status: {new_status.value}"}, 400
@@ -535,8 +545,13 @@ def review_selection(
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": f"Already {_STATUS_WORD[new_status.value]}."})
             continue
+        if change_refused and ApplicationsApi.is_decided(seen or doc):
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": change_refused})
+            continue
         if ApplicationsApi.update_application_status(app_id, new_status, by=by,
-                                                     if_unchanged_since=seen):
+                                                     if_unchanged_since=seen,
+                                                     unless_decided=bool(change_refused)):
             written.append(app_id)
         else:
             now = ApplicationsApi.find_application_by_id(app_id) or doc

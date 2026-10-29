@@ -258,6 +258,30 @@ def verdict_refusal(
     return None
 
 
+CHANGING_A_VERDICT = (
+    "Only an Admin or the owner of this market changes a verdict already given."
+)
+
+
+def verdict_change_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot change a verdict already given here, or None while they can
+    (E38/F06/S01).
+
+    A verdict is approved or rejected. Giving one to an open application or a follow-up is EDITOR's
+    (``verdict_refusal``); any write on one already approved or rejected - the other verdict, back
+    to needs follow-up, overturning an automatic rejection - is a change, and ADMIN's. Served as
+    ``verdictChangeReason``, so a review screen offers a change exactly when the write takes it.
+    """
+    refused = verdict_refusal(user_email, market, organization)
+    if refused:
+        return refused
+    if PermissionsApi.user_has_permission(user_email, market, MarketRole.ADMIN, organization):
+        return None
+    return CHANGING_A_VERDICT
+
+
 #: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
 #: seats are being given.
 ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
@@ -848,6 +872,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # no control the server would refuse.
     market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
     market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
+    market_dict['verdictChangeReason'] = verdict_change_refusal(
+        user_email, market, context.organization)
     market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
     # Results wait for the allocation (E36/F04/S01): offered exactly when the endpoint would take
     # them, with how many will read each outcome for the confirmation.

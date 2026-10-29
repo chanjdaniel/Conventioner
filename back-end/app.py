@@ -1301,6 +1301,14 @@ def _reviewer_on(market_id: str):
     return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
 
 
+def _change_refused(context) -> Optional[str]:
+    """Why the signed-in reviewer may not change a verdict already given, or None while they may
+    (E38/F06/S01): an Editor gives verdicts, an Admin or the owner also changes them. Asked of each
+    application at its write, since only its stored status says whether a write is a change."""
+    return MarketsApi.verdict_change_refusal(
+        authenticated_email(), context.market, context.organization)
+
+
 def _named_status(name: Any) -> Optional[ApplicationStatus]:
     """The application status a request names, or None when it names none."""
     return next((status for status in ApplicationStatus if status.value == name), None)
@@ -1332,7 +1340,7 @@ def review_application(market_id: str, application_id: str) -> Response:
             context.market, context.organization, person, data['ownerEmail'])
     result, status_code = ApplicantsApi.review_application(
         market_id, application_id, new_status, by=person.as_giver(), owner=owner,
-        seen=ApplicantsApi.seen_from(data.get('seen')),
+        seen=ApplicantsApi.seen_from(data.get('seen')), change_refused=_change_refused(context),
     )
     return jsonify(result), status_code
 
@@ -1346,7 +1354,7 @@ def review_selection(market_id: str) -> Response:
             "applications": [{ "id": "...", "seen": { "status": "open", "verdictAt": null } }] }
     Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
     """
-    person, _context, refused = _reviewer_on(market_id)
+    person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = json_object(required=False)
@@ -1361,7 +1369,7 @@ def review_selection(market_id: str) -> Response:
     result, status_code = ApplicantsApi.review_selection(
         market_id,
         [(str(item.get('id') or ''), ApplicantsApi.seen_from(item.get('seen'))) for item in ticked],
-        new_status, by=person.as_giver())
+        new_status, by=person.as_giver(), change_refused=_change_refused(context))
     return jsonify(result), status_code
 
 

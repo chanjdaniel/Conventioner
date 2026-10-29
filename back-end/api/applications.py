@@ -307,12 +307,20 @@ UNDECIDED_STATUSES = (ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVI
 #: The statuses a reviewer gives, each with who gave it: a verdict, or a follow-up (E34).
 MARKED_STATUSES = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
                    ApplicationStatus.NEEDS_FOLLOW_UP)
+#: The verdicts: an application at one is decided, and writing over it is changing a verdict, an
+#: ADMIN's (E38/F06/S01). A follow-up is marked, not decided.
+VERDICTS = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED)
+
+
+def is_decided(doc: Dict[str, Any]) -> bool:
+    """Whether a stored application carries a verdict, so a write over it changes one."""
+    return doc.get("status") in {status.value for status in VERDICTS}
 
 
 def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
     reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
-    owner: Optional[MarketPerson] = None,
+    owner: Optional[MarketPerson] = None, unless_decided: bool = False,
 ) -> bool:
     """Set a new status on an application. Returns whether it was written.
 
@@ -328,6 +336,10 @@ def update_application_status(
 
     A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
     (E34/F01/S02). Any other status clears the owner.
+
+    ``unless_decided`` writes only on an application that carries no verdict, for someone who gives
+    verdicts but changes none (E38/F06/S01): checked in the write itself, so a verdict landing
+    between the caller's read and this is never written over.
     """
     if status in MARKED_STATUSES and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")
@@ -356,6 +368,8 @@ def update_application_status(
         query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
         if if_unchanged_since.get("updated_at"):
             query["updated_at"] = if_unchanged_since["updated_at"]
+    if unless_decided:
+        query["$nor"] = [{"status": {"$in": [status.value for status in VERDICTS]}}]
     result = applications_collection.update_one(query, update)
     return result.matched_count > 0
 
