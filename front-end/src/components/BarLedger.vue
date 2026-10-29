@@ -101,6 +101,8 @@ function tail(row: LedgerRow): string {
   font-size: var(--text-sm);
   color: var(--mm-black);
   text-decoration: none;
+  /* A row shows its hover at once, as the button it was did, not with every link's fade. */
+  transition: none;
 }
 
 .bar-ledger-row--link:hover {
