@@ -537,9 +537,11 @@ class TestReservedKeyPrefix:
         with pytest.raises(BadRequestError, match="reserved 'essential_' prefix"):
             MarketsApi.save_application_form("market-123", form, "user-1")
 
-    @pytest.mark.parametrize("key", ["applicant_email", "submitted_at", "sheet_note"])
+    @pytest.mark.parametrize("key,meaning", [
+        ("applicant_email", "who applied"), ("submitted_at", "when they applied"),
+        ("sheet_note", "your sheet's note")])
     def test_the_builder_refuses_a_key_the_import_reads_as_something_else(
-            self, monkeypatch, applications, key):
+            self, monkeypatch, applications, key, meaning):
         """A question keyed ``applicant_email`` would hold the column that says who applied
         (E38/F02): the import's own targets are no question's key."""
         monkeypatch.setattr(MarketsApi, "markets_collection",
@@ -547,8 +549,11 @@ class TestReservedKeyPrefix:
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         form = {"fields": [{"key": key, "label": "Applicant email", "type": "text"}]}
 
-        with pytest.raises(BadRequestError, match=f"Field key '{key}' is reserved"):
+        with pytest.raises(BadRequestError) as refusal:
             MarketsApi.save_application_form("market-123", form, "user-1")
+        assert str(refusal.value) == (
+            f"Field key '{key}' is reserved: the import reads that column as {meaning}. "
+            "Choose another key.")
 
     def test_a_client_cannot_forge_the_frozen_offering(self, monkeypatch, applications):
         """``essential_options`` is server-owned, like ``published_at``: whatever a payload

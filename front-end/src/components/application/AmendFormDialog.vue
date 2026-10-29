@@ -28,7 +28,7 @@ import {
   UNASKABLE_ESSENTIAL_KEYS,
   askedEssentialAnswers,
 } from '@/utils/essentialFields';
-import { FIELD_KEY_PATTERN } from '@/utils/applicationForm';
+import { fieldKeyError } from '@/utils/applicationForm';
 import type { ApplicationForm, EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 
 const props = defineProps<{
@@ -106,12 +106,10 @@ const existingFields = computed(() => props.applicationForm?.fields ?? []);
 const keyError = computed(() => {
   if (!newFieldLabel.value.trim()) return '';
   const key = newFieldKey.value.trim();
-  if (!FIELD_KEY_PATTERN.test(key)) {
-    return 'Use lowercase letters, numbers and underscores only.';
-  }
-  if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
-    return `Keys beginning "${ESSENTIAL_KEY_PREFIX}" belong to the essential questions.`;
-  }
+  // The builder's own check, so this never offers a key the save refuses after the walk to draft:
+  // a column headed "Submitted at" slugs to the import's own `submitted_at` (E38/F02).
+  const refusal = fieldKeyError(key);
+  if (refusal) return refusal;
   if (existingFields.value.some((field) => field.key === key)) {
     return 'This market already asks a question with that key.';
   }

@@ -69,7 +69,7 @@ Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`, `ask-this-
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
 
-"Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_` and must be unique.
+"Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."
 Covered by: `application-form.spec.ts`.
 

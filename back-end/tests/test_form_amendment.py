@@ -188,6 +188,21 @@ class TestItRefusesBeforeMovingAnything:
         assert fake.phase == "applications_open"
         assert fake.writes == []
 
+    @pytest.mark.parametrize("key", ["submitted_at", "applicant_email"])
+    def test_a_key_the_import_reads_as_something_else_is_refused_and_nothing_moves(
+        self, markets, key,
+    ):
+        """The dialog offers a column headed "Submitted at" as ``submitted_at``: the save refuses
+        that key, so the amendment must refuse it before it walks the market to draft."""
+        fake = markets(MarketPhase.APPLICATIONS_OPEN)
+        reserved = {"fields": [{**FORM_WITH_A_FIELD["fields"][0], "key": key}]}
+
+        with pytest.raises(BadRequestError, match=f"Field key '{key}' is reserved"):
+            Amend.amend_application_form("market-123", reserved, "user-1")
+
+        assert fake.phase == "applications_open"
+        assert fake.writes == []
+
     def test_a_market_with_applications_is_refused_and_told_why(self, markets, monkeypatch):
         fake = markets(MarketPhase.APPLICATIONS_OPEN)
         monkeypatch.setattr(ApplicationsApi, "count_applications_for_market", lambda _id: 3)

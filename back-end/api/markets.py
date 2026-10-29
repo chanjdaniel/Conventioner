@@ -558,8 +558,8 @@ def _normalized_application_form(
             )
         if key in CsvImport.RESERVED_TARGETS:
             raise BadRequestError(
-                f"Field key '{key}' is reserved: the import reads that column as who applied, "
-                "when they applied, or your sheet's note. Choose another key."
+                f"Field key '{key}' is reserved: the import reads that column as "
+                f"{CsvImport.RESERVED_TARGETS[key]}. Choose another key."
             )
         if key in seen_keys:
             raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")

@@ -45,6 +45,7 @@ It is offered only from those two phases, the only two an import runs in, and on
 **Pre-flight, not rollback.**
 Every guard on every hop is judged against the PROPOSED form before the market moves (`judge_route` over a copy of the market carrying it).
 Judging the stored form would pass a market whose current form is fine, move it to draft, write a form that asks nothing and then refuse the return, stranding it mid-import.
+The proposed form also meets the save's own field checks first (`_normalized_application_form`): a key the save refuses, such as `submitted_at` from a column headed "Submitted at", once left the market in draft with its amendment half done; the dialog asks the builder's key check (`fieldKeyError`) before it sends one.
 There is nothing to roll back, because nothing moved.
 
 **A stalled walk says where it stopped.**

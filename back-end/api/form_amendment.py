@@ -253,6 +253,9 @@ def amend_application_form(
         raise AmendmentUnavailable(availability["reason"])
 
     proposed = MarketsApi.parsed_application_form(market_id, application_form_data)
+    # Whatever the save would refuse in a field (a reserved key above all) is refused here, before
+    # anything moves, rather than once the market is in draft with its amendment half done.
+    MarketsApi._normalized_application_form(proposed)
 
     blockers = preflight(market, proposed, plan)
     if blockers:
