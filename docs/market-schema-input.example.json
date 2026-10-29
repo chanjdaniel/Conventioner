@@ -147,7 +147,7 @@
     "id": "market-789",
     "name": "Autumn Artisan Expo",
     "creationDate": "2026-04-14",
-    "phase": "applications_open",
+    "phase": "applications",
     "roles": {
       "user-4": "owner"
     },

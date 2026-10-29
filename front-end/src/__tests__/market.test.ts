@@ -15,7 +15,7 @@ const apiMarket = {
 
 describe('parseMarketFromApi', () => {
   it('carries what the server judged of each move and of the setup (E31/F01, F02)', () => {
-    const blockers = { applications_open: [{ id: 'x', passed: false, message: 'No dates.' }] };
+    const blockers = { applications: [{ id: 'x', passed: false, message: 'No dates.' }] };
     const market = parseMarketFromApi({
       ...apiMarket,
       transitionBlockers: blockers,

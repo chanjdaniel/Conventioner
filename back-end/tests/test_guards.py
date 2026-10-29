@@ -844,9 +844,10 @@ class TestEveryResolutionLinkPointsAtItsFix:
 
 
 def test_no_guard_reads_the_phase():
-    """A move's whole route, and the form amendment's chain, are judged against the market as it
-    stands, before any step is taken (``judge_route``). That is sound only while no guard's verdict
-    depends on the phase it is asked on, so a guard that reads it is refused here."""
+    """A move is judged against the market as it stands, and a Google Form market's first import
+    judges the move into Review before it writes (``first_import_blockers``). That is sound only
+    while no guard's verdict depends on the phase it is asked on, so a guard that reads it is
+    refused here."""
     source = pathlib.Path(guards.__file__).read_text()
     readers = []
     for cls in ast.walk(ast.parse(source)):
