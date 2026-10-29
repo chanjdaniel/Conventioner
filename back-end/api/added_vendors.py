@@ -15,6 +15,7 @@ from typing import Any, Dict, Tuple
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import history as History
 import essential_fields as EssentialFields
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError
@@ -60,4 +61,9 @@ def add_vendor(
         added_by=adder,
         added_at=now,
     ))
+    History.record(
+        market_id, adder.email, Actions.ADD_VENDOR, vendors=[address],
+        subject={"application_id": application.id},
+        detail=lambda: History.changes({}, {"name": name, "status": application.status.value}),
+    )
     return {"application": convert_keys_to_camel_case(application.model_dump())}, 201

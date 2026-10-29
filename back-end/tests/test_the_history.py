@@ -79,7 +79,7 @@ class TestAnEntry:
         }
 
     def test_an_action_with_one_change_needs_no_finer_kind(self, history):
-        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP)
+        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP, detail={})
 
         [entry] = history.docs
         assert entry["action"] == "change-setup"
@@ -96,7 +96,22 @@ class TestAnEntry:
 
         monkeypatch.setattr(History, "history_collection", Broken())
 
-        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP)
+        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP, detail={})
+
+    def test_a_detail_that_cannot_be_built_is_swallowed(self, history):
+        """Built inside the guard: a builder that raises loses the entry, never the change."""
+        def broken():
+            raise RuntimeError("the stored plan no longer parses")
+
+        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP, detail=broken)
+
+        assert history.docs == []
+
+    def test_a_write_that_changed_nothing_records_nothing(self, history):
+        History.record("m1", "dana@example.com", Actions.CHANGE_SETUP,
+                       detail=lambda: History.changes({"name": "A"}, {"name": "A"}))
+
+        assert history.docs == []
 
 
 class TestAPlacementEntry:
@@ -134,8 +149,8 @@ class TestThePlacementView:
 
     def test_it_holds_only_placements(self, history):
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-        History.record("m1", "a@x.test", Actions.CHECK_IN, vendors=["v@x.test"])
-        History.record("m1", "a@x.test", Actions.ASSIGN, kind="rules-changed")
+        History.record("m1", "a@x.test", Actions.CHECK_IN, vendors=["v@x.test"], detail={})
+        History.record("m1", "a@x.test", Actions.ASSIGN, kind="rules-changed", detail={})
 
         assert [e["kind"] for e in History.placement_entries("m1")] == [History.FREED]
 
@@ -209,9 +224,9 @@ class TestThePlacementViewBeforeTheMigration:
 
 
 def test_deleting_a_market_takes_every_entry_of_its_history(history):
-    History.record("m1", "a@x.test", Actions.CHANGE_SETUP)
+    History.record("m1", "a@x.test", Actions.CHANGE_SETUP, detail={})
     History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-    History.record("m2", "a@x.test", Actions.CHANGE_SETUP)
+    History.record("m2", "a@x.test", Actions.CHANGE_SETUP, detail={})
 
     assert History.delete_for_market("m1") == 2
     assert History.delete_for_market("m2") == 1

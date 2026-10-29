@@ -2,10 +2,10 @@
 
 **One history for every change** (E40, ADR 0017). It began as the placement history, which kept
 placements only; Daniel widened it ("every change is logged", Q23), so every write that changes a
-market, its applications or its vendors is to record here (the placement writes do; E40/F01/S02
-brings the rest), and the placement trail is this history narrowed to placements. What is state
-stays where it is - an application's verdict, the market's ``phaseHistory`` - and its changes are
-to be recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
+market, its applications or its vendors records here, after its change has landed (E40/F01/S02;
+``tests/test_every_write_records.py`` sends each), and the placement trail is this history narrowed
+to placements. What is state stays where it is - an application's verdict, the market's
+``phaseHistory`` - and its changes are recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
 must outlive what it describes and this history is deleted with its market.
 
 **An entry says what happened, never a sentence**: the ``E39`` action it was
@@ -31,7 +31,7 @@ writer goes through this module. A market's history is deleted with the market.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from api.market_actions import ASSIGN, CHANGE_THE_TABLE, Action
 from db_config import get_database
@@ -49,38 +49,124 @@ db = get_database()
 history_collection = db[HISTORY_COLLECTION]
 legacy_placement_collection = db[LEGACY_PLACEMENT_COLLECTION]
 
+#: The one verb no row of the table asks: an applicant submitting or editing their own
+#: application, whose sign-in is the check.
+APPLY = "apply"
+
+# What a change was, where one action covers several: kinds rather than a message, as for the
+# placements below, so a surface words them. ``docs/implementation/data/history.md`` lists each
+# with its subject and detail.
+RENAMED = "renamed"
+PLAN = "plan"
+FLOORPLAN = "floorplan"
+FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
+FORM = "form"
+REVIEW_HIGHLIGHTS = "review_highlights"
+REJECTION_RULES = "rejection_rules"
+RESUMED = "resumed"
+IMPORTED = "imported"
+STARTED = "started"
+VERDICT = "verdict"
+VERDICTS = "verdicts"
+FOLLOW_UP_OWNER = "follow_up_owner"
+NOTE = "note"
+REQUEST_HANDLED = "request_handled"
+RULES = "rules"
+CHECKED_IN = "checked_in"
+CHECK_IN_UNDONE = "check_in_undone"
+ROLE_GIVEN = "role_given"
+ROLE_CHANGED = "role_changed"
+ROLE_TAKEN = "role_taken"
+SUBMITTED = "submitted"
+EDITED = "edited"
+PERMISSION_SET = "permission_set"
+PERMISSION_RESET = "permission_reset"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+#: Part of an entry, given as it is or as a builder: a callable with no arguments, run inside
+#: ``record``'s guard.
+Part = Union[Dict[str, Any], None, Callable[[], Optional[Dict[str, Any]]]]
+
+
 def record(
-    market_id: str, actor: str, action: Action, *, kind: Optional[str] = None,
-    vendors: Iterable[str] = (), subject: Optional[Dict[str, Any]] = None,
-    detail: Optional[Dict[str, Any]] = None,
+    market_id: str, actor: Optional[str], action: Action, *, kind: Optional[str] = None,
+    vendors: Iterable[str] = (), subject: Part = None, detail: Part,
 ) -> None:
     """Write one entry. Never raises: a history that can break a change is worse than no history.
 
     The write that matters has already happened by the time this is called - the seat is taken,
     and check-in will read it. Failing the request because the *record* of it could not be saved
-    would tell the organizer their change did not land when it did.
+    would tell the organizer their change did not land when it did. So the subject and the detail
+    are given as builders wherever building them reads or computes anything, and are built here,
+    under the same guard as the insert: a detail that raised before it got here would answer the
+    change with a 500 after it landed as surely as a failed insert would.
+
+    A detail that builds to None is a write that changed nothing, and records nothing.
     """
+    _write(market_id, actor, action.id, kind, vendors, subject, detail)
+
+
+def record_applicant(
+    market_id: str, applicant: str, kind: str, application_id: str, detail: Part,
+) -> None:
+    """An applicant's own change to their application, with the applicant as its actor.
+
+    No row of the table asks it - the applicant holds no role, and their sign-in is the check - so
+    its action is the history's own ``apply``.
+    """
+    _write(market_id, applicant, APPLY, kind, [applicant], {"application_id": application_id},
+           detail)
+
+
+def _built(part: Part) -> Optional[Dict[str, Any]]:
+    return part() if callable(part) else part
+
+
+def _write(
+    market_id: str, actor: Optional[str], action_id: str, kind: Optional[str],
+    vendors: Iterable[str], subject: Part, detail: Part,
+) -> None:
     try:
+        built = _built(detail)
+        if built is None:
+            return
         history_collection.insert_one({
             "id": str(uuid.uuid4()),
             MARKET_ID_FIELD: market_id,
             "actor": actor,
             "at": _now(),
-            "action": action.id,
+            "action": action_id,
             "kind": kind,
             # Lowercased, because an address is a person and case is not part of who they are:
-            # a vendor's own panel looks its entries up by this list.
+            # a vendor's entries are looked up by this list.
             "vendors": [normalized_email(email) for email in vendors if email],
-            "subject": subject or {},
-            "detail": detail or {},
+            "subject": _built(subject) or {},
+            "detail": built,
         })
-    except Exception as e:  # pragma: no cover - defensive
-        logger.warning("Could not record %s on market %s: %s", kind or action.id, market_id, e)
+    except Exception as e:
+        # The error's type and the entry's ids, never its text: a driver's message can quote the
+        # document it refused, and an entry holds answers and addresses.
+        logger.warning("Could not record %s on market %s: %s", kind or action_id, market_id,
+                       type(e).__name__)
+
+
+def changes(before: Dict[str, Any], after: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """An entry's detail: the fields that differ, as they were and as they are, or None when
+    nothing does - so a write that restates what is stored records nothing.
+
+    Never a whole document: a field the write left as it was is in neither half.
+    """
+    changed = [key for key in {**before, **after} if before.get(key) != after.get(key)]
+    if not changed:
+        return None
+    return {
+        "before": {key: before.get(key) for key in changed},
+        "after": {key: after.get(key) for key in changed},
+    }
 
 
 def delete_for_market(market_id: str) -> int:
@@ -141,16 +227,19 @@ def _record_placement(
 ) -> None:
     record(
         market_id, actor, ASSIGN, kind=kind, vendors=vendors,
-        subject=placement_subject(kind, detail), detail=detail,
+        subject=lambda: placement_subject(kind, detail), detail=detail,
     )
 
 
-def record_placed(market_id: str, actor: str, placement) -> None:
-    """One vendor put in one seat by hand."""
+def record_placed(market_id: str, actor: str, placement, left=None) -> None:
+    """One vendor put in one seat by hand, and the seat they ``left`` on that date: ``before``,
+    null when they had none. Entries older than ``before`` carry no such key."""
     _record_placement(market_id, actor, PLACED, [placement.email], {
         "date": placement.date,
         "table_code": placement.table_code,
         "table_choice": placement.table_choice,
+        "before": {"table_code": left.table_code, "table_choice": left.table_choice}
+        if left is not None else None,
     })
 
 
@@ -206,11 +295,6 @@ def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict
 
 
 # --- The table: a market owner's changes to who may do what (E39/F01/S03) -------------------
-
-# A row set to a role, and a row returned to its built-in default. Each entry's subject is the row,
-# ``{action}``, and its detail the row's ``role`` and ``source`` before and after.
-PERMISSION_SET = "permission_set"
-PERMISSION_RESET = "permission_reset"
 
 _PERMISSION_FIELDS = ("id", MARKET_ID_FIELD, "actor", "at", "action", "kind", "subject", "detail")
 

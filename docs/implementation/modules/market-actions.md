@@ -116,6 +116,8 @@ So the read serves them for one more release, each its row's answer and then the
 **A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.
 `test_the_screens_name_exactly_the_tables_rows` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py), which pins every answer the read serves, fails when the front end's ids and the table's differ, and `noScreenComparesARole.test.ts` when a source file compares or ranks a market role, or reads the role the person holds.
 
+**A write that changes a market records into [the market's history](../data/history.md) under its row's id**, and `back-end/tests/test_every_write_records.py` fails on a write route or a row that records nothing unless it says why there.
+
 ## Sharp edges
 
 **No source outside this module and `permissions.py` names a role threshold**: `test_no_check_outside_the_actions_module_names_a_role` in [`back-end/tests/test_every_check_names_an_action.py`](../../../back-end/tests/test_every_check_names_an_action.py) searches every other server source for any use of `user_has_permission`, `can_manage_roles` or `ROLE_RANK`, and of the role resolvers `get_user_market_role`, `organization_market_role` and `higher_role` outside the two functions that serve the role itself to the client (`get_market_for_user`, `_summary_role`), and fails on any.

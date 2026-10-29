@@ -1501,6 +1501,20 @@ def _merge_shape(
     }
 
 
+def import_counts(result: Dict[str, Any]) -> Dict[str, int]:
+    """What an import did, as the market's history records it: its counts, never its rows."""
+    return {
+        "row_count": result["rowCount"],
+        "created": result["created"],
+        "updated": result["updated"],
+        "unchanged": result["unchanged"],
+        "skipped": result["skipped"],
+        "returned_to_review": result["returnedToReview"],
+        "rejected_by_rules": result["rejectedByRules"],
+        "returned_by_rules": result["returnedByRules"],
+    }
+
+
 def import_applications(
     markets_collection: Any,
     market_doc: Dict[str, Any],
@@ -1660,7 +1674,7 @@ def import_applications(
 
     # The rules judge what this import wrote - after any approval it sent back to review - and
     # anything else still undecided (E33/F03/S02).
-    rejected = RejectionRules.judge(
+    verdicts = RejectionRules.judge(
         RejectionRules.Rulebook(market_from_document(market_doc)), market_id)
 
     return {
@@ -1673,7 +1687,8 @@ def import_applications(
         "repeats": repeats,
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
-        "rejectedByRules": rejected,
+        "rejectedByRules": verdicts.rejected,
+        "returnedByRules": verdicts.returned,
     }, 200
 
 

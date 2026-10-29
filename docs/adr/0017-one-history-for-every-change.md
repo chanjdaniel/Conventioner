@@ -28,18 +28,18 @@ There is one history for every change on a market, and the placement history is 
 Its existing entries are moved into it with every field they had ([`migrate_placement_history.py`](../../back-end/migrations/migrate_placement_history.py)), and the placement trail is the history narrowed to placements.
 
 An entry is the market (or, from E40/F02, the organization), the actor (an organizer's address, or an applicant's when the change is theirs), when, the action, the vendors it is about, a subject for whatever else it is about (an application, a table-day, a question, a setting), and a structured detail with the changed fields before and after.
-**The `assign` action's placement kinds are the one exception**: their details keep the shapes they always had (the seat taken, the seat freed, the two seats swapped, a run's counts), with no before, because the entries moved from `placement_history` have none to give and the placement endpoint answers byte for byte as it did; so a hand placement that moves a vendor records where they went, not where they were.
+**The `assign` action's placement kinds are the one exception**: their details keep the shapes they always had (the seat taken, the seat freed, the two seats swapped, a run's counts), with no before, because the entries moved from `placement_history` have none to give and the placement endpoint answers as it did; a `placed` entry written since E40/F01/S02 adds the seat the vendor left as `before`, and an older one, lacking the key, leaves it unknown.
 **The action is an [E39 action](../implementation/modules/market-actions.md) id**, the verb the write's check asked, with a finer kind beside it where one action covers several changes, so "may this person take this action" and "this person took this action" share one vocabulary.
 The placement history's sharp edges hold for every entry: structured, never a sentence (the wording is the screen's); a run is one entry; writing an entry never fails the change it records; the history is deleted with its market.
 
 What stays where it is:
 
-- **An application's verdict fields and the market's `phaseHistory` stay as state**: the review and the guards read them, and a log is not a state anyone should have to fold. Each of their changes is also to be recorded in the history (E40/F01/S02).
+- **An application's verdict fields and the market's `phaseHistory` stay as state**: the review and the guards read them, and a log is not a state anyone should have to fold. Each of their changes is also recorded in the history (E40/F01/S02).
 - **The deletion trail stays apart**: it must outlive what it describes, and the history is deleted with its market.
 
 ## Consequences
 
-- Every write that changes a market records through `record`, at the place it already asks its E39 action (E40/F01/S02); a later record (permission changes, corrections to a vendor's info, payments, Discord runs) writes here rather than keeping a list of its own.
+- Every write that changes a market records through `record`, at the place it already asks its E39 action (E40/F01/S02); so do the changes to a market's own permission rows (E39/F01/S03), and a later record (corrections to a vendor's info, payments, Discord runs) writes here rather than keeping a list of its own.
 - Recording who now attaches an organizer's identity to every change on a market, which may be exported, shared or handed to a successor organizer; that was accepted for placements and is widened on Daniel's word.
 - The placement endpoint and the drawer's History tab answer as before, by narrowing the history to the `assign` action's placement kinds and to the fields a placement entry always had.
 - A database older than the move holds its entries in `placement_history` until the migration runs, so until then the placement trail reads that collection beside `history`: the History tab answers as before from the deploy on, and the release can be rolled back until the migration has run. The migration is idempotent and forward-only, and a later release removes the fallback once every database is moved.

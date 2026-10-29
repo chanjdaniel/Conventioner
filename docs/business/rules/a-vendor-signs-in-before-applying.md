@@ -7,7 +7,7 @@ describes:
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/api/applicants.py#save_applicant_application
   - back-end/sign_in_limits.py
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - E26/F07/S01
   - E32/F03/S02
@@ -40,6 +40,7 @@ Telling the person who just read the code whether they have applied leaks nothin
   An applicant's application is found by market and address, its identity.
 - **The first valid save creates the application** (`save_applicant_application` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)): the answers are checked before anything is made, so a refused first try leaves nothing behind for the organizer to review as an empty application, and the application is created through the identity index of [the application document](../../implementation/data/application-document.md#indexes).
   The save is open only while the market is in `applications_open` ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
+  Their first save, and each edit that changes an answer, is recorded in [the market's history](../../implementation/data/history.md) with their address as the actor.
 - A market's outstanding codes are deleted with it ([market deletion](../../implementation/modules/market-deletion.md)).
 
 ## Sign-in is bounded

@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import history as History
 from client_errors import ConflictError
 from datatypes import ApplicationForm, Market, MarketPhase, phase_label
 from guards import PreconditionResult, judge_route, route_between
@@ -266,10 +267,19 @@ def amend_application_form(
 
     # In draft, which is the one phase the form is writable in - so this goes through the ordinary
     # writer and meets the ordinary lock, rather than around it.
-    saved = MarketsApi.save_application_form(market_id, application_form_data, requesting_user)
+    in_draft = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
+    saved, verdicts = MarketsApi.write_application_form(in_draft, application_form_data)
 
     _walk(market_id, plan.up, plan, requesting_user)
     _clear_intent(market_id)
+    # One entry for the whole chain, as it was one action: the form it changed and where it
+    # returned the market, not a phase move per hop.
+    History.record(
+        market_id, requesting_user, Actions.AMEND_FORM,
+        subject={"return_phase": plan.return_phase},
+        detail=lambda: {**(MarketsApi.form_changes(market, saved) or {}), **verdicts.counts(),
+                        "hops": len(plan.hops)},
+    )
 
     return {
         "application_form": saved,
@@ -305,4 +315,10 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     plan = AmendmentPlan(return_phase=target, down=[], up=steps)
     _walk(market_id, steps, plan, requesting_user)
     _clear_intent(market_id)
+    History.record(
+        market_id, requesting_user, Actions.AMEND_FORM, kind=History.RESUMED,
+        subject={"return_phase": target},
+        detail=lambda: {**History.changes({"phase": market.phase.value}, {"phase": target}),
+                        "hops": len(steps)},
+    )
     return {"phase": target, "hops": len(steps)}

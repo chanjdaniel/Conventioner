@@ -20,6 +20,7 @@ from utils.request_body import NOT_AN_OBJECT, string_field
 from db_config import get_database
 import api.markets as MarketsApi
 import api.market_actions as Actions
+import history as History
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,18 @@ def save_floorplan_to_market():
             }}}
 
         markets_collection.update_one({"id": market_id}, update)
+        stored = existing_setup if isinstance(existing_setup, dict) else {}
+        History.record(
+            market_id, user_email, Actions.CHANGE_SETUP, kind=History.FLOORPLAN,
+            subject=lambda: {"floorplan_id": floorplan.get("id")},
+            detail=lambda: History.changes(
+                {"sections": stored.get("sections"), "locations": stored.get("locations"),
+                 "floorplan_ids": [fp.get("id") for fp in stored.get("floorplans") or []]},
+                {"sections": sections_data, "locations": list(locations_data.values()),
+                 "floorplan_ids": [fp.get("id") for fp in stored.get("floorplans") or []]
+                 + [floorplan.get("id")]},
+            ),
+        )
 
         # ── 5. Return success ──────────────────────────────────────────────
         return jsonify({

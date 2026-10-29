@@ -23,6 +23,7 @@ import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
 import api.market_actions as Actions
+import history as History
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -1465,7 +1466,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     data = json_object(required=False)
     owner = MarketsApi.follow_up_owner(
         context.market, context.organization, person, data.get('ownerEmail'))
-    result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
+    result, status_code = ApplicantsApi.reassign_follow_up(
+        market_id, application_id, owner, person.email)
     return jsonify(result), status_code
 
 
@@ -1552,7 +1554,7 @@ def confirm_csv_proposal(market_id: str) -> Response:
         return jsonify(error), status_code
 
     data = json_object(required=True)
-    result, status_code = CsvStart.confirm(market_doc, data)
+    result, status_code = CsvStart.confirm(market_doc, data, authenticated_email())
     return jsonify(result), status_code
 
 
@@ -1626,6 +1628,10 @@ def import_applications(market_id: str) -> Response:
     result, status_code = CsvImport.import_applications(
         MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
     )
+    if status_code == 200:
+        # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
+        History.record(market_id, authenticated_email(), Actions.IMPORT_APPLICATIONS,
+                       kind=History.IMPORTED, detail=lambda: CsvImport.import_counts(result))
     return jsonify(result), status_code
 
 
@@ -1649,7 +1655,7 @@ def publish_market_results(market_id: str) -> Response:
     if refusal:
         return jsonify({"error": refusal}), 403
 
-    result, status_code = ApplicantsApi.publish_results(market_id)
+    result, status_code = ApplicantsApi.publish_results(market_id, requesting_user)
     return jsonify(result), status_code
 
 

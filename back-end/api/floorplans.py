@@ -13,7 +13,9 @@ from PIL import Image as PILImage
 
 from api.floorplans_access import image_refusal, market_refusal
 import api.market_actions as Actions
-from services.gridfs_service import upload_image, get_image, delete_image
+import history as History
+from services.gridfs_service import delete_image, get_image, get_image_market_id, upload_image
+from utils.identity import authenticated_email
 from utils.pdf_converter import pdf_to_images, is_pdf
 
 logger = logging.getLogger(__name__)
@@ -156,9 +158,15 @@ def delete_floorplan(gridfs_id: str):
         if refusal:
             return refusal
 
+        market_id = get_image_market_id(gridfs_id)
         success = delete_image(gridfs_id)
         if not success:
             return jsonify({"error": "Image not found"}), 404
+        History.record(
+            market_id, authenticated_email(), Actions.CHANGE_SETUP,
+            kind=History.FLOORPLAN_IMAGE_DELETED, subject={"image_id": gridfs_id},
+            detail=lambda: History.changes({"image_id": gridfs_id}, {"image_id": None}),
+        )
 
         return jsonify({"message": "Image deleted successfully"}), 200
 
