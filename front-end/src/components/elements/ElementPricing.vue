@@ -174,7 +174,7 @@ function onCurrency(code: string) {
     <p v-if="percentDraft !== null" class="pricing-error" role="alert">
       The half table's share is a whole number from 0 to 100.
     </p>
-    <p class="pricing-note">
+    <p v-if="tiers.length" class="pricing-note">
       Optional. A tier left blank has no price, and a market with no prices shows none.
     </p>
   </div>
@@ -185,6 +185,8 @@ function onCurrency(code: string) {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* The plan's ink: unset, its labels took the app's default slate beside the other cards' black. */
+  color: var(--mm-black);
 }
 
 /* As wide as its columns, not the card: a price is a short field, and stretched across a wide card

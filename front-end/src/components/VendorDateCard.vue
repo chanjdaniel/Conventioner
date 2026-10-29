@@ -75,6 +75,9 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 
     <div v-if="placed" class="vendor-date-card-detail">
       {{ placement }}
+      <span v-if="price" class="vendor-date-card-price" data-testid="vendor-date-card-price">
+        {{ price }}
+      </span>
       <a
         v-if="canPlace && placeHref"
         class="vendor-date-card-action"
@@ -84,9 +87,6 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
       >
         {{ actionLabel }}
       </a>
-      <span v-if="price" class="vendor-date-card-price" data-testid="vendor-date-card-price">
-        {{ price }}
-      </span>
       <span v-if="overridden" class="vendor-date-card-flag" data-testid="vendor-date-card-override">
         {{ overrideText(overrides) }}
       </span>
@@ -178,9 +178,14 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
   color: var(--mm-text-yellow);
 }
 
+/* A link on its own line. It sat inline after the placement, which in the drawer's width nearly
+   always wrapped it to a line of its own, indented by the margin that was meant to part it from
+   the text before it. */
 .vendor-date-card-action {
-  display: inline-block;
-  margin-left: var(--space-2);
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: var(--target-min);
   color: var(--mm-text-link);
   font-style: normal;
   text-decoration: underline;
