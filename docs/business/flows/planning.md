@@ -148,7 +148,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
 4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept ("35.5" becomes "35.50").
 5. A cell that is not an amount turns its border red, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."; a share that is not a whole number from 0 to 100 says "The half table's share is a whole number from 0 to 100."
-   Either keeps the value it had before the typing, never a prefix of it ("15" on the way to "150"), and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
+   Either keeps the value it had before the typing - a blank cell keeps no price, never the prefix before the error ("3" then "3x" keeps nothing) - and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
 
 A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
 Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).

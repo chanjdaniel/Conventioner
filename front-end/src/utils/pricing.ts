@@ -50,7 +50,7 @@ export function priceLine(
 
 /**
  * A typed amount as cents: null for a blank cell (no price), undefined for text that is not an
- * amount. Whole units or two decimals, an optional leading "$".
+ * amount. Whole units or one or two decimals, an optional leading "$".
  */
 export function centsFromText(text: string): number | null | undefined {
   const trimmed = text.trim();

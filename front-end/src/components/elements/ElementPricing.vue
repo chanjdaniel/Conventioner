@@ -43,8 +43,9 @@ function write(next: PricingObject) {
 /**
  * A field being typed in: its text, and the value it held before. The text is shown as typed until
  * the field is left, never redrawn from the stored value under the caret, which once turned "12.05"
- * into "125" a keystroke at a time. Text that is not a value keeps the value from before, so the
- * plan never holds a prefix nobody chose ("15" on the way to "150"), and is shown until it is fixed.
+ * into "125" a keystroke at a time. Text that is not a value keeps the value from before, so a
+ * blank cell keeps no price and none keeps the prefix before the error ("3" then "3x" keeps
+ * nothing), and is shown until it is fixed.
  */
 interface Typing<V> {
   text: string;
