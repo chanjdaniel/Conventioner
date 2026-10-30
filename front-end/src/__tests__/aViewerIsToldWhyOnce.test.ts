@@ -121,6 +121,7 @@ describe('each page says only its own lock, and still offers a Viewer nothing', 
         setupLockReason,
         formQuestions: 0,
         formLockReason: null,
+        choiceQuestions: [],
       },
       global: { stubs: { ElementSettingContainer: container } },
     });

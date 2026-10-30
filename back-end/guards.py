@@ -26,6 +26,7 @@ from essential_fields import (
     plan_derived_asked_keys,
 )
 from placement_reasons import orphaned_pins
+import pricing as Pricing
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -235,6 +236,35 @@ class EveryTierHasTablesGuard:
                 ),
             )
         return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class PriceGroupsStandGuard:
+    """Every price group's conditions name a question the form asks, and answers it offers.
+
+    A group's condition on a question taken off the form, or on an answer no longer offered, prices
+    nobody, so its members would pay "Everyone else" without a word. The prices settle on leaving
+    draft with the rest of the setup, and the form with them, so this is the last moment it can be
+    fixed (E43/F01/S02). One line names every broken group.
+    """
+
+    id: str = "price_groups_stand"
+    description: str = "Every price group's conditions are on the form"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        broken = Pricing.Groups(market).broken()
+        if not broken:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        names = ", ".join(f"“{name}”" for name in broken)
+        many = len(broken) > 1
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="setup", resolution_label="Fix the price groups",
+            message=(
+                f"The price {'groups' if many else 'group'} {names} "
+                f"{'have' if many else 'has'} a condition on a question or an answer the form no "
+                "longer asks. Change or remove it on Market Setup's Pricing card."
+            ),
+        )
 
 
 class NoApplicationsYetGuard:
@@ -639,6 +669,7 @@ _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _SETUP_HAS_DATES = SetupHasDatesGuard()
 _SETUP_HAS_A_LOCATION = SetupHasALocationGuard()
 _EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
+_PRICE_GROUPS_STAND = PriceGroupsStandGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
@@ -679,8 +710,8 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # The setup's three first, so the rail offers what Market Setup lacks before the import: a
     # Google Form market's first import judges this edge less its own guard before it writes.
     ("draft", "applications"): [
-        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _FORM_HAS_FIELDS,
-        _RESPONSES_IMPORTED,
+        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _PRICE_GROUPS_STAND,
+        _FORM_HAS_FIELDS, _RESPONSES_IMPORTED,
     ],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one

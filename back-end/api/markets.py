@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -14,6 +13,7 @@ from client_errors import (
     parse_failure_detail,
 )
 from datatypes import (
+    FORM_FIELD_KEY_PATTERN,
     Application,
     ApplicationForm,
     ApplicationStatus,
@@ -94,10 +94,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-# Field keys become document keys inside ``Application.form_data``, where a dot or a leading
-# ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
-# builder produces so no key can ever be unaddressable.
-FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class MarketNotFoundError(NotFoundError):
@@ -1662,7 +1658,8 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
-    pricing = market.setup_object.pricing if market.setup_object else None
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market_id)
     # Who may be put in a seat, and what they asked for. Sent with the grid because the view has
     # to warn - before the change, not after - when a placement would alter a vendor's table choice
     # away from their own answer (E11/F03/S01). Every applicant, the ones outside the run with why
@@ -1676,11 +1673,12 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
         )
     ]
     return {
-        # Each occupant's price rides on their row, for the organizer's eyes only: this read is
-        # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
+        # Each occupant's price and the card's row that set it ride on their row, for the
+        # organizer's eyes only: this read is the market's people's, never an applicant's
+        # (E43/F01/S01, S02; Q20.2).
         "rows": [
             {**convert_keys_to_camel_case(row.model_dump()),
-             "prices": Pricing.row_prices(pricing, row)}
+             "prices": Pricing.row_prices(groups, row, answers)}
             for row in rows
         ],
         # Name against address, for the surfaces that only ever knew the address. Sent with
@@ -2303,6 +2301,7 @@ def _record_plan(
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   subject=lambda: Pricing.pricing_subject(plan),
                    detail=lambda: History.changes(
                        Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
