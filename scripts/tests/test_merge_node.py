@@ -265,6 +265,8 @@ def repo(tmp_path):
     (repo / "docs" / "business" / "rules").mkdir(parents=True)
     (repo / "docs" / "business" / "rules" / "a-rule.md").write_text(node(sources=("E31/F01",)))
     git(repo, "init", "-q", "-b", "dev")
+    git(repo, "config", "user.name", "t")
+    git(repo, "config", "user.email", "t@example.com")
     commit(repo, "base")
     return repo
 
