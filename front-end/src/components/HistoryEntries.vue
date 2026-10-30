@@ -57,9 +57,6 @@ function toggle(id: string) {
   opened.value = now;
 }
 
-/** Longer field names than this wrap; shorter ones keep to one line. */
-const LONG_FIELD = 32;
-
 const changesOf = (entry: MarketHistoryEntry) =>
   entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
 
@@ -71,9 +68,11 @@ function valueColumns(entry: MarketHistoryEntry): string[] {
 
 /**
  * One Field width for the whole list, so the value columns line up down it: as wide as the widest
- * name of any table open, a long name counted at the most a name is given (it wraps there).
+ * name of any table open, but never more than 12rem nor a third of the table, so in the narrow
+ * drawer a long name wraps rather than squeezing every value beside it. A name past that wraps.
  */
 const FIELD_MOST_REM = 12;
+const FIELD_MOST_SHARE = 1 / 3;
 const list = ref<HTMLOListElement | null>(null);
 const fieldWidth = ref('');
 
@@ -85,12 +84,10 @@ function measureFields() {
     return;
   }
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const most = FIELD_MOST_REM * rem;
+  const table = cell.closest('table')?.getBoundingClientRect().width ?? 0;
+  const most = Math.min(FIELD_MOST_REM * rem, table ? table * FIELD_MOST_SHARE : Infinity);
   let widest = 0;
-  for (const name of names) {
-    const long = name.parentElement?.classList.contains('history-field--long');
-    widest = Math.max(widest, long ? most : Math.min(name.getBoundingClientRect().width, most));
-  }
+  for (const name of names) widest = Math.max(widest, Math.min(naturalWidth(name), most));
   const style = getComputedStyle(cell);
   const chrome =
     parseFloat(style.paddingLeft) +
@@ -100,6 +97,23 @@ function measureFields() {
   const next = widest ? `${Math.ceil(widest + (chrome || 0))}px` : '';
   if (fieldWidth.value !== next) fieldWidth.value = next;
 }
+/** A name's width on one line, whatever the column it sits in has wrapped it to: from its text in
+ * its own font, or, where nothing can measure text (a test's DOM), from its box. */
+let measuring: CanvasRenderingContext2D | null | undefined;
+function naturalWidth(name: HTMLElement): number {
+  if (measuring === undefined) {
+    try {
+      measuring = document.createElement('canvas').getContext('2d');
+    } catch {
+      measuring = null;
+    }
+  }
+  if (!measuring) return name.getBoundingClientRect().width;
+  const style = getComputedStyle(name);
+  measuring.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  return measuring.measureText(name.textContent ?? '').width;
+}
+
 onMounted(measureFields);
 onUpdated(measureFields);
 </script>
@@ -173,7 +187,7 @@ onUpdated(measureFields);
           </thead>
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
-              <th scope="row" :class="{ 'history-field--long': row.field.length > LONG_FIELD }">
+              <th scope="row">
                 <span class="history-field-name">{{ row.field }}</span>
               </th>
               <td
@@ -288,9 +302,9 @@ onUpdated(measureFields);
   gap: var(--space-2);
 }
 
-/* One Field width for the whole list (`--history-field-width`, the widest name of any open table),
-   so Before and After, halves of the rest, line up down it; each name on one line unless it is
-   long. An entry whose every Before is "none" draws its one value across the rest. */
+/* One Field width for the whole list (`--history-field-width`, the widest name of any open table,
+   at most 12rem and a third of the table), so Before and After, halves of the rest, line up down
+   it. An entry whose every Before is "none" draws its one value across the rest. */
 .history-table {
   width: 100%;
   border-collapse: collapse;
@@ -327,14 +341,10 @@ onUpdated(measureFields);
   width: var(--history-field-width);
 }
 
+/* A name wraps only where it is wider than the list's Field column, which is as wide as the widest
+   name up to its cap (`measureFields`): an organizer's long question, or a long name in the drawer. */
 .history-table tbody th {
-  white-space: nowrap;
-}
-
-/* An organizer's long question wraps in a column of its own width rather than squeezing both
-   values into slivers. */
-.history-table tbody th.history-field--long {
-  white-space: normal;
+  overflow-wrap: normal;
 }
 
 .history-address {
