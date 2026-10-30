@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 
@@ -59,7 +59,7 @@ test('an archived market that ran is shown as a record, with nothing to change',
   await expect(page.getByTestId('vendor-date-card-place-link')).toHaveCount(0);
 
   // Verdicts are part of the record.
-  await page.goto(marketSetupPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   await page.getByTestId('app-monitor-decided-toggle').click();
   await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
   await expect(page.getByTestId('app-monitor-decided-approve-button')).toHaveCount(0);

@@ -11,6 +11,7 @@ sources:
   - E32/F02/S01
   - E36/F04/S02
   - E38/F04/S01
+  - E38/F05/S01
 ---
 
 # The market journey spec
@@ -29,14 +30,14 @@ The glossary concept: [Market](../../business/concepts/market.md).
 2. Plan it on the one page: two dates still to come, a tier, two sections, a location.
 3. Leave draft by importing: on the CSV path the rail reads Draft, Review ([the phase rail](../modules/phase-rail.md)), and its main button "Import responses" opens the import, with Begin Review disabled beside it.
 4. Import a Google Forms export that asks only the essential questions, which is the ordinary case: an organizer who never built a custom form.
-5. The written import takes the market into Review; "Go to the review", and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
+5. The written import takes the market into Review; "Go to the review", switch from the All view the page opens on to One by one, and approve two applicants and reject one in the review queue, checking that the card carries the answers a verdict rests on.
 6. Begin Assignment and run it.
 7. Read the result: the two approved hold tables and the rejected one holds none, read off the drawn grid so "not placed" is not "not loaded".
 
 Approval is what decides the solver's whole input, which is why the journey must click it.
 It stops at the result: publishing and market day are the slices'.
 
-A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, One by one, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 
 ## The slices
 

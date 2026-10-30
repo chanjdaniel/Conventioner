@@ -158,11 +158,13 @@ test.describe('The MVP journey', () => {
     // The import's done step leads to the review, where no import is offered (E38/F04/S03).
     await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/);
+    // The page opens on All (E38/F05/S01); this walk decides one card at a time.
+    await monitor.switchTo();
     await monitor.waitForLoaded();
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
-    // time, so the count of work left is the assertion - there is no list of all three to count.
+    // time, so the count of work left is the assertion.
     await expect(monitor.progress).toContainText('of 3 to review');
     await expect(monitor.tally).toContainText('0 reviewed');
     // The card carries the answers the verdict is supposed to rest on, not just an address.
@@ -269,7 +271,9 @@ test.describe('The MVP journey', () => {
     await vendorContext.close();
 
     // --- 4. Reviewed in the same stage, applications still open ------------------------------
+    // The page opens on All (E38/F05/S01); this walk decides one card at a time.
     await page.reload();
+    await monitor.switchTo();
     await monitor.waitForLoaded();
     await monitor.approve(VENDOR);
     await expect(monitor.tally).toContainText('1 reviewed · 1 approved');

@@ -4,7 +4,7 @@ import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedApplication } from './helpers/seedApplication';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 
 /**
  * What a market's screens say, and when (E31; map `what-to-show-and-when`).
@@ -208,7 +208,7 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
     );
     seedApplication(marketId, 'last@example.com');
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const begin = page.getByTestId('phase-transition-assignment');
     await expect(begin).toBeDisabled();
 

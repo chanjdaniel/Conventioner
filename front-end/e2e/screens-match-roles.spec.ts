@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import {
@@ -67,7 +67,7 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     // And says why, on the page whose seats are plain text: a Viewer took it for broken (T15).
     await expect(page.getByTestId('market-read-only')).toContainText('view this market');
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
@@ -92,7 +92,7 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
     await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.locator('button.seat-button').first()).toBeVisible({ timeout: 15000 });
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
@@ -100,7 +100,7 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
       'The review is closed',
     );
     // Publishing the verdicts stays an admin's.
-    await expect(page.getByTestId('app-monitor-publish-button')).toHaveCount(0);
+    await expect(page.getByTestId('applications-publish-button')).toHaveCount(0);
   });
 });
 

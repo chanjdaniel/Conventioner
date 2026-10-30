@@ -244,6 +244,7 @@ watch(marketId, loadAttendance, { immediate: true });
           <input
             v-model="search"
             type="search"
+            name="attendance-search"
             class="field door-search"
             aria-label="Find a vendor"
             placeholder="Name, email or table"

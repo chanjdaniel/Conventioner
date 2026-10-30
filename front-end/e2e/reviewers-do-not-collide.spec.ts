@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { mongoEval } from './helpers/mongo';
 import { withUser } from './helpers/withUser';
@@ -42,7 +42,7 @@ test('the second of two verdicts on one card is refused, naming the first', asyn
   expect(granted.ok(), await granted.text()).toBeTruthy();
 
   const first = new ApplicationMonitorPage(page);
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   await first.waitForLoaded();
   await expect(first.email).toHaveText('nadia@ember.test');
 
@@ -55,7 +55,7 @@ test('the second of two verdicts on one card is refused, naming the first', asyn
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const second = new ApplicationMonitorPage(other);
-    await other.goto(marketScreenPath(marketId, 'applications'));
+    await other.goto(oneByOnePath(marketId));
     await second.waitForLoaded();
     await expect(second.email).toHaveText('nadia@ember.test');
 

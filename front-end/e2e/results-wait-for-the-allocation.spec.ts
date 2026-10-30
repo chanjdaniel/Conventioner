@@ -39,20 +39,23 @@ test('publishing waits for a run, then says who will read what before it tells t
     sections: ['Main Hall', 'Garden'],
   });
   seedApplicationWithStatus(market.marketId, 'reviewer_rejected', 'turned-away@example.com');
-  for (const toPhase of ['assignment']) {
-    await post(request, `/markets/${market.marketId}/transition`, { toPhase });
-  }
 
+  // Not offered at all before the assignment, in the stage where applications are reviewed, not even disabled (Daniel, 2026-10-29).
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(marketSetupPath(market.marketId, 'applications'));
+  await expect(page.getByTestId('applications-all')).toBeVisible();
+  await expect(page.getByTestId('applications-publish-button')).toHaveCount(0);
+  await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'assignment' });
+
   await page.goto(marketSetupPath(market.marketId, 'applications'));
   // The rail's end - the application page, Allocate tables, Publish Market, More - takes a row of
   // its own rather than running out of the card, which lost More off the edge at 1440.
   const rail = await page.getByTestId('phase-rail').boundingBox();
   const more = await page.getByTestId('phase-rail-menu-button').boundingBox();
   expect(more!.x + more!.width).toBeLessThanOrEqual(rail!.x + rail!.width);
-  const publish = page.getByTestId('app-monitor-publish-button');
+  const publish = page.getByTestId('applications-publish-button');
   await expect(publish).toBeDisabled();
-  await expect(page.getByTestId('app-monitor-publish-hint')).toHaveText(
+  await expect(page.getByTestId('applications-publish-hint')).toHaveText(
     'Allocate tables first: results tell each applicant whether they have a table.',
   );
 
@@ -71,7 +74,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await expect(confirm).toContainText('1 will read "You did not get assigned"');
   await confirm.getByTestId('publish-results-submit-button').click();
   await expect(confirm).toBeHidden();
-  await expect(page.getByTestId('app-monitor-published-badge')).toBeVisible();
+  await expect(page.getByTestId('applications-published-badge')).toBeVisible();
 
   // Publishing settles the assignment: no run after it, and its rules read as settled.
   await page.goto(marketSetupPath(market.marketId, 'settings'));

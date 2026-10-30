@@ -107,7 +107,7 @@ describe('the seed the Applications tab’s All view gives the export', () => {
     expect(applicationsAllSeed({ filter: 'all', mine: false })).toEqual(NO_FILTERS);
   });
 
-  it('turns "To review" into the open applications', () => {
+  it('turns "Open" into the open applications', () => {
     expect(applicationsAllSeed({ filter: 'undecided', mine: false }).statuses).toEqual(['open']);
   });
 
