@@ -30,6 +30,8 @@ export class ManageMarketPage {
   readonly permissionChanges: Locator;
   readonly permissionsReset: Locator;
   readonly permissionConfirm: Locator;
+  readonly permissionsCopy: Locator;
+  readonly copyConfirm: Locator;
   readonly resetConfirm: Locator;
   readonly history: Locator;
   readonly historyToggle: Locator;
@@ -70,6 +72,8 @@ export class ManageMarketPage {
     // Each its own dialog, a sibling of Manage market.
     this.permissionConfirm = page.getByTestId('manage-market-permission-confirm-window');
     this.resetConfirm = page.getByTestId('manage-market-permissions-reset-confirm-window');
+    this.permissionsCopy = page.getByTestId('manage-market-permissions-copy');
+    this.copyConfirm = page.getByTestId('manage-market-permissions-copy-confirm-window');
     this.history = page.getByTestId('manage-market-history');
     this.historyToggle = page.getByTestId('manage-market-history-toggle');
     this.historyEntries = page.getByTestId('market-history-entry');
@@ -172,6 +176,15 @@ export class ManageMarketPage {
 
   async confirmReset(): Promise<void> {
     await this.page.getByTestId('manage-market-permissions-reset-confirm-submit-button').click();
+  }
+
+  /** "Copy the organization's defaults again", which opens its confirmation (E39/F02/S01). */
+  async copyOrganizationDefaults(): Promise<void> {
+    await this.permissionsCopy.click();
+  }
+
+  async confirmCopy(): Promise<void> {
+    await this.page.getByTestId('manage-market-permissions-copy-confirm-submit-button').click();
   }
 
   // ── Change role ──

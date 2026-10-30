@@ -283,6 +283,31 @@ describe('what an entry says', () => {
     );
   });
 
+  it("words a copy of the organization's defaults by the rows it changed", () => {
+    expect(
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: {
+              'check-in': { role: 'editor', source: 'built-in' },
+              'move-phase': { role: 'owner', source: 'market' },
+            },
+            after: {
+              'check-in': { role: 'admin', source: 'organization' },
+              'move-phase': { role: 'admin', source: 'built-in' },
+            },
+          },
+        },
+        { 'check-in': 'Check vendors in', 'move-phase': 'Move the phase' },
+      ),
+    ).toBe(
+      "dana@ember.test copied the organization's defaults, changing Check vendors in and Move the phase",
+    );
+  });
+
   it('words an applicant’s own application as theirs', () => {
     expect(sentence({ actor: 'ana@ember.test', action: 'apply', kind: 'submitted' })).toBe(
       '[Ana Rivera] applied',
@@ -463,6 +488,29 @@ describe('what an entry opens to', () => {
     ).toEqual([
       { field: 'Role', before: 'Editor', after: 'Admin' },
       { field: 'Source', before: 'The organization’s default', after: 'This market' },
+    ]);
+  });
+
+  it("opens a copy of the organization's defaults to each row it changed", () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: { 'check-in': { role: 'editor', source: 'built-in' } },
+            after: { 'check-in': { role: 'admin', source: 'organization' } },
+          },
+        }),
+        { 'check-in': 'Check vendors in' },
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Check vendors in',
+        before: 'Editor, Built in',
+        after: 'Admin, The organization’s default',
+      },
     ]);
   });
 

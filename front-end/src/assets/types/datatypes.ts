@@ -374,6 +374,8 @@ export interface Organization {
   memberEmails?: string[]; // Resolved display (from API)
   theme?: ThemeObject; // Organization theming
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
+  /** The table each market created in it starts with, copied (E39/F02/S01). */
+  defaultPermissionTable?: PermissionTableRow[];
 }
 
 export interface VendorAttendance {
