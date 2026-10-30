@@ -59,6 +59,50 @@ describe('the card a reviewer holds', () => {
   });
 });
 
+describe('a hand-out overtaken before it answered (the Next race)', () => {
+  /** A review/next answer held back until the test lets it go. */
+  function heldBack() {
+    let answer: (id: string) => void = () => undefined;
+    const pending = new Promise((resolve) => {
+      answer = (id) => resolve({ data: { application: { id } } });
+    });
+    return { pending, answer };
+  }
+
+  it('holds nothing of a later Next', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockResolvedValueOnce({ data: { application: { id: 'app-3' } } });
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    expect((await claims.next('app-1', true))?.id).toBe('app-3');
+    first.answer('app-2');
+
+    expect(await overtaken).toBeUndefined();
+    expect(claims.held.value).toBe('app-3');
+    await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/applications/app-3/claim');
+  });
+
+  it('lets go of a card claimed for a reviewer who has left since', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next(null, false);
+    claims.release();
+    first.answer('app-2');
+
+    expect(await overtaken).toBeUndefined();
+    expect(claims.held.value).toBeNull();
+    expect(api.delete).toHaveBeenCalledWith('/markets/market-1/applications/app-2/claim');
+    await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS);
+    expect(api.put).not.toHaveBeenCalled();
+  });
+});
+
 describe('an idle reviewer', () => {
   it('stops renewing, so the card lapses to someone else', async () => {
     const claims = useReviewClaims(ref('market-1'));

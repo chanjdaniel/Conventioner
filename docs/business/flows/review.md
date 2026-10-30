@@ -44,6 +44,7 @@ sources:
   - E38/F05/S03
   - E38/F04/S01
   - E38/F06/S01
+  - E38/F07/S04
 ---
 
 # Reviewing applications
@@ -86,6 +87,7 @@ Two reviewers at once are never handed the same card: the card a reviewer has op
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells a reviewer it refuses the row's sentence instead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
+The card on screen is always the one the newest Next, verdict, refresh or load handed over: an answer that comes back late, after a later one was asked for, never puts its card up (the Next race, E38/F07/S04).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
 
