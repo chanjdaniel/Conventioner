@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import { applicationFormError, applicationFormHint, fieldKeyError } from '@/utils/applicationForm';
 import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
 
 function field(overrides: Partial<FormField> = {}): FormField {
@@ -62,6 +62,21 @@ describe('applicationFormError', () => {
       'Key "shop.name" is invalid',
     );
     expect(applicationFormError(form(field({ key: '$where' })))).toContain('is invalid');
+  });
+
+  it('rejects the keys the import reads as who applied, when, and the sheet note', () => {
+    const meanings = {
+      applicant_email: 'who applied',
+      submitted_at: 'when they applied',
+      sheet_note: "your sheet's note",
+    };
+    for (const [key, meaning] of Object.entries(meanings)) {
+      const refusal = `Key "${key}" is reserved: the import reads that column as ${meaning}. Choose another key.`;
+      expect(applicationFormError(form(field({ key, label: 'Applicant email' })))).toBe(refusal);
+      // The amendment's dialog asks the same check, so it never offers what the save refuses.
+      expect(fieldKeyError(key)).toBe(refusal);
+    }
+    expect(fieldKeyError('shop_name')).toBeNull();
   });
 
   it('rejects duplicate keys, which would collide as answer keys', () => {
