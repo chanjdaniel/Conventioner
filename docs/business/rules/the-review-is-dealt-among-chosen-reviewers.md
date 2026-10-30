@@ -5,6 +5,7 @@ describes:
   - back-end/review_team.py
   - back-end/api/markets.py#choose_reviewers
   - back-end/api/markets.py#reviewer_candidates
+  - back-end/review_team.py#deal_arrivals
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
@@ -13,6 +14,7 @@ sources:
   - E38/F07
   - E38/F07/S01
   - E38/F07/S02
+  - E38/F07/S03
 ---
 
 # The review is dealt among chosen reviewers
@@ -30,6 +32,10 @@ Dealing the open applications divides the work before anyone starts, and the rec
 **The deal is round robin, in the order the applications arrived**, to the reviewers in the order their addresses sort, so the deal is the same whoever chose them and the team can predict it.
 It never counts what each reviewer has left open: being quick earns nobody more (Daniel: "we don't want to punish our viewer for being fast").
 Seven open applications among three reviewers deal three, two and two, the extra one to the first in address order.
+
+**Each application that arrives open is dealt to the next reviewer in turn**: an applicant's submission, every import ([the CSV import](../../implementation/modules/csv-import.md)), and an application the [automatic rejections](automatic-rejections.md) return to open when the rules are saved, the form is saved or a vendor's info is updated.
+An application a rule rejects as it arrives is decided, so it is not dealt until the rules return it to open.
+The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer, and two applicants submitting at once take different turns.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
 A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up.
