@@ -55,6 +55,9 @@ function toggle(id: string) {
   opened.value = now;
 }
 
+/** Longer field names than this wrap; shorter ones keep to one line. */
+const LONG_FIELD = 32;
+
 const changesOf = (entry: MarketHistoryEntry) =>
   entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
 </script>
@@ -123,7 +126,9 @@ const changesOf = (entry: MarketHistoryEntry) =>
           </thead>
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
-              <th scope="row">{{ row.field }}</th>
+              <th scope="row" :class="{ 'history-field--long': row.field.length > LONG_FIELD }">
+                {{ row.field }}
+              </th>
               <td v-for="(side, s) in [row.before, row.after]" :key="s">
                 <template v-if="row.hanging">
                   <span
@@ -222,11 +227,12 @@ const changesOf = (entry: MarketHistoryEntry) =>
   gap: var(--space-2);
 }
 
+/* Laid out by its content, so a field's name keeps to one line however narrow the drawer: in a
+   fixed share every question of an application wrapped to two or three lines beside a "none". */
 .history-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-xs);
-  table-layout: fixed;
 }
 
 .history-table th,
@@ -254,8 +260,15 @@ const changesOf = (entry: MarketHistoryEntry) =>
 }
 
 /* The field's name is a few words; the values beside it are what is read. */
-.history-table thead th:first-child {
-  width: 22%;
+.history-table tbody th {
+  white-space: nowrap;
+}
+
+/* An organizer's long question wraps in a column of its own width rather than squeezing both
+   values into slivers. */
+.history-table tbody th.history-field--long {
+  width: 12rem;
+  white-space: normal;
 }
 
 .history-table thead th {
