@@ -22,8 +22,8 @@ describe('what an applicant reads', () => {
         tableCode: 'A 3',
         tableChoice: 'Half Table (Left)',
         section: 'A',
-        location: 'Upper Atrium',
+        location: 'North Wing',
       }),
-    ).toMatch(/November 21, 2026: A 3, left half, Upper Atrium$/);
+    ).toMatch(/November 21, 2026: A 3, left half, North Wing$/);
   });
 });

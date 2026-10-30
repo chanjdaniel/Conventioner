@@ -150,12 +150,12 @@ describe('the working copy', () => {
       { value: 'Pottery', count: 9, rare: false, keep: true },
       { value: 'Pottery, Zines', count: 3, rare: false, keep: true },
       { value: 'Zines', count: 6, rare: false, keep: true },
-      { value: 'VASA', count: 1, rare: true, keep: false },
+      { value: 'ECVAS', count: 1, rare: true, keep: false },
     ];
     const several = [
       { value: 'Pottery', count: 12, rare: false, keep: true },
       { value: 'Zines', count: 9, rare: false, keep: true },
-      { value: 'VASA', count: 1, rare: true, keep: false },
+      { value: 'ECVAS', count: 1, rare: true, keep: false },
     ];
     const base = column(index, { check: ['Could allow several answers'], ...overrides });
     return {
@@ -201,8 +201,8 @@ describe('the working copy', () => {
   it('keeps a rare option the organizer ticks', () => {
     const p = proposal([choiceColumn(0)]);
     const draft = draftFrom(p);
-    toggleOption(draft, 0, 'VASA');
-    expect(draftRows(p, draft)[0].field?.options.find((o) => o.value === 'VASA')?.keep).toBe(true);
+    toggleOption(draft, 0, 'ECVAS');
+    expect(draftRows(p, draft)[0].field?.options.find((o) => o.value === 'ECVAS')?.keep).toBe(true);
   });
 
   it('turns one choice into several with the options inside the answers', () => {

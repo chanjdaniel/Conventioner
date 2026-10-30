@@ -26,7 +26,7 @@ const PLAN = {
   tiers: [GOLD, SILVER],
   locations: [{ name: 'Main Hall' }],
   sections: [
-    { name: 'Atrium', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
+    { name: 'North Wing', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
     { name: 'Landing', location: { name: 'Main Hall' }, tier: SILVER, count: 2 },
   ],
   assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
@@ -71,7 +71,7 @@ test.describe('the Pricing card', () => {
     // Two sections, so every applicant ranks them.
     mongoEval(
       `db.applications.updateMany({ market_id: ${JSON.stringify(marketId)} },
-        { $set: { 'form_data.essential_section_ranking': ['Atrium', 'Landing'] } })`,
+        { $set: { 'form_data.essential_section_ranking': ['North Wing', 'Landing'] } })`,
     );
     await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
     await call(request, 'post', `/markets/${marketId}/roles`, {
@@ -112,7 +112,7 @@ test.describe('the Pricing card', () => {
     // did not pick, priced at the table's tier all the same (Q20).
     const alice = 'alice@example.com';
     for (const [date, table_code, table_choice] of [
-      [SEED_MARKET_DATE, 'Atrium 1', 'Full Table'],
+      [SEED_MARKET_DATE, 'North Wing 1', 'Full Table'],
       [SECOND_DATE, 'Landing 1', 'Half Table (Left)'],
     ]) {
       await call(request, 'put', `/markets/${marketId}/placements`, {
