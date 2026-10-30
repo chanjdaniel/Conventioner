@@ -2465,6 +2465,9 @@ def save_rejection_rules(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
                        {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []]},
                    ), verdicts))
+    # What the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
+    if verdicts.returned:
+        ReviewTeam.deal_arrivals(judged, requesting_user, Actions.CHANGE_FORM)
     return prepared
 
 
@@ -2487,6 +2490,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
+    if verdicts.returned:
+        ReviewTeam.deal_arrivals(market, requesting_user, Actions.CHANGE_FORM)
     return form_dict
 
 

@@ -12,23 +12,32 @@ never moves.
 
 With no reviewers chosen, everything is first come, first served, as before this existed.
 """
-from typing import Any, Dict, List, NamedTuple, Optional
+import logging
+from typing import Any, Dict, List, NamedTuple, Optional, Union
+
+from pymongo import ReturnDocument
 
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
+import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import history as History
-from assignment.utils import convert_keys_to_camel_case
+from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from datatypes import Market, MarketPerson, Organization, ReviewTeam
 from db_config import get_database
-from market_documents import market_doc_key, market_doc_set
+from market_documents import market_doc_field, market_doc_key, market_doc_set
 from utils.email_address import normalized_email
+
+logger = logging.getLogger(__name__)
 
 db = get_database()
 markets_collection = db["markets"]
 
-#: Why a deal moved what it moved, in its history entry.
+#: Why a deal moved what it moved, in its history entry: a change of reviewers, or arrivals.
 REVIEWERS_CHANGED = "reviewers_changed"
+ARRIVED = "arrived"
+
+_TURN = f"{market_doc_key('review_team')}.turn"
 
 
 class Chosen(NamedTuple):
@@ -126,3 +135,68 @@ def choose(market: Market, reviewers: List[MarketPerson], by: str) -> Chosen:
 
 def _address(person: Optional[Dict[str, Any]]) -> Optional[str]:
     return (person or {}).get("email") or None
+
+
+def deal_arrivals(market: Market, actor: Optional[str], action: Union[Actions.Action, str]) -> int:
+    """Deal every open application that has no reviewer to the next reviewer in turn, in the
+    order they arrived (E38/F07/S03), and record one ``dealt`` entry under ``action`` and ``actor``
+    when it dealt any. Answers how many it dealt.
+
+    Called after every write that can leave an application open and undealt - an applicant's save,
+    an import, and the writes whose automatic rejections can return one to open - once that
+    write's rules have judged, so an application a rule rejected on arrival is not dealt. With no
+    reviewers chosen it reads and writes nothing.
+
+    Each application takes its turn in one atomic update of the market (``$inc`` on the turn,
+    answering the market after), so two applications arriving at once are dealt different turns,
+    from the team as it stands at that instant. Its write is conditioned on it still being open
+    with no reviewer: one a concurrent deal or a verdict reached first is left as it is, and the
+    turn it took is given back unless another deal has taken one since.
+    """
+    if not team_of(market).reviewers:
+        return 0
+    pool = [doc for doc in ApplicationsApi.undecided_in_arrival_order(market.id)
+            if not doc.get("reviewer")]
+    if not pool:
+        return 0
+    holding = set(PermissionsApi.people_with_market_role(market, _organization(market)))
+    dealt = []
+    for doc in pool:
+        stored = markets_collection.find_one_and_update(
+            {"id": market.id}, {"$inc": {_TURN: 1}}, return_document=ReturnDocument.AFTER)
+        team = ReviewTeam(**convert_keys_to_snake_case(
+            market_doc_field(stored or {}, "review_team") or {}))
+        able = [person for person in team.reviewers if person.user_id in holding]
+        to = able[(team.turn - 1) % len(able)] if able else None
+        if to is not None and ApplicationsApi.deal(doc["id"], to, None):
+            dealt.append((doc, to))
+            continue
+        markets_collection.update_one(
+            {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
+        if to is None:
+            break
+    if dealt:
+        History.record(
+            market.id, actor, action, kind=History.DEALT,
+            vendors=[doc.get("applicant_email") for doc, _to in dealt],
+            subject={"application_ids": [doc["id"] for doc, _to in dealt]},
+            detail=lambda: {
+                "cause": ARRIVED,
+                "before": {doc["id"]: {"reviewer": None} for doc, _to in dealt},
+                "after": {doc["id"]: {"reviewer": to.email} for doc, to in dealt},
+            })
+    return len(dealt)
+
+
+def _organization(market: Market) -> Optional[Organization]:
+    """The market's organization, whose people hold roles on it too; None when it has none."""
+    if not market.organization_id:
+        return None
+    found = OrgsApi.get_organization(market.organization_id)
+    if not found:
+        return None
+    try:
+        return Organization(**{key: value for key, value in found.items() if key != "_id"})
+    except Exception:
+        logger.warning("Stored organization %s failed validation", market.organization_id)
+        return None

@@ -25,6 +25,7 @@ import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
 import api.market_actions as Actions
 import history as History
+import review_team as ReviewTeam
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -1661,6 +1662,12 @@ def import_applications(market_id: str) -> Response:
         # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
         History.record(market_id, authenticated_email(), Actions.IMPORT_APPLICATIONS,
                        kind=History.IMPORTED, detail=lambda: CsvImport.import_counts(result))
+        # Then each row it left open is dealt to the next reviewer in turn (E38/F07/S03), after the
+        # import's rules have judged and a first import has taken the market into Review.
+        context = MarketsApi.load_market_context(market_id)
+        if context is not None and context.market is not None:
+            ReviewTeam.deal_arrivals(
+                context.market, authenticated_email(), Actions.IMPORT_APPLICATIONS)
     return jsonify(result), status_code
 
 

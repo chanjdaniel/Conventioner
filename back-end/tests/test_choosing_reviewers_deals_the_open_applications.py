@@ -62,22 +62,44 @@ def _set(doc, path, value):
     doc[leaf] = value
 
 
+def _matches(doc, query):
+    """``mongo_matches``, with a dotted key compared by its path as Mongo reads one."""
+    for key, value in query.items():
+        if "." in key:
+            target = doc
+            for part in key.split("."):
+                target = target.get(part) if isinstance(target, dict) else None
+            if target != value:
+                return False
+    return mongo_matches(doc, {key: value for key, value in query.items() if "." not in key})
+
+
 class Markets:
     """The markets collection holding one market, applying ``$set``, ``$unset`` and ``$inc`` on
-    dotted paths as Mongo does, and counting the writes, so an unchanged choice is seen to write
-    nothing."""
+    dotted paths and matching dotted filters as Mongo does, and counting the writes, so an
+    unchanged choice is seen to write nothing."""
 
     def __init__(self, doc):
         self.doc = copy.deepcopy(doc)
         self.writes = 0
 
     def find_one(self, query, projection=None):
-        if not mongo_matches(self.doc, query):
+        if not _matches(self.doc, query):
             return None
         return mongo_project(copy.deepcopy(self.doc), projection)
 
+    def find(self, query, projection=None):
+        found = self.find_one(query, projection)
+        return iter([found] if found is not None else [])
+
+    def find_one_and_update(self, query, update, return_document=None, **_kwargs):
+        """As Mongo answers it with ``ReturnDocument.AFTER``, the one way the deal asks it."""
+        if self.update_one(query, update).matched_count == 0:
+            return None
+        return copy.deepcopy(self.doc)
+
     def update_one(self, query, update):
-        if not mongo_matches(self.doc, query):
+        if not _matches(self.doc, query):
             return SimpleNamespace(matched_count=0, modified_count=0)
         self.writes += 1
         for path, value in (update.get("$set") or {}).items():

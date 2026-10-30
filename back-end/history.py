@@ -99,10 +99,13 @@ Part = Union[Dict[str, Any], None, Callable[[], Optional[Dict[str, Any]]]]
 
 
 def record(
-    market_id: str, actor: Optional[str], action: Action, *, kind: Optional[str] = None,
-    vendors: Iterable[str] = (), subject: Part = None, detail: Part,
+    market_id: str, actor: Optional[str], action: Union[Action, str], *,
+    kind: Optional[str] = None, vendors: Iterable[str] = (), subject: Part = None, detail: Part,
 ) -> None:
     """Write one entry. Never raises: a history that can break a change is worse than no history.
+
+    ``action`` is the table's row the change asked, or ``APPLY`` for what an applicant's own save
+    did beyond their answers (the deal of their application, E38/F07/S03).
 
     The write that matters has already happened by the time this is called - the seat is taken,
     and check-in will read it. Failing the request because the *record* of it could not be saved
@@ -113,7 +116,8 @@ def record(
 
     A detail that builds to None is a write that changed nothing, and records nothing.
     """
-    _write(market_id, actor, action.id, kind, vendors, subject, detail)
+    _write(market_id, actor, action if isinstance(action, str) else action.id, kind, vendors,
+           subject, detail)
 
 
 def record_applicant(

@@ -53,6 +53,7 @@ from utils.application_token import (
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import history as History
+import review_team as ReviewTeam
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
 from assignment.made_from import changed_since_run
@@ -437,6 +438,9 @@ def save_applicant_application(
     History.record_applicant(
         market_id, email, History.EDITED if existing else History.SUBMITTED, app.id,
         lambda: _with_rules(History.changes(answered, saved.form_data or {}), verdicts))
+    # Then dealt to the next reviewer in turn, if reviewers are chosen and it is still open
+    # (E38/F07/S03): the applicant's own save is the arrival, so it is recorded as theirs.
+    ReviewTeam.deal_arrivals(market, email, History.APPLY)
     if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
