@@ -3,6 +3,7 @@
  * structured entry, which opens to show before and after.
  */
 import { describe, expect, it } from 'vitest';
+import { IntakeMode } from '@/assets/types/datatypes';
 import {
   dayEnds,
   dayStarts,
@@ -102,15 +103,19 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed priya@ember.test from Viewer to Editor');
   });
 
-  it('words a phase move by both phases', () => {
-    expect(
-      sentence({
-        action: 'move-phase',
-        kind: null,
-        vendors: [],
-        detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
-      }),
-    ).toBe('dana@ember.test moved the market from Applications to Assignment');
+  it('words a phase move by both phases, as the market’s path names them', () => {
+    const move = entry({
+      action: 'move-phase',
+      kind: null,
+      vendors: [],
+      detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
+    });
+    expect(said(entryParts(move, NAMES, {}, IntakeMode.Csv))).toBe(
+      'dana@ember.test moved the market from Review to Assignment',
+    );
+    expect(said(entryParts(move, NAMES, {}, IntakeMode.Form))).toBe(
+      'dana@ember.test moved the market from Applications to Assignment',
+    );
   });
 
   it('words a check-in made on the public page as the vendor’s own', () => {
@@ -300,6 +305,21 @@ describe('what an entry opens to', () => {
       changed: [{ field: 'Phase', before: 'Offers', after: 'Market Days' }],
       recorded: [{ field: 'Swept', value: '3' }],
     });
+  });
+
+  it('shows a phase before and after as the market’s path names it', () => {
+    const move = entry({
+      action: 'move-phase',
+      kind: null,
+      vendors: [],
+      detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
+    });
+    expect(entryChanges(move, {}, IntakeMode.Csv).changed).toEqual([
+      { field: 'Phase', before: 'Review', after: 'Assignment' },
+    ]);
+    expect(entryChanges(move, {}, IntakeMode.Form).changed).toEqual([
+      { field: 'Phase', before: 'Applications', after: 'Assignment' },
+    ]);
   });
 
   it('shows an assignment’s table left and table taken, or that the table left is unknown', () => {

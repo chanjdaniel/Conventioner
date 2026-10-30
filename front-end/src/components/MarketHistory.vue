@@ -9,6 +9,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
+import type { IntakeMode } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
@@ -26,6 +27,8 @@ const props = defineProps<{
   marketId: string;
   /** The market's own table's labels by row id, Reading rows included, for a change to a row. */
   rowLabels?: Readonly<Record<string, string>>;
+  /** How the market's vendors arrive, so a phase reads as its other screens name it. */
+  path: IntakeMode;
 }>();
 
 interface HistoryPage {
@@ -300,7 +303,10 @@ const emptyText = computed(() =>
         data-testid="market-history-entry"
       >
         <p class="history-what" data-testid="market-history-sentence">
-          <template v-for="(part, index) in entryParts(entry, vendorNames, labels)" :key="index">
+          <template
+            v-for="(part, index) in entryParts(entry, vendorNames, labels, path)"
+            :key="index"
+          >
             <template v-if="part.kind === 'text'">{{ part.text }}</template>
             <RouterLink
               v-else
@@ -333,7 +339,7 @@ const emptyText = computed(() =>
           class="history-changes"
           data-testid="market-history-changes"
         >
-          <table v-if="entryChanges(entry, labels).changed.length" class="history-table">
+          <table v-if="entryChanges(entry, labels, path).changed.length" class="history-table">
             <thead>
               <tr>
                 <th scope="col">Field</th>
@@ -342,23 +348,23 @@ const emptyText = computed(() =>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in entryChanges(entry, labels).changed" :key="row.field">
+              <tr v-for="row in entryChanges(entry, labels, path).changed" :key="row.field">
                 <th scope="row">{{ row.field }}</th>
                 <td>{{ row.before }}</td>
                 <td>{{ row.after }}</td>
               </tr>
             </tbody>
           </table>
-          <dl v-if="entryChanges(entry, labels).recorded.length" class="history-recorded">
-            <template v-for="row in entryChanges(entry, labels).recorded" :key="row.field">
+          <dl v-if="entryChanges(entry, labels, path).recorded.length" class="history-recorded">
+            <template v-for="row in entryChanges(entry, labels, path).recorded" :key="row.field">
               <dt>{{ row.field }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
           <p
             v-if="
-              !entryChanges(entry, labels).changed.length &&
-              !entryChanges(entry, labels).recorded.length
+              !entryChanges(entry, labels, path).changed.length &&
+              !entryChanges(entry, labels, path).recorded.length
             "
             class="history-note"
           >

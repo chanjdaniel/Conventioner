@@ -22,6 +22,7 @@ import {
   GIVEN_ROLES,
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
+import { intakeModeOf } from '@/utils/marketGuide';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -403,7 +404,12 @@ function closeAddUser() {
           </button>
         </h3>
         <div v-show="historyOpen" id="manage-market-history-body">
-          <MarketHistory v-if="historyRead" :market-id="marketData.id" :row-labels="rowLabels" />
+          <MarketHistory
+            v-if="historyRead"
+            :market-id="marketData.id"
+            :row-labels="rowLabels"
+            :path="intakeModeOf(marketData)"
+          />
         </div>
       </section>
 

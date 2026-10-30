@@ -120,7 +120,8 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
     expect.stringMatching(
       new RegExp(`^${me} assigned ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`),
     ),
-    `${me} moved the market from Applications to Assignment`,
+    // A Google Form market's stage is its Review, as its other screens name it.
+    `${me} moved the market from Review to Assignment`,
     `${me} set ${VENDOR} to Approved`,
   ]);
   expect(first).not.toContain(`${me} changed Market Setup: sections`);
@@ -167,4 +168,20 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
   await manage.historyVendorLinks.first().click();
   await expect(page).toHaveURL(`/markets/${marketId}/vendors?vendor=${VENDOR}`);
   await expect(new VendorsPage(page).detailPanel).toContainText(VENDOR);
+});
+
+test('a market whose vendors apply on its page names its stage Applications', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    intakeMode: 'form',
+  });
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
+
+  const manage = await openManage(page, seed.marketName);
+
+  await expect(manage.historySentences.first()).toHaveText(
+    `${TEST_USER.email} moved the market from Draft to Applications`,
+  );
 });

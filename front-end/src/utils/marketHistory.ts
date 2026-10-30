@@ -9,8 +9,9 @@
  * and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
+import { IntakeMode } from '@/assets/types/datatypes';
+import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
-import { phaseLabel } from '@/utils/phase';
 import {
   historyDate,
   historyParts,
@@ -137,12 +138,14 @@ function placementParts(
 /**
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
  * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
- * a change this file has no words for yet.
+ * a change this file has no words for yet; `path` is how the market's vendors arrive, so a phase
+ * reads as that market's other screens name it ("Review" on a Google Form market).
  */
 export function entryParts(
   entry: MarketHistoryEntry,
   names: VendorNames,
   labels: Readonly<Record<string, string>> = {},
+  path: IntakeMode = IntakeMode.Form,
 ): MarketHistoryPart[] {
   const text = (words: string): MarketHistoryPart => ({ kind: 'text', text: words });
   const who = (email: unknown): MarketHistoryPart => ({
@@ -225,7 +228,7 @@ export function entryParts(
       return [
         actor,
         text(
-          `moved the market from ${phaseLabel(str(before.phase))} to ${phaseLabel(str(after.phase))}` +
+          `moved the market from ${pathPhaseLabel(str(before.phase), path)} to ${pathPhaseLabel(str(after.phase), path)}` +
             (swept
               ? `, turning ${plural(swept, 'unanswered offer', 'unanswered offers')} to refusals`
               : ''),
@@ -352,17 +355,22 @@ const PERMISSION_SOURCES: Record<string, string> = {
   market: 'This market',
 };
 
-/** The stored values the screens already name: a phase, a status and a role, in their words. */
+/** The stored values the screens already name: a status and a role, in their words. A phase is
+ * named by the market's path (`fieldValue`). */
 const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
-  phase: phaseLabel,
   status: statusLabel,
   role: getRoleDisplayName,
   source: (source) => PERMISSION_SOURCES[source] ?? source,
 };
 
-/** A field's value as the screens name it, else as `valueText` draws it. */
-export function fieldValue(key: string, value: unknown): string {
-  const name = NAMED_VALUES[key];
+/** A field's value as the screens name it, a phase as the market's `path` does, else as
+ * `valueText` draws it. */
+export function fieldValue(
+  key: string,
+  value: unknown,
+  path: IntakeMode = IntakeMode.Form,
+): string {
+  const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
   return name && typeof value === 'string' && value ? name(value) : valueText(value);
 }
 
@@ -389,11 +397,12 @@ function permissionState(value: unknown): string {
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
  * it, and the table taken. A reset of the whole table is each row it returned, by its label in
- * `labels`.
+ * `labels`, and a phase reads as the market's `path` names it.
  */
 export function entryChanges(
   entry: MarketHistoryEntry,
   labels: Readonly<Record<string, string>> = {},
+  path: IntakeMode = IntakeMode.Form,
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];
@@ -425,8 +434,8 @@ export function entryChanges(
   const changed = changes
     ? [...new Set([...Object.keys(changes.before), ...Object.keys(changes.after)])].map((key) => ({
         field: fieldName(key),
-        before: fieldValue(key, changes.before[key]),
-        after: fieldValue(key, changes.after[key]),
+        before: fieldValue(key, changes.before[key], path),
+        after: fieldValue(key, changes.after[key], path),
       }))
     : [];
   const recorded = Object.entries(detail)

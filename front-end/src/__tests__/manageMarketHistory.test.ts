@@ -8,7 +8,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import ManageMarketOverlay from '@/views/ManageMarketOverlay.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import type { MarketHistoryEntry } from '@/utils/marketHistory';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
@@ -62,7 +62,7 @@ function serve(...pages: Array<{ entries: MarketHistoryEntry[]; next: string | n
 
 function mountHistory() {
   return mount(MarketHistory, {
-    props: { marketId: 'market-1' },
+    props: { marketId: 'market-1', path: IntakeMode.Form },
     global: { stubs: { RouterLink: RouterLinkStub } },
   });
 }
@@ -227,7 +227,11 @@ describe('the History section', () => {
       next: null,
     });
     const wrapper = mount(MarketHistory, {
-      props: { marketId: 'market-1', rowLabels: { 'read-history': "Read the market's history" } },
+      props: {
+        marketId: 'market-1',
+        path: IntakeMode.Form,
+        rowLabels: { 'read-history': "Read the market's history" },
+      },
       global: { stubs: { RouterLink: RouterLinkStub } },
     });
     await flushPromises();
