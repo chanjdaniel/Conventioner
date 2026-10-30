@@ -454,6 +454,46 @@ describe('who reviews which application (E38/F07/S02)', () => {
     );
   });
 
+  /** A deal of a removed reviewer's follow-up beside an open application (E38/F07/S02). */
+  function handedOn(): MarketHistoryEntry {
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'dealt',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      subject: { application_ids: ['app-0', 'app-1'] },
+      detail: {
+        cause: 'reviewers_changed',
+        before: { 'app-0': { reviewer: KAI }, 'app-1': { reviewer: KAI, follow_up_owner: KAI } },
+        after: { 'app-0': { reviewer: SAM }, 'app-1': { reviewer: SAM, follow_up_owner: SAM } },
+      },
+    });
+  }
+
+  it('words a deal that handed on a follow-up by both counts', () => {
+    expect(said(entryParts(handedOn(), NAMES))).toBe(
+      'dana@ember.test dealt 1 open application and 1 follow-up among 1 reviewer',
+    );
+  });
+
+  it('words a follow-up dealt on by who held it before, in the vendor’s own history too', () => {
+    const one = {
+      ...handedOn(),
+      vendors: ['ben@ember.test'],
+      subject: { application_ids: ['app-1'] },
+    };
+
+    expect(said(entryParts(one, NAMES))).toBe(
+      `dana@ember.test dealt the follow-up of [Ben Okafor] from ${KAI} to ${SAM}`,
+    );
+    expect(said(entryParts(handedOn(), NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      `dana@ember.test dealt the follow-up from ${KAI} to ${SAM}`,
+    );
+    expect(entryChanges(handedOn(), {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
+      { field: 'Reviewer', before: KAI, after: SAM },
+      { field: 'Follow-up owner', before: KAI, after: SAM },
+    ]);
+  });
+
   it('opens a change of reviewers to the lists before and after', () => {
     expect(entryChanges(reviewers(['a@x.test'], ['a@x.test', 'c@x.test'])).changed).toEqual([
       { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test, c@x.test' },

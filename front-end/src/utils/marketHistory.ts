@@ -279,22 +279,35 @@ interface DealtShare {
   vendor: string;
   before: string | null;
   after: string | null;
+  /** A removed reviewer's follow-up, handed on: who owned it before, and who owns it now. */
+  followUp: { before: string | null; after: string | null } | null;
 }
 
 /**
  * The applications a deal moved (E38/F07/S02). The entry names their vendors and their ids in the
- * same order, and its detail holds each one's reviewer before and after, by id.
+ * same order, and its detail holds each one's reviewer before and after, by id, and a follow-up's
+ * owner beside it.
  */
 function dealtShares(entry: MarketHistoryEntry): DealtShare[] {
   const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
   const detail = asDetail(entry.detail);
-  const reviewer = (side: unknown, id: unknown) =>
-    str(asDetail(asDetail(side)[str(id)]).reviewer) || null;
-  return ids.map((id, index) => ({
-    vendor: str(entry.vendors[index]),
-    before: reviewer(detail.before, id),
-    after: reviewer(detail.after, id),
-  }));
+  const share = (side: unknown, id: unknown) => asDetail(asDetail(side)[str(id)]);
+  return ids.map((id, index) => {
+    const before = share(detail.before, id);
+    const after = share(detail.after, id);
+    return {
+      vendor: str(entry.vendors[index]),
+      before: str(before.reviewer) || null,
+      after: str(after.reviewer) || null,
+      followUp:
+        'follow_up_owner' in after
+          ? {
+              before: str(before.follow_up_owner) || null,
+              after: str(after.follow_up_owner) || null,
+            }
+          : null,
+    };
+  });
 }
 
 /** The share of the vendor whose own history this is, when the deal moved theirs. */
@@ -356,6 +369,17 @@ export function entryParts(
             text(` was dealt to ${one.after} as it arrived`),
           ];
     }
+    if (one?.followUp) {
+      const followUp = mine
+        ? [text('the follow-up')]
+        : [text('the follow-up of '), who(one.vendor)];
+      return [
+        actor,
+        text('dealt '),
+        ...followUp,
+        text(` from ${one.followUp.before ?? 'nobody'} to ${one.followUp.after ?? 'nobody'}`),
+      ];
+    }
     if (one) {
       const application = mine
         ? [text('the application')]
@@ -365,7 +389,10 @@ export function entryParts(
         : [actor, text('returned '), ...application, text(' to first come, first served')];
     }
     const among = new Set(shares.map((share) => share.after).filter(Boolean)).size;
-    const many = plural(shares.length, 'open application', 'open applications');
+    const followUps = shares.filter((share) => share.followUp).length;
+    const many =
+      plural(shares.length - followUps, 'open application', 'open applications') +
+      (followUps ? ` and ${plural(followUps, 'follow-up', 'follow-ups')}` : '');
     return among
       ? [actor, text(`dealt ${many} among ${plural(among, 'reviewer', 'reviewers')}`)]
       : [actor, text(`returned ${many} to first come, first served`)];
@@ -663,7 +690,18 @@ export function entryChanges(
     });
     return {
       changed: mine
-        ? [reviewer(mine, 'Reviewer')]
+        ? [
+            reviewer(mine, 'Reviewer'),
+            ...(mine.followUp
+              ? [
+                  {
+                    field: 'Follow-up owner',
+                    before: valueText(mine.followUp.before),
+                    after: valueText(mine.followUp.after),
+                  },
+                ]
+              : []),
+          ]
         : dealtShares(entry).map((share) => reviewer(share, share.vendor)),
       recorded: [],
     };

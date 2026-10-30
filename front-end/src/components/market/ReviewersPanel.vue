@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Who reviews this market's applications, on the Applications tab while the review is open
- * (E38/F07/S02): every reader sees the reviewers, and someone the table's "Choose reviewers" row
+ * (E38/F07/S02): every reader sees the reviewers, each one who no longer holds a role on the market
+ * marked as no longer able to review here, and someone the table's "Choose reviewers" row
  * lets choose changes them here. Saving deals every open application again among them, on the
  * server (`back-end/review_team.py`).
  */
@@ -82,6 +83,10 @@ async function save() {
       >
         {{ reviewer.email
         }}<span v-if="reviewer.email.toLowerCase() === me" class="reviewers-note"> (you)</span>
+        <!-- No longer holds a role here: dealt nothing until an Admin removes them (E38/F07/S02). -->
+        <span v-if="!reviewer.able" class="chip chip--attention" data-testid="reviewers-unable"
+          >Can no longer review here</span
+        >
       </li>
     </ul>
     <p v-else class="reviewers-none" data-testid="reviewers-none">{{ NONE_CHOSEN }}</p>
@@ -136,6 +141,10 @@ async function save() {
 }
 
 .reviewers-person {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
   overflow-wrap: anywhere;
 }
