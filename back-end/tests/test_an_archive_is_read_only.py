@@ -134,6 +134,8 @@ ROW_WRITES = {
                    {"name": "Ana", "email": "ana@example.com"}),
     "write-vendor-notes": ("put", "/markets/market-123/vendor-notes/ana@example.com",
                            {"note": "Extra chair"}),
+    "update-vendor-info": ("put", "/markets/market-123/applications/app-1/answers",
+                           {"answers": {"business_name": "Ember Ceramics"}}),
     "assign": ("post", "/markets/market-123/assignment", None),
     "check-in": ("post", "/markets/market-123/attendance",
                  {"vendorEmail": "ana@example.com", "date": "2026-05-01"}),

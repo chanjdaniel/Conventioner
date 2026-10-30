@@ -44,6 +44,7 @@ THE_TABLE = [
     ("publish-results", "Lifecycle", "Publish results", MarketRole.ADMIN, False),
     ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
+    ("update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR, False),
     ("assign", "Assignment",
      "Allocate tables, change the assignment rules, and assign, swap or free seats",
      MarketRole.EDITOR, False),

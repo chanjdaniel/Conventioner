@@ -15,6 +15,7 @@ sources:
   - E21/F02
   - E21/F02/S04
   - E39/F01/S02
+  - E41/F01/S01
 ---
 
 # The market store
@@ -55,6 +56,7 @@ Each control asks the row of the action it takes:
 | Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
+| The drawer | Update info | Update a vendor's info |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
