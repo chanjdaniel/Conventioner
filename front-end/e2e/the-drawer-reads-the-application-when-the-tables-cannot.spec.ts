@@ -57,3 +57,22 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   await expect(page.getByTestId('vendor-export-placed')).toHaveValue('');
   await expect(page.getByTestId('vendor-export-summary')).toContainText('2 vendors');
 });
+
+test('a market before any assignment, refused, still says "N vendors"', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Stops in the assignment phase with nothing run, so nothing has been assigned yet; the refusal
+  // comes from Alice's incomplete answers, not from anything stored.
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    run: false,
+  });
+  mongoEval(
+    `db.applications.updateOne({market_id: '${seed.marketId}', applicant_email: 'alice@example.com'}, {$unset: {'form_data.essential_available_dates': ''}})`,
+  );
+
+  await page.goto(marketScreenPath(seed.marketId, 'vendors'));
+  const rows = page.getByTestId('vendors-list-item');
+  await expect(rows).toHaveCount(2, { timeout: 15000 });
+  await expect(page.getByTestId('vendors-summary')).toHaveText('2 vendors');
+});
