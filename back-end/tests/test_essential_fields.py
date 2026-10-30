@@ -544,8 +544,8 @@ class TestReservedKeyPrefix:
             self, monkeypatch, applications, key, meaning):
         """A question keyed ``applicant_email`` would hold the column that says who applied
         (E38/F02): the import's own targets are no question's key."""
-        monkeypatch.setattr(MarketsApi, "markets_collection",
-                            FakeMarketsCollection(stored_market()))
+        markets = FakeMarketsCollection(stored_market())
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         form = {"fields": [{"key": key, "label": "Applicant email", "type": "text"}]}
 
@@ -554,6 +554,8 @@ class TestReservedKeyPrefix:
         assert str(refusal.value) == (
             f"Field key '{key}' is reserved: the import reads that column as {meaning}. "
             "Choose another key.")
+        # Refused before anything is written, as the amendment's dialog relies on.
+        assert markets.last_update is None
 
     def test_a_client_cannot_forge_the_frozen_offering(self, monkeypatch, applications):
         """``essential_options`` is server-owned, like ``published_at``: whatever a payload
