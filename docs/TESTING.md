@@ -368,7 +368,7 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `test_form_export_shapes.py` asserts them, but for the duplicate and organizer columns, which the
   answer key in `test_csv_proposal.py` holds.
 - **A real export never becomes test data in any form**: the Google Form corpus changes only through `back-end/tests/fixtures/synthetic_form_exports.py`.
-  A fixture's addresses are at `example.com` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
+  A fixture's addresses are at `example.com`, `example.org` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
   The git hooks refuse anything else before it is committed or pushed, and the gate and CI refuse it again; install the hooks once per clone with `git config core.hooksPath .githooks` (a treehouse worktree gets them from `scripts/treehouse-setup.sh`).
   See [real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc).
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
