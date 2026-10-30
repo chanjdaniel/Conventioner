@@ -26,8 +26,9 @@
  * `confirmLabel`, and gets the scrim, window, close, Escape, backdrop and inert behaviour without
  * the single-form footer. Its own forms live in the body.
  */
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = withDefaults(
@@ -98,40 +99,13 @@ function firstSafeControl(): HTMLElement | null {
   return [...controls].find((control) => !control.classList.contains('btn--destructive')) ?? null;
 }
 
-/**
- * Focus goes back to what opened the dialog when it closes, by any path.
- *
- * Closing unmounts the window, which drops focus to `<body>`, so a keyboard user started again from
- * the top of the page after every dialog. The opener is taken as the dialog opens, before focus
- * moves in, and focused once the page behind is no longer inert (`useInertBehind` releases it in a
- * post-flush watcher, which `nextTick` waits for). It is left alone when it has left the page - a
- * deleted row, a navigation - and when the parent has already put focus somewhere of its own.
- */
-let opener: HTMLElement | null = null;
-
-function returnFocus() {
-  const target = opener;
-  opener = null;
-  if (!target) return;
-  void nextTick(() => {
-    const active = document.activeElement;
-    if (target.isConnected && (!active || active === document.body)) target.focus();
-  });
-}
-
-onBeforeUnmount(() => {
-  if (props.open) returnFocus();
-});
+/** Focus goes back to what opened the dialog when it closes, by any path. */
+useFocusGoesBack(() => props.open);
 
 watch(
   () => props.open,
-  async (open, wasOpen) => {
-    if (!open) {
-      if (wasOpen) returnFocus();
-      return;
-    }
-    const active = document.activeElement;
-    opener = active instanceof HTMLElement && active !== document.body ? active : null;
+  async (open) => {
+    if (!open) return;
     await nextTick();
     /*
      * A DESTRUCTIVE dialog opens on Cancel, deliberately. Its confirm is irreversible - archiving

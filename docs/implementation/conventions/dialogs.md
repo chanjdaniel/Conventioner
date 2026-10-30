@@ -6,8 +6,11 @@ describes:
   - front-end/src/utils/useInertBehind.ts
   - front-end/src/utils/useModalRoot.ts
   - front-end/src/utils/useEscapeToClose.ts
+  - front-end/src/utils/useFocusGoesBack.ts
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/src/__tests__/aDialogGivesFocusBack.test.ts
+  - front-end/src/__tests__/theVendorDrawerGivesFocusBack.test.ts
+  - front-end/e2e/the-vendor-drawer-gives-focus-back.spec.ts
   - front-end/e2e/dialog-idiom.spec.ts
 verified: 2026-10-30
 sources:
@@ -22,6 +25,7 @@ sources:
   - E20
   - T45
   - E39/F01/S04
+  - T123
 ---
 
 # Dialogs
@@ -58,6 +62,8 @@ So an opener that goes away with the click hands focus on first: the phase rail'
 `AppDialog` holds no focus trap, so a dialog that swaps one view for another moves focus itself: swapping unmounts the focused button.
 So does a row that takes the place of the button that opened it: Manage market's "Add user" and Manage organization's "Add admin" and "Add member" focus the row's field as it opens, and their button again as its Cancel closes it.
 Load Template focuses its confirm view's Cancel, then the chosen card again on Cancel ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)).
+[`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for the [vendor drawer](../../business/flows/vendor-drawer.md), a modal that is not a dialog on the shell (T123).
+The drawer moved no focus in and gave none back, so after every vendor a keyboard user started again from the top of the page; it now opens on its close, its first control, since what follows it may be a verdict or a note, and gives focus back to what opened it: a row on the Vendors page or in the review's All view, a seat's name, or a name at the door.
 
 **A field looks like a field.**
 A dialog's text input is the `.field` primitive ([the design language](../../design-system.md#the-primitive-layer)), which owns its height, padding, corners, type and disabled state; nothing resets it (`all: unset` once left the market name as bare text).
@@ -91,6 +97,7 @@ With exactly one organization it names it rather than offering a select with one
 ## How it is enforced
 
 - [`aDialogGivesFocusBack.test.ts`](../../../front-end/src/__tests__/aDialogGivesFocusBack.test.ts) closes a dialog by each of its paths, and by unmounting it while open, and finds focus back on its opener; and not when the opener has left the page, or the parent moved focus itself.
+- [`theVendorDrawerGivesFocusBack.test.ts`](../../../front-end/src/__tests__/theVendorDrawerGivesFocusBack.test.ts) does the same for the vendor drawer, closed by its close, the scrim, Escape and the screen, and finds focus left where it is when another vendor is shown in it; [`the-vendor-drawer-gives-focus-back.spec.ts`](../../../front-end/e2e/the-vendor-drawer-gives-focus-back.spec.ts) opens it by the keyboard from the Vendors page's row, a seat's name on the Result page and a name at the door, and finds focus back on each.
 - [`modalsHoldThePageInert.test.ts`](../../../front-end/src/__tests__/modalsHoldThePageInert.test.ts) finds every component whose own CSS paints a full-viewport cover and fails if one does not call `useInertBehind` or [`useModalRoot`](../../../front-end/src/utils/useModalRoot.ts).
   It keeps a floor of cover-painting files that falls on purpose as dialogs adopt the shell, since a dialog on `AppDialog` stops painting its own cover.
   `AppDialog` itself is pinned by name, because without that every dialog built on it would leave the rule's sight at once.

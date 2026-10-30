@@ -27,6 +27,7 @@ sources:
   - E19
   - E41/F01/S01
   - E38/F03/S01
+  - T123
 ---
 
 # Essential fields
@@ -59,6 +60,7 @@ The applicant form asks the two as one grid, a row per market date with its tier
 **The name to call a vendor** is `display_name`: their preferred name, else their full name.
 `VendorIdentity.vue` shows the name it is handed on every screen that names a vendor; the review card alone shows both, labelled, since deciding about a person is not scanning a list.
 `applicantName` in `essentialFields.ts` is the same rule read from an application's answers, for a screen that holds the answers rather than the served names: the All view's rows and the import preview's.
+The Vendors page and its drawer read it too, so a refused placement read still names every vendor, the served name winning where the server has one (T123).
 The preferred name is asked of everyone, after the full name, and is never required, never solver-relevant (correcting a spelling reopens no review) and never switched off.
 What every screen does with the name is [a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md).
 
