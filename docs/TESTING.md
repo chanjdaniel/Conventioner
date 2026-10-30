@@ -5,7 +5,7 @@ describes:
   - front-end/playwright.config.ts
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
-verified: 2026-10-30
+verified: 2026-10-28
 sources:
   - E34/F03/S02
   - E35/F02/S01

@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/answerCounts.ts
   - front-end/src/utils/marketStats.ts
   - back-end/market_stats.py
-verified: 2026-10-30
+verified: 2026-10-29
 sources:
   - E45/F01/S01
   - E45/F01/S02
