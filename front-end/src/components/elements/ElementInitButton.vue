@@ -23,4 +23,9 @@
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-card);
 }
+
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
 </style>
