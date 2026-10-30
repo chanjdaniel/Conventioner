@@ -157,7 +157,7 @@ From Review or Applications, "Begin Assignment", disabled before the click with 
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).
 
-It lands on Assignment, and the verdicts settle there; an own-form market's application page closes with it.
+It lands on the Assignment tab's Settings page, and the verdicts settle there; an own-form market's application page closes with it.
 Covered by: `phase-state-machine.spec.ts`, `needs-a-follow-up.spec.ts`, `placement-pins.spec.ts`.
 
 ## I6. Bring in a late export

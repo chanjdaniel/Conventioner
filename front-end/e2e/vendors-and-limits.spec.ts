@@ -66,7 +66,7 @@ async function seedMarketWithLimits(request: APIRequestContext): Promise<string>
 
 // Every applicant is listed since E36/F02/S04, since anyone may be seated by hand; the count stays
 // the run's, so a rejected applicant is never an unassigned vendor (bug 10).
-test('Vendors lists every applicant, counts the run, and agrees with Result', async ({
+test('Vendors lists every applicant, counts the run, and agrees with Assignments', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -82,7 +82,7 @@ test('Vendors lists every applicant, counts the run, and agrees with Result', as
       .getByTestId('vendors-list-status'),
   ).toHaveText('Rejected');
 
-  await page.goto(marketScreenPath(marketId, 'result'));
+  await page.goto(marketScreenPath(marketId, 'assignments'));
   await expect(page.getByTestId('result-approved-assigned')).toHaveText(
     /2\s+of\s+2\s+approved applicants assigned/,
   );

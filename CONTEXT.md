@@ -161,7 +161,7 @@ See [Table sharing](docs/business/concepts/table-sharing.md).
 **Assignment**:
 One applicant's table on one date: what they were given, by the solver or by hand.
 Assigning by hand is assigning: an organizer who puts someone at a table, or moves or frees them, changes their assignments.
-The Assignment phase, tab and page keep the name for the whole job, which is why the page where the **Assignment rules** are set and tables are allocated is labelled Assignment; its sibling page, where the assignments are read and changed, is the **Result**.
+The Assignment phase and tab keep the name for the whole job; under the tab, the page where the **Assignment rules** are set and tables are allocated is **Settings** (headed "Assignment settings"), and its sibling page, where the assignments are read and changed, is **Assignments**.
 _Avoid_: Assignment for the solver's whole output (that is the **table allocation**); placement, placed and placing (all now **assignment**, **assigned** and **assigning**)
 See [Assignment](docs/business/concepts/assignment.md).
 

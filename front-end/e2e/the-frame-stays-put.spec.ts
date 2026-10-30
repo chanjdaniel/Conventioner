@@ -59,7 +59,7 @@ test.describe('The frame stays put', () => {
     // Short enough that every tab is taller than the window, so each one genuinely scrolls.
     await page.setViewportSize({ width: 1920, height: 500 });
 
-    for (const tab of ['setup', 'form', 'applications', 'assignment']) {
+    for (const tab of ['setup', 'form', 'applications', 'settings']) {
       await page.goto(marketSetupPath(marketId, tab));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       await scrollToBottom(page);
@@ -149,7 +149,7 @@ test.describe('The frame stays put', () => {
     // no longer wraps (E22/F04/S01), and it has no Back footer any more (E22/F04/S02).
     await page.setViewportSize({ width: 1920, height: 300 });
 
-    for (const screen of ['result', 'attendance', 'vendors'] as const) {
+    for (const screen of ['assignments', 'attendance', 'vendors'] as const) {
       await page.goto(marketScreenPath(marketId, screen));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       await page.waitForLoadState('networkidle');
@@ -184,10 +184,8 @@ test.describe('The frame stays put', () => {
     authenticatedPage: page,
   }) => {
     const screens = [
-      ...['setup', 'form', 'applications', 'assignment'].map((tab) =>
-        marketSetupPath(marketId, tab),
-      ),
-      ...(['result', 'attendance', 'vendors', 'stats'] as const).map((s) =>
+      ...['setup', 'form', 'applications', 'settings'].map((tab) => marketSetupPath(marketId, tab)),
+      ...(['assignments', 'attendance', 'vendors', 'stats'] as const).map((s) =>
         marketScreenPath(marketId, s),
       ),
     ];
@@ -229,8 +227,8 @@ test.describe('The frame stays put', () => {
   test('every market screen is one width', async ({ authenticatedPage: page }) => {
     const screens = [
       marketSetupPath(marketId, 'setup'),
-      marketSetupPath(marketId, 'assignment'),
-      ...(['result', 'attendance', 'vendors', 'stats'] as const).map((s) =>
+      marketSetupPath(marketId, 'settings'),
+      ...(['assignments', 'attendance', 'vendors', 'stats'] as const).map((s) =>
         marketScreenPath(marketId, s),
       ),
     ];

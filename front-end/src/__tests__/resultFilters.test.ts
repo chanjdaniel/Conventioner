@@ -11,6 +11,7 @@ import {
   rowStatus,
   statusCounts,
   tablesMatching,
+  vendorFound,
   type MarketTableRow,
 } from '@/utils/resultFilters';
 
@@ -235,19 +236,19 @@ describe('the filters each page offers', () => {
 describe('the order a date lists its sections in (E30/F01/S05)', () => {
   const plan = {
     tiers: [{ name: 'Gold' }, { name: 'Silver' }, { name: 'Bronze' }],
-    sections: [{ name: 'Upper Atrium' }, { name: 'Lower Atrium' }, { name: 'Courtyard' }],
+    sections: [{ name: 'South Wing' }, { name: 'North Wing' }, { name: 'Courtyard' }],
   };
 
   it('lists them by tier, as the plan ranks its tiers, not by name', () => {
     // The walk: "Courtyard (Bronze)" came first, alphabetically.
     const groups = [
       { section: 'Courtyard', tier: 'Bronze' },
-      { section: 'Lower Atrium', tier: 'Silver' },
-      { section: 'Upper Atrium', tier: 'Gold' },
+      { section: 'North Wing', tier: 'Silver' },
+      { section: 'South Wing', tier: 'Gold' },
     ];
     expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
-      'Upper Atrium',
-      'Lower Atrium',
+      'South Wing',
+      'North Wing',
       'Courtyard',
     ]);
   });
@@ -255,13 +256,13 @@ describe('the order a date lists its sections in (E30/F01/S05)', () => {
   it('within a tier, follows the plan, and puts what the plan does not know last, by name', () => {
     const groups = [
       { section: 'Zed', tier: 'Gold' },
-      { section: 'Lower Atrium', tier: 'Gold' },
+      { section: 'North Wing', tier: 'Gold' },
       { section: 'Alpha', tier: 'Gold' },
-      { section: 'Upper Atrium', tier: 'Gold' },
+      { section: 'South Wing', tier: 'Gold' },
     ];
     expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
-      'Upper Atrium',
-      'Lower Atrium',
+      'South Wing',
+      'North Wing',
       'Alpha',
       'Zed',
     ]);
@@ -324,5 +325,34 @@ describe('the search on the results', () => {
 
   it('is not a where-filter, so it does not travel to the vendors', () => {
     expect(hasPlaceFilter(readResultFilters({ search: 'nadia' }))).toBe(false);
+  });
+});
+
+/**
+ * One vendor found by words (E38/F08/S03): the terms the pages' search finds a vendor by, which the
+ * placement dialog's pickers search by too, so a search finds the same vendors everywhere.
+ */
+describe('vendorFound', () => {
+  const SEARCH = { 'ana@example.com': ['Ana Ruiz', 'Ana Ceramics'] };
+
+  it('finds a vendor by part of their address, a name or a short answer', () => {
+    expect(vendorFound('ANA@', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('ruiz', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('ceramics', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('prints', 'ana@example.com', SEARCH)).toBe(false);
+  });
+
+  it('finds them by where they are too, when that is given', () => {
+    expect(vendorFound('hall a 3', 'ana@example.com', SEARCH, ['Hall A 3', 'Hall A'])).toBe(true);
+    expect(vendorFound('hall b', 'ana@example.com', SEARCH, ['Hall A 3', 'Hall A'])).toBe(false);
+  });
+
+  it('finds by a whole address that vendor alone', () => {
+    expect(vendorFound('ana@example.com', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('na@example.com', 'ana@example.com', SEARCH)).toBe(false);
+  });
+
+  it('finds everyone with no words', () => {
+    expect(vendorFound('  ', 'ana@example.com', SEARCH)).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * A vendor's name that opens their drawer (E35/F01/S02): on a seat of the Result page and on a row
- * at the door. It does nothing else - the seat's change and the door's check-in stay controls of
+ * A vendor's name that opens their drawer (E35/F01/S02): on a seat of the Assignments page and on a
+ * row at the door. It does nothing else - the seat's change and the door's check-in stay controls of
  * their own beside it.
  *
  * It reads as a link at rest, in the design language's link ink and underlined, as an answer's

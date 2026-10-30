@@ -171,7 +171,7 @@ const countTables = () => {
 .container {
   /* A section's name and its location are the organizer's own words and need room for them; a
      count is at most three digits, and the remove control is an icon. The even quarters clipped
-     a name to about eight characters and truncated "Nest Ballroom" to "Nest Ballrc". */
+     a name to about eight characters and cut the last letters off a location name. */
   --section-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr) 4.5rem 2rem;
   width: 100%;
   height: 100%;

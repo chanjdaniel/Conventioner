@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
   width: 8rem;
 }
 
-/* Wide enough for a name like "UBC student + club member" whole. */
+/* Wide enough for a name like "Student + club member" whole. */
 .pricing-name {
   width: 100%;
   min-width: 15rem;

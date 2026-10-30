@@ -33,6 +33,8 @@ sources:
   - E35/F03/S01
   - E35/F03/S02
   - T15
+  - E38/F08/S01
+  - E38/F08/S02
   - E38/F05/S01
 ---
 
@@ -42,14 +44,15 @@ sources:
 **Where they start:** the Assignment tab, which [Begin Assignment](review.md#i5-begin-assignment) lands on.
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
-The Assignment tab holds three pages: Assignment (the rules and the run, [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Result (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
-Before a run the rail says "Set the rules and allocate tables."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."
+The Assignment tab holds three pages: Settings (the rules and the run, headed "Assignment settings", [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Assignments (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
+Before a run the rail says "Set the rules and allocate tables."; after it, "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone."
 **Setting the rules and running them is one page; reading and changing what they produced is another.**
-The first is called Assignment because that is the organizers' word for the whole job; what it sets are the assignment rules, and what the solver produces is the table allocation, read on Result as assignments ([Assignment](../concepts/assignment.md)).
-An organizer's result is who sits where, which is the tables; so Result is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Result (its address redirects there, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
-Allocating tables lands on Result.
+The tab is called Assignment because that is the organizers' word for the whole job, and its pages are named for what they hold: Settings sets the assignment rules, and what the solver produces is the table allocation, read on Assignments as assignments ([Assignment](../concepts/assignment.md)).
+Its heading says "Assignment settings", so it is not taken for the market's own settings on Market Setup.
+An organizer's result is who sits where, which is the tables; so Assignments is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Assignments (its address redirects there, and the old Assignment and Result pages' addresses redirect to Settings and Assignments, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
+Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
-Before the first run Result and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+Before the first run Assignments and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
@@ -81,7 +84,7 @@ Covered by: `assignment-options.spec.ts`.
 ## J3. Allocate tables
 
 **Status:** Works (re-walked live on 2026-10-03, with and without tiers; bug 23).
-"Allocate tables" lands on Result.
+"Allocate tables" lands on Assignments.
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
 Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `untiered-plans-assign.spec.ts`.
 
@@ -100,7 +103,7 @@ The button is disabled with the reason; the server refuses too, in every phase b
 
 **Status:** Works (walked live; the search, the statistics, the download and the marks read from the code as of E35/F02/S01, E35/F03 and E36/F02/S03).
 
-1. Summary: "N of M approved applicants assigned" (M every approved applicant, N those of them with an assignment), "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
+1. Summary: "N of M approved applicants assigned" (M every approved applicant, the vendors added by hand included, N those of them with an assignment), "N of M table-days used", "N unassigned" (those of them with none, a vendor added by hand included; links to Vendors filtered to the same vendors), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
 2. "Statistics" opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job: a card per question (per date, section, tier and table size), each answer a row with its count, its share of all assignments and a bar against the largest in its card, every row a filter of the tables.
    "Assignment history" ([J13](placing-by-hand.md#j13-assignment-history)) and "Download CSV" ([`download.ts`](../../../front-end/src/utils/download.ts)), whose columns are Name (the name the vendor chose, else their full name), Full name, Email and Approval ("Approved", or "Not approved" for a seat given by hand to someone the review did not approve), then one per date holding "<table> - <table choice>" where they sit that day.
 3. "Search" ("Name, business, email or table") keeps the tables whose label matches, or that seat a vendor matching by address, by either name, or by a short answer (80 characters or fewer) to one of the form's text or email questions, such as a business name, a business email or a handle; a choice, a number or a date is shared by many and finds nobody.
@@ -115,7 +118,7 @@ Covered by: `the-result-page.spec.ts`, `tables.spec.ts`, `a-search-on-the-result
 ## J5. The result is out of date
 
 **Status:** Works (walked live; what can still change read from the code as of E31/F01 and E36/F01).
-When the rules, the plan or the approved applications change after a run, a note on the Result page says which: "Your rules changed since tables were allocated. Allocate tables again to bring the result up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
+When the rules, the plan or the approved applications change after a run, a note on the Assignments page says which: "Your rules changed since tables were allocated. Allocate tables again to bring the result up to date." ([an assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md)).
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
 The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan and the applications change after a run only in the database, as specs do.
 The note shows only in Assignment, where running again is possible.
@@ -155,3 +158,7 @@ Covered by: `results-wait-for-the-allocation.spec.ts`, `vendors-see-their-applic
 
 What a run records of its inputs is [what an assignment was made from](../../implementation/modules/made-from.md).
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+
+## Superseded
+
+- The pages read Assignment and Result: the first named for the whole job, the second for what the run produced (wayfinding/the-assignment-tab/02); they read Settings and Assignments, named for what they hold, and the old addresses redirect (E38/F08/S01).

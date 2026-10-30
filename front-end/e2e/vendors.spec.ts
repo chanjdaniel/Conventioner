@@ -99,7 +99,7 @@ test.describe('Vendor browsing and search', () => {
 
     // A day set on the tables is still set on the vendors, and back again.
     await page.goto(
-      `${marketScreenPath(seed.marketId, 'result')}?date=${SEED_MARKET_DATE}&status=assigned`,
+      `${marketScreenPath(seed.marketId, 'assignments')}?date=${SEED_MARKET_DATE}&status=assigned`,
     );
     await expect(page.getByTestId('tables-filter-chip-date')).toBeVisible({ timeout: 10000 });
     await page.getByTestId('market-pages-vendors').click();
@@ -108,7 +108,7 @@ test.describe('Vendor browsing and search', () => {
     await expect(page, 'the table status stays with the tables').not.toHaveURL(/status=/);
     await expect(vendorsPage.vendorListItems).toHaveCount(2);
 
-    await page.getByTestId('market-pages-result').click();
+    await page.getByTestId('market-pages-assignments').click();
     await expect(page.getByTestId('tables-filter-chip-date')).toBeVisible({ timeout: 10000 });
 
     await page.getByTestId('market-pages-vendors').click();
@@ -138,8 +138,8 @@ test.describe('Vendor browsing and search', () => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     });
 
-    // "N unassigned" on the Result page leads to Vendors filtered to them (E22/F04/S04).
-    await page.goto(marketScreenPath(seed.marketId, 'result'));
+    // "N unassigned" on the Assignments page leads to Vendors filtered to them (E22/F04/S04).
+    await page.goto(marketScreenPath(seed.marketId, 'assignments'));
     await page.getByTestId('result-unassigned-link').click();
     const unplaced = page.getByTestId('vendors-list-item').first();
     await expect(unplaced).toBeVisible({ timeout: 15000 });

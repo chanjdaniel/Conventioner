@@ -15,7 +15,7 @@ export class VendorsPage {
   readonly detailAssignmentItems: Locator;
   /** The drawer's History tab: each entry's sentence, newest first (E40/F01/S04). */
   readonly detailHistorySentences: Locator;
-  /** The Result pages' shared filter bar (E28/F02/S02). */
+  /** The Assignments and Vendors pages' shared filter bar (E28/F02/S02). */
   readonly dateFilter: Locator;
   readonly choiceFilter: Locator;
   readonly dateFilterChip: Locator;

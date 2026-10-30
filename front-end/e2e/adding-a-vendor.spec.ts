@@ -9,7 +9,7 @@ import { namelessControls } from './helpers/accessibleNames';
  * A vendor who never applied, added by hand on the day (E36/F03/S01).
  *
  * A walk-in is recorded as a vendor the market knows: added on the Vendors page with a name and an
- * address, shown as added by whoever added them, seated by hand on the Result page, and checked in
+ * address, shown as added by whoever added them, seated by hand on the Assignments page, and checked in
  * at the door like anyone.
  */
 test('a walk-in is added on market day, seated, and checked in at the door', async ({
@@ -38,14 +38,14 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
     `Added by ${TEST_USER.email}`,
   );
   await page.getByTestId('vendors-detail-close').click();
-  // Listed as added, and outside the run's count: Vendors and Result still agree (bug 10).
+  // Listed as added, and counted as needing a table though outside the run (E38/F08/S02).
   await expect(
     page
       .getByTestId('vendors-list-item')
       .filter({ hasText: 'Walk-in Wares' })
       .getByTestId('vendors-list-status'),
   ).toHaveText('Added');
-  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+2\s+vendors assigned/);
+  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+3\s+vendors assigned/);
 
   // An address the market already has is refused, naming it.
   await page.getByTestId('vendors-add-button').click();
@@ -58,11 +58,11 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   const tables = new TablesPage(page);
   await tables.goto(marketId);
   await tables.vacantSeat('A 3').click();
-  const who = tables.dialog.getByTestId('placement-dialog-vendor');
-  await expect(who.getByTestId('placement-dialog-added').locator('option')).toHaveText([
+  await tables.openPicker('vendor');
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-added')).toHaveText([
     /Walk-in Wares/,
   ]);
-  await who.selectOption('walk.in@example.com');
+  await tables.pick('vendor', 'walk.in@example.com', 'walk-in');
   // Nothing they answered to cross, said as such - not that they declined the date.
   await expect(tables.dialogWarning).toHaveText(
     'Added by hand: they gave no answers to check this seat against.',

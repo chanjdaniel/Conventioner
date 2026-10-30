@@ -108,19 +108,19 @@ test('placing and swapping warn about every answer they override, and never bloc
 
   // The free Silver table: Dana fits it as she answered; Carol is still offered, but apart.
   await tables.vacantSeat('Hall B 2').click();
-  const who = tables.dialog.getByTestId('placement-dialog-vendor');
-  await expect(who.getByTestId('placement-dialog-fits').locator('option')).toHaveText([
+  await tables.openPicker('vendor');
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-fits')).toHaveText([
     /Dana Example/,
   ]);
-  await expect(who.getByTestId('placement-dialog-overrides').locator('option')).toHaveText([
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-overrides')).toHaveText([
     /Carol Example/,
   ]);
 
-  await who.selectOption('dana@example.com');
+  await tables.pick('vendor', 'dana@example.com');
   await expect(tables.dialogWarning).toHaveCount(0);
 
   // Placing Carol overrides her tier and her own limit, and crosses the market's ceiling.
-  await who.selectOption('carol@example.com');
+  await tables.pick('vendor', 'carol@example.com');
   await expect(tables.dialogWarning).toContainText(
     'They did not accept the Silver tier on this date, which sets their price.',
   );
@@ -140,7 +140,7 @@ test('placing and swapping warn about every answer they override, and never bloc
 
   // Swapping Alice and Bob overrides answers of both, and says which are whose.
   await tables.change(tables.occupiedSeat('Hall A 1'));
-  await tables.dialog.getByTestId('placement-dialog-swap-target').selectOption('bob@example.com');
+  await tables.pick('swap-target', 'bob@example.com');
   const swapping = tables.dialog.getByTestId('placement-dialog-swap-warning');
   const forAlice = swapping.locator('[data-vendor-email="alice@example.com"]');
   await expect(forAlice).toContainText('Alice Example');

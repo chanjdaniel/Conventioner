@@ -21,7 +21,7 @@ from datatypes import MarketPhase, MarketRole
 D1, D2 = "2026-11-18", "2026-11-19"
 
 
-def seat(email, date, table_code, table_choice="Full Table", section="A", location="Upper Atrium"):
+def seat(email, date, table_code, table_choice="Full Table", section="A", location="North Wing"):
     return {
         "email": email,
         "date": date,
@@ -41,11 +41,11 @@ def market(phase=MarketPhase.MARKET_DAYS, seats=()):
             # Out of order on purpose: the roster lists them as a calendar does.
             "marketDates": [{"date": D2}, {"date": D1}],
             "tiers": [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}],
-            "locations": [{"name": "Upper Atrium"}, {"name": "Lower Atrium"}],
+            "locations": [{"name": "North Wing"}, {"name": "South Wing"}],
             "sections": [
-                {"name": "A", "location": {"name": "Upper Atrium"},
+                {"name": "A", "location": {"name": "North Wing"},
                  "tier": {"id": 0, "name": "Gold"}, "count": 31},
-                {"name": "B", "location": {"name": "Lower Atrium"},
+                {"name": "B", "location": {"name": "South Wing"},
                  "tier": {"id": 1, "name": "Silver"}, "count": 28},
             ],
             "assignmentOptions": {
@@ -64,7 +64,7 @@ def door(monkeypatch):
         seat("ana@example.com", D1, "A 2"),
         seat("ben@example.com", D1, "A 1", "Half Table (Left)"),
         seat("cy@example.com", D1, "A 1", "Half Table (Right)"),
-        seat("ana@example.com", D2, "B 5", section="B", location="Lower Atrium"),
+        seat("ana@example.com", D2, "B 5", section="B", location="South Wing"),
     ]))
     attendance = FakeAttendanceCollection()
 
@@ -105,7 +105,7 @@ class TestTheRoster:
         )
         assert row["vendorName"] == "Ana"
         assert (row["section"], row["location"], row["tableChoice"]) == (
-            "A", "Upper Atrium", "Full Table",
+            "A", "North Wing", "Full Table",
         )
         assert row["checkedInAt"]
         # The vendor checked themselves in: nobody else is named.
