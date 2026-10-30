@@ -86,6 +86,41 @@ describe('a hand-out overtaken before it answered (the Next race)', () => {
     expect(api.put).toHaveBeenCalledWith('/markets/market-1/applications/app-3/claim');
   });
 
+  it('lets go of the card a later Next overtook, once that Next has answered', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockResolvedValueOnce({ data: { application: { id: 'app-3' } } });
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    await claims.next('app-1', true);
+    first.answer('app-2');
+    await overtaken;
+
+    expect(api.delete).toHaveBeenCalledWith('/markets/market-1/applications/app-2/claim');
+    expect(api.delete).not.toHaveBeenCalledWith('/markets/market-1/applications/app-3/claim');
+  });
+
+  it('waits for the later Next before letting go, and keeps the card if it is handed again', async () => {
+    const first = heldBack();
+    const second = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockReturnValueOnce(second.pending);
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    const later = claims.next('app-1', true);
+    first.answer('app-2');
+    await overtaken;
+    // The later Next may hand the same card over again: nothing is let go while it is out.
+    expect(api.delete).not.toHaveBeenCalled();
+    second.answer('app-2');
+
+    expect((await later)?.id).toBe('app-2');
+    expect(claims.held.value).toBe('app-2');
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
   it('lets go of a card claimed for a reviewer who has left since', async () => {
     const first = heldBack();
     api.post.mockReturnValueOnce(first.pending);
