@@ -140,6 +140,22 @@ class TestTheRow:
         moved = client_market(permissions={"change-verdicts": {"role": "editor", "source": "market"}})
         assert who(moved) == "an Editor, an Admin or the owner"
 
+    def test_the_table_names_the_stricter_of_giving_and_changing_since_a_change_takes_both(self):
+        def who(**rows):
+            market = client_market(permissions={
+                row: {"role": role, "source": "market"} for row, role in rows.items()})
+            return next(r["whoMay"] for r in Actions.table(market) if r["id"] == "change-verdicts")
+
+        # Set below the giving row, the change row still takes a reviewer: never a Viewer.
+        assert who(**{"change-verdicts": "viewer"}) == "an Editor, an Admin or the owner"
+        assert who(**{"change-verdicts": "viewer", "give-verdicts": "admin"}) == (
+            "an Admin or the owner")
+        assert who(**{"give-verdicts": "owner"}) == "the market's owner"
+        # The giving row itself names only its own role.
+        giving = next(r for r in Actions.table(client_market(permissions={
+            "change-verdicts": {"role": "viewer", "source": "market"}})) if r["id"] == "give-verdicts")
+        assert giving["whoMay"] == "an Editor, an Admin or the owner"
+
     def test_the_market_read_answers_it_for_each_role(self):
         rows = {}
         for role in MarketRole:
@@ -407,6 +423,23 @@ class TestAWriteThatJudgesAgain:
         Rules.judge(Rules.Rulebook(_rules_market(NO_SHOW_RULE)), "market-1", "ruled-out")
 
         assert ruled_out["status"] == OPEN.value
+
+
+def test_a_selection_skips_one_decided_since_it_was_seen_with_the_change_rows_sentence(
+    applications,
+):
+    """Seen open, but approved by now: for someone who may not change it, the reason is the row's,
+    since even unchanged it would not be theirs to decide."""
+    applications.documents = [_application("approved", APPROVED)]
+
+    body, _ = ApplicantsApi.review_selection(
+        "market-1", [("approved", ApplicantsApi.seen_from({"status": "open", "verdictAt": None}))],
+        REJECTED, by=VerdictGiver(kind="person", user_id="u", email="e@market.test"),
+        change_refused=CHANGE_REFUSED)
+
+    assert body == {"written": [], "skipped": [
+        {"id": "approved", "email": "approved@example.com", "reason": CHANGE_REFUSED}]}
+    assert applications.documents[0]["status"] == APPROVED.value
 
 
 def test_the_selection_function_skips_decided_ones_with_the_reason_given(applications):

@@ -38,7 +38,7 @@ A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, 
 
 ## The interface
 
-**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal) and `fixed` (a row nobody may change).
+**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal), `fixed` (a row nobody may change) and `on_top_of` (the row it is asked on top of, whose check comes first: the change row rides on the giving row, E38/F06/S01).
 `action(...)` adds a row to `ACTIONS` and returns it, and refuses an id the table already has; each row is a module constant (`MOVE_PHASE`, `ASSIGN`, ...).
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
@@ -98,7 +98,7 @@ A row the market does not hold reads its default, so a market without the field 
 Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
 `create_market` writes `permissions: {}` whatever the create body carried.
 
-**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), which a screen that says who may reads through `whoMayTake` (E38/F06/S01).
+**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), the stricter of its own role and that of the row it rides on (`who_may`), so with the change row set to Viewer it still names "an Editor, an Admin or the owner"; a screen that says who may reads it through `whoMayTake` (E38/F06/S01).
 Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
 **The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), and `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04); each answers the market's table.

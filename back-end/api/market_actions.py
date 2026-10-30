@@ -37,6 +37,9 @@ class Action:
     #: What the action is, after "may", in the refusal's sentence: "move this market's phase".
     may_what: str
     fixed: bool = False
+    #: The row this action is asked on top of, if any: taking it takes both, so who may is the
+    #: stricter of the two (``who_may``).
+    on_top_of: Optional["Action"] = None
 
 
 #: Every row, by id, in the order the table lists them.
@@ -45,12 +48,12 @@ ACTIONS: Dict[str, Action] = {}
 
 def action(
     action_id: str, group: str, label: str, default: MarketRole, may_what: str, *,
-    fixed: bool = False,
+    fixed: bool = False, on_top_of: Optional[Action] = None,
 ) -> Action:
     """Add a row to the table and return it. An id names one row, once."""
     if action_id in ACTIONS:
         raise ValueError(f"The table already has a row {action_id!r}.")
-    row = Action(action_id, group, label, default, may_what, fixed)
+    row = Action(action_id, group, label, default, may_what, fixed, on_top_of)
     ACTIONS[action_id] = row
     return row
 
@@ -79,7 +82,8 @@ GIVE_VERDICTS = action(
 #: rule's rejection to open (E38/F06/S01). Asked on top of ``GIVE_VERDICTS``: a change is a verdict.
 CHANGE_VERDICTS = action(
     "change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
-    MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market")
+    MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market",
+    on_top_of=GIVE_VERDICTS)
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(
@@ -178,9 +182,20 @@ def table(market: Market) -> List[Dict[str, Any]]:
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
             "mayWhat": row.may_what,
-            "whoMay": _WHO_MAY[role],
+            "whoMay": _WHO_MAY[who_may(row, market.permissions)],
         })
     return served
+
+
+def who_may(row: Action, rows: Mapping[str, Any]) -> MarketRole:
+    """The lowest role that may take this action on a market holding ``rows``, counting the row it
+    is asked on top of: a change of verdict takes the giving row too, so with the change row set
+    below it a Viewer still changes nothing (E38/F06/S01)."""
+    role = _minimum_role_of(row, rows)
+    if row.on_top_of is None:
+        return role
+    under = who_may(row.on_top_of, rows)
+    return under if PermissionsApi.role_reaches(under, role) else role
 
 
 _WHO_MAY = {

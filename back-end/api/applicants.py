@@ -641,7 +641,9 @@ def review_selection(
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": f"Already {_STATUS_WORD[new_status.value]}."})
             continue
-        if change_refused and ApplicationsApi.is_decided(seen or doc):
+        # Decided as they saw it, or by now: either way not theirs to change, so the row says why.
+        if change_refused and (ApplicationsApi.is_decided(seen or doc)
+                               or ApplicationsApi.is_decided(doc)):
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": change_refused})
             continue
