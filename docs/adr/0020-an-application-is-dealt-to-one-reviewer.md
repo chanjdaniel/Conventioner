@@ -43,7 +43,9 @@ A decided application stays where it is, and so does a follow-up, unless its own
 **Choosing is a row of the market's table**, "Choose reviewers" (default Admin, [ADR 0019](0019-a-markets-permissions-are-a-table.md)), open while the review is (draft through the stage) and refused on an archived market.
 A reviewer is chosen from the people the chooser may hand a follow-up to, so someone outside the market's organization is never offered its people.
 
-**The review's record is the market's history** ([ADR 0017](0017-one-history-for-every-change.md)): a change of reviewers and the deal it made are entries of their own (`reviewers`, `dealt`), and one application's story is the history narrowed to its vendor, in the vendor drawer's History tab.
+**The review's record is the market's history** ([ADR 0017](0017-one-history-for-every-change.md)): a change of reviewers, the deal it made and each arrival's deal are entries of their own (`reviewers`, `dealt`).
+A verdict's entry names whom the application was dealt to beside who decided it (`dealt_to`), so help and mistakes can be told apart.
+One application's story is the history narrowed to its vendor, in the vendor drawer's History tab.
 
 ## Consequences
 
