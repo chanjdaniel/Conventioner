@@ -180,9 +180,11 @@ async function disconnect(): Promise<void> {
     </template>
     <template #setting-content>
       <div class="discord-card">
-        <p class="discord-lead">
-          Give this market's vendors a role in your Discord server. You can change this card in
-          every phase, until the market is archived.
+        <!-- When it may be changed is said only to someone who may change it. -->
+        <p class="discord-lead" data-testid="discord-lead">
+          Give this market's vendors a role in your Discord server.<template v-if="editable">
+            You can change this card in every phase, until the market is archived.</template
+          >
         </p>
 
         <p v-if="!setUp" class="note" data-testid="discord-not-set-up">
@@ -457,6 +459,13 @@ async function disconnect(): Promise<void> {
 
 .discord-choices > .discord-error {
   grid-column: 1 / -1;
+}
+
+/* On a phone (the Tools tab fits one) the three choices stand one under another. */
+@media (width <= 640px) {
+  .discord-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .discord-connect {

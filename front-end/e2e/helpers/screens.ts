@@ -42,7 +42,7 @@ export const PHONE: Size = { width: 390, height: 844 };
 /** The sizes each kind of screen ships at: an organizer works at a desk; the rest may be a phone. */
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
-/** A route with `meta.fitsAPhone`: an organizer's, used at the door on a phone too (E29/F01). */
+/** A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01) and Tools. */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
 /** Who is signed in to see a screen. */
@@ -497,6 +497,13 @@ export const SCREENS: Screen[] = [
       await at(screen('big', 'stats'), 'stats-status')(page, seed);
       await visible(page, 'stats-answer');
     },
+  },
+  {
+    // The manual tools, Discord's card first (E46/F01/S02); it fits a phone, as the door does.
+    name: 'the tools',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'tools'), 'plan-card-discord'),
   },
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {

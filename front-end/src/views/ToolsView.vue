@@ -6,6 +6,9 @@
  * Discord is the first. Each tool is a card of the page's card grid, as the plan's are, so a tool
  * added later is one more card and decides nothing else (the design language, Layout). Who may use
  * a tool is its own row of the table; a card the row refuses reads, with no control.
+ *
+ * It fits a phone (`meta.fitsAPhone`), the second organizer market screen that does after the
+ * door: an organizer may connect Discord from one (Daniel, T113).
  */
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
@@ -31,5 +34,12 @@ const { market, refresh } = useOpenMarket(marketId);
 .tools {
   align-self: stretch;
   padding: var(--space-6);
+}
+
+/* On a phone the gutter narrows, as the door's does, and stays on both sides. */
+@media (width <= 640px) {
+  .tools {
+    padding: var(--space-4);
+  }
 }
 </style>

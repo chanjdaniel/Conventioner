@@ -86,7 +86,11 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
+/* A link on its own line: at least a target's height, a thumb's 44px on a phone. */
 .discord-connected-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
   color: var(--mm-text-link);
   text-decoration: underline;
   font-size: var(--text-sm);

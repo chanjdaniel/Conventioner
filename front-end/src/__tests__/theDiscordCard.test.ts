@@ -330,6 +330,14 @@ describe('a market connected, for an Admin', () => {
 });
 
 describe('a market connected, for someone the row refuses', () => {
+  it('does not tell them when the card may be changed', () => {
+    const wrapper = card(market({ discord: CONNECTED }, MarketAction.ConnectDiscord));
+
+    expect(find(wrapper, 'discord-lead').text()).toBe(
+      "Give this market's vendors a role in your Discord server.",
+    );
+  });
+
   it('reads the server, the role, the question and the link, and changes nothing', async () => {
     const wrapper = card(
       market(

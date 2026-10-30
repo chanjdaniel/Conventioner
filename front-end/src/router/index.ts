@@ -131,6 +131,8 @@ const router = createRouter({
       path: '/markets/:marketId/tools',
       name: 'market-tools',
       component: () => import('@/views/ToolsView.vue'),
+      // An organizer may connect Discord from a phone (Daniel, T113), so it fits one, as the door does.
+      meta: { fitsAPhone: true },
     },
     // The market's figures, in every phase (E45/F01/S01).
     {
@@ -145,6 +147,8 @@ const router = createRouter({
       path: '/discord/connected',
       name: 'discord-connected',
       component: () => import('@/views/DiscordConnectedView.vue'),
+      // An AuthCard page, as the account pages are, so it fits a phone as they do.
+      meta: { fitsAPhone: true },
     },
     // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
     // preserve, so it can only send the organizer to choose a market.

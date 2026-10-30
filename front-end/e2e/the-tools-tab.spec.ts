@@ -105,3 +105,28 @@ test('the form builder adds a Discord username question in one click, once', asy
   await expect(form.labelInput(0)).toHaveValue('Discord username', { timeout: 15000 });
   await expect(form.addDiscordButton).toHaveCount(0);
 });
+
+test('the Tools tab fits a phone, a draft with its three rail actions included', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedDraftMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  const tools = new ToolsPage(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await tools.goto(marketId);
+  await expect(tools.discordCard).toBeVisible({ timeout: 15000 });
+  // A draft's rail offers Pick market dates, Open Applications and More, which ran past the window.
+  await expect(page.getByTestId('phase-rail-menu-button')).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow, 'the page scrolls sideways on a phone').toBeLessThanOrEqual(0);
+  await expect(page.getByTestId('phase-rail-menu-button')).toBeInViewport({ ratio: 1 });
+});
