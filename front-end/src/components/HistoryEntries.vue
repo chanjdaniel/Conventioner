@@ -7,7 +7,7 @@
  */
 import { ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
-import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import {
   entryChanges,
@@ -32,6 +32,8 @@ const props = withDefaults(
     ownVendor?: string;
     /** The market's choice questions, so a price group's conditions read in the card's words. */
     questions?: readonly RejectionQuestion[];
+    /** The market's form, whose questions name a vendor's answers. */
+    fields?: readonly FormField[];
   }>(),
   {
     names: () => ({}),
@@ -40,6 +42,7 @@ const props = withDefaults(
     vendorLink: undefined,
     ownVendor: '',
     questions: () => [],
+    fields: () => [],
   },
 );
 
@@ -53,7 +56,7 @@ function toggle(id: string) {
 }
 
 const changesOf = (entry: MarketHistoryEntry) =>
-  entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor);
+  entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
 </script>
 
 <template>

@@ -274,6 +274,33 @@ export function essentialLabel(key: string): string {
   return ESSENTIAL_ORDER.find(([k]) => k === key)?.[1] ?? key;
 }
 
+/** The labels of the stored keys the form never asks as such: the table-share answer's parts. */
+const DERIVED_LABELS: Readonly<Record<string, string>> = {
+  [TABLE_SHARE_ANSWER_KEY]: TABLE_SHARE_EMAIL_LABEL,
+  [TABLE_SHARE_ALSO_KEY]: 'Other table-share partners',
+};
+
+/**
+ * What a stored answer's key is called on screen: an essential question's label, the form's own
+ * question's, else the key in words - so an answer the history recorded reads as the form asked it.
+ */
+export function answerLabel(key: string, fields: readonly FormField[] = []): string {
+  const essential = essentialLabel(key);
+  if (essential !== key) return essential;
+  if (DERIVED_LABELS[key]) return DERIVED_LABELS[key];
+  const field = fields.find((f) => f.key === key);
+  if (field?.label) return field.label;
+  const words = key.replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** One stored answer as a person reads it, the way the review card shows it: dates and table
+ * choices in words, rankings numbered, a map of tiers by date. */
+export function answerReading(key: string, value: unknown): string {
+  const present = ESSENTIAL_ORDER.find(([k]) => k === key)?.[2] ?? ((v: unknown) => v);
+  return answerText(present(value)).trim();
+}
+
 /** The essential questions, in the order the form asks them. */
 export const ESSENTIAL_KEYS: readonly string[] = ESSENTIAL_ORDER.map(([key]) => key);
 

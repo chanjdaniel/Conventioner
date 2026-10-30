@@ -367,6 +367,7 @@ watch(
             :vendor="email"
             :rowLabels="rowLabels"
             :path="intakeModeOf(market)"
+            :fields="market.applicationForm?.fields ?? []"
           />
         </div>
       </section>

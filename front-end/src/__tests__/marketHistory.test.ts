@@ -3,7 +3,7 @@
  * structured entry, which opens to show before and after.
  */
 import { describe, expect, it } from 'vitest';
-import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import {
   dayEnds,
   dayStarts,
@@ -502,6 +502,63 @@ describe('who reviews which application (E38/F07/S02)', () => {
     expect(entryChanges(reviewers(['a@x.test'], [])).changed).toEqual([
       { field: 'Reviewers', before: 'a@x.test', after: 'none' },
     ]);
+  });
+});
+
+describe('an applicant’s answers, before and after', () => {
+  const FIELDS = [
+    { key: 'business_name', label: 'Business name', type: 'text', order: 0 },
+  ] as unknown as FormField[];
+  const applied = (action = 'apply', kind: string | null = 'submitted'): MarketHistoryEntry =>
+    entry({
+      action,
+      kind,
+      detail: {
+        before: {},
+        after: {
+          business_name: 'Ember Ceramics',
+          essential_available_dates: ['2099-08-01'],
+          essential_tier_preference: { '2099-08-01': ['Gold', 'Silver'] },
+          essential_table_choice: 'half',
+          essential_table_share_also: ['kai@example.com'],
+          // Stored empty, so it differs from absent, but reads as nothing either way.
+          essential_preferred_name: '',
+        },
+        rejected_by_rules: false,
+      },
+    });
+
+  it('names each question as the form asks it, and reads each answer as a person would', () => {
+    const { changed } = entryChanges(applied(), {}, IntakeMode.Form, [], '', FIELDS);
+
+    expect(changed.map((row) => row.field)).toEqual([
+      'Business name',
+      'Available dates',
+      'Tier preference',
+      'Table choice',
+      'Other table-share partners',
+    ]);
+    expect(changed.map((row) => row.after)).toEqual([
+      'Ember Ceramics',
+      'Saturday, August 1, 2099',
+      'Saturday, August 1, 2099: Gold, Silver',
+      expect.stringMatching(/half/i),
+      'kai@example.com',
+    ]);
+    expect(changed.every((row) => row.before === 'none')).toBe(true);
+  });
+
+  it('reads an organizer’s update of a vendor’s info the same way', () => {
+    const { changed } = entryChanges(
+      applied('update-vendor-info', null),
+      {},
+      IntakeMode.Form,
+      [],
+      '',
+      FIELDS,
+    );
+
+    expect(changed[0]).toEqual({ field: 'Business name', before: 'none', after: 'Ember Ceramics' });
   });
 });
 

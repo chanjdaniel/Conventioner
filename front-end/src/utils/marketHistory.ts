@@ -10,7 +10,8 @@
  * and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
-import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
+import { answerLabel, answerReading } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
@@ -786,6 +787,8 @@ export function entryChanges(
   /** The market's choice questions (`rejectionQuestions`), which a price group's conditions name. */
   questions: readonly RejectionQuestion[] = [],
   own = '',
+  /** The market's form, whose questions name a vendor's answers. */
+  fields: readonly FormField[] = [],
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];
@@ -814,6 +817,29 @@ export function entryChanges(
           ]
         : dealtShares(entry).map((share) => reviewer(share, share.vendor)),
       recorded: [],
+    };
+  }
+  // A vendor's answers, as they applied or as an organizer updated them: each question as the form
+  // asks it, each answer as the review card reads it, never a stored key or JSON (E38/F07/S02).
+  if (
+    (entry.action === 'apply' && (entry.kind === 'submitted' || entry.kind === 'edited')) ||
+    entry.action === 'update-vendor-info'
+  ) {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const reading = (key: string, value: unknown) => answerReading(key, value) || 'none';
+    return {
+      changed: [...new Set([...Object.keys(before), ...Object.keys(after)])]
+        .map((key) => ({
+          field: answerLabel(key, fields),
+          before: reading(key, before[key]),
+          after: reading(key, after[key]),
+        }))
+        // An answer stored empty differs from none stored, but reads the same: not a change.
+        .filter((row) => row.before !== row.after),
+      recorded: Object.entries(detail)
+        .filter(([key]) => key !== 'before' && key !== 'after')
+        .map(([key, value]) => ({ field: fieldName(key), value: valueText(value) })),
     };
   }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
