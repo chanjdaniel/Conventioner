@@ -90,6 +90,9 @@ EDITED = "edited"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
+DISCORD_CONNECTED = "discord_connected"
+DISCORD_SETTINGS = "discord"
+DISCORD_DISCONNECTED = "discord_disconnected"
 
 
 def _now() -> str:
