@@ -73,7 +73,7 @@ test('placing and swapping warn about every answer they override, and never bloc
     ],
     assignmentOptions: { maxAssignmentsPerVendor: 1, maxHalfTableProportionPerSection: 50 },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });

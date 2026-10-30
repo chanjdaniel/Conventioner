@@ -24,21 +24,20 @@ OWNER_EMAIL = "owner@example.com"
 ORG_ID = "org-1"
 
 MID_LIFECYCLE = [
-    MarketPhase.APPLICATIONS_OPEN,
-    MarketPhase.APPLICATIONS_CLOSED,
-    MarketPhase.REVIEW,
+    MarketPhase.APPLICATIONS,
     MarketPhase.ASSIGNMENT,
     MarketPhase.OFFERS,
     MarketPhase.MARKET_DAYS,
 ]
 
 
-def _market(market_id, phase, name=None, placements=0, reached=None):
+def _market(market_id, phase, name=None, placements=0, reached=None, intake_mode=None):
     """A stored market document, camelCase as every write leaves one.
 
     ``reached`` is its phase history, the record of where it has been (E26/F06/S03).
+    ``intake_mode`` is stored as ``intakeMode``; absence means CSV, the write path's own default.
     """
-    return {
+    document = {
         "id": market_id,
         "name": name or f"Market {market_id}",
         "slug": market_id,
@@ -53,6 +52,9 @@ def _market(market_id, phase, name=None, placements=0, reached=None):
             for entered in (reached or ["draft", phase.value])
         ],
     }
+    if intake_mode is not None:
+        document["intakeMode"] = intake_mode
+    return document
 
 
 class Markets:
@@ -123,7 +125,7 @@ class TestItRefusesWhileAMarketIsUnderWay:
     def test_the_refusal_names_each_market_and_its_phase(self, org):
         """"You cannot delete this" without saying which market is a refusal only guessing answers."""
         org(
-            _market("m-1", MarketPhase.REVIEW, name="Spring Market"),
+            _market("m-1", MarketPhase.APPLICATIONS, name="Spring Market"),
             _market("m-2", MarketPhase.MARKET_DAYS, name="Summer Market"),
             _market("m-3", MarketPhase.DRAFT, name="A Draft"),
         )
@@ -139,7 +141,7 @@ class TestItRefusesWhileAMarketIsUnderWay:
     def test_one_live_market_blocks_the_whole_deletion(self, org):
         markets, _ = org(
             _market("draft", MarketPhase.DRAFT),
-            _market("live", MarketPhase.APPLICATIONS_OPEN),
+            _market("live", MarketPhase.APPLICATIONS),
         )
 
         with pytest.raises(OrgsApi.OrganizationHasLiveMarkets):
@@ -239,13 +241,26 @@ class TestTheConfirmationCanSayWhatItDestroys:
         assert draft["ran"] is False
 
     def test_it_lists_what_would_refuse_the_deletion(self, org):
-        org(_market("m-1", MarketPhase.REVIEW), _market("m-2", MarketPhase.DRAFT))
+        org(_market("m-1", MarketPhase.APPLICATIONS), _market("m-2", MarketPhase.DRAFT))
 
         preview = OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
 
         assert preview["can_delete"] is False
         assert [m["id"] for m in preview["blocking_markets"]] == ["m-1"]
         assert [m["id"] for m in preview["markets_to_delete"]] == ["m-2"]
+
+    def test_the_stage_reads_review_on_a_google_form_market(self, org):
+        """The one stage is named by intake (E38/F04/S01): Review on a Google Form market."""
+        org(
+            _market("m-1", MarketPhase.APPLICATIONS, intake_mode="csv"),
+            _market("m-2", MarketPhase.APPLICATIONS, intake_mode="form"),
+        )
+
+        preview = OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
+
+        by_id = {m["id"]: m for m in preview["blocking_markets"]}
+        assert by_id["m-1"]["phase_label"] == "Review"
+        assert by_id["m-2"]["phase_label"] == "Applications"
 
     def test_only_the_owner_may_see_it(self, org, monkeypatch):
         org(_market("m-1", MarketPhase.DRAFT))

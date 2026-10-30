@@ -91,8 +91,8 @@ test.describe('One market, from the server', () => {
     await expect(addField).toBeEnabled({ timeout: 15000 });
     await expect(lockBanner).toHaveCount(0);
 
-    await page.getByTestId('phase-transition-applications_open').click();
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+    await page.getByTestId('phase-transition-applications').click();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
     await expect(page).toHaveURL(/\/applications$/);

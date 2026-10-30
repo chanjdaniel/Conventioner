@@ -26,13 +26,8 @@ describe('the page a market is worked on in its phase', () => {
     expect(currentPage(MarketPhase.Draft, false)).toBe('setup');
   });
 
-  it('gives the three application phases ONE page', () => {
-    const pages = [
-      MarketPhase.ApplicationsOpen,
-      MarketPhase.ApplicationsClosed,
-      MarketPhase.Review,
-    ].map((phase) => currentPage(phase, false));
-    expect(new Set(pages)).toEqual(new Set(['applications']));
+  it('works the stage where applications arrive and are reviewed on the Applications page', () => {
+    expect(currentPage(MarketPhase.Applications, false)).toBe('applications');
   });
 
   it('is the rules until an assignment exists, and the result after', () => {
@@ -107,7 +102,7 @@ describe('the page a tab opens', () => {
     expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('settings');
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
-    expect(pageForTab('stats', MarketPhase.Review, false)).toBe('stats');
+    expect(pageForTab('stats', MarketPhase.Applications, false)).toBe('stats');
   });
 });
 

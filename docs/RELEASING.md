@@ -229,11 +229,19 @@ python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree wi
 python migrations/create_applications_collection.py   # creates the applications collection and its indexes
 python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
 python migrations/migrate_placement_history.py        # AFTER the deploy, whenever: moves the placement history into the market's history
+python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenever: moves the three old stage phases into `applications`
 ```
 
-`migrate_placement_history.py` is the one that runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
+`migrate_placement_history.py` runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
 Nothing waits on it: the release reads `placement_history` beside `history`, so the drawer's History tab answers as before from the deploy on, and the release can be rolled back until the script has run ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
 It is idempotent, so an early run does no harm, but only a run after moves everything; a later release removes the fallback once every database is moved.
+
+`migrate_to_one_stage.py` runs **after** the deploy that ships the one stage ([ADR 0016](adr/0016-one-stage-for-applications-and-review.md)), whenever the operator likes, never before it: the build before reads `applications` as an unknown phase, which degrades to archived.
+That build reads the three old names as this script would leave them (`LEGACY_STAGE_PHASES` in `back-end/datatypes.py`), writing nothing back, so nothing waits on the script and the deploy can be rolled back until it has run; a later release drops those aliases once it has run on every database.
+It moves every market in `applications_open`, `applications_closed` or `review` into `applications`, keeps a market whose vendors apply on its page and that stood in `applications_closed` or `review` (reached only through `applications_closed`) not taking applications (`applicationsStopped`, never over a stop the organizer set or cleared since the deploy), returns a Google Form market that imported nothing to draft to wait for its first import (the dry run names each), and renames those phases in every market's phase history.
+Production held 2 markets when it was written: 1 in an old phase (a market whose vendors apply on its page, in `review`, which comes out not taking applications) and 1 in `market_days`, whose phase history alone is renamed.
+Run `--dry-run` first and read it, then run it without, from `back-end/` with the production address passed inline and never in `.env`, as the script's Usage says.
+It is idempotent: a second run says "Nothing to change".
 
 `migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
 The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.

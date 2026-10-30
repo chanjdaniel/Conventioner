@@ -11,16 +11,17 @@ import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMar
 import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/googleFormExport';
 
 /**
- * A late export comes in from the menu (E32/F02/S02).
+ * A late export comes in by Redo import (E38/F04/S03).
  *
  * Responses keep arriving on a Google Form after review has begun. The organizer brings them in
- * with "Import more responses" in the rail's menu - never the main button, which in review is the
- * step onward - one move back to importing that lands on the import. Nothing already decided is
- * touched, except an approval whose answers the assignment reads have since changed, which goes back
- * to review; the later export adds only the responses that are new, undecided.
+ * with "Redo import" in the rail's menu - never the main button, which in Review is the step onward
+ * - which opens the import to read the whole responses file again, and the market stays in Review.
+ * Nothing already decided is touched, except an approval whose answers the assignment reads have
+ * since changed, which goes back to review; the later export adds only the responses that are new,
+ * undecided.
  */
 test.describe('A late export', () => {
-  test('comes in from the menu, keeps every verdict, and adds only what is new', async ({
+  test('comes in by Redo import, keeps every verdict, and adds only what is new', async ({
     authenticatedPage: page,
   }) => {
     const seed = await seedApplicantMarket(
@@ -38,32 +39,31 @@ test.describe('A late export', () => {
       await importPage.importCsv(csv, EXPORT_HEADERS, EXPORT_MAPPING);
     }
 
-    // The first export, imported and reviewed.
+    // The first export, imported from draft - its way into Review (E38/F04/S01) - and reviewed.
     await page.goto(marketScreenPath(seed.marketId, 'import'));
     await importExport(exportOf(RESPONSES.nadia, RESPONSES.theo));
     await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
-    await page.getByTestId('phase-transition-review').click();
+    await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     await monitor.waitForLoaded();
     await monitor.approve('nadia@ember.test');
     await monitor.reject('theo@thistle.test');
     await expect(monitor.tally).toContainText('2 reviewed · 1 approved · 1 rejected');
 
-    // Reviewing is its own step: the page offers no import (E32/F02/S03). Importing more is in
-    // the rail's menu, and the main button is the step onward.
+    // The review screen offers no import (E38/F04/S03). Redo import is in the rail's menu, and
+    // the main button is the step onward.
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
-    // The phase the path steps through is never a stage of its rail (E32/F02/S01).
-    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Imported');
-    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Form Closed');
-    await expect(page.getByTestId('phase-transition-applications_open')).toHaveCount(0);
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
+    await expect(page.getByTestId('phase-transition-assignment')).toBeVisible();
     await page.getByTestId('phase-rail-menu-button').click();
-    const more = page.getByTestId('phase-transition-applications_open');
-    await expect(more).toHaveText('Import more responses');
-    await more.click();
+    const redo = page.getByTestId('phase-rail-action-redo-import');
+    await expect(redo).toHaveText('Redo import');
+    await redo.click();
 
-    // One move back to importing, landing on the import.
+    // The import, which says the whole file is read again; the market stays in Review.
     await expect(page).toHaveURL(/\/import$/, { timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Import');
+    await expect(page.getByTestId('import-what-it-does')).toContainText('whole responses file');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
     // The later export holds Theo's response again, unchanged; Nadia's, now coming on another
     // day; and one new response.
@@ -72,7 +72,9 @@ test.describe('A late export', () => {
       'Imported 1 new application, updated 1. 1 unchanged.',
     );
 
-    await page.getByTestId('phase-transition-review').click();
+    await expect(page.getByTestId('import-result-in-review')).toHaveCount(0);
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
+    await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     await monitor.waitForLoaded();
 

@@ -126,7 +126,7 @@ test.describe('The frame stays put', () => {
     );
     await page.setViewportSize({ width: 1920, height: 700 });
     await page.goto(marketSetupPath(blocked.marketId, 'setup'));
-    await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
+    await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
     const blockers = page.getByTestId('phase-rail-next');
     await expect(blockers).toBeVisible({ timeout: 10000 });
 

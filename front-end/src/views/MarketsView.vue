@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { type Market, type MarketPhase, type Organization } from '@/assets/types/datatypes';
+import { MarketPhase, type Market, type Organization } from '@/assets/types/datatypes';
 import { getApiErrorMessage } from '@/utils/api';
 import { fetchMarkets, openMarket } from '@/utils/market';
 import { fetchOrganizations } from '@/utils/organizations';
@@ -99,6 +99,14 @@ const narrowed = computed(
     query.value.phases.length > 0,
 );
 const marketsWord = computed(() => (markets.value.length === 1 ? 'market' : 'markets'));
+
+/**
+ * A phase as the filter names it. The list holds markets of both paths, and the stage is Review on
+ * a Google Form market and Applications on the other (E38/F04/S01), so its toggle names both.
+ */
+function filterLabel(phase: MarketPhase): string {
+  return phase === MarketPhase.Applications ? 'Applications / Review' : phaseLabel(phase);
+}
 
 function togglePhase(phase: MarketPhase) {
   const phases = query.value.phases.includes(phase)
@@ -225,7 +233,7 @@ function handleNewClose() {
                 :data-testid="`markets-phase-toggle-${phase}`"
                 @click="togglePhase(phase)"
               >
-                {{ phaseLabel(phase) }}
+                {{ filterLabel(phase) }}
               </button>
             </div>
           </div>

@@ -37,7 +37,7 @@ const PLANNED_SETUP = {
 const SERVER_MARKET_AFTER_TRANSITION = {
   id: 'market-1',
   name: 'Riverside Spring',
-  phase: 'applications_open',
+  phase: 'applications',
   isDraft: false,
   setupObject: {
     priority: [],
@@ -136,6 +136,6 @@ describe('advancing a phase does not discard the organizer\u2019s unsaved plan',
     await useMarketStore().refresh();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(wrapper.findComponent(PhaseRail).props('market')?.phase).toBe('applications_open');
+    expect(wrapper.findComponent(PhaseRail).props('market')?.phase).toBe('applications');
   });
 });

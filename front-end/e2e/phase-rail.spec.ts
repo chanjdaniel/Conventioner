@@ -133,7 +133,7 @@ test.describe('The phase rail', () => {
       `${BACKEND_URL}/markets/${formMarket.marketId}/transition`,
       {
         headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-        data: { toPhase: 'applications_open' },
+        data: { toPhase: 'applications' },
       },
     );
     expect(opened.ok(), await opened.text()).toBeTruthy();

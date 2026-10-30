@@ -16,7 +16,7 @@ function card(actionRefusals: Record<string, string | null> | undefined) {
   const market = {
     id: 'market-1',
     name: 'Night Market',
-    phase: MarketPhase.Review,
+    phase: MarketPhase.Applications,
     setupObject: { marketDates: [] },
     actionRefusals,
   } as unknown as Market;

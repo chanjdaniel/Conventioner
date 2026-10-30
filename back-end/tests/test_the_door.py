@@ -156,7 +156,7 @@ class TestAnOrganizerChecksAVendorIn:
             DoorApi.check_in("market-123", "ben@example.com", D1, "viewer@example.com")
         assert door["attendance"].docs == []
 
-    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.REVIEW])
+    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.APPLICATIONS])
     def test_nobody_is_checked_in_before_the_market_is_published(self, door, phase):
         door["markets"].doc["phase"] = phase.value
 

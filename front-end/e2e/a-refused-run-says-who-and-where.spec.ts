@@ -34,7 +34,7 @@ test('the refusal names each applicant, and each name opens their application', 
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 5 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
-  for (const phase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const phase of ['applications', 'assignment']) {
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
   }
 

@@ -14,27 +14,22 @@ describe('where the assignment may be run', () => {
     expect(assignRefusal('assignment')).toBeNull();
   });
 
-  it.each([
-    'draft',
-    'applications_open',
-    'applications_closed',
-    'review',
-    'offers',
-    'market_days',
-    'archived',
-  ])('refuses in %s', (phase) => {
-    expect(canAssignIn(phase)).toBe(false);
-    expect(assignRefusal(phase)).toBeTruthy();
-  });
+  it.each(['draft', 'applications', 'offers', 'market_days', 'archived'])(
+    'refuses in %s',
+    (phase) => {
+      expect(canAssignIn(phase)).toBe(false);
+      expect(assignRefusal(phase)).toBeTruthy();
+    },
+  );
 
   it('names a way forward from a draft, not a way back', () => {
     expect(assignRefusal('draft')).toContain('take its applications in');
   });
 
-  // In words true of both paths: a Google Form market has no move called "close" (E32/F02/S01).
-  it('tells an organizer whose applications are still coming in to review them', () => {
-    expect(assignRefusal('applications_open')).toContain('Review them');
-    expect(assignRefusal('applications_open')).not.toMatch(/close/i);
+  // In words true of both paths: the stage is Review on one and Applications on the other.
+  it('tells an organizer in the stage to decide every application first', () => {
+    expect(assignRefusal('applications')).toContain('Decide every one');
+    expect(assignRefusal('applications')).not.toMatch(/close/i);
   });
 
   it('sends an organizer past assignment to the Assignments page, not back to Assign', () => {
@@ -43,11 +38,6 @@ describe('where the assignment may be run', () => {
     for (const phase of ['offers', 'market_days']) {
       expect(assignRefusal(phase)).toContain('Assignments page');
     }
-  });
-
-  it('tells closed applications to review, not to close them (E30/F01/S02)', () => {
-    expect(assignRefusal('applications_closed')).toContain('Applications are closed');
-    expect(assignRefusal('applications_closed')).not.toContain('still coming in');
   });
 
   it('gives an archived market the archived reason, where no placement can change', () => {

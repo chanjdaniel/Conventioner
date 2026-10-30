@@ -107,7 +107,7 @@ def test_the_intake_mode_cannot_change_after_draft(market, phase):
 def test_restating_the_intake_mode_after_draft_is_not_a_change(market):
     """The plan saves as the organizer types in every phase, and says what intake mode it holds."""
     # The stored plan is the one restated: after draft the setup is settled (E31/F01/S02).
-    collection = market(phase=MarketPhase.REVIEW, intakeMode=IntakeMode.CSV.value, setupObject=PLAN)
+    collection = market(phase=MarketPhase.APPLICATIONS, intakeMode=IntakeMode.CSV.value, setupObject=PLAN)
 
     MarketsApi.save_plan(
         "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.CSV.value}, "user-1"

@@ -31,7 +31,7 @@ const TIERED = {
 };
 
 async function walkToAssignment(request: APIRequestContext, marketId: string) {
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });

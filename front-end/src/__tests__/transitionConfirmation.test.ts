@@ -77,10 +77,8 @@ describe('a transition confirms when it cannot be undone', () => {
   });
 
   it.each([
-    [MarketPhase.Draft, 'applications_open'],
-    [MarketPhase.ApplicationsOpen, 'applications_closed'],
-    [MarketPhase.ApplicationsClosed, 'review'],
-    [MarketPhase.Review, 'assignment'],
+    [MarketPhase.Draft, 'applications'],
+    [MarketPhase.Applications, 'assignment'],
   ])('a reversible step fires on one click: %s -> %s', async (from, to) => {
     await clickTransition(from, to);
 
@@ -92,9 +90,7 @@ describe('the decision is the table, not a list of phases', () => {
   it('confirms exactly the two phases with no route back', () => {
     const confirming = [
       'draft',
-      'applications_open',
-      'applications_closed',
-      'review',
+      'applications',
       'assignment',
       'offers',
       'market_days',

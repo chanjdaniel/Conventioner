@@ -10,8 +10,11 @@ import {
   CsvImportPage,
   ApplicationMonitorPage,
   ResultPage,
+  ApplicantLoginPage,
 } from './fixtures';
-import { ensureTestOrg } from './helpers/seeds';
+import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
+import { ApplyPage } from './pages/ApplyPage';
+import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
 
 /**
  * The MVP journey, walked once, by one organizer, in one session (E04/F01/S02).
@@ -129,12 +132,13 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('01-market-planned.png'), fullPage: true });
 
     // --- 3. Import responses -------------------------------------------------------------
-    // The Google Form path reads Plan, Import, Review (E32/F02/S01): this organizer already holds
-    // the responses, so leaving draft is importing them, and the move lands on the import. This
+    // The Google Form path reads Draft, Review (E38/F04/S01): this organizer already holds the
+    // responses, so the rail's step out of draft is the import, and Begin Review waits on it. This
     // market asks no custom question - only the essential ones the plan above defines.
-    await setup.advancePhaseTo('applications_open', 'Import');
-    await expect(setup.phaseBlockers).toHaveCount(0);
+    await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
+    await page.getByTestId('phase-rail-fix').click();
     await expect(page).toHaveURL(/\/import$/);
+    await expect(setup.currentPhase).toHaveText('Draft');
 
     // --- 4. Import the vendors -----------------------------------------------------------
     await expect(importPage.view).toBeVisible();
@@ -146,13 +150,16 @@ test.describe('The MVP journey', () => {
     await expect(importPage.previewCounts).toContainText('3 of 3 rows');
     await importPage.clickConfirm();
     await expect(importPage.resultSummary).toContainText('3 new applications');
+    // Written, the import took the market into Review.
+    await expect(setup.currentPhase).toHaveText('Review');
     await page.screenshot({ path: testInfo.outputPath('02-imported.png'), fullPage: true });
 
     // --- 5. Review them ------------------------------------------------------------------
-    // One move from importing to review, the closed phase stepped through, landing on the review.
-    await setup.advancePhaseTo('review', 'Review');
+    // The import's done step leads to the review, where no import is offered (E38/F04/S03).
+    await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/);
     await monitor.waitForLoaded();
+    await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
     // time, so the count of work left is the assertion - there is no list of all three to count.
@@ -202,5 +209,78 @@ test.describe('The MVP journey', () => {
       expect.stringContaining(SECTIONS[1]),
     ]);
     expect(await results.placementsFor(REJECTED)).toEqual([]);
+  });
+
+  /**
+   * The other path, as far as the seam the CSV path does not cross: vendors apply on the market's
+   * own page while it is in Applications, are reviewed there as they arrive, and an approved one
+   * is placed (E38/F04/S01).
+   */
+  test('an organizer opens applications, a vendor applies, is approved, and is placed', async ({
+    authenticatedPage: page,
+    browser,
+  }) => {
+    const marketName = `Journey Online E2E ${Date.now()}`;
+    const newMarket = new NewMarketPage(page);
+    const setup = new MarketSetupPage(page);
+    const monitor = new ApplicationMonitorPage(page);
+    const results = new ResultPage(page);
+    const VENDOR = 'ruth@bindery.test';
+
+    // --- 1. Create and plan the market ------------------------------------------------------
+    await page.goto('/markets');
+    await page.getByTestId('markets-create-button').click();
+    await newMarket.waitForOverlay();
+    await newMarket.selectFirstOrg();
+    await newMarket.fillMarketName(marketName);
+    await newMarket.choosePath('form');
+    await newMarket.clickSubmit();
+    const marketId = await newMarket.waitForSetupRedirect();
+    await setup.waitForWizard();
+    await setup.addMarketDate(MARKET_DATES[0]);
+    await setup.selectManualPath();
+    await setup.addTier(TIER, 0);
+    await setup.addLocation(LOCATION, 0);
+    await setup.addSection(SECTIONS[0], LOCATION, TIER, 2, 0);
+
+    // --- 2. Open applications ---------------------------------------------------------------
+    await setup.advancePhaseTo('applications', 'Applications');
+    await expect(page).toHaveURL(/\/applications$/);
+    await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
+
+    // --- 3. A vendor applies on the market's own page, in a browser of their own -------------
+    const slug = marketNameToSlug(marketName);
+    const vendorContext = await browser.newContext();
+    const vendorPage = await vendorContext.newPage();
+    const login = new ApplicantLoginPage(vendorPage);
+    await vendorPage.goto(`/${slug}/applicant-login?redirect=apply`);
+    await login.requestCode(VENDOR);
+    await expect(login.codeInput).toBeVisible();
+    createApplicantLoginChallenge(marketId, VENDOR, '864213');
+    await login.enterCode('864213');
+    const apply = new ApplyPage(vendorPage);
+    await expect(apply.form).toBeVisible({ timeout: 30000 });
+    await apply.fullNameInput.fill('Ruth Abernathy');
+    await apply.tierCheckbox(MARKET_DATES[0], TIER).check();
+    await apply.maxDatesInput.fill('1');
+    await apply.tableChoiceRadio('full').check();
+    await apply.submit();
+    await vendorPage.waitForURL(new RegExp(`/${slug}/applicant/dashboard`));
+    await vendorContext.close();
+
+    // --- 4. Reviewed in the same stage, applications still open ------------------------------
+    await page.reload();
+    await monitor.waitForLoaded();
+    await monitor.approve(VENDOR);
+    await expect(monitor.tally).toContainText('1 reviewed · 1 approved');
+
+    // --- 5. Assign, and the approved vendor holds a table -----------------------------------
+    await setup.advancePhaseTo('assignment', 'Assignment');
+    await expect(page).toHaveURL(/\/settings$/);
+    await setup.waitForAssignEnabled();
+    await setup.clickAssign();
+    await expect(page).toHaveURL(/\/assignments$/, { timeout: 15000 });
+    await expect(results.occupiedSeats.first()).toBeVisible({ timeout: 10000 });
+    expect(await results.placementsFor(VENDOR)).toEqual([expect.stringContaining(SECTIONS[0])]);
   });
 });

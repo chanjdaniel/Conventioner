@@ -556,9 +556,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
 
     @pytest.mark.parametrize("phase", [
         MarketPhase.DRAFT,
-        MarketPhase.APPLICATIONS_OPEN,
-        MarketPhase.APPLICATIONS_CLOSED,
-        MarketPhase.REVIEW,
+        MarketPhase.APPLICATIONS,
         MarketPhase.OFFERS,
         MarketPhase.MARKET_DAYS,
         # Not ARCHIVED: that refuses every write before the phase is asked (bug 30).
@@ -591,9 +589,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
 
     @pytest.mark.parametrize("phase, names", [
         (MarketPhase.DRAFT, "draft"),
-        (MarketPhase.APPLICATIONS_OPEN, "Review them"),
-        (MarketPhase.APPLICATIONS_CLOSED, "Applications are closed"),
-        (MarketPhase.REVIEW, "review"),
+        (MarketPhase.APPLICATIONS, "Decide every one"),
         (MarketPhase.MARKET_DAYS, "Assignments page"),
         (MarketPhase.ARCHIVED, "archived"),
     ])
@@ -603,7 +599,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
     @pytest.mark.parametrize("phase, untrue", [
         # The walk (E30/F01/S02): closed applications were told to close them, and an archived
         # market was sent to change a placement where nothing can be changed.
-        (MarketPhase.APPLICATIONS_CLOSED, "still coming in"),
+        (MarketPhase.APPLICATIONS, "still coming in"),
         (MarketPhase.ARCHIVED, "Assignments page"),
     ])
     def test_the_refusal_says_nothing_untrue_of_that_phase(self, phase, untrue):

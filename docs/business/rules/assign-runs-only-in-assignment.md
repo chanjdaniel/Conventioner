@@ -5,7 +5,7 @@ describes:
   - back-end/api/placements.py#assign_phase_refusal
   - back-end/api/placements.py#assign_refusal
   - front-end/src/utils/assignPhase.ts
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/01
   - E10/F03/S02

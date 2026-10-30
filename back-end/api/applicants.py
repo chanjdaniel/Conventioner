@@ -41,7 +41,10 @@ from datatypes import (
     VendorAssignmentResult,
     VerdictGiver,
     MarketPhase,
+    LEGACY_STAGE_PHASES,
+    applications_stopped_from_market_document,
     phase_from_market_document,
+    phase_label,
 )
 from utils.application_token import (
     verify_application_token,
@@ -202,6 +205,31 @@ def authenticate_request(authorization_header: Optional[str]) -> Optional[Dict[s
     return verify_application_token(parts[1])
 
 
+# ── Taking applications (E38/F04/S02) ──────────────────────────────────────
+
+
+def takes_applications(market_doc: Dict[str, Any]) -> bool:
+    """Whether this market's applicant form takes a new application now.
+
+    Only in the stage where applications arrive, and only while the organizer has not stopped
+    taking them: a stop is a fact about the form, kept beside the phase rather than as one
+    (``applicationsStopped``, ADR 0005). Entering assignment closes the form whatever the fact says.
+    """
+    return (
+        phase_from_market_document(market_doc) is MarketPhase.APPLICATIONS
+        and not applications_stopped_from_market_document(market_doc)
+    )
+
+
+def applicant_phase_label(market_doc: Dict[str, Any]) -> str:
+    """The phase as an applicant reads it. A stopped form reads as a market whose applications have
+    closed, the words such a market showed before the stage was one phase."""
+    phase = phase_from_market_document(market_doc)
+    if phase is MarketPhase.APPLICATIONS and not takes_applications(market_doc):
+        return "Applications Closed"
+    return phase_label(phase)
+
+
 # ── Public (unauthenticated) endpoints ─────────────────────────────────────
 
 
@@ -231,7 +259,10 @@ def get_public_application_form(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "name", "phase", "applicationForm", "resultsPublished", "setupObject"),
+        fields=(
+            "id", "name", "phase", "applicationForm", "resultsPublished", "setupObject",
+            "applicationsStopped",
+        ),
     )
     if not market_doc:
         return {"error": "Market not found. Check the URL and try again."}, 404
@@ -261,8 +292,8 @@ def get_public_application_form(
         "essential_options": EssentialFields.essential_options_payload(essential_options),
         "market_name": market_doc.get("name", ""),
         "phase": phase.value,
-        "is_open": phase == MarketPhase.APPLICATIONS_OPEN,
-        "phase_label": phase.value.replace("_", " ").title(),
+        "is_open": takes_applications(market_doc),
+        "phase_label": applicant_phase_label(market_doc),
     }, 200
 
 
@@ -322,7 +353,7 @@ def save_applicant_application(
 
     Validates the form data against the market's application form fields, and the essential
     answers against what the essential questions offer (``essential_fields``). Refuses
-    submission when the market is not in ``applications_open``.
+    submission unless the market takes applications (``takes_applications``).
     The applicant owns their answers but never ``status``.
 
     The first successful save freezes the essential offering onto the market's stored form
@@ -347,7 +378,10 @@ def save_applicant_application(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject"),
+        fields=(
+            "id", "phase", "applicationForm", "resultsPublished", "setupObject",
+            "applicationsStopped",
+        ),
     )
     if not market_doc:
         return {"error": "Market not found."}, 404
@@ -357,12 +391,10 @@ def save_applicant_application(
     if token_market_id != market_id:
         return {"error": "Your sign-in is for a different market."}, 403
 
-    phase = phase_from_market_document(market_doc)
-    if phase != MarketPhase.APPLICATIONS_OPEN:
-        phase_label = phase.value.replace("_", " ").title()
+    if not takes_applications(market_doc):
         return {
             "error": f"Applications are no longer open for this market. "
-                     f"The market is in the {phase_label} phase.",
+                     f"The market is in the {applicant_phase_label(market_doc)} phase.",
         }, 403
 
     email = token_payload.get("email", "")
@@ -668,6 +700,58 @@ def publish_results_refusal(market: Market) -> Optional[str]:
             "applicants are told what the market will hold."
         )
     return None
+
+
+def applications_stop_refusal(market: Market) -> Optional[str]:
+    """Why taking applications cannot be stopped or resumed now, or None while it can (E38/F04/S02).
+
+    Inside the stage alone, and only where vendors apply on the market's own page: a Google Form
+    market's form is the organizer's own, closed outside this product. Served on the market read as
+    ``applicationsStopReason``, beside the table's Stop taking applications answer, so the rail
+    offers the action exactly when the endpoint would take it.
+    """
+    if market.intake_mode is not IntakeMode.FORM:
+        return "This market's vendors apply on its Google Form, so it has no application page to stop."
+    if market.phase is not MarketPhase.APPLICATIONS:
+        return "Applications are taken only in the Applications phase."
+    return None
+
+
+def set_applications_stopped(
+    market_id: str, stopped: bool, by: str,
+) -> Tuple[Dict[str, Any], int]:
+    """Stop taking applications, or take them again, on a market whose vendors apply on its page,
+    ``by`` the signed-in organizer.
+
+    The write is conditional on the market still being where the refusal judged it, so a move into
+    assignment that lands first leaves nothing to undo. Who may is the caller's to ask first.
+    """
+    from db_config import get_database
+    db = get_database()
+
+    doc = db["markets"].find_one({"id": market_id})
+    if not doc:
+        return {"error": "Market not found."}, 404
+    refusal = applications_stop_refusal(market_from_document(doc))
+    if refusal:
+        return {"error": refusal}, 409
+
+    result = db["markets"].update_one(
+        {
+            "id": market_id,
+            # An old stage phase too, read as the stage until the migration has run.
+            "phase": {"$in": [MarketPhase.APPLICATIONS.value, *LEGACY_STAGE_PHASES]},
+            "intakeMode": IntakeMode.FORM.value,
+        },
+        {"$set": {"applicationsStopped": stopped}},
+    )
+    if not result.matched_count:
+        return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
+    # A stop restated records nothing.
+    History.record(market_id, by, Actions.STOP_APPLICATIONS, detail=lambda: History.changes(
+        {"applications_stopped": applications_stopped_from_market_document(doc)},
+        {"applications_stopped": stopped}))
+    return {"applications_stopped": stopped}, 200
 
 
 def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:

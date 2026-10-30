@@ -225,20 +225,10 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
             "This market is still a draft. Plan it, take its applications in and review them - "
             "tables are allocated once the market reaches the assignment phase."
         )
-    if phase is MarketPhase.APPLICATIONS_OPEN:
+    if phase is MarketPhase.APPLICATIONS:
         return (
-            "Applications are still coming in. Review them as they arrive - tables are allocated "
-            "once the market reaches the assignment phase."
-        )
-    if phase is MarketPhase.APPLICATIONS_CLOSED:
-        return (
-            "Applications are closed. Review them, then move the market to the assignment phase "
-            "to allocate tables."
-        )
-    if phase is MarketPhase.REVIEW:
-        return (
-            "This market is still in review. Move it to the assignment phase to allocate "
-            "tables."
+            "This market's applications are still being reviewed. Decide every one, then move the "
+            "market to the assignment phase to allocate tables."
         )
     if phase is MarketPhase.ARCHIVED:
         return MarketsApi.ARCHIVED_REFUSAL

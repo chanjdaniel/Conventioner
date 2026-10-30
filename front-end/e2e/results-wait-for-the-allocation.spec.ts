@@ -39,7 +39,7 @@ test('publishing waits for a run, then says who will read what before it tells t
     sections: ['Main Hall', 'Garden'],
   });
   seedApplicationWithStatus(market.marketId, 'reviewer_rejected', 'turned-away@example.com');
-  for (const toPhase of ['applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['assignment']) {
     await post(request, `/markets/${market.marketId}/transition`, { toPhase });
   }
 
