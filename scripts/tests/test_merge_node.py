@@ -28,8 +28,9 @@ def write_versions(tmp_path, ancestor, ours, theirs, conflict_style=None):
     work = tmp_path / "work"
     if not work.exists():
         subprocess.run(["git", "init", "-q", str(work)], check=True)
-    if conflict_style:
-        subprocess.run(["git", "-C", str(work), "config", "merge.conflictStyle", conflict_style], check=True)
+    # The repository's own style, so a developer's global merge.conflictStyle never reaches the driver.
+    style = conflict_style or "merge"
+    subprocess.run(["git", "-C", str(work), "config", "merge.conflictStyle", style], check=True)
     for name, text in (("o", ancestor), ("a", ours), ("b", theirs)):
         (work / name).write_bytes(text.encode("utf-8"))
     return work
@@ -50,7 +51,8 @@ def merge(tmp_path, ancestor, ours, theirs, conflict_style=None):
 def git_merge_file(tmp_path, ancestor, ours, theirs):
     """What git's own text merge makes of the same three versions."""
     files = tmp_path / "plain"
-    files.mkdir()
+    subprocess.run(["git", "init", "-q", str(files)], check=True)
+    subprocess.run(["git", "-C", str(files), "config", "merge.conflictStyle", "merge"], check=True)
     for name, text in (("o", ancestor), ("a", ours), ("b", theirs)):
         (files / name).write_bytes(text.encode("utf-8"))
     ours_label, ancestor_label, theirs_label = LABELS
@@ -222,10 +224,15 @@ def test_a_crlf_file_with_no_frontmatter_merges_as_git_does(tmp_path):
     assert merged == crlf("# A hub\n\nOne, ours.\nTwo.\nThree.\nFour, theirs.\n")
 
 
-def test_a_driver_that_fails_still_merges_as_text(tmp_path, monkeypatch):
+def load_driver():
     spec = importlib.util.spec_from_file_location("merge_node", DRIVER)
     driver = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(driver)
+    return driver
+
+
+def test_a_driver_that_fails_still_merges_as_text(tmp_path, monkeypatch):
+    driver = load_driver()
 
     def broken(texts):
         raise RuntimeError("a bug in the set merge")
@@ -241,6 +248,33 @@ def test_a_driver_that_fails_still_merges_as_text(tmp_path, monkeypatch):
 
     assert status == 1
     assert (work / "a").read_bytes().decode("utf-8") == git_merge_file(tmp_path, ancestor, ours, theirs)
+
+
+def test_a_merge_that_cannot_run_is_a_failure_with_ours_untouched(tmp_path, monkeypatch):
+    driver = load_driver()
+
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    ours = node(sources=("E31/F01", "E41/F01/S02"))
+    work = write_versions(tmp_path, node(), ours, node(sources=("E31/F01", "E40/F01/S03")))
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(driver.subprocess, "run", no_git)
+
+    status = driver.main(driver_args())
+
+    assert status == 255
+    assert (work / "a").read_bytes().decode("utf-8") == ours
+
+
+def test_a_driver_called_with_the_wrong_arguments_is_a_failure_with_ours_untouched(tmp_path):
+    ours = node(sources=("E31/F01", "E41/F01/S02"))
+    work = write_versions(tmp_path, node(), ours, node(sources=("E31/F01", "E40/F01/S03")))
+
+    result = subprocess.run(["python3", str(DRIVER), "o", "a", "b"], cwd=work, capture_output=True, text=True)
+
+    assert result.returncode == 255
+    assert (work / "a").read_bytes().decode("utf-8") == ours
 
 
 # ── A real merge, the driver installed as a checkout installs it ─────────────

@@ -104,11 +104,6 @@ def settle(texts):
     return ["".join(lines) for lines in versions]
 
 
-def conflict_style():
-    style = subprocess.run(["git", "config", "--get", "merge.conflictStyle"], capture_output=True, text=True)
-    return {"diff3": ["--diff3"], "zdiff3": ["--zdiff3"]}.get(style.stdout.strip(), [])
-
-
 def settled_copies(paths, scratch):
     """The three versions settled into files of their own, or the originals when they are not UTF-8 or settling
     fails: a bug here must cost the set merge only, never theirs' side of the file."""
@@ -130,7 +125,7 @@ def merge(ancestor_path, ours_path, theirs_path, marker_size, labels):
         paths = settled_copies((ancestor_path, ours_path, theirs_path), scratch)
         ancestor_label, ours_label, theirs_label = labels
         result = subprocess.run(
-            ["git", "merge-file", "-p", f"--marker-size={marker_size}", *conflict_style()]
+            ["git", "merge-file", "-p", f"--marker-size={marker_size}"]
             + ["-L", ours_label, "-L", ancestor_label, "-L", theirs_label]
             + [str(paths[1]), str(paths[0]), str(paths[2])],
             capture_output=True,
