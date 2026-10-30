@@ -409,6 +409,7 @@ function closeAddUser() {
             :market-id="marketData.id"
             :row-labels="rowLabels"
             :path="intakeModeOf(marketData)"
+            :questions="marketData.rejectionQuestions ?? []"
           />
         </div>
       </section>
