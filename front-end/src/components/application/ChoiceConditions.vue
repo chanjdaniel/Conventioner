@@ -263,6 +263,9 @@ function toggle(key: string, answer: string, meets: boolean) {
 .condition-add {
   display: grid;
   grid-template-columns: auto minmax(0, 24rem) auto;
+  /* Packed to the start: in a wide step the auto tracks took the free width, stretching the
+     button and leaving the label a column apart from its select. */
+  justify-content: start;
   align-items: center;
   gap: var(--space-2);
 }

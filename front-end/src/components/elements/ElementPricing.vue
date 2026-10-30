@@ -13,7 +13,7 @@
  *
  * It sits in the plan's fieldset, so it settles with the rest of the setup on leaving draft.
  */
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type {
   AnswerCondition,
   PricingObject,
@@ -157,12 +157,23 @@ const brokenGroups = computed(() =>
   ),
 );
 
-async function addGroup() {
+/** The group just added, whose name field takes the focus once its row is drawn. */
+const naming = ref<number | null>(null);
+
+function addGroup() {
+  naming.value = groups.value.length;
   write(withGroups([...groups.value, { name: '', conditions: [], prices: [] }]));
-  const index = groups.value.length;
-  await nextTick();
-  document.getElementById(`pricing-group-${index}-name`)?.focus();
 }
+
+watch(
+  () => groups.value.length,
+  () => {
+    if (naming.value === null) return;
+    document.getElementById(`pricing-group-${naming.value}-name`)?.focus();
+    naming.value = null;
+  },
+  { flush: 'post' },
+);
 
 function removeGroup(index: number) {
   write(withGroups(groups.value.filter((_, i) => i !== index)));
@@ -325,9 +336,6 @@ onBeforeUnmount(() => {
           </tr>
           <tr>
             <td :colspan="tiers.length + 1" class="pricing-conditions">
-              <p class="pricing-note">
-                In this group when every condition holds of the vendor's answers.
-              </p>
               <ChoiceConditions
                 :questions="questions"
                 :conditions="group.conditions"
@@ -448,8 +456,9 @@ onBeforeUnmount(() => {
       Optional. A tier left blank has no price, and a market with no prices shows none.
     </p>
     <p v-if="tiers.length && groups.length" class="pricing-note">
-      A vendor pays the cheapest group they are in at their table's tier, and
-      {{ EVERYONE_ELSE }} where they are in none or their group leaves the tier blank.
+      A vendor is in a group when every one of its conditions holds of their answers. They pay the
+      cheapest group they are in at their table's tier, and {{ EVERYONE_ELSE }} where they are in
+      none or their group leaves the tier blank.
     </p>
   </div>
 </template>
