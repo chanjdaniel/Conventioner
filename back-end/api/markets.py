@@ -1205,6 +1205,12 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     if refusal:
         raise BadRequestError(refusal)
     _result, market_id = create_market(market, owner.email)
+    # The market's own history starts empty; its creation is the organization's change.
+    History.record_for_organization(
+        data["organization_id"], owner.email, History.CREATE_MARKET,
+        subject={"market_id": market_id},
+        detail=lambda: History.changes({"name": None}, {"name": market.name}),
+    )
     return market_id
 
 

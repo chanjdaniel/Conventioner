@@ -601,8 +601,9 @@ NOT_RECORDED = {
 
 
 def _market_write_routes():
-    """Every route that writes, on a market or one of its floorplans; an organization's own
-    floorplan templates are the organization's history's (E40/F02)."""
+    """Every route that writes, on a market or one of its floorplans; an organization's floorplan
+    templates are no market's, and its own changes are guarded by
+    ``test_the_organizations_history.py``."""
     for rule in app_module.app.url_map.iter_rules():
         path = rule.rule
         if not path.startswith(("/markets", "/public/markets/", "/floorplans/")) \

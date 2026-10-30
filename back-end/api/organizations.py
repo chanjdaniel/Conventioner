@@ -4,6 +4,7 @@ Organization API functions for CRUD operations and role management.
 import uuid
 from typing import Optional, Dict, Any, List
 from pymongo.results import UpdateResult, DeleteResult
+import api.market_actions as Actions
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from datatypes import (
@@ -16,6 +17,7 @@ from datatypes import (
 from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
+import history as History
 import market_deletion as MarketDeletion
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
@@ -141,10 +143,86 @@ def update_organization(org_id: str, requesting_user_email: str, name: str) -> U
     if org.get("owner") != requesting_user.id:
         raise ForbiddenError("Only organization owner can update organization")
     
-    return organizations_collection.update_one(
+    result = organizations_collection.update_one(
         {"id": org_id},
         {"$set": {"name": name}}
     )
+    History.record_for_organization(
+        org_id, requesting_user_email, History.CHANGE_ORGANIZATION, kind=History.RENAMED,
+        detail=lambda: History.changes({"name": org.get("name")}, {"name": name}),
+    )
+    return result
+
+
+# ── The organization's own history (E40/F02/S01) ─────────────────────────────────────────────
+
+
+def _role_in(org: Dict[str, Any], user_id: str) -> Optional[str]:
+    """The person's place in the organization: ``owner``, ``admin``, ``member``, or None.
+
+    An admin made from a member stays in ``members`` too, so ``admins`` is asked first.
+    """
+    if org.get("owner") == user_id:
+        return "owner"
+    if user_id in org.get("admins", []):
+        return "admin"
+    if user_id in org.get("members", []):
+        return "member"
+    return None
+
+
+def _record_role(
+    org_id: str, requesting_user_email: str, kind: str, user_id: str,
+    before: Optional[str], after: Optional[str],
+) -> None:
+    """A person given, changed or taken a place in the organization, under the admins' action
+    when an admin is either side of it, as the market's role changes are recorded."""
+    action = (History.MANAGE_ORGANIZATION_ADMINS if "admin" in (before, after)
+              else History.MANAGE_ORGANIZATION_MEMBERS)
+
+    def person() -> Dict[str, Any]:
+        user = UsersApi.get_user_by_id(user_id)
+        return {"user_id": user_id, "email": user.email if user else None}
+
+    History.record_for_organization(
+        org_id, requesting_user_email, action, kind=kind, subject=person,
+        detail=lambda: History.changes({"role": before}, {"role": after}),
+    )
+
+
+def get_history(
+    org_id: str, requesting_user_email: str, before: Optional[str] = None,
+) -> Dict[str, Any]:
+    """One page of the organization's own history, newest first, for Manage organization.
+
+    Read by its owner, its admins and its members; anyone else is refused. ``before`` is the
+    cursor the last page answered with. The first page also names the table's rows, for a change
+    to the organization's default rows (E39/F02/S01), which no other read hands this dialog.
+    """
+    org = organizations_collection.find_one({"id": org_id})
+    if not org:
+        raise NotFoundError("Organization not found")
+    requesting_user = UsersApi.get_user(requesting_user_email)
+    if not requesting_user or _role_in(org, requesting_user.id) is None:
+        raise ForbiddenError("Only the organization's people may read its history")
+    if before and History.parse_cursor(before) is None:
+        raise BadRequestError("That page of the history could not be read.")
+
+    entries, after = History.organization_entries_page(org_id, before=before or None)
+    body: Dict[str, Any] = {
+        # Only the entry's own fields are recased: its subject and detail are served as stored,
+        # as the market's history serves them.
+        "entries": [
+            {**convert_keys_to_camel_case({k: v for k, v in entry.items()
+                                           if k not in ("subject", "detail")}),
+             "subject": entry.get("subject") or {}, "detail": entry.get("detail")}
+            for entry in entries
+        ],
+        "next": after,
+    }
+    if not before:
+        body["rowLabels"] = {row.id: row.label for row in Actions.ACTIONS.values()}
+    return body
 
 
 # ── Deleting an organization is safe (E20/F04/S01) ───────────────────────────────────────────
@@ -277,6 +355,10 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     for market in preview["markets_to_delete"]:
         MarketDeletion.delete_market_and_records(markets_collection, market["id"])
 
+    # Its own history goes with it, as each market's goes with the market; the trail above is
+    # what outlives it.
+    History.delete_for_organization(org_id)
+
     users_collection.update_many(
         {},
         {"$pull": {"organizations": org_id}}
@@ -314,6 +396,11 @@ def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> b
         {"$addToSet": {"organizations": org_id}}
     )
     
+    if result.modified_count > 0:
+        before = _role_in(org, user.id)
+        _record_role(org_id, requesting_user_email,
+                     History.ROLE_CHANGED if before else History.ROLE_GIVEN, user.id, before,
+                     "admin")
     return result.modified_count > 0
 
 
@@ -349,6 +436,8 @@ def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> 
         {"$addToSet": {"organizations": org_id}}
     )
     
+    if result.modified_count > 0:
+        _record_role(org_id, requesting_user_email, History.ROLE_GIVEN, user.id, None, "member")
     return result.modified_count > 0
 
 
@@ -392,6 +481,9 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> bo
         {"$pull": {"organizations": org_id}}
     )
     
+    if removed:
+        _record_role(org_id, requesting_user_email, History.ROLE_TAKEN, user_id,
+                     _role_in(org, user_id), None)
     return removed
 
 
@@ -437,4 +529,11 @@ def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_emai
         {"$addToSet": {"organizations": org_id}}
     )
     
+    if result.modified_count > 0:
+        History.record_for_organization(
+            org_id, current_owner_email, History.TRANSFER_ORGANIZATION,
+            subject={"user_id": new_owner.id, "email": new_owner.email},
+            detail=lambda: History.changes(
+                {"owner": current_owner.email}, {"owner": new_owner.email}),
+        )
     return result.modified_count > 0
