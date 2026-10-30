@@ -7,6 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
+  - front-end/src/components/application/ChoiceConditions.vue
 verified: 2026-10-30
 sources:
   - wayfinding/november-2026-dry-run/map
@@ -66,6 +67,7 @@ They are not gated by the form's lock: the form freezes at the first application
 - The import judges at its end ([the CSV import](../../implementation/modules/csv-import.md)).
 - Review setup saves them as it saves the highlights, through one composable (`useSavedOnTheMarket`, `front-end/src/utils/savedOnTheMarket.ts`).
 - The organizer sets them on the form tab's Review setup ([F3](../flows/form-tab.md#f3-what-a-reviewer-reads-first), [`AutomaticRejections.vue`](../../../front-end/src/components/application/AutomaticRejections.vue)), and reads and overturns them in [the review](../flows/review.md#i2-change-a-decision).
+- A rule is drawn by [`ChoiceConditions.vue`](../../../front-end/src/components/application/ChoiceConditions.vue), the one condition builder, which a price group's conditions use too ([a price follows the table](a-price-follows-the-table.md#price-groups)); `Rulebook.met` judges a rule and a group's condition alike, and `Rulebook.broken` says a condition names a question or an answer the form no longer has, which leaves a rule out and keeps a group's condition, shown broken.
 - A save that changes the rules is recorded in [the market's history](../../implementation/data/history.md) (`rejection_rules`), counting the applications they rejected and returned; a rule's verdict is never an entry of its own, so the write that judged counts it: the form, an applicant's save, an organizer's update of a vendor's info, an import.
 
 ## Evidence
