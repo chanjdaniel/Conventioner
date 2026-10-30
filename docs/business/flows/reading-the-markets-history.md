@@ -4,6 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/MarketHistory.vue
   - front-end/src/utils/marketHistory.ts
+  - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
 verified: 2026-10-30
 sources:
@@ -14,7 +15,7 @@ sources:
 # Reading the market's history
 
 **Who:** anyone who may read the market's history, its row "Read the market's history", Viewer by default ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts).
+**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
 
 Every change on a market is recorded once, in one history: who, what, when, and what it was before and after ([the market's history](../../implementation/data/history.md)).
 An organizer reads it to investigate a problem or a mistake, which is why it lives in Manage market, a step away from the market's daily running (Daniel, T92 Q24 and Q25).
@@ -25,8 +26,8 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 
 1. "Manage" on the market's row opens "Manage market", where "History" is a heading with a chevron, closed, so the sections after it stay in reach (Daniel, on T110's review).
    Opening it reads the newest 10 changes, newest first, inside the dialog's own scrolling; closing it and opening it again keeps what it read and its filters, until the dialog closes.
-2. Each change is one sentence and its time: "e2e@example.com moved Ana Rivera from A3 (Full Table) to B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Market Setup: sections", "e2e@example.com changed Check vendors in from Editor to Admin" (a row of the market's own permission table, named by its label), "e2e@example.com set Check vendors in back to its default, Editor", "Ana Rivera applied".
-   An assignment made before the history kept the table left reads "assigned ... at", without a "from"; allocating tables reads "allocated tables: 40 assignments written".
+2. Each change is one sentence and its time: "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Market Setup: sections", "e2e@example.com changed Check vendors in from Editor to Admin" (a row of the market's own permission table, named by its label), "e2e@example.com set Check vendors in back to its default, Editor", "Ana Rivera applied".
+   A placement reads as [the assignment history](placing-by-hand.md#j13-assignment-history) says it, after who made it and before the day it is for, so the two never differ: a move reads as the table taken, its table left in its before and after, and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase, a status and a role read as the screens name them, and where a permission row came from as "Built in", "The organization's default" or "This market".
 5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.

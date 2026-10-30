@@ -12,6 +12,7 @@ import {
   type MarketHistoryEntry,
   type MarketHistoryPart,
 } from '@/utils/marketHistory';
+import { historyParts, type PlacementHistoryEntry } from '@/utils/placementHistory';
 
 const NAMES = { 'ana@ember.test': 'Ana Rivera', 'ben@ember.test': 'Ben Okafor' };
 
@@ -41,29 +42,14 @@ function sentence(overrides: Partial<MarketHistoryEntry>, labels = {}): string {
 }
 
 describe('what an entry says', () => {
-  it('words a move from one table to another', () => {
-    expect(
-      sentence({
-        detail: {
-          date: '2026-11-19',
-          table_code: 'B7',
-          table_choice: 'Full Table',
-          before: { table_code: 'A3', table_choice: 'Full Table' },
-        },
-      }),
-    ).toBe(
-      'dana@ember.test moved [Ana Rivera] from A3 (Full Table) to B7 (Full Table) on Nov 19, 2026',
-    );
-  });
-
-  it('words an assignment with no table left, or none known, without a "from"', () => {
+  it('words an assignment as the drawer does, the table left in its before and after', () => {
     const assigned = { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' };
-    expect(sentence({ detail: { ...assigned, before: null } })).toBe(
-      'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
-    );
-    expect(sentence({ detail: assigned })).toBe(
-      'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
-    );
+    const moved = { ...assigned, before: { table_code: 'A3', table_choice: 'Full Table' } };
+    for (const detail of [assigned, { ...assigned, before: null }, moved]) {
+      expect(sentence({ detail })).toBe(
+        'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
+      );
+    }
   });
 
   it('words a verdict by its status', () => {
@@ -198,6 +184,80 @@ describe('what an entry says', () => {
       NAMES,
     );
     expect(vendor).toEqual({ kind: 'vendor', name: '', email: 'cy@ember.test' });
+  });
+});
+
+describe('a placement, in the whole history and in the drawer', () => {
+  /** One placement change as both read it: stored, as the whole history serves it, and recased,
+   * as the placement trail serves it to the drawer. */
+  const changes: Array<{
+    kind: PlacementHistoryEntry['kind'];
+    vendors: string[];
+    stored: Record<string, unknown>;
+    trail: PlacementHistoryEntry['detail'];
+  }> = [
+    {
+      kind: 'placed',
+      vendors: ['ana@ember.test'],
+      stored: { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' },
+      trail: { date: '2026-11-19', tableCode: 'B7', tableChoice: 'Full Table' },
+    },
+    {
+      kind: 'freed',
+      vendors: ['ana@ember.test'],
+      stored: { date: '2026-11-19', table_code: 'B7' },
+      trail: { date: '2026-11-19', tableCode: 'B7' },
+    },
+    {
+      kind: 'swapped',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      stored: {
+        date: '2026-11-19',
+        seats: [
+          { email: 'ana@ember.test', table_code: 'A3' },
+          { email: 'ben@ember.test', table_code: 'B7' },
+        ],
+      },
+      trail: {
+        date: '2026-11-19',
+        seats: [
+          { email: 'ana@ember.test', tableCode: 'A3' },
+          { email: 'ben@ember.test', tableCode: 'B7' },
+        ],
+      },
+    },
+    {
+      kind: 'swapped',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      stored: {},
+      trail: {},
+    },
+    {
+      kind: 'assigned',
+      vendors: [],
+      stored: { placements_written: 40, pins_preserved: 3 },
+      trail: { placementsWritten: 40, pinsPreserved: 3 },
+    },
+  ];
+
+  it.each(changes)('words $kind in the drawer’s words, after who and before the day', (change) => {
+    const drawer = said(
+      historyParts(
+        {
+          id: 'e1',
+          actor: 'dana@ember.test',
+          at: '2026-11-01T10:00:00+00:00',
+          ...change,
+          detail: change.trail,
+        },
+        NAMES,
+      ),
+    );
+    const day = change.stored.date ? ' on Nov 19, 2026' : '';
+
+    expect(sentence({ kind: change.kind, vendors: change.vendors, detail: change.stored })).toBe(
+      `dana@ember.test ${drawer[0].toLowerCase()}${drawer.slice(1)}${day}`,
+    );
   });
 });
 

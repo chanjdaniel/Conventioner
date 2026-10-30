@@ -4,12 +4,20 @@
  * The back end stores each entry structured - the table's action, a finer kind, the vendors, a
  * subject and a detail of the fields before and after (`back-end/history.py`,
  * `docs/implementation/data/history.md`) - and the wording is here, so a sentence can change
- * without a migration or a back-end release, as `placementHistory.ts` words the assignment
- * history. The organizer's words: assign and allocate tables, never place, seat or run.
+ * without a migration or a back-end release. A placement is worded by `placementHistory.ts`, the
+ * assignment history's own words, so the two screens say it alike. The organizer's words: assign
+ * and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { getRoleDisplayName } from '@/utils/permissions';
 import { phaseLabel } from '@/utils/phase';
+import {
+  historyDate,
+  historyParts,
+  isPlacementKind,
+  type PlacementHistoryEntry,
+  type PlacementHistoryKind,
+} from '@/utils/placementHistory';
 import { getFormattedTimestamp, getShortDate } from '@/utils/utils';
 import { statusLabel } from '@/utils/verdicts';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
@@ -81,6 +89,52 @@ function listed(words: string[]): string {
 }
 
 /**
+ * A placement in the drawer's own words (`historyParts`), its first letter lowered to follow who
+ * made it, and the day it is for after it, where the drawer shows that day beside the line. One
+ * wording for both screens, so the two cannot drift; a move reads as the table taken, as the
+ * drawer says it, and the table left is in its before and after.
+ */
+function placementParts(
+  entry: MarketHistoryEntry,
+  kind: PlacementHistoryKind,
+  names: VendorNames,
+): MarketHistoryPart[] {
+  const detail = asDetail(entry.detail);
+  const trail: PlacementHistoryEntry = {
+    id: entry.id,
+    actor: str(entry.actor),
+    at: entry.at,
+    kind,
+    vendors: entry.vendors,
+    // The trail's detail as the placement history serves it, recased.
+    detail: {
+      date: detail.date ? str(detail.date) : undefined,
+      tableCode: detail.table_code as string | undefined,
+      tableChoice: detail.table_choice as string | undefined,
+      seats: Array.isArray(detail.seats)
+        ? detail.seats.map(asDetail).map((seat) => ({
+            email: str(seat.email),
+            tableCode: str(seat.table_code),
+          }))
+        : undefined,
+      placementsWritten: detail.placements_written as number | undefined,
+      pinsPreserved: detail.pins_preserved as number | undefined,
+    },
+  };
+  const [first, ...rest] = historyParts(trail, names);
+  const opening =
+    first?.kind === 'text'
+      ? { kind: 'text' as const, text: first.text.charAt(0).toLowerCase() + first.text.slice(1) }
+      : first;
+  const date = historyDate(trail);
+  return [
+    ...(opening ? [opening] : []),
+    ...rest,
+    ...(date ? [{ kind: 'text' as const, text: ` on ${date}` }] : []),
+  ];
+}
+
+/**
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
  * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
  * a change this file has no words for yet.
@@ -103,56 +157,11 @@ export function entryParts(
   const actor = text(`${entry.actor || 'Someone'} `);
   const onDay = (value: unknown) => (value ? ` on ${day(value)}` : '');
 
+  if (entry.action === 'assign' && isPlacementKind(entry.kind)) {
+    return [actor, ...placementParts(entry, entry.kind, names)];
+  }
+
   switch (`${entry.action}/${entry.kind ?? ''}`) {
-    case 'assign/placed': {
-      const on = onDay(detail.date);
-      const to = table(detail);
-      if (detail.before && table(detail.before) !== to) {
-        return [actor, text('moved '), vendor, text(` from ${table(detail.before)} to ${to}${on}`)];
-      }
-      return [actor, text('assigned '), vendor, text(` at ${to}${on}`)];
-    }
-    case 'assign/freed':
-      return [
-        actor,
-        text(`freed ${str(detail.table_code)}${onDay(detail.date)}, leaving `),
-        vendor,
-        text(' with no table'),
-      ];
-    case 'assign/swapped': {
-      const seats = Array.isArray(detail.seats) ? detail.seats.map(asDetail) : [];
-      const [first, second] = seats.length === 2 ? seats : [];
-      if (!first || !second) {
-        return [
-          actor,
-          text('swapped '),
-          who(entry.vendors[0]),
-          text(' and '),
-          who(entry.vendors[1]),
-        ];
-      }
-      return [
-        actor,
-        text('swapped '),
-        who(first.email),
-        text(' and '),
-        who(second.email),
-        text(
-          `${onDay(detail.date)} - now at ${str(first.table_code)} and ${str(second.table_code)}`,
-        ),
-      ];
-    }
-    case 'assign/assigned': {
-      const written = Number(detail.placements_written ?? 0);
-      const pins = Number(detail.pins_preserved ?? 0);
-      return [
-        actor,
-        text(
-          `allocated tables: ${plural(written, 'assignment', 'assignments')} written` +
-            (pins ? `, ${plural(pins, 'pin', 'pins')} kept` : ''),
-        ),
-      ];
-    }
     case 'assign/rules':
       return [actor, text('changed the assignment rules')];
     case 'change-setup/renamed':
