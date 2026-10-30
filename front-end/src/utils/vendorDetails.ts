@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from 'vue';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
-import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, answerText, applicantName } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -131,7 +131,8 @@ const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCas
 export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | null | undefined>) {
   const applications = ref<Application[]>([]);
   const tableRows = ref<MarketTableRowResponse[]>([]);
-  const vendorNames = ref<VendorNames>({});
+  /** The names the tables read gave, the server's `display_name` of each vendor it knows. */
+  const servedNames = ref<VendorNames>({});
   /**
    * Who the assignment run places. The tables read serves every applicant (E36/F02/S02), the ones
    * outside the run with why, so the run's own are those it says nothing against.
@@ -147,9 +148,25 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
   /** Whether the last read had where every vendor sits: the tables and the statistics. */
   const placementsRead = ref(false);
 
+  /**
+   * What to call each vendor: the name their application gives (`applicantName`, the client's
+   * reading of `display_name`), then the server's, which wins where it has one. From the
+   * applications too, so a refused placements read keeps every name (T123): the drawer's title, the
+   * rows and the search by name.
+   */
+  const vendorNames = computed<VendorNames>(() => {
+    const names: Record<string, string> = {};
+    for (const application of applications.value) {
+      const email = (application.applicantEmail ?? '').trim().toLowerCase();
+      const name = applicantName(application.formData as Record<string, unknown> | undefined);
+      if (email && name) names[email] = name;
+    }
+    return { ...names, ...servedNames.value };
+  });
+
   function forgetPlacements(): void {
     tableRows.value = [];
-    vendorNames.value = {};
+    servedNames.value = {};
     placeable.value = new Set();
     unplacedReasons.value = new Map();
     placementOverrides.value = new Map();
@@ -214,7 +231,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         statsList.map((item) => extractEmail(item).toLowerCase()).filter(Boolean),
       );
       tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
-      vendorNames.value = tablesResp.data?.vendorNames ?? {};
+      servedNames.value = tablesResp.data?.vendorNames ?? {};
       placementsRead.value = true;
     } finally {
       isLoading.value = false;

@@ -37,7 +37,7 @@ const BOB = {
   id: 'app-bob',
   applicantEmail: 'bob@example.com',
   status: 'reviewer_approved',
-  formData: { business_name: 'Bob Prints' },
+  formData: { business_name: 'Bob Prints', essential_full_name: 'Robert Example' },
 };
 
 function refused(message: string) {
@@ -47,7 +47,11 @@ function refused(message: string) {
 }
 
 /** The server: the applications read answers; the two assignment reads answer as `assignment` says. */
-function serve(assignment: 'answers' | 'refuses', applications: 'answers' | 'refuses' = 'answers') {
+function serve(
+  assignment: 'answers' | 'refuses',
+  applications: 'answers' | 'refuses' = 'answers',
+  vendorNames: Record<string, string> = {},
+) {
   api.get.mockImplementation(async (url: string) => {
     if (url.endsWith('/applications')) {
       if (applications === 'refuses') throw refused('You cannot read this market.');
@@ -67,7 +71,7 @@ function serve(assignment: 'answers' | 'refuses', applications: 'answers' | 'ref
               tier: 'Gold',
             },
           ],
-          vendorNames: {},
+          vendorNames,
           vendors: [{ email: 'bob@example.com', inTheRun: true }],
         },
       };
@@ -88,10 +92,28 @@ describe('the vendors read', () => {
 
     await details.load();
 
-    expect(details.rowFor('bob@example.com')?.answers).toEqual({ business_name: 'Bob Prints' });
+    expect(details.rowFor('bob@example.com')?.answers.business_name).toBe('Bob Prints');
     expect(details.loadError.value).toBe(REFUSAL);
     expect(details.placementsRead.value).toBe(false);
     expect(details.loaded.value).toBe(true);
+  });
+
+  it('keeps their names from the applications when the placements are refused', async () => {
+    serve('refuses');
+    const details = useVendorDetails(ref('market-1'), ref(MARKET));
+
+    await details.load();
+
+    expect(details.vendorNames.value).toEqual({ 'bob@example.com': 'Robert Example' });
+  });
+
+  it("takes the server's name over the application's where it gives one", async () => {
+    serve('answers', 'answers', { 'bob@example.com': 'Bob' });
+    const details = useVendorDetails(ref('market-1'), ref(MARKET));
+
+    await details.load();
+
+    expect(details.vendorNames.value).toEqual({ 'bob@example.com': 'Bob' });
   });
 
   it('holds nothing, and says why, when the applications are refused', async () => {
@@ -143,6 +165,7 @@ describe('the vendor drawer, when the placements are refused', () => {
 
     const panel = document.querySelector('[data-testid="vendor-drawer-panel-application"]')!;
     expect(panel.textContent).toContain('Bob Prints');
+    expect(document.querySelector('#vendor-drawer-title')?.textContent).toBe('Robert Example');
     expect(panel.textContent).not.toContain('asks no questions');
     expect(
       document.querySelector('[data-testid="vendors-detail-load-error"]')?.textContent,
