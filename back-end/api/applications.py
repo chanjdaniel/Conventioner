@@ -496,19 +496,26 @@ _ARRIVING_PROJECTION = {"_id": 0, "id": 1, "applicant_email": 1, "submitted_at":
                         ARRIVING_FIELD: 1}
 
 
+def _waiting_filter(market_id: str) -> Dict[str, Any]:
+    """The applications of a market waiting to be dealt: ``arriving`` is an object, which the
+    ``market_id, arriving`` index serves with tight bounds, as it cannot an ``$exists`` (a regular
+    index stores a missing field as null)."""
+    return {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$type": "object"}}
+
+
 def arriving_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
     """The market's applications waiting to be dealt as they arrived, earliest arrival first:
     those alone, and only what a deal reads of them, since it reads them while holding the market
     (the ``market_id, arriving`` lookup index)."""
     ensure_application_indexes()
     return _in_arrival_order(list(applications_collection.find(
-        {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$exists": True}}, _ARRIVING_PROJECTION)))
+        _waiting_filter(market_id), _ARRIVING_PROJECTION)))
 
 
 def any_arriving(market_id: str) -> bool:
     """Whether any application of the market waits to be dealt as it arrived."""
     return applications_collection.find_one(
-        {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$exists": True}}) is not None
+        _waiting_filter(market_id)) is not None
 
 
 def deal_arrival(app_id: str, reviewer: Optional[MarketPerson]) -> bool:
