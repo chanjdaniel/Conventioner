@@ -90,10 +90,10 @@ function listed(words: string[]): string {
 }
 
 /**
- * A placement in the drawer's own words (`historyParts`), its first letter lowered to follow who
- * made it, and the day it is for after it, where the drawer shows that day beside the line. One
- * wording for both screens, so the two cannot drift; a move reads as the table taken, as the
- * drawer says it, and the table left is in its before and after.
+ * A placement in the placement trail's own words (`historyParts`), its first letter lowered to
+ * follow who made it, and the day it is for after it, where the trail shows that day beside the
+ * line. One wording for every screen, so they cannot drift; a move names the table left and the
+ * table taken.
  */
 function placementParts(
   entry: MarketHistoryEntry,
@@ -112,6 +112,13 @@ function placementParts(
       date: detail.date ? str(detail.date) : undefined,
       tableCode: detail.table_code as string | undefined,
       tableChoice: detail.table_choice as string | undefined,
+      before:
+        detail.before && typeof detail.before === 'object'
+          ? {
+              tableCode: str(asDetail(detail.before).table_code),
+              tableChoice: asDetail(detail.before).table_choice as string | null | undefined,
+            }
+          : null,
       seats: Array.isArray(detail.seats)
         ? detail.seats.map(asDetail).map((seat) => ({
             email: str(seat.email),
@@ -320,7 +327,8 @@ export function entryParts(
     default: {
       const parts: MarketHistoryPart[] = [
         actor,
-        text(`made a change: ${labels[entry.action] ?? entry.action}`),
+        // A row this market's table no longer names reads as a change, never as its raw id.
+        text(labels[entry.action] ? `made a change: ${labels[entry.action]}` : 'made a change'),
       ];
       if (entry.vendors.length) parts.push(text(', about '), vendor);
       return parts;

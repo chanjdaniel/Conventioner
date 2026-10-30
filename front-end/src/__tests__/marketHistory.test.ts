@@ -43,14 +43,25 @@ function sentence(overrides: Partial<MarketHistoryEntry>, labels = {}): string {
 }
 
 describe('what an entry says', () => {
-  it('words an assignment as the drawer does, the table left in its before and after', () => {
+  it('words an assignment to a vendor with no table, or one from before the table left was kept', () => {
     const assigned = { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' };
-    const moved = { ...assigned, before: { table_code: 'A3', table_choice: 'Full Table' } };
-    for (const detail of [assigned, { ...assigned, before: null }, moved]) {
+    for (const detail of [assigned, { ...assigned, before: null }]) {
       expect(sentence({ detail })).toBe(
         'dana@ember.test assigned [Ana Rivera] at B7 (Full Table) on Nov 19, 2026',
       );
     }
+  });
+
+  it('words a move as a move, from the table left to the table taken', () => {
+    const detail = {
+      date: '2026-11-19',
+      table_code: 'B7',
+      table_choice: 'Full Table',
+      before: { table_code: 'A3', table_choice: 'Full Table' },
+    };
+    expect(sentence({ detail })).toBe(
+      'dana@ember.test moved [Ana Rivera] from A3 to B7 (Full Table) on Nov 19, 2026',
+    );
   });
 
   it('words a verdict by its status', () => {
@@ -230,6 +241,15 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test made a change: Record a payment, about [Ben Okafor]');
   });
 
+  it('says a change it has no words and no row label for is a change, never its id', () => {
+    expect(sentence({ action: 'record-payment', kind: null, vendors: ['ben@ember.test'] })).toBe(
+      'dana@ember.test made a change, about [Ben Okafor]',
+    );
+    expect(sentence({ action: 'record-payment', kind: null, vendors: [] })).toBe(
+      'dana@ember.test made a change',
+    );
+  });
+
   it('draws a vendor with no name as their address', () => {
     const [, , vendor] = entryParts(
       entry({ vendors: ['cy@ember.test'], detail: { table_code: 'A1' } }),
@@ -253,6 +273,12 @@ describe('a placement, in the whole history and in the drawer', () => {
       vendors: ['ana@ember.test'],
       stored: { date: '2026-11-19', table_code: 'B7', table_choice: 'Full Table' },
       trail: { date: '2026-11-19', tableCode: 'B7', tableChoice: 'Full Table' },
+    },
+    {
+      kind: 'placed',
+      vendors: ['ana@ember.test'],
+      stored: { date: '2026-11-19', table_code: 'B7', before: { table_code: 'A3' } },
+      trail: { date: '2026-11-19', tableCode: 'B7', before: { tableCode: 'A3' } },
     },
     {
       kind: 'freed',

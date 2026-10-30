@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * Every change on a market, newest first: Manage market's History section (E40/F01/S03).
+ * Every change on a market, newest first: Manage market's History section (E40/F01/S03), and one
+ * vendor's in their drawer's History tab (E40/F01/S04).
  *
  * A page at a time - the newest entries, then older ones on "Load more" - inside the dialog's own
  * scrolling, so a market with thousands of changes opens as quickly as one with ten. Narrowed by
  * who, by kind (a group of the table's rows), by vendor and by date; the filters live as long as
- * the dialog holds this section, which is while it is open.
+ * the dialog holds this section, which is while it is open. Given a `vendor`, it is that vendor's
+ * history alone, with no filters: the same entries in the same words, narrowed by the server.
  */
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -29,7 +31,12 @@ const props = defineProps<{
   rowLabels?: Readonly<Record<string, string>>;
   /** How the market's vendors arrive, so a phase reads as its other screens name it. */
   path: IntakeMode;
+  /** Only this vendor's entries, for their drawer: the filters are not drawn, and the vendor is
+   * named as text rather than a link to the drawer that already shows them. */
+  vendor?: string | null;
 }>();
+
+const ownVendor = computed(() => props.vendor?.trim().toLowerCase() ?? '');
 
 interface HistoryPage {
   entries: MarketHistoryEntry[];
@@ -90,10 +97,11 @@ const vendorCandidates = computed(() => {
 });
 
 /**
- * The vendor the history is narrowed to: the one the filter names, or an address typed whole that
- * no loaded entry names yet; none while it names several or nobody.
+ * The vendor the history is narrowed to: the drawer's, the one the filter names, or an address
+ * typed whole that no loaded entry names yet; none while it names several or nobody.
  */
-const vendor = computed(() => {
+const narrowedTo = computed(() => {
+  if (ownVendor.value) return ownVendor.value;
   const typed = vendorText.value.trim();
   if (vendorCandidates.value.length === 1) return vendorCandidates.value[0];
   if (!vendorCandidates.value.length && typed.includes('@')) return typed.toLowerCase();
@@ -102,11 +110,11 @@ const vendor = computed(() => {
 
 /** Typed text that names no vendor at all: the filter matches nothing, and nothing is asked. */
 const vendorMatchesNobody = computed(
-  () => !!vendorText.value.trim() && !vendor.value && !vendorCandidates.value.length,
+  () => !!vendorText.value.trim() && !narrowedTo.value && !vendorCandidates.value.length,
 );
 
 const vendorHint = computed(() =>
-  vendorCandidates.value.length > 1 && !vendor.value
+  vendorCandidates.value.length > 1 && !narrowedTo.value
     ? `${vendorCandidates.value.length} vendors match. Keep typing, or choose one.`
     : '',
 );
@@ -114,7 +122,7 @@ const vendorHint = computed(() =>
 const filters = computed(() => ({
   actor: actor.value,
   group: group.value,
-  vendor: vendor.value,
+  vendor: narrowedTo.value,
   since: from.value ? dayStarts(from.value) : '',
   until: to.value ? dayEnds(to.value) : '',
 }));
@@ -148,13 +156,16 @@ async function load(): Promise<void> {
   loading.value = true;
   try {
     const page = await read(null);
-    if (mine !== asking) return;
-    entries.value = page.entries ?? [];
-    see(entries.value);
-    next.value = page.next ?? null;
+    // What the market's vendors and people are holds whatever the page was narrowed by, so a page
+    // asked for before a filter changed still tells the filter who it may name: a vendor typed
+    // while the first page was on its way is found once it lands.
+    see(page.entries ?? []);
     vendorNames.value = page.vendorNames ?? {};
     actors.value = page.actors ?? [];
     groups.value = page.groups ?? [];
+    if (mine !== asking) return;
+    entries.value = page.entries ?? [];
+    next.value = page.next ?? null;
     opened.value = new Set();
   } catch (err) {
     if (mine !== asking) return;
@@ -208,14 +219,17 @@ function vendorLink(email: string) {
   return { path: marketPath(props.marketId, 'vendors'), query: { vendor: email.toLowerCase() } };
 }
 
-const emptyText = computed(() =>
-  filtered.value ? 'No change matches these filters.' : 'Nothing has changed on this market yet.',
-);
+const emptyText = computed(() => {
+  if (ownVendor.value) return 'Nothing has been recorded about this vendor yet.';
+  return filtered.value
+    ? 'No change matches these filters.'
+    : 'Nothing has changed on this market yet.';
+});
 </script>
 
 <template>
   <div class="market-history" data-testid="market-history">
-    <div class="history-filters">
+    <div v-if="!ownVendor" class="history-filters">
       <label class="history-filter">
         <span class="field-label">Who</span>
         <select v-model="actor" class="field field--select" data-testid="market-history-who">
@@ -308,6 +322,15 @@ const emptyText = computed(() =>
             :key="index"
           >
             <template v-if="part.kind === 'text'">{{ part.text }}</template>
+            <span
+              v-else-if="part.email.toLowerCase() === ownVendor"
+              class="history-vendor-self"
+              data-testid="market-history-own-vendor"
+              >{{ part.name || part.email
+              }}<template v-if="part.name"
+                >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
+              ></span
+            >
             <RouterLink
               v-else
               :to="vendorLink(part.email)"
@@ -457,6 +480,11 @@ const emptyText = computed(() =>
 .history-vendor {
   color: var(--mm-green);
   text-decoration: underline;
+}
+
+/* The drawer's own vendor, named in their own history: no link to where the reader already is. */
+.history-vendor-self {
+  font-weight: 600;
 }
 
 /* The address beside the name, muted, so the line still reads as a sentence. */

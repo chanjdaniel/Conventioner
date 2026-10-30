@@ -1360,9 +1360,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
     return payload, 200
 
 
-def get_placement_history(
-    market_id: str, requesting_user: str, vendor: Optional[str] = None
-) -> tuple[Dict[str, Any], int]:
+def get_placement_history(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
     """This market's placement trail - its history narrowed to placements - newest first. Asks
     ``Actions.READ_HISTORY``.
 
@@ -1380,7 +1378,7 @@ def get_placement_history(
     if refused:
         return {"error": refused}, 403
 
-    entries = History.placement_entries(market_id, vendor)
+    entries = History.placement_entries(market_id)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as
