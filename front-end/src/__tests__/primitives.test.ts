@@ -166,13 +166,44 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(declaration('.field--select', 'min-width')).toBe('0');
   });
 
-  it('gives every primitive a focus ring that is not the brand green', () => {
-    // The ring must be visible against the control's own fill too, and a green ring on the green
-    // primary button is invisible.
-    const ring = declaration('.btn:focus-visible', 'outline');
-    expect(ring, 'no focus ring on .btn').toBeTruthy();
-    expect(ring).not.toContain('--mm-green');
-    expect(declaration('.btn:focus-visible', 'outline-offset')).toBeTruthy();
+  it('draws nothing around a focused field, the browser default included', () => {
+    // Daniel's decision on the 2026-10-29 walk (E38/F01): a field shows its caret and nothing else,
+    // by click or by Tab, so an accessibility pass must not put a ring back.
+    for (const field of ['input:focus', 'textarea:focus', 'select:focus']) {
+      expect(declaration(field, 'outline'), field).toBe('none');
+      for (const property of ['box-shadow', 'border', 'border-color', 'background']) {
+        expect(declaration(field, property), `${field} ${property}`).toBeNull();
+      }
+    }
+    expect(blocks('.field:focus-visible')).toEqual([]);
+    expect(blocks('.field:focus')).toEqual([]);
+  });
+
+  it('gives every control the soft halo rather than a ring', () => {
+    // Daniel's choice C on the 2026-10-29 walk: a white gap then a translucent green glow, the gap
+    // keeping it clear of the green primary button's own fill. The dark bar's halo is white.
+    expect(valueIn(BASE_ROOT, ':root', '--focus-halo')).toBe(
+      '0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35)',
+    );
+    expect(valueIn(BASE_ROOT, ':root', '--focus-halo-on-dark')).toBe(
+      '0 0 0 3px rgba(255, 255, 255, 0.35)',
+    );
+    const controls = [
+      '.btn:focus-visible',
+      '.add-row:focus-visible',
+      '.drag-handle:focus-visible',
+      '.step-button:focus-visible',
+      'a:focus-visible',
+      'button:focus-visible',
+      'summary:focus-visible',
+      "[role='button']:focus-visible",
+      // The phase rail's spine, a keyboard stop while it scrolls, has no rule of its own.
+      "[tabindex='0']:focus-visible",
+    ];
+    for (const control of controls) {
+      expect(declaration(control, 'box-shadow'), control).toBe('var(--focus-halo)');
+      expect(declaration(control, 'outline'), control).toBe('none');
+    }
   });
 
   it('owns the add-row control, so five files stop owning a copy of it', () => {

@@ -8,7 +8,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment._magnitude_score
   - back-end/csv_import.py#orders_by_submitted_at
   - front-end/src/components/elements/ElementAssignmentPriority.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/02
   - wayfinding/v0-1-0/03

@@ -177,7 +177,7 @@ h1 {
   color: var(--mm-text-green);
 }
 
-/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state. */
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus halo and disabled state. */
 .submit-button {
   width: 100%;
   margin-top: var(--space-6);
