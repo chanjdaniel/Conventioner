@@ -139,13 +139,14 @@ function placementParts(
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
  * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
  * a change this file has no words for yet; `path` is how the market's vendors arrive, so a phase
- * reads as that market's other screens name it ("Review" on a Google Form market).
+ * reads as that market's other screens name it ("Review" on a Google Form market), and absent is a
+ * Google Form market's, as `intakeModeOf` reads a market with none.
  */
 export function entryParts(
   entry: MarketHistoryEntry,
   names: VendorNames,
   labels: Readonly<Record<string, string>> = {},
-  path: IntakeMode = IntakeMode.Form,
+  path: IntakeMode = IntakeMode.Csv,
 ): MarketHistoryPart[] {
   const text = (words: string): MarketHistoryPart => ({ kind: 'text', text: words });
   const who = (email: unknown): MarketHistoryPart => ({
@@ -305,6 +306,13 @@ export function entryParts(
         ),
       ];
     }
+    case 'stop-applications/':
+      return [
+        actor,
+        text(
+          after.applications_stopped ? 'stopped taking applications' : 'took applications again',
+        ),
+      ];
     case 'apply/submitted':
       return [vendor, text(' applied')];
     case 'apply/edited':
@@ -365,11 +373,7 @@ const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
 
 /** A field's value as the screens name it, a phase as the market's `path` does, else as
  * `valueText` draws it. */
-export function fieldValue(
-  key: string,
-  value: unknown,
-  path: IntakeMode = IntakeMode.Form,
-): string {
+export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
   return name && typeof value === 'string' && value ? name(value) : valueText(value);
 }
@@ -402,7 +406,7 @@ function permissionState(value: unknown): string {
 export function entryChanges(
   entry: MarketHistoryEntry,
   labels: Readonly<Record<string, string>> = {},
-  path: IntakeMode = IntakeMode.Form,
+  path: IntakeMode = IntakeMode.Csv,
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];

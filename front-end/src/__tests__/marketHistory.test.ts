@@ -118,6 +118,28 @@ describe('what an entry says', () => {
     );
   });
 
+  it('words a stop of applications as a stop', () => {
+    expect(
+      sentence({
+        action: 'stop-applications',
+        kind: null,
+        vendors: [],
+        detail: { before: { applications_stopped: false }, after: { applications_stopped: true } },
+      }),
+    ).toBe('dana@ember.test stopped taking applications');
+  });
+
+  it('words taking applications again as a resume', () => {
+    expect(
+      sentence({
+        action: 'stop-applications',
+        kind: null,
+        vendors: [],
+        detail: { before: { applications_stopped: true }, after: { applications_stopped: false } },
+      }),
+    ).toBe('dana@ember.test took applications again');
+  });
+
   it('words a check-in made on the public page as the vendor’s own', () => {
     expect(
       sentence({
