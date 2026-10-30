@@ -79,6 +79,8 @@ test('an Editor gives a verdict, and is offered no change to one already given',
     await expect(all.selectAllSkipped).toHaveText(
       '3 applications not selected: they already have a verdict, which only an Admin or the owner may change.',
     );
+    // That line says why, so the one over the list stands down while it shows.
+    await expect(all.changeReason).toHaveCount(0);
 
     // The drawer of a decided application says why instead of offering a verdict.
     await all.open('ben@ember.test');

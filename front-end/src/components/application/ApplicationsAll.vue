@@ -439,9 +439,10 @@ async function decideSelection() {
         >{{ notSelected }}</span
       >
     </div>
-    <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01). -->
+    <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01), unless
+         what Select all left out says it already. -->
     <p
-      v-if="showsUnchangeable && changeRefusal && !errorMessage"
+      v-if="showsUnchangeable && changeRefusal && !skippedDecided && !errorMessage"
       class="all-meta change-reason"
       data-testid="applications-all-change-reason"
     >
@@ -862,10 +863,9 @@ async function decideSelection() {
   margin: 0;
 }
 
-/* Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01), as a meta line. */
 .change-reason {
   margin: 0;
-  font-size: var(--text-sm);
 }
 
 .drawer-message {
