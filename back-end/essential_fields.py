@@ -623,10 +623,9 @@ UPDATABLE_ESSENTIAL_QUESTIONS = {
     TABLE_SHARE_EMAIL_KEY: (TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY),
 }
 
-#: The answers each validation step judges together: the name step stores both names, and the
-#: dates and the tiers on each must agree, so changing either judges both.
+#: The answers each validation step judges together: the dates and the tiers on each must agree,
+#: so changing either judges both. The two names are judged apart, each on its own step.
 _JUDGED_TOGETHER = {
-    FULL_NAME_KEY: {FULL_NAME_KEY, PREFERRED_NAME_KEY},
     AVAILABLE_DATES_KEY: {AVAILABLE_DATES_KEY, TIER_PREFERENCE_KEY},
     TIER_PREFERENCE_KEY: {AVAILABLE_DATES_KEY, TIER_PREFERENCE_KEY},
 }
@@ -693,6 +692,7 @@ def _essential_steps(
 
     return [
         (FULL_NAME_KEY, lambda: _validate_full_name(incoming, stored)),
+        (PREFERRED_NAME_KEY, lambda: _store_preferred_name(incoming, stored)),
         (AVAILABLE_DATES_KEY, lambda: _validate_accepted_subset(
             incoming, AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL, "date", options.dates, stored,
         )),
@@ -713,7 +713,7 @@ def _essential_steps(
 
 
 def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Optional[str]:
-    """The applicant's name, required on every save because identity does not depend on the plan.
+    """The applicant's full name, required on every save because identity does not depend on the plan.
 
     Stored stripped and otherwise exactly as written: a name is not a value drawn from an offering
     and there is nothing to match it against, so there is nothing here to normalize beyond the
@@ -723,18 +723,26 @@ def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Opt
     the keys it reads explicitly rather than looping over everything the form asks - so an
     application written before the name existed still assigns, which is what makes this need no
     migration.
+
+    The preferred name is stored by its own step, judged apart from this one: an organizer's
+    preferred-name-only update of a stored application with no full name is not refused for it.
     """
     raw = incoming.get(FULL_NAME_KEY)
     value = str(raw).strip() if raw is not None else ""
     if not value:
         return f"'{FULL_NAME_LABEL}' is required."
     stored[FULL_NAME_KEY] = value
+    return None
 
-    # Optional, and stored as the empty string rather than left absent, so every reader compares
-    # one shape - the same way an unasked ranking stores its empty value.
+
+def _store_preferred_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> None:
+    """The name a vendor is called, optional and never refused.
+
+    Stored as the empty string rather than left absent, so every reader compares one shape - the
+    same way an unasked ranking stores its empty value.
+    """
     preferred = incoming.get(PREFERRED_NAME_KEY)
     stored[PREFERRED_NAME_KEY] = str(preferred).strip() if preferred is not None else ""
-    return None
 
 
 def _validate_tiers_per_date(

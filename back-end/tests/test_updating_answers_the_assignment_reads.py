@@ -249,6 +249,29 @@ class TestItIsValidatedAsTheFormValidatesIt:
         assert status == 200
         assert EF.MAX_DATES_KEY not in _stored(applications)["answer_updates"]
 
+    def test_a_preferred_name_alone_stores_even_without_a_stored_full_name(self, market):
+        """A row written before the name existed has no full name; a preferred-name-only update is
+        judged on its own and stores the preferred name."""
+        legacy = {k: v for k, v in ANSWERS.items()
+                  if k not in (EF.FULL_NAME_KEY, EF.PREFERRED_NAME_KEY)}
+        applications = market(answers=legacy)
+
+        _result, status = _update({EF.PREFERRED_NAME_KEY: "Nadia"})
+
+        assert status == 200
+        assert _stored(applications)["answer_updates"][EF.PREFERRED_NAME_KEY]["value"] == "Nadia"
+
+    def test_a_missing_full_name_refuses_only_an_update_that_touches_it(self, market):
+        legacy = {k: v for k, v in ANSWERS.items()
+                  if k not in (EF.FULL_NAME_KEY, EF.PREFERRED_NAME_KEY)}
+        applications = market(answers=legacy)
+
+        with pytest.raises(BadRequestError) as refused:
+            _update({EF.FULL_NAME_KEY: " "})
+
+        assert str(refused.value) == "'Full name' is required."
+        assert not _stored(applications).get("answer_updates")
+
     def test_the_words_kept_for_the_share_answer_are_not_a_question_of_their_own(self, market):
         market()
 
