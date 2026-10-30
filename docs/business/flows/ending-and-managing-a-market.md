@@ -22,6 +22,7 @@ sources:
   - bug/47
   - T15
   - E40/F01/S03
+  - E40/F01/S04
   - E39/F01/S04
 ---
 
@@ -88,6 +89,7 @@ Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
 5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the section's toggle rather than back to it.
 6. "Changes" lists the market's history narrowed to the table, newest first, ten at a time with "Load more" as the market's History pages: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" with each row it returned, and who made it and when, by their address, as "Users with access" names people.
+   It is the market's history, so someone the row "Read the market's history" refuses (an owner may raise it above the roles that see this section) has no "Changes", and a row changed on this market says only "Changed on this market".
 7. For anyone but the owner the section is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
 
 Beneath Permissions, "History", closed until opened, lists every change on the market, newest first, for whoever may read the market's history: [L6](reading-the-markets-history.md#l6-read-the-markets-history).

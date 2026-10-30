@@ -40,6 +40,25 @@ describe('what one entry says', () => {
     expect(text).toContain('Front 1');
   });
 
+  it('says a vendor who had a table on that date was moved, from it to the new one', () => {
+    const moved = entry({
+      kind: 'placed',
+      detail: {
+        date: '2026-08-01',
+        tableCode: 'B7',
+        tableChoice: 'Full Table',
+        before: { tableCode: 'A3', tableChoice: 'Full Table' },
+      },
+    });
+
+    expect(historySummary(moved, NAMES)).toBe(
+      'Moved Ana Rivera (ana@ember.test) from A3 to B7 (Full Table)',
+    );
+    expect(
+      historySummary(entry({ kind: 'placed', detail: { tableCode: 'B7', before: null } }), NAMES),
+    ).toBe('Assigned Ana Rivera (ana@ember.test) at B7');
+  });
+
   it('names the table alone for a placement that recorded no table choice', () => {
     const text = historySummary(
       entry({ kind: 'placed', detail: { date: '2026-08-01', tableCode: 'Front 1' } }),
