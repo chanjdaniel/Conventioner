@@ -131,7 +131,7 @@ CHANGE_THE_TABLE = action(
 
 
 #: Where a row's role came from, as the market read serves it: no row held, copied from the
-#: organization's default when the market was created, or changed on this market by its owner.
+#: organization's default, or changed on this market by its owner.
 BUILT_IN = "built-in"
 FROM_ORGANIZATION = "organization"
 ON_THIS_MARKET = "market"
@@ -163,6 +163,23 @@ def held_row(row: Action, rows: Mapping[str, Any]) -> Optional[MarketPermission]
 _ROLE_VALUES = frozenset(role.value for role in MarketRole)
 
 
+def row_state(row: Action, held: Optional[MarketPermission]) -> Dict[str, str]:
+    """A row as a history entry's before or after holds it, on a market's table or an
+    organization's default alike: the role it asks, and where that came from."""
+    if held is None:
+        return {"role": row.default.value, "source": BUILT_IN}
+    return {"role": held.role, "source": held.source}
+
+
+#: The words a write to a row refuses with, on a market's table or an organization's default.
+NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
+
+
+def fixed_row_refusal(row: Action) -> str:
+    """Why a fixed row cannot be changed, on a market's table or an organization's default."""
+    return f'Who may take the row "{row.label}" is fixed, so it cannot be changed.'
+
+
 def _minimum_role_of(row: Action, rows: Mapping[str, Any]) -> MarketRole:
     held = held_row(row, rows)
     return MarketRole(held.role) if held else row.default
@@ -178,9 +195,13 @@ def table(market: Market) -> List[Dict[str, Any]]:
     its built-in default, where the role came from, whether it is fixed, and what the action is
     after "may", for Manage market's confirmation of a change (E39/F01/S04); and who may take it
     here, in the words a refusal names them, for a screen that says who may (E38/F06/S01)."""
+    return _table_of(market.permissions)
+
+
+def _table_of(rows: Mapping[str, Any]) -> List[Dict[str, Any]]:
     served = []
     for row in ACTIONS.values():
-        held = held_row(row, market.permissions)
+        held = held_row(row, rows)
         role = MarketRole(held.role) if held else row.default
         served.append({
             "id": row.id,
@@ -191,9 +212,43 @@ def table(market: Market) -> List[Dict[str, Any]]:
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
             "mayWhat": row.may_what,
-            "whoMay": _WHO_MAY[who_may(row, market.permissions)],
+            "whoMay": _WHO_MAY[who_may(row, rows)],
         })
     return served
+
+
+# --- The organization's default (E39/F02/S01) --------------------------------------------------
+#
+# An organization keeps the rows it sets for the markets it will hold (``default_permissions`` on
+# its document, row id to ``{role}``), and a market created in it copies them into its own rows,
+# each marked ``organization``. A copy, not a link: a later change to the default reaches only the
+# markets created after it, or one whose owner copies the default again.
+
+
+def organization_rows(stored: Any) -> Dict[str, MarketPermission]:
+    """An organization's default rows as a market holds them once copied: every row this build can
+    read, as ``held_row`` reads a market's, marked as copied from the organization.
+
+    ``stored`` is the organization document's ``default_permissions``, absent or not a map when it
+    sets none. A fixed row, a row the table does not have and a role this build does not know are
+    left out, so they read as the built-in default here and are never copied into a market.
+    """
+    if not isinstance(stored, Mapping):
+        return {}
+    copied = {}
+    for row in ACTIONS.values():
+        value = stored.get(row.id)
+        role = value.get("role") if isinstance(value, Mapping) else None
+        held = held_row(row, {row.id: {"role": role, "source": FROM_ORGANIZATION}})
+        if held is not None:
+            copied[row.id] = held
+    return copied
+
+
+def default_table(stored: Any) -> List[Dict[str, Any]]:
+    """An organization's default table for display, as ``table`` serves a market's: a row the
+    organization sets is ``organization``, every other row its built-in default."""
+    return _table_of(organization_rows(stored))
 
 
 def who_may(row: Action, rows: Mapping[str, Any]) -> MarketRole:

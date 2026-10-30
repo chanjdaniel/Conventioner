@@ -14,7 +14,7 @@ describes:
   - front-end/e2e/global-setup.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E21/F02/S02
   - E22/F04/S02

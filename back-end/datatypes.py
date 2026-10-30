@@ -793,7 +793,7 @@ class MarketPermission(BaseModel):
     shape for the same reason (``drop_unreadable_permissions``). ``api.market_actions`` reads a row
     it cannot understand as the built-in default, as it reads a row the market does not hold.
     ``source`` is ``market`` (changed on this market by its owner) or ``organization`` (copied from
-    the organization's default when the market was created, E39/F02).
+    the organization's default, E39/F02).
     """
 
     role: str

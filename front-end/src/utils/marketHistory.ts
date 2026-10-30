@@ -478,6 +478,10 @@ export function entryParts(
         ),
       ];
     }
+    case 'change-the-table/permission_table_copied': {
+      const rows = Object.keys(after).map((id) => labels[id] ?? id);
+      return [actor, text(`copied the organization's defaults, changing ${listed(rows)}`)];
+    }
     case 'stop-applications/':
       return [
         actor,
@@ -528,6 +532,17 @@ export function entryParts(
             getRoleDisplayName(str(after.role)),
         ),
       ];
+    case 'change-the-default/permission_table_reset': {
+      const rows = Object.keys(after).map((id) => labels[id] ?? id);
+      return [
+        actor,
+        text(
+          rows.length === 1
+            ? `reset ${rows[0]} for new markets to its built-in default`
+            : `reset ${listed(rows)} for new markets to their built-in defaults`,
+        ),
+      ];
+    }
     case 'apply/submitted':
       return [vendor, text(' applied')];
     case 'apply/edited':
@@ -714,8 +729,9 @@ function changedFields(
 /**
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
- * it, and the table taken. A reset of the whole table is each row it returned, by its label in
- * `labels`, and a phase reads as the market's `path` names it.
+ * it, and the table taken. A reset of a whole table, a market's or an organization's default, and a
+ * market's copy of its organization's default are each row they changed, by its label in `labels`,
+ * and a phase reads as the market's `path` names it.
  */
 export function entryChanges(
   entry: MarketHistoryEntry,
@@ -728,7 +744,11 @@ export function entryChanges(
   recorded: RecordedField[];
 } {
   const detail = asDetail(entry.detail);
-  if (entry.action === 'change-the-table' && entry.kind === 'permission_table_reset') {
+  // A whole table reset, or a market's replaced by its organization's default: each row it changed.
+  if (
+    entry.kind === 'permission_table_reset' ||
+    (entry.action === 'change-the-table' && entry.kind === 'permission_table_copied')
+  ) {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
     return {

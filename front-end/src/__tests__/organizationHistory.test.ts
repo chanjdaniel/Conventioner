@@ -198,6 +198,35 @@ describe('what an organization’s entry says', () => {
     ).toBe('olive@ember.test set Check vendors in for new markets back to its default, Editor');
   });
 
+  it('words and opens a reset of every row of the default for new markets', () => {
+    const labels = { 'check-in': 'Check vendors in', 'export-csv': 'Export CSV' };
+    const reset = (rows: string[]) => ({
+      action: 'change-the-default',
+      kind: 'permission_table_reset',
+      subject: {},
+      detail: {
+        before: Object.fromEntries(
+          rows.map((id) => [id, { role: 'admin', source: 'organization' }]),
+        ),
+        after: Object.fromEntries(rows.map((id) => [id, { role: 'editor', source: 'built-in' }])),
+      },
+    });
+
+    expect(sentence(reset(['check-in']), labels)).toBe(
+      'olive@ember.test reset Check vendors in for new markets to its built-in default',
+    );
+    expect(sentence(reset(['check-in', 'export-csv']), labels)).toBe(
+      'olive@ember.test reset Check vendors in and Export CSV for new markets to their built-in defaults',
+    );
+    expect(entryChanges(entry(reset(['check-in'])), labels).changed).toEqual([
+      {
+        field: 'Check vendors in',
+        before: 'Admin, The organization’s default',
+        after: 'Editor, Built in',
+      },
+    ]);
+  });
+
   it('opens a place given to its role before and after', () => {
     expect(
       entryChanges(
