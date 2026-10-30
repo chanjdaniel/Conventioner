@@ -11,6 +11,7 @@ verified: 2026-10-30
 sources:
   - E41/F01/S01
   - E41/F01/S02
+  - E38/F06/S01
 ---
 
 # An update is kept beside the vendor's answer
@@ -44,7 +45,7 @@ The row is named for the prices too, but no answer a price reads is behind it ye
 - An answer is held to what the form holds the vendor's to, with the form's own message: a day ticked with no tiers is refused, judged with the answers the update leaves.
   Only what the update touches is judged, so an answer the vendor gave that the form would now refuse never blocks an update of another.
 - The [assignment solver](../../implementation/modules/assignment-solver.md) reads the answers as updated, so the next run places the vendor by them, and an assignment already made reads as [out of date](an-assignment-knows-when-it-is-out-of-date.md); the placement warnings, the empty-tier check, the [table-share notice](table-share-pairing.md) and the vendor's request beside the notes read them too.
-- While the review is open, the [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save: an update past a rule returns the application to undecided, and one that meets a rule rejects it.
+- While the review is open, the [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save: an update past a rule returns the application to undecided, but only for someone who may overturn an automatic rejection (an Admin or the owner by default, E38/F06/S01; for anyone else the rejection stands), and one that meets a rule rejects it.
   From assignment on, the rules have settled with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), so an update stands and the verdict stays.
 - The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)).
 - A [re-import](../../implementation/modules/csv-import.md) writes the file's answers as the vendor's own and leaves every update standing.

@@ -18,10 +18,16 @@ const props = defineProps<{
   lockReason: string | null;
   /** True for a person who may not change the market at all; the step says why. */
   disabled?: boolean;
+  /**
+   * Who may overturn an automatic rejection on this market, from its table: "an Admin or the
+   * owner" (E38/F06/S01). Null when the market read carries no such row.
+   */
+  overturnedBy?: string | null;
 }>();
 
 const emit = defineEmits<{ 'update:rules': [rules: RejectionRule[]] }>();
 
+const capitalized = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
 const fixed = computed(() => props.disabled || !!props.lockReason);
 const byKey = computed(() => new Map(props.questions.map((q) => [q.key, q])));
 /** A rule's question, or a stand-in for one the form no longer has, so it can still be removed. */
@@ -66,7 +72,11 @@ function toggle(key: string, answer: string, rejects: boolean) {
   <div class="rejections" data-testid="automatic-rejections">
     <p class="rejections-help">
       An application that gives one of these answers arrives in review already rejected, with the
-      reason. A reviewer can overturn it, and the applicant never sees the reason.
+      reason.
+      <template v-if="overturnedBy">
+        {{ capitalized(overturnedBy) }} can overturn it, and the applicant never sees the reason.
+      </template>
+      <template v-else>The applicant never sees the reason.</template>
     </p>
     <p v-if="lockReason" class="rejections-locked" data-testid="rejection-rules-locked">
       {{ lockReason }}

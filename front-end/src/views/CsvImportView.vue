@@ -13,6 +13,7 @@
  * with nothing left to assign.
  */
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
+import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
@@ -25,7 +26,11 @@ import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
-import { previewHeadline as previewHeadlineText, writingRowCount } from '@/utils/importPreview';
+import {
+  previewHeadline as previewHeadlineText,
+  rejectedRowsWhy,
+  writingRowCount,
+} from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
 import {
@@ -128,6 +133,10 @@ const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
 /** Importing is the table's import row: who is asking comes before the phase (bug 37). */
 const roleRefusal = computed(() => actionRefusal(market.value, MarketAction.ImportApplications));
+/** Who may overturn what the automatic rejections rejected, from the market's table (E38/F06/S01). */
+const overturnedBy = computed(() =>
+  whoMayTake(market.value?.permissionTable, MarketAction.ChangeVerdicts),
+);
 const phaseRefusal = computed(() => roleRefusal.value || importRefusal(market.value));
 const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal.value);
 /**
@@ -1287,9 +1296,8 @@ function startOver() {
               rejectedApplications.length
             }}</span>
           </h3>
-          <p class="preview-rows-why">
-            A check that your rules reject who they should. These are imported as rejected, each
-            with its reason; an Admin or the owner can overturn one.
+          <p class="preview-rows-why" data-testid="import-rejected-why">
+            {{ rejectedRowsWhy(overturnedBy) }}
           </p>
           <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
         </section>
@@ -1315,7 +1323,9 @@ function startOver() {
         </p>
         <p v-if="rejectedByRules" class="import-note" data-testid="import-result-rejected-note">
           {{ rejectedByRules }} {{ rejectedByRules === 1 ? 'was' : 'were' }} rejected by your
-          automatic rejections, each with its reason; a reviewer can overturn any of them.
+          automatic rejections, each with its reason<template v-if="overturnedBy"
+            >; {{ overturnedBy }} can overturn any of them</template
+          >.
         </p>
         <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
           {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}

@@ -19,6 +19,7 @@ export const MarketAction = {
   ChangeForm: 'change-form',
   ImportApplications: 'import-applications',
   GiveVerdicts: 'give-verdicts',
+  ChangeVerdicts: 'change-verdicts',
   MovePhase: 'move-phase',
   StopApplications: 'stop-applications',
   PublishResults: 'publish-results',

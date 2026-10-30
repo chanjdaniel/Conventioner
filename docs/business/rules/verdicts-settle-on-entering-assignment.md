@@ -5,13 +5,14 @@ describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/markets.py#verdict_refusal
   - back-end/app.py#_reviewer_on
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/rejection-visibility/02
   - wayfinding/what-to-show-and-when/02
   - brain-dump/2026-10-19#24
   - E34/F01/S01
   - E36/F01/S01
+  - E38/F06/S01
 ---
 
 # Verdicts settle on entering assignment
@@ -37,12 +38,13 @@ Today that is open in `draft` and `applications`, and closed in `assignment`, `o
 ## Who may
 
 An EDITOR (E34/F01/S01): a verdict records who gave it, and is not one of the admin actions.
+Changing one already approved or rejected is an Admin's, the table's change row asked on top of this gate (E38/F06/S01, [what each role may do](what-each-role-may-do.md)), so it closes with the review as giving one does.
 An archived market refuses anyone.
 
 ## Where it is kept
 
 - `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the archived rule, the table's Give verdicts and follow-ups row and `review_is_open`; the market read serves its parts apart, the row's answer in `actionRefusals` and the close of the review as `verdictsSettledReason`, and every review screen gives verdicts only when neither refuses, exactly what the write takes.
-- `_reviewer_on` in [`back-end/app.py`](../../../back-end/app.py) is the one gate of every review write (a verdict, a selection's verdicts, a follow-up's owner, a claim), and answers a refusal with a 403 in its words.
+- `_reviewer_on` in [`back-end/app.py`](../../../back-end/app.py) is the one gate of every review write (a verdict, a selection's verdicts, a follow-up's owner, a claim), and answers a refusal with a 403 in its words; a verdict and a selection's then ask the change row of each application already approved or rejected (`_change_refused`).
 - `review_is_open` reads the table kept by [the guards](../../implementation/modules/guards.md); the verdict itself is stored on [the application document](../../implementation/data/application-document.md#statuses).
 - `back-end/tests/test_a_verdict_says_who.py` pins it in every phase, and holds the verdicts' lock and the automatic rejections' lock equal in each.
 - Several reviewers at once are kept apart by a claim, and a verdict is written only on what its reviewer saw ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); a follow-up is [needs follow-up](needs-follow-up.md), and a rule's rejection [automatic rejections](automatic-rejections.md).

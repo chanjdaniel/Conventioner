@@ -155,6 +155,10 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       'awaiting your review, except the 1 listed below, which arrives already rejected.',
     );
     await expect(importPage.rejectedCount).toHaveText('1');
+    // Who may overturn one is the market's change row, an Admin or the owner by default (E38/F06/S01).
+    await expect(importPage.rejectedWhy).toHaveText(
+      'A check that your rules reject who they should. These are imported as rejected, each with its reason; an Admin or the owner can overturn one.',
+    );
     await expect(importPage.rejectedRows).toHaveCount(1);
     const rejected = importPage.rejectedRows.first();
     await expect(rejected.getByTestId('import-row-name')).toHaveText('Theo Marchetti');
@@ -173,7 +177,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
 
     await importPage.clickConfirm();
     await expect(page.getByTestId('import-result-rejected-note')).toContainText(
-      '1 was rejected by your automatic rejections',
+      '1 was rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.',
     );
 
     // The first import took the market into Review (E38/F04/S01); its done step leads there.
