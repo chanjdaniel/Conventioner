@@ -16,6 +16,7 @@ sources:
   - E12/F01/S01
   - E12/F03/S02
   - E31/F01/S01
+  - E41/F01/S02
   - bug/33
 ---
 
@@ -54,7 +55,7 @@ The mark on a placement that overrides an answer is that card's second state, no
 
 **A tier with no tables never reaches the run.**
 Tables come from sections and a section carries one tier, so a tier with no section has no tables on any date, which the plan alone shows.
-Market Setup marks such a tier "No tables" while it is built, leaving draft refuses it ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)), and the move into assignment refuses one an approved applicant named, naming the tier and the applicants, since both fixes (a section at that tier, or rejecting them) act on a named thing.
+Market Setup marks such a tier "No tables" while it is built, leaving draft refuses it ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)), and the move into assignment refuses one an approved application's answer names, as the organizer reads it (an update included), naming the tier and the applicants, since both fixes (a section at that tier, or rejecting them) act on a named thing.
 
 ## Where it is kept
 
