@@ -12,7 +12,9 @@
  *
  * One component for both applicant surfaces and the organizer's preview (`disabled`), for the
  * same no-drift reason as ApplicationFormFields: what the organizer previews must be what the
- * applicant gets.
+ * applicant gets. Updating a vendor's info asks the same questions (E41/F01/S02): `locked` shows
+ * the answers the person may not update read-only, and the `after` slot sets what the dialog says
+ * of each question under it.
  */
 import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
@@ -52,9 +54,20 @@ const props = withDefaults(
     prefix?: string;
     email?: string | null;
     disabled?: boolean;
+    /** The questions shown read-only, by key; the tier grid is `TIER_PREFERENCE_KEY`'s. */
+    locked?: readonly string[];
   }>(),
-  { errors: () => ({}), prefix: 'apply', email: null, disabled: false },
+  { errors: () => ({}), prefix: 'apply', email: null, disabled: false, locked: () => [] },
 );
+
+defineSlots<{
+  /** Under each question, named by its key; the tier grid, which answers the dates too, by the tiers'. */
+  after?: (props: { question: string }) => unknown;
+}>();
+
+function isLocked(key: string): boolean {
+  return props.disabled || props.locked.includes(key);
+}
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: Record<string, unknown>): void;
@@ -106,12 +119,19 @@ const tableTypeRanking = computed(
 watch(
   () => props.options,
   (options) => {
-    if (props.disabled) return;
     const seeded: Record<string, unknown> = {};
-    if (asksSectionRanking.value && !props.modelValue[SECTION_RANKING_KEY]) {
+    if (
+      asksSectionRanking.value &&
+      !isLocked(SECTION_RANKING_KEY) &&
+      !props.modelValue[SECTION_RANKING_KEY]
+    ) {
       seeded[SECTION_RANKING_KEY] = [...options.sections];
     }
-    if (asksTableTypeRanking.value && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
+    if (
+      asksTableTypeRanking.value &&
+      !isLocked(TABLE_TYPE_RANKING_KEY) &&
+      !props.modelValue[TABLE_TYPE_RANKING_KEY]
+    ) {
       seeded[TABLE_TYPE_RANKING_KEY] = [...options.tableTypes];
     }
     if (Object.keys(seeded).length) {
@@ -242,7 +262,7 @@ function errorFor(key: string): string {
         type="text"
         autocomplete="name"
         :value="fullName"
-        :disabled="disabled"
+        :disabled="isLocked(FULL_NAME_KEY)"
         :data-testid="`${prefix}-essential-full-name-input`"
         @input="onFullNameInput"
       />
@@ -253,6 +273,7 @@ function errorFor(key: string): string {
       >
         {{ errorFor(FULL_NAME_KEY) }}
       </p>
+      <slot name="after" :question="FULL_NAME_KEY" />
     </div>
 
     <!-- Preferred name. Optional, and asked of everyone: identity does not depend on the plan
@@ -271,10 +292,11 @@ function errorFor(key: string): string {
         type="text"
         autocomplete="nickname"
         :value="preferredName"
-        :disabled="disabled"
+        :disabled="isLocked(PREFERRED_NAME_KEY)"
         :data-testid="`${prefix}-essential-preferred-name-input`"
         @input="onPreferredNameInput"
       />
+      <slot name="after" :question="PREFERRED_NAME_KEY" />
     </div>
 
     <!-- Max dates -->
@@ -302,7 +324,7 @@ function errorFor(key: string): string {
         :max="options.dates.length"
         inputmode="numeric"
         :value="(modelValue[MAX_DATES_KEY] as number | null) ?? ''"
-        :disabled="disabled"
+        :disabled="isLocked(MAX_DATES_KEY)"
         :data-testid="`${prefix}-essential-max-dates-input`"
         @input="onMaxDatesInput"
       />
@@ -313,6 +335,7 @@ function errorFor(key: string): string {
       >
         {{ errorFor(MAX_DATES_KEY) }}
       </p>
+      <slot name="after" :question="MAX_DATES_KEY" />
     </div>
 
     <!-- Tier preference: a hard filter, so a multi-select rather than a ranking -->
@@ -363,7 +386,7 @@ function errorFor(key: string): string {
             <input
               type="checkbox"
               :checked="tiersOn(date).includes(tier)"
-              :disabled="disabled"
+              :disabled="isLocked(TIER_PREFERENCE_KEY)"
               :data-testid="`${prefix}-essential-tier-${date}-${tier}`"
               @change="toggleTier(date, tier, ($event.target as HTMLInputElement).checked)"
             />
@@ -380,7 +403,7 @@ function errorFor(key: string): string {
             <input
               type="checkbox"
               :checked="!tiersOn(date).length"
-              :disabled="disabled"
+              :disabled="isLocked(TIER_PREFERENCE_KEY)"
               :data-testid="`${prefix}-essential-unavailable-${date}`"
               @change="setUnavailable(date, ($event.target as HTMLInputElement).checked)"
             />
@@ -390,7 +413,7 @@ function errorFor(key: string): string {
             <input
               type="checkbox"
               :checked="availableOn(date)"
-              :disabled="disabled"
+              :disabled="isLocked(TIER_PREFERENCE_KEY)"
               :data-testid="`${prefix}-essential-date-${date}`"
               @change="setAvailable(date, ($event.target as HTMLInputElement).checked)"
             />
@@ -405,6 +428,7 @@ function errorFor(key: string): string {
       >
         {{ errorFor(TIER_PREFERENCE_KEY) }}
       </p>
+      <slot name="after" :question="TIER_PREFERENCE_KEY" />
     </div>
 
     <!-- Table choice: fixed options, not plan-derived -->
@@ -432,7 +456,7 @@ function errorFor(key: string): string {
             :name="`${prefix}-table-choice`"
             :value="choice.value"
             :checked="tableChoice === choice.value"
-            :disabled="disabled"
+            :disabled="isLocked(TABLE_CHOICE_KEY)"
             :data-testid="`${prefix}-essential-table-choice-${choice.value}`"
             @change="setAnswer(TABLE_CHOICE_KEY, choice.value)"
           />
@@ -446,6 +470,7 @@ function errorFor(key: string): string {
       >
         {{ errorFor(TABLE_CHOICE_KEY) }}
       </p>
+      <slot name="after" :question="TABLE_CHOICE_KEY" />
     </div>
 
     <!-- Table-share partner: optional, and usually blank -->
@@ -468,10 +493,11 @@ function errorFor(key: string): string {
         autocomplete="off"
         placeholder="their@example.com"
         :value="tableShareEmail"
-        :disabled="disabled"
+        :disabled="isLocked(TABLE_SHARE_EMAIL_KEY)"
         :data-testid="`${prefix}-essential-table-share-email-input`"
         @input="onShareEmailInput"
       />
+      <slot name="after" :question="TABLE_SHARE_EMAIL_KEY" />
     </div>
 
     <!-- Section preference -->
@@ -488,9 +514,10 @@ function errorFor(key: string): string {
       <RankedChoiceInput
         :modelValue="sectionRanking"
         :testid="`${prefix}-essential-section-rank`"
-        :disabled="disabled"
+        :disabled="isLocked(SECTION_RANKING_KEY)"
         @update:modelValue="(v: string[]) => setAnswer(SECTION_RANKING_KEY, v)"
       />
+      <slot name="after" :question="SECTION_RANKING_KEY" />
     </div>
 
     <!-- Table type preference -->
@@ -507,9 +534,10 @@ function errorFor(key: string): string {
       <RankedChoiceInput
         :modelValue="tableTypeRanking"
         :testid="`${prefix}-essential-table-type-rank`"
-        :disabled="disabled"
+        :disabled="isLocked(TABLE_TYPE_RANKING_KEY)"
         @update:modelValue="(v: string[]) => setAnswer(TABLE_TYPE_RANKING_KEY, v)"
       />
+      <slot name="after" :question="TABLE_TYPE_RANKING_KEY" />
     </div>
 
     <!-- What else they need, in their own words (E31/F04/S01). Optional, and last: it is about the
@@ -526,10 +554,11 @@ function errorFor(key: string): string {
         class="essential-text-input essential-request-input"
         rows="3"
         :value="request"
-        :disabled="disabled"
+        :disabled="isLocked(REQUEST_KEY)"
         :data-testid="`${prefix}-essential-request-input`"
         @input="setAnswer(REQUEST_KEY, ($event.target as HTMLTextAreaElement).value)"
       />
+      <slot name="after" :question="REQUEST_KEY" />
     </div>
   </div>
 </template>

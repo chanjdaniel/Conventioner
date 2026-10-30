@@ -1,4 +1,9 @@
-import type { EssentialFormOptions, FormField, SetupObject } from '@/assets/types/datatypes';
+import type {
+  EssentialFormOptions,
+  FormField,
+  Market,
+  SetupObject,
+} from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 
 /**
@@ -208,6 +213,19 @@ export function essentialOptionsFromSetup(
 }
 
 /**
+ * What the essential questions offer on this market: the offering frozen at its first answer, else
+ * the plan as it stands, without the questions it declared unasked. The mirror of
+ * `effective_essential_options_for_market` in `back-end/essential_fields.py`.
+ */
+export function marketEssentialOptions(
+  market: Pick<Market, 'applicationForm' | 'setupObject'> | null | undefined,
+): EssentialFormOptions {
+  const form = market?.applicationForm;
+  const offered = form?.essentialOptions ?? essentialOptionsFromSetup(market?.setupObject);
+  return { ...offered, unasked: [...(form?.unaskedEssentials ?? [])] };
+}
+
+/**
  * A market date as the applicant reads it ("Saturday, August 1, 2026").
  *
  * It adds nothing to `getFormattedDate`. It used to append the year, because the `getFormattedDate`
@@ -272,6 +290,12 @@ const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknow
 /** An essential question's label, by its key; the key itself for one this build does not know. */
 export function essentialLabel(key: string): string {
   return ESSENTIAL_ORDER.find(([k]) => k === key)?.[1] ?? key;
+}
+
+/** An essential answer as text, as the review card shows it: dates formatted, rankings numbered. */
+export function essentialAnswerText(key: string, value: unknown): string {
+  const present = ESSENTIAL_ORDER.find(([k]) => k === key)?.[2] ?? ((v: unknown) => v);
+  return answerText(present(value));
 }
 
 /** The essential questions, in the order the form asks them. */

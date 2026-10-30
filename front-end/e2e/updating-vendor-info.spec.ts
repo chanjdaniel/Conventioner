@@ -120,9 +120,8 @@ test('an organizer updates a vendor’s info, the review reads it, and a re-impo
   // A text answer and a select answer, each beside what the vendor wrote before Save.
   await dialog.open();
   await expect(dialog.saveButton).toBeDisabled();
-  // The answers the assignment reads show, read-only.
-  await expect(dialog.essentials).toContainText('Nadia Okonkwo');
-  await expect(dialog.essentials.locator('input, select, textarea')).toHaveCount(0);
+  // The essential questions are asked below the market's own, as the form asks them.
+  await expect(dialog.essential('full-name-input')).toHaveValue('Nadia Okonkwo');
   await dialog.input('business_name').fill('Ember Ceramics');
   await dialog.input('student').selectOption('Yes');
   await expect(dialog.theirs('business_name')).toContainText('They wrote: Ember Ceramcs');
