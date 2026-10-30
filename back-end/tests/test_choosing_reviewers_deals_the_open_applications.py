@@ -369,6 +369,22 @@ class TestTheMarketRead:
     def test_anyone_else_is_offered_no_one(self, world, who):
         assert _read(who)["reviewerCandidates"] == []
 
+    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.ARCHIVED])
+    def test_no_one_is_offered_once_the_review_has_closed(self, world, phase):
+        world.market(phase)
+
+        assert _read(ADMIN)["reviewerCandidates"] == []
+
+    def test_the_read_looks_each_person_up_once(self, world, monkeypatch):
+        looked_up = []
+        real = UsersApi.get_user_by_id
+        monkeypatch.setattr(UsersApi, "get_user_by_id",
+                            lambda uid: looked_up.append(uid) or real(uid))
+
+        _read(ADMIN)
+
+        assert sorted(looked_up) == sorted(set(looked_up))
+
     def test_the_organizers_list_names_no_reviewer_before_any_deal(self, world):
         assert set(_reviewers(world).values()) == {None}
 

@@ -945,16 +945,21 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
     # Who reviews which application (E38/F07/S02): the chosen reviewers to every reader, never the
     # turn, which the stored team is served over, and whom this reader may choose from, served only
-    # to someone who may choose them.
+    # to someone who may choose them while the review is open, when the panel offers the choice.
+    # They are the people a follow-up may be handed to, already read above for someone who gives
+    # verdicts, so the read looks nobody up twice.
     market_dict['reviewTeam'] = ReviewTeam.served(
         ReviewTeam.team_of(market), market, context.organization)
-    may_choose = Actions.role_refusal(
+    may_choose = review_is_open(market.phase) and Actions.role_refusal(
         Actions.CHOOSE_REVIEWERS, user_role, market.permissions) is None
-    market_dict['reviewerCandidates'] = (
-        sorted(person.email for person in reviewer_candidates(
-            market, context.organization, UsersApi.get_user(user_email)))
-        if may_choose else []
-    )
+    if not may_choose:
+        candidates: List[str] = []
+    elif may_give_verdicts:
+        candidates = list(email_by_user_id.values())
+    else:
+        candidates = [person.email for person in reviewer_candidates(
+            market, context.organization, UsersApi.get_user(user_email))]
+    market_dict['reviewerCandidates'] = sorted(candidates)
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
