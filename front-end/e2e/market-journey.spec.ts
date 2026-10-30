@@ -227,7 +227,9 @@ test.describe('The MVP journey', () => {
     const setup = new MarketSetupPage(page);
     const monitor = new ApplicationMonitorPage(page);
     const results = new ResultPage(page);
-    const VENDOR = 'ruth@bindery.test';
+    // An address of this run's own: one address is sent at most five codes in 15 minutes, so a
+    // fixed one failed this test from its sixth repeat in one run.
+    const VENDOR = `ruth-${Date.now()}@bindery.test`;
 
     // --- 1. Create and plan the market ------------------------------------------------------
     await page.goto('/markets');

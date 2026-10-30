@@ -21,6 +21,7 @@ import api.markets as MarketsApi
 import essential_fields as EssentialFields
 import history as History
 import rejection_rules as RejectionRules
+import review_team as ReviewTeam
 from application_write import validated_answer
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
 from datatypes import AnswerUpdate, Market, MarketPerson
@@ -125,7 +126,10 @@ def update_vendor_info(
                             {key: after.get(key) for key in moved}),
             kept, matched, verdicts),
     )
-    if verdicts.rejected or verdicts.returned:
+    # One the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
+    dealt = ReviewTeam.deal_arrivals(market, updater.email, Actions.UPDATE_VENDOR_INFO) \
+        if verdicts.returned else 0
+    if verdicts.rejected or verdicts.returned or dealt:
         stored = ApplicationsApi.find_application_by_id(application_id) or stored
     return {"application": ApplicantsApi.organizer_view(stored)}, 200
 

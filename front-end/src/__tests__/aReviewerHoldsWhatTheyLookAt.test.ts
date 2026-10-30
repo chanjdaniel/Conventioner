@@ -59,6 +59,85 @@ describe('the card a reviewer holds', () => {
   });
 });
 
+describe('a hand-out overtaken before it answered (the Next race)', () => {
+  /** A review/next answer held back until the test lets it go. */
+  function heldBack() {
+    let answer: (id: string) => void = () => undefined;
+    const pending = new Promise((resolve) => {
+      answer = (id) => resolve({ data: { application: { id } } });
+    });
+    return { pending, answer };
+  }
+
+  it('holds nothing of a later Next', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockResolvedValueOnce({ data: { application: { id: 'app-3' } } });
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    expect((await claims.next('app-1', true))?.id).toBe('app-3');
+    first.answer('app-2');
+
+    expect(await overtaken).toBeUndefined();
+    expect(claims.held.value).toBe('app-3');
+    await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS);
+    expect(api.put).toHaveBeenCalledTimes(1);
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/applications/app-3/claim');
+  });
+
+  it('lets go of the card a later Next overtook, once that Next has answered', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockResolvedValueOnce({ data: { application: { id: 'app-3' } } });
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    await claims.next('app-1', true);
+    first.answer('app-2');
+    await overtaken;
+
+    expect(api.delete).toHaveBeenCalledWith('/markets/market-1/applications/app-2/claim');
+    expect(api.delete).not.toHaveBeenCalledWith('/markets/market-1/applications/app-3/claim');
+  });
+
+  it('waits for the later Next before letting go, and keeps the card if it is handed again', async () => {
+    const first = heldBack();
+    const second = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    api.post.mockReturnValueOnce(second.pending);
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next('app-1', false);
+    const later = claims.next('app-1', true);
+    first.answer('app-2');
+    await overtaken;
+    // The later Next may hand the same card over again: nothing is let go while it is out.
+    expect(api.delete).not.toHaveBeenCalled();
+    second.answer('app-2');
+
+    expect((await later)?.id).toBe('app-2');
+    expect(claims.held.value).toBe('app-2');
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('lets go of a card claimed for a reviewer who has left since', async () => {
+    const first = heldBack();
+    api.post.mockReturnValueOnce(first.pending);
+    const claims = useReviewClaims(ref('market-1'));
+
+    const overtaken = claims.next(null, false);
+    claims.release();
+    first.answer('app-2');
+
+    expect(await overtaken).toBeUndefined();
+    expect(claims.held.value).toBeNull();
+    expect(api.delete).toHaveBeenCalledWith('/markets/market-1/applications/app-2/claim');
+    await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS);
+    expect(api.put).not.toHaveBeenCalled();
+  });
+});
+
 describe('an idle reviewer', () => {
   it('stops renewing, so the card lapses to someone else', async () => {
     const claims = useReviewClaims(ref('market-1'));

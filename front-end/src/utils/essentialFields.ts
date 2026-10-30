@@ -292,6 +292,36 @@ export function essentialLabel(key: string): string {
   return ESSENTIAL_ORDER.find(([k]) => k === key)?.[1] ?? key;
 }
 
+/**
+ * What a stored answer's key is called on screen: an essential question's label, the form's own
+ * question's, else the key in words - so an answer the history recorded reads as the form asked it.
+ */
+export function answerLabel(key: string, fields: readonly FormField[] = []): string {
+  const essential = essentialLabel(key);
+  if (essential !== key) return essential;
+  const field = fields.find((f) => f.key === key);
+  if (field?.label) return field.label;
+  const words = key.replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Stored answer keys in the order the form asks them, as the Application tab lists them: the
+ * essential questions first (a table-share answer's parts beside the partner's address), then the
+ * organizer's own by the form's order, then anything the form no longer asks.
+ */
+export function inFormOrder(keys: readonly string[], fields: readonly FormField[] = []): string[] {
+  const essential = ESSENTIAL_KEYS.flatMap((key) =>
+    key === TABLE_SHARE_EMAIL_KEY ? [key, TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_ALSO_KEY] : [key],
+  );
+  const custom = [...fields].sort((a, b) => a.order - b.order).map((field) => field.key);
+  const rank = (key: string) => {
+    const at = [...essential, ...custom].indexOf(key);
+    return at < 0 ? Number.MAX_SAFE_INTEGER : at;
+  };
+  return [...keys].sort((a, b) => rank(a) - rank(b));
+}
+
 /** An essential answer as text, as the review card shows it: dates formatted, rankings numbered. */
 export function essentialAnswerText(key: string, value: unknown): string {
   const present = ESSENTIAL_ORDER.find(([k]) => k === key)?.[2] ?? ((v: unknown) => v);

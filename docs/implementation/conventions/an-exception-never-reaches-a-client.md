@@ -89,7 +89,7 @@ describes:
   - back-end/api/placements.py#AssignPhaseError
   - back-end/csv_start.py#ConfirmRefused
   - back-end/seed_test_markets.py#main
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T74
   - E41/F01/S01

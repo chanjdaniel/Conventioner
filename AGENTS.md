@@ -89,6 +89,7 @@ The market's lifecycle:
 - Before changing what Market Setup may change after draft, read [the setup settles on leaving draft](docs/business/rules/the-setup-settles-on-leaving-draft.md).
 - Before changing who may do what on a market, or adding a check, read [what each role may do](docs/business/rules/what-each-role-may-do.md), [the market's actions](docs/implementation/modules/market-actions.md) and [an archived market is read-only](docs/business/rules/an-archived-market-is-read-only.md).
 - Before changing the application form builder or its lock, read [the form locks at the first application](docs/business/rules/the-form-locks-at-the-first-application.md) and [essential fields](docs/implementation/modules/essential-fields.md).
+- Before changing who reviews which application, read [the review is dealt among chosen reviewers](docs/business/rules/the-review-is-dealt-among-chosen-reviewers.md) and [ADR 0020](docs/adr/0020-an-application-is-dealt-to-one-reviewer.md).
 - Before changing a verdict or when review closes, read [verdicts settle on entering assignment](docs/business/rules/verdicts-settle-on-entering-assignment.md).
 - Before changing Publish Results or what an applicant sees of it, read [Publish Results waits for the allocation](docs/business/rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](docs/business/rules/an-applicant-never-reads-a-verdict-early.md).
 

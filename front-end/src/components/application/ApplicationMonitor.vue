@@ -53,6 +53,8 @@ const props = defineProps<{
    * one it names (bug 42), so the organizer lands on that application rather than hunting for it.
    */
   named?: string;
+  /** Counts the changes of reviewers: each one dealt applications anew, so the list is read again. */
+  dealt?: number;
 }>();
 
 const applications = ref<Application[]>([]);
@@ -218,6 +220,16 @@ const heldByOther = computed(() => {
   return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
 });
 
+/**
+ * Bumped by every hand-out, so only the newest puts its card up (the Next race, E38/F07/S04): a Next
+ * pressed again, a verdict, a refresh or a load can each ask while another is in flight, and their
+ * answers come back in either order.
+ */
+let handing = 0;
+
+/** Bumped by every load, so a load overtaken by a later one (leaving and coming back) stops. */
+let loads = 0;
+
 // Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
 // re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
 // and reloading on each would put the reviewer back on the first card mid-queue.
@@ -258,11 +270,15 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (undecided.value.length) cursor.value = (cursor.value + 1) % undecided.value.length;
     return;
   }
+  const mine = ++handing;
   try {
     const app = await claims.next(after, includeFollowUps.value, want);
+    // Overtaken by a later hand-out, or the review was left: its card is not the one to put up.
+    if (app === undefined) return;
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else await read();
+    if (mine !== handing) return;
     allHeldElsewhere.value = !app && undecided.value.length > 0;
     cursor.value = app
       ? Math.max(
@@ -271,31 +287,42 @@ async function takeNext(after: string | null, want: string | null = null) {
         )
       : 0;
   } catch (err) {
+    if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
   }
 }
 
-/** The one read of the list, and when it was. */
-async function read() {
-  if (!props.market) return;
-  applications.value = await fetchMarketApplications(props.market.id);
+/**
+ * The one read of the list, and when it was. Answers the card that was up as the list was replaced,
+ * which a hand-out answering during the read may have moved on.
+ */
+async function read(): Promise<string | null> {
+  if (!props.market) return null;
+  const fresh = await fetchMarketApplications(props.market.id);
+  const up = current.value?.id ?? null;
+  applications.value = fresh;
   readAt.value = Date.now();
   refreshError.value = '';
+  return up;
 }
 
 async function loadApplications() {
   if (!props.market) return;
+  const mine = ++loads;
   loading.value = true;
   errorMessage.value = '';
   try {
     await read();
+    if (mine !== loads) return;
     cursor.value = 0;
     if (props.named) await showNamed();
     else if (decides.value) await takeNext(null);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
+    if (mine === loads) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
+    }
   } finally {
-    loading.value = false;
+    if (mine === loads) loading.value = false;
   }
 }
 
@@ -309,9 +336,9 @@ async function loadApplications() {
 async function refresh() {
   if (!props.market || refreshing.value || saving.value) return;
   refreshing.value = true;
-  const up = current.value?.id ?? null;
+  let up: string | null;
   try {
-    await read();
+    up = await read();
     void useMarketStore().refresh();
   } catch {
     refreshError.value = 'Could not refresh. The list is as it was last read.';
@@ -461,6 +488,10 @@ function active() {
   claims.touch();
 }
 
+watch(
+  () => props.dealt,
+  () => void refresh(),
+);
 onMounted(() => {
   window.addEventListener('keydown', onKey);
   window.addEventListener('keydown', active);

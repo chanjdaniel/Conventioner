@@ -11,7 +11,7 @@ describes:
   - back-end/datatypes.py#AnswerUpdate
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01
@@ -23,6 +23,8 @@ sources:
   - E34/F03/S02
   - E36/F03/S01
   - E41/F01/S01
+  - E38/F07/S02
+  - E38/F07/S03
   - E41/F01/S02
 ---
 
@@ -58,7 +60,8 @@ The organizer's and the applicant's views camel-case an application on the way o
 | `follow_up_owner` | who is reaching out, while the status is `needs_follow_up` |
 | `held_by`, `held_until` | the reviewer looking at it, and until when: a five-minute lease, renewed while the card stays open |
 | `added_by`, `added_at` | who recorded a vendor who never applied, and when |
-| `assigned_reviewer_id` | carried on the model; nothing writes it |
+| `arriving` | an application waiting to be dealt as it arrived, `{actor, action}`: the write it arrived by, for the deal's history entry; set by `mark_arriving` while it is open and undealt, cleared as it is dealt or let go, so a deal that could not hold the market leaves it for the one that does ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)) |
+| `reviewer` | whose share it was dealt to (`{user_id, email}`), absent when it never was ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); three writes in this module write it, each called only by [`back-end/review_team.py`](../../../back-end/review_team.py) while its deal holds the market, so no two deals write the turn or a reviewer at once: `deal`, when reviewers are chosen or changed, only while the application is open and still dealt as read; `deal_follow_up`, a removed reviewer's follow-up handed on, which sets `follow_up_owner` with it; and `deal_arrival`, an arrival (an applicant's save, an import, or the rules returning it to open), only while it is still open, undealt and marked `arriving`, so one decided meanwhile keeps its verdict alone; a verdict never clears it, so it stays the record of whose share it was; not who is looking at it now, which is `held_by` |
 
 A vendor's names are answers in `form_data` too; `vendor_names_for_market` reads them as one map from address to the name to call each vendor ([a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md)).
 

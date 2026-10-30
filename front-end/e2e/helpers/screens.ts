@@ -328,6 +328,16 @@ export const SCREENS: Screen[] = [
     open: at(setup('open', 'applications'), 'applications-all-tick'),
   },
   {
+    // Who reviews which application, chosen from the panel over the views (E38/F07/S02).
+    name: 'the reviewers dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'applications-all-tick', [
+      'reviewers-change',
+      'reviewers-dialog-window',
+    ]),
+  },
+  {
     name: 'applications open, the plan settled',
     who: 'organizer',
     sizes: ORGANIZER,

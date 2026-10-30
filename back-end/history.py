@@ -92,6 +92,10 @@ KEPT = "kept"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
+# Who reviews which application (E38/F07, ADR 0020): the reviewers chosen, and applications dealt
+# to them - by a change of reviewers, or as they arrive - each under the action that dealt them.
+REVIEWERS = "reviewers"
+DEALT = "dealt"
 #: A market's table replaced by its organization's default as it is now (E39/F02/S01).
 PERMISSION_TABLE_COPIED = "permission_table_copied"
 DISCORD_CONNECTED = "discord_connected"
@@ -109,10 +113,13 @@ Part = Union[Dict[str, Any], None, Callable[[], Optional[Dict[str, Any]]]]
 
 
 def record(
-    market_id: str, actor: Optional[str], action: Action, *, kind: Optional[str] = None,
-    vendors: Iterable[str] = (), subject: Part = None, detail: Part,
+    market_id: str, actor: Optional[str], action: Union[Action, str], *,
+    kind: Optional[str] = None, vendors: Iterable[str] = (), subject: Part = None, detail: Part,
 ) -> None:
     """Write one entry. Never raises: a history that can break a change is worse than no history.
+
+    ``action`` is the table's row the change asked, or ``APPLY`` for what an applicant's own save
+    did beyond their answers (the deal of their application, E38/F07/S03).
 
     The write that matters has already happened by the time this is called - the seat is taken,
     and check-in will read it. Failing the request because the *record* of it could not be saved
@@ -123,7 +130,8 @@ def record(
 
     A detail that builds to None is a write that changed nothing, and records nothing.
     """
-    _write({MARKET_ID_FIELD: market_id}, actor, action.id, kind, vendors, subject, detail)
+    _write({MARKET_ID_FIELD: market_id}, actor, action if isinstance(action, str) else action.id,
+           kind, vendors, subject, detail)
 
 
 def record_applicant(
