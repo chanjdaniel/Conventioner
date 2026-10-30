@@ -38,7 +38,7 @@ sources:
 # What each role may do
 
 A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights and the automatic rejections, gives verdicts, updates a vendor's info, and checks vendors in; an Admin or the owner also changes a verdict already given, overturns an automatic rejection, moves the phase, stops or resumes taking applications, publishes results, imports applications and starts the market from a CSV.
-A reviewer chosen for the review decides any application whatever their role; who may be chosen is the table's row.
+A reviewer chosen for the review decides any application whatever their role, someone else's share after a warning on the card; who may be chosen is the table's row.
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
 **A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).

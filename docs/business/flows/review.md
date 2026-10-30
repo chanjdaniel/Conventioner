@@ -73,15 +73,17 @@ Every verdict records who gave it and when, and the review shows it: "Approved b
 
 ## I1. Work through the queue
 
-**Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`).
+**Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`; the card's reviewer and warning as of E38/F07/S03: `rowsNameTheirReviewer.test.ts`).
 
 The queue is triage: one application at a time, carrying every answer it holds, decided from the keyboard, with progress counted, so each verdict is given on a person rather than on a population.
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
 2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
+   With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
+   Above them, on an open application or a follow-up dealt to another reviewer, someone who may decide it reads "This application is dealt to <email>. If you decide it, its history will say you decided it for them."
 4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and, to someone who may write vendor notes, "Their notes: what is needed (optional)"; "Mark for follow-up".
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
@@ -107,17 +109,19 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`).
+**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`; the reviewer and the warning, E38/F07/S03: `rows-name-their-reviewer.spec.ts`).
 
-1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
+1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, with reviewers chosen whose share it is ("Reviewer: <email>", or "Reviewer: you"), "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on an application already approved or rejected, only for someone who may change a verdict, and a reviewer the change row refuses reads its sentence there instead.
+   The drawer names the application's reviewer as its row does, and on an open application or a follow-up dealt to another reviewer warns someone who may decide it above the verdicts, as One by one's card does (I1).
    Its "Update info" updates the vendor's answers, and the list is read again once it saves.
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
    "Select all" ticks every row the filter and Mine show, and none they hide; it leaves the rows another reviewer has open, and says so ("N applications not selected: another reviewer has them open.").
    For someone who may not change a verdict it leaves the rows already approved or rejected too, in a clause of their own: "N applications not selected: another reviewer has K open, and M already have a verdict, which only an Admin or the owner may change.", naming whoever the market's table lets change one (`notSelectedLine` in [`front-end/src/utils/reviewQueue.ts`](../../../front-end/src/utils/reviewQueue.ts)).
    A row another reviewer has open cannot be ticked, nor, by someone who may not change a verdict, one already approved or rejected, whose reason the list says once above its rows; a filter that hides a ticked row unticks it, and so does a re-read that shows it decided meanwhile.
    A follow-up given to a selection is owned by the reviewer who gave it.
+   When any ticked row is an open application or a follow-up dealt to another reviewer, the confirmation adds "K of them are dealt to other reviewers; their history will say you decided them." (or "1 of them is dealt to another reviewer; its history will say you decided it.").
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", who changed it, or the change row's sentence for one already decided).
 6. "Export", after "N of M", opens the vendor export on the filter and Mine ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "Open" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
    So the review's lists (approved, rejected, needs follow-up) leave as a CSV before assignment as well as after.
@@ -128,7 +132,7 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 
 ## Dividing the review
 
-**Status:** Works (read from the code as of E38/F07/S03: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`).
+**Status:** Works (read from the code as of E38/F07/S03: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`).
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
@@ -138,6 +142,8 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
 5. The people offered are those whose role the row "Be chosen as a reviewer, and then give verdicts and follow-ups" lets be chosen (any role, by default); once chosen, they give verdicts and follow-ups on any application, a Viewer included, and the frame no longer says the market is read-only to them.
 6. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).
+7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.
+   A reader who decides nothing sees the reviewer's name only, and with no reviewers chosen none of it shows.
 
 ## I3. Choose what leads the card
 

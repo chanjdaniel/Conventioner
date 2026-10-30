@@ -29,6 +29,11 @@ export class ApplicationsAllPage {
   readonly changeReason: Locator;
   /** Why the drawer of a decided application offers no verdict (E38/F06/S01). */
   readonly drawerChangeReason: Locator;
+  /** Whose share the opened application is, and the warning on deciding another's (E38/F07/S03). */
+  readonly drawerReviewer: Locator;
+  readonly drawerDealtWarning: Locator;
+  /** What a selection's confirmation says of the ticked rows dealt to others (E38/F07/S03). */
+  readonly confirmDealt: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -47,6 +52,9 @@ export class ApplicationsAllPage {
     this.exportButton = page.getByTestId('applications-all-export-button');
     this.changeReason = page.getByTestId('applications-all-change-reason');
     this.drawerChangeReason = page.getByTestId('applications-all-drawer-change-reason');
+    this.drawerReviewer = page.getByTestId('applications-all-drawer-reviewer');
+    this.drawerDealtWarning = page.getByTestId('applications-all-drawer-dealt-warning');
+    this.confirmDealt = page.getByTestId('applications-all-confirm-dealt');
   }
 
   /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */
@@ -69,6 +77,10 @@ export class ApplicationsAllPage {
 
   giverOf(email: string): Locator {
     return this.row(email).getByTestId('applications-all-giver');
+  }
+
+  reviewerOf(email: string): Locator {
+    return this.row(email).getByTestId('applications-all-reviewer');
   }
 
   ownerOf(email: string): Locator {

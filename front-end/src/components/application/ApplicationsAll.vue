@@ -7,6 +7,8 @@
  * owns, all in the address. A row opens the vendor drawer, which carries Approve, Reject and Needs
  * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
  * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
+ * With reviewers chosen, a row names whose share it is, and deciding someone else's says so in the
+ * drawer and in a selection's confirmation (E38/F07/S03).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
@@ -29,6 +31,7 @@ import {
   reviewAnswers,
   selectAll,
 } from '@/utils/reviewQueue';
+import { dealtElsewhere, dealtWarning, reviewerLine, selectionDealtLine } from '@/utils/reviewers';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
@@ -171,6 +174,11 @@ function holderOf(app: Application): string | null {
     : `${holder} is looking at this`;
 }
 
+/** Whose share the application is, while reviewers are chosen (E38/F07/S03). */
+function reviewerOf(app: Application): string | null {
+  return reviewerLine(app, me.value, props.market);
+}
+
 /** The applications shown, as a CSV: the dialog opens on the filter and Mine, taken as it opens. */
 const exporting = ref(false);
 /** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
@@ -215,6 +223,13 @@ const whoChanges = computed(() =>
 /** Whether this person may give the opened application a verdict: a decided one is a change. */
 const decidesOpened = computed(
   () => decides.value && (changes.value || !opened.value || !isDecided(opened.value)),
+);
+/**
+ * The reviewer the opened application is dealt to, when it is undecided and not this person's: said
+ * above the verdicts, to someone who may give one, so the drawer is no way around the warning.
+ */
+const openedDealtElsewhere = computed(() =>
+  opened.value && decidesOpened.value ? dealtElsewhere(opened.value, me.value, props.market) : null,
 );
 
 const saving = ref(false);
@@ -349,6 +364,14 @@ const selectionError = ref('');
 const plural = (n: number) => `${n} application${n === 1 ? '' : 's'}`;
 const askingTitle = computed(() =>
   asking.value ? `${VERDICT_WORDS[asking.value]?.verb} ${plural(selected.value.size)}?` : '',
+);
+/** What the confirmation adds for the ticked rows dealt to other reviewers (E38/F07/S03). */
+const askingDealtLine = computed(() =>
+  selectionDealtLine(
+    applications.value.filter(
+      (a) => selected.value.has(a.id) && dealtElsewhere(a, me.value, props.market),
+    ).length,
+  ),
 );
 
 async function decideSelection() {
@@ -557,6 +580,9 @@ async function decideSelection() {
               data-testid="applications-all-giver"
               >{{ verdictGiverLine(app) }}</span
             >
+            <span v-if="reviewerOf(app)" class="all-meta" data-testid="applications-all-reviewer">{{
+              reviewerOf(app)
+            }}</span>
             <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
               >Followed up by {{ app.followUpOwner.email }}</span
             >
@@ -586,6 +612,12 @@ async function decideSelection() {
               verdictGiverLine(opened)
             }}</span>
             <span
+              v-if="reviewerOf(opened)"
+              class="all-meta"
+              data-testid="applications-all-drawer-reviewer"
+              >{{ reviewerOf(opened) }}</span
+            >
+            <span
               v-if="holderOf(opened)"
               class="all-meta"
               data-testid="applications-all-drawer-holder"
@@ -599,6 +631,14 @@ async function decideSelection() {
             data-testid="applications-all-drawer-change-reason"
           >
             {{ changeRefusal }}
+          </p>
+          <!-- On every such application, never a dialog to click through: helping stays easy. -->
+          <p
+            v-if="openedDealtElsewhere"
+            class="drawer-dealt"
+            data-testid="applications-all-drawer-dealt-warning"
+          >
+            {{ dealtWarning(openedDealtElsewhere) }}
           </p>
           <div v-if="decidesOpened" class="drawer-buttons">
             <button
@@ -649,6 +689,9 @@ async function decideSelection() {
         <template v-if="asking === ApplicationStatus.NeedsFollowUp">
           You will own the follow-ups.</template
         >
+      </p>
+      <p v-if="askingDealtLine" class="all-confirm" data-testid="applications-all-confirm-dealt">
+        {{ askingDealtLine }}
       </p>
     </AppDialog>
 
@@ -871,7 +914,8 @@ async function decideSelection() {
   margin: 0;
 }
 
-.drawer-message {
+.drawer-message,
+.drawer-dealt {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--mm-yellow);

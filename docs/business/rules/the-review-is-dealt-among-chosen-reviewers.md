@@ -9,6 +9,7 @@ describes:
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
+  - front-end/src/utils/reviewers.ts
 verified: 2026-10-31
 sources:
   - E38/F07
@@ -60,6 +61,9 @@ Anyone else's address is refused by name; a current reviewer the chooser is not 
 **A chosen reviewer decides, whatever their role** (E38/F07/S03): being chosen lets them take the row "Give verdicts and follow-ups", so a chosen Viewer approves, rejects and marks follow-ups on any application, as an Editor does, and changes no verdict already given, which stays the change row's ([what each role may do](what-each-role-may-do.md)).
 The owner raising who may be chosen to Editor takes it from the chosen Viewers on that market; a Viewer who is not chosen reads the review and decides nothing.
 
+**Deciding someone else's share is allowed, after a warning** (E38/F07/S03): the server refuses no one who may give verdicts, chosen or not, and the screen says whose it is.
+With reviewers chosen, every row and card names its reviewer, and an open application or a follow-up dealt to someone other than the reader says so above its verdict buttons, on every such card and never as a dialog to click through, so helping a reviewer who is behind stays easy; a selection's confirmation counts the ticked ones dealt to others.
+
 ## Where it is kept
 
 - The team, and how far the deal has gone, are `reviewTeam` on [the market document](../../implementation/data/market-document.md); whose share an application is, `reviewer` on [the application document](../../implementation/data/application-document.md); [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md) records why.
@@ -67,4 +71,5 @@ The owner raising who may be chosen to Editor takes it from the chosen Viewers o
 - The market read serves every reader the reviewers, each with whether they may still review here, and serves whom the reader may choose only to someone who may choose, while the review is open ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)).
 - A choice and the deal it made are entries of [the market's history](../../implementation/data/history.md), worded on Manage market's History and, for one vendor, in their drawer ([reading the market's history](../flows/reading-the-markets-history.md)).
 - The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) shows the reviewers and changes them, through one picker ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)) and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).
+  Whose share each application is, and the warning on deciding another's, are worded by [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts) for the All view's rows, its drawer and One by one's card ([reviewing applications](../flows/review.md#dividing-the-review)).
   The same picker is offered as an own-form market opens applications, in the phase rail's dialog ([the phase rail](../../implementation/modules/phase-rail.md), [taking applications](../flows/taking-applications.md#h1-open-applications)), and on a Google Form market's first import, in its preview step ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue), [the import](../flows/import.md#h2a-first-import-everything-maps)).

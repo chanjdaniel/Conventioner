@@ -14,6 +14,8 @@
  * what is on screen, since the approved set is the solver's entire input (`assign_market` reads
  * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
+ * With reviewers chosen, the card names whose share it is, and deciding someone else's says so above
+ * the verdicts (E38/F07/S03).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -40,6 +42,7 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
+import { dealtElsewhere, dealtWarning, reviewerLine } from '@/utils/reviewers';
 import { useMarketStore } from '@/stores/market';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
@@ -192,6 +195,16 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, adopt } = verdicts;
+/** Whose share the card is, while reviewers are chosen (E38/F07/S03). */
+const currentReviewer = computed(() =>
+  current.value ? reviewerLine(current.value, me.value, props.market) : null,
+);
+/** The reviewer an undecided card is dealt to, when not this person, for someone who decides it. */
+const currentDealtElsewhere = computed(() =>
+  current.value && decidesCurrent.value
+    ? dealtElsewhere(current.value, me.value, props.market)
+    : null,
+);
 /**
  * Whom the card's "Followed up by" offers: the people a follow-up can be handed to, led by its
  * recorded owner when they are not among them (T15). An Editor from outside the organization is
@@ -582,6 +595,9 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
+        <p v-if="currentReviewer" class="card-reviewer" data-testid="app-monitor-reviewer">
+          {{ currentReviewer }}
+        </p>
         <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
         <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
           {{ heldByOther }} is looking at this.
@@ -697,6 +713,14 @@ function submittedOn(app: Application): string {
           data-testid="app-monitor-card-change-reason"
         >
           {{ changeRefusal }}
+        </p>
+        <!-- On every such card, never a dialog to click through: a helper reads whose each one is. -->
+        <p
+          v-if="currentDealtElsewhere"
+          class="dealt-warning"
+          data-testid="app-monitor-dealt-warning"
+        >
+          {{ dealtWarning(currentDealtElsewhere) }}
         </p>
         <div class="card-actions">
           <button
@@ -941,6 +965,26 @@ function submittedOn(app: Application): string {
   background: var(--mm-chip-attention);
   font-size: var(--text-sm);
   color: var(--mm-text-yellow-on-tint);
+}
+
+/* Whose share the card is (E38/F07/S03): a quiet fact under its status. */
+.card-reviewer {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+  overflow-wrap: anywhere;
+}
+
+/* Deciding someone else's share (E38/F07/S03): a notice right above the verdicts. */
+.dealt-warning {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  font-size: var(--text-sm);
+  color: var(--mm-text-yellow-on-tint);
+  overflow-wrap: anywhere;
 }
 
 .changed-since .verdict-giver {
