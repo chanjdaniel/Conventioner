@@ -8,6 +8,11 @@ to placements. What is state stays where it is - an application's verdict, the m
 ``phaseHistory`` - and its changes are recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
 must outlive what it describes and this history is deleted with its market.
 
+**An organization's own changes are recorded here too** (E40/F02/S01): its people, its name,
+ownership handed on and a market created in it, each an entry keyed by ``organization_id`` in
+place of ``market_id``, read in Manage organization and deleted with the organization. Its kinds
+for the organization's default rows wait for E39/F02/S01 to write them.
+
 **An entry says what happened, never a sentence**: the ``E39`` action it was
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
 kind where one action covers several changes, the vendors it is about, whatever else it is about,

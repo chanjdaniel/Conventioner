@@ -3,6 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/MarketHistory.vue
+  - front-end/src/components/HistorySection.vue
+  - front-end/src/components/HistoryEntries.vue
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
@@ -15,7 +17,7 @@ sources:
 # Reading the market's history
 
 **Who:** anyone who may read the market's history, its row "Read the market's history", Viewer by default ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
+**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), its heading [`HistorySection.vue`](../../../front-end/src/components/HistorySection.vue) and its list of changes [`HistoryEntries.vue`](../../../front-end/src/components/HistoryEntries.vue), both shared with Manage organization's History ([B6](organizations.md#b6-read-the-organizations-history)), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
 
 Every change on a market is recorded once, in one history: who, what, when, and what it was before and after ([the market's history](../../implementation/data/history.md)).
 An organizer reads it to investigate a problem or a mistake, which is why it lives in Manage market, a step away from the market's daily running (Daniel, T92 Q24 and Q25).

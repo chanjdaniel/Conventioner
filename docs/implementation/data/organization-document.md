@@ -12,6 +12,8 @@ describes:
   - back-end/api/organizations.py#add_org_member
   - back-end/api/organizations.py#remove_org_user
   - back-end/api/organizations.py#transfer_org_ownership
+  - back-end/api/organizations.py#get_history
+  - front-end/src/views/ManageOrgOverlay.vue
   - back-end/api/permissions.py
   - back-end/api/markets.py#get_markets_for_user
   - back-end/api/markets.py#create_owned_market
@@ -19,7 +21,7 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - E20/F04/S01
   - E21/F03/S01
@@ -28,6 +30,7 @@ sources:
   - T15
   - T85
   - decision/2026-10-20
+  - E40/F02/S01
 ---
 
 # The organization document, and roles
@@ -59,6 +62,17 @@ Transferring ownership makes the old owner an admin.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
+
+## The organization's history
+
+**Every change to the organization is recorded in [the history](history.md#what-an-organization-records)**, keyed by `organization_id` where a market's entry holds `market_id`: renaming it, an admin or a member added, a member made an admin, either removed, ownership handed on, and a market created in it.
+Each is recorded once its change has landed, never fails it, and records nothing when nothing changed: an admin added again, a rename to the name it has.
+An organization has no table of who may do what, so its actions are the history's own verbs, one per kind of change; a change with an admin on either side of it is `manage-organization-admins`, a member added or removed `manage-organization-members`, as a market's role changes go under the row their check asked, and ownership handed on is `transfer-organization`.
+Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
+
+**Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue)), through `get_history` (`GET /organizations/:id/history`), a page at a time; anyone else is refused, 403.
+So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner and the History, and none of the people or controls the owner and the admins manage.
+The first page also names every row of the market's table by its label, for the organization's default rows: E39/F02/S01 will record each change to them here under `change-the-default`, and the history's kinds and wording are ready for it; the rows themselves are not built yet.
 
 ## Roles on a market
 
