@@ -29,6 +29,7 @@ sources:
   - E42/F01/S01
   - E40/F01/S03
   - E38/F06/S01
+  - E39/F02/S01
 ---
 
 # What each role may do
@@ -67,6 +68,7 @@ So an organization admin once given Viewer on one market is still Admin there, a
 **Nobody is a market's Owner through its organization**: deleting a market and managing its admins stay with the one person who owns it.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
 **An organization's owner and admins do not change a market's own rows**: they hold Admin there, and the table is its owner's.
+**They set the organization's default instead** (E39/F02/S01, Daniel, Q22: "org admins can", "copy"): each market created in the organization starts with its rows, copied, and a later change reaches only the markets created after it, or one whose owner copies the default again ([the organization's default table](../../implementation/data/organization-document.md#its-default-table)).
 See [the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market) for how a role is resolved.
 
 ## Who signs in, and how

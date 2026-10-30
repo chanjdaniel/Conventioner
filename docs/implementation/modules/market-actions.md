@@ -14,7 +14,9 @@ describes:
   - back-end/api/markets.py#reset_permission
   - back-end/api/markets.py#reset_permissions
   - back-end/api/markets.py#get_permission_history
+  - back-end/api/markets.py#copy_organization_default
   - back-end/tests/test_the_market_keeps_its_own_rows.py
+  - back-end/tests/test_the_organizations_default.py
 verified: 2026-10-30
 sources:
   - E39
@@ -22,6 +24,7 @@ sources:
   - E39/F01/S02
   - E39/F01/S03
   - E39/F01/S04
+  - E39/F02/S01
   - E42/F01/S01
   - E40/F01/S03
   - E41/F01/S01
@@ -94,26 +97,38 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 ## A market's own rows
 
-**A market stores only the rows it differs on**, in `permissions` on [the market document](../data/market-document.md): a map from action id to `{role, source}` (`MarketPermission` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), `source` being `market` (changed here by its owner) or `organization` (copied from the organization's default at creation, which E39/F02 writes).
+**A market stores only the rows it differs on**, in `permissions` on [the market document](../data/market-document.md): a map from action id to `{role, source}` (`MarketPermission` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), `source` being `market` (changed here by its owner) or `organization` (copied from [the organization's default](#the-organizations-default)).
 A row the market does not hold reads its default, so a market without the field reads the built-in table and needs no migration.
 `held_row(row, rows)` is the market's own row or None: never for a fixed row, whatever is stored, nor for a stored role or source this build does not know, nor for a row of the wrong shape, and a stored id the table no longer has is never asked.
 **A stored row this build cannot read never fails the market's read**: `MarketPermission` keeps its role and source as plain strings, so an unknown value parses and reads as the default, and `Market` drops a row of the wrong shape as it parses (not a map, no string role or source, or `permissions` not a map at all; `drop_unreadable_permissions` in [`back-end/datatypes.py`](../../../back-end/datatypes.py)), so the read, every write and the markets list read such a row alike, as its default.
 Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
-`create_market` writes `permissions: {}` whatever the create body carried.
+`create_market` writes the organization's default rows, copied, whatever the create body carried, and `{}` for a market of no organization or of one that sets none.
 
 **`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), the stricter of its own role and that of the row it rides on (`who_may`), so with the change row set to Viewer it still names "an Editor, an Admin or the owner"; a screen that says who may reads it through `whoMayTake` (E38/F06/S01).
 Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
-**The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), and `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04); each answers the market's table.
-All three load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.
+**The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04), and `POST /markets/:id/permissions/organization-default` copies the organization's default again (`copy_organization_default`, [below](#the-organizations-default)); each answers the market's table.
+All four load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.
 Then the row: one the table does not have is "This market's table has no such row.", a fixed one "Who may take the row "<label>" is fixed, so it cannot be changed.", and a role other than the four stored values is "A row's role is one of viewer, editor, admin or owner."; every refusal is a 400 or 403 with its sentence, and stores and records nothing.
 Setting the role a row already asks, resetting a row the market does not hold, or resetting a market that holds no row it can read, stores and records nothing.
 Setting writes `permissions.<action>` to `{role, source: market}`, and resetting unsets it, whether it was changed here or copied from the organization; resetting every row unsets exactly the rows it returns, in one write, so a stored row this build cannot read stays as the per-row reset leaves it, and is not in the entry.
 Mongo cannot set a key inside a stored null or string, so setting a row on a market whose stored `permissions` is not a map, which the read takes as no rows held, writes the whole map holding that row.
 
 **Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`; a reset of every row is one entry of kind `permission_table_reset`, no subject, and detail `{before, after}`, each a map from every row it returned to its `{role, source}`.
+A copy of the organization's default is one entry of kind `permission_table_copied`, shaped as the reset's, holding every row it changed.
 `GET /markets/:id/permission-history` (`get_permission_history`, at the history's row, `read-history`) answers `{entries}`, the market's history narrowed to them, newest first.
 [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
+
+## The organization's default
+
+**An organization sets the rows its new markets start with** (E39/F02/S01), `default_permissions` on [the organization document](../data/organization-document.md#its-default-table), row id to `{role}`; its owner and its admins change it, its members read it.
+`organization_rows(stored)` reads it as a market holds it once copied: every row this build can read, through `held_row`, marked `organization`; a fixed row, a row the table does not have and a role this build does not know are left out.
+`default_table(stored)` is its table for display, `table`'s shape with `source` `organization` or `built-in`.
+`create_market` copies `organization_rows` into the new market's `permissions`: a copy, not a link, so a later change to the default reaches only markets created after it.
+
+**The market's owner copies it again** with `copy_organization_default`, asking `change-the-table` as the owner's other writes do, archived refused: every row the organization sets replaces the market's, marked `organization`, and every other row returns to its built-in default, the rows its owner changed here included; a market of no organization is refused with "This market belongs to no organization, so it has no default to copy.", 400.
+It sets and unsets exactly the rows that change, so a row this build cannot read stays, writes the whole map where the stored field is not one, and stores and records nothing when the market already holds the default.
+[`back-end/tests/test_the_organizations_default.py`](../../../back-end/tests/test_the_organizations_default.py) pins the default's writes, refusals and record, the copy at creation, and the copy again.
 
 ## What the screens read
 
