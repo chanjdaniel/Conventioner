@@ -102,7 +102,7 @@ const theirs = computed(() =>
 
 const isEssential = (question: string) => ESSENTIAL_QUESTIONS.includes(question);
 
-/** "Number of dates you want" is required only where a number already reads, or was written. */
+/** "Number of dates you want" is required only where a number both reads now and was written. */
 const maxDatesOptional = computed(
   () =>
     props.application === null ||

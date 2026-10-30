@@ -57,8 +57,10 @@ const props = withDefaults(
     /** The questions shown read-only, by key; the tier grid is `TIER_PREFERENCE_KEY`'s. */
     locked?: readonly string[];
     /**
-     * "Number of dates you want" may stay empty: an imported vendor's answer that holds no limit,
-     * which an update leaves as it is (`validated_essential_update`). The form always asks it.
+     * "Number of dates you want" may stay empty where the vendor's own answer holds no limit (an
+     * imported row from a form that never asked), so a number an update put over it may be taken
+     * away again (`validated_essential_update` takes the requiredness from `limit_required`). The
+     * form always asks it.
      */
     maxDatesOptional?: boolean;
     /**

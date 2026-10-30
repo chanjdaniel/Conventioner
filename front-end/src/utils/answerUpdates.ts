@@ -62,7 +62,8 @@ export function theirAnswer(application: Application, key: string): unknown {
 }
 
 /**
- * The essential questions whose answers the assignment reads, the server's `SOLVER_RELEVANT_KEYS`:
+ * The essential questions whose answers the assignment reads, the question keys behind the server's
+ * `SOLVER_RELEVANT_KEYS` (the table-share question writes its address and any further ones):
  * updating one is the row "Update info the assignment or price reads" (E41/F01/S02).
  */
 export const ASSIGNMENT_READS: readonly string[] = [
