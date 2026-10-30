@@ -329,6 +329,29 @@ describe('what an entry opens to', () => {
     });
   });
 
+  it('shows an essential answer an organizer updated by its question, as the review card does', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_tier_preference: { '2099-08-01': ['Gold'] } },
+            after: { essential_tier_preference: { '2099-08-01': ['Silver'] } },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Tier preference',
+        before: 'Saturday, August 1, 2099: Gold',
+        after: 'Saturday, August 1, 2099: Silver',
+      },
+    ]);
+  });
+
   it('shows a phase before and after as the market’s path names it', () => {
     const move = entry({
       action: 'move-phase',

@@ -10,6 +10,7 @@
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { IntakeMode } from '@/assets/types/datatypes';
+import { ESSENTIAL_KEY_PREFIX, essentialAnswerText, essentialLabel } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import {
@@ -339,8 +340,13 @@ export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
 }
 
-/** A field's name in words: `follow_up_owner` reads "Follow up owner". */
+/**
+ * A field's name in words: `follow_up_owner` reads "Follow up owner"; an essential question's
+ * answer reads as the form asks it, "Tier preference" (E41/F01/S02).
+ */
 export function fieldName(key: string): string {
+  const label = essentialLabel(key);
+  if (label !== key) return label;
   const words = key.replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -371,9 +377,12 @@ const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
   source: (source) => PERMISSION_SOURCES[source] ?? source,
 };
 
-/** A field's value as the screens name it, a phase as the market's `path` does, else as
- * `valueText` draws it. */
+/** A field's value as the screens name it, a phase as the market's `path` does, an essential
+ * answer as the review card does, else as `valueText` draws it. */
 export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
+  if (key.startsWith(ESSENTIAL_KEY_PREFIX) && essentialLabel(key) !== key) {
+    return essentialAnswerText(key, value).trim() || 'none';
+  }
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
   return name && typeof value === 'string' && value ? name(value) : valueText(value);
 }
