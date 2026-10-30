@@ -51,6 +51,7 @@ sources:
   - E38/F01/S01
   - E38/F08/S03
   - E38/F05/S01
+  - T123
 ---
 
 # Conventioner's design language
@@ -329,6 +330,11 @@ A browser treats a focused text field as `:focus-visible` whether it was clicked
 The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.
 A control on a dark ground (the market bar's tabs, the vendor drawer's close) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab on a phone (`--focus-halo-on-dark-inset`), where the tabs scroll sideways on the bar's lower edge and the scroller would clip it; a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself; and a market card wears the halo for its name, whose own box clips it.
 Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; the white gap is 4.59:1 against the green button's fill; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
+
+**A selected row is the on toggle's look**, so selection and focus never read alike (T123).
+A toggle that is on (`.btn[aria-pressed='true']` in `primitives.css`) is the one selected state the language had: a `--mm-chip-positive` ground inside a `--mm-green` border.
+The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair (`.vendor-row--open` in [`VendorsView.vue`](../front-end/src/views/VendorsView.vue)), where it drew a 2px black outline beside the halo; its row keeps its own ink, and a focused row keeps its white ground and wears the halo.
+The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
 

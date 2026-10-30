@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from 'vue';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
-import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, answerText, applicantName } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesTheyNeed } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -137,7 +137,8 @@ const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCas
 export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | null | undefined>) {
   const applications = ref<Application[]>([]);
   const tableRows = ref<MarketTableRowResponse[]>([]);
-  const vendorNames = ref<VendorNames>({});
+  /** The names the tables read gave, the server's `display_name` of each vendor it knows. */
+  const servedNames = ref<VendorNames>({});
   /**
    * Who needs a table: the run's own and the vendors added by hand (E38/F08/S02). The tables read
    * serves every applicant (E36/F02/S02) and says it of each.
@@ -150,23 +151,80 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
   const loaded = ref(false);
   const loadError = ref('');
 
+  /** Whether the last read had where every vendor sits: the tables and the statistics. */
+  const placementsRead = ref(false);
+
+  /**
+   * What to call each vendor: the name their application gives (`applicantName`, the client's
+   * reading of `display_name`), then the server's, which wins where it has one. From the
+   * applications too, so a refused placements read keeps every name (T123): the drawer's title, the
+   * rows and the search by name.
+   */
+  const vendorNames = computed<VendorNames>(() => {
+    const names: Record<string, string> = {};
+    for (const application of applications.value) {
+      const email = (application.applicantEmail ?? '').trim().toLowerCase();
+      const name = applicantName(application.formData as Record<string, unknown> | undefined);
+      if (email && name) names[email] = name;
+    }
+    return { ...names, ...servedNames.value };
+  });
+
+  function forgetPlacements(): void {
+    tableRows.value = [];
+    servedNames.value = {};
+    needingATable.value = new Set();
+    unplacedReasons.value = new Map();
+    placementOverrides.value = new Map();
+    unassignedEmails.value = new Set();
+    placementsRead.value = false;
+  }
+
+  /**
+   * The applications, and where each vendor sits, read side by side but standing apart (T123).
+   *
+   * One `Promise.all` once emptied all three on any refusal: an approved application with
+   * incomplete answers makes the server refuse the two assignment reads, and the drawer then said a
+   * market with questions "asks no questions of its own". A refused placement read now leaves the
+   * applications standing, with the server's reason in `loadError` and `placementsRead` false.
+   */
   async function load(): Promise<void> {
     const id = marketId.value;
     if (!id) return;
     loadError.value = '';
     isLoading.value = true;
     const encoded = encodeURIComponent(id);
+    const placements = Promise.all([
+      api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
+      api.get<{
+        rows: MarketTableRowResponse[];
+        vendorNames: VendorNames;
+        vendors?: { email: string; needsATable: boolean }[];
+      }>(`/markets/${encoded}/tables`),
+    ]);
+    const [applicationsRead, placementsReadNow] = await Promise.allSettled([
+      fetchMarketApplications(id),
+      placements,
+    ]);
     try {
-      const [applicationList, statsResp, tablesResp] = await Promise.all([
-        fetchMarketApplications(id),
-        api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-        api.get<{
-          rows: MarketTableRowResponse[];
-          vendorNames: VendorNames;
-          vendors?: { email: string; needsATable: boolean }[];
-        }>(`/markets/${encoded}/tables`),
-      ]);
+      if (applicationsRead.status === 'rejected') {
+        loadError.value = errorText(applicationsRead.reason, 'Failed to load vendors.');
+        applications.value = [];
+        forgetPlacements();
+        return;
+      }
+      const applicationList = applicationsRead.value;
       applications.value = Array.isArray(applicationList) ? applicationList : [];
+      loaded.value = true;
+      if (placementsReadNow.status === 'rejected') {
+        loadError.value = errorText(
+          placementsReadNow.reason,
+          'Where the vendors sit could not be read.',
+        );
+        forgetPlacements();
+        return;
+      }
+      const [statsResp, tablesResp] = placementsReadNow.value;
       needingATable.value = new Set(
         (tablesResp.data?.vendors ?? [])
           .filter((vendor) => vendor.needsATable)
@@ -179,17 +237,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         statsList.map((item) => extractEmail(item).toLowerCase()).filter(Boolean),
       );
       tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
-      vendorNames.value = tablesResp.data?.vendorNames ?? {};
-      loaded.value = true;
-    } catch (err: unknown) {
-      loadError.value = errorText(err, 'Failed to load vendors.');
-      applications.value = [];
-      tableRows.value = [];
-      vendorNames.value = {};
-      needingATable.value = new Set();
-      unplacedReasons.value = new Map();
-      placementOverrides.value = new Map();
-      unassignedEmails.value = new Set();
+      servedNames.value = tablesResp.data?.vendorNames ?? {};
+      placementsRead.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -324,6 +373,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     isLoading,
     loaded,
     loadError,
+    placementsRead,
     load,
     marketDates,
     rows,
