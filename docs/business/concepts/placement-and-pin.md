@@ -6,7 +6,7 @@ verified: 2026-10-22
 
 # Placement and pin
 
-**Placed as** and **Table** are defined in [the glossary](../../../CONTEXT.md#placing), under Placing, beside Table code, Table type and Table choice; this node gathers what the graph says about a vendor's seat at a table, and the pin that holds one.
+**Assigned as** and **Table** are defined in [the glossary](../../../CONTEXT.md#assigning), under Assigning, beside Table code, Table type and Table choice; this node gathers what the graph says about a vendor's seat at a table, and the pin that holds one.
 
 ## Rules
 
@@ -29,6 +29,6 @@ verified: 2026-10-22
 
 - [Placements](../../implementation/modules/placements.md): the four doors, pins, the held seat, orphans, and `MarketTableRow`.
 - [ADR 0002: A pin is a placement row](../../adr/0002-a-pin-is-a-placement-row.md).
-- [The placement history](../../implementation/data/placement-history.md): every placement, freed seat and swap.
+- [The market's history](../../implementation/data/history.md): every placement, freed seat and swap.
 - [Floorplan placement](../../implementation/modules/floorplan-placement.md): the beta's Auto-Place, tables placed in a room.
 - [Attendance and the door](../../implementation/modules/attendance-and-door.md): a check-in needs a stored placement on that date.

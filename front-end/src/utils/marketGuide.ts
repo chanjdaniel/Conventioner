@@ -222,7 +222,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   }),
   [MarketPhase.Review]: ({ path }) => ({
     page: 'applications',
-    statement: `${REVIEW_LEAD[path]} Every application is decided: begin assignment.`,
+    statement: `${REVIEW_LEAD[path]} Every application is decided: Begin Assignment.`,
   }),
   // Worked on the rules until there is a result, and on the result after.
   [MarketPhase.Assignment]: ({ assigned, published }) =>
@@ -238,7 +238,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             statement:
               'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
-        : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
+        : { page: 'assignment', statement: 'Set the rules and allocate tables.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'result' : 'assignment',
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,

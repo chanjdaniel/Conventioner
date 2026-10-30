@@ -30,6 +30,7 @@ sources:
   - E36/F01/S01
   - E27/F01/S03
   - bug/42
+  - E42/F01/S03
   - bug/43
   - E08/F04
   - E30/F01/S05
@@ -50,7 +51,7 @@ sources:
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign.", and only "Every application must be decided before this market can assign." until a view has read its list, so a list that failed to load is never counted as nothing left; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can enter Assignment." or "Every application has been decided. This market is ready to enter Assignment.", and only "Every application must be decided before this market can enter Assignment." until a view has read its list, so a list that failed to load is never counted as nothing left; from Assignment on "The review is closed: every verdict settled when the market entered Assignment. …".
 The page has two views ([`MarketApplicationsTab.vue`](../../../front-end/src/components/market/MarketApplicationsTab.vue)), chosen under "How do you want to review?" with a line on what each is: "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)), first and the default, and "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)).
 The choice is kept in the address: no `view` is All, and a saved `?view=all` still opens it; One by one is `?view=one`, and so is a link to one application (`?application=<id>`, as the Assignment tab's refusal links to it), which opens on its card.
 Choosing All drops both `view` and `application`.
@@ -91,7 +92,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`).
+**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
@@ -101,6 +102,8 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
    A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
    A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
+6. "Export", after "N of M", opens the vendor export on the filter and Mine ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "Open" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
+   So the review's lists (approved, rejected, needs follow-up) leave as a CSV before assignment as well as after.
 
 A selection is only ever the rows ticked, one by one or by Select all, which ticks the rows on screen: each is in front of the reviewer and counted in the confirmation, and nothing past them is decided.
 The list is not paged, so the rows shown are every match today; if it ever is paged, Select all still means the rows shown.
@@ -124,7 +127,7 @@ Covered by: `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`.
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
 From Review, "Begin Assignment", disabled before the click with the rail naming the first blocker:
 
-- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before assignment can begin.", with "Finish deciding" leading back to the review;
+- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).

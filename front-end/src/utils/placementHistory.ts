@@ -2,7 +2,7 @@
  * Who changed a placement, to what, and when - as a person reads it.
  *
  * The back end stores entries structured and names each kind with an enum
- * (`back-end/placement_history.py`); the wording is here, because a sentence should be
+ * (`back-end/history.py`); the wording is here, because a sentence should be
  * changeable without a migration or a back-end release. The same rule `placementReason.ts`
  * follows.
  *
@@ -12,7 +12,7 @@
 import { getFormattedTimestamp, getShortDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
-/** Mirrors the kinds in `back-end/placement_history.py`. */
+/** Mirrors the placement kinds in `back-end/history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
 
 export interface PlacementHistoryEntry {
@@ -60,7 +60,7 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
   switch (entry.kind) {
     case 'placed':
       return [
-        text('Placed '),
+        text('Assigned '),
         who(entry.vendors[0]),
         text(` at ${detail.tableCode} (${detail.tableChoice})`),
       ];
@@ -87,14 +87,14 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
     case 'assigned':
       return [
         text(
-          `Ran the assignment: ${plural(detail.placementsWritten ?? 0, 'placement', 'placements')} written` +
+          `Allocated tables: ${plural(detail.placementsWritten ?? 0, 'assignment', 'assignments')} written` +
             (detail.pinsPreserved
               ? `, ${plural(detail.pinsPreserved, 'pin', 'pins')} preserved`
               : ''),
         ),
       ];
     default:
-      return [text('Changed a placement')];
+      return [text('Changed an assignment')];
   }
 }
 

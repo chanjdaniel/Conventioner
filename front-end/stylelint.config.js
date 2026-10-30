@@ -84,6 +84,7 @@ const MIGRATED = [
   'src/components/AppDialog.vue',
   'src/components/DeleteOrgDialog.vue',
   'src/components/AddVendorDialog.vue',
+  'src/components/ExportVendorsDialog.vue',
   'src/components/AuthCard.vue',
   'src/components/application/AmendFormDialog.vue',
   'src/components/application/ApplicationFormFields.vue',

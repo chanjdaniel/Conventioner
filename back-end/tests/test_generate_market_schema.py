@@ -16,7 +16,7 @@ def test_model_derived_declaration_matches_checked_in_schema_contract():
     declaration = schema_gen.generate_declaration_from_model(
         root_type=root_type,
         root_name="MarketSchema",
-        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+        command_hint=schema_gen.MODEL_COMMAND,
     )
     expected = SCHEMA_PATH.read_text(encoding="utf-8")
     assert declaration == expected
@@ -27,7 +27,7 @@ def test_record_fields_are_derived_from_dict_types_without_forcing():
     declaration = schema_gen.generate_declaration_from_model(
         root_type=root_type,
         root_name="MarketSchema",
-        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+        command_hint=schema_gen.MODEL_COMMAND,
     )
 
     assert "roles: Record<string, string>;" in declaration
@@ -83,7 +83,7 @@ def test_assignment_options_contract_fields_are_not_rendered_as_literal_nulls():
     declaration = schema_gen.generate_declaration_from_model(
         root_type=root_type,
         root_name="MarketSchema",
-        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+        command_hint=schema_gen.MODEL_COMMAND,
     )
 
     assert "assignmentOptions: {" in declaration
@@ -99,7 +99,7 @@ def test_market_schema_contract_omits_persisted_assignment_statistics():
     declaration = schema_gen.generate_declaration_from_model(
         root_type=root_type,
         root_name="MarketSchema",
-        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+        command_hint=schema_gen.MODEL_COMMAND,
     )
 
     assignment_object_block = declaration.split("assignmentObject: {", 1)[1].split("};", 1)[0]

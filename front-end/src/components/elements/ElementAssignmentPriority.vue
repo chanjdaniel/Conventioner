@@ -193,7 +193,7 @@ const dragOptions = computed(() => ({
         class="empty-hint"
         data-testid="priority-none-set"
       >
-        No priority rules were set for this assignment.
+        No priority rules were set for this market.
       </p>
       <p v-else-if="!readonly && fieldTargets.length === 0" class="empty-hint">
         Priority rules order vendors by an answer on your application form. Add a question with a
@@ -315,9 +315,9 @@ const dragOptions = computed(() => ({
                 >
                   Add the answers to &ldquo;{{
                     labelFor(priorityObjects[parentIndex].target)
-                  }}&rdquo; in the order you want them placed. Anything you leave out sorts last, or
-                  where you put &ldquo;{{ ALL_OTHERS }}&rdquo;. An applicant who chose several is
-                  placed by their best; one who answered nothing sorts behind everyone who did.
+                  }}&rdquo; in the order you want them assigned. Anything you leave out sorts last,
+                  or where you put &ldquo;{{ ALL_OTHERS }}&rdquo;. An applicant who chose several is
+                  assigned by their best; one who answered nothing sorts behind everyone who did.
                 </p>
               </template>
             </div>

@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -33,7 +33,7 @@ sources:
 
 # Importing a Google Form's responses
 
-**Who:** the market's Admin or owner; an Editor is shown the import and told only an admin imports (bug 37).
+**Who:** the market's Admin or owner; an Editor or a Viewer is shown the import and told the import row's words, "Only an Admin or the owner may import applications or start this market from a CSV." (bug 37).
 **Where they start:** a market whose vendors apply on the organizer's own Google Form, in Import (or Imported): either the rail's "Import responses" from Draft, which lands here, or "Import from CSV" on the Applications page.
 **Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 

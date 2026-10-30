@@ -15,6 +15,7 @@
  * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
@@ -163,17 +164,21 @@ watch(
 );
 
 /**
- * Whether this person may change what leads the card - an EDITOR write - on a market that can
- * change at all (bugs 30 and 37).
+ * Whether this person may change what leads the card - the form's row - on a market that can
+ * change at all (bugs 30 and 37, E39/F01/S02).
  */
-const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
+const marksHighlights = computed(() => mayTake(props.market, MarketAction.ChangeForm));
+/** Whether this person may write the organizer's notes on the applicant up. */
+const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendorNotes));
 
 /**
- * Whether this person may give verdicts here: the server's `verdictLockReason` (E34) - EDITOR, like
- * every other change to the market's contents (E34/F01/S01), while the market can still run its
- * assignment. Viewers, archived markets and settled ones read the applications and their verdicts.
+ * Whether this person may give verdicts here: the table's verdicts row (E34/F01/S01, E39/F01/S02)
+ * while the review is open (E36/F01/S01). Viewers, archived markets and settled ones read the
+ * applications and their verdicts.
  */
-const decides = computed(() => !props.market?.verdictLockReason);
+const decides = computed(
+  () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
 
 /**
  * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
@@ -640,7 +645,7 @@ function submittedOn(app: Application): string {
           :marketId="market.id"
           :email="current.applicantEmail"
           :entry="entryFor(current.applicantEmail)"
-          :canWrite="!readOnly"
+          :canWrite="writesNotes"
           :showRequest="false"
           testid="app-monitor-notes"
           @changed="loadNotes"
@@ -652,7 +657,7 @@ function submittedOn(app: Application): string {
           Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the
           marks change what the card SHOWS, never which application is up.
         -->
-        <div v-if="!readOnly" class="choose-highlights">
+        <div v-if="marksHighlights" class="choose-highlights">
           <button
             type="button"
             class="choose-highlights-toggle"

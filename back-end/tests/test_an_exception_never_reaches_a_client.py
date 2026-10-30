@@ -231,7 +231,7 @@ class TestEveryOtherModulesRefusals:
         response = client.put("/markets/market-123/placements", json={"date": "2026-08-01"})
 
         assert_answered_as_raised(response, raised)
-        assert response.get_json() == {"error": "A placement must name the vendor it places."}
+        assert response.get_json() == {"error": "An assignment must name the vendor it assigns."}
 
     def test_a_seat_someone_else_holds(self, client, monkeypatch):
         taken = PlacementsApi.SeatTakenError("ana@example.com already holds Hall A 1.")
@@ -600,6 +600,9 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/review-highlights", {"keys": ["business_name"]},
      "save_review_highlights"),
     ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
+    ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
+    ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
+    ("get", "/markets/market-123/permission-history", None, "get_permission_history"),
     ("delete", "/markets/market-123", None, "delete_market"),
 ]
 
@@ -930,7 +933,7 @@ class TestTheAssignmentAndPlacementRoutes:
         assert response.status_code == 409
         assert response.get_json() == {"error": (
             "ana@example.com already has an application in this market. "
-            "Seat them on the Result page."
+            "Assign them on the Result page."
         )}
 
     def test_a_placement_for_someone_who_never_applied(self, client):
@@ -994,7 +997,7 @@ class TestTheAssignmentAndPlacementRoutes:
 
         assert response.status_code == 400
         assert response.get_json() == {
-            "error": "Removing a placement must name the vendor and the date.",
+            "error": "Removing an assignment must name the vendor and the date.",
         }
 
     def test_freeing_a_seat_on_a_market_that_does_not_exist(self, client):
@@ -1391,6 +1394,8 @@ REQUIRED_BODIES = [
     ("put", "/public/markets/<market_slug>/applicant/application", None),
     ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.REVIEW),
     ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
+    ("post", "/markets/<market_id>/vendor-export", None),
+    ("post", "/markets/<market_id>/vendor-export/preview", None),
 ]
 OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/name", None),
@@ -1398,6 +1403,7 @@ OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled", None),
     ("put", "/markets/<market_id>/review-highlights", None),
     ("put", "/markets/<market_id>/rejection-rules", None),
+    ("put", "/markets/<market_id>/permissions/<action_id>", None),
     ("post", "/markets/<market_id>/application-form/amendment", None),
     ("post", "/markets/<market_id>/placements/swap", None),
     ("delete", "/markets/<market_id>/placements", None),
@@ -1424,6 +1430,8 @@ READS_NO_BODY = [
     ("delete", "/organizations/<org_id>", [(OrgsApi, "delete_organization", DELETED)]),
     ("delete", "/organizations/<org_id>/users/<user_id>", [(OrgsApi, "remove_org_user", True)]),
     ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),
+    ("delete", "/markets/<market_id>/permissions/<action_id>",
+     [(MarketsApi, "reset_permission", [])]),
     ("post", "/markets/<market_id>/application-form/amendment/resume",
      [(FormAmendmentApi, "resume_amendment", {"resumed": True})]),
     ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),
@@ -1460,7 +1468,7 @@ BODY_READ_ELSEWHERE = [
 BODY_VIEW_ARGS = {
     "<org_id>": ORG_ID, "<market_id>": "market-123", "<user_id>": "user-2",
     "<application_id>": "app-1", "<market_slug>": SLUG,
-    "<path:vendor_email>": "vendor@example.com",
+    "<path:vendor_email>": "vendor@example.com", "<action_id>": "check-in",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
 

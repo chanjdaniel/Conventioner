@@ -82,7 +82,7 @@ describe('what one entry says', () => {
       NAMES,
     );
 
-    expect(text).toBe('Ran the assignment: 47 placements written, 3 pins preserved');
+    expect(text).toBe('Allocated tables: 47 assignments written, 3 pins preserved');
   });
 
   it('leaves the pins out of a run that preserved none', () => {
@@ -91,7 +91,7 @@ describe('what one entry says', () => {
       NAMES,
     );
 
-    expect(text).toBe('Ran the assignment: 1 placement written');
+    expect(text).toBe('Allocated tables: 1 assignment written');
   });
 
   it('falls back to the address for a vendor with no stored name', () => {
@@ -132,7 +132,7 @@ describe('who an entry names', () => {
       { kind: 'vendor', name: 'Ana Rivera', email: 'ana@ember.test' },
     ]);
     expect(historySummary(placed, NAMES)).toBe(
-      'Placed Ana Rivera (ana@ember.test) at Front 1 (Full Table)',
+      'Assigned Ana Rivera (ana@ember.test) at Front 1 (Full Table)',
     );
   });
 

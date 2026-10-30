@@ -11,6 +11,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PublishResults from '@/components/application/PublishResults.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
+import { answersRefusing } from './support/servedAnswers';
 
 const publishResults = vi.fn();
 
@@ -25,10 +27,10 @@ function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): M
     id: 'm1',
     applicationForm: { fields: [] },
     intakeMode,
-    publishResultsReason: null,
+    actionRefusals: answersRefusing(),
+    publishWaitsReason: null,
     publishOutcomes: { haveATable: 3, notAssigned: 2 },
     phase: MarketPhase.Assignment,
-    publishResultsActionReason: null,
     ...publish,
   } as unknown as Market;
 }
@@ -65,10 +67,9 @@ describe('a form-intake market (E36/F04/S01)', () => {
   });
 
   it("disables it with the server's reason until results may be published", async () => {
-    const reason =
-      'Run the assignment first: results tell each applicant whether they have a table.';
+    const reason = 'Allocate tables first: results tell each applicant whether they have a table.';
     const wrapper = await mounted(
-      marketTaking(IntakeMode.Form, { publishResultsReason: reason, publishOutcomes: null }),
+      marketTaking(IntakeMode.Form, { publishWaitsReason: reason, publishOutcomes: null }),
     );
 
     expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(true);
@@ -110,11 +111,9 @@ describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
 
 describe('who may publish: the Publish results row (E39/F01, E38/F05)', () => {
   it('offers none to someone the row refuses', async () => {
-    const refused = 'Only an Admin or the owner may take this action on this market.';
     const wrapper = await mounted(
       marketTaking(IntakeMode.Form, {
-        publishResultsActionReason: refused,
-        publishResultsReason: refused,
+        actionRefusals: answersRefusing(MarketAction.PublishResults),
       }),
     );
 
@@ -122,19 +121,14 @@ describe('who may publish: the Publish results row (E39/F01, E38/F05)', () => {
   });
 
   it('offers none on a market read that does not say who may', async () => {
-    const wrapper = await mounted(
-      marketTaking(IntakeMode.Form, { publishResultsActionReason: undefined }),
-    );
+    const wrapper = await mounted(marketTaking(IntakeMode.Form, { actionRefusals: undefined }));
 
     expect(wrapper.find(button).exists()).toBe(false);
   });
 
   it('asks its own row, not the one that moves the phase', async () => {
     const wrapper = await mounted(
-      marketTaking(IntakeMode.Form, {
-        adminActionsReason: 'Only an Admin or the owner may take this action on this market.',
-        publishResultsActionReason: null,
-      }),
+      marketTaking(IntakeMode.Form, { actionRefusals: answersRefusing(MarketAction.MovePhase) }),
     );
 
     expect(wrapper.find(button).exists()).toBe(true);

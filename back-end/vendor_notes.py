@@ -21,7 +21,7 @@ lowercased, like ``applications`` and ``attendance``; every reader and writer go
 module, and a market's notes are deleted with the market (``market_deletion``).
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from db_config import get_database
 from utils.email_address import normalized_email
@@ -42,25 +42,30 @@ def _key(market_id: str, vendor_email: str) -> Dict[str, str]:
     return {MARKET_ID_FIELD: market_id, VENDOR_EMAIL_FIELD: normalized_email(vendor_email)}
 
 
-def _set(market_id: str, vendor_email: str, fields: Dict[str, Any]) -> None:
-    vendor_notes_collection.find_one_and_update(
+def _set(market_id: str, vendor_email: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Write ``fields`` and return the vendor's notes as they were, empty when there were none."""
+    return vendor_notes_collection.find_one_and_update(
         _key(market_id, vendor_email), {"$set": fields}, upsert=True,
-    )
+    ) or {}
 
 
-def write_note(market_id: str, vendor_email: str, text: str, by: str) -> None:
-    """Replace the organizer's note on one vendor. Blank is no note."""
-    _set(market_id, vendor_email, {
-        "note": str(text or "").strip(), "note_edited_by": by, "note_edited_at": _now(),
+def write_note(market_id: str, vendor_email: str, text: str, by: str) -> Tuple[str, str]:
+    """Replace the organizer's note on one vendor. Blank is no note. Returns the note as it was
+    and as it is, for the market's history."""
+    note = str(text or "").strip()
+    was = _set(market_id, vendor_email, {
+        "note": note, "note_edited_by": by, "note_edited_at": _now(),
     })
+    return was.get("note") or "", note
 
 
-def mark_request_handled(market_id: str, vendor_email: str, handled: bool, by: str) -> None:
-    """Mark the vendor's request handled, or take the mark back."""
-    _set(market_id, vendor_email, {
+def mark_request_handled(market_id: str, vendor_email: str, handled: bool, by: str) -> bool:
+    """Mark the vendor's request handled, or take the mark back. Returns whether it was handled."""
+    was = _set(market_id, vendor_email, {
         "request_handled_at": _now() if handled else None,
         "request_handled_by": by if handled else None,
     })
+    return bool(was.get("request_handled_at"))
 
 
 def replace_sheet_notes(market_id: str, by_vendor: Dict[str, str]) -> None:

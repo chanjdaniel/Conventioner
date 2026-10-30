@@ -290,7 +290,7 @@ def unaskable_essential_error(keys: Optional[List[str]]) -> Optional[str]:
             return (
                 f"'{key}' cannot be left unasked. Only a preference ordering may be "
                 f"({', '.join(UNASKABLE_ESSENTIAL_KEYS)}); every other essential question decides "
-                "where or whether a vendor is placed, so a default would answer for them."
+                "where or whether a vendor is assigned, so a default would answer for them."
             )
     return None
 

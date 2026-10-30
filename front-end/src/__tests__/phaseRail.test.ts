@@ -10,6 +10,8 @@ import { flushPromises, mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
+import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
 
 function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
   return mount(PhaseRail, {
@@ -19,6 +21,7 @@ function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
         name: 'Riverside',
         phase,
         transitionBlockers: movesServedFrom(phase),
+        actionRefusals: answersRefusing(),
         ...overrides,
       } as Market,
     },
@@ -131,6 +134,7 @@ describe('the actions', () => {
           name: 'Riverside',
           phase: MarketPhase.Draft,
           transitionBlockers: movesServedFrom(MarketPhase.Draft),
+          actionRefusals: answersRefusing(),
         } as Market,
       },
       global: { stubs: { BlockerPanel: true } },
@@ -161,11 +165,11 @@ describe('the actions', () => {
     expect(rail.find('.rail-button--forward').exists()).toBe(false);
   });
 
-  it('offers no phase move to someone whose role does not make them (bug 37)', () => {
-    // Moving the phase is an admin action; an Editor or a Viewer was offered every move, and each
+  it('offers no phase move to someone the table does not let move it (bug 37, E39/F01/S02)', () => {
+    // Moving the phase is the table's row; an Editor or a Viewer was offered every move, and each
     // failed with a 403 in small red text under the rail.
     const rail = railFor(MarketPhase.Review, {
-      adminActionsReason: 'Moving this market phase is for its owner and admins.',
+      actionRefusals: answersRefusing(MarketAction.MovePhase),
     });
 
     expect(rail.find('.rail-button--forward').exists()).toBe(false);
@@ -219,7 +223,7 @@ describe('a market that left the spine', () => {
   it('says a market opened applications though it went back to draft after', () => {
     const reopened = archivedHaving(['draft', 'applications_open', 'archived']);
 
-    expect(reopened.text()).toContain('It opened applications but was never assigned.');
+    expect(reopened.text()).toContain('It opened applications but never allocated tables.');
   });
 
   it('says it was abandoned when its record never left draft', () => {
@@ -233,7 +237,7 @@ describe('a market that left the spine', () => {
       const rail = archivedHaving(['draft', 'assignment', 'archived'], false);
       const note = rail.get('[data-testid="phase-rail-frozen"]').text();
 
-      expect(note).toContain('It was assigned.');
+      expect(note).toContain('Its tables were allocated.');
       expect(note).not.toContain('never');
     });
 

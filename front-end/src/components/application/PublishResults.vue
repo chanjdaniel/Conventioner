@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { publishResults } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { outcomeHeadline } from '@/utils/applicantOutcome';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
@@ -37,18 +38,23 @@ const FROM_THE_ASSIGNMENT: readonly string[] = [
 ];
 const itsPhase = computed(() => FROM_THE_ASSIGNMENT.includes(props.market?.phase ?? ''));
 /**
- * Whether this person may publish results at all: the table's Publish results row (E39/F01/S01),
- * served on its own (E38/F05), not the row that moves the phase. Whether they can yet is
- * `publishReason`, which disables the button and says why.
+ * Whether this person may publish results at all: the table's Publish results row (E39/F01/S02),
+ * not the row that moves the phase. Whether they can yet is `publishReason`, which disables the
+ * button and says why.
  */
-// Null, not absent: a market read that does not say who may publish draws nothing.
-const publishes = computed(() => props.market?.publishResultsActionReason === null);
+const publishes = computed(() => mayTake(props.market, MarketAction.PublishResults));
 
 /**
- * Why results cannot be published yet, as the server judges it (E36/F04/S01): they wait for a
- * current run in assignment, so each applicant is told whether they have a table.
+ * Why results cannot be published yet, as the server judges it: who may, the table's row
+ * (E39/F01/S02), then that they wait for a current run in assignment, so each applicant is told
+ * whether they have a table (E36/F04/S01).
  */
-const publishReason = computed(() => props.market?.publishResultsReason ?? null);
+const publishReason = computed(
+  () =>
+    actionRefusal(props.market, MarketAction.PublishResults) ||
+    props.market?.publishWaitsReason ||
+    null,
+);
 const outcomes = computed(() => props.market?.publishOutcomes ?? null);
 /** The two outcomes in the applicant's own words (E36/F05/S02), worded once. */
 const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
@@ -124,8 +130,8 @@ async function publish() {
         "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
       <p class="publish-outcomes">
-        Publishing cannot be undone, and the assignment cannot be run again after it: seats change
-        only by hand.
+        Publishing cannot be undone, and tables cannot be allocated again after it: assignments
+        change only by hand.
       </p>
     </AppDialog>
   </div>

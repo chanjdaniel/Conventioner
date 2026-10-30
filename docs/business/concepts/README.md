@@ -18,6 +18,6 @@ One line per node, sorted by file name.
 - [Market](market.md) - one event: its plan, its addresses, the one copy a screen holds, its end and its deletion
 - [Organization and roles](organization-and-roles.md) - Organization and Organizer: an organization's people, a market's roles, and who may do what
 - [Phase](phase.md) - a market's lifecycle: the moves, the guards, the rail, and what each phase opens and closes
-- [Placement and pin](placement-and-pin.md) - Placed as and Table: a seat at a table, the pin that holds one, and the tables themselves
+- [Placement and pin](placement-and-pin.md) - Assigned as and Table: a seat at a table, the pin that holds one, and the tables themselves
 - [Review highlight](review-highlight.md) - what a reviewer reads first: marked on the form tab, led with on the review card, stored on the market
 - [Table sharing](table-sharing.md) - two vendors at one table: the pairing, the half-table share, the partner question

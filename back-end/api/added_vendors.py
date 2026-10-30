@@ -15,6 +15,7 @@ from typing import Any, Dict, Tuple
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import history as History
 import essential_fields as EssentialFields
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError
@@ -46,7 +47,7 @@ def add_vendor(
         raise AddVendorInvalid("Give the vendor's email address.")
     if ApplicationsApi.find_application_by_email(market_id, address) is not None:
         raise AddVendorRefused(
-            f"{address} already has an application in this market. Seat them on the Result page."
+            f"{address} already has an application in this market. Assign them on the Result page."
         )
 
     now = datetime.now(timezone.utc).isoformat()
@@ -60,4 +61,9 @@ def add_vendor(
         added_by=adder,
         added_at=now,
     ))
+    History.record(
+        market_id, adder.email, Actions.ADD_VENDOR, vendors=[address],
+        subject={"application_id": application.id},
+        detail=lambda: History.changes({}, {"name": name, "status": application.status.value}),
+    )
     return {"application": convert_keys_to_camel_case(application.model_dump())}, 201

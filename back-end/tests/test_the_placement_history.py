@@ -1,48 +1,28 @@
 """Who changed a placement, to what, and when (E11/F04/S01).
 
 A placement that differs from what the solver produced is a fact someone will later ask about,
-and a flag saying "hand-placed" cannot answer it. Scope is placements and nothing else.
+and a flag saying "hand-placed" cannot answer it. The entries live in the market's history
+(E40/F01/S01), and this trail is that history narrowed to placements.
 """
 import pytest
 
 from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
 
+import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
-import placement_history as PlacementHistory
+import history as History
 from datatypes import MarketPhase
+from test_the_history import FakeHistoryCollection
 from test_the_placement_endpoint import SETUP_OBJECT, placement
-
-
-class FakeHistoryCollection:
-    """Records what was written, and answers a find the way the real query does."""
-
-    def __init__(self):
-        self.docs = []
-        self.deleted = []
-
-    def insert_one(self, document):
-        self.docs.append(document)
-
-    def find(self, query, _projection=None):
-        return [
-            doc for doc in self.docs
-            if doc["market_id"] == query["market_id"]
-            and ("vendors" not in query or query["vendors"] in doc["vendors"])
-        ]
-
-    def delete_many(self, query):
-        gone = [doc for doc in self.docs if doc["market_id"] == query["market_id"]]
-        self.docs = [doc for doc in self.docs if doc not in gone]
-        self.deleted.append(query["market_id"])
-        return type("R", (), {"deleted_count": len(gone)})()
 
 
 @pytest.fixture
 def history(monkeypatch):
     fake = FakeHistoryCollection()
-    monkeypatch.setattr(PlacementHistory, "placement_history_collection", fake)
+    monkeypatch.setattr(History, "history_collection", fake)
+    monkeypatch.setattr(History, "legacy_placement_collection", FakeHistoryCollection())
     return fake
 
 
@@ -70,7 +50,7 @@ class TestOneEntryPerAction:
 
         assert len(history.docs) == 1
         entry = history.docs[0]
-        assert entry["kind"] == PlacementHistory.PLACED
+        assert entry["kind"] == History.PLACED
         assert entry["actor"] == "organizer@example.com"
         assert entry["vendors"] == ["ana@example.com"]
         assert entry["detail"]["table_code"] == "Hall A 1"
@@ -87,7 +67,7 @@ class TestOneEntryPerAction:
 
         assert len(history.docs) == 1
         entry = history.docs[0]
-        assert entry["kind"] == PlacementHistory.SWAPPED
+        assert entry["kind"] == History.SWAPPED
         assert sorted(entry["vendors"]) == ["ana@example.com", "ben@example.com"]
 
     def test_freeing_a_seat_writes_one_entry(self, collection, history):
@@ -98,7 +78,7 @@ class TestOneEntryPerAction:
             "market-123", "ana@example.com", "2026-08-01", "organizer@x.test"
         )
 
-        assert [doc["kind"] for doc in history.docs] == [PlacementHistory.FREED]
+        assert [doc["kind"] for doc in history.docs] == [History.FREED]
         assert history.docs[0]["detail"]["table_code"] == "Hall A 1"
 
     def test_freeing_a_seat_nobody_holds_writes_nothing(self, collection, history):
@@ -136,7 +116,7 @@ class TestOneEntryPerAction:
 
         assert len(history.docs) == 1
         entry = history.docs[0]
-        assert entry["kind"] == PlacementHistory.ASSIGNED
+        assert entry["kind"] == History.ASSIGNED
         assert entry["actor"] == "dana@example.com"
         assert entry["detail"] == {"placements_written": 2, "pins_preserved": 1}
 
@@ -149,7 +129,7 @@ class TestReadingTheTrail:
             "organizer@x.test",
         )
 
-        entries = PlacementHistory.entries_for_market("market-123")
+        entries = History.placement_entries("market-123")
 
         assert len(entries) == 2
 
@@ -160,7 +140,7 @@ class TestReadingTheTrail:
             "organizer@x.test",
         )
 
-        entries = PlacementHistory.entries_for_market("market-123", "ben@example.com")
+        entries = History.placement_entries("market-123", "ben@example.com")
 
         assert [entry["vendors"] for entry in entries] == [["ben@example.com"]]
 
@@ -169,35 +149,69 @@ class TestReadingTheTrail:
             "market-123", placement(email="Ana@Example.com"), "organizer@x.test"
         )
 
-        assert PlacementHistory.entries_for_market("market-123", "ANA@EXAMPLE.COM")
+        assert History.placement_entries("market-123", "ANA@EXAMPLE.COM")
 
     def test_the_newest_entry_comes_first(self, history):
-        PlacementHistory.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-        PlacementHistory.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 2")
+        History.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+        History.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 2")
         history.docs[0]["at"] = "2020-01-01T00:00:00+00:00"
         history.docs[1]["at"] = "2026-01-01T00:00:00+00:00"
 
-        assert [e["detail"]["table_code"] for e in PlacementHistory.entries_for_market("m")] == [
+        assert [e["detail"]["table_code"] for e in History.placement_entries("m")] == [
             "A 2", "A 1",
         ]
 
     def test_another_markets_entries_are_not_in_this_ones_trail(self, history):
-        PlacementHistory.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-        PlacementHistory.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+        History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+        History.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
-        assert len(PlacementHistory.entries_for_market("m1")) == 1
+        assert len(History.placement_entries("m1")) == 1
+
+
+class TestTheEndpoint:
+    def test_it_answers_the_placements_as_it_always_did(self, collection, history):
+        """Served from the market's history, narrowed to placements, in the shape the drawer reads."""
+        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
+        History.record("market-123", "organizer@x.test", Actions.CHECK_IN,
+                       vendors=["ana@example.com"], detail={})
+
+        body, status = MarketsApi.get_placement_history("market-123", "organizer@x.test")
+
+        assert status == 200
+        [entry] = body["entries"]
+        assert set(entry) == {"id", "marketId", "actor", "at", "kind", "vendors", "detail"}
+        assert entry["kind"] == "placed"
+        # A new placement also names the seat it moved the vendor from: none, here.
+        assert entry["detail"] == {
+            "date": "2026-08-01", "tableCode": "Hall A 1", "tableChoice": "Full Table",
+            "before": None,
+        }
+        assert "vendorNames" in body
+
+    def test_a_vendors_panel_reads_only_theirs(self, collection, history):
+        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
+        PlacementsApi.write_placement(
+            "market-123", placement(email="ben@example.com", table_code="Hall A 2"),
+            "organizer@x.test",
+        )
+
+        body, _status = MarketsApi.get_placement_history(
+            "market-123", "organizer@x.test", "ben@example.com",
+        )
+
+        assert [entry["vendors"] for entry in body["entries"]] == [["ben@example.com"]]
 
 
 class TestTheTrailIsKeptWithTheMarket:
     def test_deleting_a_market_takes_its_history_with_it(self, history):
-        PlacementHistory.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-        PlacementHistory.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+        History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+        History.record_freed("m2", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
-        gone = PlacementHistory.delete_for_market("m1")
+        gone = History.delete_for_market("m1")
 
         assert gone == 1
-        assert PlacementHistory.entries_for_market("m1") == []
-        assert len(PlacementHistory.entries_for_market("m2")) == 1
+        assert History.placement_entries("m1") == []
+        assert len(History.placement_entries("m2")) == 1
 
 
 def test_a_trail_that_cannot_be_written_does_not_break_the_placement(collection, monkeypatch):
@@ -208,7 +222,7 @@ def test_a_trail_that_cannot_be_written_does_not_break_the_placement(collection,
         def insert_one(self, _doc):
             raise RuntimeError("mongo is having a day")
 
-    monkeypatch.setattr(PlacementHistory, "placement_history_collection", Broken())
+    monkeypatch.setattr(History, "history_collection", Broken())
 
     _result, status = PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
 
@@ -224,8 +238,8 @@ def test_deleting_a_market_deletes_its_trail_through_the_endpoint(monkeypatch, h
     monkeypatch.setattr(
         MarketsApi.PermissionsApi, "get_user_market_role", lambda *_a, **_k: MarketRole.OWNER
     )
-    PlacementHistory.record_freed("market-123", "a@x.test", "v@x.test", "2026-08-01", "A 1")
+    History.record_freed("market-123", "a@x.test", "v@x.test", "2026-08-01", "A 1")
 
     MarketsApi.delete_market("market-123", "owner@example.com")
 
-    assert PlacementHistory.entries_for_market("market-123") == []
+    assert History.placement_entries("market-123") == []

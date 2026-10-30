@@ -7,10 +7,12 @@ describes:
   - back-end/api/markets.py#delete_market
   - back-end/app.py#delete_market
   - front-end/e2e/market-records-go-with-it.spec.ts
-verified: 2026-10-29
+  - back-end/history.py#delete_for_market
+verified: 2026-10-30
 sources:
   - E20/F04/S01
   - bug/47
+  - E40/F01/S01
 ---
 
 # Market deletion, and the deletion trail
@@ -21,7 +23,7 @@ sources:
 
 | Name | What it does |
 | --- | --- |
-| `delete_market_and_records(markets, market_id)` | deletes the market's applications, check-ins, applicant sign-in codes, placement trail and vendor notes, then the market; returns the market's `DeleteResult` |
+| `delete_market_and_records(markets, market_id)` | deletes the market's applications, check-ins, applicant sign-in codes, history and vendor notes, then the market; returns the market's `DeleteResult` |
 | `record_organization_deletion(organization, markets, actor_email)` | writes one `organization_deleted` entry to `deletion_trail`, and raises rather than swallow a failure |
 | `entries_for_organization(org_id)` | every entry naming an organization; read-only, and nothing removes one; no caller yet |
 
@@ -37,10 +39,12 @@ Deleting the market document alone once left every vendor's name, email and answ
 | applications | `applications` | `delete_applications_for_market` ([the application document](../data/application-document.md)) |
 | check-ins | `attendance` | `delete_attendance_for_market` ([attendance and the door](attendance-and-door.md)) |
 | applicant sign-in codes | `applicant_login_challenges` | `delete_challenges_for_market` ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) |
-| the placement trail | `placement_history` | `delete_for_market` ([the placement history](../data/placement-history.md)) |
+| its history, the placement trail among it | `history` | `delete_for_market` in [`back-end/history.py`](../../../back-end/history.py) ([the market's history](../data/history.md)) |
 | the organizer's vendor notes | `vendor_notes` | `delete_for_market` in `back-end/vendor_notes.py` |
 
 **The records go first and the market last**, so a failure part-way leaves the market there to delete again, rather than records that nothing reaches.
+
+**The deletion trail stays apart from the market's history** ([ADR 0017](../../adr/0017-one-history-for-every-change.md)): the history is deleted with its market, and the trail must outlive what it describes.
 
 **The trail is written BEFORE anything is destroyed, and is allowed to fail the whole operation**: an organization deleted with no record of what went with it is the thing the trail exists for.
 Each entry names the organization, the person and the time, and describes each market as it stood (its name, phase, whether it ran, its placements and the public address it kept), never by id alone, since an id that points at nothing records nothing.
@@ -53,7 +57,7 @@ The collection is indexed on `organization_id` ([lookup indexes](../data/lookup-
 - [When an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md): the drafts and archived markets go, through here, after the trail.
 - [An archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md): deleting one takes a live check-in page and the record of a market that happened, which is why the trail describes what it took.
 
-`front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes or trail left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
+`front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes or history left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
 
 A market's own Delete, as its owner meets it, is [L5](../../business/flows/ending-and-managing-a-market.md#l5-delete-a-market).
 

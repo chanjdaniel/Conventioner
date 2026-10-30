@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py
   - back-end/guards.py#ResultsPublishedGuard
   - back-end/app.py#publish_market_results
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/02
@@ -51,11 +51,12 @@ An ADMIN or the owner, as with every action that tells people outside the market
 
 - `publish_results_refusal` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py) says the rule: refused on a CSV market, once already published, outside `assignment`, with nothing stored, or with the stored run [out of date](an-assignment-knows-when-it-is-out-of-date.md).
   `publish_results` asks it and sets `resultsPublished`; `POST /markets/:id/publish-results` ([`publish_market_results`](../../../back-end/app.py)) asks the table's Publish results row ([the market's actions](../../implementation/modules/market-actions.md)), ADMIN by default, and the archived rule first.
-- The market read serves the admin check and the rule as one `publishResultsReason`, and the counts as `publishOutcomes`, so the button is offered exactly when the endpoint would take it.
-  It serves the admin check alone as `publishResultsActionReason`: the button ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) is drawn on the Applications page, from `assignment` on only, for whoever that leaves null, and disabled with `publishResultsReason` until a current run is stored.
+- The market read serves who may, the table's Publish results answer in `actionRefusals`, and this rule apart, as `publishWaitsReason`, and the counts as `publishOutcomes` only while neither refuses.
+  The Applications page ([`PublishResults.vue`](../../../front-end/src/components/application/PublishResults.vue)) draws the button, from `assignment` on only, for whoever may publish, and disables it with the rule's words while it refuses, so it is offered exactly when the endpoint would take it.
 - [`back-end/result_outcome.py`](../../../back-end/result_outcome.py) is the one reading of who has a table, for the confirmation and for the applicant's page.
 - `ResultsPublishedGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md); whether the run is current is [what it was made from](../../implementation/modules/made-from.md).
 - `back-end/tests/test_publishing_settles_the_assignment.py` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it; a seed that publishes a `form` market publishes its results first ([the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
+- Publishing is recorded in [the market's history](../../implementation/data/history.md) (`publish-results`), with who published.
 
 ## Superseded
 

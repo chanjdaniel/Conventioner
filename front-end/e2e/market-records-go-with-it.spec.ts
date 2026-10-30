@@ -14,12 +14,7 @@ import { mongoEval } from './helpers/mongo';
  * describing a market nobody can reach any more.
  */
 
-const KEPT_WITH_A_MARKET = [
-  'applications',
-  'attendance',
-  'placement_history',
-  'applicant_login_challenges',
-];
+const KEPT_WITH_A_MARKET = ['applications', 'attendance', 'history', 'applicant_login_challenges'];
 
 /** One record of every kind a market keeps beside itself. */
 function seedRecords(marketId: string): void {
@@ -28,7 +23,7 @@ function seedRecords(marketId: string): void {
   mongoEval(`
     db.attendance.insertOne({ market_id: ${JSON.stringify(marketId)}, email: 'kept@example.test',
       date: '2099-08-01', checked_in_at: ${JSON.stringify(at)} });
-    db.placement_history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
+    db.history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
     db.applicant_login_challenges.insertOne({ market_id: ${JSON.stringify(marketId)},
       email: 'kept@example.test', expires_at: new Date(Date.now() + 3600 * 1000) });
   `);
@@ -59,7 +54,7 @@ test.beforeAll(async ({ request }) => {
   await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 });
 
-test('deleting a market deletes its applications, check-ins and trail', async ({
+test('deleting a market deletes its applications, check-ins and history', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -80,7 +75,7 @@ test('deleting a market deletes its applications, check-ins and trail', async ({
   await manage.deleteButton.click();
   // Said before it happens, now that it is true.
   await expect(page.getByTestId('manage-market-delete-consequence')).toContainText(
-    'with its applications, its assignment, its check-in records',
+    'with its applications, its assignments, its check-in records',
   );
   await manage.deleteConfirmButton.click();
   await expect(card).toHaveCount(0);

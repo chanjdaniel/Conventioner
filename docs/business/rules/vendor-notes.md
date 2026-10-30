@@ -55,3 +55,4 @@ The vendor, who has no role, never reads the organizer's side.
 
 - [Vendor notes](../../implementation/modules/vendor-notes.md) is the module: the `vendor_notes` collection that holds the organizer's side, and why it is a collection of its own.
 - The three endpoints are `get_vendor_notes`, `save_vendor_note` and `mark_vendor_request_handled` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the read joins each vendor's request in from their application, so every page reads both kinds from one place.
+- Each change of an organizer's note or of a handled mark is recorded in [the market's history](../../implementation/data/history.md) (`note`, `request_handled`); the history is read only by the market's readers, so a vendor never reads a note there either.
