@@ -239,7 +239,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
       <ul class="rows reset-changes" data-testid="manage-org-permissions-reset-changes">
         <li v-for="line in resetChanges" :key="line" class="confirm-text">{{ line }}</li>
       </ul>
-      <p class="confirm-text reach">{{ DEFAULT_REACHES }}</p>
+      <p class="confirm-text">{{ DEFAULT_REACHES }}</p>
     </AppDialog>
   </Teleport>
 </template>
@@ -293,9 +293,5 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-.reach {
-  margin-top: var(--space-3);
 }
 </style>
