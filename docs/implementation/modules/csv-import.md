@@ -22,6 +22,7 @@ sources:
   - bug/42
   - bug/27
   - E33/F03/S02
+  - E38/F02/S01
   - E41/F01/S01
   - E38/F04/S01
 ---
@@ -81,6 +82,7 @@ It warns and does not refuse: any value still unmatched must be settled by hand 
 
 **There is one mapping format**, `mapping_payload`: targets by header TEXT, never position, with the file's headers, the resolutions, when, and who made it (`madeBy`: the import, or the start from a CSV).
 The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
+A saved target the form lacks is skipped, which is how the start's left-out columns wait under their would-be keys ([the CSV proposal and start](csv-proposal-and-start.md)); the targets that are not questions (`RESERVED_TARGETS`: who applied, when, the sheet's note) are never a question's key: the start's `key_for` passes over them and the form's save refuses them.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
 **After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
