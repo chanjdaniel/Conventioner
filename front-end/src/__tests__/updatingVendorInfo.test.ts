@@ -334,7 +334,7 @@ describe('the answers the assignment reads, in the Update info dialog', () => {
 
   it('does not send a ranking the form fills in on opening', async () => {
     const wrapper = dialog(essentialApplication(), {
-      options: { ...OPTIONS, sections: ['Upper Atrium', 'Lower Atrium'] },
+      options: { ...OPTIONS, sections: ['Main Hall', 'Garden'] },
     });
 
     expect(wrapper.find(testid(`update-info-theirs-${SECTION_RANKING_KEY}`)).exists()).toBe(false);
