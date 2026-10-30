@@ -98,5 +98,6 @@ Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits 
 
 ## Why
 
+- [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup that this card stands beneath.
 - [What each role may do](../../business/rules/what-each-role-may-do.md): connecting and giving the role are an Admin's and the owner's (Q19).
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the rule this card is the stated exception to.

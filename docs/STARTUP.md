@@ -578,7 +578,7 @@ In the Developer Portal, add `http://127.0.0.1:5173/discord/connected` to the ap
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, discord_connection, and the floorplan modules)
+- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, vendor_info, discord_connection, and the floorplan modules)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)

@@ -32,7 +32,7 @@ sources:
 **Where they start:** Market Setup, the page a draft opens on ([`MarketPlanTab.vue`](../../../front-end/src/components/market/MarketPlanTab.vue)).
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
-Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form.
+Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form; beneath them stands the Discord card, outside the plan ([the Discord connection](../../implementation/modules/discord.md)).
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
@@ -113,7 +113,7 @@ Covered by: `floorplan.spec.ts` (grouping and editing are driven through store s
 ## E7. Edit the plan after Draft
 
 **Status:** Works, as changed by E31/F01: the setup no longer changes after Draft (read from the code: `setup_lock_reason` in `back-end/api/markets.py`; `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
-Once the market leaves Draft every card on Market Setup is disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once the market has moved on to importing").
+Once the market leaves Draft the plan's cards on Market Setup are disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once the market has moved on to importing").
 While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail." (from Applications Closed, two moves).
 The Application form card is not shown past Draft.
 On an archived market every page is read only, and says so (bug 30).
@@ -122,7 +122,8 @@ A person who may change nothing finds every card disabled too, and reads why onc
 What still changes after Draft, and where:
 
 - the assignment rules (priority and options), on the Assignment tab, until the market can no longer return to Assignment or its results are published ([J14](assignment-and-result.md#j14-the-rules-close-with-the-assignment));
-- what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
+- what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first));
+- the Discord card, in every phase until the market is archived, since it is a manual tool rather than part of the plan ([the Discord connection](../../implementation/modules/discord.md)).
 
 What else freezes, and when:
 
