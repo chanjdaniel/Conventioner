@@ -323,6 +323,21 @@ function addresses(value: unknown): string[] {
 }
 
 /**
+ * Whose share a decided application was, when it was someone other than who decided it
+ * (E38/F07/S02); empty when they decided their own, or it was never dealt.
+ */
+function someoneElses(entry: MarketHistoryEntry, reviewer: unknown): string {
+  const address = str(reviewer).trim();
+  return address.toLowerCase() === str(entry.actor).trim().toLowerCase() ? '' : address;
+}
+
+/** ", dealt to <address>" after a verdict on someone else's share, else nothing. */
+function dealtTo(entry: MarketHistoryEntry, reviewer: unknown): string {
+  const theirs = someoneElses(entry, reviewer);
+  return theirs ? `, dealt to ${theirs}` : '';
+}
+
+/**
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
  * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
  * a change this file has no words for yet; `path` is how the market's vendors arrive, so a phase
@@ -438,14 +453,22 @@ export function entryParts(
         ),
       ];
     case 'give-verdicts/verdict':
-      return [actor, text('set '), vendor, text(` to ${statusLabel(str(after.status))}`)];
+      return [
+        actor,
+        text('set '),
+        vendor,
+        text(` to ${statusLabel(str(after.status))}${dealtTo(entry, detail.dealt_to)}`),
+      ];
     // A verdict already given, changed (E38/F06/S01): what it was is the point of the entry.
     case 'change-verdicts/verdict':
       return [
         actor,
         text('changed '),
         vendor,
-        text(` from ${statusLabel(str(before.status))} to ${statusLabel(str(after.status))}`),
+        text(
+          ` from ${statusLabel(str(before.status))} to ${statusLabel(str(after.status))}` +
+            dealtTo(entry, detail.dealt_to),
+        ),
       ];
     case 'give-verdicts/verdicts':
     case 'change-verdicts/verdicts': {
@@ -457,9 +480,13 @@ export function entryParts(
         text(`set ${plural(entry.vendors.length, 'application', 'applications')}`),
         text(statuses.length && new Set(statuses).size === 1 ? ` to ${statuses[0]}: ` : ': '),
       ];
+      const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+      const dealt = asDetail(detail.dealt_to);
       entry.vendors.forEach((email, index) => {
         if (index) parts.push(text(', '));
         parts.push(who(email));
+        const theirs = someoneElses(entry, dealt[str(ids[index])]);
+        if (theirs) parts.push(text(` (dealt to ${theirs})`));
       });
       return parts;
     }
@@ -772,9 +799,24 @@ export function entryChanges(
     .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
     .map(([key, value]) => ({
       field: fieldName(key),
-      value: key === 'date' ? day(value) : valueText(value),
+      value:
+        key === 'date'
+          ? day(value)
+          : key === 'dealt_to' && value && typeof value === 'object'
+            ? eachDealtTo(entry, asDetail(value))
+            : valueText(value),
     }));
   return { changed, recorded };
+}
+
+/** A selection's `dealt_to`, by application id, as each vendor's address and whose share it was. */
+function eachDealtTo(entry: MarketHistoryEntry, dealt: Detail): string {
+  const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+  return ids
+    .map((id, index) => [str(entry.vendors[index]), str(dealt[str(id)])])
+    .filter(([, reviewer]) => reviewer)
+    .map(([vendor, reviewer]) => `${vendor}: ${reviewer}`)
+    .join(', ');
 }
 
 /** The instant a day starts in the reader's timezone, as the history's `since` reads it. */

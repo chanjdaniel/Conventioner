@@ -504,6 +504,80 @@ describe('who reviews which application (E38/F07/S02)', () => {
   });
 });
 
+describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => {
+  const SAM = 'sam@example.com';
+  const verdict = (dealtTo?: string, action = 'give-verdicts'): MarketHistoryEntry =>
+    entry({
+      action,
+      kind: 'verdict',
+      subject: { application_id: 'a1' },
+      detail: {
+        before: { status: 'open' },
+        after: { status: 'reviewer_approved' },
+        ...(dealtTo ? { dealt_to: dealtTo } : {}),
+      },
+    });
+
+  it('names whose share it was when someone else decided it', () => {
+    expect(said(entryParts(verdict(SAM), NAMES))).toBe(
+      `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
+    );
+    expect(said(entryParts(verdict(SAM), NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
+      `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
+    );
+  });
+
+  it('adds nothing when the reviewer decided their own, or it was never dealt', () => {
+    expect(said(entryParts(verdict('dana@ember.test'), NAMES))).toBe(
+      'dana@ember.test set [Ana Rivera] to Approved',
+    );
+    expect(said(entryParts(verdict(), NAMES))).toBe('dana@ember.test set [Ana Rivera] to Approved');
+  });
+
+  it('names it on a change of verdict too', () => {
+    expect(
+      said(
+        entryParts(
+          {
+            ...verdict(SAM, 'change-verdicts'),
+            detail: {
+              before: { status: 'reviewer_rejected' },
+              after: { status: 'reviewer_approved' },
+              dealt_to: SAM,
+            },
+          },
+          NAMES,
+        ),
+      ),
+    ).toBe(`dana@ember.test changed [Ana Rivera] from Rejected to Approved, dealt to ${SAM}`);
+  });
+
+  it('names it beside each vendor of a selection dealt to someone else', () => {
+    const selection = entry({
+      action: 'give-verdicts',
+      kind: 'verdicts',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      subject: { application_ids: ['a1', 'a2'] },
+      detail: {
+        before: { a1: { status: 'open' }, a2: { status: 'open' } },
+        after: { a1: { status: 'reviewer_rejected' }, a2: { status: 'reviewer_rejected' } },
+        dealt_to: { a1: SAM, a2: 'dana@ember.test' },
+      },
+    });
+
+    expect(said(entryParts(selection, NAMES))).toBe(
+      `dana@ember.test set 2 applications to Rejected: [Ana Rivera] (dealt to ${SAM}), [Ben Okafor]`,
+    );
+    expect(entryChanges(selection).recorded).toEqual([
+      { field: 'Dealt to', value: `ana@ember.test: ${SAM}, ben@ember.test: dana@ember.test` },
+    ]);
+  });
+
+  it('opens a verdict to whose share it was', () => {
+    expect(entryChanges(verdict(SAM)).recorded).toEqual([{ field: 'Dealt to', value: SAM }]);
+  });
+});
+
 describe('a placement, in the whole history and in the drawer', () => {
   /** One placement change as both read it: stored, as the whole history serves it, and recased,
    * as the placement trail serves it to the drawer. */
