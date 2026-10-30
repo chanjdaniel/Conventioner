@@ -156,14 +156,25 @@ class TestTheRow:
             "change-verdicts": {"role": "viewer", "source": "market"}})) if r["id"] == "give-verdicts")
         assert giving["whoMay"] == "an Editor, an Admin or the owner"
 
+    def test_is_refused_with_the_giving_rows_words_to_someone_that_row_refuses(self):
+        rows = {"change-verdicts": {"role": "viewer", "source": "market"}}
+
+        refused = MarketsApi.role_action_refusals(MarketRole.VIEWER, MarketPhase.APPLICATIONS, rows)
+
+        assert refused["change-verdicts"] == (
+            "Only an Editor, an Admin or the owner may give verdicts and follow-ups on this market.")
+
     def test_the_market_read_answers_it_for_each_role(self):
         rows = {}
         for role in MarketRole:
             refusals = MarketsApi.role_action_refusals(role, MarketPhase.APPLICATIONS, {})
             rows[role] = refusals["change-verdicts"]
 
-        assert rows == {MarketRole.VIEWER: CHANGE_REFUSED, MarketRole.EDITOR: CHANGE_REFUSED,
-                        MarketRole.ADMIN: None, MarketRole.OWNER: None}
+        # A Viewer is refused the giving row first, in its words: a change takes both.
+        assert rows == {
+            MarketRole.VIEWER:
+                "Only an Editor, an Admin or the owner may give verdicts and follow-ups on this market.",
+            MarketRole.EDITOR: CHANGE_REFUSED, MarketRole.ADMIN: None, MarketRole.OWNER: None}
 
 
 GIVING = [(app_id, status) for app_id in ("open", "follow-up") for status in (APPROVED, REJECTED)]
@@ -415,6 +426,42 @@ class TestAWriteThatJudgesAgain:
             MarketPerson(user_id="user-someone", email="someone@market.test"))
 
         assert ruled_out["status"] == status.value
+
+    @pytest.mark.parametrize("write", ["rules", "form", "vendor-info", "import"])
+    def test_none_overturns_for_someone_the_giving_row_refuses_though_the_change_row_allows(
+        self, ruled_out, holding, monkeypatch, write,
+    ):
+        """A change takes both rows: with the change row set below the giving row, an Editor the
+        giving row refuses overturns nothing by any write that judges the rules again."""
+        rows = {"give-verdicts": {"role": "admin", "source": "market"},
+                "change-verdicts": {"role": "editor", "source": "market"}}
+        market = _rules_market(NO_SHOW_RULE).model_copy(update={"permissions": rows})
+        holding(MarketRole.EDITOR)
+
+        assert MarketsApi.may_overturn("someone@market.test", market) is False
+        if write == "rules":
+            monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: market)
+            MarketsApi.save_rejection_rules("market-1", [], "someone@market.test")
+        elif write == "form":
+            without_it = market.model_copy(update={"application_form": ApplicationForm(fields=[])})
+            monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: without_it)
+            monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: {})
+            monkeypatch.setattr(MarketsApi, "load_market_context",
+                                lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
+            MarketsApi.save_application_form("market-1", {"fields": []}, "someone@market.test")
+        elif write == "vendor-info":
+            import api.vendor_info as VendorInfoApi
+            from datatypes import MarketPerson
+
+            monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: market)
+            VendorInfoApi.update_vendor_info(
+                "market-1", "ruled-out", {"no_shows": True},
+                MarketPerson(user_id="user-someone", email="someone@market.test"))
+        else:
+            assert not Actions.may(Actions.CHANGE_VERDICTS, "someone@market.test", market, None)
+            return  # the import asks the same ``may_overturn``, pinned in ``TestAnImport``
+
+        assert ruled_out["status"] == REJECTED.value
 
     def test_an_applicants_own_change_still_returns_it(self, ruled_out):
         """The applicant changed the answer the rule read; nobody overturned a decision."""

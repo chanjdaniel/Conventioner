@@ -101,7 +101,7 @@ See [the organization document](../../implementation/data/organization-document.
 - **Giving a verdict and changing one are two rows** (E38/F06/S01): every review write asks "Give verdicts and follow-ups" (`_reviewer_on`), and a verdict or a selection's asks "Change a verdict, or overturn an automatic rejection" too, of each application it writes that is already approved or rejected.
   A single verdict on one is refused with a 403 and the row's sentence ("Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."), a selection skips each with that sentence, and the write itself refuses one decided since the reviewer saw it, so a verdict landing in between is the 409 it always was.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).
-  So a change takes both rows: with the change row set below the giving row, someone the giving row refuses still changes nothing.
+  So a change takes both rows (the change row is asked on top of the giving row, `on_top_of`): with the change row set below the giving row, someone the giving row refuses still changes nothing and overturns nothing, by a verdict or by any write that judges the rules again, and is told the giving row's words.
   [`back-end/tests/test_changing_a_verdict_is_its_own_row.py`](../../../back-end/tests/test_changing_a_verdict_is_its_own_row.py) pins each role and each move, and a market whose owner moved the row.
 - A follow-up's owner is anyone with a role on the market by this rule, explicit or through its organization, members included ([needs follow-up](needs-follow-up.md)).
 

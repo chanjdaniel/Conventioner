@@ -38,7 +38,8 @@ A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, 
 
 ## The interface
 
-**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal), `fixed` (a row nobody may change) and `on_top_of` (the row it is asked on top of, whose check comes first: the change row rides on the giving row, E38/F06/S01).
+**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal), `fixed` (a row nobody may change) and `on_top_of` (the row it is asked on top of: the change row rides on the giving row, E38/F06/S01).
+**A row on top of another takes both**: `refusal` and `role_refusal` ask the row under it first and answer in its words, so every check of the change row (the verdict writes, `may_overturn` for each write that judges the rules again, and `actionRefusals` on the market read) refuses whoever the giving row refuses, wherever its owner set the change row, and `who_may` names the stricter of the two for `whoMay`.
 `action(...)` adds a row to `ACTIONS` and returns it, and refuses an id the table already has; each row is a module constant (`MOVE_PHASE`, `ASSIGN`, ...).
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.

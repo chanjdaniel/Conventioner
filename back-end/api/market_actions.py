@@ -37,8 +37,8 @@ class Action:
     #: What the action is, after "may", in the refusal's sentence: "move this market's phase".
     may_what: str
     fixed: bool = False
-    #: The row this action is asked on top of, if any: taking it takes both, so who may is the
-    #: stricter of the two (``who_may``).
+    #: The row this action is asked on top of, if any: taking it takes both, so ``refusal`` and
+    #: ``role_refusal`` ask that row first, and ``who_may`` names the stricter of the two.
     on_top_of: Optional["Action"] = None
 
 
@@ -219,8 +219,12 @@ def refusal(
 
     The row asks the market's role for it (``minimum_role``). The person's role is the one
     ``get_user_market_role`` resolves: the market's own and the one its organization gives, the
-    higher counting.
+    higher counting. A row asked on top of another asks that one first, in its own words.
     """
+    if row.on_top_of is not None:
+        under = refusal(row.on_top_of, user_email, market, organization)
+        if under:
+            return under
     required = minimum_role(row, market)
     if PermissionsApi.user_has_permission(user_email, market, required, organization):
         return None
@@ -233,8 +237,13 @@ def role_refusal(
     """``refusal`` for a role already resolved, on a market holding ``rows``: the market read
     resolves the person's role once and asks every row of it, and the markets list resolves each
     entry's role from the documents it holds (``_summary_role``) and passes the document's stored
-    rows; each asks the row of that rather than resolving it again.
+    rows; each asks the row of that rather than resolving it again. A row asked on top of another
+    asks that one first, as ``refusal`` does.
     """
+    if row.on_top_of is not None:
+        under = role_refusal(row.on_top_of, role, rows)
+        if under:
+            return under
     required = _minimum_role_of(row, rows)
     if PermissionsApi.role_reaches(role, required):
         return None
