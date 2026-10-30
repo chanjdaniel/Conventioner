@@ -1,5 +1,6 @@
 /**
- * Every change on a market, as a person reads it (E40/F01/S03).
+ * Every change on a market, as a person reads it (E40/F01/S03), and an organization's own changes
+ * (E40/F02/S01), which the same history keeps and Manage organization reads.
  *
  * The back end stores each entry structured - the table's action, a finer kind, the vendors, a
  * subject and a detail of the fields before and after (`back-end/history.py`,
@@ -548,12 +549,15 @@ export function entryParts(
         : [vendor, text(` undid their check-in on the check-in page${onDay(entry.subject.date)}`)];
     case 'manage-editors-and-viewers/role_given':
     case 'manage-admins/role_given':
+    case 'manage-organization-admins/role_given':
+    case 'manage-organization-members/role_given':
       return [
         actor,
         text(`gave ${str(entry.subject.email)} the ${getRoleDisplayName(str(after.role))} role`),
       ];
     case 'manage-editors-and-viewers/role_changed':
     case 'manage-admins/role_changed':
+    case 'manage-organization-admins/role_changed':
       return [
         actor,
         text(
@@ -563,6 +567,8 @@ export function entryParts(
       ];
     case 'manage-editors-and-viewers/role_taken':
     case 'manage-admins/role_taken':
+    case 'manage-organization-admins/role_taken':
+    case 'manage-organization-members/role_taken':
       return [
         actor,
         text(
@@ -600,6 +606,49 @@ export function entryParts(
         actor,
         text(
           after.applications_stopped ? 'stopped taking applications' : 'took applications again',
+        ),
+      ];
+    case 'change-organization/renamed':
+      return [
+        actor,
+        text(`renamed the organization from "${str(before.name)}" to "${str(after.name)}"`),
+      ];
+    case 'transfer-organization/':
+      return [actor, text(`handed the organization to ${str(entry.subject.email)}`)];
+    case 'create-market/':
+      return [actor, text(`created the market "${str(after.name)}"`)];
+    case 'delete-market/':
+      return [actor, text(`deleted the market "${str(before.name)}"`)];
+    case 'manage-floorplan-templates/template_added':
+      return [actor, text(`added the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_changed':
+      return [actor, text(`changed the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_removed':
+      return [actor, text(`removed the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_moved_out':
+      return [
+        actor,
+        text(`moved the floorplan template "${str(entry.subject.name)}" out of the organization`),
+      ];
+    case 'manage-floorplan-templates/template_moved_in':
+      return [
+        actor,
+        text(`moved the floorplan template "${str(entry.subject.name)}" into the organization`),
+      ];
+    case 'change-the-default/permission_set':
+      return [
+        actor,
+        text(
+          `changed ${rowLabel(entry, labels)} for new markets from ` +
+            `${getRoleDisplayName(str(before.role))} to ${getRoleDisplayName(str(after.role))}`,
+        ),
+      ];
+    case 'change-the-default/permission_reset':
+      return [
+        actor,
+        text(
+          `set ${rowLabel(entry, labels)} for new markets back to its default, ` +
+            getRoleDisplayName(str(after.role)),
         ),
       ];
     case 'apply/submitted':
@@ -661,9 +710,41 @@ const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
   source: (source) => PERMISSION_SOURCES[source] ?? source,
 };
 
+/** A floorplan template's aisle settings, in the order its layout reads them. */
+const AISLES: Array<[string, string]> = [
+  ['wallBufferMm', 'wall buffer'],
+  ['tableSpacingMm', 'table spacing'],
+  ['walkwayWidthMm', 'walkway'],
+];
+
+/** The stored values that are lists or objects, in words rather than JSON: a floorplan template's
+ * table types, each its name and size, and its aisles. */
+const WORDED_VALUES: Partial<Record<string, (value: unknown) => string>> = {
+  table_types: (value) =>
+    Array.isArray(value) && value.length
+      ? value
+          .map(asDetail)
+          // A size never breaks across lines: "915 ×" over "760 mm" reads as two values.
+          .map(
+            (type) =>
+              `${str(type.name)} ${str(type.widthMm)}\u00a0×\u00a0${str(type.heightMm)}\u00a0mm`,
+          )
+          .join(', ')
+      : 'none',
+  aisles: (value) => {
+    const aisles = asDetail(value);
+    const set = AISLES.filter(([key]) => aisles[key] !== undefined && aisles[key] !== null);
+    return set.length
+      ? set.map(([key, words]) => `${words} ${str(aisles[key])}\u00a0mm`).join(', ')
+      : 'none';
+  },
+};
+
 /** A field's value as the screens name it, a phase as the market's `path` does, else as
  * `valueText` draws it. */
 export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
+  const worded = WORDED_VALUES[key];
+  if (worded) return worded(value);
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
   return name && typeof value === 'string' && value ? name(value) : valueText(value);
 }

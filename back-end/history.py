@@ -8,6 +8,11 @@ to placements. What is state stays where it is - an application's verdict, the m
 ``phaseHistory`` - and its changes are recorded here as well. The deletion trail (``deletion_trail.py``) stays apart, because it
 must outlive what it describes and this history is deleted with its market.
 
+**An organization's own changes are recorded here too** (E40/F02/S01): its people, its name,
+ownership handed on, a market created in it or deleted, and its floorplan templates, each an entry keyed by ``organization_id`` in
+place of ``market_id``, read in Manage organization and deleted with the organization. Its kinds
+for the organization's default rows wait for E39/F02/S01 to write them.
+
 **An entry says what happened, never a sentence**: the ``E39`` action it was
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
 kind where one action covers several changes, the vendors it is about, whatever else it is about,
@@ -26,8 +31,9 @@ may be exported, shared, or handed to a successor organizer. That was weighed an
 placements (readable-journey ticket 08) and widened to every change on Daniel's word (Q23).
 
 Storage contract: documents are persisted snake_case with the market foreign key ``market_id``,
-matching ``applications`` rather than ``markets`` - and, like applications, every reader and
-writer goes through this module. A market's history is deleted with the market.
+matching ``applications`` rather than ``markets`` - or, for an organization's own change,
+``organization_id`` - and, like applications, every reader and writer goes through this module.
+A market's history is deleted with the market, and an organization's with the organization.
 """
 import logging
 import uuid
@@ -42,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 HISTORY_COLLECTION = "history"
 MARKET_ID_FIELD = "market_id"
+ORGANIZATION_ID_FIELD = "organization_id"
 # The placement history's old collection, read beside ``history`` until every database has run
 # ``migrations/migrate_placement_history.py``; a later release removes it (ADR 0017).
 LEGACY_PLACEMENT_COLLECTION = "placement_history"
@@ -116,8 +123,8 @@ def record(
 
     A detail that builds to None is a write that changed nothing, and records nothing.
     """
-    _write(market_id, actor, action if isinstance(action, str) else action.id, kind, vendors,
-           subject, detail)
+    _write({MARKET_ID_FIELD: market_id}, actor, action if isinstance(action, str) else action.id,
+           kind, vendors, subject, detail)
 
 
 def record_applicant(
@@ -128,8 +135,8 @@ def record_applicant(
     No row of the table asks it - the applicant holds no role, and their sign-in is the check - so
     its action is the history's own ``apply``.
     """
-    _write(market_id, applicant, APPLY, kind, [applicant], {"application_id": application_id},
-           detail)
+    _write({MARKET_ID_FIELD: market_id}, applicant, APPLY, kind, [applicant],
+           {"application_id": application_id}, detail)
 
 
 def _built(part: Part) -> Optional[Dict[str, Any]]:
@@ -137,16 +144,17 @@ def _built(part: Part) -> Optional[Dict[str, Any]]:
 
 
 def _write(
-    market_id: str, actor: Optional[str], action_id: str, kind: Optional[str],
+    owner: Dict[str, str], actor: Optional[str], action_id: str, kind: Optional[str],
     vendors: Iterable[str], subject: Part, detail: Part,
 ) -> None:
+    """Write one entry of the market or the organization ``owner`` names, by its key."""
     try:
         built = _built(detail)
         if built is None:
             return
         history_collection.insert_one({
             "id": str(uuid.uuid4()),
-            MARKET_ID_FIELD: market_id,
+            **owner,
             "actor": actor,
             "at": _now(),
             "action": action_id,
@@ -160,7 +168,9 @@ def _write(
     except Exception as e:
         # The error's type and the entry's ids, never its text: a driver's message can quote the
         # document it refused, and an entry holds answers and addresses.
-        logger.warning("Could not record %s on market %s: %s", kind or action_id, market_id,
+        [(key, owner_id)] = owner.items()
+        logger.warning("Could not record %s on %s %s: %s", kind or action_id,
+                       "market" if key == MARKET_ID_FIELD else "organization", owner_id,
                        type(e).__name__)
 
 
@@ -348,9 +358,14 @@ def _page_query(
     if until:
         clauses.append({"at": {"$lt": until}})
     if before:
-        at, entry_id = before
-        clauses.append({"$or": [{"at": {"$lt": at}}, {"at": at, "id": {"$lt": entry_id}}]})
+        clauses.append(_before_clause(before))
     return clauses[0] if len(clauses) == 1 else {"$and": clauses}
+
+
+def _before_clause(before: Tuple[str, str]) -> Dict[str, Any]:
+    """The entries after the one ``before`` names, in the newest-first order."""
+    at, entry_id = before
+    return {"$or": [{"at": {"$lt": at}}, {"at": at, "id": {"$lt": entry_id}}]}
 
 
 def entries_page(
@@ -432,3 +447,78 @@ def permission_entries(market_id: str) -> List[Dict[str, Any]]:
     query = {MARKET_ID_FIELD: market_id, "action": CHANGE_THE_TABLE.id}
     projection = {"_id": 0, **{field: 1 for field in _PERMISSION_FIELDS}}
     return _newest_first(history_collection.find(query, projection))
+
+
+# --- The organization's own changes (E40/F02/S01) ------------------------------------------
+#
+# An organization has no table of its own: who may change it is its owner's and its admins' rule
+# (``api.organizations``). So its actions are the history's own verbs, one per kind of change, as
+# ``apply`` is for an applicant; a market's are the table's rows. The kinds are the market's where
+# the change is the same: a person given, changed or taken a role, a name changed, a row set.
+
+#: Renaming the organization; its kind is ``renamed``, as a market's rename is.
+CHANGE_ORGANIZATION = "change-organization"
+#: An admin added, removed, or a member made one: ``role_given``, ``role_changed``, ``role_taken``.
+MANAGE_ORGANIZATION_ADMINS = "manage-organization-admins"
+#: A member added or removed: ``role_given``, ``role_taken``.
+MANAGE_ORGANIZATION_MEMBERS = "manage-organization-members"
+#: Ownership handed to someone else, one entry for the one act; no kind.
+TRANSFER_ORGANIZATION = "transfer-organization"
+#: A market created in the organization, which starts its own history empty; no kind.
+CREATE_MARKET = "create-market"
+#: A market of the organization deleted, by the table's own row: its history goes with it, so the
+#: organization's keeps that it went; no kind.
+DELETE_MARKET = "delete-market"
+#: A floorplan template filed under the organization added, changed or removed.
+MANAGE_FLOORPLAN_TEMPLATES = "manage-floorplan-templates"
+TEMPLATE_ADDED = "template_added"
+TEMPLATE_CHANGED = "template_changed"
+TEMPLATE_REMOVED = "template_removed"
+#: A template filed under another organization, or none, read in the one it left; and in the one
+#: it was filed under, as arriving. Neither names the other organization.
+TEMPLATE_MOVED_OUT = "template_moved_out"
+TEMPLATE_MOVED_IN = "template_moved_in"
+#: A row of the organization's default table set or reset, ``permission_set`` and
+#: ``permission_reset`` with the market's subject and detail (E39/F02/S01 writes it).
+CHANGE_THE_DEFAULT = "change-the-default"
+
+
+def record_for_organization(
+    organization_id: str, actor: Optional[str], action_id: str, *, kind: Optional[str] = None,
+    subject: Part = None, detail: Part,
+) -> None:
+    """Write one entry of an organization's own history. Never raises, as ``record`` never does:
+    the change it records has already landed."""
+    _write({ORGANIZATION_ID_FIELD: organization_id}, actor, action_id, kind, (), subject, detail)
+
+
+def delete_for_organization(organization_id: str) -> int:
+    """Take an organization's own history with the organization. Returns how many entries went.
+
+    Its markets' histories go with each market, as it is deleted; the deletion trail, which
+    outlives both, records what went.
+    """
+    return history_collection.delete_many({ORGANIZATION_ID_FIELD: organization_id}).deleted_count
+
+
+_ORGANIZATION_ENTRY_PROJECTION = {"_id": 0, ORGANIZATION_ID_FIELD: 0}
+
+
+def organization_entries_page(
+    organization_id: str, *, before: Optional[Union[str, Tuple[str, str]]] = None,
+    limit: int = PAGE_SIZE,
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """One page of an organization's own history, newest first, and the cursor to the page after
+    it, or None when it is the last: the market's paging, on the (organization_id, at, id) index."""
+    if isinstance(before, str):
+        before = parse_cursor(before)
+    limit = max(1, min(limit, PAGE_SIZE))
+    clauses: List[Dict[str, Any]] = [{ORGANIZATION_ID_FIELD: organization_id}]
+    if before:
+        clauses.append(_before_clause(before))
+    query = clauses[0] if len(clauses) == 1 else {"$and": clauses}
+    entries = list(history_collection.find(query, _ORGANIZATION_ENTRY_PROJECTION)
+                   .sort(_NEWEST_FIRST).limit(limit + 1))
+    if len(entries) > limit:
+        return entries[:limit], _cursor(entries[limit - 1])
+    return entries, None

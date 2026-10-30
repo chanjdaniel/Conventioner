@@ -244,6 +244,20 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // Its History section, loaded, with an entry opened to its before and after (E40/F02/S01):
+    // the seeded organization's market, created in it.
+    name: "the manage-organization dialog's history, an entry open",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      fixed('/organizations'),
+      'organization-card',
+      ['organizations-manage-button', 'manage-org-history-toggle'],
+      ['manage-org-history-toggle', 'org-history-entry'],
+      ['org-history-toggle', 'org-history-changes'],
+    ),
+  },
+  {
     name: 'the start page',
     who: 'organizer',
     sizes: ORGANIZER,

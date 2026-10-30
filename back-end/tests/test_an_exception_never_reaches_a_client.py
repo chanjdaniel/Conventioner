@@ -385,7 +385,7 @@ class TestEveryOtherModulesRefusals:
 ORGANIZATION_AND_ROLE_ROUTES = [
     ("get", "/organizations", None, OrgsApi, "get_organizations_for_user"),
     ("post", "/organizations", {"name": "Spring Collective"}, OrgsApi, "create_organization"),
-    ("get", f"/organizations/{ORG_ID}", None, OrgsApi, "get_organization"),
+    ("get", f"/organizations/{ORG_ID}", None, OrgsApi, "read_organization"),
     ("put", f"/organizations/{ORG_ID}", {"name": "Renamed"}, OrgsApi, "update_organization"),
     ("get", f"/organizations/{ORG_ID}/deletion-preview", None,
      OrgsApi, "organization_deletion_preview"),

@@ -3,6 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/MarketHistory.vue
+  - front-end/src/components/HistorySection.vue
+  - front-end/src/components/HistoryEntries.vue
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
@@ -19,7 +21,7 @@ sources:
 # Reading the market's history
 
 **Who:** anyone who may read the market's history, its row "Read the market's history", Viewer by default ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
+**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), its heading [`HistorySection.vue`](../../../front-end/src/components/HistorySection.vue) and its list of changes [`HistoryEntries.vue`](../../../front-end/src/components/HistoryEntries.vue), both shared with Manage organization's History ([B7](organizations.md#b7-read-the-organizations-history)), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
 
 Every change on a market is recorded once, in one history: who, what, when, and what it was before and after ([the market's history](../../implementation/data/history.md)).
 An organizer reads it to investigate a problem or a mistake, which is why it lives in Manage market, a step away from the market's daily running (Daniel, T92 Q24 and Q25).
@@ -37,6 +39,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase reads as that market's other screens name it, a status and a role as the screens name them, and where a permission row came from as "Built in", "The organization's default" or "This market"; a reset of the whole table opens to each row it returned, by its label, as its role and where it came from ("Admin, This market" to "Editor, Built in").
 5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.
+   A change made in the dialog (a person given, changed or taken a role, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (anyone who changed something as an organizer), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, The door, People), "Vendor" (a name or part of an address, offering the market's vendors who gave a name and every address a loaded change names; while it matches several it says "2 vendors match. Keep typing, or choose one.", and a name or address that matches nobody narrows the list to nothing), and "From" and "To" (calendar days in the reader's timezone, both kept).
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.
 
