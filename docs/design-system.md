@@ -14,7 +14,7 @@ describes:
   - front-end/e2e/layout-detectors.spec.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
-verified: 2026-10-30
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
@@ -295,7 +295,7 @@ Translucent tints took on the beige review card beneath them and fell below AA t
 
 Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, sixty button-ish class names, two designs for the same `Manage` button.
 
-Three primitives own height, padding, radius, type and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
+Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Reach for a primitive rather than deciding again.
 They and `AppDialog` are the app's components: it installs no component library, and a widget too hard to own starts from a headless one styled with these tokens ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
