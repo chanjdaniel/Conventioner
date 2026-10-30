@@ -51,8 +51,8 @@ Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 | Route | Function | Does |
 | --- | --- | --- |
-| `POST /markets/:id/assignment` | `run_assignment` | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md) |
-| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date |
+| `POST /markets/:id/assignment` | `run_assignment` | runs the solver over the approved applications and stores what it produced, with [what it was made from](made-from.md); a day it seats forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
+| `PUT /markets/:id/placements` | `write_placement` | places one vendor in one seat on one date, replacing whatever they held that date; the day forgets that vendor's freed line, and the $0 a free's deduction set on it ([payments](../data/payments.md)) |
 | `DELETE /markets/:id/placements` | `remove_placement` | frees the seat one vendor holds on one date, first keeping the seat's line of what they owe for it, which freeing never changes ([payments](../data/payments.md)), unless `deductOwed` asks that it owe $0, which asks the row "Change the amount owed" too, before anything is freed; freeing a seat nobody holds is not an error |
 | `POST /markets/:id/placements/swap` | `swap_placements` | trades two vendors' seats on one date in one document update: both change or neither does |
 

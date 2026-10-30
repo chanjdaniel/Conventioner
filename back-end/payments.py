@@ -165,22 +165,30 @@ def keep_freed_line(market_id: str, vendor_email: str, date: str, seat: Seat, by
 def clear_freed_lines(market_id: str, seated: Iterable[Tuple[str, str]]) -> None:
     """Forget the freed line of each ``(vendor, date)`` seated again: the line reads the new seat,
     and a freed record left behind would come back as the line if that seat went some other way
-    than a free."""
+    than a free. A $0 the free's deduction set goes with it, since it was about the freed table;
+    an amount an Admin set by hand stays, as it holds whatever the seat does."""
     wanted = {(normalized_email(email), date) for email, date in seated}
     if not wanted:
         return
     for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
         key = (doc.get(VENDOR_EMAIL_FIELD), doc.get("date"))
         if doc.get("freed") and key in wanted:
-            amounts_owed_collection.update_one(
-                _owed_key(market_id, *key), {"$set": {"freed": None}})
+            cleared: Dict[str, Any] = {"freed": None}
+            if (doc.get("set_by_hand") or {}).get("by_free"):
+                cleared["set_by_hand"] = None
+            amounts_owed_collection.update_one(_owed_key(market_id, *key), {"$set": cleared})
 
 
-def set_amount_owed(market_id: str, vendor_email: str, date: str, cents: int, by: str) -> None:
-    """Set what a vendor owes for one table-day by hand, over what the pricing calculates."""
+def set_amount_owed(
+    market_id: str, vendor_email: str, date: str, cents: int, by: str, by_free: bool = False,
+) -> None:
+    """Set what a vendor owes for one table-day by hand, over what the pricing calculates.
+    ``by_free`` marks the $0 a free's deduction sets, which seating the day again takes back."""
+    set_by_hand: Dict[str, Any] = {"cents": cents, "by": by, "at": _now()}
+    if by_free:
+        set_by_hand["by_free"] = True
     amounts_owed_collection.find_one_and_update(
-        _owed_key(market_id, vendor_email, date),
-        {"$set": {"set_by_hand": {"cents": cents, "by": by, "at": _now()}}},
+        _owed_key(market_id, vendor_email, date), {"$set": {"set_by_hand": set_by_hand}},
         upsert=True,
     )
 

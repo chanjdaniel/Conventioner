@@ -122,13 +122,16 @@ export function lineSource(line: PaymentLine): { text: string; freedOn: string |
   };
 }
 
-/** An entry as it reads: "Cash, paid Friday, April 3, 2099", or "Refund by e-transfer, …". */
-export function entryText(payment: Payment): string {
+/**
+ * An entry as it reads, "Cash, paid" and "Friday, April 3, 2099", or "Refund by e-transfer, given"
+ * and its day: the day apart, so the screen keeps it on one line.
+ */
+export function entryText(payment: Payment): { text: string; day: string } {
   const day = getFormattedDate(payment.paidOn) ?? payment.paidOn;
   if (payment.kind === 'refund') {
-    return `Refund by ${methodLabel(payment.method).toLowerCase()}, given ${day}`;
+    return { text: `Refund by ${methodLabel(payment.method).toLowerCase()}, given`, day };
   }
-  return `${methodLabel(payment.method)}, paid ${day}`;
+  return { text: `${methodLabel(payment.method)}, paid`, day };
 }
 
 /** The last change to an entry since it was recorded, "Edited by …" or "Removed by …", shown

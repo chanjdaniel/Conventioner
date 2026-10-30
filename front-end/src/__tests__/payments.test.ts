@@ -137,10 +137,11 @@ const ENTRY: Payment = {
 
 describe('an entry', () => {
   it('reads as a payment, or as a refund given back', () => {
-    expect(entryText(ENTRY)).toBe('Cash, paid Friday, April 3, 2099');
-    expect(entryText({ ...ENTRY, kind: 'refund', cents: -3500, method: 'e-transfer' })).toBe(
-      'Refund by e-transfer, given Friday, April 3, 2099',
-    );
+    expect(entryText(ENTRY)).toEqual({ text: 'Cash, paid', day: 'Friday, April 3, 2099' });
+    expect(entryText({ ...ENTRY, kind: 'refund', cents: -3500, method: 'e-transfer' })).toEqual({
+      text: 'Refund by e-transfer, given',
+      day: 'Friday, April 3, 2099',
+    });
   });
 
   it('says a refund’s amount as money given back', () => {

@@ -250,6 +250,6 @@ def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> 
     before = _line(market, address, date)
     if before is None:
         return
-    Payments.set_amount_owed(market.id, address, date, 0, by)
+    Payments.set_amount_owed(market.id, address, date, 0, by, by_free=True)
     _record_owed(market, by, address, date, History.OWED_SET, before,
                  _line(market, address, date))

@@ -20,7 +20,7 @@ import api.market_actions as Actions
 import history as History
 import payments as Payments
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
-from datatypes import MarketPhase, MarketRole
+from datatypes import MarketPhase, MarketRole, VendorAssignmentResult
 
 MARKET = "market-123"
 ANA = "ana@example.com"
@@ -196,16 +196,31 @@ class TestFreeingATable:
             if seat["date"] != SUN]
         assert [line["date"] for line in account()["lines"]] == [SAT]
 
-    def test_a_run_that_seats_a_freed_day_forgets_its_freed_line(self, stores):
-        Payments.keep_freed_line(MARKET, ANA, SUN, Payments.Seat("Atrium 1", "Gold", "Full Table",
-                                                                 3500), EDITOR)
-        Payments.keep_freed_line(MARKET, ANA, SAT, Payments.Seat("Atrium 1", "Gold", "Full Table",
-                                                                 3500), EDITOR)
+    def test_a_run_that_seats_a_freed_day_forgets_its_freed_line(self, market, stores, monkeypatch):
+        """The run's own call (review 3, note 14): a run seats the days it seats, so a freed line
+        on one of them goes, and one on a day it leaves empty stays."""
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+        PlacementsApi.remove_placement(MARKET, ANA, SAT, EDITOR)
+        market.doc["phase"] = MarketPhase.ASSIGNMENT.value
+        seated_on_sunday = VendorAssignmentResult(
+            email=ANA, date=SUN, table_code="Landing 1", table_choice="Full Table",
+            section="Landing", tier="Silver", location="Main Hall")
 
-        Payments.clear_freed_lines(MARKET, [("Ana@Example.com", SUN)])
+        def ran(assigned, _vendors):
+            assigned.assignment_object.vendor_assignments = [seated_on_sunday]
+            return assigned
 
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: ["ana"])
+        monkeypatch.setattr(PlacementsApi, "assign_market", ran)
+        monkeypatch.setattr(PlacementsApi.MadeFrom, "fingerprint", lambda *_a: {})
+
+        _result, status = PlacementsApi.run_assignment(MARKET, EDITOR)
+
+        assert status == 200
         kept = {doc["date"]: doc["freed"] for doc in stores.owed.documents}
         assert kept[SUN] is None and kept[SAT]
+        assert owed(account()["lines"]) == [(SAT, "Atrium 1", 3500, True),
+                                            (SUN, "Landing 1", 3000, False)]
 
     def test_freeing_a_seat_nobody_holds_keeps_no_line(self, market, stores):
         PlacementsApi.remove_placement(MARKET, "ben@example.com", SUN, EDITOR)

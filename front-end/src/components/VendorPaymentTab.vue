@@ -293,7 +293,10 @@ defineExpose({ reload: load });
             data-testid="payment-entry"
           >
             <div class="payment-line-main">
-              <span class="payment-entry-what">{{ entryText(payment) }}</span>
+              <span class="payment-entry-what"
+                >{{ entryText(payment).text }}{{ ' '
+                }}<span class="payment-entry-when">{{ entryText(payment).day }}</span></span
+              >
               <span v-if="payment.note" class="payment-entry-note">{{ payment.note }}</span>
               <span class="payment-entry-who" data-testid="payment-entry-who">
                 Recorded by {{ payment.recordedBy }},

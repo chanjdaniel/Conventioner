@@ -129,6 +129,19 @@ class TestFreeingATableAsks:
         assert recorded["kind"] == History.REFUND_RECORDED
         assert recorded["detail"]["after"]["cents"] == -3500
 
+    def test_seated_again_the_day_owes_its_new_seat_not_the_deduction(self, admin, stores):  # noqa: F811
+        """Review 3, note 16: the $0 a free's deduction set was about the freed table, so seating
+        the day again takes it back; an amount an Admin set by hand stays."""
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
+        PaymentsApi.set_amount_owed(MARKET, ANA, SAT, {"cents": 2000}, ADMIN)
+
+        PlacementsApi.write_placement(MARKET, {"email": ANA, "date": SUN, "table_code": "Landing 1",
+                                               "table_choice": "Full Table"}, ADMIN)
+
+        sunday = line(SUN)
+        assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 3000, None)
+        assert line(SAT)["owedCents"] == 2000
+
     def test_unticked_the_line_stays_owed(self, admin):
         PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN)
 

@@ -38,7 +38,7 @@ Conventioner tracks what is expected and what came in, not accounting (Daniel, T
 By default the amount is the price of the seat the vendor holds that day, by the price group their answers put them in (`Groups` and `row_prices` in [`back-end/pricing.py`](../../../back-end/pricing.py), [a price follows the table](../../business/rules/a-price-follows-the-table.md)), and the line names the group as the date card does ("Atrium 1, Gold, full table, UBC student + club member"), so a line nobody has set follows its seat: a seat moved from Gold to Silver owes the Silver price (Q26: "the pricing scheme sets the default amount owed by calculating it").
 The seats are read off the market's stored assignment, through the same rows and the same pricing the drawer's date cards read (`derive_market_table_rows`, `seats_by_vendor`), so a line and its date card never disagree.
 A seat held now is never copied into these collections; only what the assignment cannot say is kept.
-A day seated again, by hand or by a run, forgets its freed line (`clear_freed_lines`), so a freed record never outlives the seat that replaced it.
+A day seated again, by hand or by a run, forgets its freed line (`clear_freed_lines`), so a freed record never outlives the seat that replaced it, and with it the $0 the free's deduction set (marked `by_free`), which was about the freed table; an amount an Admin set by hand stays.
 
 **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline "the amount owed and amount paid dont change even though the table did").
 `remove_placement` in [`back-end/api/placements.py`](../../../back-end/api/placements.py), the one door that frees a seat ([placements](../modules/placements.md)), keeps the seat's line as it stood (`keep_freed_line`) before it frees the seat, so a line that could not be kept leaves the seat where it was.
@@ -70,7 +70,7 @@ Two collections, each snake_case with the market foreign key `market_id` and the
 | Collection | One document per | Fields |
 | --- | --- | --- |
 | `payments` | payment or refund | `id`, `market_id`, `vendor_email`, `kind` (`payment` or `refund`; none on an entry before refunds, which reads as a payment), `cents` (negative for a refund), `method` (`e-transfer` or `cash`), `paid_on` (`YYYY-MM-DD`), `note` (blank for none), `recorded_by`, `recorded_at`; `changes`: each edit or removal, `{by, at, what, before}`; `removed_by`, `removed_at` |
-| `amounts_owed` | vendor per table-day that holds something | `market_id`, `vendor_email`, `date`; `freed`: the seat as it was freed (`table_code`, `tier`, `table_choice`, `cents`, null where unpriced, `group`, `by`, `at`); `set_by_hand`: `cents`, `by`, `at` |
+| `amounts_owed` | vendor per table-day that holds something | `market_id`, `vendor_email`, `date`; `freed`: the seat as it was freed (`table_code`, `tier`, `table_choice`, `cents`, null where unpriced, `group`, `by`, `at`); `set_by_hand`: `cents`, `by`, `at`, and `by_free` on the $0 a free's deduction set |
 
 A payment's or a refund's body is `PaymentEntry` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), strict, so an amount sent as text or with a fraction of a cent is refused rather than read: from 1 cent to $100,000, the most a price cell holds; a date that is a calendar day; a note of at most 500 characters.
 Both collections are indexed on `market_id, vendor_email` ([lookup indexes](lookup-indexes.md)), and both are deleted with the market (`delete_for_market`, called by [market deletion](../modules/market-deletion.md)).
