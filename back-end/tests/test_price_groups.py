@@ -236,6 +236,29 @@ class TestBrokenConditions:
         assert Pricing.Groups(market).broken() == []
 
 
+class TestTheQuestionsTheGroupsRead:
+    def test_only_whole_conditions_keys_are_read(self):
+        """A broken condition's key is no question of the form, so it never reaches the answers'
+        projection, whatever it says."""
+        pricing = copy.deepcopy(UBC_TABLE)
+        pricing["groups"][0]["conditions"].append({"key": "gone", "answers": ["x"]})
+
+        assert Pricing.Groups(_market(pricing)).keys() == ["affiliation", "clubs"]
+
+    def test_colliding_paths_are_never_projected_together(self, monkeypatch):
+        """``a`` beside ``a.b`` is a projection Mongo refuses; only the form's slugs are read."""
+        pricing = copy.deepcopy(UBC_TABLE)
+        pricing["groups"][0]["conditions"] = [
+            {"key": "clubs", "answers": CLUBS}, {"key": "clubs.a", "answers": ["x"]}]
+        read = []
+        monkeypatch.setattr(Pricing.ApplicationsApi, "vendor_answers_for_market",
+                            lambda _id, keys: read.append(keys) or {})
+
+        Pricing.vendor_answers(Pricing.Groups(_market(pricing)), "market-123")
+
+        assert read == [["clubs", "affiliation"]]
+
+
 class TestLeavingDraft:
     def _blockers(self, market):
         return [result for result in guards.evaluate_transition(market, "draft", "applications", None)
@@ -321,6 +344,18 @@ class TestThePlanWrite:
         change(pricing["groups"][0])
 
         with pytest.raises(BadRequestError):
+            MarketsApi.save_plan("market-123", _with(pricing), "user-1")
+        assert collection.last_update is None
+
+    @pytest.mark.parametrize("key", ["year_of_study.", "$where", "clubs.a", "Clubs", "a b"])
+    def test_a_condition_key_outside_the_forms_key_pattern_is_refused(self, market, key):
+        """A key reaches a Mongo projection: only the form's own slugs may (a request value is a
+        string, never a query shape)."""
+        collection = market()
+        pricing = copy.deepcopy(UBC_TABLE)
+        pricing["groups"][0]["conditions"][1]["key"] = key
+
+        with pytest.raises(BadRequestError, match="question"):
             MarketsApi.save_plan("market-123", _with(pricing), "user-1")
         assert collection.last_update is None
 

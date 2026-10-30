@@ -371,6 +371,13 @@ class TierPrice(BaseModel):
     cents: int = Field(ge=0, le=10_000_000, strict=True)
 
 
+#: Field keys become document keys inside ``Application.form_data``, where a dot or a leading
+#: ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
+#: builder produces so no key can ever be unaddressable; the form write holds a field to it, and the
+#: plan write a price group's condition, whose key reaches a projection (``pricing.pricing_refusal``).
+FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
+
 class AnswerCondition(BaseModel):
     """A choice question and the answers to it that meet the condition: an automatic rejection's
     rule, and a price group's condition (``rejection_rules.Rulebook`` judges both)."""

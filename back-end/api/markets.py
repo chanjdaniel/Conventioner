@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -14,6 +13,7 @@ from client_errors import (
     parse_failure_detail,
 )
 from datatypes import (
+    FORM_FIELD_KEY_PATTERN,
     Application,
     ApplicationForm,
     ApplicationStatus,
@@ -93,10 +93,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-# Field keys become document keys inside ``Application.form_data``, where a dot or a leading
-# ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
-# builder produces so no key can ever be unaddressable.
-FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class MarketNotFoundError(NotFoundError):

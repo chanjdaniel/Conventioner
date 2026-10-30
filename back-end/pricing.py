@@ -14,7 +14,8 @@ from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 import api.applications as ApplicationsApi
 from datatypes import (
-    PRICING_CURRENCIES, Market, MarketTableRow, PriceGroup, PricingObject, SetupObject, TierPrice,
+    FORM_FIELD_KEY_PATTERN, PRICING_CURRENCIES, Market, MarketTableRow, PriceGroup, PricingObject,
+    SetupObject, TierPrice,
 )
 from rejection_rules import Rulebook
 
@@ -82,8 +83,10 @@ class Groups:
         self.book = Rulebook(market)
 
     def keys(self) -> List[str]:
-        """The questions the groups read, once each."""
-        return list(dict.fromkeys(c.key for group in self.list for c in group.conditions))
+        """The questions the groups read, once each: only whole conditions', whose keys are the
+        form's own, so a key the form never had never reaches the answers' projection."""
+        return list(dict.fromkeys(c.key for group in self.list for c in group.conditions
+                                  if not self.book.broken(c)))
 
     def broken(self) -> List[str]:
         """The names of the groups with a broken condition, in the card's order."""
@@ -153,7 +156,7 @@ def _prices_refusal(prices: List[TierPrice], tiers: set, row: str) -> Optional[s
 def pricing_refusal(plan: SetupObject) -> Optional[str]:
     """Why a plan's prices cannot be saved, or None: each row's prices name tiers of the plan, once
     each; each group has a name of its own, not the last row's; and each condition names a
-    question, once in its group.
+    question, once in its group, by a key a form's question could have.
 
     A condition is not judged against the form here: one the form has since lost is kept and shown
     broken (``Groups.broken``), so a form change never makes the plan unsavable.
@@ -176,8 +179,9 @@ def pricing_refusal(plan: SetupObject) -> Optional[str]:
         names.add(name.casefold())
         keys = set()
         for condition in group.conditions:
-            if not condition.key.strip():
-                return f"A condition of the price group {name!r} names no question."
+            if not FORM_FIELD_KEY_PATTERN.match(condition.key):
+                # The key reaches a Mongo projection of the answers; only a form's own slug may.
+                return f"A condition of the price group {name!r} names no question of a form."
             if condition.key in keys:
                 return (f"The price group {name!r} has two conditions on one question; one names "
                         "every answer that meets it.")
