@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -14,6 +13,7 @@ from client_errors import (
     parse_failure_detail,
 )
 from datatypes import (
+    FORM_FIELD_KEY_PATTERN,
     Application,
     ApplicationForm,
     ApplicationStatus,
@@ -93,10 +93,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-# Field keys become document keys inside ``Application.form_data``, where a dot or a leading
-# ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
-# builder produces so no key can ever be unaddressable.
-FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class MarketNotFoundError(NotFoundError):
@@ -1213,6 +1209,12 @@ def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
     if refusal:
         raise BadRequestError(refusal)
     _result, market_id = create_market(market, owner.email)
+    # The market's own history starts empty; its creation is the organization's change.
+    History.record_for_organization(
+        data["organization_id"], owner.email, History.CREATE_MARKET,
+        subject={"market_id": market_id},
+        detail=lambda: History.changes({"name": None}, {"name": market.name}),
+    )
     return market_id
 
 
@@ -1619,13 +1621,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
-    pricing = market.setup_object.pricing if market.setup_object else None
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market_id)
     return {
-        # Each occupant's price rides on their row, for the organizer's eyes only: this read is
-        # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
+        # Each occupant's price and the card's row that set it ride on their row, for the
+        # organizer's eyes only: this read is the market's people's, never an applicant's
+        # (E43/F01/S01, S02; Q20.2).
         "rows": [
             {**convert_keys_to_camel_case(row.model_dump()),
-             "prices": Pricing.row_prices(pricing, row)}
+             "prices": Pricing.row_prices(groups, row, answers)}
             for row in rows
         ],
         # Name against address, for the surfaces that only ever knew the address. Sent with
@@ -2151,7 +2155,16 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
 
     # Its applications, check-ins, sign-in codes and placement trail go with it (bug 47): each
     # names people, and leaving them behind would outlive the thing they describe.
-    return MarketDeletion.delete_market_and_records(markets_collection, market_id)
+    result = MarketDeletion.delete_market_and_records(markets_collection, market_id)
+    # Its own history went with it; its organization's keeps that it went (E40/F02/S01), when this
+    # deletion is the one that took it.
+    if market.organization_id and result.deleted_count == 1:
+        History.record_for_organization(
+            market.organization_id, requesting_user, History.DELETE_MARKET,
+            subject={"market_id": market_id},
+            detail=lambda: History.changes({"name": market.name}, {"name": None}),
+        )
+    return result
 
 
 RENAME_REFUSED_AFTER_DRAFT = (
@@ -2257,6 +2270,7 @@ def _record_plan(
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   subject=lambda: Pricing.pricing_subject(plan),
                    detail=lambda: History.changes(
                        Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,

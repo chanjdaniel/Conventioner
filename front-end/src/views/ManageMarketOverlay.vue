@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
   IntakeMode,
   type Market,
@@ -12,9 +12,8 @@ import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import MarketPermissions from '@/components/MarketPermissions.vue';
+import HistorySection from '@/components/HistorySection.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
-import IconExpandDown from '@/components/icons/IconExpandDown.vue';
-import IconExpandUp from '@/components/icons/IconExpandUp.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -44,19 +43,10 @@ const addUserError = ref('');
 const renameError = ref('');
 const deleteConfirming = ref(false);
 const deleteError = ref('');
+/** Counts the changes this dialog has made, so its History reads them as they land. */
+const changesMade = ref(0);
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
-/**
- * The History section is closed until opened, so the sections after it stay in reach (Daniel, on
- * T110's review); it is read on its first opening, and kept with its filters once read.
- */
-const historyOpen = ref(false);
-const historyRead = ref(false);
-
-function toggleHistory() {
-  historyOpen.value = !historyOpen.value;
-  if (historyOpen.value) historyRead.value = true;
-}
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -71,8 +61,6 @@ watch(
       addUserError.value = '';
       renameError.value = '';
       deleteError.value = '';
-      historyOpen.value = false;
-      historyRead.value = false;
       await fetchMarket();
     } else {
       marketData.value = null;
@@ -145,6 +133,7 @@ async function handleAddUser() {
     // is named after, and this dialog is the same shape.
     newUserEmail.value = '';
     newUserRole.value = MarketRole.Editor;
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     addUserError.value = getApiErrorMessage(err, 'Failed to add user');
@@ -158,6 +147,7 @@ async function handleRemoveUser(userId: string) {
     await api.delete(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
     );
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     userError.value = { userId, message: getApiErrorMessage(err, 'Failed to remove user') };
@@ -173,6 +163,7 @@ async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSe
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
       { role: select.value as MarketRole },
     );
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     select.value = held;
@@ -194,6 +185,7 @@ async function handleRename() {
     await api.put(`/markets/${encodeURIComponent(marketData.value.id)}/name`, {
       name: renameValue.value.trim(),
     });
+    changesMade.value++;
     await fetchMarket(false);
     // The open market may be this one: a rename is a write, so the store re-reads it.
     const store = useMarketStore();
@@ -243,13 +235,29 @@ function handleDeleteCancel() {
 /** A change to who may do what answers the table, which this copy of the market then shows. */
 function handleTableChanged(table: PermissionTableRow[]) {
   if (marketData.value) marketData.value = { ...marketData.value, permissionTable: table };
+  changesMade.value++;
+}
+
+const addUserButton = ref<HTMLButtonElement | null>(null);
+const addUserInput = ref<HTMLInputElement | null>(null);
+
+/**
+ * Opening the row takes away "Add user", and closing it its Cancel, so focus goes where the person
+ * is next: the field, and then "Add user" again. Left alone it fell to `<body>`.
+ */
+async function openAddUser() {
+  showAddUserForm.value = true;
+  await nextTick();
+  addUserInput.value?.focus();
 }
 
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
-function closeAddUser() {
+async function closeAddUser() {
   showAddUserForm.value = false;
   newUserEmail.value = '';
   addUserError.value = '';
+  await nextTick();
+  addUserButton.value?.focus();
 }
 </script>
 
@@ -327,8 +335,9 @@ function closeAddUser() {
           v-if="grantableRoles.length && !showAddUserForm"
           type="button"
           class="btn btn--secondary"
+          ref="addUserButton"
           data-testid="manage-market-add-user-button"
-          @click="showAddUserForm = true"
+          @click="openAddUser"
         >
           Add user
         </button>
@@ -336,6 +345,7 @@ function closeAddUser() {
         <form v-if="showAddUserForm" class="add-user-form" @submit.prevent="handleAddUser">
           <div class="add-org-row">
             <input
+              ref="addUserInput"
               v-model="newUserEmail"
               type="email"
               name="email"
@@ -388,30 +398,15 @@ function closeAddUser() {
       />
       <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
            people and who may do what (E39/F01/S04). -->
-      <section v-if="canReadHistory" class="section" data-testid="manage-market-history">
-        <h3 :class="{ 'section-heading--closed': !historyOpen }">
-          <button
-            type="button"
-            class="section-toggle"
-            :aria-expanded="historyOpen"
-            aria-controls="manage-market-history-body"
-            data-testid="manage-market-history-toggle"
-            @click="toggleHistory"
-          >
-            History
-            <IconExpandUp v-if="historyOpen" class="section-toggle-icon" aria-hidden="true" />
-            <IconExpandDown v-else class="section-toggle-icon" aria-hidden="true" />
-          </button>
-        </h3>
-        <div v-show="historyOpen" id="manage-market-history-body">
-          <MarketHistory
-            v-if="historyRead"
-            :market-id="marketData.id"
-            :row-labels="rowLabels"
-            :path="intakeModeOf(marketData)"
-          />
-        </div>
-      </section>
+      <HistorySection v-if="canReadHistory" :key="marketData.id" testid="manage-market-history">
+        <MarketHistory
+          :market-id="marketData.id"
+          :row-labels="rowLabels"
+          :path="intakeModeOf(marketData)"
+          :changes-made="changesMade"
+          :questions="marketData.rejectionQuestions ?? []"
+        />
+      </HistorySection>
 
       <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,
            "Organizations with access", with Add and Remove - but there is only ever one, "Add"
@@ -520,30 +515,6 @@ function closeAddUser() {
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
-}
-
-/* A closed section is its heading alone, so nothing beneath it to hold apart. */
-.section h3.section-heading--closed {
-  margin-bottom: 0;
-}
-
-/* A section's heading that opens and closes it: the heading's words, with a chevron saying which. */
-.section-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--target-min);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.section-toggle-icon {
-  width: var(--space-4);
-  height: var(--space-4);
 }
 
 .users-list {

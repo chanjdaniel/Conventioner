@@ -3,10 +3,11 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - E26
   - E41/F01/S01
+  - E40/F02/S01
   - E38/F06/S01
 ---
 
@@ -64,10 +65,10 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | --- | --- | --- |
 | [The lifecycle](../../business/flows/lifecycle.md) | `phase-rail.spec.ts`, `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`, `market-remembers-phases.spec.ts`, `the-rail-addresses.spec.ts` | none noted |
 | [A Accounts](../../business/flows/accounts.md) | `auth.spec.ts`, `smoke.spec.ts`, `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `the-way-in-lines-up.spec.ts`, `sign-in-fits-a-phone.spec.ts` | A3 organizer sign-in code, beyond a wrong code |
-| [B Organizations](../../business/flows/organizations.md) | `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `org-deletion.spec.ts` | none noted |
+| [B Organizations](../../business/flows/organizations.md) | `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `org-deletion.spec.ts`, `the-organizations-history.spec.ts` | none noted |
 | [C Finding markets](../../business/flows/finding-a-market.md) | `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `every-market-page-has-an-address.spec.ts`, `one-market-from-the-server.spec.ts`, `the-frame-stays-put.spec.ts` | none noted |
 | [D Creating](../../business/flows/creating-a-market.md) | `new-market-org.spec.ts`, `dialog-idiom.spec.ts`, `public-address.spec.ts`, `where-a-form-starts.spec.ts`, `market-owner.spec.ts` | none noted |
-| [E Planning](../../business/flows/planning.md) | `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`, `plan-cards-share-a-row.spec.ts`, `plan-saves-once.spec.ts`, `untiered-plans-assign.spec.ts`, `intake-mode.spec.ts`, `floorplan.spec.ts`, `the-floorplan-beta-places-tables.spec.ts`, `what-to-show-and-when.spec.ts`, `the-words-say-what-is-true.spec.ts`, `alignment.spec.ts`, `the-pricing-card.spec.ts` | E6 grouping as a real gesture |
+| [E Planning](../../business/flows/planning.md) | `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`, `plan-cards-share-a-row.spec.ts`, `plan-saves-once.spec.ts`, `untiered-plans-assign.spec.ts`, `intake-mode.spec.ts`, `floorplan.spec.ts`, `the-floorplan-beta-places-tables.spec.ts`, `price-groups.spec.ts`, `what-to-show-and-when.spec.ts`, `the-words-say-what-is-true.spec.ts`, `alignment.spec.ts`, `the-pricing-card.spec.ts` | E6 grouping as a real gesture |
 | [F Form](../../business/flows/form-tab.md) | `application-form.spec.ts`, `essential-fields.spec.ts`, `ask-this-stays-off.spec.ts`, `section-preference.spec.ts`, `review-highlights.spec.ts`, `automatic-rejections.spec.ts`, `the-questions-come-from-the-file.spec.ts`, `every-move-lands.spec.ts` | none noted |
 | [G Start from a Google Form](../../business/flows/starting-from-a-google-form.md) | `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts` | none noted (G5 then H2a runs on a synthetic export) |
 | [H Taking applications](../../business/flows/taking-applications.md) | `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `taking-applications-stops-and-resumes.spec.ts`, `vendors-see-their-application-after-close.spec.ts`, `market-journey.spec.ts` | none noted |

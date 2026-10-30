@@ -99,6 +99,7 @@ test.describe('the Pricing card', () => {
     expect((await stored.json()).market.setupObject.pricing).toEqual({
       currency: 'CAD',
       halfTablePercent: 50,
+      groups: [],
       everyoneElse: [
         { tier: 'Gold', cents: 3500 },
         { tier: 'Silver', cents: 3000 },

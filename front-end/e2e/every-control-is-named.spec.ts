@@ -67,6 +67,19 @@ test('every field on the plan, the rules and the form preview has a name', async
     locations: [{ name: 'Main Hall' }],
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
+    // A price group with a condition, so its name, prices and condition are walked (E43/F01/S02).
+    pricing: {
+      currency: 'CAD',
+      halfTablePercent: 50,
+      groups: [
+        {
+          name: 'Ceramicists',
+          conditions: [{ key: 'craft', answers: ['Ceramics'] }],
+          prices: [{ tier: 'Gold', cents: 2000 }],
+        },
+      ],
+      everyoneElse: [{ tier: 'Gold', cents: 3500 }],
+    },
   });
 
   for (const tab of ['setup', 'assignment', 'form']) {
@@ -224,6 +237,10 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.goto('/organizations');
   await page.getByTestId('organizations-manage-button').first().click();
   await expect(page.getByTestId('manage-org-window')).toBeVisible();
+  // Its History section, an entry opened to its before and after (E40/F02/S01).
+  await page.getByTestId('manage-org-history-toggle').click();
+  await page.getByTestId('org-history-toggle').first().click();
+  await expect(page.getByTestId('org-history-changes')).toBeVisible();
   await named('Manage organization');
   await page.keyboard.press('Escape');
   await page.getByTestId('organizations-create-button').click();

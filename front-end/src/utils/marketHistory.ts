@@ -1,5 +1,6 @@
 /**
- * Every change on a market, as a person reads it (E40/F01/S03).
+ * Every change on a market, as a person reads it (E40/F01/S03), and an organization's own changes
+ * (E40/F02/S01), which the same history keeps and Manage organization reads.
  *
  * The back end stores each entry structured - the table's action, a finer kind, the vendors, a
  * subject and a detail of the fields before and after (`back-end/history.py`,
@@ -9,7 +10,7 @@
  * and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
-import { IntakeMode } from '@/assets/types/datatypes';
+import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
 import {
   ESSENTIAL_KEY_PREFIX,
   TABLE_SHARE_ALSO_KEY,
@@ -20,6 +21,7 @@ import {
 } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { formatPrice } from '@/utils/pricing';
 import {
   historyDate,
   historyParts,
@@ -90,6 +92,137 @@ const SETUP_FIELDS: Record<string, string> = {
   intake_mode: 'how vendors apply',
   name: 'name',
 };
+
+/** The Pricing card's fields, in the card's order and words (`pricing_fields` in
+ * `back-end/pricing.py`, which stores them in another order). */
+const PRICING_FIELDS: Record<string, string> = {
+  groups: 'price groups',
+  everyone_else: '"Everyone else"',
+  half_table_percent: "half table's share",
+  currency: 'currency',
+};
+
+/** The pricing fields a change set, in the card's order, any the card does not know after them. */
+function pricingKeys(...sides: Detail[]): string[] {
+  const keys = new Set(sides.flatMap((side) => Object.keys(side)));
+  return [
+    ...Object.keys(PRICING_FIELDS).filter((key) => keys.has(key)),
+    ...[...keys].filter((key) => !(key in PRICING_FIELDS)),
+  ];
+}
+
+/** A row's prices as the card shows them, in `currency`: "Gold $35, Silver $30". */
+function tierPrices(value: unknown, currency: string): string {
+  const prices = Array.isArray(value) ? value.map(asDetail) : [];
+  return prices
+    .map((price) => `${str(price.tier)} ${formatPrice(Number(price.cents), currency)}`)
+    .join(', ');
+}
+
+/** A field of the Pricing card as it stood, in words and money; "none" where it was empty. */
+function pricingValue(key: string, value: unknown, currency: string): string {
+  if (value === null || value === undefined) return 'none';
+  if (key === 'everyone_else') return tierPrices(value, currency) || 'none';
+  if (key === 'half_table_percent') return `${str(value)}%`;
+  return valueText(value);
+}
+
+/**
+ * A group's condition as the card words it: the question's label and the answers ticked, from the
+ * market's choice questions (`rejectionQuestions`); the stored key and value only for a question or
+ * an answer the form no longer has.
+ */
+function conditionText(value: unknown, questions: readonly RejectionQuestion[]): string {
+  const condition = asDetail(value);
+  const key = str(condition.key);
+  const question = questions.find((q) => q.key === key);
+  // Quoted, as the rules' reasons quote them (`Rulebook.rejecting`), so a label that is itself a
+  // question reads apart from the sentence around it.
+  const label = question ? `“${question.label}”` : `“${key}” (no longer on the form)`;
+  const answers = (Array.isArray(condition.answers) ? condition.answers : []).map((answer) => {
+    const offered = question?.answers.find((a) => a.value === str(answer));
+    return `“${offered ? offered.label : str(answer)}”`;
+  });
+  if (!answers.length) return `${label} has no answer ticked yet, so it prices nobody`;
+  return `${label} includes ${answers.join(' or ')}`;
+}
+
+/** A group as it stood: its prices on one line, then each condition on its own. */
+function groupText(value: unknown, currency: string, questions: readonly RejectionQuestion[]) {
+  const group = asDetail(value);
+  const conditions = (Array.isArray(group.conditions) ? group.conditions : []).map(
+    (condition, i) => `${i ? 'and' : 'when'} ${conditionText(condition, questions)}`,
+  );
+  return [
+    tierPrices(group.prices, currency) || 'no price',
+    ...(conditions.length ? conditions : ['no condition yet, so it prices nobody']),
+  ].join('\n');
+}
+
+/**
+ * A change of the price groups as a row for each group that changed, by its name: one added reads
+ * "not on the card" before it, one taken away "removed" after it, and the groups that stood as they
+ * were are left out, so the one change is not buried among them. A row's lines hang, so a wrapped
+ * condition does not read as a line of its own. Where the groups stand in another order than they
+ * did, a row of their names in each order follows, so a move or a group added between others says
+ * where it went: the card's order decides which group a price names when two price a vendor alike
+ * (`back-end/pricing.py`). A group added last, or in a removed one's place (a rename), has not moved.
+ */
+function groupChanges(
+  before: unknown,
+  after: unknown,
+  currencies: { before: string; after: string },
+  questions: readonly RejectionQuestion[],
+): ChangedField[] {
+  const list = (value: unknown) => (Array.isArray(value) ? value.map(asDetail) : []);
+  const [was, now] = [list(before), list(after)];
+  const named = (groups: Detail[], name: string) => groups.find((g) => str(g.name) === name);
+  const read = (group: Detail, currency: string) => groupText(group, currency, questions);
+  const row = (name: string, before: string, after: string): ChangedField => ({
+    // Curly, as its conditions are quoted beside it.
+    field: `Group “${name}”`,
+    before,
+    after,
+    hanging: true,
+  });
+  const rows: ChangedField[] = [];
+  for (const group of now) {
+    const name = str(group.name);
+    const old = named(was, name);
+    const text = read(group, currencies.after);
+    if (!old) rows.push(row(name, 'not on the card', text));
+    else if (read(old, currencies.before) !== text)
+      rows.push(row(name, read(old, currencies.before), text));
+  }
+  for (const group of was) {
+    const name = str(group.name);
+    if (!named(now, name)) rows.push(row(name, read(group, currencies.before), 'removed'));
+  }
+  // Where the groups stand other than where they were: moved, or a group added between others.
+  // Groups are matched by name, so a group renamed is one taken away and one added; an added group
+  // standing in a removed one's place, or added last, has not moved, and needs no order row.
+  const names = (groups: Detail[]) => groups.map((g) => str(g.name));
+  const added = names(now).filter((name) => !named(was, name));
+  const kept = names(was).filter((name) => named(now, name));
+  const inPlace = (() => {
+    const waiting = [...added];
+    const placed = names(was).flatMap((name) =>
+      named(now, name) ? [name] : waiting.length ? [waiting.shift() as string] : [],
+    );
+    return [...placed, ...waiting];
+  })();
+  const unmoved = [[...kept, ...added], inPlace].some(
+    (expected) => expected.join('\n') === names(now).join('\n'),
+  );
+  if (!unmoved) {
+    rows.push({
+      field: 'Order of the groups',
+      before: names(was).join('\n'),
+      after: names(now).join('\n'),
+    });
+  }
+  return rows;
+}
 
 function listed(words: string[]): string {
   const unique = [...new Set(words)];
@@ -188,6 +321,10 @@ export function entryParts(
     case 'change-setup/plan': {
       const fields = Object.keys(after).map((key) => SETUP_FIELDS[key] ?? key);
       return [actor, text(`changed Market Setup${fields.length ? `: ${listed(fields)}` : ''}`)];
+    }
+    case 'change-setup/pricing': {
+      const fields = pricingKeys(after).map((key) => PRICING_FIELDS[key] ?? key);
+      return [actor, text(`changed the prices${fields.length ? `: ${listed(fields)}` : ''}`)];
     }
     case 'change-setup/floorplan':
       return [actor, text('saved a floorplan to the market')];
@@ -289,12 +426,15 @@ export function entryParts(
         : [vendor, text(` undid their check-in on the check-in page${onDay(entry.subject.date)}`)];
     case 'manage-editors-and-viewers/role_given':
     case 'manage-admins/role_given':
+    case 'manage-organization-admins/role_given':
+    case 'manage-organization-members/role_given':
       return [
         actor,
         text(`gave ${str(entry.subject.email)} the ${getRoleDisplayName(str(after.role))} role`),
       ];
     case 'manage-editors-and-viewers/role_changed':
     case 'manage-admins/role_changed':
+    case 'manage-organization-admins/role_changed':
       return [
         actor,
         text(
@@ -304,6 +444,8 @@ export function entryParts(
       ];
     case 'manage-editors-and-viewers/role_taken':
     case 'manage-admins/role_taken':
+    case 'manage-organization-admins/role_taken':
+    case 'manage-organization-members/role_taken':
       return [
         actor,
         text(
@@ -341,6 +483,49 @@ export function entryParts(
         actor,
         text(
           after.applications_stopped ? 'stopped taking applications' : 'took applications again',
+        ),
+      ];
+    case 'change-organization/renamed':
+      return [
+        actor,
+        text(`renamed the organization from "${str(before.name)}" to "${str(after.name)}"`),
+      ];
+    case 'transfer-organization/':
+      return [actor, text(`handed the organization to ${str(entry.subject.email)}`)];
+    case 'create-market/':
+      return [actor, text(`created the market "${str(after.name)}"`)];
+    case 'delete-market/':
+      return [actor, text(`deleted the market "${str(before.name)}"`)];
+    case 'manage-floorplan-templates/template_added':
+      return [actor, text(`added the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_changed':
+      return [actor, text(`changed the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_removed':
+      return [actor, text(`removed the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_moved_out':
+      return [
+        actor,
+        text(`moved the floorplan template "${str(entry.subject.name)}" out of the organization`),
+      ];
+    case 'manage-floorplan-templates/template_moved_in':
+      return [
+        actor,
+        text(`moved the floorplan template "${str(entry.subject.name)}" into the organization`),
+      ];
+    case 'change-the-default/permission_set':
+      return [
+        actor,
+        text(
+          `changed ${rowLabel(entry, labels)} for new markets from ` +
+            `${getRoleDisplayName(str(before.role))} to ${getRoleDisplayName(str(after.role))}`,
+        ),
+      ];
+    case 'change-the-default/permission_reset':
+      return [
+        actor,
+        text(
+          `set ${rowLabel(entry, labels)} for new markets back to its default, ` +
+            getRoleDisplayName(str(after.role)),
         ),
       ];
     case 'apply/submitted':
@@ -407,12 +592,44 @@ const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
   source: (source) => PERMISSION_SOURCES[source] ?? source,
 };
 
+/** A floorplan template's aisle settings, in the order its layout reads them. */
+const AISLES: Array<[string, string]> = [
+  ['wallBufferMm', 'wall buffer'],
+  ['tableSpacingMm', 'table spacing'],
+  ['walkwayWidthMm', 'walkway'],
+];
+
+/** The stored values that are lists or objects, in words rather than JSON: a floorplan template's
+ * table types, each its name and size, and its aisles. */
+const WORDED_VALUES: Partial<Record<string, (value: unknown) => string>> = {
+  table_types: (value) =>
+    Array.isArray(value) && value.length
+      ? value
+          .map(asDetail)
+          // A size never breaks across lines: "915 ×" over "760 mm" reads as two values.
+          .map(
+            (type) =>
+              `${str(type.name)} ${str(type.widthMm)}\u00a0×\u00a0${str(type.heightMm)}\u00a0mm`,
+          )
+          .join(', ')
+      : 'none',
+  aisles: (value) => {
+    const aisles = asDetail(value);
+    const set = AISLES.filter(([key]) => aisles[key] !== undefined && aisles[key] !== null);
+    return set.length
+      ? set.map(([key, words]) => `${words} ${str(aisles[key])}\u00a0mm`).join(', ')
+      : 'none';
+  },
+};
+
 /** A field's value as the screens name it, a phase as the market's `path` does, an essential
  * answer as the review card does, else as `valueText` draws it. */
 export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
   if (key.startsWith(ESSENTIAL_KEY_PREFIX) && essentialLabel(key) !== key) {
     return essentialAnswerText(key, value).trim() || 'none';
   }
+  const worded = WORDED_VALUES[key];
+  if (worded) return worded(value);
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
   return name && typeof value === 'string' && value ? name(value) : valueText(value);
 }
@@ -422,6 +639,8 @@ export interface ChangedField {
   field: string;
   before: string;
   after: string;
+  /** Its lines hang: each one's wrap is indented under it (a price group's conditions). */
+  hanging?: boolean;
 }
 
 /** Something else the entry recorded about the change: a count, a date, where it was made. */
@@ -492,6 +711,8 @@ export function entryChanges(
   entry: MarketHistoryEntry,
   labels: Readonly<Record<string, string>> = {},
   path: IntakeMode = IntakeMode.Csv,
+  /** The market's choice questions (`rejectionQuestions`), which a price group's conditions name. */
+  questions: readonly RejectionQuestion[] = [],
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];
@@ -506,6 +727,31 @@ export function entryChanges(
         before: permissionState(before[id]),
         after: permissionState(after[id]),
       })),
+      recorded: [],
+    };
+  }
+  if (entry.action === 'change-setup' && entry.kind === 'pricing') {
+    // The money is written in the market's currency, which the entry's subject names, and a
+    // change of currency writes each side's prices in its own (E43/F01/S02).
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const currency = str(entry.subject.currency) || 'CAD';
+    const currencies = {
+      before: str(before.currency) || currency,
+      after: str(after.currency) || currency,
+    };
+    return {
+      changed: pricingKeys(before, after).flatMap((key) =>
+        key === 'groups'
+          ? groupChanges(before.groups, after.groups, currencies, questions)
+          : [
+              {
+                field: fieldName(PRICING_FIELDS[key] ?? key),
+                before: pricingValue(key, before[key], currencies.before),
+                after: pricingValue(key, after[key], currencies.after),
+              },
+            ],
+      ),
       recorded: [],
     };
   }

@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * Page object for the Organizations view (OrganizationsView) and the
  * ManageOrgOverlay. Covers org CRUD: create, rename, add/remove admin/member,
- * and delete.
+ * delete, and the organization's History.
  *
  * The manage dialog is built on `AppDialog` (E20/F01/S02), so its window, scrim and close ids
  * come from the shell's `manage-org` prefix. **It no longer closes when something saves**: add
@@ -46,6 +46,13 @@ export class OrganizationsPage {
   readonly adminEmails: Locator;
   readonly memberEmails: Locator;
 
+  // ── Manage org's History (E40/F02/S01) ──
+  readonly history: Locator;
+  readonly historyToggle: Locator;
+  readonly historyEntries: Locator;
+  readonly historySentences: Locator;
+  readonly historyLoadMore: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -82,6 +89,12 @@ export class OrganizationsPage {
     this.blockingMarkets = page.getByTestId('delete-org-blocking-market');
     this.adminEmails = this.manageWindow.getByTestId('manage-org-admin-email');
     this.memberEmails = this.manageWindow.getByTestId('manage-org-member-email');
+
+    this.history = page.getByTestId('manage-org-history');
+    this.historyToggle = page.getByTestId('manage-org-history-toggle');
+    this.historyEntries = page.getByTestId('org-history-entry');
+    this.historySentences = page.getByTestId('org-history-sentence');
+    this.historyLoadMore = page.getByTestId('org-history-load-more');
   }
 
   async goto(): Promise<void> {
@@ -178,6 +191,21 @@ export class OrganizationsPage {
 
   async removeFirstMember(): Promise<void> {
     await this.removeMemberButtons.first().click();
+  }
+
+  // ── History ──
+
+  /** Open the History section, closed until its heading opens it, and wait for its first page. */
+  async openHistory(): Promise<void> {
+    await this.historyToggle.click();
+    await this.page.getByTestId('org-history').waitFor();
+  }
+
+  /** Open one entry's before and after, and return them. */
+  async openHistoryEntry(index: number): Promise<Locator> {
+    const entry = this.historyEntries.nth(index);
+    await entry.getByTestId('org-history-toggle').click();
+    return entry.getByTestId('org-history-changes');
   }
 
   // ── Delete ──
