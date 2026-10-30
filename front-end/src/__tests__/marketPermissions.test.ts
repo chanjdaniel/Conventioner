@@ -186,3 +186,31 @@ describe('the selects', () => {
     expect(new Set(selects.map((s) => s.element.id)).size).toBe(2);
   });
 });
+
+describe('the changes', () => {
+  it('are shown ten at a time, newest first, as the market history is', async () => {
+    const entries = Array.from({ length: 12 }, (_, n) => ({
+      id: `entry-${n}`,
+      actor: 'owner@example.com',
+      at: `2026-11-${String(20 - n).padStart(2, '0')}T10:00:00+00:00`,
+      action: 'change-the-table',
+      kind: 'permission_set',
+      subject: { action: 'check-in' },
+      detail: {
+        before: { role: 'editor', source: 'built-in' },
+        after: { role: 'admin', source: 'market' },
+      },
+    }));
+    api.get.mockResolvedValue({ data: { entries } });
+
+    const section = await openSection(HELD);
+    const shown = () => section.findAll('[data-testid="manage-market-permission-change"]');
+    expect(shown()).toHaveLength(10);
+
+    await section.get('[data-testid="manage-market-permission-changes-more"]').trigger('click');
+    expect(shown()).toHaveLength(12);
+    expect(section.find('[data-testid="manage-market-permission-changes-more"]').exists()).toBe(
+      false,
+    );
+  });
+});

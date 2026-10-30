@@ -86,8 +86,14 @@ const resetChanges = computed(() =>
   held.value.map((row) => `${row.label}: ${whoMayLabel(row.role)} to ${whoMayLabel(row.default)}`),
 );
 
+/** Ten at a time, newest first, as the market's History pages (E40/F01/S03). */
+const CHANGES_PAGE = 10;
+const changesShown = ref(CHANGES_PAGE);
+
 const changes = computed(() =>
-  history.value.map((entry) => ({ entry, ...changeLines(entry, table.value) })),
+  history.value
+    .slice(0, changesShown.value)
+    .map((entry) => ({ entry, ...changeLines(entry, table.value) })),
 );
 
 const marketPath = () => `/markets/${encodeURIComponent(props.market.id)}`;
@@ -284,6 +290,15 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
           <span class="caption">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
         </li>
       </ol>
+      <button
+        v-if="history.length > changesShown"
+        type="button"
+        class="btn btn--secondary more"
+        data-testid="manage-market-permission-changes-more"
+        @click="changesShown += CHANGES_PAGE"
+      >
+        Load more
+      </button>
     </div>
   </section>
 
@@ -415,6 +430,10 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
 }
 
 .reset {
+  margin-top: var(--space-3);
+}
+
+.more {
   margin-top: var(--space-3);
 }
 
