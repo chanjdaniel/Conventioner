@@ -102,7 +102,7 @@ const existingFields = computed(() => props.applicationForm?.fields ?? []);
 const keyError = computed(() => {
   if (!newFieldLabel.value.trim()) return '';
   const key = newFieldKey.value.trim();
-  // The builder's own check, so this never offers a key the save refuses after the walk to draft:
+  // The builder's own check, so this never offers a key the save refuses:
   // a column headed "Submitted at" slugs to the import's own `submitted_at` (E38/F02).
   const refusal = fieldKeyError(key);
   if (refusal) return refusal;
