@@ -25,6 +25,7 @@ sources:
   - E42/F01/S01
   - E41/F01/S01
   - E38/F04/S02
+  - E38/F06/S01
 ---
 
 # The market's actions
@@ -69,6 +70,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
 | Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers |
+| Change a verdict, or overturn an automatic rejection (`change-verdicts`) | Admin | on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`); and whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import) |
 | Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
 | Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results` |
@@ -81,6 +83,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
 | Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
+
+**A verdict on an application already approved or rejected asks two rows**: the giving row at `_reviewer_on`, and the change row of each application it writes (E38/F06/S01); the write itself carries `unless_decided`, so a verdict landing between the reviewer's look and the write is the 409 it always was ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 

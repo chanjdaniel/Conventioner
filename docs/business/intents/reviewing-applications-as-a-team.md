@@ -7,12 +7,13 @@ sources:
   - E33/F03
   - E34
   - E36/F01
+  - E38/F06/S01
 ---
 
 # Reviewing applications as a team
 
 A team of organizers reviews one market's applications at the same time, without two of them deciding the same application or one overwriting another's verdict.
-Every verdict says who gave it; each card leads with the answers that decide it; the clear-cut cases arrive already rejected, with the reason, for a reviewer to overturn if wrong; and an application that cannot be decided until someone reaches the vendor waits as a follow-up, with someone responsible for it.
+Every verdict says who gave it; each card leads with the answers that decide it; the clear-cut cases arrive already rejected, with the reason, for an Admin or the owner to overturn if wrong; a verdict once given is changed only by an Admin or the owner; and an application that cannot be decided until someone reaches the vendor waits as a follow-up, with someone responsible for it.
 A reviewer works one by one, or on a selection they tick in a view of every application.
 The review is finished before the assignment begins, and from then on its verdicts settle.
 

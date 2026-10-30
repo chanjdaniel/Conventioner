@@ -31,6 +31,7 @@ sources:
   - bug/42
   - E38/F04/S01
   - E38/F04/S03
+  - E38/F06/S01
 ---
 
 # Importing a Google Form's responses
@@ -70,7 +71,7 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
 2. **Map columns:** every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
 3. **Preview** ("Preview import"): "N of M rows will be imported", "Each imported row becomes an application awaiting your review. Nothing has been written yet.", the first rows as they will be stored, "Where each answer comes from".
 4. **Confirm** ("Import N rows"): "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
-5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; a reviewer can overturn any of them." ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
+5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.", naming whoever the market's change row lets overturn them ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 For a market started from a Google Form, step 2 opens "Mapped when your form was started from this file." and needs no decisions; a later import opens "Restored from your last import."
 
