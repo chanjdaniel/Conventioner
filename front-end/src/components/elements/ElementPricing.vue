@@ -150,6 +150,14 @@ const nameProblems = computed(() =>
     ),
   ),
 );
+/** The groups whose name field has been left: "Name this group." waits for it, so a group just
+ * added is not met with an error before anything is typed. Another group's name shows at once. */
+const leftNames = ref<Set<number>>(new Set());
+const shownNameProblems = computed(() =>
+  nameProblems.value.map((problem, i) =>
+    problem && (groups.value[i].name.trim() || leftNames.value.has(i)) ? problem : null,
+  ),
+);
 /** Whether each group has a condition the form no longer has: it prices nobody, and holds draft. */
 const brokenGroups = computed(() =>
   groups.value.map((group) =>
@@ -177,6 +185,9 @@ watch(
 
 function removeGroup(index: number) {
   write(withGroups(groups.value.filter((_, i) => i !== index)));
+  leftNames.value = new Set(
+    [...leftNames.value].flatMap((i) => (i < index ? [i] : i > index ? [i - 1] : [])),
+  );
   // The text being typed in a later group's cells moves up with its group.
   cells.value = Object.fromEntries(
     Object.entries(cells.value).flatMap(([key, typing]) => {
@@ -192,6 +203,7 @@ function onName(index: number, name: string) {
 }
 
 function onNameLeft(index: number) {
+  leftNames.value = new Set([...leftNames.value, index]);
   const name = groups.value[index]?.name ?? '';
   if (name !== name.trim()) onName(index, name.trim());
 }
@@ -267,136 +279,139 @@ onBeforeUnmount(() => {
       Prices are set by tier. Add a tier in Tier Setup to price its tables.
     </p>
     <template v-else>
-      <table class="pricing-table" data-testid="pricing-table">
-        <caption class="pricing-caption">
-          A full table for one market day, in
-          {{
-            pricing.currency
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col" class="pricing-who">Who</th>
-            <th
-              v-for="(tier, index) in tiers"
-              :id="`pricing-tier-${index}`"
-              :key="tier"
-              scope="col"
+      <!-- Grouped, the table takes the card's width: each group's conditions sit beside its
+           prices, in the column that grows, rather than under them with the card's right half
+           empty. A table too wide for a narrow card scrolls inside it. -->
+      <div class="pricing-frame" :class="{ 'pricing-frame--grouped': groups.length }">
+        <table class="pricing-table" data-testid="pricing-table">
+          <caption class="pricing-caption">
+            A full table for one market day, in
+            {{
+              pricing.currency
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" class="pricing-who">Who</th>
+              <th
+                v-for="(tier, index) in tiers"
+                :id="`pricing-tier-${index}`"
+                :key="tier"
+                scope="col"
+              >
+                {{ tier }}
+              </th>
+              <th v-if="groups.length" scope="col" class="pricing-when">In the group when</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(group, g) in groups"
+              :key="g"
+              class="pricing-group"
+              :class="{ broken: brokenGroups[g] }"
+              :data-testid="`pricing-group-${g}`"
             >
-              {{ tier }}
-            </th>
-          </tr>
-        </thead>
-        <tbody
-          v-for="(group, g) in groups"
-          :key="g"
-          class="pricing-group"
-          :class="{ broken: brokenGroups[g] }"
-          :data-testid="`pricing-group-${g}`"
-        >
-          <tr>
-            <th scope="row" class="pricing-who" :data-testid="`pricing-group-${g}-who`">
-              <span :id="`pricing-group-${g}-label`" class="visually-hidden">{{
-                groupLabels[g]
-              }}</span>
-              <input
-                :id="`pricing-group-${g}-name`"
-                class="field pricing-name"
-                type="text"
-                autocomplete="off"
-                :value="group.name"
-                :aria-label="`Name of group ${g + 1}`"
-                :aria-invalid="nameProblems[g] ? true : undefined"
-                :data-testid="`pricing-group-${g}-name`"
-                @input="onName(g, ($event.target as HTMLInputElement).value)"
-                @blur="onNameLeft(g)"
-              />
-              <span
-                v-if="nameProblems[g]"
-                class="pricing-error pricing-name-error"
-                role="alert"
-                :data-testid="`pricing-group-${g}-name-error`"
-                >{{ nameProblems[g] }}</span
+              <th scope="row" class="pricing-who" :data-testid="`pricing-group-${g}-who`">
+                <span :id="`pricing-group-${g}-label`" class="visually-hidden">{{
+                  groupLabels[g]
+                }}</span>
+                <input
+                  :id="`pricing-group-${g}-name`"
+                  class="field pricing-name"
+                  type="text"
+                  autocomplete="off"
+                  :value="group.name"
+                  :aria-label="`Name of group ${g + 1}`"
+                  :aria-invalid="shownNameProblems[g] ? true : undefined"
+                  :data-testid="`pricing-group-${g}-name`"
+                  @input="onName(g, ($event.target as HTMLInputElement).value)"
+                  @blur="onNameLeft(g)"
+                />
+                <span
+                  v-if="shownNameProblems[g]"
+                  class="pricing-error pricing-name-error"
+                  role="alert"
+                  :data-testid="`pricing-group-${g}-name-error`"
+                  >{{ shownNameProblems[g] }}</span
+                >
+                <button
+                  v-if="!fixed"
+                  type="button"
+                  class="btn btn--secondary btn--compact pricing-remove"
+                  :data-testid="`pricing-group-${g}-remove`"
+                  @click="removeGroup(g)"
+                >
+                  Remove group<span class="visually-hidden"> {{ groupLabels[g] }}</span>
+                </button>
+              </th>
+              <td v-for="(tier, index) in tiers" :key="tier">
+                <input
+                  class="field pricing-cell"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  :value="cellText(g, tier)"
+                  :aria-labelledby="`pricing-group-${g}-label pricing-tier-${index}`"
+                  :aria-invalid="isInvalid(g, tier) || undefined"
+                  :data-testid="`pricing-group-${g}-price-${index}`"
+                  @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
+                  @blur="onPriceLeft(g, tier)"
+                />
+              </td>
+              <td class="pricing-when">
+                <ChoiceConditions
+                  :questions="questions"
+                  :conditions="group.conditions"
+                  :fixed="fixed"
+                  :testid="`pricing-group-${g}`"
+                  noun="condition"
+                  after="includes any of"
+                  unticked="Tick the answers that meet it. Until one is ticked, this group prices nobody."
+                  :owner="`in ${groupLabels[g]}`"
+                  @update:conditions="(next) => onConditions(g, next)"
+                />
+                <p v-if="!group.conditions.length" class="pricing-note">
+                  Until it has a condition, this group prices nobody.
+                </p>
+                <p
+                  v-if="brokenGroups[g]"
+                  class="pricing-error"
+                  :data-testid="`pricing-group-${g}-broken`"
+                >
+                  Until the condition the form no longer has is fixed, this group prices nobody, and
+                  the market cannot leave draft.
+                </p>
+              </td>
+            </tr>
+            <tr class="pricing-else">
+              <th
+                id="pricing-row-everyone-else"
+                scope="row"
+                class="pricing-who"
+                data-testid="pricing-everyone-else"
               >
-            </th>
-            <td v-for="(tier, index) in tiers" :key="tier">
-              <input
-                class="field pricing-cell"
-                type="text"
-                inputmode="decimal"
-                autocomplete="off"
-                :value="cellText(g, tier)"
-                :aria-labelledby="`pricing-group-${g}-label pricing-tier-${index}`"
-                :aria-invalid="isInvalid(g, tier) || undefined"
-                :data-testid="`pricing-group-${g}-price-${index}`"
-                @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
-                @blur="onPriceLeft(g, tier)"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td :colspan="tiers.length + 1" class="pricing-conditions">
-              <ChoiceConditions
-                :questions="questions"
-                :conditions="group.conditions"
-                :fixed="fixed"
-                :testid="`pricing-group-${g}`"
-                noun="condition"
-                after="includes any of"
-                unticked="Tick the answers that meet it. Until one is ticked, this group prices nobody."
-                :owner="`in ${groupLabels[g]}`"
-                @update:conditions="(next) => onConditions(g, next)"
-              />
-              <p v-if="!group.conditions.length" class="pricing-note">
-                Until it has a condition, this group prices nobody.
-              </p>
-              <p
-                v-if="brokenGroups[g]"
-                class="pricing-error"
-                :data-testid="`pricing-group-${g}-broken`"
-              >
-                Until the condition the form no longer has is fixed, this group prices nobody, and
-                the market cannot leave draft.
-              </p>
-              <button
-                v-if="!fixed"
-                type="button"
-                class="btn btn--secondary btn--compact pricing-remove"
-                :data-testid="`pricing-group-${g}-remove`"
-                @click="removeGroup(g)"
-              >
-                Remove group<span class="visually-hidden"> {{ groupLabels[g] }}</span>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-        <tbody>
-          <tr>
-            <th
-              id="pricing-row-everyone-else"
-              scope="row"
-              class="pricing-who"
-              data-testid="pricing-everyone-else"
-            >
-              {{ EVERYONE_ELSE }}
-            </th>
-            <td v-for="(tier, index) in tiers" :key="tier">
-              <input
-                class="field pricing-cell"
-                type="text"
-                inputmode="decimal"
-                autocomplete="off"
-                :value="cellText(ELSE, tier)"
-                :aria-labelledby="`pricing-row-everyone-else pricing-tier-${index}`"
-                :aria-invalid="isInvalid(ELSE, tier) || undefined"
-                :data-testid="`pricing-price-${index}`"
-                @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
-                @blur="onPriceLeft(ELSE, tier)"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                {{ EVERYONE_ELSE }}
+              </th>
+              <td v-for="(tier, index) in tiers" :key="tier">
+                <input
+                  class="field pricing-cell"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  :value="cellText(ELSE, tier)"
+                  :aria-labelledby="`pricing-row-everyone-else pricing-tier-${index}`"
+                  :aria-invalid="isInvalid(ELSE, tier) || undefined"
+                  :data-testid="`pricing-price-${index}`"
+                  @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
+                  @blur="onPriceLeft(ELSE, tier)"
+                />
+              </td>
+              <td v-if="groups.length" class="pricing-when pricing-note">In no group</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <button
         v-if="!fixed && questions.length"
         type="button"
@@ -412,7 +427,7 @@ onBeforeUnmount(() => {
         data-testid="pricing-no-questions"
       >
         A price group reads the form's questions with answers to choose from, and this form asks
-        none yet, so every vendor pays {{ EVERYONE_ELSE }}.
+        none yet, so every vendor pays “{{ EVERYONE_ELSE }}”.
       </p>
       <p v-if="invalidCells.length" class="pricing-error" role="alert" data-testid="pricing-error">
         Enter a price like 35 or 35.50, or leave it blank for no price.
@@ -457,7 +472,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="tiers.length && groups.length" class="pricing-note">
       A vendor is in a group when every one of its conditions holds of their answers. They pay the
-      cheapest group they are in at their table's tier, and {{ EVERYONE_ELSE }} where they are in
+      cheapest group they are in at their table's tier, and “{{ EVERYONE_ELSE }}” where they are in
       none or their groups leave the tier blank.
     </p>
   </div>
@@ -475,7 +490,6 @@ onBeforeUnmount(() => {
 /* As wide as its columns, not the card: a price is a short field, and stretched across a wide card
    each one sat at the left of a column hundreds of pixels wide. */
 .pricing-table {
-  align-self: flex-start;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
@@ -515,9 +529,10 @@ onBeforeUnmount(() => {
   width: 8rem;
 }
 
+/* Wide enough for a name like "UBC student + club member" whole. */
 .pricing-name {
   width: 100%;
-  min-width: 12rem;
+  min-width: 15rem;
 }
 
 .pricing-name-error {
@@ -526,21 +541,54 @@ onBeforeUnmount(() => {
   font-weight: 400;
 }
 
-/* A group is two rows, its prices and who is in it, ruled off from the next. */
-.pricing-table tbody {
-  border-bottom: 1px solid var(--mm-border);
+/* As wide as its columns with no groups; grouped, as wide as the card, the conditions' column
+   taking what the prices leave. Too wide for a narrow card, it scrolls inside the card. */
+.pricing-frame {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
-.pricing-conditions {
-  padding-bottom: var(--space-3);
+.pricing-frame--grouped {
+  align-self: stretch;
 }
 
-.pricing-conditions > * + * {
+.pricing-frame--grouped .pricing-table {
+  width: 100%;
+}
+
+/* A row's cells start at its top: a group's conditions and its name's error run taller than its
+   prices, which stay level with the name. */
+.pricing-table :is(th, td) {
+  vertical-align: top;
+}
+
+/* Each group's row, and "Everyone else", ruled off from the next. */
+.pricing-table tbody tr + tr {
+  border-top: 1px solid var(--mm-border);
+}
+
+.pricing-table tbody :is(th, td) {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.pricing-when {
+  width: 100%;
+}
+
+/* "Everyone else" holds nothing taller than its prices, so its row stays centred on them. */
+.pricing-table .pricing-else :is(th, td) {
+  vertical-align: middle;
+}
+
+.pricing-when > * + * {
   margin-top: var(--space-2);
 }
 
 .pricing-remove {
   display: block;
+  margin-top: var(--space-2);
 }
 
 .pricing-add {

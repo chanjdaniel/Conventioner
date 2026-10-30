@@ -39,9 +39,14 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:conditions': [conditions: AnswerCondition[]] }>();
 
 const byKey = computed(() => new Map(props.questions.map((q) => [q.key, q])));
-/** A condition's question, or a stand-in for one the form no longer has, so it can be removed. */
+/** A condition's question, or a stand-in for one the form no longer has, so it can be removed: its
+ * label went with it, and its key is a slug nobody wrote to be read. */
 const questionOf = (condition: AnswerCondition): RejectionQuestion =>
-  byKey.value.get(condition.key) ?? { key: condition.key, label: condition.key, answers: [] };
+  byKey.value.get(condition.key) ?? {
+    key: condition.key,
+    label: 'A question no longer on the form',
+    answers: [],
+  };
 /** The answers drawn for a condition: what the question offers, then any it named that is gone. */
 function answersOf(condition: AnswerCondition) {
   const offered = questionOf(condition).answers;
@@ -260,18 +265,24 @@ function toggle(key: string, answer: string, meets: boolean) {
   color: var(--mm-red);
 }
 
-/* The select sizes from its column, as the primitive asks: the column is the add row's middle. */
+/* The label, the select and the button in one row packed to the start, wrapping where the column is
+   narrow (a price group's, beside its prices on a 1000px screen) rather than squeezing the select to
+   a sliver: it grows to 24rem and never shrinks below 12rem. */
 .condition-add {
-  display: grid;
-  grid-template-columns: auto minmax(0, 24rem) auto;
-  /* Packed to the start: in a wide step the auto tracks took the free width, stretching the
-     button and leaving the label a column apart from its select. */
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
 
+.condition-add .field--select {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+  max-width: 24rem;
+}
+
 .condition-add-label {
+  white-space: nowrap;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }

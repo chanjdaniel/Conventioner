@@ -377,6 +377,14 @@ describe('price groups (E43/F01/S02)', () => {
   it('each group is a row above Everyone else, which stays last', () => {
     const wrapper = groupCard(grouped([STUDENT_CLUB]));
 
+    // Its conditions sit beside its prices, in a column of their own.
+    expect(wrapper.findAll('thead th').map((th) => th.text())).toEqual([
+      'Who',
+      'Gold',
+      'Silver',
+      'In the group when',
+    ]);
+
     const rows = wrapper.findAll('tbody tr th');
     expect(rows.map((th) => th.attributes('data-testid'))).toEqual([
       'pricing-group-0-who',
@@ -411,6 +419,9 @@ describe('price groups (E43/F01/S02)', () => {
 
     expect(wrapper.kept()?.groups).toEqual([{ name: '', conditions: [], prices: [] }]);
     expect(wrapper.held.at(-1)).toBe(true);
+    // Not met with an error before anything is typed: only once the field is left empty.
+    expect(wrapper.find('[data-testid="pricing-group-0-name-error"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="pricing-group-0-name"]').trigger('blur');
     expect(wrapper.get('[data-testid="pricing-group-0-name-error"]').text()).toBe(
       'Name this group.',
     );
@@ -460,6 +471,11 @@ describe('price groups (E43/F01/S02)', () => {
     expect(wrapper.get('[data-testid="pricing-group-0-broken-year"]').text()).toContain(
       'no longer asks',
     );
+    // Headed by what it is, not by the slug its label left behind.
+    expect(wrapper.get('[data-testid="pricing-group-0-rule-year"]').text()).toContain(
+      'A question no longer on the form includes any of',
+    );
+    expect(wrapper.get('[data-testid="pricing-group-0-rule-year"]').text()).not.toContain('year');
     expect(wrapper.get('[data-testid="pricing-group-0-broken"]').text()).toContain('prices nobody');
   });
 
