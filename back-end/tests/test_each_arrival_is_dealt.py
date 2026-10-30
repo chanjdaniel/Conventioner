@@ -143,6 +143,27 @@ class TestASubmission:
         assert world.markets.doc["reviewTeam"]["turn"] == 7
 
 
+class TestOneWhoCanNoLongerReview:
+    def test_the_next_arrival_skips_a_reviewer_whose_role_was_taken(self, world):
+        _choose([ANA, BEN, CAT])
+        world.markets.doc["roles"].pop("user-ben")
+
+        _submit(world, "v8@vendor.test")
+
+        # Ben's turn, the eighth, goes to the able two in turn.
+        assert _reviewers(world)["v8"] == CAT
+
+    def test_with_no_reviewer_able_an_arrival_is_not_dealt(self, world):
+        _choose([BEN])
+        world.markets.doc["roles"].pop("user-ben")
+
+        _submit(world, "v8@vendor.test")
+
+        assert _reviewers(world)["v8"] is None
+        assert _arrivals(world) == []
+        assert world.markets.doc["reviewTeam"]["turn"] == 7
+
+
 class TestWhatTheRulesReturnToOpen:
     @pytest.fixture
     def rejected(self, world):

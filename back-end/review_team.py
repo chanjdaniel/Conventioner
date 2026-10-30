@@ -23,7 +23,7 @@ import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import history as History
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from datatypes import Market, MarketPerson, Organization, ReviewTeam
+from datatypes import ApplicationStatus, Market, MarketPerson, Organization, ReviewTeam
 from db_config import get_database
 from market_documents import market_doc_field, market_doc_key, market_doc_set
 from utils.email_address import normalized_email
@@ -79,17 +79,24 @@ def served(
     ]}
 
 
-def choose(market: Market, reviewers: List[MarketPerson], by: str) -> Chosen:
+def choose(
+    market: Market, organization: Optional[Organization], reviewers: List[MarketPerson], by: str,
+) -> Chosen:
     """Make ``reviewers`` the market's review team and deal every open application among them.
 
-    The team is written first, with its turn reset, then the open applications are read and dealt
-    round robin from the first reviewer in arrival order, and the turn moves on by as many as were
-    dealt, so the next arrival goes to the reviewer after the last one dealt. Each application's
-    write is conditioned on it still being open and still dealt as it was read, so a verdict landing
-    mid-deal is never touched. A decided application and a follow-up are never written.
+    The team is written first, with its turn reset, then the pool is read and dealt round robin
+    from the first able reviewer (``eligible``) in arrival order, and the turn moves on by the
+    pool's size, so the next arrival goes to the reviewer after the last one dealt. The pool is
+    every open application, and each follow-up whose owner was a reviewer and is not one now: it
+    keeps its status and is handed to the reviewer it is dealt to, as its owner and its reviewer, so
+    someone still reaches out. A follow-up owned by a reviewer still chosen, or by someone who
+    never was one, and every decided application, are never written.
 
-    An unchanged set writes and records nothing. With none chosen, every open application goes
-    back to first come, first served.
+    Each write is conditioned on the application still being as the pool read it (open and dealt
+    as it was, or the follow-up still owned by the removed reviewer), so a verdict or a hand-on
+    landing mid-deal is never written over. An unchanged set writes and records nothing. With none
+    chosen, every open application goes back to first come, first served, and every follow-up stays
+    with its owner.
     """
     before = team_of(market)
     chosen = in_deal_order(reviewers)
@@ -105,32 +112,49 @@ def choose(market: Market, reviewers: List[MarketPerson], by: str) -> Chosen:
         detail=lambda: History.changes(
             {"reviewers": _addresses(before.reviewers)}, {"reviewers": _addresses(chosen)}))
 
-    pool = ApplicationsApi.undecided_in_arrival_order(market.id)
+    able = eligible(market.model_copy(update={"review_team": team}), organization)
+    removed = set(_addresses(before.reviewers)) - set(_addresses(chosen)) if chosen else set()
+    pool = ApplicationsApi.undecided_in_arrival_order(market.id, follow_ups_of=removed)
+    if chosen and not able:
+        # Nobody chosen may review here: nothing is dealt until someone who can is chosen.
+        return Chosen(team, 0)
+
     moved = []
     for index, doc in enumerate(pool):
-        to = chosen[index % len(chosen)] if chosen else None
+        to = able[index % len(able)] if able else None
         was = doc.get("reviewer") or None
+        if doc.get("status") == ApplicationStatus.NEEDS_FOLLOW_UP.value:
+            owner = doc.get("follow_up_owner")
+            if ApplicationsApi.deal_follow_up(doc["id"], to, owner):
+                moved.append((doc, was, to, owner))
+            continue
         if was == (to.model_dump() if to else None):
             continue
         if ApplicationsApi.deal(doc["id"], to, was):
-            moved.append((doc, was, to))
-    if chosen and pool:
-        markets_collection.update_one(
-            {"id": market.id}, {"$inc": {f"{market_doc_key('review_team')}.turn": len(pool)}})
+            moved.append((doc, was, to, None))
+    if able and pool:
+        markets_collection.update_one({"id": market.id}, {"$inc": {_TURN: len(pool)}})
         team = team.model_copy(update={"turn": len(pool)})
 
     if moved:
         History.record(
             market.id, by, Actions.CHOOSE_REVIEWERS, kind=History.DEALT,
-            vendors=[doc.get("applicant_email") for doc, _was, _to in moved],
-            subject={"application_ids": [doc["id"] for doc, _was, _to in moved]},
+            vendors=[doc.get("applicant_email") for doc, *_rest in moved],
+            subject={"application_ids": [doc["id"] for doc, *_rest in moved]},
             detail=lambda: {
                 "cause": REVIEWERS_CHANGED,
-                "before": {doc["id"]: {"reviewer": _address(was)} for doc, was, _to in moved},
-                "after": {doc["id"]: {"reviewer": to.email if to else None}
-                          for doc, _was, to in moved},
+                "before": {doc["id"]: _share(was, owner) for doc, was, _to, owner in moved},
+                "after": {doc["id"]: _share(to.model_dump() if to else None,
+                                            to.model_dump() if owner else None)
+                          for doc, _was, to, owner in moved},
             })
     return Chosen(team, len(moved))
+
+
+def _share(reviewer: Optional[Dict[str, Any]], owner: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """An application's place in a deal's entry: its reviewer, and a follow-up's owner beside it."""
+    return {"reviewer": _address(reviewer),
+            **({"follow_up_owner": _address(owner)} if owner else {})}
 
 
 def _address(person: Optional[Dict[str, Any]]) -> Optional[str]:

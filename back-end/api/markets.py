@@ -2433,7 +2433,7 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
                     "market.")
             person = MarketPerson(user_id=user.id, email=user.email)
         chosen.append(person)
-    team, dealt = ReviewTeam.choose(market, chosen, requesting_user)
+    team, dealt = ReviewTeam.choose(market, organization, chosen, requesting_user)
     return {"reviewTeam": ReviewTeam.served(team, market, organization), "dealt": dealt}
 
 

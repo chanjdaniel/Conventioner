@@ -433,10 +433,21 @@ def reassign_follow_up_owner(app_id: str, owner: MarketPerson) -> bool:
 
 # --- Whose share it is (E38/F07/S02, ADR 0020) -----------------------------------------------------
 
-def undecided_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
-    """A market's open applications, the ones a deal hands out, earliest arrival first."""
-    docs = list_applications_for_market(market_id)
-    return _in_arrival_order([doc for doc in docs if doc.get(STATUS_FIELD) in UNDECIDED_STATUSES])
+def undecided_in_arrival_order(
+    market_id: str, follow_ups_of: Iterable[str] = (),
+) -> List[Dict[str, Any]]:
+    """A market's open applications, the ones a deal hands out, earliest arrival first; and with
+    them the follow-ups owned by any of the addresses ``follow_ups_of`` (a removed reviewer's)."""
+    owners = {str(address).strip().lower() for address in follow_ups_of}
+
+    def dealable(doc: Dict[str, Any]) -> bool:
+        if doc.get(STATUS_FIELD) in UNDECIDED_STATUSES:
+            return True
+        owner = str((doc.get("follow_up_owner") or {}).get("email") or "").strip().lower()
+        return doc.get(STATUS_FIELD) == ApplicationStatus.NEEDS_FOLLOW_UP.value and owner in owners
+
+    return _in_arrival_order([doc for doc in list_applications_for_market(market_id)
+                              if dealable(doc)])
 
 
 def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, Any]]) -> bool:
@@ -456,6 +467,20 @@ def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, 
          # Null or absent alike, as a verdict's condition reads them.
          "reviewer": was if was else {"$in": [None]}},
         update,
+    )
+    return result.matched_count > 0
+
+
+def deal_follow_up(app_id: str, reviewer: MarketPerson, owner_was: Dict[str, Any]) -> bool:
+    """Hand a removed reviewer's follow-up to the reviewer it is dealt to: its owner and its
+    reviewer both become them, and it keeps its status. Written only while it still needs a
+    follow-up from ``owner_was``, so one taken on or decided meanwhile is left as it is. Only
+    ``review_team.py`` calls it."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: ApplicationStatus.NEEDS_FOLLOW_UP.value,
+         "follow_up_owner": owner_was},
+        {"$set": {"follow_up_owner": reviewer.model_dump(), "reviewer": reviewer.model_dump()}},
     )
     return result.matched_count > 0
 
