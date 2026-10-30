@@ -32,7 +32,7 @@ Every update is confirmed before it is kept (Q13: "confirmation required for all
 The row "Update a vendor's info", an Editor by default ([what each role may do](what-each-role-may-do.md)), in any phase until the market is archived ([an archived market is read-only](an-archived-market-is-read-only.md)).
 An answer the assignment reads (the dates, how many of them, the tiers on each, the table choice, the table-share partner and the rankings, [essential fields](../../implementation/modules/essential-fields.md)) asks a row of its own as well, "Update info the assignment or price reads", an Admin by default (Q13: "fields assignment reads require admin privileges").
 The dialog shows those answers read-only to whoever that row refuses, with its sentence: what the vendor wrote and who updated it still show, with no "Use their answer"; the server refuses them before judging them.
-"Number of dates you want" is marked required only where the vendor gave a number, since an imported answer with no limit may stay empty.
+"Number of dates you want" is marked required only where the answer as it reads and the vendor's own answer both hold a number; where either is empty an empty answer is accepted, so an update of a number over an imported no-limit row can be taken away.
 The names and the request are [essential questions](../concepts/essential-question.md) the assignment never reads, and are any other answer's.
 The row is named for the prices too, but no answer a price reads is behind it yet: that comes with the price groups (E43/F01/S03).
 
