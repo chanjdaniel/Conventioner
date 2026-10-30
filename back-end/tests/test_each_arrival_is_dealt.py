@@ -274,6 +274,51 @@ class TestTwoAtOnce:
         assert "dealing_by" not in next(
             d for d in world.applications.documents if d["id"] == "app-x")
 
+    @pytest.fixture
+    def change_lands_after_the_turn(self, world, monkeypatch):
+        """X arrives, takes its turn, and a change of reviewers lands before X is written."""
+        _choose([ANA, BEN, CAT])
+        world.applications.documents.append(_application("x", 21))
+        market = MarketsApi.market_from_document(world.markets.doc)
+        real = world.markets.find_one_and_update
+
+        def arrive(*reviewers):
+            changed = []
+
+            def the_change_lands_after_the_turn(*args, **kwargs):
+                taken = real(*args, **kwargs)
+                if not changed:
+                    changed.append(True)
+                    assert _choose(list(reviewers)).status_code == 200
+                return taken
+
+            monkeypatch.setattr(world.markets, "find_one_and_update",
+                                the_change_lands_after_the_turn)
+            ReviewTeam.deal_arrivals(market, ADMIN, "import-applications")
+            monkeypatch.setattr(world.markets, "find_one_and_update", real)
+        return arrive
+
+    def test_a_new_team_after_the_turn_keeps_its_own_turn_and_skips_no_one(
+            self, world, change_lands_after_the_turn):
+        change_lands_after_the_turn(BEN, CAT)
+
+        # The change dealt the seven and x, Ben and Cat in turn, x the eighth to Cat, and kept
+        # its turn: the next arrival is Ben's.
+        assert _reviewers(world)["x"] == CAT
+        assert world.markets.doc["reviewTeam"]["turn"] == 8
+        world.applications.documents.append(_application("y", 22))
+        ReviewTeam.deal_arrivals(
+            MarketsApi.market_from_document(world.markets.doc), ADMIN, "change-form")
+        assert _reviewers(world)["y"] == BEN
+
+    def test_no_team_after_the_turn_leaves_the_arrival_undealt(
+            self, world, change_lands_after_the_turn):
+        change_lands_after_the_turn()
+
+        assert set(_reviewers(world).values()) == {None}
+        assert "dealing_by" not in next(
+            d for d in world.applications.documents if d["id"] == "app-x")
+
     def test_one_left_half_dealt_by_a_deal_that_stopped_is_dealt_by_the_next(self, world):
         _choose([ANA, BEN, CAT])
         world.applications.documents.append(_application(

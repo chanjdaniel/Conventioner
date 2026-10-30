@@ -493,6 +493,19 @@ def begin_dealing(app_id: str, deal: str, now: Optional[datetime] = None) -> boo
     return result.matched_count > 0
 
 
+def let_go_of_arrivals(market_id: str) -> int:
+    """Let go of every application of the market an arrival's deal holds, so none of those deals
+    writes its reviewer: a change of reviewers deals them itself, from the new team, or leaves them
+    first come, first served. Answers how many it let go."""
+    released = 0
+    for doc in applications_collection.find(
+            {MARKET_ID_FIELD: market_id, "dealing_by": {"$exists": True}}, {"id": 1, "dealing_by": 1}):
+        result = applications_collection.update_one(
+            {"id": doc["id"], "dealing_by": doc["dealing_by"]}, {"$unset": dict(_DEALING_UNSET)})
+        released += result.matched_count
+    return released
+
+
 def finish_dealing(app_id: str, deal: str, reviewer: Optional[MarketPerson]) -> bool:
     """Write the reviewer ``deal`` took a turn for, and let go of the application; with None, let
     go without dealing it. The reviewer is written only while that deal still holds it and nothing

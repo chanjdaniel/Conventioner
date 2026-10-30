@@ -95,9 +95,10 @@ def choose(
 
     Each write is conditioned on the application still being as the pool read it (open and dealt
     as it was, or the follow-up still owned by the removed reviewer), so a verdict or a hand-on
-    landing mid-deal is never written over. An unchanged set writes and records nothing. With none
-    chosen, every open application goes back to first come, first served, and every follow-up stays
-    with its owner.
+    landing mid-deal is never written over. Every application an arrival's deal holds is let go
+    first, so no arrival writes a reviewer from the team this replaces. An unchanged set writes and
+    records nothing. With none chosen, every open application goes back to first come, first
+    served, and every follow-up stays with its owner.
     """
     before = team_of(market)
     chosen = in_deal_order(reviewers)
@@ -113,6 +114,9 @@ def choose(
         detail=lambda: History.changes(
             {"reviewers": _addresses(before.reviewers)}, {"reviewers": _addresses(chosen)}))
 
+    # An arrival dealing an application now took its turn from the team just replaced: let go of
+    # it, so its write finds it no longer held, and this change deals it from the new team.
+    ApplicationsApi.let_go_of_arrivals(market.id)
     able = eligible(market.model_copy(update={"review_team": team}), organization)
     removed = set(_addresses(before.reviewers)) - set(_addresses(chosen)) if chosen else set()
     pool = ApplicationsApi.undecided_in_arrival_order(market.id, follow_ups_of=removed)
@@ -182,8 +186,9 @@ def deal_arrivals(
     (``$inc`` on the turn, answering the market after), from the team as it stands at that instant.
     So a turn is taken only for an application this deal will write, and two deals at once take
     consecutive turns and skip no reviewer. The reviewer is written unless a change of reviewers
-    dealt the application meanwhile, when the turn goes back; it is written whatever verdict was
-    given since the deal won it, since a reviewer is whose share it was, beside any verdict.
+    dealt the application, or let go of it, meanwhile, when the turn goes back while the team is
+    the one it was taken from; it is written whatever verdict was given since the deal won it,
+    since a reviewer is whose share it was, beside any verdict.
     """
     if not team_of(market).reviewers:
         return 0
@@ -204,18 +209,15 @@ def deal_arrivals(
         able = [person for person in team.reviewers if person.user_id in holding]
         if not able:
             # Nobody may review here: the turn is not one anybody had, so it goes back.
-            markets_collection.update_one(
-                {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
+            _give_back(market.id, stored)
             ApplicationsApi.finish_dealing(doc["id"], deal, None)
             break
         to = able[(team.turn - 1) % len(able)]
         if ApplicationsApi.finish_dealing(doc["id"], deal, to):
             dealt.append((doc, to))
         else:
-            # A change of reviewers dealt it meanwhile: the turn this took is nobody's, so it goes
-            # back unless another deal has taken one since.
-            markets_collection.update_one(
-                {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
+            # A change of reviewers dealt it, or let go of it, meanwhile: the turn is nobody's.
+            _give_back(market.id, stored)
     if dealt:
         History.record(
             market.id, actor, action, kind=History.DEALT,
@@ -227,6 +229,17 @@ def deal_arrivals(
                 "after": {doc["id"]: {"reviewer": to.email} for doc, to in dealt},
             })
     return len(dealt)
+
+
+def _give_back(market_id: str, stored: Optional[Dict[str, Any]]) -> None:
+    """Give back the turn a deal took and did not use: only while the market's turn is still the
+    one it took and its team still the one it took it from, since a change of reviewers resets the
+    turn itself and a turn of the new team's is not this deal's to give."""
+    team = market_doc_field(stored or {}, "review_team") or {}
+    markets_collection.update_one(
+        {"id": market_id, _TURN: team.get("turn"),
+         f"{market_doc_key('review_team')}.reviewers": team.get("reviewers")},
+        {"$inc": {_TURN: -1}})
 
 
 def _organization(market: Market) -> Optional[Organization]:
