@@ -50,12 +50,14 @@ test('a hand placement is in the history, by name and email, opened from the but
   await page.getByTestId('placement-history-dialog-background').click({ position: { x: 5, y: 5 } });
   await expect(dialog).toBeHidden();
 
-  // The vendor drawer's history is the same trail, and names them the same way.
+  // The vendor drawer's history holds the same placement, naming them by name alone, since its
+  // head shows their address.
   await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?vendor=alice%40example.com`);
-  await new VendorsPage(page).openTab('history');
-  await expect(
-    page.getByTestId('vendor-drawer-panel-history').getByTestId('placement-history-vendor'),
-  ).toContainText('alice@example.com');
+  const vendors = new VendorsPage(page);
+  await vendors.openTab('history');
+  const theirs = vendors.detailHistorySentences.first();
+  await expect(theirs).toContainText('Alice Example');
+  await expect(theirs).not.toContainText('alice@example.com');
 });
 
 test('after a run, a viewer opens the history too', async ({

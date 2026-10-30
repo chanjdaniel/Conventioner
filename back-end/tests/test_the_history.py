@@ -145,7 +145,7 @@ class TestAPlacementEntry:
 
 
 class TestThePlacementView:
-    """The placement endpoint and the drawer's History tab answer as they did before the widening."""
+    """The placement endpoint answers as it did before the widening."""
 
     def test_it_holds_only_placements(self, history):
         History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
@@ -160,24 +160,15 @@ class TestThePlacementView:
         [entry] = History.placement_entries("m1")
         assert set(entry) == {"id", "market_id", "actor", "at", "kind", "vendors", "detail"}
 
-    def test_a_vendor_reads_only_their_placements(self, history):
-        History.record_freed("m1", "a@x.test", "v@x.test", "2026-08-01", "A 1")
-        History.record_freed("m1", "a@x.test", "w@x.test", "2026-08-01", "A 2")
-        History.record_assignment_run("m1", "a@x.test", 2, 0)
-
-        assert [e["vendors"] for e in History.placement_entries("m1", "W@x.test")] == [
-            ["w@x.test"],
-        ]
-
 
 class TestThePlacementViewBeforeTheMigration:
     """Until ``migrate_placement_history.py`` runs, the older entries are still in
     ``placement_history``, without ``action`` or ``subject``, and the trail reads them as before."""
 
-    def old_entry(self, market_id, at, table_code, vendor="v@x.test"):
+    def old_entry(self, market_id, at, table_code):
         return {
             "_id": f"oid-{table_code}", "id": f"old-{table_code}", "market_id": market_id,
-            "actor": "a@x.test", "at": at, "kind": History.FREED, "vendors": [vendor],
+            "actor": "a@x.test", "at": at, "kind": History.FREED, "vendors": ["v@x.test"],
             "detail": {"date": "2026-08-01", "table_code": table_code},
         }
 
@@ -203,16 +194,6 @@ class TestThePlacementViewBeforeTheMigration:
         history.insert_one({**old, "action": Actions.ASSIGN.id, "subject": {}})
 
         assert [e["id"] for e in History.placement_entries("m1")] == ["old-A 1"]
-
-    def test_a_vendor_reads_their_old_entries_too(self, history, placement_history):
-        placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))
-        placement_history.insert_one(
-            self.old_entry("m1", "2026-01-02T00:00:00+00:00", "A 2", vendor="w@x.test")
-        )
-
-        assert [e["vendors"] for e in History.placement_entries("m1", "W@x.test")] == [
-            ["w@x.test"],
-        ]
 
     def test_deleting_a_market_takes_its_unmoved_entries_too(self, history, placement_history):
         placement_history.insert_one(self.old_entry("m1", "2026-01-01T00:00:00+00:00", "A 1"))

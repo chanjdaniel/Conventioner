@@ -13,6 +13,7 @@ sources:
   - E11/F02/S01
   - E11/F03/S01
   - E11/F04/S01
+  - E40/F01/S04
   - E26/F05/S03
   - E35/F01/S02
   - E35/F03/S03
@@ -91,11 +92,13 @@ Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 
 ## J13. Assignment history
 
-**Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Assignment history" on the Assignments page opens the market's assignment history in full, and a vendor's drawer has their own on its History tab.
-Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved".
-Anyone who may read the market's history can read it ([what each role may do](../rules/what-each-role-may-do.md)).
-Covered by: `the-placement-history-dialog.spec.ts`.
+**Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`; the drawer's tab as of E40/F01/S04, `the-vendors-history.spec.ts`).
+"Assignment history" on the Assignments page opens the market's assignment history in full.
+A vendor's drawer holds their placements on its History tab, among everything else [the market's history](reading-the-markets-history.md) holds about them, each led by who made it and followed by the day it is for ([the vendor drawer](vendor-drawer.md)).
+Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "Moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
+A move recorded before the history kept the table left reads as an assignment.
+Anyone who may read the market's history can read it, and the drawer holds no History tab for anyone else ([what each role may do](../rules/what-each-role-may-do.md)).
+Covered by: `the-placement-history-dialog.spec.ts`, `the-vendors-history.spec.ts`.
 
 ## The rules it obeys
 

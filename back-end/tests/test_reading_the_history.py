@@ -214,6 +214,8 @@ class TestTheFilters:
         entry(history, 1, vendors=["ana@x.test"])
         entry(history, 2, vendors=["ben@x.test", "ana@x.test"])
         entry(history, 3, vendors=["ben@x.test"])
+        # A run of the assignment names nobody, so no vendor's list holds it (E40/F01/S04).
+        entry(history, 4, action="assign", kind="assigned")
 
         page, _after = History.entries_page(MARKET, vendor="Ana@X.test")
 
@@ -266,6 +268,18 @@ class TestTheEntriesNotYetMoved:
         page, _after = History.entries_page(MARKET)
 
         assert ids(page) == [moved["id"]]
+
+    def test_a_vendor_reads_their_own_among_them(self, history, legacy):
+        """A vendor's drawer reads the history narrowed to them, the unmoved entries included."""
+        for minutes, vendor in ((1, "ana@x.test"), (2, "ben@x.test")):
+            legacy.docs.append({
+                "id": f"old-{minutes}", "market_id": MARKET, "actor": "dana@x.test",
+                "at": _at(minutes), "kind": "freed", "vendors": [vendor], "detail": {},
+            })
+
+        page, _after = History.entries_page(MARKET, vendor="Ben@X.test")
+
+        assert ids(page) == ["old-2"]
 
     def test_they_are_left_out_of_a_group_that_is_not_the_assignment(self, history, legacy):
         legacy.docs.append({

@@ -233,7 +233,7 @@ python migrations/migrate_to_one_stage.py             # AFTER the deploy, whenev
 ```
 
 `migrate_placement_history.py` runs **after** its deploy, not before (E40/F01/S01): it moves every `placement_history` entry into `history` with its fields unchanged and drops the old collection, and a run before the deploy leaves behind whatever the old build writes meanwhile.
-Nothing waits on it: the release reads `placement_history` beside `history`, so the drawer's History tab answers as before from the deploy on, and the release can be rolled back until the script has run ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
+Nothing waits on it: the release reads `placement_history` beside `history`, so the older placements still show in the Assignment history and a vendor's History tab from the deploy on, and the release can be rolled back until the script has run ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
 It is idempotent, so an early run does no harm, but only a run after moves everything; a later release removes the fallback once every database is moved.
 
 `migrate_to_one_stage.py` runs **after** the deploy that ships the one stage ([ADR 0016](adr/0016-one-stage-for-applications-and-review.md)), whenever the operator likes, never before it: the build before reads `applications` as an unknown phase, which degrades to archived.
