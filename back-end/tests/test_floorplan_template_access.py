@@ -366,15 +366,49 @@ class TestAnOrganizationsTemplateIsInItsHistory:
 
         templates.docs.append(_stored_template(organizationId=ORG_ID))
 
-        _update(sign_in("creator@example.com"), aisles={"wallBufferMm": 900.0})
+        _update(sign_in("creator@example.com"), aisles={"wallBufferMm": 900.0},
+                tableTypes=[{"name": "Full"}], organizationId=ORG_ID)
 
         [entry] = history()
         assert entry["kind"] == History.TEMPLATE_CHANGED
         assert entry["subject"] == {"template_id": TEMPLATE_ID, "name": "Renamed"}
+        # By the names the history words them with, and never the organization's id.
         assert entry["detail"] == {
-            "before": {"name": "Main hall", "aisles": {}},
-            "after": {"name": "Renamed", "aisles": {"wallBufferMm": 900.0}},
+            "before": {"name": "Main hall", "aisles": {}, "table_types": []},
+            "after": {"name": "Renamed", "aisles": {"wallBufferMm": 900.0},
+                      "table_types": [{"name": "Full"}]},
         }
+
+    def test_moving_one_out_reads_as_leaving_and_into_another_as_arriving(
+        self, sign_in, templates, organizations, market_records,
+    ):
+        import history as History
+
+        other = {**ORGANIZATION, "id": "org-456", "name": "Pier Collective"}
+        organizations.docs.append(other)
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        _update(sign_in("creator@example.com"), name="Main hall", organizationId="org-456")
+
+        left, arrived = market_records.history.documents
+        assert (left["organization_id"], left["kind"]) == (ORG_ID, History.TEMPLATE_MOVED_OUT)
+        assert (arrived["organization_id"], arrived["kind"]) == (
+            "org-456", History.TEMPLATE_MOVED_IN)
+        # Its name is its subject; no organization's id is in either, nor the other's name.
+        assert left["detail"] == arrived["detail"] == {}
+        assert left["subject"] == {"template_id": TEMPLATE_ID, "name": "Main hall"}
+
+    def test_moving_one_out_to_no_organization_reads_as_leaving(
+        self, sign_in, templates, organizations, market_records,
+    ):
+        import history as History
+
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        _update(sign_in("creator@example.com"), name="Main hall", organizationId=None)
+
+        [left] = market_records.history.documents
+        assert (left["organization_id"], left["kind"]) == (ORG_ID, History.TEMPLATE_MOVED_OUT)
 
     def test_removing_one_is_recorded(self, sign_in, templates, organizations, history):
         import history as History

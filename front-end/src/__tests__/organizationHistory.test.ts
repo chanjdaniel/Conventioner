@@ -124,6 +124,54 @@ describe('what an organization’s entry says', () => {
     );
   });
 
+  it('words a floorplan template moved out of it, or into it, without naming the other', () => {
+    const moved = (kind: string) =>
+      sentence({
+        action: 'manage-floorplan-templates',
+        kind,
+        subject: { template_id: 't-1', name: 'Main hall' },
+        detail: {},
+      });
+    expect(moved('template_moved_out')).toBe(
+      'olive@ember.test moved the floorplan template "Main hall" out of the organization',
+    );
+    expect(moved('template_moved_in')).toBe(
+      'olive@ember.test moved the floorplan template "Main hall" into the organization',
+    );
+  });
+
+  it('opens a template’s change to its table types and aisles in words, never JSON', () => {
+    const { changed } = entryChanges(
+      entry({
+        action: 'manage-floorplan-templates',
+        kind: 'template_changed',
+        subject: { template_id: 't-1', name: 'Main hall' },
+        detail: {
+          before: { table_types: [], aisles: {} },
+          after: {
+            table_types: [
+              { id: 'tt-1', name: 'Full', widthMm: 1830, heightMm: 760, maxCapacity: 1 },
+              { id: 'tt-2', name: 'Half', widthMm: 915, heightMm: 760, maxCapacity: 1 },
+            ],
+            aisles: { wallBufferMm: 1500, tableSpacingMm: 1200, walkwayWidthMm: 2000 },
+          },
+        },
+      }),
+    );
+    expect(changed).toEqual([
+      {
+        field: 'Table types',
+        before: 'none',
+        after: 'Full 1830\u00a0×\u00a0760\u00a0mm, Half 915\u00a0×\u00a0760\u00a0mm',
+      },
+      {
+        field: 'Aisles',
+        before: 'none',
+        after: 'wall buffer 1500\u00a0mm, table spacing 1200\u00a0mm, walkway 2000\u00a0mm',
+      },
+    ]);
+  });
+
   it('words a row of the default for new markets by its label', () => {
     const labels = { 'check-in': 'Check vendors in' };
     expect(
@@ -314,6 +362,38 @@ describe('Manage organization holds together as Manage market does', () => {
     admins: ['user-ada'],
     adminEmails: ['ada@ember.test'],
   };
+
+  it('puts focus in the field an add opens, and back on its button when the row closes', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountDialog();
+    await flushPromises();
+
+    for (const who of ['admin', 'member']) {
+      byTestId(`manage-org-add-${who}-button`)!.click();
+      await flushPromises();
+      expect(document.activeElement?.getAttribute('data-testid')).toBe(
+        `manage-org-add-${who}-input`,
+      );
+      byTestId(`manage-org-add-${who}-cancel`)!.click();
+      await flushPromises();
+      expect(document.activeElement?.getAttribute('data-testid')).toBe(
+        `manage-org-add-${who}-button`,
+      );
+    }
+    wrapper.unmount();
+  });
+
+  it('offers an admin no rename, which is the owner’s alone', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountDialog({ ...ORG, userRole: 'admin' });
+    await flushPromises();
+
+    expect(byTestId('manage-org-rename-input')).toBeNull();
+    expect(byTestId('manage-org-add-member-button')).not.toBeNull();
+    expect(byTestId('manage-org-add-admin-button')).toBeNull();
+    expect(byTestId('manage-org-delete-button')).toBeNull();
+    wrapper.unmount();
+  });
 
   it('opens on its first control that is not a Remove', async () => {
     serve({ entries: [], next: null });

@@ -55,7 +55,7 @@ Covered by: `access-control.spec.ts` ("org membership changes").
 ## B4. Rename an organization
 
 **Status:** Works (walked live).
-Manage, "Rename organization", edit, "Save".
+Manage, "Rename organization", edit, "Save"; the owner's alone, so an admin's dialog has no such section.
 Covered by: `tier2.spec.ts`.
 
 ## B5. Delete an organization
@@ -94,7 +94,7 @@ Its specs and gaps are in [walking the flows](../../implementation/testing/walki
 
 1. On the organization's card, "Manage"; every one of its people has it, and a member's dialog holds only the owner and the History.
 2. "History", a heading with a chevron, closed until opened, as [Manage market's](reading-the-markets-history.md#l6-read-the-markets-history) is; opening it reads the newest 10 changes, newest first, and "Load more" adds the next 10.
-3. Each change is one sentence and its time, worded as the market's history words them: "e2e@example.com renamed the organization from "Ember Markets" to "Ember Fairs"", "e2e@example.com gave priya@example.com the Admin role", "e2e@example.com changed priya@example.com from Member to Admin", "e2e@example.com took the Member role from priya@example.com", "e2e@example.com handed the organization to priya@example.com", "e2e@example.com created the market "Winter Fair"", "e2e@example.com deleted the market "Winter Fair"", "e2e@example.com added the floorplan template "Main hall"" (and "changed", "removed").
+3. Each change is one sentence and its time, worded as the market's history words them: "e2e@example.com renamed the organization from "Ember Markets" to "Ember Fairs"", "e2e@example.com gave priya@example.com the Admin role", "e2e@example.com changed priya@example.com from Member to Admin", "e2e@example.com took the Member role from priya@example.com", "e2e@example.com handed the organization to priya@example.com", "e2e@example.com created the market "Winter Fair"", "e2e@example.com deleted the market "Winter Fair"", "e2e@example.com added the floorplan template "Main hall"" (and "changed", "removed"), "e2e@example.com moved the floorplan template "Main hall" out of the organization" (and "into").
 4. "Before and after" opens a table of what each change set, as it was and as it is.
 5. A change made in the dialog while the History is open (a person added or removed, a rename) shows at its top as it lands, without reopening the dialog.
 

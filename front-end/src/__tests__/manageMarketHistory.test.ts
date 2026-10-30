@@ -316,7 +316,7 @@ describe('in Manage market', () => {
     ).toBe('cy@ember.test');
   });
 
-  it('reads its first page again after a change made in the same dialog', async () => {
+  it('reads its first page again, under its filters, after a change made in the same dialog', async () => {
     const draft = {
       ...market(null),
       phase: MarketPhase.Draft,
@@ -335,6 +335,8 @@ describe('in Manage market', () => {
     await flushPromises();
     await wrapper.get('[data-testid="manage-market-history-toggle"]').trigger('click');
     await flushPromises();
+    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy@ember.test');
+    await flushPromises();
     const before = historyRead().length;
 
     await wrapper.get('[data-testid="manage-market-rename-input"]').setValue('Riverside Fair');
@@ -342,6 +344,42 @@ describe('in Manage market', () => {
     await flushPromises();
 
     expect(historyRead()).toHaveLength(before + 1);
+    expect(historyRead().at(-1)![0]).toBe('/markets/market-1/history?vendor=cy%40ember.test');
+  });
+
+  it('puts focus in the field "Add user" opens, and back on it when the row closes', async () => {
+    const mine = {
+      ...market(null),
+      actionRefusals: {
+        'read-history': null,
+        'manage-editors-and-viewers': null,
+        'manage-admins': null,
+      },
+    } as unknown as Market;
+    api.get.mockImplementation(async (url: string) =>
+      url === '/markets/market-1'
+        ? { data: { market: mine } }
+        : { data: { entries: [], next: null, vendorNames: {}, actors: [], groups: [] } },
+    );
+    const wrapper = mount(ManageMarketOverlay, {
+      props: { manageOpen: true, market: mine },
+      global: { stubs: { Teleport: true, RouterLink: RouterLinkStub } },
+      attachTo: document.body,
+    });
+    await flushPromises();
+
+    await wrapper.get('[data-testid="manage-market-add-user-button"]').trigger('click');
+    await flushPromises();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe(
+      'manage-market-add-user-input',
+    );
+
+    await wrapper.get('[data-testid="manage-market-add-user-cancel"]').trigger('click');
+    await flushPromises();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe(
+      'manage-market-add-user-button',
+    );
+    wrapper.unmount();
   });
 
   it('holds none for a person below the row, and never asks for it', async () => {

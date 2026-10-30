@@ -468,6 +468,10 @@ MANAGE_FLOORPLAN_TEMPLATES = "manage-floorplan-templates"
 TEMPLATE_ADDED = "template_added"
 TEMPLATE_CHANGED = "template_changed"
 TEMPLATE_REMOVED = "template_removed"
+#: A template filed under another organization, or none, read in the one it left; and in the one
+#: it was filed under, as arriving. Neither names the other organization.
+TEMPLATE_MOVED_OUT = "template_moved_out"
+TEMPLATE_MOVED_IN = "template_moved_in"
 #: A row of the organization's default table set or reset, ``permission_set`` and
 #: ``permission_reset`` with the market's subject and detail (E39/F02/S01 writes it).
 CHANGE_THE_DEFAULT = "change-the-default"

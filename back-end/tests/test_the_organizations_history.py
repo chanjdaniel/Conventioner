@@ -185,6 +185,18 @@ class TestWhatIsRecorded:
             "before": {"owner": OWNER.email}, "after": {"owner": ADMIN.email},
         }
 
+    def test_ownership_handed_to_its_own_owner_is_refused_before_anything_changes(
+        self, org, history,
+    ):
+        from client_errors import BadRequestError
+
+        with pytest.raises(BadRequestError):
+            OrgsApi.transfer_org_ownership(ORG, OWNER.email, OWNER.email)
+
+        assert org.doc["owner"] == OWNER.id
+        assert org.doc["admins"] == [ADMIN.id], "the owner was added to its own admins"
+        assert entries(history) == []
+
     def test_a_market_created_in_it_is_recorded_with_its_name(self, org, history, monkeypatch):
         monkeypatch.setattr(MarketsApi, "organization_refusal", lambda *_a: None)
         monkeypatch.setattr(MarketsApi, "create_market", lambda market, _email: (None, "m-9"))
@@ -394,6 +406,9 @@ class TestAMarketDeleted:
         monkeypatch.setattr(MarketsApi, "db", {"organizations": SimpleNamespace(
             update_one=lambda *_a, **_k: None)})
 
+        MarketsApi.delete_market("m-9", ADMIN.email)
+        monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
+                            lambda _markets, _id: SimpleNamespace(deleted_count=0))
         MarketsApi.delete_market("m-9", ADMIN.email)
 
         entry = only(history)

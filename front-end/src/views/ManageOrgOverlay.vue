@@ -21,7 +21,7 @@
  * A member opens it too, to read the organization's History (E40/F02/S01); the people and the
  * controls an owner or an admin manages are theirs alone.
  */
-import { ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
@@ -118,16 +118,41 @@ async function saved(): Promise<void> {
  * Cancelling clears what was typed and any error: reopening should not hand back a rejected
  * address as though it were still being considered.
  */
-function closeAddAdmin() {
+const addAdminButton = ref<HTMLButtonElement | null>(null);
+const addAdminInput = ref<HTMLInputElement | null>(null);
+const addMemberButton = ref<HTMLButtonElement | null>(null);
+const addMemberInput = ref<HTMLInputElement | null>(null);
+
+/**
+ * Opening a row takes away the button that opened it, and closing one its Cancel, so focus goes
+ * where the person is next: the field, and then the button again. Left alone it fell to `<body>`.
+ */
+async function openAddAdmin() {
+  showAddAdminForm.value = true;
+  await nextTick();
+  addAdminInput.value?.focus();
+}
+
+async function closeAddAdmin() {
   showAddAdminForm.value = false;
   newAdminEmail.value = '';
   addAdminError.value = '';
+  await nextTick();
+  addAdminButton.value?.focus();
 }
 
-function closeAddMember() {
+async function openAddMember() {
+  showAddMemberForm.value = true;
+  await nextTick();
+  addMemberInput.value?.focus();
+}
+
+async function closeAddMember() {
   showAddMemberForm.value = false;
   newMemberEmail.value = '';
   addMemberError.value = '';
+  await nextTick();
+  addMemberButton.value?.focus();
 }
 
 async function handleRename() {
@@ -259,8 +284,9 @@ function handleDeleted() {
             v-if="isOwner() && !showAddAdminForm"
             type="button"
             class="btn btn--secondary"
+            ref="addAdminButton"
             data-testid="manage-org-add-admin-button"
-            @click="showAddAdminForm = true"
+            @click="openAddAdmin"
           >
             Add admin
           </button>
@@ -268,6 +294,7 @@ function handleDeleted() {
           <form v-if="showAddAdminForm" class="add-user-form" @submit.prevent="handleAddAdmin">
             <div class="add-org-row">
               <input
+                ref="addAdminInput"
                 v-model="newAdminEmail"
                 type="email"
                 placeholder="User email"
@@ -327,14 +354,16 @@ function handleDeleted() {
             v-if="!showAddMemberForm"
             type="button"
             class="btn btn--secondary"
+            ref="addMemberButton"
             data-testid="manage-org-add-member-button"
-            @click="showAddMemberForm = true"
+            @click="openAddMember"
           >
             Add member
           </button>
           <form v-if="showAddMemberForm" class="add-user-form" @submit.prevent="handleAddMember">
             <div class="add-org-row">
               <input
+                ref="addMemberInput"
                 v-model="newMemberEmail"
                 type="email"
                 placeholder="User email"
@@ -371,7 +400,8 @@ function handleDeleted() {
           <OrganizationHistory :org-id="orgData.id" :changes-made="changesMade" />
         </HistorySection>
 
-        <section v-if="canManage()" class="section">
+        <!-- Renaming is the owner's alone, as the server holds it. -->
+        <section v-if="isOwner()" class="section">
           <h3>Rename organization</h3>
           <form class="rename-row" @submit.prevent="handleRename">
             <input

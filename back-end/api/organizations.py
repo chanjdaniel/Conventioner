@@ -518,6 +518,9 @@ def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_emai
     new_owner = UsersApi.get_user(new_owner_email)
     if not new_owner:
         raise BadRequestError("New owner user not found")
+    # Refused before any write: handing it to its own owner went on to add them to its admins.
+    if new_owner.id == current_owner.id:
+        raise BadRequestError("They already own this organization")
     
     pull_updates = {}
     if new_owner.id in org.get("admins", []):

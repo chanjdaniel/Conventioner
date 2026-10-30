@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
   IntakeMode,
   type Market,
@@ -238,11 +238,26 @@ function handleTableChanged(table: PermissionTableRow[]) {
   changesMade.value++;
 }
 
+const addUserButton = ref<HTMLButtonElement | null>(null);
+const addUserInput = ref<HTMLInputElement | null>(null);
+
+/**
+ * Opening the row takes away "Add user", and closing it its Cancel, so focus goes where the person
+ * is next: the field, and then "Add user" again. Left alone it fell to `<body>`.
+ */
+async function openAddUser() {
+  showAddUserForm.value = true;
+  await nextTick();
+  addUserInput.value?.focus();
+}
+
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
-function closeAddUser() {
+async function closeAddUser() {
   showAddUserForm.value = false;
   newUserEmail.value = '';
   addUserError.value = '';
+  await nextTick();
+  addUserButton.value?.focus();
 }
 </script>
 
@@ -320,8 +335,9 @@ function closeAddUser() {
           v-if="grantableRoles.length && !showAddUserForm"
           type="button"
           class="btn btn--secondary"
+          ref="addUserButton"
           data-testid="manage-market-add-user-button"
-          @click="showAddUserForm = true"
+          @click="openAddUser"
         >
           Add user
         </button>
@@ -329,6 +345,7 @@ function closeAddUser() {
         <form v-if="showAddUserForm" class="add-user-form" @submit.prevent="handleAddUser">
           <div class="add-org-row">
             <input
+              ref="addUserInput"
               v-model="newUserEmail"
               type="email"
               name="email"
