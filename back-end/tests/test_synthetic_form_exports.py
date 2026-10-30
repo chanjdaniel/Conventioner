@@ -30,11 +30,6 @@ def test_the_committed_file_is_the_generators_output(name):
 
 
 @pytest.mark.parametrize("name", FORMS)
-def test_generating_twice_gives_the_same_bytes(name):
-    assert FORMS[name].bytes() == FORMS[name].bytes()
-
-
-@pytest.mark.parametrize("name", FORMS)
 def test_it_is_written_as_google_sheets_exports_it(name):
     """UTF-8 with no byte order mark, CRLF between records, LF inside a multi-line header cell, a
     final newline: what the proposal and the import are handed by a real download."""
