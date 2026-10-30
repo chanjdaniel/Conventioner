@@ -59,8 +59,9 @@ Each control asks the row of the action it takes:
 | The drawer | Update info | Update a vendor's info |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
+| Manage market | the Permissions section's Show, its rows and its changes | Read the market; each row's select and Reset to built-in defaults, Change this table |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
-| The markets list | Manage | Give and take Editor and Viewer roles |
+| The markets list | Manage | Read the market |
 | Vendors, Applications' All view, and Result | Export; Download CSV | Export CSV |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).

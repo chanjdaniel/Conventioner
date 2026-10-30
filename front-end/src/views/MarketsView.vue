@@ -161,6 +161,7 @@ function handleNewClose() {
               <input
                 :value="query.search"
                 type="search"
+                name="search"
                 class="field"
                 placeholder="Market name"
                 autocomplete="off"
@@ -171,6 +172,8 @@ function handleNewClose() {
             <label>
               <span class="field-label">Organization</span>
               <select
+                name="organization"
+                autocomplete="off"
                 class="field field--select"
                 :value="query.organizationId ?? ''"
                 data-testid="markets-org-select"
@@ -187,6 +190,7 @@ function handleNewClose() {
             <label>
               <span class="field-label">Sort by</span>
               <select
+                name="sort"
                 class="field field--select"
                 :value="query.sort"
                 data-testid="markets-sort-select"

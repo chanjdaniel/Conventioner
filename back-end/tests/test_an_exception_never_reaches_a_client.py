@@ -603,6 +603,7 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
     ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
     ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
+    ("delete", "/markets/market-123/permissions", None, "reset_permissions"),
     ("get", "/markets/market-123/permission-history", None, "get_permission_history"),
     ("delete", "/markets/market-123", None, "delete_market"),
 ]
@@ -1436,6 +1437,7 @@ READS_NO_BODY = [
     ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),
     ("delete", "/markets/<market_id>/permissions/<action_id>",
      [(MarketsApi, "reset_permission", [])]),
+    ("delete", "/markets/<market_id>/permissions", [(MarketsApi, "reset_permissions", [])]),
     ("post", "/markets/<market_id>/application-form/amendment/resume",
      [(FormAmendmentApi, "resume_amendment", {"resumed": True})]),
     ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),

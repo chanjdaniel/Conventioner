@@ -81,6 +81,7 @@ SUBMITTED = "submitted"
 EDITED = "edited"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
+PERMISSION_TABLE_RESET = "permission_table_reset"
 
 
 def _now() -> str:
