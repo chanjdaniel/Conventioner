@@ -115,6 +115,9 @@ ASSIGN = action(
 CHECK_IN = action(
     "check-in", "The door", "Check vendors in", MarketRole.EDITOR,
     "check vendors in at this market")
+CONNECT_DISCORD = action(
+    "connect-discord", "Discord", "Connect Discord and give roles", MarketRole.ADMIN,
+    "connect this market to Discord or give its role")
 MANAGE_EDITORS_AND_VIEWERS = action(
     "manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
     MarketRole.ADMIN, "give or take Editor and Viewer roles on this market")

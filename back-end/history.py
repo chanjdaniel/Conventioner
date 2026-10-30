@@ -94,6 +94,9 @@ PERMISSION_TABLE_RESET = "permission_table_reset"
 # to them - by a change of reviewers, or as they arrive - each under the action that dealt them.
 REVIEWERS = "reviewers"
 DEALT = "dealt"
+DISCORD_CONNECTED = "discord_connected"
+DISCORD_SETTINGS = "discord"
+DISCORD_DISCONNECTED = "discord_disconnected"
 
 
 def _now() -> str:

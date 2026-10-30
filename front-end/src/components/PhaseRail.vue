@@ -911,8 +911,12 @@ function cancelPending() {
     min-width: 0;
   }
 
+  /* No wider than the rail: a draft's three actions (Pick market dates, Open Applications, More)
+     ran 33px past a 390px window, so they wrap onto a second line instead (below). */
   .phase-rail-end {
     min-width: 0;
+    max-width: 100%;
+    flex-shrink: 1;
   }
 }
 
@@ -965,6 +969,15 @@ function cancelPending() {
   gap: var(--space-2);
   flex: none;
   margin-left: auto;
+}
+
+@media (width <= 640px) {
+  .phase-rail-actions {
+    flex: 0 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }
 
 /*

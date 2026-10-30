@@ -34,7 +34,7 @@ const assigned = computed(() => hasAssignment(props.market));
 const current = computed(() => currentPage(props.market?.phase, assigned.value));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
-/** The same six tabs in every phase (E31/F03/S02, E45/F01/S01). */
+/** The same seven tabs in every phase (E31/F03/S02, E45/F01/S01, E46/F01/S02). */
 const tabs = computed((): MarketTab[] => tabsFor());
 const path = computed(() => intakeModeOf(props.market));
 

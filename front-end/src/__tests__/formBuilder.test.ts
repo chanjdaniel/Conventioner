@@ -379,3 +379,84 @@ describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
     expect(locked.wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
   });
 });
+
+describe('the Discord username question (E46/F01/S02)', () => {
+  const ADD = '[data-testid="form-builder-add-discord-button"]';
+
+  it('adds an optional text question for the Discord username in one click', async () => {
+    const { wrapper, form, keyTouched } = mountWithParent({
+      fields: [question({ key: 'shop' })],
+    });
+
+    await wrapper.get(ADD).trigger('click');
+
+    expect(form.value!.fields[1]).toEqual({
+      key: 'discord_username',
+      label: 'Discord username',
+      type: 'text',
+      required: false,
+      options: [],
+      helpText: undefined,
+      order: 1,
+    });
+    // A question like any other once added: relabelling it moves its key with it.
+    expect(keyTouched.value).toEqual([true, false]);
+  });
+
+  it('is not offered once the form asks for a Discord username', async () => {
+    const { wrapper } = mountWithParent({ fields: [] });
+
+    await wrapper.get(ADD).trigger('click');
+
+    expect(wrapper.find(ADD).exists()).toBe(false);
+  });
+
+  it('is not offered beside a text question of the organizer labelled for Discord', () => {
+    const { wrapper } = mountWithParent({
+      fields: [question({ key: 'handle', label: 'Your DISCORD handle', type: 'text' })],
+    });
+
+    expect(wrapper.find(ADD).exists()).toBe(false);
+  });
+
+  it('is still offered beside a Discord question that is not a text question', () => {
+    const { wrapper } = mountWithParent({
+      fields: [
+        question({
+          key: 'discord_username',
+          label: 'On Discord?',
+          type: 'select',
+          options: ['Yes', 'No'],
+        }),
+      ],
+    });
+
+    expect(wrapper.find(ADD).exists()).toBe(true);
+  });
+
+  it('takes a key no other question has', async () => {
+    const { wrapper, form } = mountWithParent({
+      fields: [
+        question({
+          key: 'discord_username',
+          label: 'On Discord?',
+          type: 'select',
+          options: ['Yes', 'No'],
+        }),
+      ],
+    });
+
+    await wrapper.get(ADD).trigger('click');
+
+    expect(form.value!.fields.map((field) => field.key)).toEqual([
+      'discord_username',
+      'discord_username_2',
+    ]);
+  });
+
+  it('is not offered on a locked form', () => {
+    const { wrapper } = mountWithParent({ fields: [] }, true);
+
+    expect(wrapper.find(ADD).exists()).toBe(false);
+  });
+});

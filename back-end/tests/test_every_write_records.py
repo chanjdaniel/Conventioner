@@ -34,6 +34,7 @@ import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
+import discord_client as Discord  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
 import review_team as ReviewTeam  # noqa: E402
@@ -457,6 +458,38 @@ def _door(organizer: bool, undo: bool):
     return send
 
 
+# --- Discord ----------------------------------------------------------------------------------------
+
+DISCORD_SERVER = {"guildId": "2909267986263572999", "guildName": "Market Vendors"}
+
+
+def _discord(world, **stored):
+    world.patch(Discord, "credentials", lambda: Discord.Credentials("id", "secret", "token"))
+    world.patch(Discord, "connected_server",
+                lambda *_a: Discord.Server("2909267986263572999", "Market Vendors"))
+    world.patch(Discord, "server_roles",
+                lambda *_a: [Discord.Role("r-vendor", "Vendor Test", below_bot=True)])
+    world.market(MarketPhase.MARKET_DAYS, **({"discord": stored} if stored else {}))
+
+
+def _connect_discord(client, world):
+    _discord(world)
+    started = client.post(f"/markets/{MARKET}/discord/authorization").get_json()["url"]
+    state = started.split("state=")[1].split("&")[0]
+    return client.post(f"/markets/{MARKET}/discord/connection",
+                       json={"code": "a-code", "state": state})
+
+
+def _discord_choice(client, world):
+    _discord(world, **DISCORD_SERVER)
+    return client.put(f"/markets/{MARKET}/discord", json={"roleId": "r-vendor"})
+
+
+def _disconnect_discord(client, world):
+    _discord(world, **DISCORD_SERVER)
+    return client.delete(f"/markets/{MARKET}/discord/connection")
+
+
 # --- People -----------------------------------------------------------------------------------------
 
 def _give_role(client, world):
@@ -577,6 +610,12 @@ WRITES = [
     Write("a vendor's own check-in undone", "DELETE", PUBLIC_DOOR, Actions.CHECK_IN,
           History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=None,
           vendors=(VENDOR,), subject={"date": DATE}, detail_keys=("via",)),
+    Write("Discord connected", "POST", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
+          History.DISCORD_CONNECTED, _connect_discord),
+    Write("a Discord choice", "PUT", f"{M}/discord", Actions.CONNECT_DISCORD,
+          History.DISCORD_SETTINGS, _discord_choice),
+    Write("Discord disconnected", "DELETE", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
+          History.DISCORD_DISCONNECTED, _disconnect_discord),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,
           History.ROLE_GIVEN, _give_role, subject=SAM_BY_ID),
     Write("a role changed", "PUT", f"{M}/roles/<user_id>", Actions.MANAGE_ADMINS,
@@ -615,6 +654,8 @@ NOT_A_CHANGE = {
     ("POST", "/floorplans/analyze"): "reads an image and keeps nothing",
     ("POST", "/floorplans/place-tables"): "proposes table positions and keeps nothing",
     ("POST", "/floorplans/export"): "a read",
+    ("POST", f"{M}/discord/authorization"):
+        "keeps a one-time state in the person's session; connecting, which records, spends it",
 }
 
 #: The table's rows no write records, and why.

@@ -48,6 +48,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | Resend (`RESEND_API_KEY`, `FROM_EMAIL`, `FRONTEND_URL`) | A1, A3, A4, H3 | `DISABLE_EMAIL=true`: nothing is sent | No verification, reset or code ever arrives. |
 | Google reCAPTCHA v3 (`RECAPTCHA_SECRET_KEY` + `VITE_RECAPTCHA_SITE_KEY`) | A1 | `DISABLE_CAPTCHA=true` plus a blank site key | Deployed signup fails if the two keys are not a pair. |
 | TypeSafe (`TYPESAFE_API_KEY`) | G, sorting a CSV's columns | Unset; rules alone decide | Nothing: optional. Only column headings and the shape of their answers are sent, never an answer ([ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md)). |
+| Discord (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`) | The Tools tab's Discord card | Unset; the card says Discord is not set up | Nothing: optional. Connecting needs a real server, `FRONTEND_URL=http://127.0.0.1:5173` (the address you sign in at), the OAuth2 redirect `http://127.0.0.1:5173/discord/connected` and "Requires OAuth2 Code Grant" on ([the Discord connection](../modules/discord.md)). |
 | Google Sheets / Google Forms | G and H2: the organizer's CSV export | Fixtures below | Nothing in the product; it is where real organizers get their file. |
 | Floorplan image or PDF | E6 | `front-end/e2e/fixtures/test-floorplan.png` | Only the beta floorplan path. The wizard makes no AI calls and needs no keys. |
 

@@ -53,6 +53,7 @@ import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
+import discord_client as DiscordClient
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
@@ -919,6 +920,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
+    # Whether this deployment has Discord's values (E46/F01/S02): the Discord card offers nothing
+    # without them, and says so.
+    market_dict['discordSetUp'] = DiscordClient.credentials() is not None
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and

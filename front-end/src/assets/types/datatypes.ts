@@ -364,6 +364,32 @@ export interface Market {
   applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
+  /** The Discord server this market is connected to, and what its card chose (E46/F01/S02). */
+  discord?: DiscordConnection | null;
+  /** Whether this Conventioner has Discord's values; the Discord card offers nothing without. */
+  discordSetUp?: boolean;
+}
+
+/**
+ * A market's Discord connection as stored (E46/F01/S02). Discord's ids are strings. A market
+ * disconnected keeps only its username question; every other field is then absent.
+ */
+export interface DiscordConnection {
+  guildId?: string;
+  guildName?: string;
+  roleId?: string;
+  roleName?: string;
+  /** The key of the form's text question that holds each vendor's Discord username. */
+  usernameQuestion?: string;
+  inviteLink?: string;
+}
+
+/** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */
+export interface DiscordRole {
+  id: string;
+  name: string;
+  /** Whether it sits below the bot's own highest role, the only roles a bot may give. */
+  belowBot: boolean;
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';
