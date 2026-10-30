@@ -310,7 +310,9 @@ function handleDeleted() {
             <div class="add-org-row">
               <input
                 ref="addAdminInput"
+                id="manage-org-add-admin-email"
                 v-model="newAdminEmail"
+                name="admin-email"
                 type="email"
                 placeholder="User email"
                 aria-label="Email of the admin to add"
@@ -379,7 +381,9 @@ function handleDeleted() {
             <div class="add-org-row">
               <input
                 ref="addMemberInput"
+                id="manage-org-add-member-email"
                 v-model="newMemberEmail"
+                name="member-email"
                 type="email"
                 placeholder="User email"
                 aria-label="Email of the member to add"
@@ -424,7 +428,9 @@ function handleDeleted() {
           <h3>Rename organization</h3>
           <form class="rename-row" @submit.prevent="handleRename">
             <input
+              id="manage-org-rename"
               v-model="renameValue"
+              name="organization-name"
               class="field"
               aria-label="Organization name"
               data-testid="manage-org-rename-input"
