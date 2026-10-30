@@ -125,7 +125,7 @@ CHANGE_THE_TABLE = action(
 
 
 #: Where a row's role came from, as the market read serves it: no row held, copied from the
-#: organization's default when the market was created, or changed on this market by its owner.
+#: organization's default, or changed on this market by its owner.
 BUILT_IN = "built-in"
 FROM_ORGANIZATION = "organization"
 ON_THIS_MARKET = "market"

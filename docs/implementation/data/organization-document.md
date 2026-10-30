@@ -96,7 +96,7 @@ An organization has no table of who may do what, so its actions are the history'
 Creating the organization and deleting it record nothing here: its history starts empty, and the deletion takes the history with it after the [deletion trail](../../business/rules/when-an-organization-may-be-deleted.md) is written.
 
 **Its owner, its admins and its members read it**, in Manage organization's History section ([`ManageOrgOverlay.vue`](../../../front-end/src/views/ManageOrgOverlay.vue), with its entries drawn by [`OrganizationHistory.vue`](../../../front-end/src/components/OrganizationHistory.vue)), through `get_history` (`GET /organizations/:id/history`), a page at a time; anyone else is refused, 403.
-So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner and the History, and none of the people or controls the owner and the admins manage.
+So every one of its people has "Manage" on the organization's card; a member's dialog holds the owner, the default permissions (read-only) and the History, and none of the people controls the owner and the admins manage.
 A change made in the dialog shows in its History as it lands: the section reads its first page again after each.
 **The organization itself is its people's too**: `GET /organizations/:id` (`read_organization`) answers its owner, admins and members, and anyone else 403, an organization nobody has 404, as its other routes do; it answered anyone signed in who had its id, its people's ids among it.
 The screens read an organization only through the list, `get_organizations_for_user`, which was always scoped.
