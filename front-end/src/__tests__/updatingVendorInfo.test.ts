@@ -388,6 +388,34 @@ describe('the answers the assignment reads, in the Update info dialog', () => {
     wrapper.unmount();
   });
 
+  it('finds an update kept under the dates alone, on a market without tiers', () => {
+    const wrapper = dialog(
+      essentialApplication({
+        formData: {
+          ...essentialApplication().formData,
+          [TIER_PREFERENCE_KEY]: {},
+        },
+        answerUpdates: {
+          [AVAILABLE_DATES_KEY]: {
+            ...UPDATE,
+            value: [THU, FRI],
+            over: [THU],
+            theyWrote: [THU],
+          },
+        },
+      }),
+      { options: { ...OPTIONS, tiers: [] } },
+    );
+
+    expect(wrapper.get(testid(`update-info-theirs-${TIER_PREFERENCE_KEY}`)).text()).toContain(
+      'They wrote:',
+    );
+    expect(wrapper.get(testid(`update-info-use-theirs-${TIER_PREFERENCE_KEY}`)).text()).toBe(
+      'Use their answer',
+    );
+    wrapper.unmount();
+  });
+
   it('asks for a number of dates only where the vendor gave one', () => {
     const required = (app: Application) => {
       const wrapper = dialog(app);

@@ -134,12 +134,7 @@ const isChanged = (question: string) => questionKeys(question).some((key) => key
 
 /** Whether this answer, as it stands in the dialog, is not what the vendor wrote. */
 function differsFromTheirs(question: string): boolean {
-  if (
-    isEssential(question) &&
-    !touched.value.has(question) &&
-    !updateOf(props.application, question)
-  )
-    return false;
+  if (isEssential(question) && !touched.value.has(question) && !updateOn(question)) return false;
   return !sameOn(question, draft.value, theirs.value);
 }
 
