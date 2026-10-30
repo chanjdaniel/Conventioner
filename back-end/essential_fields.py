@@ -634,6 +634,7 @@ _JUDGED_TOGETHER = {
 
 def validated_essential_update(
     current: Dict[str, Any], incoming: Dict[str, Any], options: EssentialFormOptions,
+    *, limit_required: bool,
 ) -> Tuple[Optional[str], Dict[str, Any]]:
     """An organizer's update of some essential answers (E41/F01/S02), held to the form's rules.
 
@@ -643,14 +644,17 @@ def validated_essential_update(
     steps whose answers the update touches are judged: an answer it leaves as it stood is the
     vendor's, and not the organizer's to be refused for.
 
+    ``limit_required`` says whether "Number of dates you want" is required, and is the caller's to
+    decide: the empty answer is allowed where it already reads as empty or the vendor's own answer
+    is empty (an imported row from a form that never asked holds no limit, bug 24), so it may be
+    set back to none where a number was put over it.
+
     Returns ``(error_message, stored)``, ``stored`` holding the stored answers the updated
-    questions write, as the form stores them. "Number of dates you want" may stay empty where it
-    already was: an imported row from a form that never asked holds no limit (bug 24).
+    questions write, as the form stores them.
     """
     merged = {**current, TABLE_SHARE_EMAIL_KEY: _share_words(current), **incoming}
     touched = set(incoming)
     stored: Dict[str, Any] = {}
-    limit_required = current.get(MAX_DATES_KEY) is not None
     for key, step in _essential_steps(merged, options, stored, limit_required):
         error = step()
         if error and touched & _JUDGED_TOGETHER.get(key, {key}):

@@ -236,6 +236,19 @@ class TestItIsValidatedAsTheFormValidatesIt:
 
         assert EF.MAX_DATES_KEY not in _stored(applications)["answer_updates"]
 
+    def test_a_number_put_over_no_limit_can_be_set_back_to_none(self, market):
+        """The empty "Number of dates you want" stays where the vendor's own answer was empty, so
+        putting a number over an imported no-limit row does not make the limit required."""
+        applications = market(answers={**ANSWERS, EF.MAX_DATES_KEY: None})
+
+        _update({EF.MAX_DATES_KEY: 2})
+        assert _stored(applications)["answer_updates"][EF.MAX_DATES_KEY]["value"] == 2
+
+        _result, status = _update({EF.MAX_DATES_KEY: None})
+
+        assert status == 200
+        assert EF.MAX_DATES_KEY not in _stored(applications)["answer_updates"]
+
     def test_the_words_kept_for_the_share_answer_are_not_a_question_of_their_own(self, market):
         market()
 

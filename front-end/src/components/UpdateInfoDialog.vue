@@ -31,6 +31,7 @@ import {
   inPlanOrder,
   questionKeys,
   sameAnswer,
+  theirAnswer,
   theirAnswers,
   updateOf,
   updatedByLine,
@@ -99,6 +100,14 @@ const theirs = computed(() =>
 );
 
 const isEssential = (question: string) => ESSENTIAL_QUESTIONS.includes(question);
+
+/** "Number of dates you want" is required only where a number already reads, or was written. */
+const maxDatesOptional = computed(
+  () =>
+    props.application === null ||
+    props.application.formData?.[MAX_DATES_KEY] == null ||
+    theirAnswer(props.application, MAX_DATES_KEY) == null,
+);
 
 function sameOn(question: string, a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   return questionKeys(question).every((key) => sameAnswer(a[key], b[key]));
@@ -275,7 +284,7 @@ async function save(): Promise<void> {
         :options="options"
         :modelValue="draft"
         :locked="locked"
-        :maxDatesOptional="application?.formData?.[MAX_DATES_KEY] == null"
+        :maxDatesOptional="maxDatesOptional"
         prefix="update-info"
         @update:modelValue="answeredEssentials"
         @field-change="essentialChanged"

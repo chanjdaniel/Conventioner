@@ -67,7 +67,10 @@ def update_vendor_info(
     if essential:
         _assert_may_update_what_the_assignment_reads(market, essential, updater)
         error, stored = EssentialFields.validated_essential_update(
-            before, essential, EssentialFields.effective_essential_options_for_market(market))
+            before, essential, EssentialFields.effective_essential_options_for_market(market),
+            limit_required=(
+                before.get(EssentialFields.MAX_DATES_KEY) is not None
+                and theirs.get(EssentialFields.MAX_DATES_KEY) is not None))
         if error:
             raise BadRequestError(error)
         values.update(stored)

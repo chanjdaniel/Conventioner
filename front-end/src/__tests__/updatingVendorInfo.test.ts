@@ -458,6 +458,22 @@ describe('the answers the assignment reads, in the Update info dialog', () => {
     expect(required(essentialApplication())).toBe(true);
     expect(required(noLimit)).toBe(false);
   });
+
+  it('shows no required mark where the vendor wrote none, though a number reads now', () => {
+    const wrapper = dialog(
+      essentialApplication({
+        formData: { ...essentialApplication().formData, [MAX_DATES_KEY]: 2 },
+        answerUpdates: {
+          [MAX_DATES_KEY]: { ...UPDATE, value: 2, over: null, theyWrote: null },
+        },
+      }),
+    );
+
+    expect(
+      wrapper.get(testid('update-info-essential-max-dates')).find('.essential-required').exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
 });
 
 describe('the words beside an updated answer', () => {
