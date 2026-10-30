@@ -154,7 +154,8 @@ export const SCREENS: Screen[] = [
     open: at(
       fixed('/markets'),
       'markets-result-count',
-      ['market-card-manage-button', 'market-history-entry'],
+      ['market-card-manage-button', 'manage-market-history-toggle'],
+      ['manage-market-history-toggle', 'market-history-entry'],
       ['market-history-toggle', 'market-history-changes'],
     ),
   },

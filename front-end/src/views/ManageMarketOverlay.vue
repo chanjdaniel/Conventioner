@@ -6,6 +6,8 @@ import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
+import IconExpandDown from '@/components/icons/IconExpandDown.vue';
+import IconExpandUp from '@/components/icons/IconExpandUp.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -36,6 +38,17 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
+/**
+ * The History section is closed until opened, so the sections after it stay in reach (Daniel, on
+ * T110's review); it is read on its first opening, and kept with its filters once read.
+ */
+const historyOpen = ref(false);
+const historyRead = ref(false);
+
+function toggleHistory() {
+  historyOpen.value = !historyOpen.value;
+  if (historyOpen.value) historyRead.value = true;
+}
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -50,6 +63,8 @@ watch(
       addUserError.value = '';
       renameError.value = '';
       deleteError.value = '';
+      historyOpen.value = false;
+      historyRead.value = false;
       await fetchMarket();
     } else {
       marketData.value = null;
@@ -345,8 +360,23 @@ function closeAddUser() {
       <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
            people, where Permissions will stand beside it (E39/F01/S04). -->
       <section v-if="canReadHistory" class="section" data-testid="manage-market-history">
-        <h3>History</h3>
-        <MarketHistory :market-id="marketData.id" />
+        <h3 :class="{ 'section-heading--closed': !historyOpen }">
+          <button
+            type="button"
+            class="section-toggle"
+            :aria-expanded="historyOpen"
+            aria-controls="manage-market-history-body"
+            data-testid="manage-market-history-toggle"
+            @click="toggleHistory"
+          >
+            History
+            <IconExpandUp v-if="historyOpen" class="section-toggle-icon" aria-hidden="true" />
+            <IconExpandDown v-else class="section-toggle-icon" aria-hidden="true" />
+          </button>
+        </h3>
+        <div v-show="historyOpen" id="manage-market-history-body">
+          <MarketHistory v-if="historyRead" :market-id="marketData.id" />
+        </div>
       </section>
 
       <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,
@@ -454,6 +484,35 @@ function closeAddUser() {
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* A closed section is its heading alone, so nothing beneath it to hold apart. */
+.section h3.section-heading--closed {
+  margin-bottom: 0;
+}
+
+/* A section's heading that opens and closes it: the heading's words, with a chevron saying which. */
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.section-toggle:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
+}
+
+.section-toggle-icon {
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .users-list {

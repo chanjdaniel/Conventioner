@@ -250,9 +250,38 @@ describe('in Manage market', () => {
     return wrapper;
   }
 
-  it('holds the History section for whoever may read the history', async () => {
+  const historyRead = () =>
+    api.get.mock.calls.filter(([url]) => String(url).startsWith('/markets/market-1/history'));
+
+  it('holds the History section, closed, its heading in sight and nothing read', async () => {
     const wrapper = await open(null);
-    expect(wrapper.find('[data-testid="manage-market-history"] h3').text()).toBe('History');
+    const toggle = wrapper.get('[data-testid="manage-market-history-toggle"]');
+
+    expect(wrapper.get('[data-testid="manage-market-history"] h3').text()).toBe('History');
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('[data-testid="market-history"]').exists()).toBe(false);
+    expect(historyRead()).toHaveLength(0);
+  });
+
+  it('opening it reads the first page, and closing and opening again keeps its filters', async () => {
+    const wrapper = await open(null);
+    const toggle = wrapper.get('[data-testid="manage-market-history-toggle"]');
+
+    await toggle.trigger('click');
+    await flushPromises();
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(wrapper.get('[data-testid="market-history"]').isVisible()).toBe(true);
+    expect(historyRead()).toHaveLength(1);
+
+    await wrapper.get('[data-testid="market-history-vendor"]').setValue('cy@ember.test');
+    await flushPromises();
+    await toggle.trigger('click');
+    await toggle.trigger('click');
+    await flushPromises();
+
+    expect(
+      (wrapper.get('[data-testid="market-history-vendor"]').element as HTMLInputElement).value,
+    ).toBe('cy@ember.test');
   });
 
   it('holds none for a person below the row, and never asks for it', async () => {

@@ -278,7 +278,24 @@ class TestTheEntriesNotYetMoved:
         assert page == []
 
 
+class TestWhoMayBeChosen:
+    def test_it_is_every_organizer_who_changed_something_even_before_the_migration(
+            self, history, legacy):
+        entry(history, 1, actor="dana@x.test")
+        entry(history, 2, action="apply", kind="submitted", actor="ana@x.test")
+        legacy.docs.append({
+            "id": "old-1", "market_id": MARKET, "actor": "priya@x.test", "at": _at(0),
+            "kind": "freed", "vendors": [], "detail": {},
+        })
+
+        assert History.actors(MARKET) == ["dana@x.test", "priya@x.test"]
+
+
 class TestThousandsOfEntries:
+    def test_a_page_is_ten_entries(self):
+        """Ten, so the section stays a short read inside Manage market (Daniel, on T110's review)."""
+        assert History.PAGE_SIZE == 10
+
     def test_the_first_page_asks_for_one_page_on_the_index_never_the_whole_history(self, history):
         """5,000 entries: the read asks Mongo for the newest page and one more, sorted on the
         index it is read by, so Mongo walks that many index keys and stops."""

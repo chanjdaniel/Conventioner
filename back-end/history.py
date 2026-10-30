@@ -296,7 +296,8 @@ def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict
 # --- Reading the whole history, a page at a time (E40/F01/S03) -------------------------------
 
 #: How many entries one page holds: the newest, then as many again each time more are asked for.
-PAGE_SIZE = 25
+#: Ten, so the History section stays a short read inside Manage market (Daniel, on T110's review).
+PAGE_SIZE = 10
 
 # Everything an entry holds but its storage keys: the market is the one asked for.
 _ENTRY_PROJECTION = {"_id": 0, MARKET_ID_FIELD: 0}
@@ -402,7 +403,11 @@ def _once_each(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def actors(market_id: str) -> List[str]:
     """Who has changed something on this market, as an organizer: the people the history can be
     narrowed to. An applicant's own change is found by the vendor it names, and a check-in from
-    the public page names nobody."""
-    found = history_collection.distinct(
-        "actor", {MARKET_ID_FIELD: market_id, "action": {"$ne": APPLY}})
+    the public page names nobody. The placements not yet moved out of ``placement_history`` are
+    read too, as the pages read them, or their organizers could be read but not chosen."""
+    found = {
+        *history_collection.distinct(
+            "actor", {MARKET_ID_FIELD: market_id, "action": {"$ne": APPLY}}),
+        *legacy_placement_collection.distinct("actor", {MARKET_ID_FIELD: market_id}),
+    }
     return sorted(actor for actor in found if actor)

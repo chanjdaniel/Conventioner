@@ -70,7 +70,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
 5. A refused change is said beneath that person's row, which keeps the role they hold.
 
-Beneath the people, "History" lists every change on the market, newest first, for whoever may read it: [L6](reading-the-markets-history.md#l6-read-the-markets-history).
+Beneath the people, "History", closed until opened, lists every change on the market, newest first, for whoever may read it: [L6](reading-the-markets-history.md#l6-read-the-markets-history).
 The organization line says "Belongs to <organization>. Its members can view it."
 Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`.
 

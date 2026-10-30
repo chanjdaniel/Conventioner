@@ -22,6 +22,7 @@ export class ManageMarketPage {
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
   readonly history: Locator;
+  readonly historyToggle: Locator;
   readonly historyEntries: Locator;
   readonly historySentences: Locator;
   readonly historyVendorLinks: Locator;
@@ -48,6 +49,7 @@ export class ManageMarketPage {
     this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
     this.history = page.getByTestId('manage-market-history');
+    this.historyToggle = page.getByTestId('manage-market-history-toggle');
     this.historyEntries = page.getByTestId('market-history-entry');
     this.historySentences = page.getByTestId('market-history-sentence');
     this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
@@ -55,6 +57,12 @@ export class ManageMarketPage {
     this.historyKind = page.getByTestId('market-history-kind');
     this.historyVendor = page.getByTestId('market-history-vendor');
     this.historyLoadMore = page.getByTestId('market-history-load-more');
+  }
+
+  /** Opens the History section, closed until opened, and waits for its first page. */
+  async openHistory(): Promise<void> {
+    await this.historyToggle.click();
+    await this.page.getByTestId('market-history').waitFor();
   }
 
   /** Opens one change of the History section to its before and after, and answers that table. */

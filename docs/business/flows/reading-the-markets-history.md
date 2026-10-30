@@ -23,16 +23,18 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 
 **Status:** Works (E2E-walked by `the-markets-history.spec.ts`; not yet walked live).
 
-1. "Manage" on the market's row opens "Manage market"; "History" lists the newest 25 changes, newest first, inside the dialog's own scrolling.
+1. "Manage" on the market's row opens "Manage market", where "History" is a heading with a chevron, closed, so the sections after it stay in reach (Daniel, on T110's review).
+   Opening it reads the newest 10 changes, newest first, inside the dialog's own scrolling; closing it and opening it again keeps what it read and its filters, until the dialog closes.
 2. Each change is one sentence and its time: "e2e@example.com moved Ana Rivera from A3 (Full Table) to B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Market Setup: sections", "Ana Rivera applied".
    An assignment made before the history kept the table left reads "assigned ... at", without a "from"; allocating tables reads "allocated tables: 40 assignments written".
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase, a status and a role read as the screens name them.
-5. "Load more", under the list while older changes remain, adds the next 25 beneath, in the open dialog.
+5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (anyone who changed something as an organizer), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, The door, People), "Vendor" (a name or part of an address, offering the market's vendors who gave a name and every address a loaded change names; while it matches several it says "2 vendors match. Keep typing, or choose one.", and a name or address that matches nobody narrows the list to nothing), and "From" and "To" (calendar days in the reader's timezone, both kept).
    "Clear filters" sets them all back; with nothing to show the list says "No change matches these filters.", or "Nothing has changed on this market yet." when unfiltered.
 
 Someone below the row is shown no History section, and the server refuses them the read in the row's words.
+Someone who may read it and never opens the section asks nothing of the server.
 An archived market's history is still read: reading it is not a change ([an archived market is read-only](../rules/an-archived-market-is-read-only.md)).
 
 ## The rules it obeys

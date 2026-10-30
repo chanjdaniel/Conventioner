@@ -208,6 +208,7 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.getByTestId('manage-market-add-user-button').click();
   await expect(page.getByTestId('manage-market-add-user-input')).toBeVisible();
   // Its History section's filters, and an entry opened to its before and after (E40/F01/S03).
+  await page.getByTestId('manage-market-history-toggle').click();
   await page.getByTestId('market-history-toggle').first().click();
   await expect(page.getByTestId('market-history-changes')).toBeVisible();
   await named('Manage market');

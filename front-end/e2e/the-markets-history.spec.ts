@@ -23,8 +23,8 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 const COLLEAGUE = { email: 'e2e-history-colleague@example.com', password: 'e2epassword123' };
 const VENDOR = 'e2e-history-vendor@example.com';
-/** Enough renames that the first page ends before the setup change. */
-const RENAMES = 24;
+/** Enough renames that the first page of ten ends before the setup change. */
+const RENAMES = 6;
 
 test.beforeAll(() => ensureVerifiedUser(COLLEAGUE.email, COLLEAGUE.password));
 
@@ -101,6 +101,9 @@ async function openManage(page: Page, marketName: string): Promise<ManageMarketP
   const manage = new ManageMarketPage(page);
   await manage.waitForOverlay();
   await expect(manage.history).toBeVisible();
+  // Closed until opened, its heading in sight, so the sections after it stay in reach.
+  await expect(manage.historySentences).toHaveCount(0);
+  await manage.openHistory();
   return manage;
 }
 
@@ -112,7 +115,7 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
   const manage = await openManage(page, marketName);
   const me = TEST_USER.email;
 
-  await expect(manage.historySentences).toHaveCount(25);
+  await expect(manage.historySentences).toHaveCount(10);
   const first = await manage.historySentences.allInnerTexts();
   expect(first.slice(0, 5)).toEqual([
     `${me} changed ${COLLEAGUE.email} from Editor to Viewer`,
@@ -150,7 +153,7 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
 }) => {
   const { marketId, marketName } = await seedAHistory(request);
   const manage = await openManage(page, marketName);
-  await expect(manage.historySentences).toHaveCount(25);
+  await expect(manage.historySentences).toHaveCount(10);
 
   await manage.historyKind.selectOption('People');
   await expect(manage.historySentences).toHaveCount(2);
