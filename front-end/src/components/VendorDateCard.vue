@@ -24,6 +24,9 @@ const props = defineProps<{
   label: string;
   /** Where they were placed, when they were. */
   placement?: string | null;
+  /** What that table costs them for the day ("Gold, full table, $35"), where the market prices it.
+   * The drawer is the organizers' own, so a vendor never reads it (E43/F01/S01, Q20.2). */
+  price?: string | null;
   /** Why they were not, when they were not. */
   reason?: PlacementReason;
   /**
@@ -72,6 +75,9 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 
     <div v-if="placed" class="vendor-date-card-detail">
       {{ placement }}
+      <span v-if="price" class="vendor-date-card-price" data-testid="vendor-date-card-price">
+        {{ price }}
+      </span>
       <a
         v-if="canPlace && placeHref"
         class="vendor-date-card-action"
@@ -157,6 +163,13 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
   font-style: italic;
 }
 
+.vendor-date-card-price {
+  display: block;
+  margin-top: var(--space-hairline);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
 .vendor-date-card-flag {
   display: block;
   margin-top: var(--space-hairline);
@@ -165,9 +178,14 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
   color: var(--mm-text-yellow);
 }
 
+/* A link on its own line. It sat inline after the placement, which in the drawer's width nearly
+   always wrapped it to a line of its own, indented by the margin that was meant to part it from
+   the text before it. */
 .vendor-date-card-action {
-  display: inline-block;
-  margin-left: var(--space-2);
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: var(--target-min);
   color: var(--mm-text-link);
   font-style: normal;
   text-decoration: underline;

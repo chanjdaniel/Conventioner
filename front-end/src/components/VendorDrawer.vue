@@ -298,6 +298,7 @@ useInertBehind(
               :data-date="date.date"
               :label="dateLabel(date.date)"
               :placement="details.placementOn(vendor, date.date)"
+              :price="details.priceOn(vendor, date.date)"
               :reason="details.reasonFor(email, date.date)"
               :overrides="details.overridesFor(email, date.date)"
               :placeHref="resultLinkFor(date.date)"
