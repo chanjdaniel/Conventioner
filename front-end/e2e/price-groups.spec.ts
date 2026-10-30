@@ -5,6 +5,7 @@ import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { uniqueMarketName } from './helpers/uniqueName';
+import { ManageMarketPage } from './pages/ManageMarketPage';
 
 /**
  * Price groups on the Pricing card (E43/F01/S02).
@@ -86,10 +87,11 @@ async function ok(res: Awaited<ReturnType<APIRequestContext['get']>>, what: stri
 async function seedUbcMarket(request: APIRequestContext) {
   const userId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
+  const name = uniqueMarketName('E2E Price Groups');
   const created = await request.post(`${BACKEND_URL}/markets`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
     data: {
-      name: uniqueMarketName('E2E Price Groups'),
+      name,
       creationDate: new Date().toISOString(),
       organizationId: orgId,
       roles: { [userId]: 'owner' },
@@ -105,7 +107,7 @@ async function seedUbcMarket(request: APIRequestContext) {
     await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, { data: FORM }),
     'write the form',
   );
-  return marketId;
+  return { marketId, name };
 }
 
 /** Add a group on the card, as an organizer does: its name, its conditions, its prices. */
@@ -142,7 +144,7 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const marketId = await seedUbcMarket(request);
+    const { marketId, name: marketName } = await seedUbcMarket(request);
 
     await page.goto(marketSetupPath(marketId, 'setup'));
     const card = page.getByTestId('plan-card-pricing');
@@ -171,6 +173,30 @@ test.describe('price groups', () => {
         { tier: 'Silver', cents: 3000 },
       ],
     });
+
+    // The market's History says what the card's last write changed, its group's conditions in the
+    // card's words, one to a line: the rule that keeps a cell's lines (`.history-table td`).
+    await page.goto(`/markets?q=${encodeURIComponent(marketName)}`);
+    await page.getByTestId('market-card-manage-button').click();
+    const manage = new ManageMarketPage(page);
+    await manage.waitForOverlay();
+    await manage.openHistory();
+    await expect(manage.historySentences.first()).toContainText(
+      `${TEST_USER.email} changed the prices: price groups`,
+    );
+    const changes = await manage.openHistoryEntry(0);
+    const after = changes
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name: 'Group "UBC alumni + club member"' }) })
+      .locator('td')
+      .nth(1);
+    await expect(after).toHaveText(
+      'Gold $25, Silver $22\n' +
+        'when Are you a UBC student or alumni? includes UBC alumni/staff\n' +
+        'and Which clubs are you a member of? includes Art Club or Craft Club',
+      { useInnerText: true },
+    );
+    await expect(after).toHaveCSS('white-space', 'pre-line');
 
     // A student in a club, who is a student too: the cheaper of the two. An alumnus in no club:
     // no group, so "Everyone else".
@@ -221,7 +247,7 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const marketId = await seedUbcMarket(request);
+    const { marketId } = await seedUbcMarket(request);
     await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
       ...PLAN,
       pricing: {

@@ -3,7 +3,7 @@
  * structured entry, which opens to show before and after.
  */
 import { describe, expect, it } from 'vitest';
-import { IntakeMode } from '@/assets/types/datatypes';
+import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
 import {
   dayEnds,
   dayStarts,
@@ -455,6 +455,37 @@ describe('what an entry opens to', () => {
 });
 
 describe("a change of the prices opens to the card's words and money (E43/F01/S02)", () => {
+  /** The market's choice questions, as the market read serves them for a condition. */
+  const QUESTIONS: RejectionQuestion[] = [
+    {
+      key: 'affiliation',
+      label: 'Are you a UBC student or alumni?',
+      answers: ['Current UBC student', 'UBC alumni/staff'].map((a) => ({ value: a, label: a })),
+    },
+    {
+      key: 'agree_terms',
+      label: 'I agree to the terms',
+      answers: [
+        { value: 'ticked', label: 'Ticked' },
+        { value: 'not ticked', label: 'Not ticked' },
+      ],
+    },
+    {
+      key: 'essential_table_choice',
+      label: 'Table choice',
+      answers: [
+        { value: 'full', label: 'A full table' },
+        { value: 'half', label: 'Half a table, shared' },
+        { value: 'either', label: 'Either is fine' },
+      ],
+    },
+    {
+      key: 'essential_available_dates',
+      label: 'Available dates',
+      answers: [{ value: '2099-05-07', label: 'Thursday, May 7, 2099' }],
+    },
+  ];
+
   const priced = (detail: Record<string, unknown>, currency = 'CAD') =>
     entryChanges(
       entry({
@@ -464,27 +495,26 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         subject: { currency },
         detail,
       }),
+      {},
+      IntakeMode.Csv,
+      QUESTIONS,
     ).changed;
+
+  const group = (name: string, conditions: unknown[], gold = 1500) => ({
+    name,
+    conditions,
+    prices: [{ tier: 'Gold', cents: gold }],
+  });
+
+  /** One group, before and after, opened to its one row. */
+  const groupRow = (before: unknown, after: unknown) =>
+    priced({ before: { groups: [before] }, after: { groups: [after] } });
 
   it('names each field as the card does and writes its prices in the currency', () => {
     expect(
       priced({
-        before: {
-          groups: [],
-          everyone_else: [{ tier: 'Gold', cents: 3500 }],
-          half_table_percent: 50,
-        },
+        before: { everyone_else: [{ tier: 'Gold', cents: 3500 }], half_table_percent: 50 },
         after: {
-          groups: [
-            {
-              name: 'UBC student only',
-              conditions: [{ key: 'affiliation', answers: ['Current UBC student'] }],
-              prices: [
-                { tier: 'Gold', cents: 1500 },
-                { tier: 'Silver', cents: 1350 },
-              ],
-            },
-          ],
           everyone_else: [
             { tier: 'Gold', cents: 3600 },
             { tier: 'Silver', cents: 3000 },
@@ -493,12 +523,6 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         },
       }),
     ).toEqual([
-      {
-        field: 'Price groups',
-        before: 'none',
-        after:
-          'UBC student only: Gold $15, Silver $13.50, when affiliation includes Current UBC student',
-      },
       { field: '"Everyone else"', before: 'Gold $35', after: 'Gold $36, Silver $30' },
       { field: "Half table's share", before: '50%', after: '40%' },
     ]);
@@ -519,41 +543,102 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     ]);
   });
 
-  it('writes each group on its own line, so a comma in a name never runs two together', () => {
-    const groups = [
-      { name: 'Students, first year', conditions: [], prices: [{ tier: 'Gold', cents: 1000 }] },
-      { name: 'Alumni', conditions: [], prices: [{ tier: 'Gold', cents: 2500 }] },
-    ];
-
-    expect(priced({ before: { groups: [] }, after: { groups } })[0].after).toBe(
-      'Students, first year: Gold $10\n\nAlumni: Gold $25',
-    );
-  });
-
-  it("opens a change of a group's conditions alone to a before and an after that differ", () => {
-    const group = (answers: string[]) => ({
-      name: 'UBC student + club member',
-      conditions: [
-        { key: 'affiliation', answers: ['Current UBC student'] },
-        { key: 'clubs', answers },
-      ],
-      prices: [{ tier: 'Gold', cents: 1200 }],
-    });
-
+  it('opens only to the groups that changed, each its own row, an added and a removed one as such', () => {
+    const kept = group('UBC student only', [
+      { key: 'affiliation', answers: ['Current UBC student'] },
+    ]);
     expect(
       priced({
-        before: { groups: [group(['Art Club'])] },
-        after: { groups: [group(['Art Club', 'Craft Club'])] },
+        before: {
+          groups: [kept, group('Alumni', [], 2500), group('Students, first year', [], 1000)],
+        },
+        after: {
+          groups: [kept, group('Alumni', [], 2200), group('Volunteers', [], 500)],
+        },
       }),
     ).toEqual([
       {
-        field: 'Price groups',
-        before:
-          'UBC student + club member: Gold $12, when affiliation includes Current UBC student, and clubs includes Art Club',
-        after:
-          'UBC student + club member: Gold $12, when affiliation includes Current UBC student, and clubs includes Art Club or Craft Club',
+        field: 'Group "Alumni"',
+        before: 'Gold $25\nno condition yet, so it prices nobody',
+        after: 'Gold $22\nno condition yet, so it prices nobody',
+      },
+      {
+        field: 'Group "Volunteers"',
+        before: 'not on the card',
+        after: 'Gold $5\nno condition yet, so it prices nobody',
+      },
+      {
+        field: 'Group "Students, first year"',
+        before: 'Gold $10\nno condition yet, so it prices nobody',
+        after: 'removed',
       },
     ]);
+  });
+
+  it('says so when the groups only moved', () => {
+    const [a, b] = [group('A', []), group('B', [])];
+
+    expect(priced({ before: { groups: [a, b] }, after: { groups: [b, a] } })).toEqual([
+      { field: 'Price groups', before: 'A\nB', after: 'B\nA' },
+    ]);
+  });
+
+  it("writes a condition on the organizer's own question by its label and answers", () => {
+    const [row] = groupRow(
+      group('Students', [{ key: 'affiliation', answers: ['UBC alumni/staff'] }]),
+      group('Students', [
+        { key: 'affiliation', answers: ['Current UBC student', 'UBC alumni/staff'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\nwhen Are you a UBC student or alumni? includes Current UBC student or UBC alumni/staff',
+    );
+  });
+
+  it('writes a checkbox, Table choice and Available dates as the card offers them', () => {
+    const [row] = groupRow(
+      group('Shared tables', []),
+      group('Shared tables', [
+        { key: 'agree_terms', answers: ['ticked'] },
+        { key: 'essential_table_choice', answers: ['half', 'either'] },
+        { key: 'essential_available_dates', answers: ['2099-05-07'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\n' +
+        'when I agree to the terms includes Ticked\n' +
+        'and Table choice includes Half a table, shared or Either is fine\n' +
+        'and Available dates includes Thursday, May 7, 2099',
+    );
+  });
+
+  it('falls back to the stored key and value only for what the form no longer has', () => {
+    const [row] = groupRow(
+      group('First years', []),
+      group('First years', [
+        { key: 'year_of_study', answers: ['First'] },
+        { key: 'affiliation', answers: ['Current UBC student', 'Faculty'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\n' +
+        'when year_of_study (no longer on the form) includes First\n' +
+        'and Are you a UBC student or alumni? includes Current UBC student or Faculty',
+    );
+  });
+
+  it('says a condition with nothing ticked prices nobody, as the card does', () => {
+    const [row] = groupRow(
+      group('Students', []),
+      group('Students', [{ key: 'affiliation', answers: [] }]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\nwhen Are you a UBC student or alumni? has no answer ticked yet, so it prices nobody',
+    );
   });
 
   it('says none for a field an older entry recorded as null', () => {

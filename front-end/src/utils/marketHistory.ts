@@ -9,7 +9,7 @@
  * and allocate tables, never place, seat or run.
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
-import { IntakeMode } from '@/assets/types/datatypes';
+import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
@@ -114,29 +114,77 @@ function tierPrices(value: unknown, currency: string): string {
 function pricingValue(key: string, value: unknown, currency: string): string {
   if (value === null || value === undefined) return 'none';
   if (key === 'everyone_else') return tierPrices(value, currency) || 'none';
-  if (key === 'groups') {
-    // A group to itself, as a name may hold a comma; its conditions by question key, since the entry
-    // keeps no label, so a change of its conditions alone still reads as a change.
-    const groups = Array.isArray(value) ? value.map(asDetail) : [];
-    const words = groups.map((group) => {
-      const conditions = (Array.isArray(group.conditions) ? group.conditions : [])
-        .map(asDetail)
-        .map((condition) => {
-          const answers = Array.isArray(condition.answers) ? condition.answers.map(str) : [];
-          return `${str(condition.key)} includes ${answers.join(' or ') || 'no answer yet'}`;
-        });
-      const parts = [
-        tierPrices(group.prices, currency),
-        conditions.length ? `when ${conditions.join(', and ')}` : '',
-      ].filter(Boolean);
-      return parts.length ? `${str(group.name)}: ${parts.join(', ')}` : str(group.name);
-    });
-    // A blank line between groups: in the narrow cell a group wraps, and one starting on the next
-    // line alone would read as its neighbour's tail.
-    return words.join('\n\n') || 'none';
-  }
   if (key === 'half_table_percent') return `${str(value)}%`;
   return valueText(value);
+}
+
+/**
+ * A group's condition as the card words it: the question's label and the answers ticked, from the
+ * market's choice questions (`rejectionQuestions`); the stored key and value only for a question or
+ * an answer the form no longer has.
+ */
+function conditionText(value: unknown, questions: readonly RejectionQuestion[]): string {
+  const condition = asDetail(value);
+  const key = str(condition.key);
+  const question = questions.find((q) => q.key === key);
+  const label = question ? question.label : `${key} (no longer on the form)`;
+  const answers = (Array.isArray(condition.answers) ? condition.answers : []).map((answer) => {
+    const offered = question?.answers.find((a) => a.value === str(answer));
+    return offered ? offered.label : str(answer);
+  });
+  if (!answers.length) return `${label} has no answer ticked yet, so it prices nobody`;
+  return `${label} includes ${answers.join(' or ')}`;
+}
+
+/** A group as it stood: its prices on one line, then each condition on its own. */
+function groupText(value: unknown, currency: string, questions: readonly RejectionQuestion[]) {
+  const group = asDetail(value);
+  const conditions = (Array.isArray(group.conditions) ? group.conditions : []).map(
+    (condition, i) => `${i ? 'and' : 'when'} ${conditionText(condition, questions)}`,
+  );
+  return [
+    tierPrices(group.prices, currency) || 'no price',
+    ...(conditions.length ? conditions : ['no condition yet, so it prices nobody']),
+  ].join('\n');
+}
+
+/**
+ * A change of the price groups as a row for each group that changed, by its name: one added reads
+ * "not on the card" before it, one taken away "removed" after it, and the groups that stood as they
+ * were are left out, so the one change is not buried among them. Groups that only moved are one row
+ * of their names in each order.
+ */
+function groupChanges(
+  before: unknown,
+  after: unknown,
+  currencies: { before: string; after: string },
+  questions: readonly RejectionQuestion[],
+): ChangedField[] {
+  const list = (value: unknown) => (Array.isArray(value) ? value.map(asDetail) : []);
+  const [was, now] = [list(before), list(after)];
+  const named = (groups: Detail[], name: string) => groups.find((g) => str(g.name) === name);
+  const read = (group: Detail, currency: string) => groupText(group, currency, questions);
+  const rows: ChangedField[] = [];
+  for (const group of now) {
+    const name = str(group.name);
+    const old = named(was, name);
+    const text = read(group, currencies.after);
+    if (!old) rows.push({ field: `Group "${name}"`, before: 'not on the card', after: text });
+    else if (read(old, currencies.before) !== text)
+      rows.push({ field: `Group "${name}"`, before: read(old, currencies.before), after: text });
+  }
+  for (const group of was) {
+    const name = str(group.name);
+    if (!named(now, name))
+      rows.push({
+        field: `Group "${name}"`,
+        before: read(group, currencies.before),
+        after: 'removed',
+      });
+  }
+  if (rows.length) return rows;
+  const names = (groups: Detail[]) => groups.map((g) => str(g.name)).join('\n') || 'none';
+  return [{ field: fieldName(PRICING_FIELDS.groups), before: names(was), after: names(now) }];
 }
 
 function listed(words: string[]): string {
@@ -467,6 +515,8 @@ export function entryChanges(
   entry: MarketHistoryEntry,
   labels: Readonly<Record<string, string>> = {},
   path: IntakeMode = IntakeMode.Csv,
+  /** The market's choice questions (`rejectionQuestions`), which a price group's conditions name. */
+  questions: readonly RejectionQuestion[] = [],
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];
@@ -490,12 +540,22 @@ export function entryChanges(
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
     const currency = str(entry.subject.currency) || 'CAD';
+    const currencies = {
+      before: str(before.currency) || currency,
+      after: str(after.currency) || currency,
+    };
     return {
-      changed: pricingKeys(before, after).map((key) => ({
-        field: fieldName(PRICING_FIELDS[key] ?? key),
-        before: pricingValue(key, before[key], str(before.currency) || currency),
-        after: pricingValue(key, after[key], str(after.currency) || currency),
-      })),
+      changed: pricingKeys(before, after).flatMap((key) =>
+        key === 'groups'
+          ? groupChanges(before.groups, after.groups, currencies, questions)
+          : [
+              {
+                field: fieldName(PRICING_FIELDS[key] ?? key),
+                before: pricingValue(key, before[key], currencies.before),
+                after: pricingValue(key, after[key], currencies.after),
+              },
+            ],
+      ),
       recorded: [],
     };
   }

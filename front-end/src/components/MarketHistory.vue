@@ -9,7 +9,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import type { IntakeMode } from '@/assets/types/datatypes';
+import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
@@ -29,6 +29,9 @@ const props = defineProps<{
   rowLabels?: Readonly<Record<string, string>>;
   /** How the market's vendors arrive, so a phase reads as its other screens name it. */
   path: IntakeMode;
+  /** The market's choice questions (`rejectionQuestions`), so a price group's conditions read in
+   *  the card's words (E43/F01/S02). */
+  questions?: readonly RejectionQuestion[];
 }>();
 
 interface HistoryPage {
@@ -339,7 +342,10 @@ const emptyText = computed(() =>
           class="history-changes"
           data-testid="market-history-changes"
         >
-          <table v-if="entryChanges(entry, labels, path).changed.length" class="history-table">
+          <table
+            v-if="entryChanges(entry, labels, path, questions).changed.length"
+            class="history-table"
+          >
             <thead>
               <tr>
                 <th scope="col">Field</th>
@@ -348,23 +354,32 @@ const emptyText = computed(() =>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in entryChanges(entry, labels, path).changed" :key="row.field">
+              <tr
+                v-for="row in entryChanges(entry, labels, path, questions).changed"
+                :key="row.field"
+              >
                 <th scope="row">{{ row.field }}</th>
                 <td>{{ row.before }}</td>
                 <td>{{ row.after }}</td>
               </tr>
             </tbody>
           </table>
-          <dl v-if="entryChanges(entry, labels, path).recorded.length" class="history-recorded">
-            <template v-for="row in entryChanges(entry, labels, path).recorded" :key="row.field">
+          <dl
+            v-if="entryChanges(entry, labels, path, questions).recorded.length"
+            class="history-recorded"
+          >
+            <template
+              v-for="row in entryChanges(entry, labels, path, questions).recorded"
+              :key="row.field"
+            >
               <dt>{{ row.field }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
           <p
             v-if="
-              !entryChanges(entry, labels, path).changed.length &&
-              !entryChanges(entry, labels, path).recorded.length
+              !entryChanges(entry, labels, path, questions).changed.length &&
+              !entryChanges(entry, labels, path, questions).recorded.length
             "
             class="history-note"
           >
@@ -509,9 +524,16 @@ const emptyText = computed(() =>
   overflow-wrap: anywhere;
 }
 
-/* A value of many lines keeps them: the price groups, a paragraph each (`pricingValue`). */
+/* Every value keeps its line breaks: a price group's prices and each of its conditions
+   (`groupText`), and as well a vendor note's lines and an Update info answer's, which ran into one
+   before and now read as the drawer shows them. Runs of spaces still collapse. */
 .history-table td {
   white-space: pre-line;
+}
+
+/* The field's name is a few words; the values beside it are what is read. */
+.history-table thead th:first-child {
+  width: 22%;
 }
 
 .history-table thead th {
