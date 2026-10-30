@@ -94,6 +94,23 @@ describe('the searchable picker', () => {
     wrapper.unmount();
   });
 
+  it('never opens when there are no choices at all', async () => {
+    const wrapper = picker('', [
+      { label: 'Fits this seat', testid: 'fits', options: [] },
+      { label: 'Added by hand', testid: 'added', options: [] },
+    ]);
+    await field(wrapper).trigger('click');
+    expect(field(wrapper).attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="who-none"]').exists()).toBe(false);
+
+    await field(wrapper).setValue('ana');
+    expect(field(wrapper).attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="who-none"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it('is worked by the arrow keys and Enter, the active choice announced', async () => {
     const wrapper = picker();
     const input = field(wrapper);

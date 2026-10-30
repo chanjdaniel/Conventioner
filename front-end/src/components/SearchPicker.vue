@@ -13,7 +13,8 @@
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter
  *   and Escape belong to the dialog around it, so Enter still submits and Escape still closes.
  * - A group is never hidden by a search, only narrowed: one with nothing matching says so. A group
- *   with no choices at all is not drawn, as an empty `optgroup` was not.
+ *   with no choices at all is not drawn, as an empty `optgroup` was not. A picker with no choices
+ *   at all never opens its list; the note beside it says why there is nothing to choose.
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
  *   dialog a floating list is clipped by the dialog's own scroller.
@@ -56,6 +57,8 @@ const listId = `${id}-list`;
 const optionId = (index: number) => `${id}-option-${index}`;
 
 const allOptions = computed(() => props.groups.flatMap((group) => group.options));
+/** Whether the picker has any choice at all; with none, the list never opens. */
+const hasChoices = computed(() => allOptions.value.length > 0);
 const chosenOption = computed(() =>
   allOptions.value.find((option) => option.value === props.modelValue),
 );
@@ -115,7 +118,7 @@ watch(active, async (index) => {
 const field = ref<HTMLInputElement | null>(null);
 
 function show(): void {
-  if (open.value) return;
+  if (open.value || !hasChoices.value) return;
   open.value = true;
   const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
   active.value = chosenAt >= 0 ? chosenAt : shownOptions.value.length ? 0 : -1;
@@ -134,7 +137,7 @@ function choose(option: PickerOption): void {
 
 function typed(): void {
   searching.value = true;
-  open.value = true;
+  open.value = hasChoices.value;
   active.value = shownOptions.value.length ? 0 : -1;
   // Words that no longer name the choice let it go, so a dialog never acts on a choice its field
   // does not show.

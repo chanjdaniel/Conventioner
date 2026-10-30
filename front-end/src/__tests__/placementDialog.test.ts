@@ -166,7 +166,8 @@ describe('filling a seat', () => {
   it('does not offer a vendor who already has a table on this date', async () => {
     const wrapper = dialog({ datesHeld: { 'nadia@ember.test': [DATE] } });
 
-    expect((await openPicker(wrapper, 'placement-dialog-vendor')).text()).not.toContain('Nadia');
+    await wrapper.get('[data-testid="placement-dialog-vendor-input"]').trigger('click');
+    expect(wrapper.find('[data-testid="placement-dialog-vendor-list"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('already has a table on this date');
   });
 
