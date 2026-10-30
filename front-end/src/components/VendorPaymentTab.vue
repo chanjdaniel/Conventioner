@@ -153,7 +153,9 @@ defineExpose({ reload: load });
               <span v-if="payment.note" class="payment-entry-note">{{ payment.note }}</span>
               <span class="payment-entry-who" data-testid="payment-entry-who">
                 Recorded by {{ payment.recordedBy }},
-                {{ getFormattedTimestamp(payment.recordedAt) || payment.recordedAt }}
+                <span class="payment-entry-when">{{
+                  getFormattedTimestamp(payment.recordedAt) || payment.recordedAt
+                }}</span>
               </span>
             </div>
             <span class="payment-amount">{{ money(payment.cents, account) }}</span>
@@ -276,6 +278,11 @@ defineExpose({ reload: load });
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
+}
+
+/* "Oct 30, 2026 at 3:27 PM" holds together: "PM" alone on a line reads as a stray word. */
+.payment-entry-when {
+  white-space: nowrap;
 }
 
 .payment-entry-note {

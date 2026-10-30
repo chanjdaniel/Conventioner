@@ -92,6 +92,7 @@ async function save(): Promise<void> {
       <label class="record-payment-field">
         <span class="field-label">Amount{{ currency ? ` (${currency})` : '' }}</span>
         <input
+          id="record-payment-amount"
           v-model="amount"
           type="text"
           inputmode="decimal"
@@ -130,6 +131,7 @@ async function save(): Promise<void> {
       <label class="record-payment-field">
         <span class="field-label">Paid on</span>
         <input
+          id="record-payment-date"
           v-model="paidOn"
           type="date"
           class="field"
@@ -141,6 +143,7 @@ async function save(): Promise<void> {
       <label class="record-payment-field">
         <span class="field-label">Note (optional)</span>
         <textarea
+          id="record-payment-note"
           v-model="note"
           class="field field--textarea"
           rows="2"
