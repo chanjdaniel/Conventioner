@@ -396,7 +396,7 @@ class PaymentEntry(BaseModel):
     cents of the market's currency, how it was paid, the day it was paid, and an optional note.
 
     Strict, so an amount sent as text or with a fraction of a cent is refused rather than read; a
-    payment is never zero or negative, since taking money back is an Admin's adjustment (ticket 20).
+    payment is never zero or negative: money given back is a refund, recorded as its own entry.
     """
 
     model_config = ConfigDict(extra="forbid")

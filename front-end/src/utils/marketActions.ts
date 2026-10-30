@@ -26,6 +26,8 @@ export const MarketAction = {
   UpdateVendorInfo: 'update-vendor-info',
   Assign: 'assign',
   RecordPayment: 'record-payment',
+  ChangeOwed: 'change-owed',
+  AdjustPaid: 'adjust-paid',
   CheckIn: 'check-in',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',
   ManageAdmins: 'manage-admins',

@@ -317,6 +317,8 @@ useInertBehind(
             :marketId="market.id"
             :email="email"
             :canRecord="mayTake(market, MarketAction.RecordPayment)"
+            :canChangeOwed="mayTake(market, MarketAction.ChangeOwed)"
+            :canAdjustPaid="mayTake(market, MarketAction.AdjustPaid)"
           />
         </div>
 

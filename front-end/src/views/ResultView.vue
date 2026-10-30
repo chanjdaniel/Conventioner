@@ -13,7 +13,8 @@ import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
-import { type VendorNames } from '@/utils/vendorIdentity';
+import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
+import { formatPrice } from '@/utils/pricing';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
 import ResultSeat from '@/components/ResultSeat.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
@@ -390,12 +391,36 @@ function placeVendor(payload: { email: string; seat: Seat }): void {
   );
 }
 
-function freeSeat(): void {
+/**
+ * What freeing the open seat may also take off what its vendor owes (E44/F01/S02), offered only to
+ * whoever may change the amount owed and only for a seat with a price: "Also remove its $15 from
+ * what Alice owes?". Null where the question is not asked.
+ */
+const deduction = computed(() => {
+  const seat = openSeat.value;
+  const email = seat?.occupantEmail;
+  if (seat?.mode !== 'occupied' || !email || !mayTake(market.value, MarketAction.ChangeOwed)) {
+    return null;
+  }
+  const prices = (seat.row as { prices?: { email: string; cents: number }[] }).prices ?? [];
+  const cents = prices.find((price) => price.email.toLowerCase() === email.toLowerCase())?.cents;
+  if (!cents) return null;
+  const currency = market.value?.setupObject?.pricing?.currency ?? 'CAD';
+  return {
+    amount: formatPrice(cents, currency),
+    name: vendorName(email, vendorNames.value) || email,
+  };
+});
+
+function freeSeat(deductOwed: boolean): void {
   const seat = openSeat.value;
   if (!seat?.occupantEmail) return;
-  void runPlacementChange(() =>
-    api.delete(placementsUrl(), { data: { email: seat.occupantEmail, date: seat.row.date } }),
-  );
+  const data = {
+    email: seat.occupantEmail,
+    date: seat.row.date,
+    ...(deductOwed && { deductOwed }),
+  };
+  void runPlacementChange(() => api.delete(placementsUrl(), { data }));
 }
 
 function swapSeats(withEmail: string): void {
@@ -615,6 +640,7 @@ function swapSeats(withEmail: string): void {
       :vendorNames="vendorNames"
       :busy="placementBusy"
       :errorMessage="placementError"
+      :deduction="deduction"
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"

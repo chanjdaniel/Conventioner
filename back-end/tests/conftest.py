@@ -486,6 +486,8 @@ class FakeApplicationsCollection:
                 target = target.get(part) if isinstance(target, dict) else None
             if isinstance(target, dict):
                 target.pop(last, None)
+        for key, value in (update.get("$push") or {}).items():
+            doc.setdefault(key, []).append(value)
         return doc
 
     def update_one(self, query, update):

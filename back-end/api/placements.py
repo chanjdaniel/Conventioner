@@ -38,7 +38,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
 import assignment.made_from as MadeFrom
-from client_errors import BadRequestError, ConflictError
+from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
 from utils.email_address import normalized_email
 
@@ -363,7 +363,7 @@ def write_placement(
 
 
 def remove_placement(
-    market_id: str, email: str, date: str, requesting_user: str
+    market_id: str, email: str, date: str, requesting_user: str, deduct_owed: bool = False,
 ) -> Tuple[Dict[str, Any], int]:
     """Free the seat one vendor holds on one date.
 
@@ -374,8 +374,17 @@ def remove_placement(
 
     Removing a placement nobody holds is not an error: the caller asked for that seat to be
     empty, and it is.
+
+    ``deduct_owed`` is the free's question answered yes, "Also remove its $15 from what they
+    owe?" (E44/F01/S02): the seat's line then owes $0 in the same change. It asks the row
+    ``Actions.CHANGE_OWED`` too, before anything is freed.
     """
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.ASSIGN)
+    if deduct_owed:
+        refused = Actions.refusal(Actions.CHANGE_OWED, requesting_user, market,
+                                  MarketsApi._load_organization(market.organization_id))
+        if refused:
+            raise ForbiddenError(refused)
 
     email = (email or "").strip()
     date = (date or "").strip()
@@ -402,6 +411,8 @@ def remove_placement(
             History.record_freed(
                 market_id, requesting_user, email, date, placement.table_code
             )
+        if deduct_owed:
+            PaymentsApi.deduct_freed_line(market, email, date, requesting_user)
 
     return {"removed": len(freed)}, 200
 

@@ -22,6 +22,7 @@ sources:
   - bug/32
   - E36/F03/S01
   - E38/F09/S01
+  - E44/F01/S02
 ---
 
 # Placing by hand
@@ -69,7 +70,9 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-a
 
 **Status:** Works (walked live).
 In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
-Covered by: `placement-edit.spec.ts`.
+Freeing never changes what they owe by itself: the day keeps its line on their [Payment tab](vendor-drawer.md), still owed.
+Whoever may change the amount owed is also asked, for a seat with a price, "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
+Covered by: `placement-edit.spec.ts`, `changing-owed-and-paid.spec.ts`.
 
 ## J9. Allocate tables again, keeping hand assignments
 

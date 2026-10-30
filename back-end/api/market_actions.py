@@ -98,6 +98,12 @@ ASSIGN = action(
 RECORD_PAYMENT = action(
     "record-payment", "Payments", "Record a payment", MarketRole.EDITOR,
     "record payments on this market")
+CHANGE_OWED = action(
+    "change-owed", "Payments", "Change the amount owed", MarketRole.ADMIN,
+    "change what this market's vendors owe")
+ADJUST_PAID = action(
+    "adjust-paid", "Payments", "Adjust the amount paid: edit or remove a payment, record a refund",
+    MarketRole.ADMIN, "adjust what this market's vendors paid")
 CHECK_IN = action(
     "check-in", "The door", "Check vendors in", MarketRole.EDITOR,
     "check vendors in at this market")

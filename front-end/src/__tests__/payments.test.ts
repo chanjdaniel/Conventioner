@@ -5,10 +5,14 @@ import { describe, expect, it } from 'vitest';
 import {
   balanceState,
   balanceText,
+  entryText,
+  entryWho,
   lineSource,
   methodLabel,
+  money,
   seatText,
   today,
+  type Payment,
   type PaymentLine,
   type VendorAccount,
 } from '@/utils/payments';
@@ -101,5 +105,47 @@ describe('a payment', () => {
 
   it('starts at today in the organizer’s own calendar', () => {
     expect(today(new Date(2099, 3, 1, 23, 30))).toBe('2099-04-01');
+  });
+});
+
+const ENTRY: Payment = {
+  id: 'p1',
+  kind: 'payment',
+  cents: 3500,
+  method: 'cash',
+  paidOn: '2099-04-03',
+  note: '',
+  recordedBy: 'editor@example.com',
+  recordedAt: '2099-04-03T12:00:00+00:00',
+  editedBy: null,
+  editedAt: null,
+  removedBy: null,
+  removedAt: null,
+};
+
+describe('an entry', () => {
+  it('reads as a payment, or as a refund given back', () => {
+    expect(entryText(ENTRY)).toBe('Cash, paid Friday, April 3, 2099');
+    expect(entryText({ ...ENTRY, kind: 'refund', cents: -3500, method: 'e-transfer' })).toBe(
+      'Refund by e-transfer, given Friday, April 3, 2099',
+    );
+  });
+
+  it('says a refund’s amount as money given back', () => {
+    expect(money(-3500, { currency: 'CAD' })).toBe('-$35');
+  });
+
+  it('says who touched it last: recorded, edited or removed', () => {
+    expect(entryWho(ENTRY).verb).toBe('Recorded');
+    const edited = { ...ENTRY, editedBy: 'admin@example.com', editedAt: '2099-04-04T12:00:00Z' };
+    expect(entryWho(edited)).toEqual({
+      verb: 'Edited',
+      by: 'admin@example.com',
+      at: '2099-04-04T12:00:00Z',
+    });
+    expect(
+      entryWho({ ...edited, removedBy: 'owner@example.com', removedAt: '2099-04-05T12:00:00Z' })
+        .verb,
+    ).toBe('Removed');
   });
 });

@@ -8,7 +8,7 @@
  */
 import { api } from '@/utils/api';
 import { formatPrice } from '@/utils/pricing';
-import { getTimestampDate } from '@/utils/utils';
+import { getFormattedDate, getTimestampDate } from '@/utils/utils';
 
 /** How the organizers take a payment (Daniel, T92 Q7), as the server names each. */
 export const PAYMENT_METHODS: readonly { id: PaymentMethod; label: string }[] = [
@@ -39,6 +39,8 @@ export interface PaymentLine {
 
 export interface Payment {
   id: string;
+  /** A payment the vendor made, or a refund given back to them, whose `cents` is negative. */
+  kind: 'payment' | 'refund';
   cents: number;
   method: PaymentMethod;
   /** The day it was paid, `YYYY-MM-DD`. */
@@ -46,6 +48,12 @@ export interface Payment {
   note: string;
   recordedBy: string;
   recordedAt: string;
+  /** The last edit, when it was edited (E44/F01/S02). */
+  editedBy: string | null;
+  editedAt: string | null;
+  /** Taken out of the amount paid; it is kept, and shown so. */
+  removedBy: string | null;
+  removedAt: string | null;
 }
 
 export interface VendorAccount {
@@ -67,8 +75,10 @@ export interface NewPayment {
 /** The currency an amount is shown in where the market names none: the card's own default. */
 const DEFAULT_CURRENCY = 'CAD';
 
+/** An amount in the account's currency; a refund's negative amount reads "-$15". */
 export function money(cents: number, account: Pick<VendorAccount, 'currency'>): string {
-  return formatPrice(cents, account.currency ?? DEFAULT_CURRENCY);
+  const amount = formatPrice(Math.abs(cents), account.currency ?? DEFAULT_CURRENCY);
+  return cents < 0 ? `-${amount}` : amount;
 }
 
 /**
@@ -106,6 +116,23 @@ export function lineSource(line: PaymentLine): string {
   return `${seatText(line)} - table freed${when}`;
 }
 
+/** An entry as it reads: "Cash, paid Friday, April 3, 2099", or "Refund by e-transfer, …". */
+export function entryText(payment: Payment): string {
+  const day = getFormattedDate(payment.paidOn) ?? payment.paidOn;
+  if (payment.kind === 'refund') {
+    return `Refund by ${methodLabel(payment.method).toLowerCase()}, given ${day}`;
+  }
+  return `${methodLabel(payment.method)}, paid ${day}`;
+}
+
+/** Who last touched an entry, and when: "Recorded by …", "Edited by …" or "Removed by …". */
+export function entryWho(payment: Payment): { verb: string; by: string; at: string } {
+  if (payment.removedAt)
+    return { verb: 'Removed', by: payment.removedBy ?? '', at: payment.removedAt };
+  if (payment.editedAt) return { verb: 'Edited', by: payment.editedBy ?? '', at: payment.editedAt };
+  return { verb: 'Recorded', by: payment.recordedBy, at: payment.recordedAt };
+}
+
 export function methodLabel(method: PaymentMethod): string {
   return PAYMENT_METHODS.find((m) => m.id === method)?.label ?? method;
 }
@@ -131,4 +158,52 @@ export async function recordPayment(
   payment: NewPayment,
 ): Promise<VendorAccount> {
   return (await api.post<VendorAccount>(accountPath(marketId, email), payment)).data;
+}
+
+/** Record money given back, the same fields as a payment (an Admin's, E44/F01/S02). */
+export async function recordRefund(
+  marketId: string,
+  email: string,
+  refund: NewPayment,
+): Promise<VendorAccount> {
+  return (await api.post<VendorAccount>(`${accountPath(marketId, email)}/refunds`, refund)).data;
+}
+
+function entryPath(marketId: string, paymentId: string): string {
+  return `/markets/${encodeURIComponent(marketId)}/payment-entries/${encodeURIComponent(paymentId)}`;
+}
+
+export async function editPayment(
+  marketId: string,
+  paymentId: string,
+  payment: NewPayment,
+): Promise<VendorAccount> {
+  return (await api.put<VendorAccount>(entryPath(marketId, paymentId), payment)).data;
+}
+
+export async function removePayment(marketId: string, paymentId: string): Promise<VendorAccount> {
+  return (await api.delete<VendorAccount>(entryPath(marketId, paymentId))).data;
+}
+
+function owedPath(marketId: string, email: string, date: string): string {
+  return `${accountPath(marketId, email)}/owed/${encodeURIComponent(date)}`;
+}
+
+/** Set what one table-day owes; $0 waives it. */
+export async function setAmountOwed(
+  marketId: string,
+  email: string,
+  date: string,
+  cents: number,
+): Promise<VendorAccount> {
+  return (await api.put<VendorAccount>(owedPath(marketId, email, date), { cents })).data;
+}
+
+/** Take back an amount set by hand: the day owes its calculated price again. */
+export async function useCalculatedPrice(
+  marketId: string,
+  email: string,
+  date: string,
+): Promise<VendorAccount> {
+  return (await api.delete<VendorAccount>(owedPath(marketId, email, date))).data;
 }

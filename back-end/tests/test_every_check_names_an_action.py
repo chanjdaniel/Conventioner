@@ -24,7 +24,7 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row and E44/F01/S01's payment row, and without the
+#: The epic's table (E39), with E38/F04's stop row and E44/F01's payment rows, and without the
 #: form amendment's, which E38/F04 removed (the amendment's walk is gone): (id, group, label,
 #: default, fixed).
 THE_TABLE = [
@@ -50,6 +50,9 @@ THE_TABLE = [
      "Allocate tables, change the assignment rules, and assign, swap or free seats",
      MarketRole.EDITOR, False),
     ("record-payment", "Payments", "Record a payment", MarketRole.EDITOR, False),
+    ("change-owed", "Payments", "Change the amount owed", MarketRole.ADMIN, False),
+    ("adjust-paid", "Payments",
+     "Adjust the amount paid: edit or remove a payment, record a refund", MarketRole.ADMIN, False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
      MarketRole.ADMIN, False),

@@ -156,6 +156,27 @@ describe('a seat somebody holds', () => {
     ],
   };
 
+  it('asks nothing about what they owe unless it is given the question', async () => {
+    const wrapper = dialog(occupied);
+
+    expect(wrapper.find('[data-testid="placement-dialog-deduct"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="placement-dialog-free"]').trigger('click');
+    expect(wrapper.emitted('free')).toEqual([[false]]);
+  });
+
+  it('asks, unticked, whether freeing also takes the seat off what they owe (E44/F01/S02)', async () => {
+    const wrapper = dialog({ ...occupied, deduction: { amount: '$15', name: 'Nadia Ember' } });
+
+    const box = wrapper.get<HTMLInputElement>('[data-testid="placement-dialog-deduct"]');
+    expect(box.element.checked).toBe(false);
+    expect(wrapper.text()).toContain(
+      'Also remove its $15 from what Nadia Ember owes? (Cancelled before the deadline: a refund may be due.)',
+    );
+    await box.setValue(true);
+    await wrapper.get('[data-testid="placement-dialog-free"]').trigger('click');
+    expect(wrapper.emitted('free')).toEqual([[true]]);
+  });
+
   it('offers a trade and a way to free the seat, and no way to displace them', () => {
     const wrapper = dialog(occupied);
 

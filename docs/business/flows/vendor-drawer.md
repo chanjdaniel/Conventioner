@@ -23,6 +23,7 @@ sources:
   - E43/F01/S01
   - E41/F01/S01
   - E44/F01/S01
+  - E44/F01/S02
 ---
 
 # The vendor drawer
@@ -55,12 +56,14 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      A day whose table was freed keeps its line, still owed, and says so beside the seat it prices: "Atrium 1, Gold, full table - table freed Oct 30, 2026", so every number says where it came from; freeing a table changes neither amount by itself (Daniel, T92 Q26).
      Then each payment, the last recorded first: its amount, e-transfer or cash, the day it was paid, its note, and who recorded it and when.
      "Record payment", at the end of the Payments heading for whoever the row "Record a payment" allows, opens a dialog of the amount, e-transfer or cash, the day paid (today to begin with) and an optional note; once recorded, the tab reads the account the server answers.
+     For whoever the row "Change the amount owed" allows, each line has a "..." menu: "Change the amount owed" opens a dialog that says the change before Save ("Friday, May 8, 2099 will owe $0 instead of $15."), $0 waiving it; a line set by hand shows the calculated price struck beside it, "Set by <address>, <when>", and its menu adds "Use the calculated price", confirmed first.
+     For whoever the row "Adjust the amount paid" allows, "Record refund" sits beside "Record payment", for money given back ("-$15", "Refund by e-transfer, given …"), and each entry has a "..." menu: "Edit" opens the same dialog filled in, and "Remove", confirmed first, takes it out of what they paid and leaves it listed, struck, "Removed by …"; an edited entry says "Edited by …" ([payments](../../implementation/data/payments.md)).
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
-Covered by: `the-vendor-drawer.spec.ts`, `the-payment-tab.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
+Covered by: `the-vendor-drawer.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
 
 ## The rules it obeys
 

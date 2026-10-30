@@ -41,22 +41,31 @@ const ACCOUNT: VendorAccount = {
   payments: [
     {
       id: 'p1',
+      kind: 'payment',
       cents: 3500,
       method: 'cash',
       paidOn: '2099-04-01',
       note: 'At the info desk',
       recordedBy: 'editor@example.com',
       recordedAt: '2099-04-01T18:00:00+00:00',
+      editedBy: null,
+      editedAt: null,
+      removedBy: null,
+      removedAt: null,
     },
   ],
   owedCents: 7000,
   paidCents: 3500,
 };
 
-async function tab(canRecord: boolean, account: VendorAccount = ACCOUNT) {
+async function tab(
+  canRecord: boolean,
+  account: VendorAccount = ACCOUNT,
+  admin: { canChangeOwed?: boolean; canAdjustPaid?: boolean } = {},
+) {
   api.get.mockResolvedValue({ data: account });
   const wrapper = mount(VendorPaymentTab, {
-    props: { marketId: 'market-1', email: 'ana@example.com', canRecord },
+    props: { marketId: 'market-1', email: 'ana@example.com', canRecord, ...admin },
     attachTo: document.body,
   });
   await flushPromises();
@@ -152,5 +161,80 @@ describe('the Payment tab', () => {
     expect(wrapper.text()).toContain('No table yet, so nothing is owed.');
     expect(wrapper.text()).toContain('No payments recorded.');
     expect(wrapper.get('[data-testid="payment-balance"]').text()).toBe('Nothing owed');
+  });
+
+  it('offers an Editor neither menu nor Record refund', async () => {
+    const wrapper = await tab(true);
+
+    expect(wrapper.find('[data-testid="payment-line-menu-button"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="payment-entry-menu-button"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="payment-refund"]').exists()).toBe(false);
+  });
+
+  it('offers an Admin each line’s menu, each entry’s menu and Record refund', async () => {
+    const wrapper = await tab(true, ACCOUNT, { canChangeOwed: true, canAdjustPaid: true });
+
+    expect(wrapper.findAll('[data-testid="payment-line-menu-button"]')).toHaveLength(2);
+    expect(wrapper.findAll('[data-testid="payment-entry-menu-button"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="payment-refund"]').exists()).toBe(true);
+    await wrapper.findAll('[data-testid="payment-line-menu-button"]')[0].trigger('click');
+    expect(wrapper.get('[data-testid="payment-line-menu"]').text()).toBe('Change the amount owed');
+    wrapper.unmount();
+  });
+
+  it('shows an amount set by hand beside the calculated price struck, with who and when', async () => {
+    const wrapper = await tab(
+      true,
+      {
+        ...ACCOUNT,
+        lines: [
+          {
+            ...ACCOUNT.lines[0],
+            owedCents: 0,
+            owedSetBy: 'admin@example.com',
+            owedSetAt: '2099-04-02T12:00:00+00:00',
+          },
+        ],
+        owedCents: 0,
+      },
+      { canChangeOwed: true },
+    );
+
+    const line = wrapper.get('[data-testid="payment-line"]');
+    expect(line.get('[data-testid="payment-line-price"]').text()).toBe('$35');
+    expect(line.get('[data-testid="payment-line-owed"]').text()).toBe('$0');
+    expect(line.get('[data-testid="payment-line-set"]').text()).toContain(
+      'Set by admin@example.com, Apr 2, 2099',
+    );
+    await line.get('[data-testid="payment-line-menu-button"]').trigger('click');
+    expect(line.get('[data-testid="payment-line-menu"]').text()).toContain(
+      'Use the calculated price',
+    );
+    wrapper.unmount();
+  });
+
+  it('lists a removed entry as removed, by whom, and offers it no menu', async () => {
+    const wrapper = await tab(
+      true,
+      {
+        ...ACCOUNT,
+        payments: [
+          {
+            ...ACCOUNT.payments[0],
+            removedBy: 'admin@example.com',
+            removedAt: '2099-04-02T12:00:00+00:00',
+          },
+        ],
+        paidCents: 0,
+      },
+      { canAdjustPaid: true },
+    );
+
+    const entry = wrapper.get('[data-testid="payment-entry"]');
+    expect(entry.get('[data-testid="payment-entry-who"]').text()).toContain(
+      'Removed by admin@example.com',
+    );
+    expect(entry.get('[data-testid="payment-entry-amount"]').element.tagName).toBe('S');
+    expect(entry.find('[data-testid="payment-entry-menu-button"]').exists()).toBe(false);
   });
 });

@@ -27,6 +27,7 @@ sources:
   - E38/F04/S02
   - E38/F05
   - E44/F01/S01
+  - E44/F01/S02
 ---
 
 # The market's actions
@@ -79,6 +80,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase; the essential answers are refused for now |
 | Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Record a payment (`record-payment`) | Editor | `POST /markets/:id/payments/<email>` ([payments](../data/payments.md)) |
+| Change the amount owed (`change-owed`) | Admin | `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`, and a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too) |
+| Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`) | Admin | `POST /markets/:id/payments/<email>/refunds`, `PUT` and `DELETE /markets/:id/payment-entries/<id>` |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |

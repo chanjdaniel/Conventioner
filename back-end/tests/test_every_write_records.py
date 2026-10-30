@@ -36,8 +36,9 @@ import api.users as UsersApi  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
+import payments as Payments  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
-from datatypes import MarketPerson, MarketPhase  # noqa: E402
+from datatypes import MarketPerson, MarketPhase, PaymentEntry  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
 from test_csv_proposal_api import CSV as A_GOOGLE_FORM_EXPORT  # noqa: E402
 from test_essential_fields import VALID_ANSWERS, _applicant_market_doc  # noqa: E402
@@ -430,6 +431,46 @@ def _record_payment(client, world):
                        json={"cents": 3500, "method": "cash", "paidOn": "2026-07-20"})
 
 
+def _record_refund(client, world):
+    _seats(VENDOR)(world)
+    world.applications.insert_one(_application("app-1", VENDOR))
+    return client.post(f"/markets/{MARKET}/payments/{VENDOR}/refunds",
+                       json={"cents": 3500, "method": "cash", "paidOn": "2026-07-20"})
+
+
+def _priced_seat(world):
+    _seats(VENDOR)(world)
+    world.markets.doc["setupObject"]["pricing"] = {
+        "currency": "CAD", "halfTablePercent": 50,
+        "everyoneElse": [{"tier": "Gold", "cents": 3500}]}
+
+
+def _set_owed(client, world):
+    _priced_seat(world)
+    return client.put(f"/markets/{MARKET}/payments/{VENDOR}/owed/{DATE}", json={"cents": 0})
+
+
+def _use_calculated_price(client, world):
+    _priced_seat(world)
+    Payments.set_amount_owed(MARKET, VENDOR, DATE, 0, OWNER)
+    return client.delete(f"/markets/{MARKET}/payments/{VENDOR}/owed/{DATE}")
+
+
+def _an_entry(world) -> str:
+    _seats(VENDOR)(world)
+    entry = PaymentEntry(cents=3500, method="cash", paid_on="2026-07-20")
+    return Payments.record_payment(MARKET, VENDOR, entry, OWNER)["id"]
+
+
+def _edit_payment(client, world):
+    return client.put(f"/markets/{MARKET}/payment-entries/{_an_entry(world)}",
+                      json={"cents": 3000, "method": "cash", "paidOn": "2026-07-20"})
+
+
+def _remove_payment(client, world):
+    return client.delete(f"/markets/{MARKET}/payment-entries/{_an_entry(world)}")
+
+
 # --- The door ---------------------------------------------------------------------------------------
 
 def _door(organizer: bool, undo: bool):
@@ -550,6 +591,20 @@ WRITES = [
           vendors=(VENDOR,), before_after=False),
     Write("a payment recorded", "POST", f"{M}/payments/<path:vendor_email>",
           Actions.RECORD_PAYMENT, None, _record_payment, vendors=(VENDOR,),
+          subject={"payment_id": None}),
+    Write("a refund recorded", "POST", f"{M}/payments/<path:vendor_email>/refunds",
+          Actions.ADJUST_PAID, History.REFUND_RECORDED, _record_refund, vendors=(VENDOR,),
+          subject={"payment_id": None}),
+    Write("an amount owed set", "PUT", f"{M}/payments/<path:vendor_email>/owed/<date>",
+          Actions.CHANGE_OWED, History.OWED_SET, _set_owed, vendors=(VENDOR,),
+          subject={"date": DATE}),
+    Write("the calculated price back", "DELETE", f"{M}/payments/<path:vendor_email>/owed/<date>",
+          Actions.CHANGE_OWED, History.OWED_CALCULATED, _use_calculated_price, vendors=(VENDOR,),
+          subject={"date": DATE}),
+    Write("a payment edited", "PUT", f"{M}/payment-entries/<payment_id>", Actions.ADJUST_PAID,
+          History.PAYMENT_EDITED, _edit_payment, vendors=(VENDOR,), subject={"payment_id": None}),
+    Write("a payment removed", "DELETE", f"{M}/payment-entries/<payment_id>", Actions.ADJUST_PAID,
+          History.PAYMENT_REMOVED, _remove_payment, vendors=(VENDOR,),
           subject={"payment_id": None}),
     Write("a check-in at the door", "POST", f"{M}/attendance", Actions.CHECK_IN,
           History.CHECKED_IN, _door(organizer=True, undo=False), vendors=(VENDOR,),

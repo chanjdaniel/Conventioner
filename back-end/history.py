@@ -82,6 +82,11 @@ EDITED = "edited"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
+OWED_SET = "owed_set"
+OWED_CALCULATED = "owed_calculated"
+REFUND_RECORDED = "refund_recorded"
+PAYMENT_EDITED = "payment_edited"
+PAYMENT_REMOVED = "payment_removed"
 
 
 def _now() -> str:
