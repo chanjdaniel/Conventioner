@@ -1,5 +1,6 @@
 /**
- * Every change on a market, as a person reads it (E40/F01/S03).
+ * Every change on a market, as a person reads it (E40/F01/S03), and an organization's own changes
+ * (E40/F02/S01), which the same history keeps and Manage organization reads.
  *
  * The back end stores each entry structured - the table's action, a finer kind, the vendors, a
  * subject and a detail of the fields before and after (`back-end/history.py`,
@@ -259,12 +260,15 @@ export function entryParts(
         : [vendor, text(` undid their check-in on the check-in page${onDay(entry.subject.date)}`)];
     case 'manage-editors-and-viewers/role_given':
     case 'manage-admins/role_given':
+    case 'manage-organization-admins/role_given':
+    case 'manage-organization-members/role_given':
       return [
         actor,
         text(`gave ${str(entry.subject.email)} the ${getRoleDisplayName(str(after.role))} role`),
       ];
     case 'manage-editors-and-viewers/role_changed':
     case 'manage-admins/role_changed':
+    case 'manage-organization-admins/role_changed':
       return [
         actor,
         text(
@@ -274,6 +278,8 @@ export function entryParts(
       ];
     case 'manage-editors-and-viewers/role_taken':
     case 'manage-admins/role_taken':
+    case 'manage-organization-admins/role_taken':
+    case 'manage-organization-members/role_taken':
       return [
         actor,
         text(
@@ -311,6 +317,31 @@ export function entryParts(
         actor,
         text(
           after.applications_stopped ? 'stopped taking applications' : 'took applications again',
+        ),
+      ];
+    case 'change-organization/renamed':
+      return [
+        actor,
+        text(`renamed the organization from "${str(before.name)}" to "${str(after.name)}"`),
+      ];
+    case 'transfer-organization/':
+      return [actor, text(`handed the organization to ${str(entry.subject.email)}`)];
+    case 'create-market/':
+      return [actor, text(`created the market "${str(after.name)}"`)];
+    case 'change-the-default/permission_set':
+      return [
+        actor,
+        text(
+          `changed ${rowLabel(entry, labels)} for new markets from ` +
+            `${getRoleDisplayName(str(before.role))} to ${getRoleDisplayName(str(after.role))}`,
+        ),
+      ];
+    case 'change-the-default/permission_reset':
+      return [
+        actor,
+        text(
+          `set ${rowLabel(entry, labels)} for new markets back to its default, ` +
+            getRoleDisplayName(str(after.role)),
         ),
       ];
     case 'apply/submitted':

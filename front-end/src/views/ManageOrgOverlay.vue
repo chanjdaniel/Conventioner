@@ -17,6 +17,9 @@
  *
  * Three closes are correct and stay: deleting the organization, the explicit close control, and
  * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
+ *
+ * A member opens it too, to read the organization's History (E40/F02/S01); the people and the
+ * controls an owner or an admin manages are theirs alone.
  */
 import { ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
@@ -24,6 +27,8 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
+import HistorySection from '@/components/HistorySection.vue';
+import OrganizationHistory from '@/components/OrganizationHistory.vue';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -342,6 +347,12 @@ function handleDeleted() {
             </p>
           </form>
         </section>
+
+        <!-- The organization's own changes, newest first (E40/F02/S01), opened as Manage market's
+             History opens; its owner, its admins and its members read it. -->
+        <HistorySection :key="orgData.id" testid="manage-org-history">
+          <OrganizationHistory :org-id="orgData.id" />
+        </HistorySection>
 
         <section v-if="canManage()" class="section">
           <h3>Rename organization</h3>
