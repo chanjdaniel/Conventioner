@@ -119,7 +119,7 @@ class TestConnecting:
         assert response.status_code == 200, response.get_json()
         assert _stored(world)["guildId"] == GUILD
         assert _stored(world)["guildName"] == "Market Vendors"
-        assert _stored(world)["connectedBy"] == ADMIN
+        assert set(_stored(world)) == {"guildId", "guildName"}
         assert world.discord.codes == [("a-code", "https://conventioner.io/discord/connected")]
 
     def test_the_answer_names_the_market_so_the_app_goes_back_to_it(self, client, world):
@@ -135,6 +135,19 @@ class TestConnecting:
 
         assert response.status_code == 400
         assert "Connect Discord again" in response.get_json()["error"]
+        assert _stored(world) is None
+        assert world.discord.codes == []
+
+    def test_a_state_another_person_started_is_refused(self, client, world):
+        """Two accounts on one browser: the second cannot finish what the first began."""
+        world.market()
+        state = _start(client)
+        with client.session_transaction() as session:
+            session["_user_id"] = "another-admin@example.com"
+
+        response = _connect(client, state)
+
+        assert response.status_code == 400
         assert _stored(world) is None
         assert world.discord.codes == []
 
@@ -341,6 +354,7 @@ class TestWhoMay:
 
         for response in (
             client.post(f"/markets/{MARKET}/discord/authorization"),
+            client.post(f"/markets/{MARKET}/discord/connection", json={"code": "c", "state": "s"}),
             client.put(f"/markets/{MARKET}/discord", json={"inviteLink": ""}),
             client.delete(f"/markets/{MARKET}/discord/connection"),
         ):
@@ -349,6 +363,15 @@ class TestWhoMay:
 
 
 class TestADeploymentWithoutDiscord:
+    def test_someone_the_row_refuses_is_told_that_first(self, client, world, monkeypatch):
+        world.market(role=MarketRole.EDITOR)
+        monkeypatch.delenv("DISCORD_BOT_TOKEN")
+
+        response = client.post(f"/markets/{MARKET}/discord/authorization")
+
+        assert response.status_code == 403
+        assert response.get_json()["error"] == Actions.refusal_sentence(Actions.CONNECT_DISCORD)
+
     def test_connecting_says_discord_is_not_set_up(self, client, world, monkeypatch):
         world.market()
         monkeypatch.delenv("DISCORD_BOT_TOKEN")

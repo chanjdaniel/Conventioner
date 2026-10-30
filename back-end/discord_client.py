@@ -57,6 +57,11 @@ BOT_NOT_IN_SERVER = (
     "Connect Discord again to add it back."
 )
 SLOW_DOWN = "Discord asked Conventioner to slow down. Wait a moment, then try again."
+# A 401 is the deployment's own values, wrong or revoked: nothing the organizer retries will fix it.
+SETTINGS_REFUSED = (
+    "Discord refused this Conventioner's Discord settings. Whoever runs this Conventioner needs to "
+    "check them."
+)
 OUT_OF_REACH = "Conventioner could not reach Discord just now. Try again in a moment."
 
 
@@ -152,7 +157,9 @@ def connected_server(values: Credentials, code: str, redirect_uri: str) -> Serve
         "POST", TOKEN_URL, auth=(values.client_id, values.client_secret),
         data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri},
     )
-    if answer.status_code in (400, 401):
+    if answer.status_code == 401:
+        _refused_settings("the code exchange")
+    if answer.status_code == 400:
         raise DiscordRefused(CONNECT_AGAIN)
     body = _body(answer)
     guild = body.get("guild") if isinstance(body, dict) else None
@@ -187,6 +194,8 @@ def server_roles(values: Credentials, guild_id: str) -> List[Role]:
 def _bot(values: Credentials, method: str, path: str) -> Any:
     """One call as the bot, its answer's body, or the refusal it amounts to."""
     answer = _send(method, API + path, headers={"Authorization": f"Bot {values.bot_token}"})
+    if answer.status_code == 401:
+        _refused_settings("the bot's token")
     if answer.status_code in (403, 404):
         raise DiscordRefused(BOT_NOT_IN_SERVER)
     if not answer.ok:
@@ -194,6 +203,13 @@ def _bot(values: Credentials, method: str, path: str) -> Any:
                        path.split("/")[1])
         raise DiscordUnavailable(OUT_OF_REACH)
     return _body(answer)
+
+
+def _refused_settings(what: str) -> None:
+    """A 401: the deployment's client secret or bot token is not one Discord takes. Logged by its
+    status alone, so an operator can find it; the value is never named."""
+    logger.warning("Discord answered 401 to %s: check the deployment's Discord values", what)
+    raise DiscordUnavailable(SETTINGS_REFUSED)
 
 
 def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any) -> Any:

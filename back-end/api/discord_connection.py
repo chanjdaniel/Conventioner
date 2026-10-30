@@ -9,8 +9,8 @@ role is decided by the organizer"), the form's question that holds each vendor's
 person's session, bound to this market, and answers the screen's address; Discord sends the person
 back to the app's ``/discord/connected`` page with a code and that state, and the page posts both to
 ``connect``, which spends the state and asks Discord which server the code added the bot to. A state
-this session never started, one for another market or one left too long is refused, so nobody can
-connect a market by sending someone a link.
+this session never started, one another person started, one for another market or one left too
+long is refused, so nobody can connect a market by sending someone a link.
 
 **The card is a manual tool, not part of the plan** (Daniel, Q10, Q19): no phase gates it, and it
 stays editable in every phase until the market is archived, unlike the rest of Market Setup. Every
@@ -21,7 +21,6 @@ in the market's history, the fields before and after.
 import hmac
 import secrets
 import time
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from flask import session
@@ -77,10 +76,11 @@ def start(market_id: str, requesting_user: str) -> Dict[str, str]:
     The state leads with the market's id, so the page Discord sends the person back to knows which
     market to post to and to return to; the random part is what is checked.
     """
-    values = Discord.required_credentials()
     MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
+    values = Discord.required_credentials()
     state = f"{market_id}.{secrets.token_urlsafe(24)}"
-    session[SESSION_KEY] = {"state": state, "market_id": market_id, "at": _now()}
+    session[SESSION_KEY] = {
+        "state": state, "market_id": market_id, "by": requesting_user, "at": _now()}
     return {"url": Discord.authorization_url(values, state, redirect_uri())}
 
 
@@ -92,18 +92,16 @@ def connect(market_id: str, code: Optional[str], state: Optional[str], requestin
     first text question whose label names Discord, as a market started from a Google Form with a
     "Discord Username" question has (Q12).
     """
-    values = Discord.required_credentials()
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
+    values = Discord.required_credentials()
     started = session.pop(SESSION_KEY, None)
-    if not _state_is_this_sessions(started, market_id, state) or not code:
+    if not _state_is_this_sessions(started, market_id, requesting_user, state) or not code:
         raise BadRequestError(NOT_STARTED_HERE)
 
     server = Discord.connected_server(values, code, redirect_uri())
     before = market.discord or DiscordConnection()
     after = before.model_copy(update={
         "guild_id": server.id, "guild_name": server.name,
-        "connected_by": requesting_user,
-        "connected_at": datetime.now(timezone.utc).isoformat(),
         **({} if before.guild_id == server.id else {field: None for field in SERVER_CHOICES}),
         "username_question": (
             before.username_question if before.username_question in _text_questions(market)
@@ -173,12 +171,17 @@ def disconnect(market_id: str, requesting_user: str) -> None:
     _write(market, before, after, History.DISCORD_DISCONNECTED, requesting_user)
 
 
-def _state_is_this_sessions(started: Any, market_id: str, state: Optional[str]) -> bool:
+def _state_is_this_sessions(
+    started: Any, market_id: str, requesting_user: str, state: Optional[str],
+) -> bool:
+    """Whether ``state`` is the one this session started, for this market, by this person: a
+    second account signed in on the same browser cannot finish what the first one began."""
     if not isinstance(started, dict) or not state:
         return False
     return (
         hmac.compare_digest(str(started.get("state", "")), state)
         and started.get("market_id") == market_id
+        and started.get("by") == requesting_user
         and _now() - float(started.get("at") or 0) <= STATE_LIFETIME_SECONDS
     )
 

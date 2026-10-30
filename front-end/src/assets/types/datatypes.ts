@@ -335,8 +335,6 @@ export interface DiscordConnection {
   /** The key of the form's text question that holds each vendor's Discord username. */
   usernameQuestion?: string;
   inviteLink?: string;
-  connectedBy?: string;
-  connectedAt?: string;
 }
 
 /** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */

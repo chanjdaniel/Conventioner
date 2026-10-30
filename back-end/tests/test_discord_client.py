@@ -126,6 +126,18 @@ class TestTheServerItWasAddedTo:
 
         assert "Connect Discord again" in str(refused.value)
 
+    def test_settings_discord_refuses_are_said_to_be_the_deployments_and_logged(
+        self, set_up, discord, caplog,
+    ):
+        discord.answer("POST", "/oauth2/token", 401, {"error": "invalid_client"})
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            Discord.connected_server(Discord.credentials(), "c", "https://x.test/discord/connected")
+
+        assert str(refused.value) == Discord.SETTINGS_REFUSED
+        assert "401" in caplog.text
+        assert VALUES["DISCORD_CLIENT_SECRET"] not in caplog.text
+
     def test_an_answer_with_no_server_is_refused(self, set_up, discord):
         discord.answer("POST", "/oauth2/token", 200, {"access_token": "t", "scope": "bot"})
 
@@ -191,6 +203,16 @@ class TestTheServersRoles:
             Discord.server_roles(Discord.credentials(), GUILD)
 
         assert "Connect Discord again" in str(refused.value)
+
+    def test_a_bot_token_discord_refuses_is_the_deployments_to_fix(self, set_up, discord, caplog):
+        discord.answer("GET", "/users/@me", 401, {"message": "401: Unauthorized"})
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            Discord.server_roles(Discord.credentials(), GUILD)
+
+        assert str(refused.value) == Discord.SETTINGS_REFUSED
+        assert "401" in caplog.text
+        assert VALUES["DISCORD_BOT_TOKEN"] not in caplog.text
 
     def test_being_asked_to_slow_down_is_said_so(self, set_up, discord):
         discord.answer("GET", "/users/@me", 429, {"retry_after": 1.5, "global": False})

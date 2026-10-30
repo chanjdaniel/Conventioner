@@ -39,8 +39,6 @@ export interface MarketSchema {
   };
   creationDate: string;
   discord?: {
-    connectedAt?: string;
-    connectedBy?: string;
     guildId?: string;
     guildName?: string;
     inviteLink?: string;

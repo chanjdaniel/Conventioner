@@ -641,7 +641,8 @@ class DiscordConnection(BaseModel):
     Written only by ``api.discord_connection``, on its own routes, so it stays editable after the
     rest of Market Setup settles: Discord is a manual tool the organizer runs whenever they choose
     (Daniel, T92 Q10, Q19). Discord's ids are strings, as its API sends them. Every field may be
-    None: a market disconnected keeps only the username question, which is about its form.
+    None: a market disconnected keeps only the username question, which is about its form. Who
+    connected it, and when, is the history's (``discord_connected``), not a field here.
     """
 
     guild_id: Optional[str] = None
@@ -651,8 +652,6 @@ class DiscordConnection(BaseModel):
     #: The key of the form's text question that holds each vendor's Discord username.
     username_question: Optional[str] = None
     invite_link: Optional[str] = None
-    connected_by: Optional[str] = None
-    connected_at: Optional[str] = None
 
 
 class FormAmendment(BaseModel):
