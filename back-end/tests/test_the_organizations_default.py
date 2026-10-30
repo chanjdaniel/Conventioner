@@ -280,6 +280,22 @@ class TestTheWriteRefuses:
         assert world.organizations.updates == []
         assert world.history.docs == []
 
+    @pytest.mark.parametrize("action_id, role", [
+        ("no-such-row", "admin"), ("delete-market", "admin"), ("check-in", "root"),
+    ])
+    def test_who_asks_is_answered_before_what_they_ask(self, world, action_id, role):
+        """A member is refused as not theirs to change, never told what is wrong with the row."""
+        for write in (
+            lambda: OrgsApi.set_default_permission(ORG_ID, action_id, role, ORG_MEMBER),
+            lambda: OrgsApi.reset_default_permission(ORG_ID, action_id, ORG_MEMBER),
+        ):
+            with pytest.raises(ForbiddenError) as refused:
+                write()
+            assert refused.value.message == NOT_THEIRS
+
+        assert world.organizations.updates == []
+        assert world.history.docs == []
+
     @pytest.mark.parametrize("action_id", ["delete-market", "read", "change-the-table"])
     def test_a_fixed_row(self, world, action_id):
         with pytest.raises(BadRequestError) as refused:
