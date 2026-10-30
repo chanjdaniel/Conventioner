@@ -6,6 +6,7 @@ import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
+import { priceLine } from '@/utils/pricing';
 import {
   overrideIndex,
   reasonIndex,
@@ -38,6 +39,8 @@ export interface MarketTableRowResponse {
   tableChoice: string;
   tableCode: string;
   tier: string;
+  /** Each occupant's price for this table-day, in cents; none where it is unpriced (E43/F01/S01). */
+  prices?: { email: string; cents: number }[];
 }
 
 export interface VendorTableAssignment {
@@ -46,6 +49,8 @@ export interface VendorTableAssignment {
   section: string;
   tier: string;
   location: string;
+  /** What this assignment costs for its day, in cents, or null where the market prices nothing. */
+  priceCents: number | null;
 }
 
 /** One vendor as the Vendors list and the vendor drawer read them: their application and seats. */
@@ -205,6 +210,9 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
           section: row.section,
           tier: row.tier,
           location: row.location,
+          priceCents:
+            row.prices?.find((price) => price.email.trim().toLowerCase() === address)?.cents ??
+            null,
         });
       }
     }
@@ -278,6 +286,14 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return assignment ? assignmentSummary(assignment) : null;
   }
 
+  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35"; null where
+   * they hold none or the market prices nothing. */
+  function priceOn(row: VendorRow, date: string): string | null {
+    const assignment = row.assignmentsByDate.get(date);
+    const currency = market.value?.setupObject?.pricing?.currency ?? 'CAD';
+    return assignment ? priceLine(assignment, currency) : null;
+  }
+
   /** Why they hold no table that day, as the server computed it; absent where they have one. */
   function reasonFor(email: string, date: string): PlacementReason | undefined {
     return unplacedReasons.value.get(vendorOnDate(email, date));
@@ -309,6 +325,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     rowFor,
     submission,
     placementOn,
+    priceOn,
     reasonFor,
     overridesFor,
     isOrphaned,

@@ -471,6 +471,33 @@ test.describe('A dialog opened from a dialog can be used', () => {
       .evaluate((el) => el.closest('[inert]') !== null);
     expect(stillOutOfPlay, 'the page behind the manage dialog became reachable again').toBe(true);
   });
+
+  test('Escape closes only the dialog on top, and focus goes back to its opener', async ({
+    authenticatedPage: page,
+  }) => {
+    const orgs = new OrganizationsPage(page);
+    await orgs.goto();
+    await orgs.waitForLoaded();
+
+    const name = `E2E StackedEscape ${Date.now()}`;
+    await orgs.createOrg(name);
+    const card = page.getByTestId('organization-card').filter({ hasText: name });
+    await expect(card).toBeVisible({ timeout: 10000 });
+
+    await card.getByTestId('organizations-manage-button').click();
+    await orgs.waitForManageOverlay();
+    await orgs.clickDelete();
+    await expect(orgs.deleteWindow).toBeVisible({ timeout: 5000 });
+
+    // Every open dialog took Escape, so one press closed both and left focus on <body> (T114).
+    await page.keyboard.press('Escape');
+    await expect(orgs.deleteWindow).toBeHidden({ timeout: 5000 });
+    await expect(orgs.manageWindow).toBeVisible();
+    await expect(orgs.deleteButton).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
+  });
 });
 
 /**

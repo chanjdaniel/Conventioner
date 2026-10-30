@@ -472,6 +472,12 @@ def _reset_permission(client, world):
     return client.delete(f"/markets/{MARKET}/permissions/check-in")
 
 
+def _reset_permissions(client, world):
+    world.market(MarketPhase.REVIEW,
+                 permissions={"check-in": {"role": "admin", "source": "market"}})
+    return client.delete(f"/markets/{MARKET}/permissions")
+
+
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
 PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
@@ -483,6 +489,9 @@ WRITES = [
           _plan({"marketDates": [{"date": "2099-08-02"}]})),
     Write("the intake mode", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PLAN,
           _plan({}, intake="form")),
+    Write("the prices", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PRICING,
+          _plan({"pricing": {"currency": "CAD", "halfTablePercent": 50,
+                             "everyoneElse": [{"tier": "Gold", "cents": 3500}]}})),
     Write("the assignment rules", "PUT", f"{M}/plan", Actions.ASSIGN, History.RULES,
           _plan({"assignmentOptions": {"maxAssignmentsPerVendor": 1}})),
     Write("a floorplan", "POST", "/floorplans/save-to-market", Actions.CHANGE_SETUP,
@@ -565,6 +574,8 @@ WRITES = [
     Write("a row of the table reset", "DELETE", f"{M}/permissions/<action_id>",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_RESET, _reset_permission,
           subject={"action": "check-in"}),
+    Write("the table reset", "DELETE", f"{M}/permissions",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
 ]
 
 #: The write routes that change nothing on a market's record, and why.

@@ -61,6 +61,7 @@ const rawScale = (options) => [
 const MIGRATED = [
   'src/components/BlockerPanel.vue',
   'src/components/MarketSummaryCard.vue',
+  'src/components/MarketPermissions.vue',
   'src/components/MarketArrival.vue',
   'src/components/MarketBar.vue',
   'src/components/MarketPages.vue',
