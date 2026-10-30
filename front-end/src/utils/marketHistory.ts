@@ -10,7 +10,14 @@
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { IntakeMode } from '@/assets/types/datatypes';
-import { ESSENTIAL_KEY_PREFIX, essentialAnswerText, essentialLabel } from '@/utils/essentialFields';
+import {
+  ESSENTIAL_KEY_PREFIX,
+  TABLE_SHARE_ALSO_KEY,
+  TABLE_SHARE_ANSWER_KEY,
+  TABLE_SHARE_EMAIL_KEY,
+  essentialAnswerText,
+  essentialLabel,
+} from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import {
@@ -426,6 +433,43 @@ function permissionState(value: unknown): string {
   return `${fieldValue('role', state.role)}, ${fieldValue('source', state.source)}`;
 }
 
+/** The table-share question is one answer stored as three keys: the words, the address read out of
+ * them, and any further addresses named. The history reads it as one row under the question's
+ * label, never as its storage keys. */
+const TABLE_SHARE_KEYS = [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY];
+
+/** The table-share answer as a person reads it: the vendor's own words where they were kept, else
+ * the address the server read out of them. */
+function tableShareAnswer(snapshot: Detail): unknown {
+  const words = snapshot[TABLE_SHARE_ANSWER_KEY];
+  return typeof words === 'string' && words.trim() ? words : snapshot[TABLE_SHARE_EMAIL_KEY];
+}
+
+/** The fields a before/after detail set, each as it was and as it is, the table-share question's
+ * three storage keys collapsed into one row in the vendor's words. */
+function changedFields(before: Detail, after: Detail, path: IntakeMode): ChangedField[] {
+  const rows: ChangedField[] = [];
+  let wroteTableShare = false;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (TABLE_SHARE_KEYS.includes(key)) {
+      if (wroteTableShare) continue;
+      wroteTableShare = true;
+      rows.push({
+        field: fieldName(TABLE_SHARE_EMAIL_KEY),
+        before: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(before), path),
+        after: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after), path),
+      });
+      continue;
+    }
+    rows.push({
+      field: fieldName(key),
+      before: fieldValue(key, before[key], path),
+      after: fieldValue(key, after[key], path),
+    });
+  }
+  return rows;
+}
+
 /**
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
@@ -464,13 +508,7 @@ export function entryChanges(
     detail.before && detail.after && typeof detail.after === 'object'
       ? { before: asDetail(detail.before), after: asDetail(detail.after) }
       : null;
-  const changed = changes
-    ? [...new Set([...Object.keys(changes.before), ...Object.keys(changes.after)])].map((key) => ({
-        field: fieldName(key),
-        before: fieldValue(key, changes.before[key], path),
-        after: fieldValue(key, changes.after[key], path),
-      }))
-    : [];
+  const changed = changes ? changedFields(changes.before, changes.after, path) : [];
   const recorded = Object.entries(detail)
     .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
     .map(([key, value]) => ({

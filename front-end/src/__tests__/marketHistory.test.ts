@@ -413,6 +413,86 @@ describe('what an entry opens to', () => {
     ]);
   });
 
+  it('reads the table-share answer as one row in the vendor’s words, never its storage keys', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: ['bea@example.com'],
+              essential_table_share_answer: 'Seat me with Ana',
+            },
+            after: {
+              essential_table_share_email: 'bea@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Bea',
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('reads a table-share answer kept only as the address under the same row', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_email: 'ana@example.com' },
+            after: { essential_table_share_email: 'bea@example.com' },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'ana@example.com', after: 'bea@example.com' },
+    ]);
+  });
+
+  it('still reads the one table-share row when only a hidden key changed', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_also: ['bea@example.com'] },
+            after: { essential_table_share_also: [] },
+          },
+        }),
+      ).changed,
+    ).toEqual([{ field: 'Table-share partner', before: 'none', after: 'none' }]);
+  });
+
+  it('never names the table-share storage keys as rows', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_answer: 'Seat me with Ana',
+              essential_table_share_also: ['bea@example.com'],
+            },
+            after: {
+              essential_table_share_answer: 'Seat me with Bea',
+              essential_table_share_also: [],
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
   it('shows a phase before and after as the market’s path names it', () => {
     const move = entry({
       action: 'move-phase',
