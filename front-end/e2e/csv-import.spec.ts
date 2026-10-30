@@ -150,6 +150,18 @@ test.describe('CSV vendor import', () => {
     // mapping can be checked against real data before 232 applications are written.
     await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
     await expect(importPage.sampleRows.first()).toContainText('nadia@ember.test');
+    // Each is a row that expands, headed by who it is and its file row, the first open
+    // (E38/F03/S01); the heading is a disclosure the keyboard opens.
+    const [firstRow, secondRow] = [importPage.sampleRows.first(), importPage.sampleRows.nth(1)];
+    await expect(firstRow.getByTestId('import-row-name')).toHaveText('Nadia Okonkwo');
+    await expect(firstRow.getByTestId('import-row-email')).toHaveText('nadia@ember.test');
+    await expect(firstRow.getByTestId('import-row-number')).toHaveText('Row 2');
+    await expect(firstRow).toHaveJSProperty('open', true);
+    await expect(secondRow).toHaveJSProperty('open', false);
+    await secondRow.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(secondRow).toHaveJSProperty('open', true);
+    await expect(secondRow.getByTestId('import-sample-row-answers')).toContainText('Dried flowers');
 
     await expect(importPage.previewFailureRows).toHaveCount(1);
     await expect(importPage.previewFailureRows.first()).toContainText('Row 4');

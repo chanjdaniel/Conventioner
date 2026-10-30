@@ -288,6 +288,17 @@ export function answerText(value: unknown): string {
 }
 
 /**
+ * The name to call an applicant by, from their answers: the one they chose, else the one on their
+ * identification; empty when they gave neither. The client's reading of `display_name` in
+ * `back-end/essential_fields.py`, for a screen that holds the answers rather than the server's
+ * names: the All view's rows, the import preview's.
+ */
+export function applicantName(formData: Record<string, unknown> | null | undefined): string {
+  const answers = formData ?? {};
+  return String(answers[PREFERRED_NAME_KEY] || answers[FULL_NAME_KEY] || '').trim();
+}
+
+/**
  * Everything an application answered, as a person reads it.
  *
  * This lives here, with the contract it renders, because two surfaces show the same answers back:

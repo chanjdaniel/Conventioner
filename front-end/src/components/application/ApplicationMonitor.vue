@@ -39,7 +39,7 @@ import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
-import AnswerValue from '@/components/AnswerValue.vue';
+import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue';
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
@@ -658,70 +658,27 @@ function submittedOn(app: Application): string {
           class="card-notice"
         />
 
-        <!-- What this market said a reviewer reads first (E19/F03/S01). -->
-        <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
-          <template v-for="answer in leading" :key="answer.key">
-            <dt>{{ answer.label }}</dt>
-            <dd :data-testid="`app-monitor-answer-${answer.key}`">
-              <AnswerValue :value="answer.value" />
-              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-              <AnswerUpdateNote
-                :update="updateOf(current, answer.key)"
-                :testid="`app-monitor-answer-${answer.key}`"
-              />
-            </dd>
-          </template>
-        </dl>
-
-        <!--
-          The rest, behind a disclosure - but ONLY when something was marked. A market that marked
-          nothing renders the card exactly as it always did: an empty list is not a reason to hide
-          an application.
-
-          The label names the HIDDEN count, not the total: the question a reviewer is answering
-          before they click is "what am I not being shown?", and the
-          open state is kept for the whole session: at card forty, reopening this each time is a
-          tax on the person doing the work.
-        -->
-        <details
-          v-if="leading.length && rest.length"
-          class="answers-rest"
-          :open="restOpen"
-          data-testid="app-monitor-rest"
-          @toggle="restOpen = ($event.target as HTMLDetailsElement).open"
+        <!-- What this market said a reviewer reads first (E19/F03/S01), then the rest. The open
+             state is kept for the whole session: at card forty, reopening it each time is a tax on
+             the person doing the work. -->
+        <ApplicationAnswers
+          v-model:restOpen="restOpen"
+          class="card-answers"
+          :leading="leading"
+          :rest="rest"
+          testid="app-monitor"
         >
-          <summary data-testid="app-monitor-rest-summary">
-            {{ rest.length }} more {{ rest.length === 1 ? 'answer' : 'answers' }}
-          </summary>
-          <dl class="answers">
-            <template v-for="answer in rest" :key="answer.key">
-              <dt>{{ answer.label }}</dt>
-              <dd :data-testid="`app-monitor-answer-${answer.key}`">
-                <AnswerValue :value="answer.value" />
-                <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-                <AnswerUpdateNote
-                  :update="updateOf(current, answer.key)"
-                  :testid="`app-monitor-answer-${answer.key}`"
-                />
-              </dd>
-            </template>
-          </dl>
-        </details>
-
-        <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
-          <template v-for="answer in rest" :key="answer.key">
-            <dt>{{ answer.label }}</dt>
-            <dd :data-testid="`app-monitor-answer-${answer.key}`">
-              <AnswerValue :value="answer.value" />
-              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-              <AnswerUpdateNote
-                :update="updateOf(current, answer.key)"
-                :testid="`app-monitor-answer-${answer.key}`"
-              />
-            </dd>
+          <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
+          <template #note="{ answer }">
+            <AnswerUpdateNote
+              :update="updateOf(current, answer.key)"
+              :testid="`app-monitor-answer-${answer.key}`"
+            />
           </template>
-        </dl>
-        <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
+        </ApplicationAnswers>
+        <p v-if="!leading.length && !rest.length" class="no-answers">
+          This application carries no answers.
+        </p>
 
         <VendorNotes
           v-if="market"
@@ -1094,24 +1051,9 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-muted-on-beige);
 }
 
-.answers {
-  display: grid;
-  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
-  gap: var(--space-2) var(--space-4);
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-sm);
-}
-
-.answers dt {
-  color: var(--mm-text-muted-on-beige);
-  overflow-wrap: anywhere;
-}
-
-.answers dd {
-  margin: 0;
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+/* The answers lay themselves out (`ApplicationAnswers`); the card spaces them from the notes. */
+.card-answers {
+  margin-bottom: var(--space-4);
 }
 
 .card-notice {
@@ -1126,47 +1068,6 @@ function submittedOn(app: Application): string {
 
 .card-notes {
   margin: 0 0 var(--space-4);
-}
-
-/* The unmarked answers. Set apart from the marked ones above it by a rule, so the card reads as
-   "these first, then the rest" rather than as one long list that happens to fold. */
-.answers-rest {
-  margin: 0 0 var(--space-4);
-  border-top: 1px solid var(--mm-border);
-  padding-top: var(--space-3);
-}
-
-.answers-rest summary {
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted-on-beige);
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.answers-rest summary::-webkit-details-marker {
-  display: none;
-}
-
-/* Its own marker, because the native one is hidden above to keep the row on one baseline. */
-.answers-rest summary::before {
-  content: '▸';
-  font-size: var(--text-xs);
-  transition: transform 0.12s ease;
-}
-
-.answers-rest[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.answers-rest summary:hover {
-  color: var(--mm-black);
-}
-
-.answers-rest .answers {
-  margin: var(--space-3) 0 0;
 }
 
 /* Changing what leads the card, from the queue. Quiet by default: the reviewer came here to
@@ -1271,16 +1172,5 @@ function submittedOn(app: Application): string {
 .decided-list .app-email {
   flex: 1 1 12rem;
   font-size: var(--text-sm);
-}
-
-@media (max-width: 640px) {
-  .answers {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-hairline) 0;
-  }
-
-  .answers dd {
-    margin-bottom: var(--space-3);
-  }
 }
 </style>

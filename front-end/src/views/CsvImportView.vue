@@ -24,8 +24,10 @@ import { canImportInto, importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
-import { EMPTY_ESSENTIAL_OPTIONS, applicationAnswerRows } from '@/utils/essentialFields';
-import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
+import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
+import { reviewAnswers } from '@/utils/reviewQueue';
+import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
+import type { ApplicationForm, EssentialFormOptions, Market } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -372,25 +374,35 @@ function sourceLabelFor(key: string): string {
  * The first rows that will import, as the applications they will become (bug 40).
  *
  * The server sends them already read through the mapping and the same validators the write runs,
- * and they render through the same reader as the review card. Built here from the file's first
- * cells instead, the sample showed a row listed as skipped a few lines above, and read availability
- * as "no answer" when a tier grid had answered it.
+ * and they read as the review card reads an application: what the market marked first, then the
+ * rest (E38/F03/S01). Built here from the file's first cells instead, the sample showed a row listed
+ * as skipped a few lines above, and read availability as "no answer" when a tier grid had answered
+ * it.
  */
 const previewSamples = ref<
   Array<{ row: number; email: string; formData: Record<string, unknown> | null }>
 >([]);
 
-const sampleApplications = computed(() => {
-  const fields = (market.value as { applicationForm?: ApplicationForm } | null)?.applicationForm
-    ?.fields;
-  return previewSamples.value
-    .filter((sample) => sample.formData)
-    .map((sample) => {
-      const { essential, custom } = applicationAnswerRows(sample.formData ?? {}, fields ?? []);
-      const email = { key: 'applicant_email', label: 'Applicant email', value: sample.email };
-      return { row: sample.row, answers: [email, ...essential, ...custom] };
-    });
-});
+const sampleApplications = computed(() => previewRows(previewSamples.value));
+
+/** The preview's rows as `ImportRowList` heads and opens them. */
+function previewRows(
+  rows: Array<{ row: number; email: string; formData: Record<string, unknown> | null }>,
+): ImportRow[] {
+  const held = market.value as Market | null;
+  return rows
+    .filter((row) => row.formData)
+    .map((row) => ({
+      row: row.row,
+      email: row.email,
+      name: applicantName(row.formData),
+      ...reviewAnswers(
+        { formData: row.formData ?? {} },
+        held?.applicationForm,
+        held?.reviewHighlights ?? [],
+      ),
+    }));
+}
 
 function isNewHeader(index: number): boolean {
   return newHeaders.value.includes((headers.value[index] ?? '').trim());
@@ -1216,28 +1228,15 @@ function startOver() {
         </div>
         <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
            it on screen, "Preview" only restates the previous step. -->
-        <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
+        <section v-if="sampleApplications.length" class="preview-rows" data-testid="import-samples">
           <h3>
             The first
             {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
             {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
           </h3>
-          <div class="sample-grid">
-            <article
-              v-for="sample in sampleApplications"
-              :key="sample.row"
-              class="sample-card"
-              data-testid="import-sample-row"
-            >
-              <dl>
-                <template v-for="answer in sample.answers" :key="answer.key">
-                  <dt>{{ answer.label }}</dt>
-                  <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
-                </template>
-              </dl>
-            </article>
-          </div>
-        </div>
+          <p class="preview-rows-why">A check that each answer lands in the right question.</p>
+          <ImportRowList :rows="sampleApplications" open-first row-testid="import-sample-row" />
+        </section>
 
         <h3 class="preview-mapping-heading">Where each answer comes from</h3>
         <ul class="preview-mapping">
@@ -1714,56 +1713,25 @@ function startOver() {
   line-height: 1.5;
 }
 
-.preview-samples {
+.preview-rows {
   margin-top: var(--space-6);
 }
 
-.preview-samples h3,
+.preview-rows h3,
 .preview-mapping-heading {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   margin: 0 0 var(--space-2);
 }
 
+.preview-rows-why {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .preview-mapping-heading {
   margin-top: var(--space-6);
-}
-
-.sample-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: var(--space-3);
-}
-
-.sample-card {
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  padding: var(--space-3) var(--space-4);
-  min-width: 0;
-}
-
-.sample-card dl {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-hairline);
-  margin: 0;
-  font-size: var(--text-xs);
-}
-
-.sample-card dt {
-  color: rgba(39, 35, 35, 0.55);
-}
-
-.sample-card dd {
-  margin: 0 0 var(--space-2);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-}
-
-.sample-card dd.blank {
-  color: rgba(39, 35, 35, 0.4);
-  font-style: italic;
 }
 
 .preview-mapping {
