@@ -119,7 +119,7 @@ def test_a_stop_is_taken_on_a_market_still_stored_under_an_old_name(monkeypatch)
             return markets
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_kw: _Db())
 
-    body, status = ApplicantsApi.set_applications_stopped("market-123", True)
+    body, status = ApplicantsApi.set_applications_stopped("market-123", True, "owner@example.com")
 
     assert status == 200, body
     assert "applications_open" in filters[-1]["phase"]["$in"]

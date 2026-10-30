@@ -57,18 +57,9 @@ test.beforeAll(async ({ request }) => {
     TEST_USER.password,
     { intakeMode: 'form' },
   ));
-  await transitionMarket(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    markets.review,
-    'applications_open',
-  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, markets.review, 'applications');
   seedApplicationWithStatus(markets.review, 'open', 'ana@thistle.test');
   seedApplicationWithStatus(markets.review, 'open', 'ben@ember.test');
-  for (const phase of ['applications_closed', 'review']) {
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, markets.review, phase);
-  }
 
   ({ marketId: markets.assignment } = await seedAssignedMarket(
     request,

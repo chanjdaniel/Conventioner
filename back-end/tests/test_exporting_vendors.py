@@ -567,7 +567,7 @@ class TestThePreview:
         assert _preview()["header"] == ["Name", "Email", "Status"]
 
     def test_a_market_with_no_plan_and_no_form_still_exports_its_applicants(self, market):
-        doc = market(phase=MarketPhase.REVIEW)
+        doc = market(phase=MarketPhase.APPLICATIONS)
         doc.pop("setupObject")
         doc.pop("applicationForm")
         doc["assignmentObject"] = {"vendorAssignments": [], "assignmentStatistics": None}

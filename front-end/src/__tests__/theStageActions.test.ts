@@ -10,6 +10,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { movesServedFrom } from './support/servedMoves';
+import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -41,6 +42,7 @@ async function menuOf(market: Partial<Market>) {
         phase: MarketPhase.Applications,
         transitionBlockers: movesServedFrom(MarketPhase.Applications),
         applicationsStopReason: null,
+        actionRefusals: answersRefusing(),
         ...market,
       } as Market,
     },

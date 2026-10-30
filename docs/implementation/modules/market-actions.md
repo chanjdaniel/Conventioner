@@ -53,8 +53,8 @@ A switch row (on or off rather than a role) arrives with the first story that ne
 ## The rules of a market's life keep their place
 
 The table says only who may.
-The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from Assignment on (`adding_refusal`), tables are allocated only in Assignment (`assign_refusal`).
-Each check keeps the order it had, so every route answers each person as it did before the table: a write that loads through `_load_market_to_change`, `market_refusal`, `_importing_market_document`, `save_floorplan_to_market` and publish-results ask the row first and the archived rule after it; `verdict_refusal` asks the archived rule first.
+The rules of a market's life stay where they were and refuse whoever may: an archived market refuses every change (`archived_refusal`, and `_load_market_to_change` for every write that loads through it), verdicts settle on entering assignment (`verdict_refusal`), a vendor is added from Assignment on (`adding_refusal`), tables are allocated only in Assignment (`assign_refusal`), and applications are stopped and taken again only on a market whose vendors apply on its page, in Applications (`applications_stop_refusal`, served as `applicationsStopReason`).
+Each check keeps the order it had, so every route answers each person as it did before the table: a write that loads through `_load_market_to_change`, `market_refusal`, `_importing_market_document`, `save_floorplan_to_market`, publish-results and the applications stop ask the row first and the archived rule after it; `verdict_refusal` asks the archived rule first.
 
 ## Each route's row
 
@@ -67,7 +67,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
 | Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers |
 | Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
-| Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped`, and the market read's `applicationsStopReason` (E38/F04/S02) |
+| Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results` |
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |

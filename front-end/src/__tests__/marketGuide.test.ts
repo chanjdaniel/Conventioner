@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { phaseSpine } from '@/utils/phase';
 import { movesServedFrom } from './support/servedMoves';
+import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
 import {
   currentPage,
   forwardFrom,
@@ -35,6 +37,7 @@ function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
     setupObject: { marketDates: [{ date: '2099-05-20' }] },
     assignmentObject: { vendorAssignments: [] },
     transitionBlockers: movesServedFrom(phase),
+    actionRefusals: answersRefusing(),
     ...overrides,
   } as unknown as Market;
 }
@@ -323,8 +326,17 @@ describe('what the stage offers beside its moves (E38/F04/S02, S03)', () => {
     expect(stageActions(market(MarketPhase.Assignment, { intakeMode: IntakeMode.Csv }))).toEqual(
       [],
     );
+    const refusing = (...rows: MarketAction[]) => ({ actionRefusals: answersRefusing(...rows) });
     expect(
-      stageActions(market(MarketPhase.Applications, { adminActionsReason: 'Editors cannot.' })),
+      stageActions(
+        market(MarketPhase.Applications, {
+          intakeMode: IntakeMode.Csv,
+          ...refusing(MarketAction.ImportApplications),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      stageActions(market(MarketPhase.Applications, refusing(MarketAction.StopApplications))),
     ).toEqual([]);
     expect(
       stageActions(market(MarketPhase.Applications, { applicationsStopReason: 'Not now.' })),

@@ -32,7 +32,7 @@ Once anything is imported the market is in Review and its questions are fixed; t
 **It answers both of the import's dead ends**: a column with nowhere to go, which adds a question for it, and a preference the Google Form never asked, which switches that question off.
 After the save the import inspects the file again, so a new question is offered as a target and a switched-off one leaves the required list, and the organizer's own column choices and value decisions are put back.
 
-**An amendment records one entry in [the market's history](../data/history.md)** (`amend-form`): the form's changes and the phase it returns to, with its hops counted rather than recorded as phase moves; it writes the form through `write_application_form`, which records nothing itself, and a resume records `resumed`.
+**Its save records as the form builder's does**, one `change-form` entry of kind `form` in [the market's history](../data/history.md), since it is the same write.
 
 ## Why
 

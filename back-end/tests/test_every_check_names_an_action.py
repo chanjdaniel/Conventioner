@@ -286,7 +286,7 @@ class TestRolesAskTheirRows:
             roles = {"user-1": "owner"}
             if target_role is not None:
                 roles["target"] = target_role.value
-            doc = stored_market(MarketPhase.REVIEW, roles=roles)
+            doc = stored_market(MarketPhase.APPLICATIONS, roles=roles)
             monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: (
                 MarketsApi.MarketContext(doc, MarketsApi.market_from_document(doc), None, None)))
             monkeypatch.setattr(MarketsApi, "markets_collection", SimpleNamespace(

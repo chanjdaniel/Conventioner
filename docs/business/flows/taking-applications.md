@@ -37,7 +37,7 @@ A verdict can be given from the first application ([review](review.md)); Begin A
 1. Rail: "Open Applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
 2. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
 3. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11); it stays there in every phase after Draft until the market is archived.
-4. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: begin assignment.", or, while one is undecided, "… Finish deciding: …".
+4. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`.
 
@@ -54,6 +54,7 @@ Covered by: `phase-state-machine.spec.ts` ("a market whose plan offers nothing i
 In Applications, More…, "Stop taking applications": a fact about the form, not a move, so the market stays in Applications and reviewing goes on.
 The application page refuses a new application, or a change to one, in the words a closed market used ("Applications are not currently open for this market. The market is in the Applications Closed phase."), though each vendor can still sign in and read their application ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
 The rail says "Your application page is not taking applications. …", and the page "This market is not taking applications. No new ones will arrive."
+The stop is recorded in [the market's history](../../implementation/data/history.md) under the organizer who made it, as taking applications again is.
 Covered by: `taking-applications-stops-and-resumes.spec.ts`, `returning-vendors-edit-their-answers.spec.ts`.
 
 ## H5. Take applications again

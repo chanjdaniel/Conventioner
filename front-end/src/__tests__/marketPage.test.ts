@@ -91,7 +91,7 @@ describe('the page a tab opens', () => {
     expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('assignment');
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
-    expect(pageForTab('stats', MarketPhase.Review, false)).toBe('stats');
+    expect(pageForTab('stats', MarketPhase.Applications, false)).toBe('stats');
   });
 });
 
