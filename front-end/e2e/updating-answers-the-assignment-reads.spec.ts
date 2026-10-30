@@ -108,6 +108,12 @@ test('an Admin updates a day’s tiers, and the next run seats the vendor by the
   await expectAccessible('the Update info dialog, a day’s tiers changed');
   await dialog.save();
 
+  // The vendor's own History tab says who updated their info, newest first (E40/F01/S04).
+  await page.getByTestId('vendor-drawer-tab-history').click();
+  await expect(
+    page.getByTestId('vendor-drawer-panel-history').getByTestId('market-history-sentence').first(),
+  ).toHaveText(`${TEST_USER.email} updated the info of Nadia Okonkwo`);
+
   // The result says what changed, until tables are allocated again.
   await page.goto(marketScreenPath(marketId, 'result'));
   const line = page.getByTestId('assignment-out-of-date');
