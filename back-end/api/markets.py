@@ -2052,9 +2052,9 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
     """Every change to this market's table, newest first: who, when, the row, and its role and
-    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
-    see who changed what they may do on it."""
-    _load_market_for(market_id, requesting_user, Actions.READ)
+    source before and after (E39/F01/S03). Asks ``Actions.READ_HISTORY``: these changes are the
+    market's history narrowed, so they are read on the history's row, as the whole history is."""
+    _load_market_for(market_id, requesting_user, Actions.READ_HISTORY)
     return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
 
 
