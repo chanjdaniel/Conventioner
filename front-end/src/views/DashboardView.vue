@@ -273,6 +273,11 @@ const handleSignOut = async () => {
   opacity: 0.9;
 }
 
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
+
 .button-full {
   width: 716px;
   height: 95px;
@@ -352,6 +357,10 @@ const handleSignOut = async () => {
   background: none;
   box-shadow: none;
   border-radius: var(--radius-control);
+}
+
+.button-small:focus-visible {
+  box-shadow: var(--focus-halo);
 }
 
 .button-small:hover {

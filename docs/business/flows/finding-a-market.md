@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/07
   - E21/F02/S02
@@ -13,6 +13,7 @@ sources:
   - bug/42
   - E14/F01/S02
   - T75
+  - E39/F01/S04
 ---
 
 # Finding and opening markets
@@ -30,7 +31,7 @@ A market whose organization is gone says "No longer available" there rather than
 
 - **Dates, not when it was created**: an organizer knows a market by when it runs.
 - **The phase**: it is the market's state, and without it a running market looked exactly like a draft on the one screen that shows them all.
-- **Not the reader's role**: that is permission detail on a list used to get somewhere, and Manage is already offered only to an Admin or the owner.
+- **Not the reader's role**: that is permission detail on a list used to get somewhere, and Manage market says what each role may do there.
 - **No progress counts**: the list does not carry them, and each would cost a query per row on a list that grows.
 
 **The row itself opens the market**, on its own pages, in every phase, and on the keyboard its name is the button that does; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
@@ -59,7 +60,7 @@ Covered by: `dashboard-market-count.spec.ts`.
 `/markets` lists every reachable market with its phase badge, dates ("Nov 17-21, 2025 (5 days)"; two separate days are named both, "Oct 3 and 10, 2026") and organization; a long name is cut with an ellipsis rather than wrapped (bug 14).
 Above the list a finder narrows it: "Search" by market name as it is typed (case and accents do not count), "Organization", "Sort by" ("Market date", "Name", "Created") and a "Phase" toggle per phase; once narrowed the count says "N of M markets", and when nothing matches the page says "No markets match these filters" and offers "Clear filters".
 The finder's choices are held in the page's address.
-Clicking a card opens the market; "Manage", shown to someone who may manage the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)).
+Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).
 Covered by: `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `access-control.spec.ts`.
 
 ## C3. Open a market by its address

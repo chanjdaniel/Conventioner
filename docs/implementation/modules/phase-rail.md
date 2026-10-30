@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -24,6 +24,8 @@ sources:
   - bug/37
   - bug/44
   - T82
+  - E38/F04
+  - E38/F01/S01
 ---
 
 # The phase rail
@@ -42,9 +44,15 @@ The fix is the move's own first blocker, the one its disabled state is read from
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
 
-**A path may step through a phase it never stops in.**
-The rail's moves are the keys of `transitionBlockers`, served for the market's own path, and the spine leaves out the phases the read lists in `phasesPassedThrough`: a CSV market's rail reads Draft, Import, Review, Assignment, Market Days, Archived, and Begin Review is one move through `applications_closed`.
-The browser keeps no copy of either list.
+**Both paths draw the same five stages, named by the path.**
+The rail's moves are the keys of `transitionBlockers`, and the browser keeps no copy of them.
+The stage where applications arrive and are reviewed is `applications`, drawn "Review" on a Google Form market and "Applications" on the other (`pathPhaseLabel`, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+A Google Form market's draft offers the fix "Import responses" as its main button, with "Begin Review" disabled beside it: the import takes that move once its rows are written.
+
+**More… holds the stage's actions beside its moves.**
+`stageActions` in [the market guide](market-guide.md) gives a Google Form market in Review "Redo import", which opens the import and moves nothing, and an own-form market in Applications "Stop taking applications" or "Take applications again", a write to `POST /markets/:id/applications-stopped` after which the store re-reads the market (E38/F04/S02, S03).
+They come first in the menu, as `phase-rail-action-<id>`, offered only to an Admin and, for the stop, only when the read's `applicationsStopReason` is null.
+The moves follow them, any back edge first and Archive Market last, so the destructive move is never in the middle.
 
 **The spine is derived, never listed.**
 `phaseSpine()` in [`front-end/src/utils/phase.ts`](../../../front-end/src/utils/phase.ts) walks `VALID_TRANSITIONS` (the front end's mirror of the server's table) forward from `draft`, taking at each step the one edge to somewhere new that is not `archived`, and appends `archived`.
@@ -75,6 +83,7 @@ Which addresses show, and when, is [a gated market answers as absent](../../busi
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
 While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
+Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
 
 **Crowding is measured between labels, never by overflow.**
 The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.
@@ -84,6 +93,6 @@ The steps shrink below their labels rather than overflowing the row, so the row 
 The phase is the single source of truth for a market's lifecycle; the rail reads it and its moves from the server and decides neither.
 The rules for moving a market are with [the guards](guards.md) in `back-end/guards.py`, and why the phase is the only lifecycle state is [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md).
 What an organizer reads on the rail in each phase, and what refuses each move, is [the market lifecycle](../../business/flows/lifecycle.md).
-Opening, closing and reopening applications on the rail, beside its application page's address, is [taking applications](../../business/flows/taking-applications.md).
+Opening applications, and stopping and taking them again, on the rail beside its application page's address, is [taking applications](../../business/flows/taking-applications.md).
 
 The glossary concept it serves: [Phase](../../business/concepts/phase.md).

@@ -26,8 +26,9 @@
  * `confirmLabel`, and gets the scrim, window, close, Escape, backdrop and inert behaviour without
  * the single-form footer. Its own forms live in the body.
  */
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = withDefaults(
@@ -50,6 +51,11 @@ const props = withDefaults(
      * sizes is a decision, and a percentage per dialog is what the product had.
      */
     wide?: boolean;
+    /**
+     * A dialog whose body grows as it is used (a field's error appearing as a key is typed) holds
+     * its top where it opened, rather than its centre, so nothing under the pointer moves.
+     */
+    anchored?: boolean;
     /** An error about the submission as a whole. Field errors belong beneath their field. */
     error?: string;
   }>(),
@@ -83,40 +89,13 @@ const windowEl = ref<HTMLElement | null>(null);
 const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], button:not(:disabled):not([data-dialog-close])';
 
-/**
- * Focus goes back to what opened the dialog when it closes, by any path.
- *
- * Closing unmounts the window, which drops focus to `<body>`, so a keyboard user started again from
- * the top of the page after every dialog. The opener is taken as the dialog opens, before focus
- * moves in, and focused once the page behind is no longer inert (`useInertBehind` releases it in a
- * post-flush watcher, which `nextTick` waits for). It is left alone when it has left the page - a
- * deleted row, a navigation - and when the parent has already put focus somewhere of its own.
- */
-let opener: HTMLElement | null = null;
-
-function returnFocus() {
-  const target = opener;
-  opener = null;
-  if (!target) return;
-  void nextTick(() => {
-    const active = document.activeElement;
-    if (target.isConnected && (!active || active === document.body)) target.focus();
-  });
-}
-
-onBeforeUnmount(() => {
-  if (props.open) returnFocus();
-});
+/** Focus goes back to what opened the dialog when it closes, by any path. */
+useFocusGoesBack(() => props.open);
 
 watch(
   () => props.open,
-  async (open, wasOpen) => {
-    if (!open) {
-      if (wasOpen) returnFocus();
-      return;
-    }
-    const active = document.activeElement;
-    opener = active instanceof HTMLElement && active !== document.body ? active : null;
+  async (open) => {
+    if (!open) return;
     await nextTick();
     /*
      * A DESTRUCTIVE dialog opens on Cancel, deliberately. Its confirm is irreversible - archiving
@@ -142,6 +121,7 @@ watch(
   <div
     ref="modalRoot"
     class="dialog-container"
+    :class="{ 'dialog-container--anchored': anchored }"
     :style="{ visibility: open ? 'visible' : 'hidden' }"
   >
     <div
@@ -223,6 +203,15 @@ watch(
   justify-content: center;
   align-items: center;
   z-index: 100;
+}
+
+.dialog-container--anchored {
+  align-items: flex-start;
+  padding-top: var(--space-12);
+}
+
+.dialog-container--anchored .dialog-window {
+  max-height: calc(100vh - var(--space-12) - var(--space-6));
 }
 
 .dialog-scrim {

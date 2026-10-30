@@ -7,7 +7,7 @@ describes:
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/v0-1-0/map
@@ -26,6 +26,8 @@ sources:
   - E18
   - E19
   - E41/F01/S01
+  - E38/F03/S01
+  - T123
 ---
 
 # Essential fields
@@ -57,6 +59,8 @@ The applicant form asks the two as one grid, a row per market date with its tier
 
 **The name to call a vendor** is `display_name`: their preferred name, else their full name.
 `VendorIdentity.vue` shows the name it is handed on every screen that names a vendor; the review card alone shows both, labelled, since deciding about a person is not scanning a list.
+`applicantName` in `essentialFields.ts` is the same rule read from an application's answers, for a screen that holds the answers rather than the served names: the All view's rows and the import preview's.
+The Vendors page and its drawer read it too, so a refused placement read still names every vendor, the served name winning where the server has one (T123).
 The preferred name is asked of everyone, after the full name, and is never required, never solver-relevant (correcting a spelling reopens no review) and never switched off.
 What every screen does with the name is [a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md).
 
@@ -77,12 +81,14 @@ The plan itself settles earlier still, on leaving draft.
 Every layer that asks "does this market have a form?" counts the essential questions as well as the custom fields: `FormHasFieldsGuard` in [`back-end/guards.py`](../../../back-end/guards.py), which keeps a market from opening applications, and `_asks_nothing` in [`back-end/application_write.py`](../../../back-end/application_write.py), which refuses an application to a market that asks nothing.
 When `_asks_nothing` counted custom fields alone, a market could open applications and then refuse every application it received, by import and by applicant alike.
 Both read `plan_derived_asked_keys`, the asked questions less the name, preferred name and request: those are asked unconditionally, so counting them would leave both unable to say no, and a market whose plan offers nothing to apply for is still refused.
+The applicant's form reads its front-end mirror, `planDerivedAskedKeys`, so a market asking the essential questions alone offers its form and its Save; it once told vendors it had no form.
 `_normalized_application_form` stores a form with no custom fields ([the market document](../data/market-document.md#the-fields-that-matter)).
 
 ## The reserved prefix
 
 **A custom field's key may not start with `essential_`**: the essential answers live beside the custom ones in `form_data`, and a custom field that shadowed one would corrupt what the solver reads.
-The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)).
+The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), through `fieldKeyError`, which the amendment's dialog asks too.
+The same check refuses the import's own targets as keys (`applicant_email`, `submitted_at`, `sheet_note`), each named with what the import reads it as ([the market document](../data/market-document.md#the-fields-that-matter)).
 
 ## The generated schema
 

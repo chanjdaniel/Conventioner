@@ -5,22 +5,21 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
 import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
-import { transitionMarket } from './helpers/seedPhaseMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 
 /**
  * Starting a draft from its Google Form's responses (E24/F03/S01): upload one of the five
- * anonymised exports, answer the year, and read the ledger - from the draft's own address.
+ * corpus exports, answer the year, and read the ledger - from the draft's own address.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORPUS = join(HERE, '..', '..', 'back-end', 'tests', 'test_data', 'google_forms');
 const FIXTURES: Record<string, number> = {
-  'fall-2023': 2023,
-  'spring-2024': 2024,
-  'spring-2025': 2025,
-  'fall-2025': 2025,
-  'spring-2026': 2026,
+  'days-as-one-question': 2023,
+  'four-day-grid': 2024,
+  'no-timestamp': 2025,
+  'five-day-grid': 2025,
+  'team-status-column': 2026,
 };
 
 /** The ledger's rows, from the file itself: a run of bracketed columns under one stem is one. */
@@ -105,7 +104,7 @@ test.describe('Start from your Google Form', () => {
 
   // Three of the five exports never asked how many days an applicant wants (bug 24). They used to
   // stop at the mapping with "Still unmapped: Number of dates you want" and no way through.
-  for (const file of ['fall-2023', 'spring-2024', 'spring-2025']) {
+  for (const file of ['days-as-one-question', 'four-day-grid', 'no-timestamp']) {
     test(`${file}: a form that never asked how many days is imported with no personal limit`, async ({
       authenticatedPage: page,
       request,
@@ -128,7 +127,6 @@ test.describe('Start from your Google Form', () => {
       await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
 
       await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-      await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
       const importer = new CsvImportPage(page);
       await importer.open({ id: marketId });
       await importer.chooseFile(readFileSync(join(CORPUS, `${file}.csv`), 'utf8'));
@@ -165,10 +163,10 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
+    await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
+    await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
 
-    const selling = flow.row('What will you be selling at the event?');
+    const selling = flow.row('What do you plan to sell at the fair?');
     // Only the organizer makes a question required (E33/F02/S01); this one is, as it was on the form.
     await selling.getByTestId('proposal-row-required').check();
     // Said before it happens: how many applicants the left-out options would cost.
@@ -191,14 +189,13 @@ test.describe('Start from your Google Form', () => {
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
-    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
     const refusals = await importer.previewFailureRows.allInnerTexts();
-    expect(refusals.filter((r) => r.includes('What will you be selling'))).toEqual([]);
+    expect(refusals.filter((r) => r.includes('What do you plan to sell'))).toEqual([]);
   });
 
   test('an applicant whose every answer was left out is skipped for that, not as unanswered', async ({
@@ -206,8 +203,8 @@ test.describe('Start from your Google Form', () => {
     request,
   }) => {
     // E26 re-walk: left out on the proposal, their answers are ignored by the import, and the
-    // preview said "'What will you be selling at the event?' is required" - sending the organizer to
-    // a cell in their file that was filled in, when the fix is on the import's previous step.
+    // preview said "'<the question>' is required" - sending the organizer to a cell in their file
+    // that was filled in, when the fix is on the import's previous step.
     const { marketId } = await seedDraftMarket(
       request,
       BACKEND_URL,
@@ -216,20 +213,19 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
-    const sellingRow = flow.row('What will you be selling at the event?');
+    await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
+    await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
+    const sellingRow = flow.row('What do you plan to sell at the fair?');
     // Only the organizer makes a question required (E33/F02/S01); this one is, as it was on the form.
     await sellingRow.getByTestId('proposal-row-required').check();
     await expect(sellingRow.getByTestId('proposal-row-dropped')).toBeVisible();
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
 
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
-    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
     // E30/F02/S01: the first import ever said "Restored from your last import". The mapping is the
     // start's, and the import says so.
     await expect(importer.restoredBanner).toContainText(
@@ -248,17 +244,17 @@ test.describe('Start from your Google Form', () => {
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
     const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>
-      r.includes('What will you be selling'),
+      r.includes('What do you plan to sell'),
     );
     expect(selling.length).toBeGreaterThan(0);
     for (const refusal of selling) {
       // The start left these out; the organizer never chose to ignore anything.
       expect(refusal).toContain(
-        "Every answer to 'What will you be selling at the event?' was left out when your form " +
+        "Every answer to 'What do you plan to sell at the fair?' was left out when your form " +
           'was started from this file',
       );
       expect(refusal).not.toContain('chose to ignore');
-      expect(refusal).not.toContain("'What will you be selling at the event?' is required");
+      expect(refusal).not.toContain("'What do you plan to sell at the fair?' is required");
     }
     await expect(page.getByTestId('import-preview-failures')).toContainText(
       'with Back, for an answer that was left out or ignored',
@@ -298,7 +294,7 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
+    await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
     await flow.answerYear();
     await expect(flow.ledger).toBeVisible();
     await page.reload();
@@ -317,7 +313,7 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'spring-2026.csv'));
+    await flow.chooseFile(join(CORPUS, 'team-status-column.csv'));
     await flow.answerYear();
     const toCheck = await flow.count('to-check');
     const custom = await flow.count('custom');
@@ -331,7 +327,7 @@ test.describe('Start from your Google Form', () => {
     await expect(flow.toCheck).toHaveText(String(toCheck - 1));
 
     // One choice turned into several: the clubs question the rules read as one choice.
-    const clubs = flow.row('Which clubs are you a member of?');
+    const clubs = flow.row('Which clubs are you part of?');
     await expect(
       clubs.getByTestId('proposal-check').filter({ hasText: 'Could allow several answers' }),
     ).toHaveCount(1);
@@ -340,7 +336,7 @@ test.describe('Start from your Google Form', () => {
     await expect(flow.toCheck).toHaveText(String(toCheck - 2));
 
     // A rare option kept.
-    const student = flow.row('Are you a UBC student or alumni?');
+    const student = flow.row('Are you an Example College student, alum or staff member?');
     const rare = student.getByTestId('proposal-option').filter({ hasText: 'keep?' }).first();
     await rare.locator('input').check();
     await expect(rare.locator('input')).toBeChecked();
@@ -360,8 +356,8 @@ test.describe('Start from your Google Form', () => {
     );
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
-    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
+    await flow.chooseFile(join(CORPUS, 'five-day-grid.csv'));
+    await flow.answerYear(UPCOMING_YEAR['five-day-grid']);
     await page.getByTestId('proposal-confirm').click();
 
     // Landed on the form, with the organizer's own questions in the file's order.
@@ -375,15 +371,16 @@ test.describe('Start from your Google Form', () => {
     ]);
     await expect(page.getByTestId('essential-fields-panel')).not.toContainText('signs in');
     await page.getByTestId('form-step-questions').click();
-    await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
+    await expect(
+      page.getByText('Are you an Example College student, alumni or staff?').first(),
+    ).toBeVisible();
     await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
     await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
-    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await importer.chooseFile(readFileSync(join(CORPUS, 'five-day-grid.csv'), 'utf8'));
     await expect(importer.restoredBanner).toBeVisible();
     await expect(importer.allMapped).toBeVisible();
     await expect(importer.restoredNew).toHaveCount(0);
@@ -422,13 +419,14 @@ test.describe('Start from your Google Form', () => {
     const saved = (body.market ?? body).importMapping.resolutions ?? {};
     expect(saved.essential_table_choice ?? {}).toEqual({});
 
-    // An option with a comma of its own is one answer (bug 27). It was split into "Woven (crochet"
-    // and "etc)", both saved as ignored, so everyone who chose only it lost their answer.
-    const WOVEN = 'Woven (crochet, knitting, etc)';
+    // An option with a comma of its own is one answer (bug 27). It was split at its commas, into
+    // "Fibre arts (crochet" and "etc)", both saved as ignored, so everyone who chose only it lost
+    // their answer.
+    const FIBRE = 'Fibre arts (crochet, knitting, etc)';
     const fragments = Object.values(saved).flatMap((byValue) => Object.keys(byValue as object));
-    expect(fragments.filter((v) => v.startsWith('Woven (') || v === 'etc)')).toEqual([]);
+    expect(fragments.filter((v) => v.startsWith('Fibre arts (') || v === 'etc)')).toEqual([]);
     const chose = applications.filter((a) =>
-      Object.values(a.formData).some((answer) => Array.isArray(answer) && answer.includes(WOVEN)),
+      Object.values(a.formData).some((answer) => Array.isArray(answer) && answer.includes(FIBRE)),
     );
     expect(chose.length).toBeGreaterThan(30);
   });

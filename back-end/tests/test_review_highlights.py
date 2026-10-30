@@ -16,7 +16,7 @@ from datatypes import MarketPhase, MarketRole
 
 @pytest.fixture
 def markets(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(MarketPhase.REVIEW))
+    fake = FakeMarketsCollection(stored_market(MarketPhase.APPLICATIONS))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
     return fake
@@ -87,7 +87,7 @@ class TestSavingThem:
             MarketsApi.ApplicationsApi, "count_applications_for_market", lambda _id: 3
         )
         assert MarketsApi.application_form_lock_reason(
-            MarketsApi.market_from_document(stored_market(MarketPhase.REVIEW))
+            MarketsApi.market_from_document(stored_market(MarketPhase.APPLICATIONS))
         )
 
         assert MarketsApi.save_review_highlights("market-123", ["a"], "user-1") == ["a"]

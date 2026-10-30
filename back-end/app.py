@@ -13,7 +13,6 @@ import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
 import api.vendor_export as VendorExportApi
-import api.form_amendment as FormAmendmentApi
 import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -839,6 +838,15 @@ def reset_market_permission(market_id: str, action_id: str) -> Response:
     return jsonify({"permissionTable": table}), 200
 
 
+@app.route('/markets/<market_id>/permissions', methods=['DELETE'])
+@login_required
+def reset_market_permissions(market_id: str) -> Response:
+    """Return every row of the market's table to its built-in default, as its owner (E39/F01/S04).
+    Asks ``Actions.CHANGE_THE_TABLE``; one entry in the market's history. Answers the table."""
+    table = MarketsApi.reset_permissions(market_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
 @app.route('/markets/<market_id>/permission-history', methods=['GET'])
 @login_required
 def get_market_permission_history(market_id: str) -> Response:
@@ -862,64 +870,6 @@ def save_rejection_rules(market_id: str) -> Response:
         return jsonify({"error": "rules is required"}), 400
     stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
     return jsonify({"rejectionRules": stored}), 200
-
-
-@app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
-@login_required
-def application_form_amendment_availability(market_id: str) -> Response:
-    """Whether the form can be amended from here, and what the chain would cost (E20/F03/S01).
-
-    The dialog reads this to decide whether to offer itself, so it can say WHY it is unavailable
-    rather than opening and then failing - which is the difference between a control that is
-    unavailable and one that is broken.
-    """
-    context = MarketsApi.load_market_context(market_id)
-    if context is None or context.market is None:
-        return jsonify({"error": "Market not found"}), 404
-    refused = Actions.refusal(
-        Actions.AMEND_FORM, authenticated_email(), context.market, context.organization)
-    if refused:
-        return jsonify({"error": refused}), 403
-
-    availability = FormAmendmentApi.amendment_availability(context.market)
-    pending = context.market.form_amendment
-    return jsonify(convert_keys_to_camel_case({
-        **availability,
-        "pending_return_phase": pending.return_phase if pending else None,
-    })), 200
-
-
-@app.route('/markets/<market_id>/application-form/amendment', methods=['POST'])
-@login_required
-def amend_application_form(market_id: str) -> Response:
-    """Edit the form and return the market to the phase it started in (E20/F03/S01).
-
-    Body: { "applicationForm": { "fields": [...], "unaskedEssentials": [...] } }
-
-    Pre-flight, not rollback: every guard on the return path is checked against the PROPOSED form
-    before the market leaves its phase, so a refusal leaves nothing to undo.
-    """
-    data = json_object(required=False)
-    form_data = data.get("applicationForm") or data.get("application_form")
-    if not isinstance(form_data, dict):
-        return jsonify({"error": "applicationForm is required"}), 400
-
-    result = FormAmendmentApi.amend_application_form(
-        market_id, convert_keys_to_snake_case(form_data), authenticated_email()
-    )
-    return jsonify(convert_keys_to_camel_case(result)), 200
-
-
-@app.route('/markets/<market_id>/application-form/amendment/resume', methods=['POST'])
-@login_required
-def resume_application_form_amendment(market_id: str) -> Response:
-    """Finish a chain that stopped partway (E20/F03/S01).
-
-    The offer the stall message makes. Re-plans from where the market actually is, because the
-    reason a chain stalls is that the market is no longer where the walk believed.
-    """
-    result = FormAmendmentApi.resume_amendment(market_id, authenticated_email())
-    return jsonify(convert_keys_to_camel_case(result)), 200
 
 
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])
@@ -981,7 +931,7 @@ def _named_phase(name: Any) -> Optional[MarketPhase]:
 def transition_market(market_id: str) -> Response:
     """Advance a market to a new lifecycle phase. Evaluates guards server-side.
 
-    Body: { "toPhase": "applications_open" }
+    Body: { "toPhase": "applications" }
 
     Returns:
         200 on success with { "phase": "<new_phase>" }
@@ -1122,16 +1072,28 @@ def write_placement(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
+@app.route('/markets/<market_id>/history', methods=['GET'])
+@login_required
+def get_history(market_id: str) -> Response:
+    """One page of every change on the market, newest first, for Manage market's History.
+    Asks ``Actions.READ_HISTORY``.
+
+    ``?before=`` is the cursor the last page answered with; ``?actor=``, ``?group=``, ``?vendor=``,
+    ``?since=`` and ``?until=`` narrow it.
+    """
+    args = {key: request.args.get(key, "")
+            for key in ("before", "actor", "group", "vendor", "since", "until")}
+    result, status_code = MarketsApi.get_history(market_id, authenticated_email(), args)
+    return jsonify(result), status_code
+
+
 @app.route('/markets/<market_id>/placement-history', methods=['GET'])
 @login_required
 def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when. Asks ``Actions.READ``.
-
-    ``?vendor=`` narrows it to the entries about one person, for their detail panel.
+    """Who changed a placement, to what, and when, across the market. Asks
+    ``Actions.READ_HISTORY``. One vendor's changes are the history's, narrowed (``/history``).
     """
-    result, status_code = MarketsApi.get_placement_history(
-        market_id, authenticated_email(), request.args.get("vendor"),
-    )
+    result, status_code = MarketsApi.get_placement_history(market_id, authenticated_email())
     return jsonify(result), status_code
 
 
@@ -1405,7 +1367,8 @@ def _reviewer_on(market_id: str):
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
     card - asked through ``verdict_refusal``, the same rules the market read serves as the
     verdicts row's answer and ``verdictsSettledReason``: the table's verdicts row, while the review
-    is open (E36/F01/S01).
+    is open (E36/F01/S01). A verdict and a selection's then ask the change row too, of each
+    application they write (``_change_refused``, E38/F06/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)
@@ -1416,6 +1379,14 @@ def _reviewer_on(market_id: str):
         return None, None, (jsonify({"error": refusal}), 403)
     user = UsersApi.get_user(requesting_user)
     return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
+
+
+def _change_refused(context: MarketsApi.MarketContext) -> Optional[str]:
+    """Why the signed-in reviewer may not change a verdict already given, or None while they may:
+    the table's change row (E38/F06/S01), asked on top of ``_reviewer_on``'s. Asked of each
+    application at its write, since only its status says whether the write is a change."""
+    return Actions.refusal(
+        Actions.CHANGE_VERDICTS, authenticated_email(), context.market, context.organization)
 
 
 def _named_status(name: Any) -> Optional[ApplicationStatus]:
@@ -1449,7 +1420,7 @@ def review_application(market_id: str, application_id: str) -> Response:
             context.market, context.organization, person, data['ownerEmail'])
     result, status_code = ApplicantsApi.review_application(
         market_id, application_id, new_status, by=person.as_giver(), owner=owner,
-        seen=ApplicantsApi.seen_from(data.get('seen')),
+        seen=ApplicantsApi.seen_from(data.get('seen')), change_refused=_change_refused(context),
     )
     return jsonify(result), status_code
 
@@ -1463,7 +1434,7 @@ def review_selection(market_id: str) -> Response:
             "applications": [{ "id": "...", "seen": { "status": "open", "verdictAt": null } }] }
     Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
     """
-    person, _context, refused = _reviewer_on(market_id)
+    person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = json_object(required=False)
@@ -1478,7 +1449,7 @@ def review_selection(market_id: str) -> Response:
     result, status_code = ApplicantsApi.review_selection(
         market_id,
         [(str(item.get('id') or ''), ApplicantsApi.seen_from(item.get('seen'))) for item in ticked],
-        new_status, by=person.as_giver())
+        new_status, by=person.as_giver(), change_refused=_change_refused(context))
     return jsonify(result), status_code
 
 
@@ -1711,6 +1682,7 @@ def import_applications(market_id: str) -> Response:
 
     result, status_code = CsvImport.import_applications(
         MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
+        by=authenticated_email(),
     )
     if status_code == 200:
         # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
@@ -1741,6 +1713,38 @@ def publish_market_results(market_id: str) -> Response:
 
     result, status_code = ApplicantsApi.publish_results(market_id, requesting_user)
     return jsonify(result), status_code
+
+
+@app.route('/markets/<market_id>/applications-stopped', methods=['POST'])
+@login_required
+def set_applications_stopped(market_id: str) -> Response:
+    """Stop taking applications, or take them again (E38/F04/S02). Asks the table's Stop taking
+    applications row, Admin by default.
+
+    Body: { "stopped": true | false }
+    """
+    data = json_object(required=True)
+    stopped = data.get("stopped")
+    if not isinstance(stopped, bool):
+        return jsonify({"error": "stopped must be true or false"}), 400
+
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
+    requesting_user = authenticated_email()
+    refused = Actions.refusal(
+        Actions.STOP_APPLICATIONS, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
+    # An archived market refuses it in the archived rule's words, as every row it no longer takes.
+    archived = MarketsApi.archived_refusal(context.market)
+    if archived:
+        return jsonify({"error": archived}), 403
+
+    result, status_code = ApplicantsApi.set_applications_stopped(market_id, stopped, requesting_user)
+    return jsonify(convert_keys_to_camel_case(result)), status_code
 
 
 @app.route('/markets/<market_id>/attendance', methods=['GET'])

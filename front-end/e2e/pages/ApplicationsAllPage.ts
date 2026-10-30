@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
 
-type AllViewFilter = 'all' | 'open' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
+type AllViewFilter =
+  'all' | 'undecided' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
 type Verdict = 'approve' | 'reject' | 'follow-up';
 
 /**
@@ -14,6 +15,8 @@ export class ApplicationsAllPage {
   readonly rows: Locator;
   readonly mine: Locator;
   readonly selection: Locator;
+  readonly selectAll: Locator;
+  readonly selectAllSkipped: Locator;
   readonly confirmWindow: Locator;
   readonly confirmButton: Locator;
   readonly result: Locator;
@@ -22,12 +25,18 @@ export class ApplicationsAllPage {
   readonly drawerVerdict: Locator;
   readonly drawerHolder: Locator;
   readonly exportButton: Locator;
+  /** Why a decided row has no tick, said once over the list (E38/F06/S01). */
+  readonly changeReason: Locator;
+  /** Why the drawer of a decided application offers no verdict (E38/F06/S01). */
+  readonly drawerChangeReason: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.rows = page.getByTestId('applications-all-row');
     this.mine = page.getByTestId('applications-all-mine');
     this.selection = page.getByTestId('applications-all-selection');
+    this.selectAll = page.getByTestId('applications-all-select-all');
+    this.selectAllSkipped = page.getByTestId('applications-all-select-all-skipped');
     this.confirmWindow = page.getByTestId('applications-all-confirm-window');
     this.confirmButton = page.getByTestId('applications-all-confirm-submit-button');
     this.result = page.getByTestId('applications-all-result');
@@ -36,14 +45,16 @@ export class ApplicationsAllPage {
     this.drawerVerdict = page.getByTestId('applications-all-drawer-verdict');
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
     this.exportButton = page.getByTestId('applications-all-export-button');
+    this.changeReason = page.getByTestId('applications-all-change-reason');
+    this.drawerChangeReason = page.getByTestId('applications-all-drawer-change-reason');
   }
 
-  /** Straight to the All view by its address, as a bookmark would. */
+  /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */
   async goto(marketId: string): Promise<void> {
     await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
   }
 
-  /** From the one-by-one review, by its switch. */
+  /** Back from the one-by-one review, by its switch. */
   async switchTo(): Promise<void> {
     await this.page.getByTestId('applications-view-all').click();
   }

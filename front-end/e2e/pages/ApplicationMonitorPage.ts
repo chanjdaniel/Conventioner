@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { oneByOnePath } from '../helpers/marketScreens';
 
 /**
  * Page object for the application monitor: the Applications tab of Market Setup, where an
@@ -9,8 +10,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * assignment, however complete its answers are.
  *
  * It is a **triage queue** (E08/F04): one application at a time, every answer shown, Approve /
- * Reject / Skip by keyboard or click. There is no list of every applicant to click into, so
- * acting on a named applicant means skipping the queue around until their card is up.
+ * Reject / Skip by keyboard or click. The list of every applicant is the All view
+ * (`ApplicationsAllPage`); here, acting on a named applicant means moving the queue on until their
+ * card is up.
  */
 export class ApplicationMonitorPage {
   readonly page: Page;
@@ -31,6 +33,8 @@ export class ApplicationMonitorPage {
   readonly decidedToggle: Locator;
   readonly decidedRows: Locator;
   readonly decidedEmails: Locator;
+  /** Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
+  readonly decidedReason: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -51,6 +55,36 @@ export class ApplicationMonitorPage {
     this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
+    this.decidedReason = page.getByTestId('app-monitor-decided-reason');
+  }
+
+  /** A row of the reviewed list, by its applicant. */
+  decidedRow(applicantEmail: string): Locator {
+    return this.decidedRows.filter({ hasText: applicantEmail });
+  }
+
+  /** Who gave a reviewed application its verdict, on its row. */
+  decidedGiverOf(applicantEmail: string): Locator {
+    return this.decidedRow(applicantEmail).getByTestId('app-monitor-decided-giver');
+  }
+
+  /**
+   * "Approve instead" or "Reject instead" on a reviewed row, or on every row when no applicant is
+   * named: a change of verdict, offered only where the change row allows (E38/F06/S01).
+   */
+  changeButton(verdict: 'approve' | 'reject', applicantEmail?: string): Locator {
+    const scope = applicantEmail ? this.decidedRow(applicantEmail) : this.page;
+    return scope.getByTestId(`app-monitor-decided-${verdict}-button`);
+  }
+
+  /** Straight to One by one by its address: the Applications tab opens on All (E38/F05/S01). */
+  async goto(marketId: string): Promise<void> {
+    await this.page.goto(oneByOnePath(marketId));
+  }
+
+  /** From the All view, where the tab opens, by its switch. */
+  async switchTo(): Promise<void> {
+    await this.page.getByTestId('applications-view-one').click();
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */

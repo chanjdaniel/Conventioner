@@ -3,7 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
-verified: 2026-10-29
+  - front-end/src/components/elements/ElementPricing.vue
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
@@ -24,6 +25,8 @@ sources:
   - bug/38
   - E23/F02/S01
   - T15
+  - E43/F01/S01
+  - E43/F01/S02
 ---
 
 # Planning the market
@@ -32,14 +35,14 @@ sources:
 **Where they start:** Market Setup, the page a draft opens on ([`MarketPlanTab.vue`](../../../front-end/src/components/market/MarketPlanTab.vue)).
 **Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
-Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form; beneath them stands the Discord card, outside the plan ([the Discord connection](../../implementation/modules/discord.md)).
+Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, Pricing, How vendors apply, and Application form.
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
 It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
 A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
-The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates and Section Setup are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
+The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
@@ -113,8 +116,8 @@ Covered by: `floorplan.spec.ts` (grouping and editing are driven through store s
 ## E7. Edit the plan after Draft
 
 **Status:** Works, as changed by E31/F01: the setup no longer changes after Draft (read from the code: `setup_lock_reason` in `back-end/api/markets.py`; `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
-Once the market leaves Draft the plan's cards on Market Setup are disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once the market has moved on to importing").
-While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail." (from Applications Closed, two moves).
+Once the market leaves Draft every card on Market Setup is disabled under one line: "The setup is settled: it cannot change once applications have opened, because applicants and the table allocation rely on it." (on the Google Form path, "once its responses have been imported").
+While nobody has applied it adds the way back: "While no one has applied, go back to draft to change it: Reopen for Editing, under More… on the phase rail."
 The Application form card is not shown past Draft.
 On an archived market every page is read only, and says so (bug 30).
 A person who may change nothing finds every card disabled too, and reads why once, above the page ([what each role may do](../rules/what-each-role-may-do.md)); the plan's own line says only that the setup settled (T15).
@@ -137,10 +140,31 @@ What else freezes, and when:
 While the market is a draft, the "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above, and this form will have something to ask about."), offers "Build the application form" once it can, and once the form has questions of its own or is locked says so, with "Open the application form" or "See the application form" (bug 16).
 Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is").
 
+## E9. Pricing
+
+**Status:** Works (E43/F01/S01, S02; `the-pricing-card.spec.ts`, `price-groups.spec.ts`).
+Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
+
+1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the last row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+   "Add a group" adds a row above it, its name field focused, with a column "In the group when" beside its prices: name it ("UBC student + club member"), add a condition on one of the form's questions with answers to choose ("Which clubs are you a member of? includes any of", then tick the answers that meet it), as many as must all hold, and price it per tier.
+   A group with another group's name says "Another group is called this.", and one left with no name "Name this group."; either way the plan waits to save until it is fixed; "Remove group", under the name, takes the row away.
+   A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
+   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open Applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
+   A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
+2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
+3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
+4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept ("35.5" becomes "35.50").
+5. A cell that is not an amount turns its border red, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."; a share that is not a whole number from 0 to 100 says "The half table's share is a whole number from 0 to 100."
+   Either keeps the value it had before the typing - a blank cell keeps no price, never the prefix before the error ("3" then "3x" keeps nothing) - and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
+
+A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
+The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
+
 ## Superseded
 
 - Market Setup was to stay editable past Draft, its cards simply no longer gated (wayfinding/the-order-of-the-work/02); the setup settles on leaving Draft ([E7](#e7-edit-the-plan-after-draft), E31/F01).
-- Each card was to take the page's full width; the cards share rows in a grid, and only the dates and sections cards are wide (E23/F01/S01).
+- Each card was to take the page's full width; the cards share rows in a grid, and only the dates, sections and pricing cards are wide (E23/F01/S01).
 - The application form was to be built in a gated card on this page, and opening applications to be the page's last section (wayfinding/the-order-of-the-work/02); the form is built on its own tab, in steps (E33/F01), the plan's card only says whether it can be built ([E8](#e8-application-form-readiness)), and the move out of Draft is the rail's main button (E31/F02).
 - The chosen days were to be chips, one line per month (wayfinding/the-plan-uses-its-space/02); each day is a row under its month, the months flowing in columns beside the calendar (E28/F01/S01).
 - Within Draft the market was to open at its earliest incomplete stage, the plan and then the form (wayfinding/the-order-of-the-work/03); a draft opens on Market Setup, whose form card says when the form can be built.

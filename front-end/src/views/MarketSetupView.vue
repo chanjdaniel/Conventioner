@@ -13,7 +13,6 @@ import {
   type IncompleteApplication,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
 import {
   SETUP_VIEW_PAGES,
@@ -179,23 +178,13 @@ watch(
 );
 
 /**
- * Why this person cannot import here, or null. Who is asking comes first, the table's import row
- * (bug 37, E39/F01/S02); then whether the phase takes applications at all.
- */
-const importRefusalReason = computed(
-  () =>
-    actionRefusal(market.value, MarketAction.ImportApplications) ||
-    importRefusal(market.value?.phase),
-);
-
-/**
  * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then in this
  * market's phase.
  *
- * The same arrangement as importing: the server enforces it, and this lets the button say no
- * before it is pressed rather than after. Safe to freeze now that a placement can be changed by
- * hand from the Tables view - shipping the freeze first would have stranded an organizer on
- * market day with archiving a running market as their only move.
+ * The server enforces it, and this lets the button say no before it is pressed rather than after.
+ * Safe to freeze now that a placement can be changed by hand from the Tables view - shipping the
+ * freeze first would have stranded an organizer on market day with archiving a running market as
+ * their only move.
  */
 // The server's word on whether the run may happen (E36/F04/S02): its phase, and not once results
 // are published. The phase mirror stands in only until the market has been read.
@@ -284,8 +273,25 @@ async function savePlan() {
   }
 }
 
+/**
+ * A card holds the autosave while one of its fields shows text that is not a value (the Pricing
+ * card's price or share, E43/F01/S01), so "Plan saved" never stands beside text that was not kept.
+ * The working copy already holds the value from before that text, so leaving or moving the phase
+ * still writes the plan as it is kept.
+ */
+const planHeld = ref(false);
+/** An edit arrived while the plan was held, and waits to be sent. */
+let planHeldEdit = false;
+watch(planHeld, (held) => {
+  if (held && planSaveTimer.value !== null) schedulePlanSave();
+  else if (!held && planHeldEdit) schedulePlanSave();
+});
+
 function schedulePlanSave() {
   if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
+  planSaveTimer.value = null;
+  planHeldEdit = planHeld.value;
+  if (planHeld.value) return;
   planSaveTimer.value = setTimeout(() => {
     planSaveTimer.value = null;
     void savePlan();
@@ -300,9 +306,10 @@ function schedulePlanSave() {
  * changed - refused by their own unsaved work.
  */
 async function flushPlanSave(): Promise<void> {
-  if (planSaveTimer.value === null) return;
-  clearTimeout(planSaveTimer.value);
+  if (planSaveTimer.value === null && !planHeldEdit) return;
+  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
   planSaveTimer.value = null;
+  planHeldEdit = false;
   await savePlan();
 }
 
@@ -314,9 +321,10 @@ async function startFromCsv(): Promise<void> {
 
 /** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 onUnmounted(() => {
-  if (planSaveTimer.value === null) return;
-  clearTimeout(planSaveTimer.value);
+  if (planSaveTimer.value === null && !planHeldEdit) return;
+  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
   planSaveTimer.value = null;
+  planHeldEdit = false;
   void savePlan();
 });
 
@@ -430,8 +438,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
+          :choiceQuestions="market.rejectionQuestions ?? []"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
+          @held="(held: boolean) => (planHeld = held)"
           @choosePath="showPathChoice = true"
           @startFromCsv="startFromCsv"
           @openForm="showTab('form')"
@@ -442,7 +452,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'applications'"
           :market="market"
           :visible="activeTab === 'applications'"
-          :importRefusalReason="importRefusalReason"
         />
 
         <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable

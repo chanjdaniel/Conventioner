@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { IntakeMode, type Market, MarketPhase, MarketRole } from '@/assets/types/datatypes';
+import {
+  IntakeMode,
+  type Market,
+  MarketPhase,
+  MarketRole,
+  type PermissionTableRow,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import MarketPermissions from '@/components/MarketPermissions.vue';
+import MarketHistory from '@/components/MarketHistory.vue';
+import IconExpandDown from '@/components/icons/IconExpandDown.vue';
+import IconExpandUp from '@/components/icons/IconExpandUp.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -12,6 +22,7 @@ import {
   GIVEN_ROLES,
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
+import { intakeModeOf } from '@/utils/marketGuide';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -35,6 +46,17 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
+/**
+ * The History section is closed until opened, so the sections after it stay in reach (Daniel, on
+ * T110's review); it is read on its first opening, and kept with its filters once read.
+ */
+const historyOpen = ref(false);
+const historyRead = ref(false);
+
+function toggleHistory() {
+  historyOpen.value = !historyOpen.value;
+  if (historyOpen.value) historyRead.value = true;
+}
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -49,6 +71,8 @@ watch(
       addUserError.value = '';
       renameError.value = '';
       deleteError.value = '';
+      historyOpen.value = false;
+      historyRead.value = false;
       await fetchMarket();
     } else {
       marketData.value = null;
@@ -97,6 +121,14 @@ const grantableRoles = computed(() =>
 
 /** Deleting a market is the table's "Delete the market" row, its owner's alone. */
 const canDelete = computed(() => mayTake(marketData.value, MarketAction.DeleteMarket));
+
+/** The market's own table's labels by row id, for the history's changes to a row. */
+const rowLabels = computed(() =>
+  Object.fromEntries((marketData.value?.permissionTable ?? []).map((row) => [row.id, row.label])),
+);
+
+/** The market's history is read at its own row, "Read the market's history" (E40/F01/S03). */
+const canReadHistory = computed(() => mayTake(marketData.value, MarketAction.ReadHistory));
 
 /** Why this person may not rename the market, the Market Setup row's answer, or null. */
 const renameRefusal = computed(() => actionRefusal(marketData.value, MarketAction.ChangeSetup));
@@ -208,6 +240,11 @@ function handleDeleteCancel() {
   deleteError.value = '';
 }
 
+/** A change to who may do what answers the table, which this copy of the market then shows. */
+function handleTableChanged(table: PermissionTableRow[]) {
+  if (marketData.value) marketData.value = { ...marketData.value, permissionTable: table };
+}
+
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
 function closeAddUser() {
   showAddUserForm.value = false;
@@ -250,6 +287,7 @@ function closeAddUser() {
               <select
                 v-else
                 :value="role"
+                :name="`role-${userId}`"
                 :aria-label="`${email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
@@ -300,6 +338,8 @@ function closeAddUser() {
             <input
               v-model="newUserEmail"
               type="email"
+              name="email"
+              autocomplete="off"
               placeholder="User email"
               aria-label="Email of the person to add"
               class="field"
@@ -307,6 +347,7 @@ function closeAddUser() {
             />
             <select
               v-model="newUserRole"
+              name="role"
               aria-label="Their role"
               class="field field--select"
               data-testid="manage-market-add-user-select"
@@ -338,6 +379,41 @@ function closeAddUser() {
         </form>
       </section>
 
+      <!-- Who may do what on this market (E39/F01/S04): closed until opened, since the table and
+           its changes would double the dialog's length for everyone who came to add a person. -->
+      <MarketPermissions
+        v-if="marketData.permissionTable?.length"
+        :market="marketData"
+        @changed="handleTableChanged"
+      />
+      <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
+           people and who may do what (E39/F01/S04). -->
+      <section v-if="canReadHistory" class="section" data-testid="manage-market-history">
+        <h3 :class="{ 'section-heading--closed': !historyOpen }">
+          <button
+            type="button"
+            class="section-toggle"
+            :aria-expanded="historyOpen"
+            aria-controls="manage-market-history-body"
+            data-testid="manage-market-history-toggle"
+            @click="toggleHistory"
+          >
+            History
+            <IconExpandUp v-if="historyOpen" class="section-toggle-icon" aria-hidden="true" />
+            <IconExpandDown v-else class="section-toggle-icon" aria-hidden="true" />
+          </button>
+        </h3>
+        <div v-show="historyOpen" id="manage-market-history-body">
+          <MarketHistory
+            v-if="historyRead"
+            :market-id="marketData.id"
+            :row-labels="rowLabels"
+            :path="intakeModeOf(marketData)"
+            :questions="marketData.rejectionQuestions ?? []"
+          />
+        </div>
+      </section>
+
       <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,
            "Organizations with access", with Add and Remove - but there is only ever one, "Add"
            REPLACED it (moving the market, who can see it, and whose deletion deletes it), and it
@@ -366,6 +442,8 @@ function closeAddUser() {
         <form v-else class="rename-row" @submit.prevent="handleRename">
           <input
             v-model="renameValue"
+            name="name"
+            autocomplete="off"
             class="field"
             aria-label="Market name"
             data-testid="manage-market-rename-input"
@@ -443,6 +521,30 @@ function closeAddUser() {
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* A closed section is its heading alone, so nothing beneath it to hold apart. */
+.section h3.section-heading--closed {
+  margin-bottom: 0;
+}
+
+/* A section's heading that opens and closes it: the heading's words, with a chevron saying which. */
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.section-toggle-icon {
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .users-list {

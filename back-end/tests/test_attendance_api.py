@@ -334,7 +334,7 @@ class TestSlugLookupPrunesInMongo:
         "overrides",
         [
             {"phase": "market_days", "isDraft": False},
-            {"phase": "applications_open", "isDraft": True},
+            {"phase": "applications", "isDraft": True},
             {"isDraft": False},
             {"phase": "phase_from_a_future_build", "isDraft": False},
         ],

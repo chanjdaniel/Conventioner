@@ -35,8 +35,15 @@ export async function seedAssignedMarket(
    * many the one section has, 5 unless named: the plan is settled once the market leaves draft
    * (E31/F01/S01), so a spec wanting a smaller room asks for it here rather than shrinking it later.
    * `dates` are the market's dates, a table on each open to every vendor; one unless named.
+   * `intakeMode` is how vendors reach it; absent, a CSV market, as `seedMarketWithVendors` makes it.
    */
-  options: { name?: string; run?: boolean; tables?: number; dates?: string[] } = {},
+  options: {
+    name?: string;
+    run?: boolean;
+    tables?: number;
+    dates?: string[];
+    intakeMode?: 'csv' | 'form';
+  } = {},
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
 
@@ -66,7 +73,7 @@ export async function seedAssignedMarket(
   // Walk to `assignment` first. It is where an organizer looking at the results screen actually
   // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver
   // runs in (E10/F03/S02), so the walk has to come before the run rather than after it.
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(
       `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
       {

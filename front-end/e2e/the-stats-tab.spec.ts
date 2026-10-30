@@ -71,7 +71,7 @@ test('the Stats tab counts who applied as the Applications tab does, for anyone 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplied(marketId, 'nadia@ember.test', 'open', '2026-09-01T12:00:00Z');
   seedApplied(marketId, 'theo@thistle.test', 'open', '2026-09-01T19:00:00Z');
   seedApplied(marketId, 'ines@loom.test', 'needs_follow_up', '2026-09-02T12:00:00Z');
@@ -252,7 +252,7 @@ test('a chart per choice question counts each option, groups "Other", and narrow
     },
   });
   expect(form.ok(), await form.text()).toBeTruthy();
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
 
   // Each answered on a Google Form, where "Other" is written in by hand.
   const applicant = (email: string, status: string, selling: string[], firstMarket: string) => ({
@@ -270,9 +270,7 @@ test('a chart per choice question counts each option, groups "Other", and narrow
     applicant('priya@weft.test', 'reviewer_approved', ['Prints'], 'No'),
     applicant('lena@forge.test', 'reviewer_rejected', ['Stickers'], 'Yes'),
   ]);
-  for (const phase of ['applications_closed', 'review', 'assignment']) {
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
-  }
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'assignment');
   const stats = new StatsPage(page);
 
   // Before anyone has a table, Assigned says so rather than charting noughts.

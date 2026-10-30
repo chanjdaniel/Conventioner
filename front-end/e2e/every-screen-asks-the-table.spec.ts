@@ -38,7 +38,10 @@ const MAY = {
 
 const ARTICLE: Record<Role, string> = { viewer: 'a', editor: 'an', admin: 'an' };
 
-/** One market in each phase the walk needs: a plan to edit, a review, a run, and the door. */
+/**
+ * One market in each phase the walk needs: a plan to edit, a review, a run, and the door. The run's
+ * vendors apply on its page, so it has applicants to publish results to.
+ */
 const markets = { draft: '', review: '', assignment: '', marketDays: '' };
 
 test.beforeAll(async ({ request }) => {
@@ -58,24 +61,16 @@ test.beforeAll(async ({ request }) => {
     TEST_USER.password,
     { intakeMode: 'form' },
   ));
-  await transitionMarket(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    markets.review,
-    'applications_open',
-  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, markets.review, 'applications');
   seedApplicationWithStatus(markets.review, 'open', 'ana@thistle.test');
   seedApplicationWithStatus(markets.review, 'open', 'ben@ember.test');
-  for (const phase of ['applications_closed', 'review']) {
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, markets.review, phase);
-  }
 
   ({ marketId: markets.assignment } = await seedAssignedMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   ));
 
   ({ marketId: markets.marketDays } = await seedPublishedMarketWithAssignments(
@@ -126,17 +121,21 @@ for (const role of Object.keys(PEOPLE) as Role[]) {
       // The frame says once why someone may change nothing, and to nobody else.
       await expect(page.getByTestId('market-read-only')).toHaveCount(edits ? 0 : 1);
 
-      // Applications, in review: verdicts are the verdicts row's, the card's highlights the
-      // form's, publishing the Publish results row's.
-      await page.goto(marketSetupPath(markets.review, 'applications'));
+      // Applications, in review, one by one: verdicts are the verdicts row's, the card's
+      // highlights the form's.
       const review = new ApplicationMonitorPage(page);
+      await review.goto(markets.review);
       await review.waitForLoaded();
       await expect(review.email).toBeVisible();
       await offered(page, 'app-monitor-approve-button', edits);
       await offered(page, 'app-monitor-reject-button', edits);
       await offered(page, 'app-monitor-choose-highlights', edits);
-      await offered(page, 'app-monitor-publish-button', administers);
       await railOffersMoves(page, administers);
+
+      // Publishing is the Publish results row's, offered on Applications from the assignment on.
+      await page.goto(marketSetupPath(markets.assignment, 'applications'));
+      await expect(page.getByTestId('applications-all')).toBeVisible({ timeout: 15000 });
+      await offered(page, 'applications-publish-button', administers);
 
       // The vendor drawer, from the All view: updating a vendor's info is its own row (E41/F01/S01).
       const all = new ApplicationsAllPage(page);

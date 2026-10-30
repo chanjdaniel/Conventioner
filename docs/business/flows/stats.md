@@ -28,7 +28,7 @@ Both sections are counted on the server and read in one small answer (`GET /mark
 **Status:** Works (read from the code as of E45/F01/S01: `the-stats-tab.spec.ts`).
 
 1. "Who applied" totals the market's [applications](../concepts/application.md): "7 applications in all, 1 of them added by hand".
-2. "By status" counts them as the Applications tab's All view filters them: To review, Needs follow-up, Approved and Rejected, each count what that filter lists; a row opens the All view on its filter.
+2. "By status" counts them as the Applications tab's All view filters them: Open, Needs follow-up, Approved and Rejected, each count what that filter lists; a row opens the All view on its filter.
    The server counts every application by its stored status, and the page counts those into the filters through the All view's own test ([`applicantStats.ts`](../../../front-end/src/utils/applicantStats.ts)), so the two pages agree.
 3. "Applied per day" counts those who applied by the day they did, earliest first, in the reader's own calendar; a vendor added by hand never applied, so is on no day.
    The server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.

@@ -21,6 +21,8 @@ sources:
   - E32/F02/S01
   - E33/F01/S02
   - T15
+  - E38/F02/S02
+  - E38/F06/S01
 ---
 
 # Building the application form
@@ -68,15 +70,25 @@ Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`, `ask-this-
 2. Drag to reorder; "Remove" deletes.
 3. "Save Form"; expect "Saved".
 
-"Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_` and must be unique.
+"Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."
 Covered by: `application-form.spec.ts`.
+
+On a market started from its Google Form's responses, the questions also draw on the file it was started from, which the start kept the answers of, as far as they name nobody ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)); the start itself is one-shot, and this is where what it got wrong is fixed (E38/F02):
+
+4. Change a question the start made to Select and its options are its column's answers; to Multi-Select, the options inside them ("Filled from the answers in your file.").
+   Options the organizer edited stay through any change of type, and "Use the answers in your file" puts the file's back on purpose.
+5. "Add from your file" lists the columns the start left out, such as a team's own "Status", and any question since removed; choosing one adds it with its label, type and options, and its key held, so the first import restores its column too.
+   A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
+
+A question that did not come from the file behaves as above, and a market not started from one offers neither.
+Covered by: `the-questions-come-from-the-file.spec.ts`.
 
 ## F3. What a reviewer reads first
 
 **Status:** Works (walked live; the Review setup step and the automatic rejections read from the code as of E33/F01 and E33/F03/S01, and `automatic-rejections.spec.ts`).
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
-Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. A reviewer can overturn it, and the applicant never sees the reason."
+Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
 The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
 Covered by: `review-highlights.spec.ts`, `automatic-rejections.spec.ts`.
 
@@ -87,7 +99,7 @@ The questions are editable only while the market is a draft and nobody has appli
 Once locked, the essential questions and "Your questions" are read only under the reason:
 
 - past Draft, on a market whose vendors apply on its page: "The application form is fixed: it cannot change once applications have opened, because applicants answer it.";
-- past Draft, on the Google Form path: "The questions are fixed: they cannot change once the market has moved on to importing, because your imports are mapped onto them.";
+- past Draft, on the Google Form path: "The questions are fixed: they cannot change once its responses have been imported, because your imports are mapped onto them.";
 - in Draft with an application: "Application form is locked. N applications have already been submitted for this market. The form cannot be modified once applicants have submitted."
 
 Covered by: `application-form.spec.ts` ("an existing application locks the form in the builder and on every route"), `what-to-show-and-when.spec.ts`, `screens-name-things.spec.ts`.
@@ -95,9 +107,10 @@ Covered by: `application-form.spec.ts` ("an existing application locks the form 
 ## F5. Reopen the market to fix the form
 
 **Status:** Works (walked live).
-From Applications Open (Import, on the Google Form path), More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+From Applications, More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+A Google Form market is a draft until its first import, so its form is edited in place; once anything is imported there is no way back.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
-The import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
+The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by: `every-move-lands.spec.ts` ("a move back lands on its phase's page too"), `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu").
 
 ## F6. Table type preference

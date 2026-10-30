@@ -1,35 +1,41 @@
-"""The five anonymised Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
+"""The five Google Form exports in ``tests/test_data/google_forms/``, asserted as shapes.
 
-They are real application exports from five markets with the people replaced, made by
-``tests/fixtures/anonymise_form_export.py``; ``tests/test_data/README.md`` says which market each
-one is. The real files never reach CI, so this is what stands between a regenerated or hand-edited
-copy and a fixture that silently stopped looking like the export it came from: the row count, the
-header row exactly as the form wrote it, and how often the table-size answers occur, which the
-anonymiser keeps verbatim because at least 3 applicants gave each one.
+All five are synthetic, made by ``tests/fixtures/synthetic_form_exports.py``, which
+``tests/test_synthetic_form_exports.py`` holds to the byte; none comes from a real export.
+``tests/test_data/README.md`` says what each one is. This is what stands between a regenerated or
+hand-edited copy and a fixture that silently stopped looking like a Google Form's export: the row
+count, the header row exactly as the form wrote it, and how often the table-size answers occur.
 """
 import csv
 import hashlib
+import importlib.util
 import json
 import os
 from collections import Counter
 
 import pytest
 
-CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
+HERE = os.path.dirname(os.path.abspath(__file__))
+CORPUS = os.path.join(HERE, "test_data", "google_forms")
+
+_spec = importlib.util.spec_from_file_location(
+    "synthetic_form_exports", os.path.join(HERE, "fixtures", "synthetic_form_exports.py"))
+generator = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(generator)
 
 # name: (rows, columns, sha256 of the header row as JSON, table-size column, its answer counts)
 # The header is pinned by hash because it is long and multi-line, and must survive byte for byte.
 SHAPES = {
-    "fall-2023": (294, 12, "ebe3e57a30707eb9", 6, {"Full table": 170, "Half table": 117}),
-    "spring-2024": (361, 30, "076b61cb540acdc5", 22,
-                    {"Full table only": 154, "Either": 106, "Half table only": 99}),
-    "spring-2025": (237, 28, "793acf80aa31b295", 23,
-                    {"Full table": 87, "Either": 66, "Half table": 65, "Full table, Either": 11,
-                     "Half table, Either": 6, "Full table, Half table": 2}),
-    "fall-2025": (237, 30, "eedca99cd03454bc", 25,
-                  {"Full table": 89, "Either": 86, "Half table": 62}),
-    "spring-2026": (250, 35, "79a0c0aa08260f25", 30,
-                    {"Full table": 87, "Either": 85, "Half table": 75, "TEST": 1}),
+    "days-as-one-question": (294, 12, "8c65f977205563ba", 6, {"Full table": 170, "Half table": 117}),
+    "four-day-grid": (361, 30, "2f3edddd593cd11b", 22,
+                      {"Full table only": 154, "Either": 106, "Half table only": 99}),
+    "no-timestamp": (237, 28, "198e45b6d32a99fd", 23,
+                     {"Full table": 87, "Either": 66, "Half table": 65, "Full table, Either": 11,
+                      "Half table, Either": 6, "Full table, Half table": 2}),
+    "five-day-grid": (237, 30, "8c07a995dbc30840", 25,
+                      {"Full table": 89, "Either": 86, "Half table": 62}),
+    "team-status-column": (250, 35, "65b7f619ebd722f4", 30,
+                           {"Full table": 87, "Either": 85, "Half table": 75, "TEST": 1}),
 }
 
 
@@ -38,8 +44,11 @@ def _read(name):
         return list(csv.reader(handle))
 
 
-def test_the_corpus_is_exactly_these_five_files():
-    assert sorted(os.listdir(CORPUS)) == sorted(f"{name}.csv" for name in SHAPES)
+def test_the_corpus_is_exactly_the_generators_files():
+    """A file the generator does not write was put there by hand, so it is refused."""
+    made = sorted(form.file for form in generator.FORMS)
+    assert sorted(os.listdir(CORPUS)) == made
+    assert sorted(f"{name}.csv" for name in SHAPES) == made
 
 
 @pytest.mark.parametrize("name", SHAPES)

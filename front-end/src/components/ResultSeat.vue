@@ -133,11 +133,6 @@ const emit = defineEmits<{ open: []; view: [] }>();
   background: var(--mm-beige);
 }
 
-.seat-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 1px;
-}
-
 /* Dashed for a seat with nobody in it, solid for one with somebody: the difference between an
    opening and a person is worth reading before any of the text is. A record keeps no box at all,
    which is exactly how it says there is nothing here to press. */
@@ -164,11 +159,6 @@ const emit = defineEmits<{ open: []; view: [] }>();
 
 .seat-change:hover .seat-button-hint {
   text-decoration: underline;
-}
-
-.seat-change:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 /* Beneath the name, on a line of its own, so the name and Change keep their places. */

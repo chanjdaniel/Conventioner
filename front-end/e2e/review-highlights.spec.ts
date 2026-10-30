@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplication } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
@@ -57,6 +57,7 @@ async function seedMarketWithAForm(
       assignmentObject: {},
       // Complete, so it may open applications: a review card is of a market that has (E31/F01).
       setupObject: completePlan(),
+      intakeMode: 'form',
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -69,7 +70,7 @@ async function seedMarketWithAForm(
   expect(form.ok(), await form.text()).toBeTruthy();
   const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers,
-    data: { toPhase: 'applications_open' },
+    data: { toPhase: 'applications' },
   });
   expect(opened.ok(), await opened.text()).toBeTruthy();
 
@@ -103,6 +104,7 @@ test.describe('What a reviewer reads first', () => {
     // has. This runs first, so it describes the seeded market before the next test marks anything.
     await openTheMarket(page, 'applications');
     const monitor = new ApplicationMonitorPage(page);
+    await monitor.switchTo();
     await monitor.waitForLoaded();
 
     await expect(monitor.answers).toBeVisible();
@@ -142,7 +144,7 @@ test.describe('What a reviewer reads first', () => {
     const body = (await response.json()) as { market: { reviewHighlights?: string[] } };
     expect(body.market.reviewHighlights).toEqual(['what_you_sell', 'essential_full_name']);
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -189,7 +191,7 @@ test.describe('What a reviewer reads first', () => {
       ]);
     }
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -213,7 +215,7 @@ test.describe('What a reviewer reads first', () => {
     await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-builder-lock-banner')).toBeVisible();
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -253,7 +255,7 @@ test.describe('What a reviewer reads first', () => {
     ).toBeChecked();
 
     // And it is there for whoever reviews next - a fresh load of the queue, not this page's state.
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     await monitor.waitForLoaded();
     await expect(page.getByTestId('app-monitor-leading').locator('dt')).toHaveText(['Instagram']);
   });

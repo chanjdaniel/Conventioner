@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - E26/F07
   - E32/F03/S01
@@ -59,7 +59,7 @@ Covered by: `returning-vendors-edit-their-answers.spec.ts`.
 "Your application" shows the market, "Signed in as", the outcome, "Submitted <date>", "Your Answers", "Change your answers" while applications are open, and "Sign out".
 Until the results are published ([I7](assignment-and-result.md#i7-publish-results)) every vendor reads "Submitted", whatever their verdict, and an automatic rejection says nothing either.
 After, exactly one of "You have a table", with each date's table and location listed, or "You did not get assigned"; never a verdict and never a reason ([an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md)).
-A vendor can sign in and read their application in every phase after Draft; applying and changing answers stop when applications close, and an address with no application then reads "You have no application at this market, and it is not taking applications."
+A vendor can sign in and read their application in every phase after Draft; applying and changing answers stop when the organizer stops taking applications, and an address with no application then reads "You have no application at this market, and it is not taking applications."
 Covered by: `vendors-see-their-application-after-close.spec.ts`, `results-wait-for-the-allocation.spec.ts`, `a-first-time-vendor-applies.spec.ts` ("a vendor a rule rejects as they apply reads "Submitted", as anyone would").
 
 ### H3d. Codes that fail

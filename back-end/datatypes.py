@@ -43,26 +43,68 @@ class MarketRole(str, Enum):
 
 class MarketPhase(str, Enum):
     DRAFT = "draft"
-    APPLICATIONS_OPEN = "applications_open"
-    APPLICATIONS_CLOSED = "applications_closed"
-    REVIEW = "review"
+    # The one stage in which applications arrive and are reviewed at once (E38/F04/S01): shown
+    # "Review" on a Google Form market and "Applications" on one whose vendors apply on its page
+    # (``phase_label``). It replaced ``applications_open``, ``applications_closed`` and ``review``;
+    # ``migrations/migrate_to_one_stage.py`` moves the markets stored in them.
+    APPLICATIONS = "applications"
     ASSIGNMENT = "assignment"
     OFFERS = "offers"
     MARKET_DAYS = "market_days"
     ARCHIVED = "archived"
 
 
-def phase_label(phase: MarketPhase) -> str:
+def phase_label(phase: MarketPhase, intake_mode: Optional["IntakeMode"] = None) -> str:
     """A phase as a person reads it: ``market_days`` -> ``Market Days``.
 
     Derived from the stored value rather than kept as a second table beside
     ``front-end/src/utils/phase.ts``'s ``PHASE_LABELS``. Two hand-maintained maps of the phase
     spine is exactly the drift ``_validate_registry`` exists to refuse elsewhere, and this
-    transform reproduces all eight of the front end's labels exactly - which
-    ``test_phase_label`` pins, so a phase whose label does not survive the derivation fails here
-    rather than reaching an organizer as ``market_days``.
+    transform reproduces every one of the front end's labels exactly - which ``test_phase_label``
+    pins, so a phase whose label does not survive the derivation fails here rather than reaching an
+    organizer as ``market_days``.
+
+    The stage is the one phase each path names its own way (E38/F04/S01): a Google Form market's
+    applications are all imported when it begins, so on that path it is "Review", as
+    ``CSV_PHASE_LABELS`` in ``front-end/src/utils/marketGuide.ts`` says.
     """
+    if phase is MarketPhase.APPLICATIONS and intake_mode is IntakeMode.CSV:
+        return "Review"
     return phase.value.replace("_", " ").title()
+
+
+#: The phases E38/F04/S01 folded into ``applications``, read as it for one release so the deploy can
+#: come before ``migrations/migrate_to_one_stage.py`` (Daniel's choice, review of T94): read, never
+#: written back. A later release drops them once the migration has run on every database.
+LEGACY_STAGE_PHASES = ("applications_open", "applications_closed", "review")
+#: The old phases an own-form market's form was closed in: ``review`` was reached only through
+#: ``applications_closed``.
+LEGACY_CLOSED_PHASES = ("applications_closed", "review")
+
+
+def _legacy_stage_phase(document: Dict[str, Any]) -> MarketPhase:
+    """An old stage phase as the migration would leave it: the stage, or, for a Google Form market
+    that imported nothing, draft, since the stage is entered by a first import."""
+    if intake_mode_from_market_document(document) is IntakeMode.CSV:
+        import api.applications as ApplicationsApi
+
+        if ApplicationsApi.count_applications_for_market(document.get("id", "")) == 0:
+            return MarketPhase.DRAFT
+    return MarketPhase.APPLICATIONS
+
+
+def applications_stopped_from_market_document(document: Dict[str, Any]) -> bool:
+    """Whether a stored market has stopped taking applications (E38/F04/S02).
+
+    The stored fact when there is one; else, for a form market still stored in an old closed phase,
+    true, as the migration would set it, since its form was closed.
+    """
+    if "applicationsStopped" in document:
+        return bool(document["applicationsStopped"])
+    return (
+        document.get("phase") in LEGACY_CLOSED_PHASES
+        and intake_mode_from_market_document(document) is IntakeMode.FORM
+    )
 
 
 def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
@@ -79,6 +121,8 @@ def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     same mapping rather than raising and taking down whatever list is being served.
     """
     stored_phase = document.get("phase")
+    if stored_phase in LEGACY_STAGE_PHASES:
+        return _legacy_stage_phase(document)
     if stored_phase:
         try:
             return MarketPhase(stored_phase)
@@ -100,10 +144,10 @@ class IntakeMode(str, Enum):
     a third value can be added later without disturbing either of these two.
 
     This is not the same question as the phase. Application submission is already gated to
-    ``applications_open``, but a CSV market passes through that phase too -- that is where the
-    import happens -- so during that window its public application form would be live and taking
-    applications from strangers the organizer never meant to hear from. The phase cannot tell the
-    two intakes apart; this is what does.
+    ``applications``, but a CSV market is in that phase too -- it is where its imported responses
+    are reviewed -- so its public application form would be live and taking applications from
+    strangers the organizer never meant to hear from. The phase cannot tell the two intakes apart;
+    this is what does.
     """
 
     CSV = "csv"
@@ -311,6 +355,69 @@ class AssignmentOptionObject(BaseModel):
     max_half_table_proportion_per_section: Optional[int] = None
 
 
+#: The currencies the Pricing card offers, as ISO 4217 codes; ``front-end/src/utils/pricing.ts``
+#: lists the same. One per market, Canadian dollars unless the organizer picks another.
+PRICING_CURRENCIES = ("CAD", "USD", "EUR", "GBP", "AUD", "NZD")
+
+
+class TierPrice(BaseModel):
+    """One tier's price for a full table on one market day, in the currency's minor unit (cents).
+
+    A list of these rather than a map keyed by tier name: every market write camel-cases its keys,
+    and a tier's name is the organizer's text, not a key to rewrite.
+    """
+
+    tier: str
+    cents: int = Field(ge=0, le=10_000_000, strict=True)
+
+
+#: Field keys become document keys inside ``Application.form_data``, where a dot or a leading
+#: ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
+#: builder produces so no key can ever be unaddressable; the form write holds a field to it, and the
+#: plan write a price group's condition, whose key reaches a projection (``pricing.pricing_refusal``).
+FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
+
+class AnswerCondition(BaseModel):
+    """A choice question and the answers to it that meet the condition: an automatic rejection's
+    rule, and a price group's condition (``rejection_rules.Rulebook`` judges both)."""
+    key: str
+    answers: List[str] = []
+
+
+class PriceGroup(BaseModel):
+    """A row of the Pricing card above "Everyone else" (E43/F01/S02): a group the organizer names,
+    the conditions on a vendor's answers that must all hold for them to be in it, and its price per
+    tier, as ``everyone_else`` holds them. A tier it does not price is priced for its members by
+    another group they are in, or by "Everyone else" (``pricing.Groups``)."""
+
+    name: str
+    conditions: List[AnswerCondition] = Field(default_factory=list)
+    prices: List[TierPrice] = Field(default_factory=list)
+
+
+class PricingObject(BaseModel):
+    """The Pricing card on Market Setup (E43/F01/S01): what one table costs for one market day.
+
+    ``groups`` are the rows the organizer names, each priced per tier, and ``everyone_else`` is the
+    fixed last row, for a vendor in no group; a tier the row does not name has no price, and a
+    market with no prices shows none anywhere. A half table costs ``half_table_percent`` of the full
+    price, rounded half up to the cent (``pricing.half_price``).
+    """
+
+    currency: str = "CAD"
+    half_table_percent: int = Field(default=50, ge=0, le=100, strict=True)
+    groups: List[PriceGroup] = Field(default_factory=list)
+    everyone_else: List[TierPrice] = Field(default_factory=list)
+
+    @field_validator("currency")
+    @classmethod
+    def _offered_currency(cls, value: str) -> str:
+        if value not in PRICING_CURRENCIES:
+            raise ValueError(f"must be one of {', '.join(PRICING_CURRENCIES)}")
+        return value
+
+
 class SetupObject(BaseModel):
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
@@ -319,6 +426,8 @@ class SetupObject(BaseModel):
     sections: List[SectionObject]
     assignment_options: AssignmentOptionObject
     floorplans: Optional[List["FloorplanObject"]] = None
+    #: Null on a market that was never priced, which shows no price anywhere.
+    pricing: Optional[PricingObject] = None
 
 
 class ModificationObject(BaseModel):
@@ -429,10 +538,33 @@ class ImportMapping(BaseModel):
     made_by: MappingAuthor = MappingAuthor.IMPORT
 
 
-class RejectionRule(BaseModel):
-    """A choice question and the answers to it that reject an application (E33/F03/S01)."""
+class ExampleOptions(BaseModel):
+    """A column's answers read both ways as choices: whole answers, or the options inside them."""
+    select: List[str] = []
+    multi_select: List[str] = []
+
+
+class ExampleColumn(BaseModel):
+    """What a market started from a Google Form's responses keeps of one column (E38/F02/S01).
+
+    Only what the Review step showed and the privacy view lets through: the organizer's own
+    heading, and the options at least 3 applicants chose that name nobody (``csv_proposal``).
+    """
+    # The column's heading, or a grid's, as the import mapping names them.
+    headers: List[str] = []
+    # The key a question made from it has, or would have: the link to the form and the mapping.
     key: str
-    answers: List[str] = []
+    label: str
+    help_text: Optional[str] = None
+    # What the start read it as, or wrote it as, if it became a question.
+    type: str
+    # Whether the start made it a question of the organizer's own, rather than left it out.
+    question: bool = False
+    options: ExampleOptions = Field(default_factory=ExampleOptions)
+
+
+class RejectionRule(AnswerCondition):
+    """A choice question and the answers to it that reject an application (E33/F03/S01)."""
 
 
 class Market(BaseModel):
@@ -462,17 +594,16 @@ class Market(BaseModel):
     # highlights and for the same reason: they stay editable after the form locks, until the market
     # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
-    # A form amendment in flight (E20/F03/S01): the phase the market must be returned to once the
-    # form has been written. Present ONLY while the chain is walking, so its presence is exactly
-    # the question "did a chain stop partway, and where was it going?".
-    #
-    # Without it a stalled chain is unrecoverable: the organizer would discover from the phase rail
-    # that their market is sitting in `draft` mid-import, with nothing saying why or how to finish.
-    # Server-owned - only the amendment endpoint writes it.
-    form_amendment: Optional["FormAmendment"] = None
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
+    # Whether the organizer has stopped taking applications, inside the stage (E38/F04/S02): a fact
+    # about the applicant form, not a phase (ADR 0005), so reviewing goes on. Server-owned: only
+    # ``set_applications_stopped`` writes it. Entering assignment closes the form whatever it says.
+    applications_stopped: bool = False
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
+    # Server-owned: written only by the start from a Google Form's responses (``csv_start``), so the
+    # Questions tab can offer what the example file said without the file. Absent on any other.
+    example_columns: Optional[List[ExampleColumn]] = None
     # Organizer-settable while the market is a draft, through the plan write; fixed once it is not.
     intake_mode: IntakeMode = IntakeMode.CSV
     # Every phase this market entered, in order (E26/F06/S03). Server-owned: `create_market` writes
@@ -654,19 +785,6 @@ class DiscordConnection(BaseModel):
     invite_link: Optional[str] = None
 
 
-class FormAmendment(BaseModel):
-    """Where a form amendment was going, recorded before it moves anything (E20/F03/S01).
-
-    The chain is pre-flight, not rollback: nothing moves until the whole path is known to
-    succeed. This exists for the failure pre-flight cannot prevent - a transport failure or a
-    concurrent change BETWEEN two hops - so the market can be told where it was headed rather
-    than leaving the organizer to work it out from the rail.
-    """
-
-    return_phase: str
-    started_at: str
-
-
 class MarketPermission(BaseModel):
     """One row a market holds of the table (E39/F01/S03): the role it asks, and where it came from.
 
@@ -846,6 +964,28 @@ class UnassignedTableEntryContract(ContractModel):
     table_code: str
 
 
+class TierPriceContract(TierPrice, ContractModel):
+    pass
+
+
+class AnswerConditionContract(ContractModel):
+    key: str
+    answers: List[str]
+
+
+class PriceGroupContract(ContractModel):
+    name: str
+    conditions: List[AnswerConditionContract]
+    prices: List[TierPriceContract]
+
+
+class PricingContract(ContractModel):
+    currency: str
+    half_table_percent: int
+    groups: List[PriceGroupContract]
+    everyone_else: List[TierPriceContract]
+
+
 class SetupObjectContract(ContractModel):
     assignment_options: AssignmentOptionContract
     locations: List[LocationContract]
@@ -854,6 +994,7 @@ class SetupObjectContract(ContractModel):
     sections: List[SectionContract]
     tiers: List[TierContract]
     floorplans: Optional[List["FloorplanObjectContract"]] = None
+    pricing: Optional[PricingContract] = None
 
 
 class AssignmentStatisticsContract(ContractModel):
@@ -1016,6 +1157,15 @@ class ImportMappingContract(ImportMapping, ContractModel):
     """Camel-cased contract view of a saved CSV import mapping."""
 
 
+class ExampleOptionsContract(ExampleOptions, ContractModel):
+    """Camel-cased contract view of a kept column's two readings."""
+
+
+class ExampleColumnContract(ExampleColumn, ContractModel):
+    """Camel-cased contract view of a column the CSV start kept."""
+    options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
+
+
 class DiscordConnectionContract(DiscordConnection, ContractModel):
     """Camel-cased contract view of a market's Discord connection."""
 
@@ -1023,6 +1173,7 @@ class DiscordConnectionContract(DiscordConnection, ContractModel):
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
     discord: Optional[DiscordConnectionContract] = None
+    example_columns: Optional[List[ExampleColumnContract]] = None
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
     creation_date: str

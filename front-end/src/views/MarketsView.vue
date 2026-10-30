@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { type Market, type MarketPhase, type Organization } from '@/assets/types/datatypes';
+import { MarketPhase, type Market, type Organization } from '@/assets/types/datatypes';
 import { getApiErrorMessage } from '@/utils/api';
 import { fetchMarkets, openMarket } from '@/utils/market';
 import { fetchOrganizations } from '@/utils/organizations';
@@ -100,6 +100,14 @@ const narrowed = computed(
 );
 const marketsWord = computed(() => (markets.value.length === 1 ? 'market' : 'markets'));
 
+/**
+ * A phase as the filter names it. The list holds markets of both paths, and the stage is Review on
+ * a Google Form market and Applications on the other (E38/F04/S01), so its toggle names both.
+ */
+function filterLabel(phase: MarketPhase): string {
+  return phase === MarketPhase.Applications ? 'Applications / Review' : phaseLabel(phase);
+}
+
 function togglePhase(phase: MarketPhase) {
   const phases = query.value.phases.includes(phase)
     ? query.value.phases.filter((p) => p !== phase)
@@ -161,6 +169,7 @@ function handleNewClose() {
               <input
                 :value="query.search"
                 type="search"
+                name="search"
                 class="field"
                 placeholder="Market name"
                 autocomplete="off"
@@ -171,6 +180,8 @@ function handleNewClose() {
             <label>
               <span class="field-label">Organization</span>
               <select
+                name="organization"
+                autocomplete="off"
                 class="field field--select"
                 :value="query.organizationId ?? ''"
                 data-testid="markets-org-select"
@@ -187,6 +198,7 @@ function handleNewClose() {
             <label>
               <span class="field-label">Sort by</span>
               <select
+                name="sort"
                 class="field field--select"
                 :value="query.sort"
                 data-testid="markets-sort-select"
@@ -221,7 +233,7 @@ function handleNewClose() {
                 :data-testid="`markets-phase-toggle-${phase}`"
                 @click="togglePhase(phase)"
               >
-                {{ phaseLabel(phase) }}
+                {{ filterLabel(phase) }}
               </button>
             </div>
           </div>
@@ -304,6 +316,11 @@ function handleNewClose() {
   font-size: var(--text-sm);
   font-weight: 400;
   box-shadow: var(--shadow-card);
+}
+
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.new-market-button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
 }
 
 .new-market-button:hover {

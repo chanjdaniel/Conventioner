@@ -11,8 +11,9 @@
  * is deliberately not here: it is a sibling of the settings panel rather than part of any tab body.
  *
  * ONE SCROLLING PAGE OF ORDERED SECTIONS (E18/F01/S01), laid out by the card grid (E23/F01/S01):
- * Market Dates and Section Setup are wide, Tier Setup sits beside Location Setup, and How vendors
- * apply beside Application form. The grid's rule is in `primitives.css` and `docs/design-system.md`.
+ * Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How
+ * vendors apply beside Application form. Pricing follows the sections because its columns are the
+ * tiers they give tables (E43/F01/S01). The grid's rule is in `primitives.css` and `docs/design-system.md`.
  *
  * Not a step wizard. The surface must be resumable, and it must never force a walk-through to
  * change one value later, so the order is communicated by POSITION rather than enforced by
@@ -30,9 +31,10 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
+import ElementPricing from '@/components/elements/ElementPricing.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
-import type { IntakeMode, SetupObject } from '@/assets/types/datatypes';
+import type { IntakeMode, RejectionQuestion, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   setupObject: SetupObject;
@@ -50,11 +52,15 @@ const props = defineProps<{
   formQuestions: number;
   /** Why the form can no longer change, as the server serves it; null while it can. */
   formLockReason: string | null;
+  /** The form's questions with answers to choose, which a price group's condition may name. */
+  choiceQuestions: RejectionQuestion[];
 }>();
 
 const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
   (event: 'update:intakeMode', value: IntakeMode): void;
+  /** A card's field shows text that is not a value: the plan waits rather than saving. */
+  (event: 'held', value: boolean): void;
   (event: 'choosePath'): void;
   (event: 'openForm'): void;
   /** Open the flow that starts this draft from its Google Form's responses. */
@@ -150,6 +156,21 @@ const intakeEditable = computed(() => props.intakeEditable);
         <ElementSectionSetup
           :setupObject="setupObject"
           @update:setupObject="(value) => emit('update:setupObject', value)"
+        />
+      </template>
+    </ElementSettingContainer>
+
+    <ElementSettingContainer class="card-grid__wide" data-testid="plan-card-pricing">
+      <template #setting-title>
+        <h2>Pricing</h2>
+      </template>
+      <template #setting-content>
+        <ElementPricing
+          :setupObject="setupObject"
+          :questions="choiceQuestions"
+          :fixed="locked"
+          @update:setupObject="(value) => emit('update:setupObject', value)"
+          @held="(held) => emit('held', held)"
         />
       </template>
     </ElementSettingContainer>

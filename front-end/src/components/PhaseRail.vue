@@ -29,7 +29,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { hasAssignment } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
@@ -46,6 +46,8 @@ import {
   pathPhaseLabel,
   pathTransitionLabel,
   spineFor,
+  stageActions,
+  type StageAction,
 } from '@/utils/marketGuide';
 import { OFF_SPINE_PHASES, transitionDirection, transitionNeedsConfirmation } from '@/utils/phase';
 
@@ -68,7 +70,7 @@ const router = useRouter();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
 /** The stages this market's rail draws (`spineFor` says why `offers` is usually not one). */
-const spine = computed(() => spineFor(currentPhase.value, props.market?.phasesPassedThrough));
+const spine = computed(() => spineFor(currentPhase.value));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 
@@ -82,7 +84,7 @@ const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
  * Where this market has been, from the phase history the server keeps (E26/F06/S03).
  *
  * It used to be read off evidence - a stored assignment meant Assignment, a published form meant
- * Applications Open - and no evidence told "assigned, then archived" from "published, ran, then
+ * applications opened - and no evidence told "assigned, then archived" from "published, ran, then
  * archived", so a market that ran was told no check-in page ever went on the air (bug 8).
  */
 const reached = computed(() => new Set(props.market?.phasesReached ?? []));
@@ -123,7 +125,7 @@ const frozenNote = computed(() => {
       ? 'Its tables were allocated but it was never published, so no check-in page went on the air.'
       : 'Its tables were allocated.';
   }
-  if (has(MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review)) {
+  if (has(MarketPhase.Applications)) {
     return whole ? 'It opened applications but never allocated tables.' : 'It opened applications.';
   }
   return whole ? 'It was abandoned before it opened applications.' : '';
@@ -252,8 +254,7 @@ const stepLink = computed(() => elsewhere(step.value?.page));
 const availableTransitions = computed(() =>
   props.market && mayTake(props.market, MarketAction.MovePhase)
     ? movesOf(props.market).filter(
-        // The moves the server judged for the market's own path, which may step through a phase it
-        // never stops in (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a
+        // The moves the server judged. Never into a phase the spine leaves out: nothing can get a
         // market there, so "Send Offers" sat in the menu and always refused (E30/F01/S04). A
         // market in one keeps its ways out, which are not into it.
         (to) => !OFF_SPINE_PHASES.includes(to),
@@ -284,9 +285,16 @@ const fix = computed(() => {
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
+/** The menu's moves, back ones before archiving: the destructive move ends the list. */
+const MENU_ORDER: Record<string, number> = { back: 0, forward: 1, aside: 2, end: 3 };
 const otherTransitions = computed(() =>
-  availableTransitions.value.filter((to) => to !== forwardTransition.value),
+  availableTransitions.value
+    .filter((to) => to !== forwardTransition.value)
+    .sort((a, b) => MENU_ORDER[directionOf(a)] - MENU_ORDER[directionOf(b)]),
 );
+
+/** What the stage offers beside its moves (E38/F04), first in the menu: none is a move. */
+const actions = computed(() => stageActions(props.market));
 
 /*
  * "More…" is a menu (bug 44): a menu button that opens into its items, whose arrow keys walk them,
@@ -416,6 +424,37 @@ async function doTransition(toPhase: string) {
   );
 }
 
+/**
+ * An action inside the stage. Redo import opens the import, which reads the whole responses file
+ * again and leaves the market in Review; stopping or taking applications is a write, so the one
+ * store re-reads the market after it.
+ */
+async function handleAction(action: StageAction) {
+  if (!props.market) return;
+  if (menuOpen.value) menuButton.value?.focus();
+  menuOpen.value = false;
+  if (action.id === 'redo-import') {
+    await router.push(marketPath(props.market.id, 'import'));
+    return;
+  }
+  transitioning.value = true;
+  transitionError.value = '';
+  transitionBlockers.value = [];
+  try {
+    await api.post(`/markets/${encodeURIComponent(props.market.id)}/applications-stopped`, {
+      stopped: action.id === 'stop-applications',
+    });
+    await marketStore.refresh();
+  } catch (err: unknown) {
+    transitionError.value = getApiErrorMessage(
+      err,
+      'Could not change whether this market takes applications.',
+    );
+  } finally {
+    transitioning.value = false;
+  }
+}
+
 function handleTransitionClick(toPhase: string) {
   // A choice closes the menu and hands focus back to its button, as Escape does, and now rather than
   // after the update: the item goes with the menu, and a confirm dialog opened below returns focus
@@ -542,7 +581,7 @@ function cancelPending() {
             {{ transitionLabel(forwardTransition) }}
           </button>
 
-          <div v-if="otherTransitions.length" class="rail-menu">
+          <div v-if="otherTransitions.length || actions.length" class="rail-menu">
             <button
               id="phase-rail-menu-button"
               ref="menuButton"
@@ -566,6 +605,19 @@ function cancelPending() {
               data-testid="phase-rail-menu"
               @keydown="onMenuKey"
             >
+              <button
+                v-for="action in actions"
+                :key="action.id"
+                type="button"
+                role="menuitem"
+                tabindex="-1"
+                class="rail-menu-item"
+                :aria-disabled="transitioning"
+                :data-testid="`phase-rail-action-${action.id}`"
+                @click="!transitioning && handleAction(action)"
+              >
+                {{ action.label }}
+              </button>
               <button
                 v-for="toPhase in otherTransitions"
                 :key="toPhase"
@@ -730,11 +782,6 @@ function cancelPending() {
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
-  }
-
-  .phase-spine:focus-visible {
-    outline: 2px solid var(--mm-black);
-    outline-offset: 2px;
   }
 
   .phase-step {

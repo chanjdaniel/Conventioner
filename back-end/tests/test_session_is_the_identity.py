@@ -104,7 +104,7 @@ def _market_doc():
         "modificationList": [],
         "assignmentObject": {},
         "isDraft": False,
-        "phase": MarketPhase.APPLICATIONS_OPEN.value,
+        "phase": MarketPhase.APPLICATIONS.value,
         "applicationForm": {"fields": []},
         "organizationId": None,
     }
@@ -147,7 +147,7 @@ def client(monkeypatch):
     reviewed = []
     monkeypatch.setattr(
         ApplicantsApi, "review_application",
-        lambda market_id, application_id, status, by, owner=None, seen=None: (
+        lambda market_id, application_id, status, by, owner=None, seen=None, **_kw: (
             reviewed.append((application_id, status)) or ({"application": {"id": application_id}}, 200)
         ),
     )

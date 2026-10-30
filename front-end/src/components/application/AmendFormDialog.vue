@@ -2,19 +2,18 @@
 /**
  * Fixing the form without leaving the import (E20/F03/S01).
  *
- * The wizard used to print four manual steps and two phase transitions - "reopen the market for
- * editing, turn it off in the form builder, then open applications and import again" - and the
- * organizer lost their upload on the way. This does the walk, and the wizard keeps the file, the
- * mapping and the cursor while it runs.
+ * The wizard used to print manual steps - "turn it off in the form builder, then import again" -
+ * and the organizer lost their upload on the way. A Google Form market's first import runs while
+ * it is a draft (E38/F04/S01), where its form is writable, so this writes the form through the one
+ * form writer, and the wizard keeps the file, the mapping and the cursor meanwhile.
  *
  * It covers BOTH of the wizard's dead ends, because the source itself calls them the same shape:
  * a column with nowhere to go needs a custom field, and a question the form never asked needs
  * that question turned off. Either way the answer is an edit to the form.
  *
- * **Pre-flight, not rollback.** The server checks every guard on the return path against the
- * PROPOSED form before the market leaves its phase, so a refusal here has moved nothing. This
- * dialog mirrors the one refusal an organizer can cause - a form that would ask nothing - so it
- * is immediate, but the server is the authority and its answer is the one shown.
+ * It mirrors the one refusal an organizer can cause - a form that would ask nothing, which would
+ * keep the market from entering Review - so it is immediate; the server is the authority on the
+ * rest, and its answer is the one shown.
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -25,10 +24,12 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  REQUEST_KEY,
+  REQUEST_LABEL,
   UNASKABLE_ESSENTIAL_KEYS,
   askedEssentialAnswers,
 } from '@/utils/essentialFields';
-import { FIELD_KEY_PATTERN } from '@/utils/applicationForm';
+import { fieldKeyError } from '@/utils/applicationForm';
 import type { ApplicationForm, EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 
 const props = defineProps<{
@@ -41,8 +42,6 @@ const props = defineProps<{
   suggestedFieldLabel?: string;
   /** Prefilled when it was opened from a question the form never asked. */
   suggestedUnasked?: string;
-  /** A form-intake market's public application page is off the air while the chain runs. */
-  intakeIsForm: boolean;
 }>();
 
 const emit = defineEmits<{ close: []; amended: [form: ApplicationForm] }>();
@@ -53,8 +52,6 @@ const unasked = ref<string[]>([]);
 const keyTouched = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
-const blockers = ref<string[]>([]);
-const stalled = ref<{ message: string; canResume: boolean } | null>(null);
 
 /** A label becomes a key until the organizer names one - the form builder's own rule. */
 watch(newFieldLabel, (label) => {
@@ -77,16 +74,15 @@ watch(
       unasked.value.push(props.suggestedUnasked);
     }
     errorMessage.value = '';
-    blockers.value = [];
-    stalled.value = null;
   },
   { immediate: true },
 );
 
-/** Only rankings may be turned off, and only the ones this market's plan actually offers. */
+/** Only the rankings and the request may be turned off, and only what this market's plan offers. */
 const UNASKABLE_LABELS: Record<string, string> = {
   [SECTION_RANKING_KEY]: SECTION_RANKING_LABEL,
   [TABLE_TYPE_RANKING_KEY]: TABLE_TYPE_RANKING_LABEL,
+  [REQUEST_KEY]: REQUEST_LABEL,
 };
 
 /** What the essential questions currently ask, ignoring what is already turned off. */
@@ -106,12 +102,10 @@ const existingFields = computed(() => props.applicationForm?.fields ?? []);
 const keyError = computed(() => {
   if (!newFieldLabel.value.trim()) return '';
   const key = newFieldKey.value.trim();
-  if (!FIELD_KEY_PATTERN.test(key)) {
-    return 'Use lowercase letters, numbers and underscores only.';
-  }
-  if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
-    return `Keys beginning "${ESSENTIAL_KEY_PREFIX}" belong to the essential questions.`;
-  }
+  // The builder's own check, so this never offers a key the save refuses:
+  // a column headed "Submitted at" slugs to the import's own `submitted_at` (E38/F02).
+  const refusal = fieldKeyError(key);
+  if (refusal) return refusal;
   if (existingFields.value.some((field) => field.key === key)) {
     return 'This market already asks a question with that key.';
   }
@@ -143,8 +137,8 @@ const proposed = computed<ApplicationForm>(() => {
  * The one refusal an organizer can cause from here, mirrored so it is immediate.
  *
  * A form is its custom fields PLUS the essential questions the plan asks, so turning every
- * essential question off while adding no field leaves a market that would open applications and
- * then refuse every application it received. The server refuses this too, and its answer wins.
+ * essential question off while adding no field leaves a market that could not enter Review: the
+ * move refuses a form that asks nothing (`FormHasFieldsGuard`).
  */
 const wouldAskNothing = computed(() => {
   const essentialsLeft = askedEssentialAnswers({
@@ -171,38 +165,12 @@ async function save() {
   if (cannotSave.value) return;
   saving.value = true;
   errorMessage.value = '';
-  blockers.value = [];
-  stalled.value = null;
   try {
-    const { data } = await api.post(`/markets/${props.marketId}/application-form/amendment`, {
-      applicationForm: proposed.value,
-    });
-    emit('amended', (data?.applicationForm ?? proposed.value) as ApplicationForm);
+    const { data } = await api.put(`/markets/${props.marketId}/application-form`, proposed.value);
+    emit('amended', (data?.application_form ?? proposed.value) as ApplicationForm);
     emit('close');
   } catch (err: unknown) {
-    const body = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-    if (body?.error === 'preconditions_not_met') {
-      blockers.value = ((body.blockers ?? []) as Array<{ message: string }>).map((b) => b.message);
-      errorMessage.value = String(body.message ?? 'The form as edited cannot reopen applications.');
-    } else if (body?.error === 'amendment_stalled') {
-      // Where it stopped, and the offer to finish - never left to the phase rail to reveal.
-      stalled.value = { message: String(body.message), canResume: Boolean(body.canResume) };
-    } else {
-      errorMessage.value = getApiErrorMessage(err, 'Could not amend the form.');
-    }
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function resume() {
-  saving.value = true;
-  try {
-    await api.post(`/markets/${props.marketId}/application-form/amendment/resume`);
-    stalled.value = null;
-    emit('close');
-  } catch (err: unknown) {
-    errorMessage.value = getApiErrorMessage(err, 'Could not finish returning the market.');
+    errorMessage.value = getApiErrorMessage(err, 'Could not save the form.');
   } finally {
     saving.value = false;
   }
@@ -215,14 +183,15 @@ async function resume() {
     title="Fix the form"
     testid="amend-form"
     wide
+    anchored
     confirm-label="Save and carry on"
     :confirm-disabled="cannotSave"
     @close="emit('close')"
     @submit="save"
   >
     <p class="amend-lede">
-      Your upload and your mapping stay exactly as they are. This reopens the market for editing,
-      writes the form, and puts it back where it was.
+      Your upload and your mapping stay exactly as they are. This saves the market's questions, as
+      Market Setup would.
     </p>
 
     <section v-if="togglable.length" class="amend-section">
@@ -268,50 +237,14 @@ async function resume() {
       </label>
     </section>
 
-    <!--
-      Stated, not discovered. The exposure is bounded - this chain is only possible while nobody
-      has applied - but an organizer whose applicants meet a missing page deserves to have been
-      told, not to find out.
-    -->
-    <p v-if="intakeIsForm" class="amend-note" data-testid="amend-form-exposure-note">
-      While this runs, this market's public application page is briefly unavailable. Nobody has
-      applied yet, which is the only reason this is possible at all.
-    </p>
-
-    <!-- Invisible in the workflow, but not in the record (E18/F03/S01). -->
-    <p class="amend-note" data-testid="amend-form-redate-note">
-      Reopening and closing the form again re-dates its publication, so the record will show today
-      rather than the day it first opened.
-    </p>
-
     <p v-if="wouldAskNothing" class="amend-error" data-testid="amend-form-asks-nothing">
-      That would leave the form asking nothing at all, so this market could not reopen applications.
-      Keep one question, or add a field.
+      That would leave the form asking nothing at all, so this market could not enter Review. Keep
+      one question, or add a field.
     </p>
 
-    <div v-if="blockers.length" class="amend-error" data-testid="amend-form-blockers">
-      <p>{{ errorMessage }}</p>
-      <ul>
-        <li v-for="blocker in blockers" :key="blocker">{{ blocker }}</li>
-      </ul>
-    </div>
-    <p v-else-if="errorMessage && !stalled" class="amend-error" data-testid="amend-form-error">
+    <p v-if="errorMessage" class="amend-error" data-testid="amend-form-error">
       {{ errorMessage }}
     </p>
-
-    <div v-if="stalled" class="amend-stalled" data-testid="amend-form-stalled">
-      <p>{{ stalled.message }}</p>
-      <button
-        v-if="stalled.canResume"
-        type="button"
-        class="btn btn--compact btn--primary"
-        :disabled="saving"
-        data-testid="amend-form-resume-button"
-        @click="resume()"
-      >
-        Put the market back
-      </button>
-    </div>
   </AppDialog>
 </template>
 
@@ -355,36 +288,9 @@ async function resume() {
   gap: var(--space-1);
 }
 
-.amend-note {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
 .amend-error {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
-}
-
-.amend-error ul {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-}
-
-.amend-stalled {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--mm-red);
-  border-radius: var(--radius-control);
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-}
-
-.amend-stalled p {
-  margin: 0;
 }
 </style>

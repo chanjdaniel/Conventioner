@@ -9,20 +9,17 @@
  * or click, and a count of what is left.
  *
  * **This view decides one application at a time.** A verdict on several is the All view's
- * (`ApplicationsAll`, E34/F04/S02): rows the reviewer ticks, one by one, a confirmation naming the
- * count, and never "approve all matching" - a verdict nobody read would reach the approved set,
- * which is the solver's entire input (`assign_market` reads `reviewer_approved` and nothing else).
+ * (`ApplicationsAll`, E34/F04/S02): rows the reviewer ticks, one by one or with Select all over the
+ * rows shown (E38/F05/S02), and a confirmation naming the count - never "approve all matching" past
+ * what is on screen, since the approved set is the solver's entire input (`assign_market` reads
+ * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
-import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
-import {
-  fetchMarketApplications,
-  reassignFollowUp,
-  publishResults as publishResultsApi,
-} from '@/utils/applicantApi';
+import { ApplicationStatus } from '@/assets/types/datatypes';
+import { fetchMarketApplications, reassignFollowUp } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import {
   asksNothingDistinguishing,
@@ -32,20 +29,19 @@ import {
   reviewed,
 } from '@/utils/reviewQueue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
-import AppDialog from '@/components/AppDialog.vue';
-import { outcomeHeadline } from '@/utils/applicantOutcome';
-import { useMarketStore } from '@/stores/market';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
-import AnswerValue from '@/components/AnswerValue.vue';
+import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue';
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
-import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
+import { useMarketStore } from '@/stores/market';
+import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -59,14 +55,13 @@ const props = defineProps<{
   named?: string;
 }>();
 
-const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
-
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
-const publishLoading = ref(false);
-const publishError = ref('');
-const resultsPublished = ref(false);
+/** When the list was last read from the server (E38/F05/S03), and a refresh's own state. */
+const readAt = ref<number | null>(null);
+const refreshing = ref(false);
+const refreshError = ref('');
 const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
@@ -87,40 +82,6 @@ const givers = computed(
   () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
 );
 
-/**
- * Does publishing results mean anything on this market?
- *
- * `resultsPublished` is what makes a reviewer's verdict visible to the applicant instead of
- * `under_review` - and every endpoint that reads it goes through
- * `applicant_intake_market_by_slug`, which serves form-intake markets only. On a CSV market the
- * flag has no reader at all, so the button was a no-op with a confident label. It is absent
- * there, and the endpoint refuses too, because a hidden button is not a rule.
- */
-const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
-
-/**
- * Why results cannot be published yet, as the server judges it: who may, the table's row
- * (E39/F01/S02), then that they wait for a current run in assignment, so each applicant is told
- * whether they have a table (E36/F04/S01).
- */
-const publishReason = computed(
-  () =>
-    actionRefusal(props.market, MarketAction.PublishResults) ||
-    props.market?.publishWaitsReason ||
-    null,
-);
-const outcomes = computed(() => props.market?.publishOutcomes ?? null);
-const confirmingPublish = ref(false);
-/** The two outcomes in the applicant's own words (E36/F05/S02), worded once. */
-const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
-const NOT_ASSIGNED = outcomeHeadline({ outcome: 'not_assigned' });
-/** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
-function reDecidable(app: Application): boolean {
-  return (
-    app.status === ApplicationStatus.ReviewerApproved ||
-    app.status === ApplicationStatus.ReviewerRejected
-  );
-}
 const approvedCount = computed(
   () => applications.value.filter((a) => a.status === ApplicationStatus.ReviewerApproved).length,
 );
@@ -183,15 +144,6 @@ const rest = computed(() => split.value.rest);
 const restOpen = ref(false);
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
 
-// The surface above leads with this in the review phase, where clearing the queue is the whole of
-// what the market is waiting on (E18/F02/S03).
-// Everything still to decide, follow-ups included: each holds Begin Assignment (E34/F02/S01).
-watch(
-  () => reviewQueue(applications.value, true).length,
-  (count) => emit('update:undecidedCount', count),
-  { immediate: true },
-);
-
 /**
  * Whether this person may change what leads the card - the form's row - on a market that can
  * change at all (bugs 30 and 37, E39/F01/S02).
@@ -208,8 +160,22 @@ const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendo
 const decides = computed(
   () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
 );
-/** Whether this person may publish the verdicts: the table's Publish results row (bug 37). */
-const publishes = computed(() => mayTake(props.market, MarketAction.PublishResults));
+/**
+ * Whether this person may also change a verdict already given, an automatic rejection included:
+ * the table's change row, on top of giving one (E38/F06/S01). Said once, above the reviewed list,
+ * to a reviewer it refuses.
+ */
+const changes = computed(() => decides.value && mayTake(props.market, MarketAction.ChangeVerdicts));
+const changeRefusal = computed(() =>
+  decides.value && !changes.value ? actionRefusal(props.market, MarketAction.ChangeVerdicts) : null,
+);
+/**
+ * Whether the card takes a verdict from this person: one someone else decided first (E34/F03/S01)
+ * takes one only from someone who may change a verdict.
+ */
+const decidesCurrent = computed(
+  () => decides.value && (changes.value || !current.value || !isDecided(current.value)),
+);
 
 /**
  * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
@@ -265,12 +231,6 @@ watch(
   { immediate: true },
 );
 
-watch(
-  () => props.market?.resultsPublished,
-  (published) => (resultsPublished.value = published ?? false),
-  { immediate: true },
-);
-
 /**
  * Open at the named application: on the card if it is still to decide - claimed for a reviewer,
  * unless someone else has it - otherwise in the reviewed list, opened, scrolled to and marked.
@@ -302,7 +262,7 @@ async function takeNext(after: string | null, want: string | null = null) {
     const app = await claims.next(after, includeFollowUps.value, want);
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
-    else applications.value = await fetchMarketApplications(props.market.id);
+    else await read();
     allHeldElsewhere.value = !app && undecided.value.length > 0;
     cursor.value = app
       ? Math.max(
@@ -315,12 +275,20 @@ async function takeNext(after: string | null, want: string | null = null) {
   }
 }
 
+/** The one read of the list, and when it was. */
+async function read() {
+  if (!props.market) return;
+  applications.value = await fetchMarketApplications(props.market.id);
+  readAt.value = Date.now();
+  refreshError.value = '';
+}
+
 async function loadApplications() {
   if (!props.market) return;
   loading.value = true;
   errorMessage.value = '';
   try {
-    applications.value = await fetchMarketApplications(props.market.id);
+    await read();
     cursor.value = 0;
     if (props.named) await showNamed();
     else if (decides.value) await takeNext(null);
@@ -329,6 +297,36 @@ async function loadApplications() {
   } finally {
     loading.value = false;
   }
+}
+
+/**
+ * Refresh (E38/F05/S03): the counts, others' verdicts and who holds what, read again at once. The
+ * list is otherwise kept in step with this reviewer's own verdicts, so others' show only here, or
+ * when no card can be handed out. A re-read, not a reset: the card up stays up while it is still to
+ * decide - the reviewer holds it - and one decided elsewhere meanwhile gives way to the next. A
+ * failed refresh says so beside the button and keeps the list.
+ */
+async function refresh() {
+  if (!props.market || refreshing.value || saving.value) return;
+  refreshing.value = true;
+  const up = current.value?.id ?? null;
+  try {
+    await read();
+    void useMarketStore().refresh();
+  } catch {
+    refreshError.value = 'Could not refresh. The list is as it was last read.';
+    return;
+  } finally {
+    refreshing.value = false;
+  }
+  // A refused verdict's card stays as it now stands, until the reviewer moves on: its message is
+  // the card's. Any other error was the last read's or the last hand-out's, which this one replaces.
+  if (refusedOn.value) return;
+  errorMessage.value = '';
+  const at = up ? undecided.value.findIndex((app) => app.id === up) : -1;
+  if (at >= 0) cursor.value = at;
+  else if (decides.value) await takeNext(null);
+  else cursor.value = Math.min(cursor.value, Math.max(undecided.value.length - 1, 0));
 }
 
 /**
@@ -448,7 +446,7 @@ function onKey(event: KeyboardEvent) {
     next();
     return;
   }
-  if (!decides.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
+  if (!decidesCurrent.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
   event.preventDefault();
   if (key === 'a') decideCurrent(ApplicationStatus.ReviewerApproved);
   if (key === 'r') decideCurrent(ApplicationStatus.ReviewerRejected);
@@ -474,22 +472,6 @@ onUnmounted(() => {
   window.removeEventListener('pointerdown', active);
 });
 
-async function handlePublish() {
-  if (!props.market || publishLoading.value) return;
-  publishLoading.value = true;
-  publishError.value = '';
-  try {
-    await publishResultsApi(props.market.id);
-    resultsPublished.value = true;
-    confirmingPublish.value = false;
-    void useMarketStore().refresh();
-  } catch (err) {
-    publishError.value = getApiErrorMessage(err, 'Failed to publish results');
-  } finally {
-    publishLoading.value = false;
-  }
-}
-
 /** The applicant's own words in answer to the table-share question, for its notice. */
 function shareWords(app: Application): string {
   return String(app.formData?.[TABLE_SHARE_ANSWER_KEY] ?? '');
@@ -502,74 +484,26 @@ function submittedOn(app: Application): string {
 
 <template>
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
-    <div class="monitor-header">
-      <h2>Applications</h2>
-      <div v-if="marketHasApplicants && publishes" class="monitor-actions">
-        <button
-          v-if="!resultsPublished"
-          class="publish-button"
-          :disabled="publishLoading || Boolean(publishReason)"
-          @click="confirmingPublish = true"
-          data-testid="app-monitor-publish-button"
-        >
-          {{ publishLoading ? 'Publishing...' : 'Publish Results' }}
-        </button>
-        <span
-          v-if="!resultsPublished && publishReason"
-          class="publish-hint"
-          data-testid="app-monitor-publish-hint"
-          >{{ publishReason }}</span
-        >
-        <!-- What it does, said beside it: optional, never the rail's next step (E31/F03/S04). -->
-        <span
-          v-else-if="!resultsPublished"
-          class="publish-hint"
-          data-testid="app-monitor-publish-hint"
-        >
-          Tells every applicant, on their application page, whether they have a table.
-        </span>
-        <span
-          v-if="resultsPublished"
-          class="chip chip--positive"
-          data-testid="app-monitor-published-badge"
-        >
-          Results published
-        </span>
-      </div>
-    </div>
-
-    <p v-if="publishError" class="error-state">{{ publishError }}</p>
+    <ListFreshness
+      v-if="!loading"
+      class="monitor-freshness"
+      :readAt="readAt"
+      :refreshing="refreshing || saving"
+      :failed="refreshError"
+      @refresh="refresh"
+    />
     <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
-
-    <!-- What publishing tells whom, before it does (E36/F04/S01): it cannot be undone. -->
-    <AppDialog
-      :open="confirmingPublish"
-      title="Publish results"
-      testid="publish-results"
-      :confirm-label="publishLoading ? 'Publishing…' : 'Publish results'"
-      :confirm-disabled="publishLoading"
-      :error="publishError"
-      @close="confirmingPublish = false"
-      @submit="handlePublish"
-    >
-      <p v-if="outcomes" class="publish-outcomes">
-        {{ outcomes.haveATable }}
-        {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
-        "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
-      </p>
-      <p class="publish-outcomes">
-        Publishing cannot be undone, and tables cannot be allocated again after it: assignments
-        change only by hand.
-      </p>
-    </AppDialog>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...
     </div>
 
-    <div v-else-if="applications.length === 0" class="empty-state" data-testid="app-monitor-empty">
-      No applications received yet.
-    </div>
+    <!-- Said of a list that was read: under a failed load there is nothing to say it of. -->
+    <template v-else-if="applications.length === 0">
+      <div v-if="!errorMessage" class="empty-state" data-testid="app-monitor-empty">
+        No applications received yet.
+      </div>
+    </template>
 
     <template v-else>
       <div class="progress-row">
@@ -658,70 +592,27 @@ function submittedOn(app: Application): string {
           class="card-notice"
         />
 
-        <!-- What this market said a reviewer reads first (E19/F03/S01). -->
-        <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
-          <template v-for="answer in leading" :key="answer.key">
-            <dt>{{ answer.label }}</dt>
-            <dd :data-testid="`app-monitor-answer-${answer.key}`">
-              <AnswerValue :value="answer.value" />
-              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-              <AnswerUpdateNote
-                :update="updateOf(current, answer.key)"
-                :testid="`app-monitor-answer-${answer.key}`"
-              />
-            </dd>
-          </template>
-        </dl>
-
-        <!--
-          The rest, behind a disclosure - but ONLY when something was marked. A market that marked
-          nothing renders the card exactly as it always did: an empty list is not a reason to hide
-          an application.
-
-          The label names the HIDDEN count, not the total: the question a reviewer is answering
-          before they click is "what am I not being shown?", and the
-          open state is kept for the whole session: at card forty, reopening this each time is a
-          tax on the person doing the work.
-        -->
-        <details
-          v-if="leading.length && rest.length"
-          class="answers-rest"
-          :open="restOpen"
-          data-testid="app-monitor-rest"
-          @toggle="restOpen = ($event.target as HTMLDetailsElement).open"
+        <!-- What this market said a reviewer reads first (E19/F03/S01), then the rest. The open
+             state is kept for the whole session: at card forty, reopening it each time is a tax on
+             the person doing the work. -->
+        <ApplicationAnswers
+          v-model:restOpen="restOpen"
+          class="card-answers"
+          :leading="leading"
+          :rest="rest"
+          testid="app-monitor"
         >
-          <summary data-testid="app-monitor-rest-summary">
-            {{ rest.length }} more {{ rest.length === 1 ? 'answer' : 'answers' }}
-          </summary>
-          <dl class="answers">
-            <template v-for="answer in rest" :key="answer.key">
-              <dt>{{ answer.label }}</dt>
-              <dd :data-testid="`app-monitor-answer-${answer.key}`">
-                <AnswerValue :value="answer.value" />
-                <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-                <AnswerUpdateNote
-                  :update="updateOf(current, answer.key)"
-                  :testid="`app-monitor-answer-${answer.key}`"
-                />
-              </dd>
-            </template>
-          </dl>
-        </details>
-
-        <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
-          <template v-for="answer in rest" :key="answer.key">
-            <dt>{{ answer.label }}</dt>
-            <dd :data-testid="`app-monitor-answer-${answer.key}`">
-              <AnswerValue :value="answer.value" />
-              <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
-              <AnswerUpdateNote
-                :update="updateOf(current, answer.key)"
-                :testid="`app-monitor-answer-${answer.key}`"
-              />
-            </dd>
+          <!-- An organizer's update reads in its place, and says so (E41/F01/S01). -->
+          <template #note="{ answer }">
+            <AnswerUpdateNote
+              :update="updateOf(current, answer.key)"
+              :testid="`app-monitor-answer-${answer.key}`"
+            />
           </template>
-        </dl>
-        <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
+        </ApplicationAnswers>
+        <p v-if="!leading.length && !rest.length" class="no-answers">
+          This application carries no answers.
+        </p>
 
         <VendorNotes
           v-if="market"
@@ -769,9 +660,16 @@ function submittedOn(app: Application): string {
         </div>
 
         <!-- A reader walks the queue with Next alone; the verdicts are a reviewer's. -->
+        <p
+          v-if="decides && !decidesCurrent"
+          class="change-reason"
+          data-testid="app-monitor-card-change-reason"
+        >
+          {{ changeRefusal }}
+        </p>
         <div class="card-actions">
           <button
-            v-if="decides"
+            v-if="decidesCurrent"
             class="btn btn--destructive"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerRejected)"
@@ -780,7 +678,7 @@ function submittedOn(app: Application): string {
             Reject <kbd>R</kbd>
           </button>
           <button
-            v-if="decides && current.status !== ApplicationStatus.NeedsFollowUp"
+            v-if="decidesCurrent && current.status !== ApplicationStatus.NeedsFollowUp"
             class="btn btn--secondary"
             :disabled="saving"
             @click="followUpOpen = true"
@@ -797,7 +695,7 @@ function submittedOn(app: Application): string {
             {{ refusedOn ? 'Back to the queue' : 'Next' }} <kbd>N</kbd>
           </button>
           <button
-            v-if="decides"
+            v-if="decidesCurrent"
             class="btn btn--primary"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerApproved)"
@@ -844,7 +742,8 @@ function submittedOn(app: Application): string {
         @confirm="markFollowUp"
       />
 
-      <!-- Decided applications, so a verdict can be read back and corrected - one at a time. -->
+      <!-- Decided applications, so a verdict can be read back, and changed one at a time by
+           whoever the change row lets change one (E38/F06/S01). -->
       <div v-if="decided.length" class="decided">
         <button
           class="decided-toggle"
@@ -855,6 +754,13 @@ function submittedOn(app: Application): string {
         >
           {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
         </button>
+        <p
+          v-if="showDecided && changeRefusal"
+          class="change-reason"
+          data-testid="app-monitor-decided-reason"
+        >
+          {{ changeRefusal }}
+        </p>
         <ul
           v-if="showDecided"
           id="app-monitor-decided-list"
@@ -883,7 +789,7 @@ function submittedOn(app: Application): string {
             </span>
             <!-- The action is a quiet button beside the verdict, never a second verdict. -->
             <button
-              v-if="decides && app.status === ApplicationStatus.ReviewerRejected"
+              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
               type="button"
               class="btn btn--secondary btn--compact"
               :disabled="saving"
@@ -893,7 +799,7 @@ function submittedOn(app: Application): string {
               Approve instead
             </button>
             <button
-              v-else-if="decides && reDecidable(app)"
+              v-else-if="changes && isDecided(app)"
               type="button"
               class="btn btn--secondary btn--compact"
               :disabled="saving"
@@ -911,54 +817,12 @@ function submittedOn(app: Application): string {
 
 <style scoped>
 .monitor-panel {
-  padding: var(--space-4) 0;
+  /* No top padding: it starts where the All view does, so switching views moves nothing. */
+  padding: 0 0 var(--space-4);
 }
 
-.monitor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.monitor-freshness {
   margin-bottom: var(--space-4);
-}
-
-.monitor-header h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-  color: var(--mm-black);
-}
-
-.monitor-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.publish-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-sm);
-}
-
-.publish-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.publish-outcomes {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.publish-hint {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  max-width: 24ch;
 }
 
 .loading-state,
@@ -1051,6 +915,18 @@ function submittedOn(app: Application): string {
   color: inherit;
 }
 
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01): over the reviewed
+   list, on white, and on the card, on beige. */
+.change-reason {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.review-card .change-reason {
+  color: var(--mm-text-muted-on-beige);
+}
+
 .held-by {
   margin: var(--space-2) 0;
   font-size: var(--text-sm);
@@ -1094,24 +970,9 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-muted-on-beige);
 }
 
-.answers {
-  display: grid;
-  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
-  gap: var(--space-2) var(--space-4);
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-sm);
-}
-
-.answers dt {
-  color: var(--mm-text-muted-on-beige);
-  overflow-wrap: anywhere;
-}
-
-.answers dd {
-  margin: 0;
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+/* The answers lay themselves out (`ApplicationAnswers`); the card spaces them from the notes. */
+.card-answers {
+  margin-bottom: var(--space-4);
 }
 
 .card-notice {
@@ -1126,47 +987,6 @@ function submittedOn(app: Application): string {
 
 .card-notes {
   margin: 0 0 var(--space-4);
-}
-
-/* The unmarked answers. Set apart from the marked ones above it by a rule, so the card reads as
-   "these first, then the rest" rather than as one long list that happens to fold. */
-.answers-rest {
-  margin: 0 0 var(--space-4);
-  border-top: 1px solid var(--mm-border);
-  padding-top: var(--space-3);
-}
-
-.answers-rest summary {
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted-on-beige);
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.answers-rest summary::-webkit-details-marker {
-  display: none;
-}
-
-/* Its own marker, because the native one is hidden above to keep the row on one baseline. */
-.answers-rest summary::before {
-  content: '▸';
-  font-size: var(--text-xs);
-  transition: transform 0.12s ease;
-}
-
-.answers-rest[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.answers-rest summary:hover {
-  color: var(--mm-black);
-}
-
-.answers-rest .answers {
-  margin: var(--space-3) 0 0;
 }
 
 /* Changing what leads the card, from the queue. Quiet by default: the reviewer came here to
@@ -1219,7 +1039,7 @@ function submittedOn(app: Application): string {
   margin-left: auto;
 }
 
-/* The verdicts are the primitives' (`.btn`): one height, one focus ring, one disabled state. */
+/* The verdicts are the primitives' (`.btn`): one height, one focus halo, one disabled state. */
 .card-actions kbd {
   font-family: monospace;
   font-size: var(--text-xs);
@@ -1271,16 +1091,5 @@ function submittedOn(app: Application): string {
 .decided-list .app-email {
   flex: 1 1 12rem;
   font-size: var(--text-sm);
-}
-
-@media (max-width: 640px) {
-  .answers {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-hairline) 0;
-  }
-
-  .answers dd {
-    margin-bottom: var(--space-3);
-  }
 }
 </style>

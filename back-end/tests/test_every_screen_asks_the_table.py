@@ -48,7 +48,7 @@ def read(monkeypatch, applications):
     monkeypatch.setattr(UsersApi, "get_user_by_id", lambda _uid: None)
     monkeypatch.setattr(OrgsApi, "get_organization", lambda _oid: None)
 
-    def serve(role, phase=MarketPhase.REVIEW):
+    def serve(role, phase=MarketPhase.APPLICATIONS):
         monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: role)
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(
             {**stored_market(phase), "_id": "mongo-market-123"}))
@@ -57,7 +57,7 @@ def read(monkeypatch, applications):
     return serve
 
 
-def market(phase=MarketPhase.REVIEW):
+def market(phase=MarketPhase.APPLICATIONS):
     return MarketsApi.market_from_document(stored_market(phase))
 
 
@@ -116,7 +116,8 @@ class TestAnArchivedMarket:
         served = read(MarketRole.OWNER, MarketPhase.ARCHIVED)["actionRefusals"]
 
         assert {row.id for row in MarketsApi.ARCHIVED_STILL_TAKES} == {
-            "read", "export-csv", "manage-editors-and-viewers", "manage-admins", "delete-market"}
+            "read", "read-history", "export-csv", "manage-editors-and-viewers", "manage-admins",
+            "delete-market"}
         assert all(served[row.id] is None for row in MarketsApi.ARCHIVED_STILL_TAKES)
 
 
@@ -152,12 +153,12 @@ class TestTheRulesOfTheMarketsLifeAreServedOnTheirOwn:
     """Who may is the table's; when is the market's, and each is its own fact on the read."""
 
     def test_the_verdicts_settle_on_entering_assignment(self, read):
-        assert read(MarketRole.OWNER, MarketPhase.REVIEW)["verdictsSettledReason"] is None
+        assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["verdictsSettledReason"] is None
         assert read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)["verdictsSettledReason"] == (
             MarketsApi.VERDICTS_SETTLED)
 
     def test_a_vendor_is_added_from_the_assignment_on(self, read):
-        assert read(MarketRole.OWNER, MarketPhase.REVIEW)["addingVendorsReason"] == (
+        assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["addingVendorsReason"] == (
             MarketsApi.NOT_YET_ADDING)
         assert read(MarketRole.OWNER, MarketPhase.ASSIGNMENT)["addingVendorsReason"] is None
 
@@ -193,7 +194,7 @@ class TestTheReasonsAnOldBundleReads:
 
     @pytest.mark.parametrize("role", ROLES[1:], ids=str)
     @pytest.mark.parametrize("phase", [
-        MarketPhase.REVIEW, MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS,
+        MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS,
         MarketPhase.ARCHIVED], ids=str)
     def test_each_is_its_rows_answer_then_its_rule(self, read, role, phase):
         served = read(role, phase)
@@ -220,7 +221,7 @@ class TestTheReasonsAnOldBundleReads:
 
         assert served["verdictLockReason"] == MarketsApi.VERDICTS_SETTLED
         assert served["publishResultsReason"] == "Run it first."
-        assert read(MarketRole.OWNER, MarketPhase.REVIEW)["addVendorReason"] == (
+        assert read(MarketRole.OWNER, MarketPhase.APPLICATIONS)["addVendorReason"] == (
             MarketsApi.NOT_YET_ADDING)
 
 
@@ -229,7 +230,7 @@ class TestTheMarketsList:
     resolves from the documents it holds."""
 
     @pytest.mark.parametrize("role", ROLES, ids=str)
-    @pytest.mark.parametrize("phase", [MarketPhase.REVIEW, MarketPhase.ARCHIVED], ids=str)
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS, MarketPhase.ARCHIVED], ids=str)
     def test_an_entry_answers_as_the_market_read(self, read, role, phase):
         served = MarketsApi.role_action_refusals(role, phase, {})
 

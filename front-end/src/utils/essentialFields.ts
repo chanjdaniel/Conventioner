@@ -160,6 +160,22 @@ export function askedEssentialAnswers(
     .map(([key, label]) => ({ key, label }));
 }
 
+/**
+ * The asked essential questions that depend on the plan offering something: what an applicant
+ * applies FOR. The mirror of `plan_derived_asked_keys` in `back-end/essential_fields.py`, which
+ * leaves out identity and the free request: a form asking only those asks nothing.
+ */
+export function planDerivedAskedKeys(options: EssentialFormOptions): string[] {
+  const asked: string[] = [];
+  if (options.dates.length > 0) {
+    asked.push(AVAILABLE_DATES_KEY, MAX_DATES_KEY, TABLE_CHOICE_KEY, TABLE_SHARE_EMAIL_KEY);
+  }
+  if (options.tiers.length > 0) asked.push(TIER_PREFERENCE_KEY);
+  if (options.sections.length >= 2) asked.push(SECTION_RANKING_KEY);
+  if (options.tableTypes.length >= 2) asked.push(TABLE_TYPE_RANKING_KEY);
+  return asked.filter((key) => isEssentialAsked(key, options));
+}
+
 /** Is this essential question one this market actually asks? */
 export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
   return !(options.unasked ?? []).includes(key);
@@ -285,6 +301,17 @@ export function answerText(value: unknown): string {
   // `false` renders rather than dropping out: "no, I do not need power" is an answer.
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return String(value);
+}
+
+/**
+ * The name to call an applicant by, from their answers: the one they chose, else the one on their
+ * identification; empty when they gave neither. The client's reading of `display_name` in
+ * `back-end/essential_fields.py`, for a screen that holds the answers rather than the server's
+ * names: the All view's rows, the import preview's.
+ */
+export function applicantName(formData: Record<string, unknown> | null | undefined): string {
+  const answers = formData ?? {};
+  return String(answers[PREFERRED_NAME_KEY] || answers[FULL_NAME_KEY] || '').trim();
 }
 
 /**

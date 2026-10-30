@@ -1,12 +1,10 @@
 <script setup lang="ts">
 /**
- * The placement trail: who changed a placement, to what, and when (`E11/F04/S01`).
- *
- * One component, two surfaces - the whole market's log on the assignment tab, and one vendor's
- * entries on their detail panel. It is the same list asking the same question of a different
- * scope, and building it twice would let the two drift.
+ * The placement trail: who changed a placement, to what, and when (`E11/F04/S01`), across the
+ * market, in the Assignment history dialog. One vendor's changes, placements among them, are the
+ * market's history narrowed to them, in their drawer (`MarketHistory`, E40/F01/S04).
  */
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { api } from '@/utils/api';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import {
@@ -16,13 +14,7 @@ import {
   type PlacementHistoryEntry,
 } from '@/utils/placementHistory';
 
-const props = defineProps<{
-  marketId: string;
-  /** Narrow to one person's entries, for their panel. Omitted, the whole market's trail. */
-  vendor?: string | null;
-  /** How the vendor list words a heading it may not want at all. */
-  heading?: string;
-}>();
+const props = defineProps<{ marketId: string }>();
 
 const entries = ref<PlacementHistoryEntry[]>([]);
 const vendorNames = ref<VendorNames>({});
@@ -34,9 +26,8 @@ async function load(): Promise<void> {
   isLoading.value = true;
   loadError.value = '';
   try {
-    const query = props.vendor ? `?vendor=${encodeURIComponent(props.vendor)}` : '';
     const resp = await api.get<{ entries: PlacementHistoryEntry[]; vendorNames: VendorNames }>(
-      `/markets/${encodeURIComponent(props.marketId)}/placement-history${query}`,
+      `/markets/${encodeURIComponent(props.marketId)}/placement-history`,
     );
     entries.value = Array.isArray(resp.data?.entries) ? resp.data.entries : [];
     vendorNames.value = resp.data?.vendorNames ?? {};
@@ -50,23 +41,16 @@ async function load(): Promise<void> {
   }
 }
 
-watch(() => [props.marketId, props.vendor], load, { immediate: true });
-defineExpose({ reload: load });
-
-const emptyText = computed(() =>
-  props.vendor
-    ? 'Nobody has changed this vendor’s assignment.'
-    : 'No assignments have been changed yet.',
-);
+watch(() => props.marketId, load, { immediate: true });
 </script>
 
 <template>
   <section class="placement-history" data-testid="placement-history">
-    <h3 v-if="heading" class="placement-history-title">{{ heading }}</h3>
-
     <p v-if="isLoading" class="placement-history-note">Loading…</p>
     <p v-else-if="loadError" class="placement-history-note">{{ loadError }}</p>
-    <p v-else-if="entries.length === 0" class="placement-history-note">{{ emptyText }}</p>
+    <p v-else-if="entries.length === 0" class="placement-history-note">
+      No assignments have been changed yet.
+    </p>
 
     <ol v-else class="placement-history-list">
       <li
@@ -99,13 +83,6 @@ const emptyText = computed(() =>
 </template>
 
 <style scoped>
-.placement-history-title {
-  margin: 0 0 var(--space-2);
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-green);
-}
-
 .placement-history-note {
   margin: 0;
   font-size: var(--text-xs);

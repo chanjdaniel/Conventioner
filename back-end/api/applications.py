@@ -247,6 +247,12 @@ def vendor_search_terms_for_market(
     return terms
 
 
+def vendor_answers_for_market(market_id: str, keys: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Every applicant's answers to ``keys``, as the organizer reads them (``effective_answers``),
+    keyed as ``vendor_names_for_market`` is: what the price groups read (E43/F01/S02)."""
+    return _answers_by_address(market_id, keys)
+
+
 def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
     """``{lowercased address: name}`` for the applications that stored one, read off a projection
     of the two name keys alone."""
@@ -347,12 +353,21 @@ UNDECIDED_STATUSES = (ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVI
 #: The statuses a reviewer gives, each with who gave it: a verdict, or a follow-up (E34).
 MARKED_STATUSES = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
                    ApplicationStatus.NEEDS_FOLLOW_UP)
+#: The verdicts: an application at one is decided, and a reviewer's write over it changes a verdict
+#: (E38/F06/S01). A follow-up is marked, not decided: deciding one is giving a verdict.
+VERDICT_STATUSES = (ApplicationStatus.REVIEWER_APPROVED.value,
+                    ApplicationStatus.REVIEWER_REJECTED.value)
+
+
+def is_decided(doc: Dict[str, Any]) -> bool:
+    """Whether an application, as stored or as a reviewer saw it, carries a verdict."""
+    return doc.get("status") in VERDICT_STATUSES
 
 
 def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
     reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
-    owner: Optional[MarketPerson] = None,
+    owner: Optional[MarketPerson] = None, unless_decided: bool = False,
 ) -> bool:
     """Set a new status on an application. Returns whether it was written.
 
@@ -368,6 +383,10 @@ def update_application_status(
 
     A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
     (E34/F01/S02). Any other status clears the owner.
+
+    ``unless_decided`` writes only on an application that carries no verdict, for a reviewer who
+    gives verdicts but may not change one (E38/F06/S01): asked in the write itself, so a verdict
+    landing between the caller's read and this is never written over.
     """
     if status in MARKED_STATUSES and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")
@@ -396,6 +415,8 @@ def update_application_status(
         query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
         if if_unchanged_since.get("updated_at"):
             query["updated_at"] = if_unchanged_since["updated_at"]
+    if unless_decided:
+        query["$nor"] = [{"status": {"$in": list(VERDICT_STATUSES)}}]
     result = applications_collection.update_one(query, update)
     return result.matched_count > 0
 
@@ -526,12 +547,17 @@ def judgeable_applications(
         docs = [doc] if doc and doc.get("market_id") == market_id else []
     else:
         docs = list_applications_for_market(market_id)
-    return [
-        doc for doc in docs
-        if doc.get("status") in UNDECIDED_STATUSES
-        or (doc.get("status") == ApplicationStatus.REVIEWER_REJECTED.value
-            and (doc.get("verdict_by") or {}).get("kind") == "rule")
-    ]
+    return [doc for doc in docs if is_judgeable(doc)]
+
+
+def is_judgeable(application: Dict[str, Any]) -> bool:
+    """Whether a market's automatic rejections may judge this stored application: an undecided
+    one, or one a rule rejected; never one a person decided. The import's preview asks it of an
+    application as the import would leave it (E38/F03/S02)."""
+    status = application.get("status")
+    return status in UNDECIDED_STATUSES or (
+        status == ApplicationStatus.REVIEWER_REJECTED.value
+        and (application.get("verdict_by") or {}).get("kind") == "rule")
 
 
 def update_application_form_data(

@@ -6,7 +6,7 @@ code wrote. Anything else is the server's fault: logged once with its traceback,
 answers (an unknown URL, a wrong method, Flask-Login's 401) pass through untouched.
 
 Pinned through the test client against the real app: the assignment reads, the organization and
-market role routes, the market setup routes, the application form, amendment and phase routes, the
+market role routes, the market setup routes, the application form and phase routes, the
 assignment and placement routes, and the applicant, review, import and door routes.
 """
 import logging
@@ -34,7 +34,6 @@ import api.applicants as ApplicantsApi
 import api.attendance as AttendanceApi
 import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
-import api.form_amendment as FormAmendmentApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
@@ -135,9 +134,6 @@ class TestTheTypes:
         (PlacementsApi.AssignPhaseError, ConflictError),
         (AddedVendorsApi.AddVendorRefused, ConflictError),
         (AddedVendorsApi.AddVendorInvalid, BadRequestError),
-        (FormAmendmentApi.AmendmentUnavailable, ConflictError),
-        (FormAmendmentApi.AmendmentRefused, ConflictError),
-        (FormAmendmentApi.AmendmentStalled, ConflictError),
         (CsvStart.ConfirmRefused, ConflictError),
         (OrgsApi.OrganizationHasLiveMarkets, ConflictError),
     ])
@@ -290,62 +286,8 @@ class TestEveryOtherModulesRefusals:
         assert_answered_as_raised(response, raised)
         assert response.status_code == 409
 
-    def test_an_amendment_outside_the_import_phases(self, client, monkeypatch):
-        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "amend_application_form")
-
-        response = client.post(
-            "/markets/market-123/application-form/amendment",
-            json={"applicationForm": {"fields": []}},
-        )
-
-        assert_answered_as_raised(response, raised)
-        assert response.status_code == 409
-
-    def test_an_amendment_the_preflight_refuses_keeps_its_blockers(self, client, monkeypatch):
-        refused = FormAmendmentApi.AmendmentRefused(
-            "The form as edited would not let this market reopen applications.",
-            [PreconditionResult(
-                id="form_has_fields", passed=False, message="The form asks nothing.",
-                resolution_link="application-form", resolution_label="Add a question",
-            )],
-        )
-        monkeypatch.setattr(FormAmendmentApi, "amend_application_form", fail_with(refused))
-
-        response = client.post(
-            "/markets/market-123/application-form/amendment",
-            json={"applicationForm": {"fields": []}},
-        )
-
-        assert_answered_as_raised(response, [refused])
-        assert response.get_json()["blockers"][0]["resolutionLabel"] == "Add a question"
-
-    @pytest.mark.parametrize("path, function", [
-        ("/markets/market-123/application-form/amendment", "amend_application_form"),
-        ("/markets/market-123/application-form/amendment/resume", "resume_amendment"),
-    ])
-    def test_a_stalled_amendment_keeps_its_resume_offer(self, client, monkeypatch, path, function):
-        stalled = FormAmendmentApi.AmendmentStalled(
-            "This market moved to 'review' while the amendment was running.",
-            at_phase="review", remaining=["applications_open"], return_phase="applications_open",
-        )
-        monkeypatch.setattr(FormAmendmentApi, function, fail_with(stalled))
-
-        response = client.post(path, json={"applicationForm": {"fields": []}})
-
-        assert_answered_as_raised(response, [stalled])
-        assert response.get_json()["canResume"] is True
-
-    def test_resuming_with_nothing_unfinished(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS_OPEN))
-        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "resume_amendment")
-
-        response = client.post("/markets/market-123/application-form/amendment/resume")
-
-        assert_answered_as_raised(response, raised)
-        assert response.status_code == 409
-
     def test_rejection_rules_that_are_not_a_list(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
         raised = refusals_raised_by(monkeypatch, RejectionRules.Rulebook, "prepared")
 
         response = client.put("/markets/market-123/rejection-rules", json={"rules": "all of them"})
@@ -416,7 +358,7 @@ class TestEveryOtherModulesRefusals:
         self, client, monkeypatch, organization,
     ):
         organization(markets=[stored_market(
-            phase=MarketPhase.REVIEW, name="Spring Fair", organizationId=ORG_ID,
+            phase=MarketPhase.APPLICATIONS, name="Spring Fair", organizationId=ORG_ID,
         )])
         raised = refusals_raised_by(monkeypatch, OrgsApi, "delete_organization")
 
@@ -604,6 +546,7 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
     ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
     ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
+    ("delete", "/markets/market-123/permissions", None, "reset_permissions"),
     ("get", "/markets/market-123/permission-history", None, "get_permission_history"),
     ("delete", "/markets/market-123", None, "delete_market"),
 ]
@@ -752,74 +695,24 @@ class TestTheMarketSetupRoutes:
         assert "example.com" not in caplog.text
 
 
-# Each application form, amendment and phase route, with a body it accepts and the function it
-# answers through.
+# Each application form and phase route, with a body it accepts and the function it answers
+# through.
 FORM_AND_PHASE_ROUTES = [
-    ("get", "/markets/market-123/application-form/amendment", None,
-     FormAmendmentApi, "amendment_availability"),
-    ("post", "/markets/market-123/application-form/amendment", {"applicationForm": {"fields": []}},
-     FormAmendmentApi, "amend_application_form"),
-    ("post", "/markets/market-123/application-form/amendment/resume", None,
-     FormAmendmentApi, "resume_amendment"),
     ("put", "/markets/market-123/application-form", {"fields": []},
      MarketsApi, "save_application_form"),
     ("get", "/markets/market-123/application-form", None, MarketsApi, "get_application_form"),
     ("post", "/markets/market-123/transition", {"toPhase": "offers"}, MarketsApi, "take_move"),
     ("get", "/markets/market-123/pending-offers-count", None,
      ApplicationsApi, "count_applications_with_status"),
+    ("post", "/markets/market-123/applications-stopped", {"stopped": True},
+     ApplicantsApi, "set_applications_stopped"),
 ]
 
 
 class TestTheFormAndPhaseRoutes:
-    """Reading and saving the application form, amending it, moving the phase and counting the
-    pending offers answer through the handler: each refusal with the status and copy an organizer
+    """Reading and saving the application form, moving the phase, stopping applications and
+    counting the pending offers answer through the handler: each refusal with the status and copy an organizer
     reads, and anything else as the generic 500."""
-
-    def test_amending_the_form_of_a_market_that_does_not_exist(self, client):
-        response = client.get("/markets/market-missing/application-form/amendment")
-
-        assert response.status_code == 404
-        assert response.get_json() == {"error": "Market not found"}
-
-    def test_an_amendment_needs_a_form(self, client):
-        response = client.post(
-            "/markets/market-123/application-form/amendment", json={"applicationForm": []},
-        )
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "applicationForm is required"}
-
-    def test_resuming_on_a_market_that_cannot_be_read(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(
-            setupObject={**COMPLETE_PLAN, "sections": "unreadable-sections"},
-        ))
-
-        response = client.post("/markets/market-123/application-form/amendment/resume")
-
-        assert response.status_code == 400
-        assert response.get_json() == {"error": "Invalid market data"}
-
-    def test_a_stalled_amendment_is_logged_with_its_market_and_answered_with_its_offer(
-        self, client, monkeypatch, caplog,
-    ):
-        use_market(monkeypatch, stored_market(
-            phase=MarketPhase.DRAFT,
-            formAmendment={"returnPhase": "applications_open", "startedAt": "2026-09-24T00:00:00Z"},
-        ))
-        monkeypatch.setattr(MarketsApi, "apply_phase_transition", fail_with(
-            MarketsApi.PhaseChangedUnderRequest("review", "draft", "applications_open"),
-        ))
-        raised = refusals_raised_by(monkeypatch, FormAmendmentApi, "resume_amendment")
-
-        with caplog.at_level(logging.WARNING):
-            response = client.post("/markets/market-123/application-form/amendment/resume")
-
-        assert_answered_as_raised(response, raised)
-        assert response.get_json()["canResume"] is True
-        [record] = [r for r in caplog.records if "stalled" in r.getMessage()]
-        assert "market-123" in record.getMessage()
-        assert "review" in record.getMessage()
-        assert [r for r in caplog.records if r.name == "client_errors"] == []
 
     def test_a_form_past_draft_is_locked(self, client, monkeypatch):
         raised = refusals_raised_by(monkeypatch, MarketsApi, "save_application_form")
@@ -1161,7 +1054,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
     # Review
 
     def test_a_verdict_that_names_no_status(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
 
         response = client.put(
             "/markets/market-123/applications/app-1/review", json={"status": "maybe-later"},
@@ -1172,7 +1065,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
 
     @pytest.mark.parametrize("status", [["reviewer_approved"], {"status": "x"}, 7])
     def test_a_selection_whose_status_is_not_a_name(self, client, monkeypatch, status):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
 
         response = client.post("/markets/market-123/applications/verdicts", json={
             "status": status, "applications": [{"id": "app-1"}],
@@ -1182,7 +1075,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         assert response.get_json()["error"].startswith("Invalid status: ")
 
     def test_a_follow_up_handed_to_someone_off_the_market(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
 
         response = client.put("/markets/market-123/applications/app-1/review", json={
             "status": "needs_follow_up", "ownerEmail": "stranger@example.com",
@@ -1194,7 +1087,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
         }
 
     def test_a_follow_up_reassigned_to_nobody(self, client, monkeypatch):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
 
         response = client.put("/markets/market-123/applications/app-1/follow-up-owner", json={})
 
@@ -1301,7 +1194,7 @@ class TestTheApplicantReviewImportAndDoorRoutes:
     ])
     def test_a_file_that_is_not_sent(self, client, monkeypatch, path):
         use_market(monkeypatch, stored_market(phase=(
-            MarketPhase.DRAFT if path.endswith("csv-proposal") else MarketPhase.APPLICATIONS_OPEN
+            MarketPhase.DRAFT if path.endswith("csv-proposal") else MarketPhase.APPLICATIONS
         )))
 
         response = client.post(path, json={"csvContent": ["Name"]})
@@ -1395,10 +1288,11 @@ REQUIRED_BODIES = [
     ("put", "/markets/<market_id>/discord", None),
     ("put", "/markets/<market_id>/application-form", None),
     ("post", "/markets/<market_id>/transition", None),
+    ("post", "/markets/<market_id>/applications-stopped", None),
     ("post", "/markets/<market_id>/vendors", None),
     ("put", "/markets/<market_id>/placements", None),
     ("put", "/public/markets/<market_slug>/applicant/application", None),
-    ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.REVIEW),
+    ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.APPLICATIONS),
     ("put", "/markets/<market_id>/applications/<application_id>/answers", None),
     ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
     ("post", "/markets/<market_id>/vendor-export", None),
@@ -1411,19 +1305,18 @@ OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/review-highlights", None),
     ("put", "/markets/<market_id>/rejection-rules", None),
     ("put", "/markets/<market_id>/permissions/<action_id>", None),
-    ("post", "/markets/<market_id>/application-form/amendment", None),
     ("post", "/markets/<market_id>/placements/swap", None),
     ("delete", "/markets/<market_id>/placements", None),
     ("post", "/public/markets/<market_slug>/attendance/checkin", None),
     ("delete", "/public/markets/<market_slug>/attendance/checkin", None),
-    ("post", "/markets/<market_id>/applications/verdicts", MarketPhase.REVIEW),
-    ("post", "/markets/<market_id>/review/next", MarketPhase.REVIEW),
+    ("post", "/markets/<market_id>/applications/verdicts", MarketPhase.APPLICATIONS),
+    ("post", "/markets/<market_id>/review/next", MarketPhase.APPLICATIONS),
     ("put", "/markets/<market_id>/applications/<application_id>/follow-up-owner",
-     MarketPhase.REVIEW),
+     MarketPhase.APPLICATIONS),
     ("post", "/markets/<market_id>/csv-proposal", MarketPhase.DRAFT),
-    ("post", "/markets/<market_id>/applications/import/inspect", MarketPhase.APPLICATIONS_OPEN),
-    ("post", "/markets/<market_id>/applications/import/preview", MarketPhase.APPLICATIONS_OPEN),
-    ("post", "/markets/<market_id>/applications/import", MarketPhase.APPLICATIONS_OPEN),
+    ("post", "/markets/<market_id>/applications/import/inspect", MarketPhase.APPLICATIONS),
+    ("post", "/markets/<market_id>/applications/import/preview", MarketPhase.APPLICATIONS),
+    ("post", "/markets/<market_id>/applications/import", MarketPhase.APPLICATIONS),
     ("post", "/markets/<market_id>/attendance", None),
     ("delete", "/markets/<market_id>/attendance", None),
 ]
@@ -1439,8 +1332,7 @@ READS_NO_BODY = [
     ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),
     ("delete", "/markets/<market_id>/permissions/<action_id>",
      [(MarketsApi, "reset_permission", [])]),
-    ("post", "/markets/<market_id>/application-form/amendment/resume",
-     [(FormAmendmentApi, "resume_amendment", {"resumed": True})]),
+    ("delete", "/markets/<market_id>/permissions", [(MarketsApi, "reset_permissions", [])]),
     ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),
     ("post", "/markets/<market_id>/assignment", [(PlacementsApi, "run_assignment", HANDED_ON)]),
     ("put", "/markets/<market_id>/applications/<application_id>/claim", [
@@ -1511,7 +1403,7 @@ def send_body(client, monkeypatch, method, rule, phase, **kwargs):
     """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
     where the route is theirs; the public check-in finds no market."""
     use_market(monkeypatch, stored_market(
-        phase=phase or MarketPhase.REVIEW, setupObject=COMPLETE_PLAN,
+        phase=phase or MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN,
     ))
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
     monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
@@ -1554,7 +1446,7 @@ class TestABodyThatIsNotAnObject:
 
     @pytest.mark.parametrize("method, rule, stubs", READS_NO_BODY)
     def test_a_route_that_takes_no_body_reads_none(self, client, monkeypatch, method, rule, stubs):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
         for module, function, answer in stubs:
             monkeypatch.setattr(module, function, lambda *_args, answer=answer, **_kwargs: answer)
         reads = body_reads(monkeypatch)
@@ -1628,7 +1520,7 @@ class TestABodyThatIsNotAnObject:
     def test_a_ticked_application_that_is_not_an_object_is_not_one_here(
         self, client, monkeypatch,
     ):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN))
         monkeypatch.setattr(ApplicationsApi, "find_application_by_id", lambda _id: None)
 
         response = client.post("/markets/market-123/applications/verdicts", json={
@@ -1780,7 +1672,7 @@ class TestTheCopyIsOurs:
         self, monkeypatch, applications, caplog,
     ):
         doc = stored_market(
-            phase=MarketPhase.APPLICATIONS_OPEN, intakeMode="form", setupObject=COMPLETE_PLAN,
+            phase=MarketPhase.APPLICATIONS, intakeMode="form", setupObject=COMPLETE_PLAN,
             applicationForm={"fields": [
                 {"key": "booths", "label": "Booths", "type": "number", "required": True,
                  "options": [], "order": 0},
@@ -1806,7 +1698,7 @@ class TestTheCopyIsOurs:
         assert "a dozen" not in caplog.text
 
     def test_a_file_that_is_not_csv_says_so_and_logs_why(self, client, monkeypatch, caplog):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS_OPEN))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS))
         # One answer longer than Python's reader allows a field to be.
         oversized = 'Name,Notes\n"Ana Rivera","' + "x" * 200_000 + '"\n'
 
@@ -1900,7 +1792,7 @@ class TestTheCopyIsOurs:
     def test_a_stored_organization_that_cannot_be_read_logs_only_where(
         self, client, monkeypatch, caplog,
     ):
-        use_market(monkeypatch, stored_market(phase=MarketPhase.REVIEW, organizationId=ORG_ID))
+        use_market(monkeypatch, stored_market(phase=MarketPhase.APPLICATIONS, organizationId=ORG_ID))
         unreadable = FakeOrganizations({
             "_id": "mongo-org", "id": ORG_ID, "name": ORG_NAME, "owner": "user-9",
             "markets": "unreadable-markets",

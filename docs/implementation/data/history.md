@@ -4,6 +4,9 @@ kind: data
 describes:
   - back-end/history.py
   - back-end/api/markets.py#get_placement_history
+  - back-end/api/markets.py#get_history
+  - front-end/src/utils/marketHistory.ts
+  - back-end/tests/test_reading_the_history.py
   - back-end/api/markets.py#get_permission_history
   - back-end/migrations/migrate_placement_history.py
   - back-end/tests/test_every_write_records.py
@@ -12,8 +15,13 @@ sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
   - E40/F01/S02
+  - E40/F01/S03
+  - E40/F01/S04
   - E39/F01/S03
+  - E39/F01/S04
   - E41/F01/S01
+  - E38/F04/S02
+  - E38/F06/S01
   - E46/F01/S02
 ---
 
@@ -65,19 +73,20 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | --- | --- | --- | --- | --- | --- |
 | `change-setup` | `renamed` | renaming a draft | - | - | `name` |
 | `change-setup` | `plan` | a Market Setup card, or the intake mode (`PUT /markets/:id/plan`) | - | - | whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed |
+| `change-setup` | `pricing` | the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md)) | - | `currency`, the market's, so the prices can be written in it | whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed |
 | `change-setup` | `floorplan` | saving a floorplan to the market | - | `floorplan_id` | whichever of `sections`, `locations` and `floorplan_ids` changed |
 | `change-setup` | `floorplan_image_deleted` | deleting a floorplan image | - | `image_id` | `image_id`, then null |
 | `change-form` | `form` | the form builder | - | - | the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed |
 | `change-form` | `review_highlights` | the [review highlights](../../business/rules/review-highlights.md) | - | - | `review_highlights` |
 | `change-form` | `rejection_rules` | the [automatic rejections](../../business/rules/automatic-rejections.md) | - | - | `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved |
-| `amend-form` | null | an amendment of a locked form | - | `return_phase` | the form's changes, `rejected` and `returned` as for `form`, and `hops`: the phase moves the chain took, recorded here rather than as moves |
-| `amend-form` | `resumed` | finishing a stalled amendment | - | `return_phase` | `phase`, and `hops` |
-| `import-applications` | `imported` | an import, one entry however many rows | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
+| `import-applications` | `imported` | an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
 | `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
-| `give-verdicts` | `verdict` | one verdict, or a follow-up | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
-| `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
+| `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
+| `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
+| `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
+| `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
 | `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name` and `status`, null before |
 | `update-vendor-info` | null | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, as the organizer read them before and after; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
@@ -89,14 +98,15 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `connect-discord` | `discord_connected`, `discord`, `discord_disconnected` | [the Discord card](../modules/discord.md): connecting, a choice, disconnecting | - | - | whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question` and `invite_link` changed |
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
+| `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
-No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an amendment, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
+No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
 Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose history starts empty; its deletion, which takes the history with it while the [deletion trail](../modules/market-deletion.md) records it; the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
-**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for the placements, and must be changeable without a migration.
+**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
 Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
@@ -108,15 +118,26 @@ That was weighed and accepted for the placements when the trail was decided, and
 
 ## Reading it
 
-`GET /markets/:id/placement-history` (`get_placement_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `placement_entries`: the history narrowed to the `assign` action's placement kinds, newest first, each entry with only the fields it had before the widening (`id`, `market_id`, `actor`, `at`, `kind`, `vendors`, `detail`), so the drawer's History tab reads exactly what it always did.
-It is read at VIEWER: anyone who may see where vendors sit may see how they came to sit there.
-`?vendor=` narrows it to the entries naming one person, for their detail panel; a run names nobody, so it is never in a vendor's list.
+**Every reader asks the row "Read the market's history"** (`read-history`, Viewer by default, [the market's actions](../modules/market-actions.md)): by default, anyone who may read the market may read who changed it.
+
+**The whole history is read a page at a time**: `GET /markets/:id/history` (`get_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `entries_page`, the newest `PAGE_SIZE` (10, so the section stays a short read inside Manage market) entries and `next`, a cursor naming the last one (`<at>|<id>`), which `?before=` hands back for the page after it.
+Entries are ordered by `at`, then `id`, both descending, so a page boundary between two entries of one instant neither loses nor repeats either, and the [lookup index](lookup-indexes.md) on (`market_id`, `at`, `id`) is that order read backwards: the first page of a market with thousands of entries is one query that walks a page of index keys and stops (`TestThousandsOfEntries` in [`back-end/tests/test_reading_the_history.py`](../../../back-end/tests/test_reading_the_history.py) seeds 5,000).
+It narrows by `?actor=`, `?group=` (a group of the table's rows, its actions' ids; an applicant's own `apply` is an Applications change, and the Reading group is never one), `?vendor=`, and `?since=` and `?until=` (ISO instants, the first kept and the second not); a filter it cannot read answers 400.
+A filter on anything but the market and the time is applied as Mongo walks the index, so a narrow filter on a long history reads further than one page; it asks Mongo for one entry past the page, to know whether another follows, and answers no more than `PAGE_SIZE`.
+The first page also answers what the filters may offer: `actors`, everyone who changed something as an organizer, the unmoved placements' organizers too (an applicant's own change is found by the vendor it names, and a check-in from the public page names nobody), and `groups`, the table's groups with their rows' ids and labels.
+Only an entry's own fields are recased to camelCase; its `subject` and `detail` are served as stored, since their keys are data (a question's key, an application's id).
+Until a database has run the migration, its unmoved placements are read beside the history here too, each given `action: assign` and its subject, merged by the same order, and an entry in both read once.
+Organizers read it in Manage market's History section, and one vendor's, `?vendor=` and no other filter, in that vendor's drawer ([reading the market's history](../../business/flows/reading-the-markets-history.md)); a run names nobody, so it is never in a vendor's list.
+
+`GET /markets/:id/placement-history` (`get_placement_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `placement_entries`: the history narrowed to the `assign` action's placement kinds, newest first, each entry with only the fields it had before the widening (`id`, `market_id`, `actor`, `at`, `kind`, `vendors`, `detail`), so the Assignment history dialog reads exactly what it always did.
+It asks the same row: the trail is the history narrowed.
+It is always the whole market's: one vendor's placements are read from `GET /markets/:id/history?vendor=`, with the rest of what names them.
 The answer carries the vendors' names against their addresses, so the trail reads as people.
 `market_id` is a [lookup index](lookup-indexes.md).
 
-**Every reader of the history is one of the market's readers**, behind its Read row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
+**Every reader of the history is one of the market's readers**, behind its history's row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
 
-`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, read at VIEWER like the placements.
+`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`; it asks the same row, the history's, as the placements do, and Manage market's Permissions section words it ([`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)).
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
 The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
@@ -127,7 +148,7 @@ Until E40 the entries lived in the `placement_history` collection, without `acti
 [`back-end/migrations/migrate_placement_history.py`](../../../back-end/migrations/migrate_placement_history.py) moves each into `history` with every field it had (its `_id` too), adds `action: assign` and the subject read from its detail, and drops the old collection once it is empty.
 It writes each entry by its `_id` before deleting it from the old collection, so a second run, or one after a run that stopped part-way, moves only what is left and doubles nothing; `--dry-run` reports the count and writes nothing.
 Run it after the release that carries `history.py` is deployed, so the old build writes nothing behind it ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)), whenever is convenient.
-Until it runs, `placement_entries` reads `placement_history` beside `history` (the same narrowing without `action`, which the old entries lack, and the same fields), merged newest first, so the History tab answers as before from the deploy on.
+Until it runs, `placement_entries` reads `placement_history` beside `history` (the same narrowing without `action`, which the old entries lack, and the same fields), merged newest first, so the Assignment history answers as before from the deploy on.
 An entry can be in both for a moment, since the migration writes each one to `history` before deleting it from the old collection and a run can stop between the two, so an old entry whose `id` `history` already holds is left out.
 `delete_for_market` deletes a market's entries from both.
 A later release removes the fallback once every database is moved.

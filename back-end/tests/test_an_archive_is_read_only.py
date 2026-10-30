@@ -10,7 +10,6 @@ import pytest
 
 from conftest import FakeMarketsCollection, sessions_load_through_get_user, stored_market
 import app as app_module
-import api.form_amendment as Amend
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -37,8 +36,6 @@ WRITES = {
     "plan": lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "user-1"),
     "review highlights": lambda: MarketsApi.save_review_highlights("market-123", [], "user-1"),
     "form": lambda: MarketsApi.save_application_form("market-123", FORM, "user-1"),
-    "form amendment": lambda: Amend.amend_application_form("market-123", FORM, "user-1"),
-    "resume amendment": lambda: Amend.resume_amendment("market-123", "user-1"),
     "assignment run": lambda: PlacementsApi.run_assignment("market-123", "user-1"),
     "place": lambda: PlacementsApi.write_placement(
         "market-123",
@@ -118,16 +115,18 @@ class TestTheRoutesThatLoadTheirOwnMarket:
 #: inside it, so the set the screens are served from says what the routes do.
 ROW_WRITES = {
     "read": ("get", "/markets/market-123", None),
+    "read-history": ("get", "/markets/market-123/history", None),
     "export-csv": ("get", "/markets/market-123/assignment-csv", None),
     "change-setup": ("put", "/markets/market-123/name", {"name": "Another Market"}),
     "change-form": ("put", "/markets/market-123/review-highlights", {"keys": []}),
-    "amend-form": ("post", "/markets/market-123/application-form/amendment",
-                   {"applicationForm": FORM}),
     "import-applications": ("post", "/markets/market-123/applications/import",
                             {"csvContent": "a,b\n1,2"}),
     "give-verdicts": ("put", "/markets/market-123/applications/app-1/review",
                       {"status": "reviewer_rejected"}),
+    "change-verdicts": ("put", "/markets/market-123/applications/app-1/review",
+                        {"status": "reviewer_approved"}),
     "move-phase": ("post", "/markets/market-123/transition", {"toPhase": "draft"}),
+    "stop-applications": ("post", "/markets/market-123/applications-stopped", {"stopped": True}),
     "publish-results": ("post", "/markets/market-123/publish-results", {}),
     "add-vendor": ("post", "/markets/market-123/vendors",
                    {"name": "Ana", "email": "ana@example.com"}),
@@ -146,6 +145,14 @@ ROW_WRITES = {
     "change-the-table": ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}),
     "connect-discord": ("put", "/markets/market-123/discord", {"inviteLink": ""}),
 }
+
+#: A row's other writes, met the same way: resetting one row, or the whole table, is the table's row
+#: as setting one is (E39/F01/S04).
+MORE_ROW_WRITES = [
+    ("change-the-table", ("delete", "/markets/market-123/permissions/check-in", None)),
+    ("change-the-table", ("delete", "/markets/market-123/permissions", None)),
+]
+
 
 #: The Discord card's writes, every one of the row's (E46/F01/S02): ``ROW_WRITES`` sends one.
 DISCORD_WRITES = [
@@ -171,14 +178,14 @@ class TestEveryRowOfTheTable:
     def test_every_row_has_a_write_here(self):
         assert set(ROW_WRITES) == set(Actions.ACTIONS)
 
-    @pytest.mark.parametrize("action_id", ROW_WRITES)
+    @pytest.mark.parametrize("action_id,write", [*ROW_WRITES.items(), *MORE_ROW_WRITES])
     def test_an_archived_market_refuses_exactly_the_rows_it_does_not_still_take(
-        self, client, monkeypatch, action_id,
+        self, client, monkeypatch, action_id, write,
     ):
         # Deleting would reach the market's other collections; only the refusal matters here.
         monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
                             lambda *_a, **_k: SimpleNamespace(deleted_count=1))
-        method, path, body = ROW_WRITES[action_id]
+        method, path, body = write
 
         response = getattr(client, method)(path, json=body)
         answer = (response.get_json(silent=True) or {}).get("error")

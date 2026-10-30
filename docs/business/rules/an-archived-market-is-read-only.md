@@ -12,6 +12,7 @@ sources:
   - bug/30
   - T15
   - E39/F01/S03
+  - E40/F01/S03
 ---
 
 # An archived market is read-only
@@ -30,6 +31,7 @@ Roles and deletion are decisions about the record, not changes to it.
 ## Who may
 
 Nobody changes it; an owner or admin still manages its roles, and its owner may delete it.
+Anyone the table lets read it or its history still does ([reading the market's history](../flows/reading-the-markets-history.md)): an archived market still takes the reading rows, and reading changes nothing.
 Its table of who may do what is part of the record too, and its owner no longer changes it (E39/F01/S03).
 
 ## Where it is kept
@@ -43,4 +45,4 @@ Its table of who may do what is part of the record too, and its owner no longer 
 - The locks the market read serves give the archived reason first where it applies (`readOnlyReason`, `actionRefusals`, the form's, the assignment rules', the automatic rejections'), since it is the true one; the setup's says only that it settled on leaving draft.
   The phase itself is on [the market document](../../implementation/data/market-document.md).
 - On screen the phase rail alone says the market is archived; [the market frame](../../implementation/modules/market-frame.md) shows no read-only note beside it (T15).
-- [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) runs the writes that load through the change loader (rename, plan, highlights, form, the form amendment, the run, a seat, a freed seat, a swap) against an archived market and checks nothing is written, and that the refusal is a `ForbiddenError`, 403; and sends one write of every row of [the table](../../implementation/modules/market-actions.md) through its route, each refused in this rule's words exactly when the row is not one an archived market still takes (`ARCHIVED_STILL_TAKES`), the phase move refused by the transition table since no move leaves `archived`.
+- [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) runs the writes that load through the change loader (rename, plan, highlights, form, the run, a seat, a freed seat, a swap) against an archived market and checks nothing is written, and that the refusal is a `ForbiddenError`, 403; and sends one write of every row of [the table](../../implementation/modules/market-actions.md) through its route, each refused in this rule's words exactly when the row is not one an archived market still takes (`ARCHIVED_STILL_TAKES`), the phase move refused by the transition table since no move leaves `archived`.

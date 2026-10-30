@@ -22,7 +22,11 @@ sources:
   - bug/42
   - bug/27
   - E33/F03/S02
+  - E38/F02/S01
   - E41/F01/S01
+  - E38/F04/S01
+  - E38/F03/S02
+  - E38/F06/S01
 ---
 
 # The CSV import
@@ -37,15 +41,18 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking th
 | Endpoint | What it does |
 | --- | --- |
 | `POST /markets/:id/applications/import/inspect` | the file's headers, a few sample values, the targets a column can map to, a suggested mapping, and the previous import's mapping restored onto this file (`inspect`); writes nothing |
-| `POST .../import/preview` | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); writes nothing |
+| `POST .../import/preview` | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); once every value is settled, the first rows that will import and no rule rejects (`samples`), and every row the import's judging will newly reject, with the rule and the reason (`rejected`); writes nothing |
 | `POST .../import` | the rows written as applications awaiting review, the mapping saved, and a count of what was created, updated, unchanged, skipped, repeated and sent back to review (`import_applications`) |
 
 ## Sharp edges
 
-**Importing is the CSV path's in every phase** (E31/F03/S04).
-`import_refusal` refuses a form market outright, and otherwise allows only `applications_open` and `applications_closed` (`IMPORT_PHASES`): once review begins, the applicant set must stop moving under the reviewer.
-Its words name the CSV rail's moves: from a draft, "Use Import responses on the phase rail first"; from review, "Use Import more responses, under More… on the phase rail"; past review, that nothing more can be imported, since no move leads back (bug 42).
-`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)), then refuses an archived market whoever may.
+**Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
+`import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
+In a draft it also refuses with the first of `first_import_blockers`, the move into Review judged less `ResponsesImportedGuard`, so a setup that would keep the market out is said before a row is read.
+
+**The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
+A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
+`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) then refuses an archived market whoever may.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
@@ -77,9 +84,12 @@ It warns and does not refuse: any value still unmatched must be settled by hand 
 
 **There is one mapping format**, `mapping_payload`: targets by header TEXT, never position, with the file's headers, the resolutions, when, and who made it (`madeBy`: the import, or the start from a CSV).
 The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
+A saved target the form lacks is skipped, which is how the start's left-out columns wait under their would-be keys ([the CSV proposal and start](csv-proposal-and-start.md)); the targets that are not questions (`RESERVED_TARGETS`: who applied, when, the sheet's note) are never a question's key: the start's `key_for` passes over them and the form's save refuses them.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
-**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`), returning one only when the importer may overturn an automatic rejection (`may_overturn`, E38/F06/S01).
+The preview judges the file first, writing nothing (`_rule_rejections`): each row's application as the import would leave it, judged only where a rule may judge it (`is_judgeable`), its answers as stored with an organizer's update read in place, so it names the rows the import's judging will newly reject (E38/F03/S02).
+An organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
 **An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
 
@@ -95,7 +105,7 @@ The start from a CSV writes the same format, so the first import of a later expo
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
-`back-end/tests/test_csv_import.py`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the real exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
+`back-end/tests/test_csv_import.py`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the synthetic exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
 

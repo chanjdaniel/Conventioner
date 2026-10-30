@@ -9,13 +9,8 @@ Design: guards are plain Python classes, not a rules engine (D16 refined).
 No ABC, no DSL, no runtime mutation. Read this file to understand every
 precondition in the system.
 
-Phase 1 guards implemented:
-  - ``FormHasFieldsGuard``  on every edge into ``applications_open``
-    (``draft -> applications_open`` and ``applications_closed -> applications_open``)
-
-Phase 2 guards implemented (conv-market-state-machine-t7):
-  - ``AllApplicationsReviewedGuard`` on ``review -> assignment``
-  - ``NoApprovedApplicationsGuard`` on ``assignment -> offers``
+The edges and their guards are the tables at the foot of this file; ``_validate_registry`` refuses
+tables that disagree.
 """
 
 from dataclasses import asdict, dataclass, field
@@ -31,6 +26,7 @@ from essential_fields import (
     plan_derived_asked_keys,
 )
 from placement_reasons import orphaned_pins
+import pricing as Pricing
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -68,8 +64,8 @@ class PreconditionResult:
             raise ValueError(f"{self.id}: a resolution_label needs a resolution_link to lead to")
 
     def payload(self) -> Dict[str, Any]:
-        """As the wire carries it: the one shape the transition's refusal, the form amendment's
-        and the market read's ``transitionBlockers`` all serve."""
+        """As the wire carries it: the one shape the transition's refusal and the market read's
+        ``transitionBlockers`` both serve."""
         return convert_keys_to_camel_case(asdict(self))
 
 
@@ -131,9 +127,7 @@ class FormHasFieldsGuard:
 #
 # Leaving draft settles the setup: nothing on Market Setup changes after it. A setup that leaves
 # incomplete can therefore never be completed, so leaving draft asks for each part of it - each its
-# own guard, so each missing part is its own line, and each pointing at Market Setup. Only on
-# ``draft -> applications_open``: reopening closed applications re-enters the phase with a setup
-# that settled long ago, and is no time to ask about it.
+# own guard, so each missing part is its own line, and each pointing at Market Setup.
 
 
 def _utc_now() -> datetime:
@@ -244,19 +238,48 @@ class EveryTierHasTablesGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class PriceGroupsStandGuard:
+    """Every price group's conditions name a question the form asks, and answers it offers.
+
+    A group's condition on a question taken off the form, or on an answer no longer offered, prices
+    nobody, so its members would pay "Everyone else" without a word. The prices settle on leaving
+    draft with the rest of the setup, and the form with them, so this is the last moment it can be
+    fixed (E43/F01/S02). One line names every broken group.
+    """
+
+    id: str = "price_groups_stand"
+    description: str = "Every price group's conditions are on the form"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        broken = Pricing.Groups(market).broken()
+        if not broken:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        names = ", ".join(f"“{name}”" for name in broken)
+        many = len(broken) > 1
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="setup", resolution_label="Fix the price groups",
+            message=(
+                f"The price {'groups' if many else 'group'} {names} "
+                f"{'have' if many else 'has'} a condition on a question or an answer the form no "
+                "longer asks. Change or remove it on Market Setup's Pricing card."
+            ),
+        )
+
+
 class NoApplicationsYetGuard:
     """A market may return to draft only while nobody has applied.
 
-    The form is editable in ``draft`` alone, importing is permitted only in ``applications_open``,
-    and nothing returned to ``draft`` - so every custom field had to be anticipated before the
-    organizer had ever seen their own columns, and opening applications froze the form for good.
-    This edge is the way back, and this guard is what keeps it from being a hole in D9.
+    The form is editable in ``draft`` alone, and nothing returned to ``draft`` - so every custom
+    field had to be anticipated before the organizer had ever seen their own answers, and opening
+    applications froze the form for good. This edge is the way back, and this guard is what keeps it
+    from being a hole in D9.
 
     It is not redundant with the D9 check in ``application_form_lock_reason``. That check runs when
     the form is written; this one runs when the market moves. Applicant submission is gated to
-    ``applications_open``, so a count of zero is *stable* in ``draft`` and a read-then-write race
-    while applications are open - going back is what makes the form check race-free, so the going
-    back is what has to be gated.
+    ``applications``, so a count of zero is *stable* in ``draft`` and a read-then-write race while
+    applications are open - going back is what makes the form check race-free, so the going back is
+    what has to be gated.
 
     Once one application exists the market cannot return, and the form is frozen for good exactly
     as it was before this edge existed.
@@ -429,11 +452,13 @@ class NoApprovedApplicationsGuard:
 
 
 class ResponsesImportedGuard:
-    """A Google Form market has imported its responses before review begins (E32/F02/S01).
+    """A Google Form market has imported its responses before it enters Review (E38/F04/S01).
 
-    On that path the import is the collection: there is no form of the market's own taking
-    applications, so a review with nothing imported is a review of nothing. A market whose vendors
-    apply on its own page is not asked - nobody imports into one.
+    On that path the import is the collection, and its first commit is the way into the stage: the
+    import takes this move itself once the rows are written (``csv_import.import_applications``), so
+    the rail's step from draft is this guard's fix, "Import responses", and a market left mid-import
+    stays a draft. A market whose vendors apply on its own page is not asked - nobody imports into
+    one, and opening applications is its way in.
     """
 
     id: str = "responses_imported"
@@ -458,18 +483,14 @@ class ResponsesImportedGuard:
 # Adding a new phase transition: add to this set + add to TRANSITION_GUARDS
 # if the transition has preconditions.
 VALID_TRANSITIONS: set[tuple[str, str]] = {
-    # Pre-assignment back edges
-    ("draft", "applications_open"),
+    # Into the stage where applications arrive and are reviewed (E38/F04/S01): an own-form market
+    # by opening applications, a Google Form market by its first import, which takes this move.
+    ("draft", "applications"),
     # The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded on
-    # no application existing; only this phase may return, because a market that has closed
-    # applications or begun review has moved past the point where its form is a draft of anything.
-    ("applications_open", "draft"),
-    ("applications_open", "applications_closed"),
-    ("applications_closed", "applications_open"),
-    ("applications_closed", "review"),
-    ("review", "applications_closed"),
-    # Assignment and forward
-    ("review", "assignment"),
+    # no application existing.
+    ("applications", "draft"),
+    # Assignment and forward. Entering it closes the applicant form: applying is the stage's alone.
+    ("applications", "assignment"),
     ("assignment", "offers"),
     # Publishing (E03/F03). market_days already meant "the market is running" and was stranded
     # behind the deadlocked assignment -> offers; this is the route that reaches it.
@@ -477,9 +498,7 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("offers", "market_days"),
     # Archive from anywhere
     ("draft", "archived"),
-    ("applications_open", "archived"),
-    ("applications_closed", "archived"),
-    ("review", "archived"),
+    ("applications", "archived"),
     ("assignment", "archived"),
     ("offers", "archived"),
     ("market_days", "archived"),
@@ -508,38 +527,9 @@ def route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
     return None
 
 
-#: Phases a path steps through rather than stops in (E32/F02/S01). A Google Form market's organizer
-#: already holds the responses when the market leaves draft, so the import IS the collection, and
-#: "the form is closed" is never a stage of theirs: their move from importing is Begin Review, and
-#: back from review is to importing. The phases themselves do not change - only which of them a
-#: move on this path may end in.
-PASSED_THROUGH: Dict[IntakeMode, frozenset[str]] = {
-    IntakeMode.CSV: frozenset({MarketPhase.APPLICATIONS_CLOSED.value}),
-    IntakeMode.FORM: frozenset(),
-}
-
-
-def path_moves(market: Market) -> Dict[str, List[str]]:
-    """Every move open from the market's phase on its intake path: each phase it may end in, with
-    the phases entered on the way there (the last one is where it ends).
-
-    One step of the transition table, or two where the first lands in a phase the path passes
-    through, never ending in one. A market standing in such a phase - moved there before its path
-    stepped through it - keeps every way out it has, so none is stranded.
-    """
-    here = market.phase.value
-    through = PASSED_THROUGH.get(market.intake_mode, frozenset())
-    moves: Dict[str, List[str]] = {}
-    for source, target in sorted(VALID_TRANSITIONS):
-        if source != here:
-            continue
-        if target not in through:
-            moves[target] = [target]
-            continue
-        for onward_source, onward in sorted(VALID_TRANSITIONS):
-            if onward_source == target and onward != here and onward not in through:
-                moves.setdefault(onward, [target, onward])
-    return moves
+def moves_from(phase: str) -> List[str]:
+    """Every phase a market standing in ``phase`` may move to: one edge of the table each."""
+    return sorted(target for source, target in VALID_TRANSITIONS if source == phase)
 
 
 class NoAskedForTierWithoutTablesGuard:
@@ -678,6 +668,7 @@ _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _SETUP_HAS_DATES = SetupHasDatesGuard()
 _SETUP_HAS_A_LOCATION = SetupHasALocationGuard()
 _EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
+_PRICE_GROUPS_STAND = PriceGroupsStandGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
@@ -691,7 +682,9 @@ _RESPONSES_IMPORTED = ResponsesImportedGuard()
 # route it took to get there. Every inbound edge to the phase must enforce these, so
 # listing one here makes it impossible to reach the phase without it.
 PHASE_ENTRY_INVARIANTS: dict[str, list] = {
-    "applications_open": [_FORM_HAS_FIELDS],
+    # A Google Form market enters with its responses imported, which its first import guarantees by
+    # taking the move only after writing them.
+    "applications": [_FORM_HAS_FIELDS, _RESPONSES_IMPORTED],
     # TODO: Add _PRIORITY_CONFIGURED guard here once it is decided whether a market must
     # have any priority rule at all. A rule now names a form question and carries its own
     # ordering, so the check would be that every rule has a target and a non-empty ordering -
@@ -710,23 +703,20 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 # ADDING A GUARD = append to the list. REMOVING = delete from the list.
 # No other file changes. Not the endpoint. Not the frontend.
 #
-# Keyed by edge, not by target phase, because a precondition can be specific to the route:
-# "cannot reopen applications once assignments are published" is a rule about
-# applications_closed -> applications_open and is meaningless on draft -> applications_open.
+# Keyed by edge, not by target phase, because a precondition can be specific to the route.
 # An edge carries its phase's entry invariants PLUS whatever else that route demands.
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
-    ("draft", "applications_open"): [
-        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _FORM_HAS_FIELDS,
+    # The setup's three first, so the rail offers what Market Setup lacks before the import: a
+    # Google Form market's first import judges this edge less its own guard before it writes.
+    ("draft", "applications"): [
+        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _PRICE_GROUPS_STAND,
+        _FORM_HAS_FIELDS, _RESPONSES_IMPORTED,
     ],
-    ("applications_closed", "applications_open"): [_FORM_HAS_FIELDS],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
-    ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
-    # On every route into review, so a Google Form market stepping through the closed phase and one
-    # already standing in it meet the same rule (E32/F02/S01).
-    ("applications_closed", "review"): [_RESPONSES_IMPORTED],
-    ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
+    ("applications", "draft"): [_NO_APPLICATIONS_YET],
+    ("applications", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
     ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
@@ -798,50 +788,28 @@ _validate_registry()
 # ── Evaluation helpers ──────────────────────────────────────────────────
 
 
-def move_route(market: Market, to_phase: str) -> Optional[List[str]]:
-    """The phases a move to ``to_phase`` enters, in order: the path's move when it has one, else the
-    one edge of the table (still taken when asked for, as a seed walks it), else None."""
-    route = path_moves(market).get(to_phase)
-    if route is not None:
-        return route
-    return [to_phase] if (market.phase.value, to_phase) in VALID_TRANSITIONS else None
-
-
-def judge_route(
-    market: Market, hops: Iterable[tuple[str, str]], db
-) -> list[PreconditionResult]:
-    """Every guard on every step of a route, judged before the first step is taken. Failures only,
-    each guard's said once however many steps carry it.
-
-    Judged against the market as it stands, not as it would be at each step: a guard reads the
-    market's state and never the phase it is asked on, so no phase-shifted copy is needed (pinned by
-    ``test_no_guard_reads_the_phase``). The one judgement a move and the form amendment's chain both
-    make.
-    """
-    blockers: list[PreconditionResult] = []
-    seen: set[str] = set()
-    for hop in hops:
-        for guard in TRANSITION_GUARDS.get(hop, []):
-            result = guard.evaluate(market, db)
-            if not result.passed and result.id not in seen:
-                seen.add(result.id)
-                blockers.append(result)
-    return blockers
-
-
 def evaluate_transition(
-    market: Market, to_phase: str, db
+    market: Market, to_phase: str, db, leaving_out: Iterable[str] = ()
 ) -> list[PreconditionResult]:
-    """Evaluate all guards for a move. Returns only FAILED results.
+    """Evaluate every guard on the move's edge. Returns only FAILED results.
 
-    Every guard on every step of the move's route (``judge_route``). An empty list when nothing
-    refuses it, or when there is no such move - the endpoint refuses that before asking. Callers use
-    this to build the 409 blocker list or confirm success.
+    An empty list when nothing refuses it, or when there is no such move - the endpoint refuses that
+    before asking. Callers use this to build the 409 blocker list or confirm success. A guard reads
+    the market's state, never its phase (pinned by ``test_no_guard_reads_the_phase``).
+
+    ``leaving_out`` names guards the caller is about to satisfy itself: a Google Form market's first
+    import judges the move into the stage before it writes the rows ``ResponsesImportedGuard`` waits
+    on, then takes it.
     """
-    route = move_route(market, to_phase)
-    if route is None:
-        return []
-    return judge_route(market, zip([market.phase.value, *route], route), db)
+    skipped = set(leaving_out)
+    blockers: list[PreconditionResult] = []
+    for guard in TRANSITION_GUARDS.get((market.phase.value, to_phase), []):
+        if guard.id in skipped:
+            continue
+        result = guard.evaluate(market, db)
+        if not result.passed:
+            blockers.append(result)
+    return blockers
 
 
 def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult]]:
@@ -849,8 +817,11 @@ def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult
     would (E31/F02/S01).
 
     Served on the market read, so a screen disables a move and names its blocker before the click
-    rather than after it. The moves are the market's path's (``path_moves``), so the read is also
-    what tells a screen which moves there are. Judged by ``evaluate_transition``, the very function the endpoint runs,
-    so the read and the move can never disagree about one.
+    rather than after it; the read is also what tells a screen which moves there are. Judged by
+    ``evaluate_transition``, the very function the endpoint runs, so the read and the move can never
+    disagree about one.
     """
-    return {to_phase: evaluate_transition(market, to_phase, db) for to_phase in path_moves(market)}
+    return {
+        to_phase: evaluate_transition(market, to_phase, db)
+        for to_phase in moves_from(market.phase.value)
+    }

@@ -67,6 +67,19 @@ test('every field on the plan, the rules and the form preview has a name', async
     locations: [{ name: 'Main Hall' }],
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
+    // A price group with a condition, so its name, prices and condition are walked (E43/F01/S02).
+    pricing: {
+      currency: 'CAD',
+      halfTablePercent: 50,
+      groups: [
+        {
+          name: 'Ceramicists',
+          conditions: [{ key: 'craft', answers: ['Ceramics'] }],
+          prices: [{ tier: 'Gold', cents: 2000 }],
+        },
+      ],
+      everyoneElse: [{ tier: 'Gold', cents: 3500 }],
+    },
   });
 
   for (const tab of ['setup', 'assignment', 'form']) {
@@ -207,7 +220,18 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.getByTestId('market-card-manage-button').click();
   await page.getByTestId('manage-market-add-user-button').click();
   await expect(page.getByTestId('manage-market-add-user-input')).toBeVisible();
+  // Its Permissions section, open, and a row's confirmation (E39/F01/S04).
+  await page.getByTestId('manage-market-permissions-toggle').click();
+  await expect(page.getByTestId('manage-market-permission-select').first()).toBeVisible();
+  // Its History section's filters, and an entry opened to its before and after (E40/F01/S03).
+  await page.getByTestId('manage-market-history-toggle').click();
+  await page.getByTestId('market-history-toggle').first().click();
+  await expect(page.getByTestId('market-history-changes')).toBeVisible();
   await named('Manage market');
+  await page.getByTestId('manage-market-permission-select').first().selectOption('owner');
+  await expect(page.getByTestId('manage-market-permission-confirm-window')).toBeVisible();
+  await named("a change to Manage market's permissions");
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 
   await page.goto('/organizations');

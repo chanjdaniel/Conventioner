@@ -13,6 +13,7 @@
  * with nothing left to assign.
  */
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
+import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
@@ -20,12 +21,24 @@ import { useOpenMarket } from '@/utils/openMarket';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
-import { canImportInto, importRefusal } from '@/utils/importPhase';
+import { importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
-import { EMPTY_ESSENTIAL_OPTIONS, applicationAnswerRows } from '@/utils/essentialFields';
-import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
+import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
+import {
+  previewHeadline as previewHeadlineText,
+  rejectedRowsWhy,
+  writingRowCount,
+} from '@/utils/importPreview';
+import { reviewAnswers } from '@/utils/reviewQueue';
+import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
+import {
+  MarketPhase,
+  type ApplicationForm,
+  type EssentialFormOptions,
+  type Market,
+} from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -74,6 +87,14 @@ interface UnmatchedValue {
   offered: string[];
 }
 
+/** A row of the file as the dry run says it will be stored, and why a rule rejects it, if one does. */
+interface PreviewRow {
+  row: number;
+  email: string;
+  formData: Record<string, unknown> | null;
+  reason?: string;
+}
+
 /** A value a saved decision settles, with that decision: listed so it can be changed. */
 interface DecidedValue extends UnmatchedValue {
   choice: string | null;
@@ -96,24 +117,35 @@ const router = useRouter();
 
 /**
  * The market in the route, from the one store (E21/F02/S04). It used to be read out of
- * `localStorage`, because `/import-applications` carried no id - and the form amendment below moves
- * the market's phase twice and rewrites its form without ever touching that copy, so returning to
- * Market Setup after one showed the market as it had been.
+ * `localStorage`, because `/import-applications` carried no id - and an import writes the market
+ * without ever touching that copy, so returning to Market Setup after one showed the market as it
+ * had been.
  */
 const route = useRoute();
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
- * Importing belongs to the phases that take applications. The server enforces this - all three
- * import endpoints are reachable directly, and a hidden button is not a rule - but saying so
- * before the organizer picks a file beats letting them choose one and then refusing it.
+ * Importing belongs to a draft's first import and to Review (E38/F04/S01). The server enforces this
+ * - all three import endpoints are reachable directly, and a hidden button is not a rule - but
+ * saying so before the organizer picks a file beats letting them choose one and then refusing it.
  */
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
 /** Importing is the table's import row: who is asking comes before the phase (bug 37). */
 const roleRefusal = computed(() => actionRefusal(market.value, MarketAction.ImportApplications));
-const takingApplications = computed(() => canImportInto(marketPhase.value) && !roleRefusal.value);
-const phaseRefusal = computed(() => roleRefusal.value || importRefusal(marketPhase.value));
+/** Who may overturn what the automatic rejections rejected, from the market's table (E38/F06/S01). */
+const overturnedBy = computed(() =>
+  whoMayTake(market.value?.permissionTable, MarketAction.ChangeVerdicts),
+);
+const phaseRefusal = computed(() => roleRefusal.value || importRefusal(market.value));
+const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal.value);
+/**
+ * A draft's first import takes it into Review once it is written; in Review the import reads the
+ * whole responses file again (E38/F04/S01, S03). Said on the page, since the file to bring differs.
+ */
+const firstImport = computed(() => marketPhase.value === MarketPhase.Draft);
+/** The market entered Review with this import: the done step says where it now stands. */
+const enteredReview = ref(false);
 
 const step = ref<Step>('upload');
 
@@ -184,19 +216,32 @@ const newRows = ref(0);
 const updatedRows = ref(0);
 const unchangedRows = ref(0);
 
+/** How many rows the import will write, as the headline counts them: the confirm button's count. */
+const writingRows = computed(() =>
+  writingRowCount({
+    validRows: validRows.value,
+    newRows: newRows.value,
+    updatedRows: updatedRows.value,
+    unchangedRows: unchangedRows.value,
+  }),
+);
+
 /**
  * The preview's headline: what the import will write. It counted every readable row, so importing
  * the same file again read "212 of 212 rows will be imported" beside "0 new, 0 updated, 212
- * unchanged" (2026-10-18 dry run).
+ * unchanged" (2026-10-18 dry run). The wording lives in `previewHeadline` (utils/importPreview),
+ * so the sentences are tested apart from the view.
  */
-const previewHeadline = computed(() => {
-  const rows = `${rowCount.value} row${rowCount.value === 1 ? '' : 's'}`;
-  if (unchangedRows.value === 0) return `${validRows.value} of ${rows} will be imported`;
-  const writing = newRows.value + updatedRows.value;
-  if (writing > 0) return `${writing} of ${rows} will be imported`;
-  const verb = unchangedRows.value === 1 ? 'is' : 'are';
-  return `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged`;
-});
+const previewHeadline = computed(() =>
+  previewHeadlineText({
+    rowCount: rowCount.value,
+    validRows: validRows.value,
+    newRows: newRows.value,
+    updatedRows: updatedRows.value,
+    unchangedRows: unchangedRows.value,
+    rejected: previewRejected.value.length,
+  }),
+);
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
@@ -207,11 +252,7 @@ const repeats = ref<ImportRepeat[]>([]);
 onMounted(() => {
   if (!marketId.value) {
     error.value = 'No market is open. Open a market first, then import into it.';
-    return;
   }
-  // Asked once, on the way in: both dead ends need the answer, and neither should discover it by
-  // offering a control that then refuses.
-  loadAmendAvailability();
 });
 
 const activeGroups = computed(() => groups.value.filter((g) => !splitStems.value.has(g.stem)));
@@ -372,25 +413,41 @@ function sourceLabelFor(key: string): string {
  * The first rows that will import, as the applications they will become (bug 40).
  *
  * The server sends them already read through the mapping and the same validators the write runs,
- * and they render through the same reader as the review card. Built here from the file's first
- * cells instead, the sample showed a row listed as skipped a few lines above, and read availability
- * as "no answer" when a tier grid had answered it.
+ * and they read as the review card reads an application: what the market marked first, then the
+ * rest (E38/F03/S01). Built here from the file's first cells instead, the sample showed a row listed
+ * as skipped a few lines above, and read availability as "no answer" when a tier grid had answered
+ * it.
  */
-const previewSamples = ref<
-  Array<{ row: number; email: string; formData: Record<string, unknown> | null }>
->([]);
+const previewSamples = ref<PreviewRow[]>([]);
 
-const sampleApplications = computed(() => {
-  const fields = (market.value as { applicationForm?: ApplicationForm } | null)?.applicationForm
-    ?.fields;
-  return previewSamples.value
-    .filter((sample) => sample.formData)
-    .map((sample) => {
-      const { essential, custom } = applicationAnswerRows(sample.formData ?? {}, fields ?? []);
-      const email = { key: 'applicant_email', label: 'Applicant email', value: sample.email };
-      return { row: sample.row, answers: [email, ...essential, ...custom] };
-    });
-});
+const sampleApplications = computed(() => previewRows(previewSamples.value));
+
+/**
+ * The rows the import's judging will newly reject, with the reason, judged by the dry run as the
+ * import's end judges them (E38/F03/S02); a row a rule already rejected for the same reason is
+ * not among them. Not among the samples either: those check the mapping, these check the rules.
+ */
+const previewRejected = ref<PreviewRow[]>([]);
+
+const rejectedApplications = computed(() => previewRows(previewRejected.value));
+
+/** The preview's rows as `ImportRowList` heads and opens them. */
+function previewRows(rows: PreviewRow[]): ImportRow[] {
+  const held = market.value as Market | null;
+  return rows
+    .filter((row) => row.formData)
+    .map((row) => ({
+      row: row.row,
+      email: row.email,
+      name: applicantName(row.formData),
+      reason: row.reason,
+      ...reviewAnswers(
+        { formData: row.formData ?? {} },
+        held?.applicationForm,
+        held?.reviewHighlights ?? [],
+      ),
+    }));
+}
 
 function isNewHeader(index: number): boolean {
   return newHeaders.value.includes((headers.value[index] ?? '').trim());
@@ -481,36 +538,26 @@ async function acceptFile(file: File | undefined) {
  *
  * Both of the ledger's dead ends end here, because they are the same shape: a column with nowhere
  * to go needs a custom field, and a question the form never asked needs that question turned off.
- * What used to be printed instructions - four manual steps, two phase transitions, and the file
- * gone - is now a dialog that walks the market down to draft, writes the form and puts it back.
+ * A first import runs in draft, where the form is writable, so the dialog writes it there and the
+ * file and the mapping stay; once anything is imported the form is fixed, and the dead end says so.
  */
 const amendOpen = ref(false);
 const amendFieldLabel = ref('');
 const amendUnasked = ref('');
 const amendForm = ref<ApplicationForm | null>(null);
 const amendOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
-const amendAvailability = ref<{ available: boolean; reason: string | null } | null>(null);
-
-/** Whether this market serves applicants, so the dialog can say what goes off the air. */
-const intakeIsForm = computed(
-  () => String((market.value as { intakeMode?: string })?.intakeMode ?? 'csv') === 'form',
-);
-
 /**
- * Ask the server whether the chain is possible before offering it.
- *
- * A control that fails when pressed is a broken one; this is what lets the wizard say "the form
- * is frozen and here is why" instead.
+ * Whether the form may change from here, by the lock the market read serves: a control that fails
+ * when pressed is a broken one, so the wizard says "the questions are fixed, and here is why".
  */
-async function loadAmendAvailability() {
-  if (!marketId.value) return;
-  try {
-    const { data } = await api.get(`/markets/${marketId.value}/application-form/amendment`);
-    amendAvailability.value = { available: data?.available === true, reason: data?.reason ?? null };
-  } catch {
-    amendAvailability.value = null;
-  }
-}
+const amendAvailability = computed(() =>
+  market.value
+    ? {
+        available: !market.value.applicationFormLockReason,
+        reason: market.value.applicationFormLockReason ?? null,
+      }
+    : null,
+);
 
 async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
   amendFieldLabel.value = options.fieldLabel ?? '';
@@ -535,8 +582,7 @@ async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
  * across - without this the story trades a four-step round trip for a two-step one.
  */
 async function onAmended() {
-  // The amendment walked the market out of its phase and back and rewrote its form: a write, so
-  // the store re-reads it and every screen showing the market follows.
+  // The form is a write, so the store re-reads the market and every screen showing it follows.
   void refreshMarket();
   const keptColumns = { ...columnTarget.value };
   const keptGroups = { ...groupTarget.value };
@@ -555,7 +601,6 @@ async function onAmended() {
   step.value = keptStep;
   // What the values mean follows the decisions just put back, not the ones inspect restored.
   await readValues(false).catch(() => {});
-  await loadAmendAvailability();
 }
 
 async function inspect() {
@@ -689,6 +734,7 @@ async function readValues(advance: boolean) {
   updatedRows.value = data.updatedRows ?? 0;
   unchangedRows.value = data.unchangedRows ?? 0;
   previewSamples.value = data.samples ?? [];
+  previewRejected.value = data.rejected ?? [];
   absentApplications.value = data.absentApplications ?? 0;
   absentEmails.value = data.absentEmails ?? [];
   returningToReview.value = data.returningToReview ?? 0;
@@ -712,6 +758,7 @@ async function runImport() {
     rejectedByRules.value = data.rejectedByRules ?? 0;
     failures.value = data.failures ?? [];
     repeats.value = data.repeats ?? [];
+    enteredReview.value = firstImport.value && data.phase === MarketPhase.Applications;
     step.value = 'done';
     // Applications now exist, which locks the form: part of the market every screen reads.
     void refreshMarket();
@@ -745,7 +792,7 @@ function startOver() {
     <div class="import-view" data-testid="import-view">
       <header class="import-header">
         <div>
-          <h1>Import applications</h1>
+          <h1>{{ firstImport ? 'Import responses' : 'Redo import' }}</h1>
           <p v-if="fileName" class="import-subtitle" data-testid="import-filename">
             {{ fileName }}
           </p>
@@ -770,7 +817,9 @@ function startOver() {
           {{
             roleRefusal
               ? 'Importing into this market is not yours to do'
-              : 'This market is not taking applications right now'
+              : firstImport
+                ? 'This market is not ready for its first import'
+                : 'This market is not taking applications right now'
           }}
         </h2>
         <p class="import-help">{{ phaseRefusal }}</p>
@@ -792,6 +841,14 @@ function startOver() {
         <p v-if="market" class="import-help" data-testid="import-target-market">
           Importing into <strong>{{ market.name }}</strong
           >. Nothing is written until you confirm.
+        </p>
+        <!-- What this import does to the market, which differs by where it stands (E38/F04). -->
+        <p class="import-help" data-testid="import-what-it-does">
+          {{
+            firstImport
+              ? 'Bring every response your Google Form collected. Once the import is written, the market enters Review.'
+              : 'Bring your whole responses file again, the earlier responses with the new: new rows are added, changed rows are updated and the rest stay as they are. The market stays in Review.'
+          }}
         </p>
         <label
           class="drop-zone"
@@ -993,9 +1050,8 @@ function startOver() {
                     </select>
 
                     <!--
-                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01). It still
-                    does not write the form from here: the dialog calls the amendment endpoint,
-                    which walks the market to draft and goes through
+                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01) while the
+                    market is a draft: the dialog writes the form through
                     PUT /markets/<id>/application-form like everything else - which is what keeps
                     the D9 lock unbypassable.
                   -->
@@ -1109,10 +1165,8 @@ function startOver() {
           </p>
 
           <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
-             (D9). This wizard runs in TWO phases - `applications_open` and `applications_closed` -
-             and the form is editable in neither, so it points at where to do it rather than
-             offering a button that would be refused here. Same shape as the unmapped-column dead
-             end in the ledger, and E20/F03 is the story that removes both. -->
+             (D9): offered on a first import, and once anything is imported the lock says why not.
+             Same shape as the unmapped-column dead end in the ledger. -->
           <div
             v-for="target in declarableUnasked"
             :key="target.key"
@@ -1148,8 +1202,11 @@ function startOver() {
             >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
               >, {{ unchangedRows }} unchanged</template
             >. </template
-          >Each imported row becomes an application awaiting your review. Nothing has been written
-          yet.
+          >Each imported row becomes an application awaiting your review<template
+            v-if="previewRejected.length"
+            >, except the {{ previewRejected.length }} listed below, which
+            {{ previewRejected.length === 1 ? 'arrives' : 'arrive' }} already rejected</template
+          >. Nothing has been written yet.
         </p>
 
         <!-- An approval the import would invalidate. Said before it happens, because silently
@@ -1216,28 +1273,34 @@ function startOver() {
         </div>
         <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
            it on screen, "Preview" only restates the previous step. -->
-        <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
+        <section v-if="sampleApplications.length" class="preview-rows" data-testid="import-samples">
           <h3>
             The first
             {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
             {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
           </h3>
-          <div class="sample-grid">
-            <article
-              v-for="sample in sampleApplications"
-              :key="sample.row"
-              class="sample-card"
-              data-testid="import-sample-row"
-            >
-              <dl>
-                <template v-for="answer in sample.answers" :key="answer.key">
-                  <dt>{{ answer.label }}</dt>
-                  <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
-                </template>
-              </dl>
-            </article>
-          </div>
-        </div>
+          <p class="preview-rows-why">A check that each answer lands in the right question.</p>
+          <ImportRowList :rows="sampleApplications" open-first row-testid="import-sample-row" />
+        </section>
+
+        <!-- The rows the import's judging will newly reject, in the samples' format: a check of the
+           rules, before they reject anyone (E38/F03/S02). -->
+        <section
+          v-if="rejectedApplications.length"
+          class="preview-rows"
+          data-testid="import-rejected"
+        >
+          <h3>
+            Rejected by your automatic rejections
+            <span class="chip chip--destructive" data-testid="import-rejected-count">{{
+              rejectedApplications.length
+            }}</span>
+          </h3>
+          <p class="preview-rows-why" data-testid="import-rejected-why">
+            {{ rejectedRowsWhy(overturnedBy) }}
+          </p>
+          <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
+        </section>
 
         <h3 class="preview-mapping-heading">Where each answer comes from</h3>
         <ul class="preview-mapping">
@@ -1255,9 +1318,14 @@ function startOver() {
           }}<span v-if="updated">, updated {{ updated }}</span
           >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
         </h2>
+        <p v-if="enteredReview" class="import-note" data-testid="import-result-in-review">
+          This market is now in Review: decide every application, then begin assignment.
+        </p>
         <p v-if="rejectedByRules" class="import-note" data-testid="import-result-rejected-note">
           {{ rejectedByRules }} {{ rejectedByRules === 1 ? 'was' : 'were' }} rejected by your
-          automatic rejections, each with its reason; a reviewer can overturn any of them.
+          automatic rejections, each with its reason<template v-if="overturnedBy"
+            >; {{ overturnedBy }} can overturn any of them</template
+          >.
         </p>
         <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
           {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}
@@ -1315,17 +1383,22 @@ function startOver() {
           data-testid="import-confirm-button"
           @click="runImport"
         >
-          Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
+          <!-- Still offered with nothing to write: the import saves the mapping, and judges. -->
+          <template v-if="writingRows"
+            >Import {{ writingRows }} row{{ writingRows === 1 ? '' : 's' }}</template
+          >
+          <template v-else>Import nothing new</template>
         </button>
-        <!-- Secondary: once something is imported, the one next step is the rail's Begin Review
-             (E32/F02/S01), and two green buttons would make it one of two. -->
+        <!-- Once imported, the one next step is the review itself (E38/F04/S01). -->
         <button
           v-if="step === 'done'"
-          class="button-secondary"
+          class="button-primary"
           data-testid="import-finish-button"
           @click="leaveImport()"
         >
-          Back to applications
+          {{
+            marketPhase === MarketPhase.Applications ? 'Go to the review' : 'Back to applications'
+          }}
         </button>
       </footer>
 
@@ -1336,7 +1409,6 @@ function startOver() {
         :essential-options="amendOptions"
         :suggested-field-label="amendFieldLabel"
         :suggested-unasked="amendUnasked"
-        :intake-is-form="intakeIsForm"
         @close="amendOpen = false"
         @amended="onAmended()"
       />
@@ -1714,56 +1786,27 @@ function startOver() {
   line-height: 1.5;
 }
 
-.preview-samples {
+.preview-rows {
   margin-top: var(--space-6);
 }
 
-.preview-samples h3,
+.preview-rows h3,
 .preview-mapping-heading {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   margin: 0 0 var(--space-2);
 }
 
+/* `pretty`: a two-line line here left one word alone on its second line at the design width. */
+.preview-rows-why {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-3);
+  text-wrap: pretty;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .preview-mapping-heading {
   margin-top: var(--space-6);
-}
-
-.sample-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: var(--space-3);
-}
-
-.sample-card {
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  padding: var(--space-3) var(--space-4);
-  min-width: 0;
-}
-
-.sample-card dl {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-hairline);
-  margin: 0;
-  font-size: var(--text-xs);
-}
-
-.sample-card dt {
-  color: rgba(39, 35, 35, 0.55);
-}
-
-.sample-card dd {
-  margin: 0 0 var(--space-2);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-}
-
-.sample-card dd.blank {
-  color: rgba(39, 35, 35, 0.4);
-  font-style: italic;
 }
 
 .preview-mapping {

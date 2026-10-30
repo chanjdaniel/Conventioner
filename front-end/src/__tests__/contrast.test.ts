@@ -248,3 +248,71 @@ describe('the palette carries a contrast contract', () => {
     expect(unaccounted).toEqual([]);
   });
 });
+
+/**
+ * The focus halo's figures, as `base.css` and `docs/design-system.md` state them (E38/F01/S01).
+ *
+ * The halo is a `box-shadow`, not a colour token, so the palette contract above never reads it:
+ * this takes the translucent colour out of each halo, lays it over the grounds it is drawn on, and
+ * holds the stated ratios, so a change to an alpha breaks here rather than leaving the docs wrong.
+ * The light grounds fall below 3:1 by Daniel's choice of look; the dark ground reaches it.
+ */
+describe('the focus halo measures what its comment says', () => {
+  /** The translucent colour in a halo token, and its alpha. */
+  function haloColour(name: string): { rgb: Rgb; alpha: number } {
+    const value = BASE_CSS.replace(/\/\*[\s\S]*?\*\//g, '').match(
+      new RegExp(`${name}\\s*:\\s*([^;]+);`),
+    )?.[1];
+    const rgba = value?.match(/rgba\([^)]*\)/g)?.at(-1);
+    if (!rgba) throw new Error(`${name} carries no rgba() colour in base.css`);
+    return { rgb: toRgb(rgba)!, alpha: alphaOf(rgba) };
+  }
+
+  const glow = haloColour('--focus-halo');
+  const darkGlow = haloColour('--focus-halo-on-dark');
+
+  it('the green glow is 1.58:1 on white and 1.50:1 on beige', () => {
+    expect(contrast(over(glow.rgb, glow.alpha, WHITE), WHITE)).toBe(1.58);
+    const beige = resolve('--mm-beige');
+    expect(contrast(over(glow.rgb, glow.alpha, beige), beige)).toBe(1.5);
+  });
+
+  it("the white gap is 4.59:1 against the green primary button's fill", () => {
+    expect(contrast(WHITE, resolve('--mm-green'))).toBe(4.59);
+  });
+
+  it('the white halo is 3.17:1 on --mm-black, past the 3:1 a focus indicator wants', () => {
+    const black = resolve('--mm-black');
+    const ratio = contrast(over(darkGlow.rgb, darkGlow.alpha, black), black);
+    expect(ratio).toBe(3.17);
+    expect(ratio).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the inset halo on a phone is the same colour as the dark halo', () => {
+    expect(haloColour('--focus-halo-on-dark-inset')).toEqual(darkGlow);
+  });
+});
+
+/**
+ * The selected row (the Vendors page's open vendor) is the on toggle's ground, `--mm-chip-positive`
+ * inside a `--mm-green` border. Its text and its muted lines are held to the tint itself, and the
+ * border to the 3:1 a boundary wants; a chip in the row is set on white, where the palette contract
+ * above already holds its ink.
+ */
+describe('the selected row is legible on its tint', () => {
+  const tint = resolve('--mm-chip-positive');
+
+  for (const ink of ['--mm-black', '--mm-text-muted-on-beige']) {
+    it(`${ink} is legible on the selected row`, () => {
+      expect(contrast(inkOn(ink, tint), tint)).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+  }
+
+  it('--mm-text-muted is not, so the row swaps it', () => {
+    expect(contrast(inkOn('--mm-text-muted', tint), tint)).toBe(4.27);
+  });
+
+  it('the green border is 3.75:1 on the tint, past the 3:1 a boundary wants', () => {
+    expect(contrast(resolve('--mm-green'), tint)).toBe(3.75);
+  });
+});

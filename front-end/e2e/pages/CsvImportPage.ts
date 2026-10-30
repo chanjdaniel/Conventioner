@@ -49,6 +49,10 @@ export class CsvImportPage {
   readonly previewButton: Locator;
   readonly previewCounts: Locator;
   readonly sampleRows: Locator;
+  readonly rejectedRows: Locator;
+  readonly rejectedCount: Locator;
+  /** What the preview says over the rows a rule rejects, naming who may overturn one. */
+  readonly rejectedWhy: Locator;
   readonly targetMarket: Locator;
   readonly dropZone: Locator;
   readonly previewMerge: Locator;
@@ -95,6 +99,9 @@ export class CsvImportPage {
     this.previewButton = page.getByTestId('import-preview-button');
     this.previewCounts = page.getByTestId('import-preview-counts');
     this.sampleRows = page.getByTestId('import-sample-row');
+    this.rejectedRows = page.getByTestId('import-rejected-row');
+    this.rejectedCount = page.getByTestId('import-rejected-count');
+    this.rejectedWhy = page.getByTestId('import-rejected-why');
     this.targetMarket = page.getByTestId('import-target-market');
     this.dropZone = page.getByTestId('import-drop-zone');
     this.previewMerge = page.getByTestId('import-preview-merge');

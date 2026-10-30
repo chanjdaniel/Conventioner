@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/MarketPages.vue
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -23,6 +23,7 @@ sources:
   - E21/F04/S02
   - T15
   - E45/F01/S01
+  - E38/F01/S01
 ---
 
 # The market frame
@@ -42,6 +43,7 @@ A screen hands it the market from [the market store](market-store.md) and render
 - **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Assignment, Result and Vendors.
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
+  The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   The server sets it when the market is archived or none of the table's changing actions is the person's ([the market's actions](market-actions.md#what-the-screens-read)); the frame decides nothing about who may.
   Not on an archived market, which the rail says ([an archived market is read-only](../../business/rules/an-archived-market-is-read-only.md)), and not beside a tab's note, which stands in for the page.
@@ -80,6 +82,7 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 
 **On a phone the tabs scroll inside the bar.**
 At 640px and below the name takes its own line and the tabs scroll sideways rather than widening the page, since six tabs are wider than a phone; only Attendance reaches that width (see [attendance and the door](attendance-and-door.md)).
+A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the six tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
 
 ## Why

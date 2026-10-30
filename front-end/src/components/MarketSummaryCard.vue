@@ -31,10 +31,11 @@ const props = defineProps<{
 defineEmits<{ open: []; manage: [] }>();
 
 /**
- * Manage is where roles are given, so it is offered to whoever may give Editor and Viewer roles:
- * the table's answer, which the list serves for each market as its own page does (E39/F01/S02).
+ * Manage is where roles are given and where everyone reads what each role may do on the market, so
+ * it is offered to whoever may read it (E39/F01/S04); each control inside asks its own row, as the
+ * list serves the table's answers for each market as its own page does (E39/F01/S02).
  */
-const canManage = computed(() => mayTake(props.market, MarketAction.ManageEditorsAndViewers));
+const canManage = computed(() => mayTake(props.market, MarketAction.Read));
 
 const facts = computed<SummaryFact[]>(() => [
   {
@@ -55,7 +56,7 @@ const facts = computed<SummaryFact[]>(() => [
       </h3>
     </template>
     <template #badge>
-      <PhaseBadge :phase="market.phase" />
+      <PhaseBadge :phase="market.phase" :intake-mode="market.intakeMode" />
     </template>
     <template #actions>
       <!-- Manage stays a visible control rather than moving behind a `...`: it is where a market

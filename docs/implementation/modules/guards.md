@@ -5,7 +5,6 @@ describes:
   - back-end/guards.py
   - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#take_move
-  - back-end/api/markets.py#walk_route
   - back-end/api/markets.py#apply_phase_transition
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
@@ -23,6 +22,7 @@ sources:
   - E32/F03/S03
   - E36/F04/S02
   - T45
+  - E38/F04/S01
 ---
 
 # The guards and the phase move
@@ -39,9 +39,9 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 | `PHASE_ENTRY_INVARIANTS` | the guards every edge into a phase must carry, whatever route reaches it |
 | `PreconditionResult` | the wire shape: `id`, `passed`, `message`, and an optional `resolutionLink` (a page of the market, never a redirect) with its `resolutionLabel`, both or neither |
 | `route_between(a, b)` | the shortest route between two phases, archiving excluded, by a breadth-first walk of the table |
-| `PASSED_THROUGH`, `path_moves(market)` | the phases an intake path steps through, and every move open from the market's phase on its path |
-| `judge_route`, `evaluate_transition` | every guard on every step of a move, judged before the first step; failures only |
-| `transition_verdicts(market)` | every move open on the market's path, with its blockers; served on the market read as `transitionBlockers` |
+| `moves_from(phase)` | every move open from a phase: one edge of the table each |
+| `evaluate_transition(market, to, db, leaving_out)` | every guard on the move's edge, less any the caller satisfies itself; failures only |
+| `transition_verdicts(market)` | every move open from the market's phase, with its blockers; served on the market read as `transitionBlockers` |
 
 ## Sharp edges
 
@@ -54,16 +54,13 @@ It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is
 An entry invariant is what makes a rule hold of every market in the phase rather than only on the route its author thought of: `market_days` requires a stored assignment, no orphaned pin and, for a form market, published results, on both edges into it.
 
 **A guard reads the market's state, never its phase.**
-`judge_route` judges every step of a move against the market as it stands, which is only sound because no guard asks where the market is; `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it.
+`test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
 
-**A path may step through a phase it never stops in** (E32/F02/S01).
-A CSV market's organizer holds the responses when it leaves draft, so the import is the collection and "applications closed" is never a stage of theirs: `PASSED_THROUGH` names `applications_closed` for the CSV path, and `path_moves` gives that market Begin Review as one move of two steps, `applications_open -> applications_closed -> review`, and back from review a move to `applications_open`.
-A market already standing in a passed-through phase keeps every way out it has, so none is stranded.
-Every step's guards are judged before the first step is taken, and `walk_route` writes each step through the one phase writer, so the phase history records both.
-The single edge of the table is still taken when asked for (`move_route`), so a seed may walk it.
-Review refuses a CSV market with nothing imported (`ResponsesImportedGuard`, on `applications_closed -> review`, the edge both routes into review cross; [review needs an import](../../business/rules/review-needs-an-import.md)).
-Each step is taken only from where the step before left the market (`walk_route` re-reads it between steps), so a request that moves the market in between stops the walk there rather than being carried over.
-[The phase rail](phase-rail.md) draws the screen side: the moves are the keys of `transitionBlockers`, and the stepped-through phases are served as `phasesPassedThrough`, so the browser keeps no copy of either.
+**One stage, two ways in** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+`draft -> applications` carries the setup's three, `PriceGroupsStandGuard`, `FormHasFieldsGuard` and `ResponsesImportedGuard`, the last two its phase's entry invariants.
+`ResponsesImportedGuard` passes a form market and refuses a Google Form market with nothing imported, its fix "Import responses" leading to the import ([review needs an import](../../business/rules/review-needs-an-import.md)).
+That market's first import judges the edge less that guard (`first_import_blockers` in [the CSV import](csv-import.md)) before it reads a row, and takes the move through `take_move` once the rows are written, so nothing moves unjudged and a market left mid-import stays a draft.
+Every move is one edge of the table; [the phase rail](phase-rail.md) draws the moves as the keys of `transitionBlockers`, so the browser keeps no copy of them.
 
 **The read and the move cannot disagree about a move.**
 `transition_verdicts` calls `evaluate_transition`, the function the endpoint runs, so the rail disables a refused move and names its first blocker before the click.
@@ -71,8 +68,8 @@ The endpoint's 409 stays, for a market that changed between the read and the cli
 
 **A market is created only through `create_owned_market` and moved only through `take_move`.**
 `POST /markets` creates through the one and the transition endpoint moves through the other, and the operator's seeder ([`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) calls both, so nothing makes a market someone else owns or takes a move unjudged.
-`take_move` asks nothing about who is moving the market: the endpoint, and the seeder, ask the table's Move the phase row first ([the market's actions](market-actions.md)).
-The one other mover is [the form amendment](form-amendment.md) chain (`api/form_amendment.py`), which judges its whole route with `judge_route` against the proposed form before its first step and writes each step through `apply_phase_transition`.
+A Google Form market's first import moves it through `take_move` too (`csv_import.enter_review`).
+`take_move` asks nothing about who is moving the market: the endpoint, and the seeder, ask the table's Move the phase row first, and the import's endpoints its Import applications row ([the market's actions](market-actions.md)).
 
 **A rule about phases that is not about a move does not belong here.**
 The registry is validated against the transition table and is for transitions, so the phases an organization cannot be deleted in are `BLOCKING_PHASES` in `api/organizations.py` ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)), and the phases the import runs in are `IMPORT_PHASES` in [the CSV import](csv-import.md).
@@ -81,11 +78,10 @@ The registry is validated against the transition table and is for transitions, s
 `create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft` and the form's `publishedAt` (`finalization_update`) and pushes the [phase record](phase-record.md)'s entry.
 A request that finds the market moved under it gets `PhaseChangedUnderRequest`, a `ConflictError` whose `body()` is the endpoint's 409: `phase_changed`, the phase it is in now, the phase asked for, and one blocker telling the organizer to reload.
 The endpoint catches nothing: that 409, `MoveUnavailable`'s 400 and a market deleted under it (404) reach the [registered handler](../conventions/an-exception-never-reaches-a-client.md#the-two-handlers), and only the guards' own 409 is built by the endpoint.
-`walk_route` raises it naming the whole move, from the phase the walk began in to the last on its route, never the step it stopped at.
 Do not add a second copy of that write: the endpoint carried one until E26, which is how stamps drift.
 
 **Leaving draft finalizes the form.**
-`draft -> applications_open` stamps `applicationForm.publishedAt` (giving a market with no stored form one with no custom fields), and a return to `draft` clears it; `draft -> archived`, abandoning a draft, does not stamp, so `publishedAt` says whether the form ever opened, which `phase` alone cannot.
+`draft -> applications` stamps `applicationForm.publishedAt` (giving a market with no stored form one with no custom fields), and a return to `draft` clears it; `draft -> archived`, abandoning a draft, does not stamp, so `publishedAt` says whether the form ever opened, which `phase` alone cannot.
 
 **`offers` is deadlocked, and kept.**
 `assignment -> offers` waits on `NoApprovedApplicationsGuard`, and nothing writes the statuses that would clear it; it is a post-MVP phase off the rail's spine, and `market_days` is reached from `assignment` directly.
@@ -97,14 +93,15 @@ Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must
 
 The guards are where the product's rules about moving a market are kept:
 
-- [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications_open`.
+- [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
+- [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides when the review can no longer be reached.
 - [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): no edge leaves `archived`.
-- [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): `NoAskedForTierWithoutTablesGuard` refuses `review -> assignment` while an approved applicant waits on a tier with no tables.
+- [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): `NoAskedForTierWithoutTablesGuard` refuses `applications -> assignment` while an approved applicant waits on a tier with no tables.
 
-[ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md) records why the phase is the market's only lifecycle state.
+[ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md) records why the phase is the market's only lifecycle state, and [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md) why applications and review are one stage.
 
 What the organizer meets of the guards, phase by phase and path by path, is [the market lifecycle](../../business/flows/lifecycle.md).
 

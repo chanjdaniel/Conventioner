@@ -5,7 +5,8 @@
  *
  * Their notes are pinned at the top - what the organizer knows and did about them reads on every
  * tab - and below them three tabs: Application (the submission), Assignments (their seats, each one
- * click from changing) and History (who moved them, when). The drawer used to stack all of it on the
+ * click from changing) and History (everything the market's history holds about them, E40/F01/S04,
+ * for whoever may read that history). The drawer used to stack all of it on the
  * Vendors page alone, with the assignments and the history at the bottom where nobody found them.
  *
  * The screen that opens it holds which vendor and which tab - in the address, so a link, a refresh
@@ -16,16 +17,18 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
+import { intakeModeOf } from '@/utils/marketGuide';
 import { TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import { dateLabel, type VendorDetails } from '@/utils/vendorDetails';
 import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
 import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
-import PlacementHistory from '@/components/PlacementHistory.vue';
+import MarketHistory from '@/components/MarketHistory.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
@@ -60,6 +63,21 @@ const open = computed(() => props.email !== null);
 const vendor = computed(() => (props.email ? props.details.rowFor(props.email) : null));
 const names = computed(() => props.details.vendorNames.value);
 const submission = computed(() => (vendor.value ? props.details.submission(vendor.value) : []));
+
+/**
+ * The History tab is the market's history narrowed to the vendor, read at its own row: an owner may
+ * raise it above a role that still opens the drawer, so the tab is held only for someone it lets
+ * in, and an address asking for it opens on the Application tab instead.
+ */
+const readsHistory = computed(() => mayTake(props.market, MarketAction.ReadHistory));
+const tabs = computed(() => TABS.filter((t) => t.id !== 'history' || readsHistory.value));
+const shownTab = computed<VendorTab>(() =>
+  tabs.value.some((t) => t.id === props.tab) ? props.tab : 'application',
+);
+/** The market's own table's labels by row id, for a history entry about a row of it. */
+const rowLabels = computed(() =>
+  Object.fromEntries((props.market?.permissionTable ?? []).map((row) => [row.id, row.label])),
+);
 
 const { load: loadNotes, entryFor } = useVendorNotes(marketId);
 const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendorNotes));
@@ -127,13 +145,14 @@ function goToResult(date: string): void {
 /** The tab list moves with the arrow keys, as a tab list does. */
 const tabButtons = ref<HTMLButtonElement[]>([]);
 function onTabKey(event: KeyboardEvent) {
-  const at = TABS.findIndex((t) => t.id === props.tab);
+  const held = tabs.value;
+  const at = held.findIndex((t) => t.id === shownTab.value);
   const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
   if (!step) return;
   event.preventDefault();
-  const next = TABS[(at + step + TABS.length) % TABS.length];
+  const next = held[(at + step + held.length) % held.length];
   emit('update:tab', next.id);
-  void nextTick(() => tabButtons.value[TABS.indexOf(next)]?.focus());
+  void nextTick(() => tabButtons.value[held.indexOf(next)]?.focus());
 }
 
 // While "Update info" is open, Escape is the dialog's: one press closes one thing.
@@ -151,6 +170,25 @@ const panel = ref<HTMLElement | null>(null);
 useInertBehind(
   () => open.value,
   () => [overlay.value, panel.value],
+);
+
+/**
+ * Focus moves in as the drawer opens, and goes back to what opened it as it closes, as a dialog's
+ * does (`docs/implementation/conventions/dialogs.md`): the row or name that opened it is
+ * inert behind the drawer, and closing unmounts the drawer's controls, which dropped focus to
+ * `<body>`. It opens on its close, its first control, since what follows may be a verdict or a note.
+ * Only opening moves focus: another vendor shown in the open drawer leaves it where it is.
+ */
+const closeButton = ref<HTMLButtonElement | null>(null);
+useFocusGoesBack(() => open.value);
+watch(
+  open,
+  async (opened) => {
+    if (!opened) return;
+    await nextTick();
+    closeButton.value?.focus();
+  },
+  { immediate: true },
 );
 </script>
 
@@ -194,6 +232,7 @@ useInertBehind(
         </div>
         <button
           type="button"
+          ref="closeButton"
           class="detail-close"
           aria-label="Close vendor detail"
           @click="emit('close')"
@@ -222,17 +261,17 @@ useInertBehind(
 
       <div class="detail-tabs" role="tablist" aria-label="Vendor detail" @keydown="onTabKey">
         <button
-          v-for="t in TABS"
+          v-for="t in tabs"
           :id="`vendor-drawer-tab-${t.id}`"
           :key="t.id"
           ref="tabButtons"
           type="button"
           role="tab"
           class="detail-tab"
-          :class="{ 'detail-tab--current': t.id === tab }"
-          :aria-selected="t.id === tab"
+          :class="{ 'detail-tab--current': t.id === shownTab }"
+          :aria-selected="t.id === shownTab"
           :aria-controls="`vendor-drawer-panel-${t.id}`"
-          :tabindex="t.id === tab ? 0 : -1"
+          :tabindex="t.id === shownTab ? 0 : -1"
           :data-testid="`vendor-drawer-tab-${t.id}`"
           @click="emit('update:tab', t.id)"
         >
@@ -241,15 +280,26 @@ useInertBehind(
       </div>
 
       <section
-        :id="`vendor-drawer-panel-${tab}`"
+        :id="`vendor-drawer-panel-${shownTab}`"
         role="tabpanel"
-        :aria-labelledby="`vendor-drawer-tab-${tab}`"
+        :aria-labelledby="`vendor-drawer-tab-${shownTab}`"
         class="detail-panel-body"
-        :data-testid="`vendor-drawer-panel-${tab}`"
+        :data-testid="`vendor-drawer-panel-${shownTab}`"
       >
+        <!-- What the read could not get, on every tab: the server's reason, such as an approved
+             application whose answers are incomplete refusing where anyone sits (T123). -->
+        <p
+          v-if="details.loadError.value && !details.isLoading.value"
+          class="detail-error"
+          role="alert"
+          data-testid="vendors-detail-load-error"
+        >
+          {{ details.loadError.value }}
+        </p>
+
         <p v-if="details.isLoading.value && !vendor" class="detail-empty">Loading…</p>
 
-        <template v-else-if="tab === 'application'">
+        <template v-else-if="shownTab === 'application'">
           <div v-if="vendor?.tableShareNotice" class="detail-section">
             <TableShareNotice
               :notice="vendor.tableShareNotice"
@@ -283,21 +333,22 @@ useInertBehind(
                 </dd>
               </template>
             </dl>
-            <p v-else class="detail-empty">This market asks no questions of its own.</p>
+            <p v-else-if="vendor" class="detail-empty">This market asks no questions of its own.</p>
           </div>
         </template>
 
-        <div v-else-if="tab === 'assignments'" class="detail-section">
+        <div v-else-if="shownTab === 'assignments'" class="detail-section">
           <div v-if="details.marketDates.value.length === 0" class="detail-empty">
             No market dates configured.
           </div>
-          <ul v-else-if="vendor" class="assignment-list">
+          <ul v-else-if="vendor && details.placementsRead.value" class="assignment-list">
             <VendorDateCard
               v-for="date in details.marketDates.value"
               :key="date.date"
               :data-date="date.date"
               :label="dateLabel(date.date)"
               :placement="details.placementOn(vendor, date.date)"
+              :price="details.priceOn(vendor, date.date)"
               :reason="details.reasonFor(email, date.date)"
               :overrides="details.overridesFor(email, date.date)"
               :placeHref="resultLinkFor(date.date)"
@@ -307,10 +358,16 @@ useInertBehind(
           </ul>
         </div>
 
-        <!-- Who moved this vendor, and when. A placement that differs from what the solver
-             produced is a fact someone will later ask about (E11/F04/S01). -->
+        <!-- Everything the market's history holds about this vendor, newest first, in the words
+             of Manage market's History section (E40/F01/S04). -->
         <div v-else class="detail-section">
-          <PlacementHistory v-if="market?.id" :marketId="market.id" :vendor="email" />
+          <MarketHistory
+            v-if="market?.id"
+            :marketId="market.id"
+            :vendor="email"
+            :rowLabels="rowLabels"
+            :path="intakeModeOf(market)"
+          />
         </div>
       </section>
     </div>
@@ -432,6 +489,11 @@ useInertBehind(
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* The panel head is dark, so the white halo rather than the green one (E38/F01/S01). */
+.detail-close:focus-visible {
+  box-shadow: var(--focus-halo-on-dark);
+}
+
 .detail-section {
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
@@ -468,9 +530,12 @@ useInertBehind(
   color: var(--mm-black);
 }
 
+/* Above the section beneath, which would otherwise paint over the halo's lower edge; rounded only
+   while focused, since at rest a radius would curl the current tab's underline. */
 .detail-tab:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-control);
 }
 
 .detail-tab--current {
@@ -533,6 +598,14 @@ useInertBehind(
   margin: 0;
   padding: var(--space-4) var(--space-6);
   color: var(--mm-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* As the Vendors page says its own read failed: red ink, 5.44 on white. */
+.detail-error {
+  margin: 0;
+  padding: var(--space-4) var(--space-6) 0;
+  color: var(--mm-red);
   font-size: var(--text-sm);
 }
 

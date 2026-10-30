@@ -1,7 +1,8 @@
 /**
  * Six overlays depend on this composable, and the bug it fixes was that none of them closed on
  * Escape. The listener being bound only while open is the part worth pinning: a page holding
- * several overlays must not close them all at once.
+ * several overlays must not close them all at once, and a dialog opened from a dialog takes Escape
+ * alone, leaving the one beneath open (T114's review).
  */
 import { describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, ref } from 'vue';
@@ -62,6 +63,36 @@ describe('useEscapeToClose', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
     expect(close).not.toHaveBeenCalled();
     wrapper.unmount();
+  });
+
+  it('closes only the overlay opened last, so a dialog opened from a dialog leaves that one open', async () => {
+    const beneath = harness(ref(true));
+    const above = harness(ref(false));
+    above.open.value = true;
+    await above.wrapper.vm.$nextTick();
+
+    pressEscape();
+    expect(above.close).toHaveBeenCalledTimes(1);
+    expect(beneath.close).not.toHaveBeenCalled();
+
+    above.open.value = false;
+    await above.wrapper.vm.$nextTick();
+    pressEscape();
+    expect(beneath.close).toHaveBeenCalledTimes(1);
+    expect(above.close).toHaveBeenCalledTimes(1);
+
+    above.wrapper.unmount();
+    beneath.wrapper.unmount();
+  });
+
+  it('hands Escape back to the overlay beneath once the one above is gone', () => {
+    const beneath = harness(ref(true));
+    const above = harness(ref(true));
+    above.wrapper.unmount();
+
+    pressEscape();
+    expect(beneath.close).toHaveBeenCalledTimes(1);
+    beneath.wrapper.unmount();
   });
 
   it('stops listening once the component is gone', () => {

@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/guards.py#VALID_TRANSITIONS
   - back-end/migrations/migrate_publishing_to_market_days.py
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/05
@@ -14,6 +14,9 @@ sources:
   - E10
   - E26/F06/S02
   - E26/F07/S02
+  - E38/F04/S01
+  - E38/F04/S02
+  - E43/F01/S02
 status: accepted
 ---
 
@@ -36,19 +39,20 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - `isDraft` is a computed field, true iff `phase == draft`, never writable; it stays persisted only as the fallback for a document whose `phase` is missing or unrecognized ([the market document](../implementation/data/market-document.md#the-phase-and-isdraft)).
 - **Publishing is `assignment -> market_days`**: one row in [`VALID_TRANSITIONS`](../../back-end/guards.py), with an entry invariant on `market_days` that an assignment is stored, so no later route can publish an unassigned market.
 - **`archived` means one thing: finished.** Every edge into it means "this market is over"; `draft -> archived` is abandoning a draft, never publishing it, and nothing leaves `archived`, nor changes inside it ([an archived market is read-only](../business/rules/an-archived-market-is-read-only.md)).
-- A market leaves `draft` for its lifecycle by `draft -> applications_open`, guarded by `FormHasFieldsGuard` and the setup's three.
+- A market leaves `draft` for its lifecycle by `draft -> applications`, the one stage where applications arrive and are reviewed ([ADR 0016](0016-one-stage-for-applications-and-review.md)), guarded by `FormHasFieldsGuard`, the setup's three, `PriceGroupsStandGuard` and, on a Google Form market, an import.
 - The organizer navigates the phase, not a wizard: the plan is one editable page, Assign is an operation inside `assignment` rather than a move, and the moves are on [the phase rail](../implementation/modules/phase-rail.md).
 - **Assign is an operation inside `assignment`, not a move.**
   Entering `assignment` is the gate (its entry invariant `_ALL_REVIEWED`), and entering `market_days` asks that a run is stored (`_ASSIGNMENT_COMPUTED`), so between the two the run is a button the organizer may press again ([Assign runs only in assignment](../business/rules/assign-runs-only-in-assignment.md)).
 
 ## Consequences
 
-- Each public surface names its own phases rather than "not a draft": check-in serves `market_days`, and an archived market that ran as a record; the applicant surface serves a form market in every phase but `draft`, and applying stays `applications_open`'s.
+- Each public surface names its own phases rather than "not a draft": check-in serves `market_days`, and an archived market that ran as a record; the applicant surface serves a form market in every phase but `draft`, and applying stays the stage's, while the organizer takes applications.
 - **No Mongo condition answers "is this market published?"**, since a legacy draft has no `phase`; the public lookup prunes in Mongo and decides in Python through `phase_from_market_document()`.
 - Markets the old build published needed moving: [`migrate_publishing_to_market_days.py`](../../back-end/migrations/migrate_publishing_to_market_days.py) moves those with a stored assignment from `archived` to `market_days`, and `migrate_is_draft_consistency.py` advances a `phase: "draft"`, `isDraft: false` market to `archived` rather than confirm it as a draft.
   Neither has a boot marker: a market left behind fails loudly at its check-in URL, which is not the invisible hazard the marker exists for.
 - `offers` stays in the phase set, off the rail's spine, until post-MVP offers are built; nothing reaches it.
 - A new lifecycle fact is a phase or a guard in [`guards.py`](../implementation/modules/guards.md), never a flag beside `phase`; a fact the phase cannot hold, such as how vendors reach a market or whether results are published, is its own field with its own writer.
+  Whether a market takes applications inside the stage (`applicationsStopped`, E38/F04/S02) is such a fact: it is about the applicant form, not the market's lifecycle, so reviewing goes on and no move is made, and entering assignment closes the form whatever it says.
 - **A move confirms exactly when it cannot be undone**, and which moves those are is derived from `VALID_TRANSITIONS` (a phase with no edge back), never listed: today `market_days` and `archived` (`transitionNeedsConfirmation` in `front-end/src/utils/phase.ts`).
   Adding a reverse edge stops a move confirming with no other change.
   The publish confirmation says what cannot be taken back: the check-in page goes on the air.
@@ -64,8 +68,9 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 ## Superseded
 
 - The first release was to walk the phase machine as it stood, with no new edges (wayfinding/v0-1-0/map).
-  Two were added: `applications_open -> draft`, guarded on no application existing, so a form can be corrected before anyone has answered it (wayfinding/real-market-readiness/05), and `assignment -> market_days`, which is publishing (wayfinding/real-market-readiness/06).
+  Two were added: the way back to `draft`, guarded on no application existing, so a form can be corrected before anyone has answered it (wayfinding/real-market-readiness/05), and `assignment -> market_days`, which is publishing (wayfinding/real-market-readiness/06).
 - Publishing was to be fired by the results screen's Done; the organizer publishes on the phase rail, and the wizard's Done is gone (wayfinding/readable-journey/01).
 - The applicant surface was to narrow to `applications_open` (wayfinding/real-market-readiness/06).
-  It serves a form market in every phase but `draft`, so an applicant can always read their application and its outcome; applying itself stays `applications_open`'s (E26/F07/S02).
+  It serves a form market in every phase but `draft`, so an applicant can always read their application and its outcome; applying itself stays the stage's (E26/F07/S02).
+- `applications_open`, `applications_closed` and `review` were three phases; they are one stage, `applications`, and closing applications is the form's fact above (E38/F04, [ADR 0016](0016-one-stage-for-applications-and-review.md)).
 - Check-in was to serve `market_days` alone; it also serves an archived market that ran, as a record that takes no check-in (E26/F06/S02).

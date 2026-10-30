@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import {
@@ -67,7 +67,7 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     // And says why, on the page whose seats are plain text: a Viewer took it for broken (T15).
     await expect(page.getByTestId('market-read-only')).toContainText('view this market');
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
@@ -92,7 +92,7 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
     await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.locator('button.seat-button').first()).toBeVisible({ timeout: 15000 });
 
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
@@ -100,15 +100,16 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
       'The review is closed',
     );
     // Publishing the verdicts stays an admin's.
-    await expect(page.getByTestId('app-monitor-publish-button')).toHaveCount(0);
+    await expect(page.getByTestId('applications-publish-button')).toHaveCount(0);
   });
 });
 
-test('an Editor of a market importing is shown the import, and told only an admin imports', async ({
+test('an Editor of a Google Form market is offered no import, and told only an admin imports', async ({
   browser,
   request,
 }) => {
-  // Importing is offered only while the market imports (E32/F02/S03), and is an admin's (bug 37).
+  // Importing is an admin's (bug 37): the rail offers an Editor no Import responses, and the
+  // import itself says why. A draft, so its first import is still to come (E38/F04/S01).
   const importing = await seedApplicantMarket(
     request,
     BACKEND_URL,
@@ -124,8 +125,13 @@ test('an Editor of a market importing is shown the import, and told only an admi
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
-    await expect(page.getByTestId('market-setup-import-button')).toBeDisabled({ timeout: 15000 });
-    await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 15000 });
+    await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+    await page.goto(marketScreenPath(importing.marketId, 'import'));
+    await expect(page.getByTestId('import-wrong-phase')).toContainText('not yours to do', {
+      timeout: 15000,
+    });
+    await expect(page.getByTestId('import-upload')).toHaveCount(0);
   });
 });
 

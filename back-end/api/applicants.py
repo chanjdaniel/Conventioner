@@ -41,7 +41,10 @@ from datatypes import (
     VendorAssignmentResult,
     VerdictGiver,
     MarketPhase,
+    LEGACY_STAGE_PHASES,
+    applications_stopped_from_market_document,
     phase_from_market_document,
+    phase_label,
 )
 from utils.application_token import (
     verify_application_token,
@@ -202,6 +205,31 @@ def authenticate_request(authorization_header: Optional[str]) -> Optional[Dict[s
     return verify_application_token(parts[1])
 
 
+# ── Taking applications (E38/F04/S02) ──────────────────────────────────────
+
+
+def takes_applications(market_doc: Dict[str, Any]) -> bool:
+    """Whether this market's applicant form takes a new application now.
+
+    Only in the stage where applications arrive, and only while the organizer has not stopped
+    taking them: a stop is a fact about the form, kept beside the phase rather than as one
+    (``applicationsStopped``, ADR 0005). Entering assignment closes the form whatever the fact says.
+    """
+    return (
+        phase_from_market_document(market_doc) is MarketPhase.APPLICATIONS
+        and not applications_stopped_from_market_document(market_doc)
+    )
+
+
+def applicant_phase_label(market_doc: Dict[str, Any]) -> str:
+    """The phase as an applicant reads it. A stopped form reads as a market whose applications have
+    closed, the words such a market showed before the stage was one phase."""
+    phase = phase_from_market_document(market_doc)
+    if phase is MarketPhase.APPLICATIONS and not takes_applications(market_doc):
+        return "Applications Closed"
+    return phase_label(phase)
+
+
 # ── Public (unauthenticated) endpoints ─────────────────────────────────────
 
 
@@ -231,7 +259,10 @@ def get_public_application_form(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "name", "phase", "applicationForm", "resultsPublished", "setupObject"),
+        fields=(
+            "id", "name", "phase", "applicationForm", "resultsPublished", "setupObject",
+            "applicationsStopped",
+        ),
     )
     if not market_doc:
         return {"error": "Market not found. Check the URL and try again."}, 404
@@ -261,8 +292,8 @@ def get_public_application_form(
         "essential_options": EssentialFields.essential_options_payload(essential_options),
         "market_name": market_doc.get("name", ""),
         "phase": phase.value,
-        "is_open": phase == MarketPhase.APPLICATIONS_OPEN,
-        "phase_label": phase.value.replace("_", " ").title(),
+        "is_open": takes_applications(market_doc),
+        "phase_label": applicant_phase_label(market_doc),
     }, 200
 
 
@@ -322,7 +353,7 @@ def save_applicant_application(
 
     Validates the form data against the market's application form fields, and the essential
     answers against what the essential questions offer (``essential_fields``). Refuses
-    submission when the market is not in ``applications_open``.
+    submission unless the market takes applications (``takes_applications``).
     The applicant owns their answers but never ``status``.
 
     The first successful save freezes the essential offering onto the market's stored form
@@ -347,7 +378,10 @@ def save_applicant_application(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject"),
+        fields=(
+            "id", "phase", "applicationForm", "resultsPublished", "setupObject",
+            "applicationsStopped",
+        ),
     )
     if not market_doc:
         return {"error": "Market not found."}, 404
@@ -357,12 +391,10 @@ def save_applicant_application(
     if token_market_id != market_id:
         return {"error": "Your sign-in is for a different market."}, 403
 
-    phase = phase_from_market_document(market_doc)
-    if phase != MarketPhase.APPLICATIONS_OPEN:
-        phase_label = phase.value.replace("_", " ").title()
+    if not takes_applications(market_doc):
         return {
             "error": f"Applications are no longer open for this market. "
-                     f"The market is in the {phase_label} phase.",
+                     f"The market is in the {applicant_phase_label(market_doc)} phase.",
         }, 403
 
     email = token_payload.get("email", "")
@@ -502,6 +534,7 @@ def _changed_since_seen(doc: Dict[str, Any], seen: Optional[Dict[str, Any]] = No
 def review_application(
     market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
     owner: Optional[MarketPerson] = None, seen: Optional[Dict[str, Any]] = None,
+    change_refused: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
     always sees raw status.
@@ -512,6 +545,11 @@ def review_application(
     verdict is written only if it still is (E34/F03/S01). Two reviewers at once used to mean the last
     verdict silently won; now the second is refused with a 409 naming who changed it and to what,
     and the application as it stands, so they decide again on what is really there.
+
+    A write on an application already approved or rejected changes a verdict, the table's change
+    row (E38/F06/S01): ``change_refused`` is that row's refusal of this reviewer, or None while they
+    may. An application they saw decided is then refused with it, a 403; one decided since they saw
+    it is the 409 above, never written over.
     """
     if new_status not in ApplicationsApi.MARKED_STATUSES:
         return {"error": f"Invalid review status: {new_status.value}"}, 400
@@ -519,9 +557,12 @@ def review_application(
     app_doc = ApplicationsApi.find_application_by_id(application_id)
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
+    if change_refused and ApplicationsApi.is_decided(seen or app_doc):
+        return {"error": change_refused}, 403
 
     written = ApplicationsApi.update_application_status(
-        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen)
+        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen,
+        unless_decided=bool(change_refused))
     if not written:
         now = ApplicationsApi.find_application_by_id(application_id)
         if now is None:
@@ -533,12 +574,20 @@ def review_application(
 
     stored = ApplicationsApi.find_application_by_id(application_id)
     History.record(
-        market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICT,
+        market_id, by.email, _verdict_row([app_doc]), kind=History.VERDICT,
         vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
         detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
     )
     app = Application(**stored)
     return {"application": _application_response_organizer(app)}, 200
+
+
+def _verdict_row(before: List[Dict[str, Any]]) -> "Actions.Action":
+    """The table's row a reviewer's write took, for its history entry: changing a verdict when any
+    application it wrote was decided, else giving one (E38/F06/S01)."""
+    if any(ApplicationsApi.is_decided(doc) for doc in before):
+        return Actions.CHANGE_VERDICTS
+    return Actions.GIVE_VERDICTS
 
 
 def _with_rules(
@@ -561,7 +610,7 @@ def _verdict_state(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 def review_selection(
     market_id: str, selection: List[Tuple[str, Optional[Dict[str, Any]]]],
-    new_status: ApplicationStatus, by: VerdictGiver,
+    new_status: ApplicationStatus, by: VerdictGiver, change_refused: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """One verdict for a ticked selection (E34/F04/S02). Organizer only.
 
@@ -569,7 +618,8 @@ def review_selection(
     another reviewer holds open is not written at all, nor one of another market. The answer says
     which were written and, for each skipped, why - never an action on "everything matching". One
     already at the status asked for is skipped too: a follow-up marked again would quietly change
-    hands.
+    hands. One already approved or rejected is skipped with ``change_refused`` when it is set:
+    this reviewer gives verdicts but may not change one (E38/F06/S01).
     """
     if new_status not in ApplicationsApi.MARKED_STATUSES:
         return {"error": f"Invalid review status: {new_status.value}"}, 400
@@ -591,8 +641,15 @@ def review_selection(
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": f"Already {_STATUS_WORD[new_status.value]}."})
             continue
+        # Decided as they saw it, or by now: either way not theirs to change, so the row says why.
+        if change_refused and (ApplicationsApi.is_decided(seen or doc)
+                               or ApplicationsApi.is_decided(doc)):
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": change_refused})
+            continue
         if ApplicationsApi.update_application_status(app_id, new_status, by=by,
-                                                     if_unchanged_since=seen):
+                                                     if_unchanged_since=seen,
+                                                     unless_decided=bool(change_refused)):
             written.append(app_id)
             was[app_id] = doc
         else:
@@ -602,7 +659,8 @@ def review_selection(
     if written:
         # One entry for the selection, as it was one action, naming every vendor it decided.
         History.record(
-            market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICTS,
+            market_id, by.email, _verdict_row([was[app_id] for app_id in written]),
+            kind=History.VERDICTS,
             vendors=[was[app_id].get("applicant_email") for app_id in written],
             subject={"application_ids": written},
             detail=lambda: {
@@ -668,6 +726,58 @@ def publish_results_refusal(market: Market) -> Optional[str]:
             "applicants are told what the market will hold."
         )
     return None
+
+
+def applications_stop_refusal(market: Market) -> Optional[str]:
+    """Why taking applications cannot be stopped or resumed now, or None while it can (E38/F04/S02).
+
+    Inside the stage alone, and only where vendors apply on the market's own page: a Google Form
+    market's form is the organizer's own, closed outside this product. Served on the market read as
+    ``applicationsStopReason``, beside the table's Stop taking applications answer, so the rail
+    offers the action exactly when the endpoint would take it.
+    """
+    if market.intake_mode is not IntakeMode.FORM:
+        return "This market's vendors apply on its Google Form, so it has no application page to stop."
+    if market.phase is not MarketPhase.APPLICATIONS:
+        return "Applications are taken only in the Applications phase."
+    return None
+
+
+def set_applications_stopped(
+    market_id: str, stopped: bool, by: str,
+) -> Tuple[Dict[str, Any], int]:
+    """Stop taking applications, or take them again, on a market whose vendors apply on its page,
+    ``by`` the signed-in organizer.
+
+    The write is conditional on the market still being where the refusal judged it, so a move into
+    assignment that lands first leaves nothing to undo. Who may is the caller's to ask first.
+    """
+    from db_config import get_database
+    db = get_database()
+
+    doc = db["markets"].find_one({"id": market_id})
+    if not doc:
+        return {"error": "Market not found."}, 404
+    refusal = applications_stop_refusal(market_from_document(doc))
+    if refusal:
+        return {"error": refusal}, 409
+
+    result = db["markets"].update_one(
+        {
+            "id": market_id,
+            # An old stage phase too, read as the stage until the migration has run.
+            "phase": {"$in": [MarketPhase.APPLICATIONS.value, *LEGACY_STAGE_PHASES]},
+            "intakeMode": IntakeMode.FORM.value,
+        },
+        {"$set": {"applicationsStopped": stopped}},
+    )
+    if not result.matched_count:
+        return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
+    # A stop restated records nothing.
+    History.record(market_id, by, Actions.STOP_APPLICATIONS, detail=lambda: History.changes(
+        {"applications_stopped": applications_stopped_from_market_document(doc)},
+        {"applications_stopped": stopped}))
+    return {"applications_stopped": stopped}, 200
 
 
 def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:

@@ -7,9 +7,11 @@ export enum MarketRole {
 
 export enum MarketPhase {
   Draft = 'draft',
-  ApplicationsOpen = 'applications_open',
-  ApplicationsClosed = 'applications_closed',
-  Review = 'review',
+  /**
+   * The one stage where applications arrive and are reviewed (E38/F04/S01): "Review" on a Google
+   * Form market, "Applications" on one whose vendors apply on its page (`pathPhaseLabel`).
+   */
+  Applications = 'applications',
   Assignment = 'assignment',
   Offers = 'offers',
   MarketDays = 'market_days',
@@ -103,6 +105,37 @@ export interface AssignmentOptionObject {
   maxHalfTableProportionPerSection: number | null;
 }
 
+/** One tier's price for a full table on one market day, in cents (E43/F01/S01). */
+export interface TierPrice {
+  tier: string;
+  cents: number;
+}
+
+/** A choice question and the answers to it that meet the condition: an automatic rejection's
+ *  rule, and a price group's condition (`back-end/rejection_rules.py` judges both). */
+export interface AnswerCondition {
+  key: string;
+  answers: string[];
+}
+
+/** A row of the Pricing card above "Everyone else" (E43/F01/S02): a group the organizer names,
+ *  the conditions that must all hold of a vendor's answers, and its price per tier. */
+export interface PriceGroup {
+  name: string;
+  conditions: AnswerCondition[];
+  prices: TierPrice[];
+}
+
+/** The Pricing card: the market's one currency, the half table's share, the groups, and
+ *  "Everyone else"'s price per tier. */
+export interface PricingObject {
+  currency: string;
+  halfTablePercent: number;
+  /** Absent on a card saved before there were groups, which has none. */
+  groups?: PriceGroup[];
+  everyoneElse: TierPrice[];
+}
+
 export interface SetupObject {
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
@@ -111,6 +144,8 @@ export interface SetupObject {
   sections: SectionObject[];
   assignmentOptions: AssignmentOptionObject;
   floorplans?: FloorplanObject[];
+  /** Null or absent on a market never priced, which shows no price anywhere. */
+  pricing?: PricingObject | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -178,10 +213,7 @@ export interface IncompleteApplication {
 }
 
 /** A choice question and the answers to it that reject an application (E33/F03/S01). */
-export interface RejectionRule {
-  key: string;
-  answers: string[];
-}
+export type RejectionRule = AnswerCondition;
 
 /** A question an automatic rejection may name, and the answers it offers. */
 export interface RejectionQuestion {
@@ -190,7 +222,7 @@ export interface RejectionQuestion {
   answers: Array<{ value: string; label: string }>;
 }
 
-/** One row of a market's table, as the market read serves it (E39/F01/S03). */
+/** One row of a market's table, as the market read serves it (E39/F01/S03, S04). */
 export interface PermissionTableRow {
   id: string;
   group: string;
@@ -201,6 +233,10 @@ export interface PermissionTableRow {
   /** No row held, copied from the organization's default at creation, or changed here. */
   source: 'built-in' | 'organization' | 'market';
   fixed: boolean;
+  /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
+  mayWhat: string;
+  /** Who may take it here, in the words a refusal names them: "an Admin or the owner" (E38/F06/S01). */
+  whoMay?: string;
 }
 
 export interface Market {
@@ -240,6 +276,9 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /** What the start from a Google Form's responses kept of the example file (E38/F02/S01), for
+   *  the Questions tab to fill options from. Server-owned; absent on any market not started so. */
+  exampleColumns?: ExampleColumn[];
   /** Which answers reject an application automatically (E33/F03/S01). On the market, beside the
    *  highlights: they outlast the form's lock, until the market reaches Assignment. */
   rejectionRules?: RejectionRule[];
@@ -310,11 +349,13 @@ export interface Market {
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
    */
   transitionBlockers?: Record<string, PreconditionResult[]>;
+  /** Whether the organizer has stopped taking applications inside the stage (E38/F04/S02). */
+  applicationsStopped?: boolean;
   /**
-   * The phases this market's intake path steps through rather than stops in (E32/F02/S01), served
-   * with the moves above so the browser keeps no copy of the rule that makes either.
+   * Why taking applications cannot be stopped or resumed now, or null while it can: served so the
+   * rail offers the action exactly when the endpoint would take it (E38/F04/S02).
    */
-  phasesPassedThrough?: string[];
+  applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
   /** The Discord server this market is connected to, and what its card chose (E46/F01/S02). */
@@ -401,6 +442,23 @@ export interface FormField {
   options: string[];
   helpText?: string;
   order: number;
+}
+
+/**
+ * One column of the file a market was started from (E38/F02/S01): a question the start made, or a
+ * column it left out. Its options are only the answers at least 3 applicants gave that name nobody.
+ */
+export interface ExampleColumn {
+  headers: string[];
+  /** The key a question made from it has, or would have: how a question finds its column. */
+  key: string;
+  label: string;
+  helpText?: string | null;
+  type: string;
+  /** Whether the start made it a question, rather than left it out. */
+  question: boolean;
+  /** Its answers read as one choice (whole answers), and as several (the options inside them). */
+  options: { select: string[]; multiSelect: string[] };
 }
 
 /**

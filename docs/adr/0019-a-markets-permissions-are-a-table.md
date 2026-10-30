@@ -5,12 +5,14 @@ describes:
   - back-end/api/market_actions.py
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
+  - back-end/api/markets.py#reset_permissions
   - back-end/datatypes.py#MarketPermission
 verified: 2026-10-30
 sources:
   - E39
   - E39/F01/S03
   - T92
+  - E38/F04/S01
 status: accepted
 ---
 
@@ -36,7 +38,7 @@ Every check asks `minimum_role(row, market)`, the market's row or the default, a
 **Where a row came from is one of three**: the built-in default (no row held), copied from the organization's default when the market was created (E39/F02 writes these), or changed on this market.
 An organization's default is a copy, not a live link: a market created from it holds its rows from then on, and a later change to the organization's default reaches only the markets created after it.
 
-**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default (`set_permission` and `reset_permission` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
+**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default, and another returns every row the market holds at once (`set_permission`, `reset_permission` and `reset_permissions` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
 The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is, E39/F02).
 An archived market's table is part of its record, and is not changed.
 
@@ -50,6 +52,7 @@ An archived market is read-only, verdicts settle on entering assignment, a vendo
 - Changing who may take an action on one market is a row on that market, read by the server at the next request and by the screens at the next market read; no code changes.
 - A story that gates a new action adds a row with its built-in default, and every existing market reads that default until its owner changes it.
 - A row that leaves the table leaves its stored copies behind on markets that hold one; they are never read, because only the table's rows are.
+  The form amendment's row (`amend-form`) left so with its chain (E38/F04/S01), and the stop row (`stop-applications`) joined in its place.
 - A market's own rows are its owner's alone, so an organization admin who runs the market cannot loosen or tighten it; that is the point of "modifiable by the owner only".
 - The history holds each change with who made it, so "who let Editors move the phase" has an answer.
 

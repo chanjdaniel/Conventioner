@@ -85,13 +85,7 @@ test.describe('Automatic rejections', () => {
     await addRule(page, 'no_shows', 'not ticked');
 
     // Applications open: the form locks, the rules do not (decision 24).
-    await transitionMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      marketId,
-      'applications_open',
-    );
+    await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     await openReviewSetup(page, marketId);
     await expect(page.getByTestId('rejection-rules-locked')).toHaveCount(0);
     await addRule(page, 'affiliation', NOT_UBC);
@@ -130,7 +124,7 @@ test.describe('Automatic rejections', () => {
 });
 
 test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
-  test('an import rejects the rows a rule meets, and a reviewer overturns one', async ({
+  test('the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one', async ({
     authenticatedPage: page,
   }) => {
     const seed = await seedApplicantMarket(
@@ -148,21 +142,53 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
     const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
     await expect(importPage.view).toBeVisible({ timeout: 15000 });
-    await importPage.importCsv(
-      exportOf(RESPONSES.nadia, RESPONSES.theo),
-      EXPORT_HEADERS,
-      EXPORT_MAPPING,
+    await importPage.chooseFile(exportOf(RESPONSES.nadia, RESPONSES.theo, RESPONSES.ines));
+    await importPage.mapColumns(EXPORT_HEADERS, EXPORT_MAPPING);
+    await importPage.clickPreview();
+
+    // Before anything is written, the preview names every row the rule will reject, with the
+    // reason the review will show, and its headline counts them (E38/F03/S02).
+    await expect(importPage.previewCounts).toHaveText(
+      '3 of 3 rows will be imported; 1 of them will be rejected by your automatic rejections',
     );
+    await expect(importPage.previewMerge).toContainText(
+      'awaiting your review, except the 1 listed below, which arrives already rejected.',
+    );
+    await expect(importPage.rejectedCount).toHaveText('1');
+    // Who may overturn one is the market's change row, an Admin or the owner by default (E38/F06/S01).
+    await expect(importPage.rejectedWhy).toHaveText(
+      'A check that your rules reject who they should. These are imported as rejected, each with its reason; an Admin or the owner can overturn one.',
+    );
+    await expect(importPage.rejectedRows).toHaveCount(1);
+    const rejected = importPage.rejectedRows.first();
+    await expect(rejected.getByTestId('import-row-name')).toHaveText('Theo Marchetti');
+    await expect(rejected.getByTestId('import-row-number')).toHaveText('Row 3');
+    await rejected.locator(':scope > summary').click();
+    await expect(rejected.getByTestId('import-row-reason')).toHaveText(
+      'Rejected automatically: Answered “Half a table, shared” to “Table choice”',
+    );
+    // The samples are the rows that import and no rule rejects: a check of the mapping alone.
+    await expect(importPage.sampleRows.getByTestId('import-row-name')).toHaveText([
+      'Nadia Okonkwo',
+      'Ines Albrecht',
+    ]);
+    const before = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`);
+    expect((await before.json()).applications).toEqual([]);
+
+    await importPage.clickConfirm();
     await expect(page.getByTestId('import-result-rejected-note')).toContainText(
-      '1 was rejected by your automatic rejections',
+      '1 was rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.',
     );
 
-    await page.getByTestId('phase-transition-review').click();
+    // The first import took the market into Review (E38/F04/S01); its done step leads there.
+    await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     const monitor = new ApplicationMonitorPage(page);
+    await monitor.switchTo();
     await monitor.waitForLoaded();
-    // Only Nadia waits: Theo arrived already rejected, the rule his giver and his answer the reason.
-    expect(await monitor.queuedEmails()).toEqual(['nadia@ember.test']);
+    // Nadia and Ines wait: Theo arrived already rejected, the rule his giver and his answer the
+    // reason.
+    expect(await monitor.queuedEmails()).toEqual(['nadia@ember.test', 'ines@loom.test']);
     await monitor.openDecided();
     const theo = page
       .getByTestId('app-monitor-decided-row')

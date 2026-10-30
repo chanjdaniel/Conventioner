@@ -12,6 +12,7 @@ Then `## Why`; `## Who may` when roles matter; `## Where it is kept`, linking th
 One line per node, sorted by file name.
 
 - [A gated market answers as absent](a-gated-market-answers-as-absent.md) - a CSV market or a draft answers applicants exactly as no market at all; never a "not accepting" message
+- [A price follows the table](a-price-follows-the-table.md) - an assignment costs the cheapest price group its answers put it in, or "Everyone else", for its table's tier that day, a half table a share rounded half up; set on Market Setup, optional, settled with the setup
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
 - [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
@@ -34,7 +35,7 @@ One line per node, sorted by file name.
 - [Priority and tie-breaks](priority-and-tie-breaks.md) - the order of turns: fewest dates, the organizer's rules, most constrained, earliest, address
 - [Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
 - [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
-- [Review needs an import](review-needs-an-import.md) - on the Google Form path Begin Review waits for an import, and the moves around review are the import's
+- [Review needs an import](review-needs-an-import.md) - on the Google Form path the first import is the way into Review, and a late export is a Redo import
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)

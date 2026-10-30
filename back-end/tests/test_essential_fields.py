@@ -537,6 +537,26 @@ class TestReservedKeyPrefix:
         with pytest.raises(BadRequestError, match="reserved 'essential_' prefix"):
             MarketsApi.save_application_form("market-123", form, "user-1")
 
+    @pytest.mark.parametrize("key,meaning", [
+        ("applicant_email", "who applied"), ("submitted_at", "when they applied"),
+        ("sheet_note", "your sheet's note")])
+    def test_the_builder_refuses_a_key_the_import_reads_as_something_else(
+            self, monkeypatch, applications, key, meaning):
+        """A question keyed ``applicant_email`` would hold the column that says who applied
+        (E38/F02): the import's own targets are no question's key."""
+        markets = FakeMarketsCollection(stored_market())
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
+        form = {"fields": [{"key": key, "label": "Applicant email", "type": "text"}]}
+
+        with pytest.raises(BadRequestError) as refusal:
+            MarketsApi.save_application_form("market-123", form, "user-1")
+        assert str(refusal.value) == (
+            f"Field key '{key}' is reserved: the import reads that column as {meaning}. "
+            "Choose another key.")
+        # Refused before anything is written, as the amendment's dialog relies on.
+        assert markets.last_update is None
+
     def test_a_client_cannot_forge_the_frozen_offering(self, monkeypatch, applications):
         """``essential_options`` is server-owned, like ``published_at``: whatever a payload
         carries is discarded."""
@@ -588,7 +608,7 @@ def _applicant_market_doc(**overrides):
     from datatypes import MarketPhase
 
     return stored_market(
-        phase=MarketPhase.APPLICATIONS_OPEN,
+        phase=MarketPhase.APPLICATIONS,
         intakeMode="form",
         setupObject=SETUP_CAMEL,
         applicationForm={"fields": [
@@ -675,7 +695,7 @@ class TestAfterApplicationsClose:
     @pytest.fixture
     def closed(self, monkeypatch):
         doc = _applicant_market_doc()
-        doc["phase"] = "applications_closed"
+        doc["phase"] = "assignment"
         markets = FakeSlugMarketsCollection(doc)
 
         class _Db(dict):

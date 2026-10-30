@@ -8,6 +8,7 @@ describes:
   - back-end/app.py#propose_from_csv
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
+  - front-end/src/utils/exampleColumns.ts
 verified: 2026-10-29
 sources:
   - wayfinding/the-form-started-from-a-csv/03
@@ -18,6 +19,8 @@ sources:
   - E24/F02/S01
   - E24/F03/S03
   - E33/F02/S01
+  - E38/F02/S01
+  - E38/F02/S02
 ---
 
 # The CSV proposal and start
@@ -33,7 +36,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), the two that t
 | --- | --- |
 | `GET /csv-proposal/typesafe` | whether hosted TypeSafe is configured, so the upload step can say so before anything is sent |
 | `POST /markets/:id/csv-proposal` | the proposal for this market and this file (`propose`), or why there is none; writes nothing and keeps nothing |
-| `POST /markets/:id/csv-proposal/confirm` | the organizer's choices written: the plan facts, the form, the ceiling and the import mapping (`confirm`), or nothing |
+| `POST /markets/:id/csv-proposal/confirm` | the organizer's choices written: the plan facts, the form, the ceiling, the import mapping and the example file's columns (`confirm`), or nothing |
 
 The proposal says, for each column in the file's order, its fate (who applied, when, an essential question, a question of the organizer's own with its type, options, label, help text and key, or left out, and why) and what is worth a second look; and for the plan, the file's dates and the year they fit, its tiers best first, the ceiling on days per vendor a heading states, and where those disagree with a plan already there.
 A file never states locations, sections or table counts, so the proposal never offers them, and it proposes no priority rule: what ranks vendors is the organizer's judgement, which the file does not hold.
@@ -50,8 +53,23 @@ Confirm judges the plan and the form through the plan's and the form's own write
 A market that changed since is written nothing, and told to start again.
 **The plan's own values win**: the file's dates (in the year the organizer confirms) and tiers fill a plan that has none, and its ceiling a plan with none set.
 
-**The file is sent twice and stored never.**
+**The file is sent twice and stored never; what the start keeps of it is the privacy view.**
 Confirm reads it again rather than trusting the browser's copy of the columns, and re-runs the rules on it; the organizer's choices for each ledger row are the only thing the request adds, and the browser sends one for every row, so what TypeSafe settled reaches confirm as the organizer's choice, never by asking again.
+
+**The start keeps what the file said of each question of the organizer's own and each left-out column** (`exampleColumns`, E38/F02/S01), so the Questions tab can fill a question's options, or add a question from a left-out column, after the file is gone ([building the application form](../../business/flows/form-tab.md#f2-custom-questions), [`exampleColumns.ts`](../../../front-end/src/utils/exampleColumns.ts)).
+For each ledger row the organizer confirmed as a question of their own or left out, and that had answers, it keeps the headings, the key its question has or would have, the label and help text, the type written or read, whether it became a question, and both readings of its answers as choices (`kept_readings`): whole answers for Select, the options inside them for Multi-Select.
+A reading keeps only the options the Review step keeps by default, those at least 3 applicants chose (`SHARED_BY`, and for a multi-select at least `OPTION_SHARE` of the answers), less any that names someone (`_names_someone`); values only, most chosen first.
+`_names_someone` finds an address, also spelled out ("info AT example DOT com", "info[at]example[dot]com"); a link with or without its scheme ("linktr.ee/makers"); a handle wherever its `@` sits ("IG:@makers", "@ makers"); every phone number the measured filter finds, and one of 7 digits, unless its digits are only clock times, years and dates of a day, a month and a year ("9.30 - 4.30", "2023 - 2024", "15.11.2025"), or a range of numbers around a dash, two of 3 to 5 digits and 9 at most together, the lower first, each end within one of round ("500-1000", "501-1000", "100-1499"); and a street address (ordinal streets and the usual abbreviations), a unit, suite or apartment number, or a post office box.
+What no pattern sees only `SHARED_BY` guards, such as a bare name, a shop's name, a handle without its `@` or with a full-width `＠`, a domain with its dot spelled, bracketed or a comma ("example dot com", "makers[.]ca", "example,com"), an address with no top-level domain ("makers@gmail", "makers@"), a domain in another script, a postal code, a unit by letter or a room ("Unit B", "Room 101"), a street with no street word ("42 Broadway"), a box with no "PO" ("Box 45"), a number spelled in words, a phone number grouped oddly ("555 01 99"), and a round local number that reads as a range ("200-3000"); `test_csv_proposal.py` pins what it catches and what it leaves.
+[ADR 0018](../../adr/0018-what-of-an-applicants-answers-the-market-may-keep.md) records the decision; that is safe to keep for the reason it was safe to read: an answer 3 applicants share names none of them, which is the uniqueness rule [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) measured, and the headings are the organizer's own words, which the import mapping already keeps.
+Nothing kept leaves the server but to everyone who may read the market, a Viewer and up, organization members included, on the market's read and the Markets list; each of them already reads every application.
+It is server-owned: the start writes it, and a create body that carries it, or an import mapping, is stored without either (`create_market`).
+Who applied, when and the essential questions are not kept: none is a question to add or retype.
+A later import does not refresh it: the form locks at the first application, so it is never read after one.
+
+**A left-out column is saved in the mapping under the key a question made from it would have.**
+A key the mapping already holds is never replaced by one.
+The import restores only the targets the form has, so that target waits unread until the organizer adds the question from the Questions tab, and the first import then restores it with the rest; a question added by hand under the same key is restored to that column too.
 
 **The proposal writes the import's own mapping, and there is one mapping format** (`csv_import.mapping_payload`, saved `madeBy: start`).
 The first import of a later export restores every column and matches every value ([the CSV import](csv-import.md)).
@@ -65,16 +83,17 @@ No heading is matched loosely: only its spacing and line breaks are ignored (`co
 
 **The questions keep the Google Form's words; the product writes none.**
 A heading's first line is the label and everything after its first line break is help text (`label_and_help`); a first line over 120 characters keeps its first sentence as the label and moves the rest into help text, and one with no sentence end stays whole, since a long label reads fine and a broken one does not (bug 41).
-The key is the label's slug, cut to 40 characters on a word boundary, with `_2` and on for a repeat (`key_for`).
+The key is the label's slug, cut to 40 characters on a word boundary, with `_2` and on for a repeat (`key_for`); the import's own targets (`RESERVED_TARGETS`: who applied, when, the sheet's note) count as taken, so a column called "Applicant email" is `applicant_email_2`.
 Renaming a question in the form builder keeps its key, so the mapping survives; an edited key or a deleted question leaves a saved target the import's restore skips, and that column asks for a mapping like a new one, because a whole-form save cannot tell a rename from a delete and an add.
 
 **The rules read values, never header words**, except the words Google itself writes (`Timestamp`) and the review columns organizers add beside a form ("Status", "Notes"): header wording is what the next organizer changes, and value rules survived that where keyword rules did not.
 A column is read through the privacy view, answers at least 3 applicants gave (`SHARED_BY`, counted by applicant address and, for a multi-select, per option) that hold no address, link, handle or phone number (`_identifying`), and otherwise a shape; every option of a choice question, with its count, comes from the whole file, which never leaves the server.
+**The rules read through the filter the answer key was measured with, and what is kept or sent through the wider one**: `_identifying` builds the privacy view the classification reads, and `_names_someone` guards what the start keeps and, beside it, which headings may be sent; the answer key was measured on the narrow one, and a wider view changes what the rules propose (an earlier draft of the wider one took "500-1000" out of a question answered with ranges, which then read as Text).
 Hosted TypeSafe settles the two judgements the rules leave, when a key is set ([ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md)).
 
 **The proposal marks no question required** ([no question is inferred required](../../business/rules/no-question-is-inferred-required.md)).
 
-**The rules are held to the hand-written answer key on the five anonymised exports** ([`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py), over [the Google Form corpus](../../../back-end/tests/test_data/README.md)): every column's kind, and every own question's type and options, written before any rule existed.
+**The rules are held to the hand-written answer key on the five corpus exports** ([`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py), over [the Google Form corpus](../../../back-end/tests/test_data/README.md)): every column's kind, and every own question's type and options, written before any rule existed.
 Change a rule against that, not beside it; `test_csv_proposal_plan.py` does the same for the plan, and `test_csv_start.py` pins confirm.
 
 **The start records one entry in [the market's history](../data/history.md)**, `started` with its row, column and question counts rather than the plan and the form it wrote whole; the proposal keeps nothing and records nothing.

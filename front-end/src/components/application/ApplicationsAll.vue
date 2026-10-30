@@ -8,7 +8,8 @@
  * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
  * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
  */
-import { MarketAction, mayTake } from '@/utils/marketActions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
+import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -18,28 +19,29 @@ import {
   type SelectionResult,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
-import { FULL_NAME_KEY, PREFERRED_NAME_KEY } from '@/utils/essentialFields';
+import { applicantName } from '@/utils/essentialFields';
 import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  heldElsewhere as heldBySomeoneElse,
+  notSelectedLine,
   reviewAnswers,
-  reviewQueue,
+  selectAll,
 } from '@/utils/reviewQueue';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVerdictActions } from '@/utils/verdictActions';
 import { applicationsAllSeed, NO_FILTERS, type ExportFilters } from '@/utils/vendorExport';
-import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import ListFreshness from '@/components/application/ListFreshness.vue';
 
 const props = defineProps<{ market: Market | null }>();
-/** What is still to decide, follow-ups included, for the page's own line about it. */
-const emit = defineEmits<{ 'update:undecidedCount': [count: number] }>();
 
 const route = useRoute();
 const router = useRouter();
@@ -50,13 +52,25 @@ const marketId = computed(() => props.market?.id ?? '');
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
+/** When the list was last read from the server, by any of the reads below (E38/F05/S03). */
+const readAt = ref<number | null>(null);
+const refreshing = ref(false);
+const refreshError = ref('');
+
+/** The one read: the list, and when. A list read is no longer one that failed to load. */
+async function read() {
+  applications.value = await fetchMarketApplications(marketId.value);
+  readAt.value = Date.now();
+  errorMessage.value = '';
+  refreshError.value = '';
+}
 
 async function load() {
   if (!marketId.value) return;
   loading.value = true;
   errorMessage.value = '';
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -68,16 +82,36 @@ watch(marketId, () => void load(), { immediate: true });
 /**
  * Read again every half minute while the tab is in view, so who holds what and what others decided
  * show without a reload (E34/F03/S02) - a tick is refused rather than written over someone's card,
- * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list.
+ * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list,
+ * and the time it was last read goes on ageing on screen.
  */
 const REREAD_MS = 30_000;
 let rereading: ReturnType<typeof setInterval> | null = null;
 async function reread() {
   if (!marketId.value || document.visibilityState !== 'visible' || saving.value) return;
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch {
     // The list on screen stands; the next re-read tries again.
+  }
+}
+
+/**
+ * Refresh, at once (E38/F05/S03): a re-read, not a reset - the ticks of rows still shown stay, as
+ * on every re-read - and a failed one says so beside the button and keeps the list.
+ */
+async function refresh() {
+  // Not while a verdict is being written, as the background re-read waits too.
+  if (!marketId.value || refreshing.value || saving.value) return;
+  refreshing.value = true;
+  try {
+    await read();
+    // The rail counts what is left as well: it should agree with the list just read.
+    void marketStore.refresh();
+  } catch {
+    refreshError.value = 'Could not refresh. The list is as it was last read.';
+  } finally {
+    refreshing.value = false;
   }
 }
 onMounted(() => (rereading = setInterval(() => void reread(), REREAD_MS)));
@@ -105,18 +139,12 @@ function setQuery(change: Record<string, string | null>) {
   void router.replace({ query });
 }
 
-watch(
-  () => reviewQueue(applications.value, true).length,
-  (count) => emit('update:undecidedCount', count),
-);
-
 const shown = computed(() =>
   allViewApplications(applications.value, filter.value, mine.value, me.value),
 );
 
 function nameOf(app: Application): string {
-  const answers = app.formData ?? {};
-  return String(answers[PREFERRED_NAME_KEY] || answers[FULL_NAME_KEY] || '').trim();
+  return applicantName(app.formData);
 }
 
 /** The answers a reviewer reads first (E19/F03), as one line per row. */
@@ -162,6 +190,23 @@ const opened = computed(() =>
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
 const decides = computed(
   () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
+/**
+ * Whether this person may also change a verdict already given, an automatic rejection included:
+ * the table's change row, on top of giving one (E38/F06/S01). A reviewer it refuses gets no tick on
+ * a decided row and no verdict in its drawer, and is told why once.
+ */
+const changes = computed(() => decides.value && mayTake(props.market, MarketAction.ChangeVerdicts));
+const changeRefusal = computed(() =>
+  decides.value && !changes.value ? actionRefusal(props.market, MarketAction.ChangeVerdicts) : null,
+);
+/** Who the market's table lets change a verdict, for what Select all says it left out. */
+const whoChanges = computed(() =>
+  whoMayTake(props.market?.permissionTable, MarketAction.ChangeVerdicts),
+);
+/** Whether this person may give the opened application a verdict: a decided one is a change. */
+const decidesOpened = computed(
+  () => decides.value && (changes.value || !opened.value || !isDecided(opened.value)),
 );
 
 const saving = ref(false);
@@ -217,25 +262,69 @@ watch(
 // --- A verdict on a selection (E34/F04/S02) ---------------------------------------------------
 
 /**
- * The ticked applications. Only ever what the reviewer ticked: there is no action on "everything
- * matching the filter", so no verdict reaches an application nobody looked at the row of.
+ * The ticked applications. Only ever rows ticked on screen, one by one or by Select all, which
+ * ticks the rows shown (E38/F05/S02): there is no action on "everything matching" beyond them, so
+ * no verdict reaches an application whose row was not in front of the reviewer, counted.
  */
 const selected = ref<Set<string>>(new Set());
 /** One another reviewer has open cannot be ticked; it says who. */
 function heldElsewhere(app: Application): string | null {
-  const holder = app.heldBy?.email;
-  return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+  return heldBySomeoneElse(app, me.value);
 }
+/** One already decided cannot be ticked by someone who may not change it (E38/F06/S01). */
+function decidedForMe(app: Application): boolean {
+  return !changes.value && isDecided(app);
+}
+/** Why a row cannot be ticked, or null when it can. */
+function untickable(app: Application): string | null {
+  const holder = heldElsewhere(app);
+  if (holder) return `${holder} has it open`;
+  return decidedForMe(app) ? changeRefusal.value : null;
+}
+/** Said once over the list while it shows a row this person may not change (E38/F06/S01). */
+const showsUnchangeable = computed(() => shown.value.some((a) => decidedForMe(a)));
+/** How many rows Select all left unticked, by why, to say so. */
+const skippedHeld = ref(0);
+const skippedDecided = ref(0);
+const notSelected = computed(() =>
+  notSelectedLine(skippedHeld.value, skippedDecided.value, whoChanges.value),
+);
 function toggle(app: Application, ticked: boolean) {
   const next = new Set(selected.value);
   if (ticked) next.add(app.id);
   else next.delete(app.id);
   selected.value = next;
+  forgetSkipped();
 }
+function forgetSkipped() {
+  skippedHeld.value = 0;
+  skippedDecided.value = 0;
+}
+function tickAllShown() {
+  const { ids, held, decided } = selectAll(shown.value, me.value, changes.value);
+  selected.value = new Set(ids);
+  skippedHeld.value = held;
+  skippedDecided.value = decided;
+}
+function clearSelection() {
+  selected.value = new Set();
+  forgetSkipped();
+}
+// Another filter is another set of rows: what Select all skipped was said of the last one.
+watch([filter, mine], forgetSkipped);
 // A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
+// A row decided since it was ticked is a change now, which leaves the selection as it leaves the
+// ticks for someone who may not change a verdict (E38/F06/S01).
 watch(shown, (rows) => {
-  const visible = new Set(rows.map((a) => a.id));
-  selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+  const tickable = new Set(rows.filter((a) => !decidedForMe(a)).map((a) => a.id));
+  selected.value = new Set([...selected.value].filter((id) => tickable.has(id)));
+  // What Select all left out is said only while it is still held: a re-read that shows a row let
+  // go, or gone, says fewer (E38/F05/S02).
+  skippedHeld.value = Math.min(skippedHeld.value, rows.filter((a) => heldElsewhere(a)).length);
+  skippedDecided.value = Math.min(
+    skippedDecided.value,
+    rows.filter((a) => !heldElsewhere(a) && decidedForMe(a)).length,
+  );
 });
 
 const VERDICT_WORDS: Partial<Record<ApplicationStatus, { verb: string; done: string }>> = {
@@ -263,7 +352,7 @@ async function decideSelection() {
     const answer = await reviewSelection(props.market.id, picked, status);
     result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
     asking.value = null;
-    selected.value = new Set();
+    clearSelection();
     await load();
     void details.load();
     void marketStore.refresh();
@@ -275,45 +364,91 @@ async function decideSelection() {
 
 <template>
   <div class="all-view" data-testid="applications-all">
-    <div class="all-filters">
-      <div class="all-status" role="group" aria-label="Show applications">
-        <button
-          v-for="option in ALL_VIEW_FILTERS"
-          :key="option.id"
-          type="button"
-          class="btn btn--compact"
-          :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
-          :aria-pressed="option.id === filter"
-          :data-testid="`applications-all-filter-${option.id}`"
-          @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+    <ListFreshness
+      :readAt="readAt"
+      :refreshing="refreshing || saving"
+      :failed="refreshError"
+      @refresh="refresh"
+    />
+    <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
+    <div class="all-filter-group">
+      <span id="applications-all-filter-label" class="field-label">Filter</span>
+      <div class="all-filters">
+        <div
+          class="all-status"
+          role="group"
+          aria-labelledby="applications-all-filter-label"
+          aria-describedby="applications-all-filter-hint"
         >
-          {{ option.label }}
+          <button
+            v-for="option in ALL_VIEW_FILTERS"
+            :key="option.id"
+            type="button"
+            class="btn btn--compact"
+            :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
+            :aria-pressed="option.id === filter"
+            :data-testid="`applications-all-filter-${option.id}`"
+            @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <label class="all-mine">
+          <input
+            type="checkbox"
+            :checked="mine"
+            data-testid="applications-all-mine"
+            @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
+          />
+          Mine: the follow-ups I own
+        </label>
+        <span class="all-count" data-testid="applications-all-count">
+          {{ shown.length }} of {{ applications.length }}
+        </span>
+        <button
+          v-if="mayExport"
+          type="button"
+          class="btn btn--secondary btn--compact"
+          data-testid="applications-all-export-button"
+          @click="openExport"
+        >
+          Export
         </button>
       </div>
-      <label class="all-mine">
-        <input
-          type="checkbox"
-          :checked="mine"
-          data-testid="applications-all-mine"
-          @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
-        />
-        Mine: the follow-ups I own
-      </label>
-      <span class="all-count" data-testid="applications-all-count">
-        {{ shown.length }} of {{ applications.length }}
-      </span>
-      <button
-        v-if="mayExport"
-        type="button"
-        class="btn btn--secondary btn--compact"
-        data-testid="applications-all-export-button"
-        @click="openExport"
-      >
-        Export
-      </button>
+      <p id="applications-all-filter-hint" class="all-filter-hint">
+        Open is not decided yet. Needs follow-up waits on someone reaching out to the applicant.
+      </p>
     </div>
 
-    <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
+    <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
+    <div v-if="decides && shown.length && !errorMessage" class="all-select-all">
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-select-all"
+        @click="tickAllShown"
+      >
+        Select all
+      </button>
+      <span
+        v-if="notSelected"
+        class="all-meta"
+        role="status"
+        data-testid="applications-all-select-all-skipped"
+        >{{ notSelected }}</span
+      >
+    </div>
+    <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01), unless
+         what Select all left out says it already. -->
+    <p
+      v-if="showsUnchangeable && changeRefusal && !skippedDecided && !errorMessage"
+      class="all-meta change-reason"
+      data-testid="applications-all-change-reason"
+    >
+      {{ changeRefusal }}
+    </p>
+
+    <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
     <div
       v-if="decides && selected.size"
       class="all-selection"
@@ -348,7 +483,7 @@ async function decideSelection() {
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="applications-all-selection-clear"
-        @click="selected = new Set()"
+        @click="clearSelection"
       >
         Clear
       </button>
@@ -369,6 +504,10 @@ async function decideSelection() {
 
     <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
+    <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
+    <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
+      No applications received yet.
+    </p>
     <p v-else-if="!shown.length" class="all-empty" data-testid="applications-all-empty">
       No application matches.
     </p>
@@ -380,10 +519,10 @@ async function decideSelection() {
           type="checkbox"
           class="all-tick"
           :checked="selected.has(app.id)"
-          :disabled="!!heldElsewhere(app)"
+          :disabled="!!untickable(app)"
           :aria-label="
-            heldElsewhere(app)
-              ? `${app.applicantEmail}: ${heldElsewhere(app)} has it open`
+            untickable(app)
+              ? `${app.applicantEmail}: ${untickable(app)}`
               : `Select ${app.applicantEmail}`
           "
           data-testid="applications-all-tick"
@@ -446,7 +585,14 @@ async function decideSelection() {
             >
           </p>
           <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
-          <div v-if="decides" class="drawer-buttons">
+          <p
+            v-if="decides && !decidesOpened"
+            class="all-meta change-reason"
+            data-testid="applications-all-drawer-change-reason"
+          >
+            {{ changeRefusal }}
+          </p>
+          <div v-if="decidesOpened" class="drawer-buttons">
             <button
               type="button"
               class="btn btn--destructive btn--compact"
@@ -525,6 +671,22 @@ async function decideSelection() {
   gap: var(--space-3);
 }
 
+.all-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.all-filter-group .field-label {
+  margin-bottom: 0;
+}
+
+.all-filter-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .all-filters {
   display: flex;
   flex-wrap: wrap;
@@ -601,6 +763,13 @@ async function decideSelection() {
   color: var(--mm-black);
 }
 
+.all-select-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .all-list {
   display: flex;
   flex-direction: column;
@@ -636,11 +805,6 @@ async function decideSelection() {
 
 .all-row-button:hover {
   border-color: var(--mm-green);
-}
-
-.all-row-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .all-who {
@@ -690,6 +854,11 @@ async function decideSelection() {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  margin: 0;
+}
+
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01), as a meta line. */
+.change-reason {
   margin: 0;
 }
 

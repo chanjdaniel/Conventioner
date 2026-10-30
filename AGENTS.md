@@ -84,7 +84,7 @@ The market on screen:
 
 The market's lifecycle:
 
-- Before changing a phase move or a precondition, read [the guards and the phase move](docs/implementation/modules/guards.md) and [ADR 0005](docs/adr/0005-phase-is-the-only-lifecycle-state.md).
+- Before changing a phase move or a precondition, read [the guards and the phase move](docs/implementation/modules/guards.md), [ADR 0005](docs/adr/0005-phase-is-the-only-lifecycle-state.md) and [ADR 0016](docs/adr/0016-one-stage-for-applications-and-review.md).
 - Before changing the phase history or "did this market run", read [the phase record](docs/implementation/modules/phase-record.md).
 - Before changing what Market Setup may change after draft, read [the setup settles on leaving draft](docs/business/rules/the-setup-settles-on-leaving-draft.md).
 - Before changing who may do what on a market, or adding a check, read [what each role may do](docs/business/rules/what-each-role-may-do.md), [the market's actions](docs/implementation/modules/market-actions.md) and [an archived market is read-only](docs/business/rules/an-archived-market-is-read-only.md).
@@ -108,11 +108,12 @@ The assignment:
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
+- Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
 
 The data and the back end:
 
 - Before writing a raw Mongo read, filter or write on a market, read [the market document](docs/implementation/data/market-document.md).
-- Before recording a change on a market, or changing the market's history, read [the market's history](docs/implementation/data/history.md) and [ADR 0017](docs/adr/0017-one-history-for-every-change.md).
+- Before recording a change on a market, or changing the market's history or how Manage market reads it, read [the market's history](docs/implementation/data/history.md), [ADR 0017](docs/adr/0017-one-history-for-every-change.md) and [reading the market's history](docs/business/flows/reading-the-markets-history.md).
 - Before changing how applications are stored, read [the application document](docs/implementation/data/application-document.md).
 - Before changing organizations, membership or market roles, read [the organization document, and roles](docs/implementation/data/organization-document.md).
 - Before changing accounts or how an address is compared, read [users, and the one spelling of an address](docs/implementation/data/users-and-email.md).

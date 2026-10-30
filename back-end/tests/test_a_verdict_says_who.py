@@ -87,7 +87,7 @@ def client(monkeypatch):
 
     sessions_load_through_get_user(monkeypatch)
     monkeypatch.setattr(UsersApi, "get_user", _get_user)
-    document = stored_market(MarketPhase.REVIEW, id="market-1", organizationId=None,
+    document = stored_market(MarketPhase.APPLICATIONS, id="market-1", organizationId=None,
                              roles={"user-owner": "owner", "user-editor": "editor",
                                     "user-viewer": "viewer"})
 
@@ -98,7 +98,7 @@ def client(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", Markets())
     given = []
     monkeypatch.setattr(ApplicantsApi, "review_application",
-                        lambda market_id, application_id, status, by, owner=None, seen=None: (
+                        lambda market_id, application_id, status, by, owner=None, seen=None, **_kw: (
                             given.append((status, by)) or ({"application": {}}, 200)))
     client = app_module.app.test_client()
     client.given = given
@@ -142,8 +142,7 @@ class TestWhenAVerdictMayChange:
     """While the market can still get back to review (E36/F01/S01): from assignment on, a verdict is
     the review's record, and a mistake is fixed with a seat placed or freed by hand."""
 
-    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN,
-                                       MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW])
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS])
     def test_open_while_the_review_is(self, phase, monkeypatch):
         monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
         from conftest import client_market

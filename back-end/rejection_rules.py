@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from client_errors import BadRequestError
-from datatypes import ApplicationStatus, Market, RejectionRule, VerdictGiver
+from datatypes import AnswerCondition, ApplicationStatus, Market, RejectionRule, VerdictGiver
 
 #: A checkbox's two answers, as a rule names them.
 TICKED = "ticked"
@@ -133,19 +133,40 @@ class Rulebook:
         written, or a column an import left out, is not an unticked box.
         """
         for rule in self.rules:
-            if not rule.answers or rule.key not in form_data:
+            met = self.met(rule, form_data)
+            if not met:
                 continue
             field_type = self.types[rule.key]
             question = self.by_key[rule.key]
-            met = [v for v in _answer_values(field_type, form_data[rule.key]) if v in rule.answers]
-            if not met:
-                continue
             if field_type == "checkbox":
                 verb = "Did not tick" if met[0] == NOT_TICKED else "Ticked"
                 return rule.key, f"{verb} “{question['label']}”"
             labels = {a["value"]: a["label"] for a in question["answers"]}
             return rule.key, f"Answered “{labels.get(met[0], met[0])}” to “{question['label']}”"
         return None
+
+
+    def met(self, condition: AnswerCondition, form_data: Dict[str, Any]) -> List[str]:
+        """The answers in ``form_data`` that meet ``condition``, in the order given; none for a
+        condition with no answer ticked yet, on a question the form does not ask as a choice, or
+        that the application holds no answer to. A price group's conditions are judged here as
+        well as the rules (E43/F01/S02), so both read an answer alike."""
+        if not condition.answers or condition.key not in self.by_key \
+                or condition.key not in form_data:
+            return []
+        values = _answer_values(self.types[condition.key], form_data[condition.key])
+        return [value for value in values if value in condition.answers]
+
+    def broken(self, condition: AnswerCondition) -> bool:
+        """Whether ``condition`` names a question the form no longer asks as a choice, or an answer
+        the question no longer offers. The rules simply leave out what the form no longer has (see
+        ``__init__``); a price group's condition is kept and shown, since it decides what a vendor
+        pays (E43/F01/S02)."""
+        question = self.by_key.get(condition.key)
+        if question is None:
+            return True
+        offered = {answer["value"] for answer in question["answers"]}
+        return any(answer not in offered for answer in condition.answers)
 
 
 def _answer_values(field_type: str, raw: Any) -> List[str]:
@@ -170,13 +191,17 @@ class Judged:
         return {"rejected": self.rejected, "returned": self.returned}
 
 
-def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) -> Judged:
+def judge(
+    book: Rulebook, market_id: str, application_id: Optional[str] = None, overturns: bool = True,
+) -> Judged:
     """Apply the rules to the market's undecided applications and to those a rule rejected; or to
     ``application_id`` alone, as it arrives. Returns how many it rejected and returned.
 
     An undecided application a rule meets is stored rejected, the rule its giver and the answer its
     reason. One a rule rejected that no rule meets any longer returns to undecided - unless the
-    results are published, when its applicant has seen the rejection and it stands. Every write is
+    results are published, when its applicant has seen the rejection and it stands, or unless
+    ``overturns`` is false: returning it overturns an automatic rejection, which a person's write
+    does only when the table's change row is theirs (E38/F06/S01). Every write is
     conditioned on the application being as it was read, so a person's verdict that lands in
     between is never overwritten.
     """
@@ -186,8 +211,9 @@ def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) 
         # What the organizer reads, an update of an answer in its place (E41/F01/S01).
         met = book.rejecting(ApplicationsApi.effective_answers(doc))
         if met is None:
-            if by_rule and not book.results_published and ApplicationsApi.update_application_status(
-                    doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc):
+            if by_rule and overturns and not book.results_published \
+                    and ApplicationsApi.update_application_status(
+                        doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc):
                 returned += 1
             continue
         rule_key, reason = met

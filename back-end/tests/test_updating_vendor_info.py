@@ -39,7 +39,7 @@ ANSWERS = {"shop": "Ember Ceramcs", "student": "No", "goods": ["Prints"],
 @pytest.fixture
 def market(monkeypatch, applications, market_records):
     """A market in ``phase`` with one vendor's application on it, the asker holding ``role``."""
-    def at(phase=MarketPhase.REVIEW, role=None, **overrides):
+    def at(phase=MarketPhase.APPLICATIONS, role=None, **overrides):
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(stored_market(
             phase, applicationForm={"fields": FIELDS}, **overrides)))
         if role is None:
@@ -224,7 +224,9 @@ class TestWhoMay:
 
         _update({"shop": "Ember Ceramics"})
 
-        assert asked == [Actions.UPDATE_VENDOR_INFO]
+        # The rules judge the update again, and the change row, which asks the giving row under it,
+        # says whether a rule's rejection the update no longer meets returns to open (E38/F06/S01).
+        assert asked == [Actions.UPDATE_VENDOR_INFO, Actions.CHANGE_VERDICTS, Actions.GIVE_VERDICTS]
         assert Actions.UPDATE_VENDOR_INFO.default is MarketRole.EDITOR
         assert Actions.UPDATE_VENDOR_INFO.label == "Update a vendor's info"
 
@@ -267,7 +269,7 @@ class TestWhoMay:
 
         assert not _stored(applications).get("answer_updates")
 
-    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN, MarketPhase.ASSIGNMENT,
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT,
                                        MarketPhase.MARKET_DAYS])
     def test_no_phase_owns_it(self, market, phase):
         market(phase)
@@ -330,7 +332,7 @@ class TestTheAutomaticRejectionsJudgeTheUpdate:
 
     def test_in_review_an_update_past_a_rule_returns_it_to_undecided(
             self, market, market_records):
-        applications = self._rejected_by_the_rule(market, MarketPhase.REVIEW)
+        applications = self._rejected_by_the_rule(market, MarketPhase.APPLICATIONS)
 
         _update({"student": "Yes"})
 
@@ -365,7 +367,7 @@ class TestTheAutomaticRejectionsJudgeTheUpdate:
 class TestAReImportKeepsTheUpdate:
     @pytest.fixture
     def imported(self, monkeypatch, applications, market_records):
-        markets = FakeMarketsCollection(_market_doc(phase=MarketPhase.APPLICATIONS_OPEN))
+        markets = FakeMarketsCollection(_market_doc(phase=MarketPhase.APPLICATIONS))
         monkeypatch.setattr(MarketsApi, "markets_collection", markets)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)

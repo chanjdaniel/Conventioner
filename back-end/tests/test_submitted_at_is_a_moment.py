@@ -85,12 +85,12 @@ class TestWhatNormalisingBuys:
             raw, key=lambda s: datetime.strptime(s, "%m/%d/%Y %H:%M:%S")
         )]
 
-    def test_the_real_fixture_orders_chronologically_as_text(self):
-        """The measured failure: 111 of 232 rows were in the wrong position."""
+    def test_the_five_day_fixture_orders_chronologically_as_text(self):
+        """The measured failure: read as text, most of a Google Form export's timestamps sort out of time order, and this file's do too."""
         import csv
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "test_data", "google_forms_export.csv")
+                            "test_data", "google_forms", "five-day-grid.csv")
         with open(path, newline="", encoding="utf-8") as handle:
             rows = list(csv.reader(handle))
         stamps = [r[1] for r in rows[1:] if len(r) > 1 and r[1]]

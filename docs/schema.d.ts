@@ -46,6 +46,18 @@ export interface MarketSchema {
     roleName?: string;
     usernameQuestion?: string;
   };
+  exampleColumns?: {
+    headers?: string[];
+    helpText?: string;
+    key: string;
+    label: string;
+    options?: {
+      multiSelect?: string[];
+      select?: string[];
+    };
+    question?: boolean;
+    type: string;
+  }[];
   id: string;
   importMapping?: {
     headers?: string[];
@@ -132,6 +144,25 @@ export interface MarketSchema {
     marketDates: {
       date: string;
     }[];
+    pricing?: {
+      currency: string;
+      everyoneElse: {
+        cents: number;
+        tier: string;
+      }[];
+      groups: {
+        conditions: {
+          answers: string[];
+          key: string;
+        }[];
+        name: string;
+        prices: {
+          cents: number;
+          tier: string;
+        }[];
+      }[];
+      halfTablePercent: number;
+    };
     priority: {
       direction?: string;
       id: number;

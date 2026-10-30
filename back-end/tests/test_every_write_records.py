@@ -42,7 +42,6 @@ from datatypes import MarketPerson, MarketPhase  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
 from test_csv_proposal_api import CSV as A_GOOGLE_FORM_EXPORT  # noqa: E402
 from test_essential_fields import VALID_ANSWERS, _applicant_market_doc  # noqa: E402
-from test_form_amendment import FORM_WITH_A_FIELD  # noqa: E402
 from test_the_placement_endpoint import SETUP_OBJECT, placement  # noqa: E402
 
 MARKET = "market-123"
@@ -51,6 +50,9 @@ VENDOR = "vendor@example.com"
 SAM = "sam@example.com"
 DATE = "2026-08-01"
 QUESTION = {"key": "shop", "label": "Shop", "type": "text"}
+FORM_WITH_A_FIELD = {
+    "fields": [{"key": "business_name", "label": "Business name", "type": "text", "order": 0}]
+}
 STUDENT = {"key": "student", "label": "Are you a student?", "type": "select",
            "options": ["Yes", "No"], "required": True}
 
@@ -265,29 +267,14 @@ def _save_form(client, world):
 
 
 def _review_highlights(client, world):
-    world.market(MarketPhase.REVIEW, applicationForm=FORM_WITH_A_FIELD)
+    world.market(MarketPhase.APPLICATIONS, applicationForm=FORM_WITH_A_FIELD)
     return client.put(f"/markets/{MARKET}/review-highlights", json={"keys": ["business_name"]})
 
 
 def _rejection_rules(client, world):
-    world.market(MarketPhase.REVIEW, applicationForm=FORM_WITH_A_FIELD,
+    world.market(MarketPhase.APPLICATIONS, applicationForm=FORM_WITH_A_FIELD,
                  rejectionRules=[{"key": "business_name", "answers": ["None"]}])
     return client.put(f"/markets/{MARKET}/rejection-rules", json={"rules": []})
-
-
-def _amend_form(client, world):
-    world.market(MarketPhase.APPLICATIONS_OPEN, setupObject=COMPLETE_PLAN,
-                 applicationForm=FORM_WITH_A_FIELD)
-    return client.post(f"/markets/{MARKET}/application-form/amendment", json={
-        "applicationForm": {"fields": [*FORM_WITH_A_FIELD["fields"], QUESTION]},
-    })
-
-
-def _resume_amendment(client, world):
-    world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN, applicationForm=FORM_WITH_A_FIELD,
-                 formAmendment={"returnPhase": "applications_open",
-                                "startedAt": "2026-10-01T00:00:00Z"})
-    return client.post(f"/markets/{MARKET}/application-form/amendment/resume")
 
 
 # --- Vendors coming in ------------------------------------------------------------------------------
@@ -297,7 +284,7 @@ ROWS = 212
 
 
 def _import(client, world):
-    world.markets.doc = copy.deepcopy(_market_doc(phase=MarketPhase.APPLICATIONS_OPEN))
+    world.markets.doc = copy.deepcopy(_market_doc(phase=MarketPhase.APPLICATIONS))
     rows = [
         f'2026/05/02 9:14:03,v{n}@ember.test,Nadia Okonkwo,Ember Ceramics {n},'
         f'"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall"'
@@ -339,22 +326,31 @@ def _add_vendor(client, world):
 # --- The review -------------------------------------------------------------------------------------
 
 def _verdict(client, world):
-    world.market(MarketPhase.REVIEW)
+    world.market(MarketPhase.APPLICATIONS)
     world.applications.insert_one(_application("app-1", VENDOR))
     return client.put(f"/markets/{MARKET}/applications/app-1/review",
                       json={"status": "reviewer_approved"})
 
 
 def _verdicts(client, world):
-    world.market(MarketPhase.REVIEW)
+    world.market(MarketPhase.APPLICATIONS)
     world.applications.insert_one(_application("app-1", VENDOR))
     world.applications.insert_one(_application("app-2", "ben@example.com"))
     return client.post(f"/markets/{MARKET}/applications/verdicts", json={
         "status": "reviewer_rejected", "applications": [{"id": "app-1"}, {"id": "app-2"}]})
 
 
+def _changed_verdict(client, world):
+    world.market(MarketPhase.APPLICATIONS)
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, status="reviewer_approved", verdict_at="2026-10-02T00:00:00+00:00",
+        verdict_by={"kind": "person", "user_id": "user-owner", "email": OWNER}))
+    return client.put(f"/markets/{MARKET}/applications/app-1/review",
+                      json={"status": "reviewer_rejected"})
+
+
 def _follow_up_owner(client, world):
-    world.market(MarketPhase.REVIEW)
+    world.market(MarketPhase.APPLICATIONS)
     world.applications.insert_one(_application(
         "app-1", VENDOR, status="needs_follow_up",
         follow_up_owner={"user_id": "user-owner", "email": OWNER}))
@@ -365,7 +361,7 @@ def _follow_up_owner(client, world):
 
 
 def _update_info(client, world):
-    world.market(MarketPhase.REVIEW, applicationForm={"fields": [QUESTION]})
+    world.market(MarketPhase.APPLICATIONS, applicationForm={"fields": [QUESTION]})
     world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
     return client.put(f"/markets/{MARKET}/applications/app-1/answers",
                       json={"answers": {"shop": "Ember Ceramics"}})
@@ -376,7 +372,12 @@ def _update_info(client, world):
 def _move_phase(client, world):
     world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN, applicationForm=FORM_WITH_A_FIELD)
     world.patch(MarketsApi, "evaluate_transition", lambda *_a: [])
-    return client.post(f"/markets/{MARKET}/transition", json={"toPhase": "applications_open"})
+    return client.post(f"/markets/{MARKET}/transition", json={"toPhase": "applications"})
+
+
+def _stop_applications(client, world):
+    world.market(MarketPhase.APPLICATIONS, intakeMode="form")
+    return client.post(f"/markets/{MARKET}/applications-stopped", json={"stopped": True})
 
 
 def _publish(client, world):
@@ -480,29 +481,35 @@ def _disconnect_discord(client, world):
 # --- People -----------------------------------------------------------------------------------------
 
 def _give_role(client, world):
-    world.market(MarketPhase.REVIEW)
+    world.market(MarketPhase.APPLICATIONS)
     return client.post(f"/markets/{MARKET}/roles", json={"user_email": SAM, "role": "editor"})
 
 
 def _change_role(client, world):
-    world.market(MarketPhase.REVIEW, roles={"user-1": "owner", "user-sam": "editor"})
+    world.market(MarketPhase.APPLICATIONS, roles={"user-1": "owner", "user-sam": "editor"})
     return client.put(f"/markets/{MARKET}/roles/user-sam", json={"role": "admin"})
 
 
 def _take_role(client, world):
-    world.market(MarketPhase.REVIEW, roles={"user-1": "owner", "user-sam": "editor"})
+    world.market(MarketPhase.APPLICATIONS, roles={"user-1": "owner", "user-sam": "editor"})
     return client.delete(f"/markets/{MARKET}/roles/user-sam")
 
 
 def _set_permission(client, world):
-    world.market(MarketPhase.REVIEW)
+    world.market(MarketPhase.APPLICATIONS)
     return client.put(f"/markets/{MARKET}/permissions/check-in", json={"role": "admin"})
 
 
 def _reset_permission(client, world):
-    world.market(MarketPhase.REVIEW,
+    world.market(MarketPhase.APPLICATIONS,
                  permissions={"check-in": {"role": "admin", "source": "market"}})
     return client.delete(f"/markets/{MARKET}/permissions/check-in")
+
+
+def _reset_permissions(client, world):
+    world.market(MarketPhase.APPLICATIONS,
+                 permissions={"check-in": {"role": "admin", "source": "market"}})
+    return client.delete(f"/markets/{MARKET}/permissions")
 
 
 M = "/markets/<market_id>"
@@ -516,6 +523,9 @@ WRITES = [
           _plan({"marketDates": [{"date": "2099-08-02"}]})),
     Write("the intake mode", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PLAN,
           _plan({}, intake="form")),
+    Write("the prices", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PRICING,
+          _plan({"pricing": {"currency": "CAD", "halfTablePercent": 50,
+                             "everyoneElse": [{"tier": "Gold", "cents": 3500}]}})),
     Write("the assignment rules", "PUT", f"{M}/plan", Actions.ASSIGN, History.RULES,
           _plan({"assignmentOptions": {"maxAssignmentsPerVendor": 1}})),
     Write("a floorplan", "POST", "/floorplans/save-to-market", Actions.CHANGE_SETUP,
@@ -528,11 +538,6 @@ WRITES = [
           History.REVIEW_HIGHLIGHTS, _review_highlights),
     Write("automatic rejections", "PUT", f"{M}/rejection-rules", Actions.CHANGE_FORM,
           History.REJECTION_RULES, _rejection_rules),
-    Write("a form amendment", "POST", f"{M}/application-form/amendment", Actions.AMEND_FORM, None,
-          _amend_form, subject={"return_phase": "applications_open"}),
-    Write("a resumed amendment", "POST", f"{M}/application-form/amendment/resume",
-          Actions.AMEND_FORM, History.RESUMED, _resume_amendment,
-          subject={"return_phase": "applications_open"}),
     Write("an import", "POST", f"{M}/applications/import", Actions.IMPORT_APPLICATIONS,
           History.IMPORTED, _import, before_after=False),
     Write("the start from a CSV", "POST", f"{M}/csv-proposal/confirm", Actions.IMPORT_APPLICATIONS,
@@ -548,6 +553,9 @@ WRITES = [
     Write("a selection's verdict", "POST", f"{M}/applications/verdicts", Actions.GIVE_VERDICTS,
           History.VERDICTS, _verdicts, vendors=(VENDOR, "ben@example.com"),
           subject={"application_ids": ["app-1", "app-2"]}),
+    Write("a verdict changed", "PUT", f"{M}/applications/<application_id>/review",
+          Actions.CHANGE_VERDICTS, History.VERDICT, _changed_verdict, vendors=(VENDOR,),
+          subject={"application_id": "app-1"}),
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
@@ -556,6 +564,8 @@ WRITES = [
           subject={"application_id": "app-1"},
           detail_keys=("rejected_by_rules", "returned_by_rules")),
     Write("a phase move", "POST", f"{M}/transition", Actions.MOVE_PHASE, None, _move_phase),
+    Write("applications stopped", "POST", f"{M}/applications-stopped", Actions.STOP_APPLICATIONS,
+          None, _stop_applications),
     Write("publishing results", "POST", f"{M}/publish-results", Actions.PUBLISH_RESULTS, None,
           _publish),
     Write("a vendor added", "POST", f"{M}/vendors", Actions.ADD_VENDOR, None, _add_vendor,
@@ -604,6 +614,8 @@ WRITES = [
     Write("a row of the table reset", "DELETE", f"{M}/permissions/<action_id>",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_RESET, _reset_permission,
           subject={"action": "check-in"}),
+    Write("the table reset", "DELETE", f"{M}/permissions",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
 ]
 
 #: The write routes that change nothing on a market's record, and why.
@@ -635,6 +647,7 @@ NOT_A_CHANGE = {
 #: The table's rows no write records, and why.
 NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
+    Actions.READ_HISTORY.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
 }
@@ -764,6 +777,20 @@ class TestWhatAnEntryHolds:
 
         assert world.history.documents == []
 
+    def test_a_stop_holds_whether_applications_are_taken(self, client, world):
+        _stop_applications(client, world)
+
+        [entry] = world.history.documents
+        assert entry["detail"] == {
+            "before": {"applications_stopped": False}, "after": {"applications_stopped": True}}
+
+    def test_a_stop_restated_records_nothing(self, client, world):
+        world.market(MarketPhase.APPLICATIONS, intakeMode="form", applicationsStopped=True)
+
+        client.post(f"/markets/{MARKET}/applications-stopped", json={"stopped": True})
+
+        assert world.history.documents == []
+
     def test_a_form_write_holds_the_questions_it_changed(self, client, world):
         world.market(MarketPhase.DRAFT, setupObject=COMPLETE_PLAN,
                      applicationForm=FORM_WITH_A_FIELD)
@@ -786,7 +813,7 @@ class TestWhatAnEntryHolds:
             "reviewer_approved", "reviewer_rejected"]
 
     def test_a_selection_marked_follow_up_records_its_owner(self, client, world):
-        world.market(MarketPhase.REVIEW)
+        world.market(MarketPhase.APPLICATIONS)
         world.applications.insert_one(_application("app-1", VENDOR))
 
         client.post(f"/markets/{MARKET}/applications/verdicts", json={
@@ -799,7 +826,7 @@ class TestWhatAnEntryHolds:
         }
 
     def test_a_selection_moved_from_follow_up_drops_the_owner(self, client, world):
-        world.market(MarketPhase.REVIEW)
+        world.market(MarketPhase.APPLICATIONS)
         world.applications.insert_one(_application(
             "app-1", VENDOR, status="needs_follow_up",
             follow_up_owner={"user_id": "user-sam", "email": SAM}))
@@ -814,7 +841,7 @@ class TestWhatAnEntryHolds:
         }
 
     def test_a_review_claim_records_nothing(self, client, world):
-        world.market(MarketPhase.REVIEW)
+        world.market(MarketPhase.APPLICATIONS)
         world.applications.insert_one(_application("app-1", VENDOR))
 
         client.post(f"/markets/{MARKET}/review/next", json={})
@@ -829,7 +856,7 @@ class TestWhatAnEntryHolds:
         [entry] = world.history.documents
         assert entry["actor"] == OWNER
         assert entry["detail"] == {
-            "before": {"phase": "draft"}, "after": {"phase": "applications_open"}}
+            "before": {"phase": "draft"}, "after": {"phase": "applications"}}
 
     def test_a_failed_entry_logs_its_ids_never_its_values(self, client, world, caplog):
         """A driver's message can quote the document it refused, and an entry holds answers."""
@@ -918,7 +945,7 @@ class TestWhatAnEntryHolds:
         assert entry["detail"]["rejected"] == 0 and entry["detail"]["returned"] == 0
 
     def test_rules_that_no_longer_meet_an_application_count_it_returned(self, client, world):
-        world.market(MarketPhase.REVIEW, applicationForm={"fields": [STUDENT]},
+        world.market(MarketPhase.APPLICATIONS, applicationForm={"fields": [STUDENT]},
                      rejectionRules=[{"key": "student", "answers": ["No"]}])
         world.applications.insert_one(_application(
             "app-1", VENDOR, status="reviewer_rejected", form_data={"student": "No"},
@@ -956,8 +983,3 @@ class TestWhatAnEntryHolds:
         [entry] = world.history.documents
         assert {"rejected", "returned"} <= set(entry["detail"])
 
-    def test_an_amendment_counts_what_the_rules_decided_against_it(self, client, world):
-        _amend_form(client, world)
-
-        [entry] = world.history.documents
-        assert {"rejected", "returned", "hops"} <= set(entry["detail"])

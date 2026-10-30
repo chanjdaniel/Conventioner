@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { mongoEval } from './helpers/mongo';
 import { withUser } from './helpers/withUser';
@@ -33,18 +33,16 @@ test('the second of two verdicts on one card is refused, naming the first', asyn
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });
   expect(granted.ok(), await granted.text()).toBeTruthy();
 
   const first = new ApplicationMonitorPage(page);
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   await first.waitForLoaded();
   await expect(first.email).toHaveText('nadia@ember.test');
 
@@ -57,7 +55,7 @@ test('the second of two verdicts on one card is refused, naming the first', asyn
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const second = new ApplicationMonitorPage(other);
-    await other.goto(marketScreenPath(marketId, 'applications'));
+    await other.goto(oneByOnePath(marketId));
     await second.waitForLoaded();
     await expect(second.email).toHaveText('nadia@ember.test');
 

@@ -1,7 +1,11 @@
 import { test, expect, TEST_USER, BACKEND_URL, NewMarketPage } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
-import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -137,7 +141,9 @@ test.describe("Start from a draft's Market Setup", () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    // Its responses imported, so it may enter Review (E38/F04/S01).
+    seedApplicationWithStatus(marketId, 'open', 'imported@example.com');
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     // Past draft the setup is settled (E31/F01/S03), so Market Setup offers no start at all and says
     // why; the flow's own address still refuses in words.
     await page.goto(marketSetupPath(marketId));
@@ -163,8 +169,8 @@ test.describe("Start from a draft's Market Setup", () => {
     await page.goto(marketSetupPath(marketId));
     await page.getByTestId('plan-start-from-csv-link').click();
     const flow = new StartFromCsvPage(page);
-    await flow.chooseFile(join(CORPUS, 'fall-2023.csv'));
-    await flow.answerYear(UPCOMING_YEAR['fall-2023']);
+    await flow.chooseFile(join(CORPUS, 'days-as-one-question.csv'));
+    await flow.answerYear(UPCOMING_YEAR['days-as-one-question']);
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
@@ -173,7 +179,7 @@ test.describe("Start from a draft's Market Setup", () => {
       .market;
     expect(market.intakeMode).toBe('form');
 
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     // The applicant's form, as the public apply page reads it: live, with the organizer's questions.
     const form = await page.request.get(
       `${BACKEND_URL}/public/markets/${marketNameToSlug(name)}/application-form`,
@@ -182,6 +188,6 @@ test.describe("Start from a draft's Market Setup", () => {
     const served = await form.json();
     expect(served.is_open).toBe(true);
     const labels = (served.application_form?.fields ?? []).map((f: { label: string }) => f.label);
-    expect(labels).toContain('Are you a UBC Student?');
+    expect(labels).toContain('Are you an Example College student?');
   });
 });

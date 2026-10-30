@@ -8,7 +8,7 @@ describes:
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/tests/test_applicant_intake_gate.py
   - front-end/e2e/intake-mode.spec.ts
-verified: 2026-10-27
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07
@@ -52,7 +52,7 @@ A gated market answers without sending anything, so the time a request takes say
 
 **A form market serves applicants in every phase but draft** (`APPLICANT_SURFACE_PHASES`, E26/F07/S02).
 An applicant may always sign in and read their own application and its outcome; closing the surface with applications hid every verdict (bug 20).
-Applying itself stays `applications_open`'s ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
+Applying itself stays the `applications` phase's, while the organizer takes applications ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
 
 **The organizer's own link to the page follows the gate.**
 The rail shows the application page's address, with Copy, only for a form market, from the first phase after draft until it is archived ([the phase rail](../../implementation/modules/phase-rail.md)).

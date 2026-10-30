@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 
@@ -32,11 +32,9 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   for (const [person, role] of [
     [EDITOR, 'editor'],
     [VIEWER, 'viewer'],
@@ -48,7 +46,7 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
   }
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await monitor.reject('theo@thistle.test');
@@ -59,13 +57,13 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
     // Deciding is not moving the market: the rail offers an editor no move.
     await expect(page.getByTestId('phase-transition-assignment')).toHaveCount(0);
     const moved = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
-      data: { toPhase: 'applications_closed' },
+      data: { toPhase: 'assignment' },
     });
     expect(moved.status()).toBe(403);
   });
 
   await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await expect(monitor.approveButton).toHaveCount(0);

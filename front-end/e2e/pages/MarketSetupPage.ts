@@ -45,7 +45,6 @@ export class MarketSetupPage {
   readonly setupTab: Locator;
   readonly formTab: Locator;
   readonly applicationsTab: Locator;
-  readonly importButton: Locator;
 
   // Phase control panel, above the tabs
   readonly phaseControlPanel: Locator;
@@ -73,7 +72,6 @@ export class MarketSetupPage {
     this.setupTab = page.getByTestId('market-bar-tab-setup');
     this.formTab = page.getByTestId('market-bar-tab-form');
     this.applicationsTab = page.getByTestId('market-bar-tab-applications');
-    this.importButton = page.getByTestId('market-setup-import-button');
 
     this.phaseControlPanel = page.getByTestId('phase-rail');
     this.currentPhase = page.getByTestId('phase-rail-current');
@@ -91,12 +89,6 @@ export class MarketSetupPage {
 
   async openApplicationsTab(): Promise<void> {
     await this.applicationsTab.click();
-  }
-
-  /** Leave for the CSV import flow, the way the organizer does: from the Applications tab. */
-  async startCsvImport(): Promise<void> {
-    await this.importButton.click();
-    await this.page.waitForURL(/\/markets\/[^/]+\/import$/);
   }
 
   // --- Phase control ---

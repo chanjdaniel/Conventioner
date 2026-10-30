@@ -127,19 +127,19 @@ test.describe('Changing a placement on the Tables view', () => {
     await expect(tables.tableRows.first()).toBeVisible({ timeout: 15000 });
 
     interface Entry {
+      action?: string;
       kind: string;
       actor: string;
       at: string;
       vendors: string[];
     }
-    const trail = async (vendor?: string): Promise<Entry[]> => {
-      const query = vendor ? `?vendor=${encodeURIComponent(vendor)}` : '';
-      const res = await page.request.get(
-        `${BACKEND_URL}/markets/${seed.marketId}/placement-history${query}`,
-        { headers: { 'X-Owner-Email': TEST_USER.email } },
-      );
+    const read = async (path: string): Promise<Entry[]> => {
+      const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}/${path}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
       return ((await res.json()) as { entries: Entry[] }).entries;
     };
+    const trail = () => read('placement-history');
 
     // A delta, because the specs above share this market and have already changed placements on
     // it. What is being pinned is that ONE action leaves ONE entry.
@@ -165,8 +165,10 @@ test.describe('Changing a placement on the Tables view', () => {
       expect(entry.at).toBeTruthy();
     }
 
-    // The vendor panel shows that vendor's entries; the market shows all of them.
-    const theirs = await trail(first);
+    // The vendor's drawer reads the history narrowed to them; the market's trail holds all of it.
+    const theirs = (await read(`history?vendor=${encodeURIComponent(first)}`)).filter(
+      (entry) => entry.action === 'assign',
+    );
     expect(theirs.length).toBeGreaterThan(0);
     expect(theirs.length).toBeLessThan(entries.length);
     for (const entry of theirs) {

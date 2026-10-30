@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, oneByOnePath } from './helpers/marketScreens';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
@@ -47,7 +47,7 @@ test('every seat is one width, an empty table claims no size, and the date chip 
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 5 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });
@@ -106,7 +106,7 @@ test('the review card reads as one card, and a verdict is not drawn like the act
   });
   expect(highlighted.ok(), await highlighted.text()).toBeTruthy();
 
-  await page.goto(marketSetupPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   const monitor = new ApplicationMonitorPage(page);
   await monitor.waitForLoaded();
 
@@ -165,7 +165,7 @@ test('a web address in an answer is a link the reviewer can open, and nothing el
     essential_full_name: 'Nadia Ember',
   });
 
-  await page.goto(marketSetupPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   const monitor = new ApplicationMonitorPage(page);
   await monitor.waitForLoaded();
 

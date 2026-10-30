@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -14,6 +13,7 @@ from client_errors import (
     parse_failure_detail,
 )
 from datatypes import (
+    FORM_FIELD_KEY_PATTERN,
     Application,
     ApplicationForm,
     ApplicationStatus,
@@ -50,6 +50,7 @@ from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_c
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
+import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import discord_client as DiscordClient
 import essential_fields as EssentialFields
@@ -65,6 +66,7 @@ import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import history as History
+import pricing as Pricing
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
@@ -73,10 +75,9 @@ import rejection_rules as RejectionRules
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
-    PASSED_THROUGH,
+    VALID_TRANSITIONS,
     PreconditionResult,
     evaluate_transition,
-    move_route,
     route_between,
     transition_verdicts,
 )
@@ -93,10 +94,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-# Field keys become document keys inside ``Application.form_data``, where a dot or a leading
-# ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
-# builder produces so no key can ever be unaddressable.
-FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class MarketNotFoundError(NotFoundError):
@@ -194,12 +191,12 @@ VIEWER_REFUSAL = (
 #: may see it and whether to keep it - which are not changes to it (bug 30). Every other row is
 #: refused on an archived market whoever may, a row added later included.
 ARCHIVED_STILL_TAKES = frozenset({
-    Actions.READ, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS,
-    Actions.DELETE_MARKET,
+    Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS,
+    Actions.MANAGE_ADMINS, Actions.DELETE_MARKET,
 })
 
 #: The rows that read the market rather than change it.
-READING_ROWS = frozenset({Actions.READ, Actions.EXPORT_CSV})
+READING_ROWS = frozenset({Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV})
 
 
 def _answers(
@@ -272,10 +269,11 @@ VERDICTS_SETTLED = (
 
 
 def review_is_open(phase: MarketPhase) -> bool:
-    """Whether this market can still get back to review, the one rule both the verdicts and the
-    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same
-    applications, so they close together; derived from the transition table rather than listed."""
-    return route_between(phase.value, MarketPhase.REVIEW.value) is not None
+    """Whether this market can still get back to the stage where applications are reviewed, the one
+    rule both the verdicts and the automatic rejections settle on (E36/F01/S01). A rule and a
+    reviewer judge the same applications, so they close together; derived from the transition table
+    rather than listed."""
+    return route_between(phase.value, MarketPhase.APPLICATIONS.value) is not None
 
 
 def verdict_refusal(
@@ -296,6 +294,14 @@ def verdict_refusal(
     if not review_is_open(market.phase):
         return VERDICTS_SETTLED
     return None
+
+
+def may_overturn(user_email: str, market: Market) -> bool:
+    """Whether this person may overturn an automatic rejection here: the table's change row
+    (E38/F06/S01). A write of theirs that judges the rules again returns a rule's rejection no rule
+    meets any longer to open only when they may; for anyone else it stands."""
+    return Actions.may(
+        Actions.CHANGE_VERDICTS, user_email, market, _load_organization(market.organization_id))
 
 
 #: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
@@ -434,18 +440,9 @@ def rejection_facts(market: Market) -> Dict[str, Any]:
     }
 
 
-# The menu's own names for the moves back to draft (``pathTransitionLabel`` in
-# ``front-end/src/utils/marketGuide.ts``), from each phase a market can still get back from.
-_WAY_BACK = {
-    MarketPhase.APPLICATIONS_OPEN: {
-        IntakeMode.FORM: "Reopen for Editing",
-        IntakeMode.CSV: "Reopen for Editing",
-    },
-    MarketPhase.APPLICATIONS_CLOSED: {
-        IntakeMode.FORM: "Reopen Applications, then Reopen for Editing",
-        IntakeMode.CSV: "Import more responses, then Reopen for Editing",
-    },
-}
+# The menu's own name for the move back to draft (``pathTransitionLabel`` in
+# ``front-end/src/utils/marketGuide.ts``).
+_WAY_BACK = "Reopen for Editing"
 
 
 def _since_leaving_draft(market: Market) -> str:
@@ -453,19 +450,20 @@ def _since_leaving_draft(market: Market) -> str:
     responses rather than opening applications (E31/F03/S03, E32/F02/S01)."""
     if market.intake_mode is IntakeMode.FORM:
         return "once applications have opened"
-    return "once the market has moved on to importing"
+    return "once its responses have been imported"
 
 
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
     """The part of a plan that is the setup, in one comparable shape (E31/F01/S02).
 
-    Everything on Market Setup: the dates, tiers, locations, sections and their tables, and the
-    floorplans. Not the assignment rules (``made_from.assignment_rules``), which ride in the same
-    object and keep a lock of their own.
+    Everything on Market Setup: the dates, tiers, locations, sections and their tables, the
+    floorplans and the prices (E43/F01/S01). Not the assignment rules
+    (``made_from.assignment_rules``), which ride in the same object and keep a lock of their own.
     """
     if plan is None:
         return {}
-    shape = plan.model_dump(include={"market_dates", "tiers", "locations", "sections", "floorplans"})
+    shape = plan.model_dump(
+        include={"market_dates", "tiers", "locations", "sections", "floorplans", "pricing"})
     shape["floorplans"] = shape.get("floorplans") or []
     return shape
 
@@ -474,9 +472,8 @@ def setup_lock_reason(market: Market) -> Optional[str]:
     """Why the setup may no longer change, or None while it can (E31/F01/S02).
 
     It settles on leaving draft, so a date an applicant chose or a section a vendor was placed in
-    cannot move under them. While the market can still go back to draft - nobody has applied, and it
-    is collecting or has just stopped - the reason names the moves that get it there, since that is
-    the way to change it.
+    cannot move under them. While the market can still go back to draft - nobody has applied - the
+    reason names the move that gets it there, since that is the way to change it.
     """
     if market.phase is MarketPhase.DRAFT:
         return None
@@ -484,10 +481,10 @@ def setup_lock_reason(market: Market) -> Optional[str]:
         f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
         "applicants and the table allocation rely on it."
     )
-    way_back = _WAY_BACK.get(market.phase, {}).get(market.intake_mode)
-    if way_back and ApplicationsApi.count_applications_for_market(market.id) == 0:
+    can_return = (market.phase.value, MarketPhase.DRAFT.value) in VALID_TRANSITIONS
+    if can_return and ApplicationsApi.count_applications_for_market(market.id) == 0:
         return (
-            f"{settled} While no one has applied, go back to draft to change it: {way_back}, "
+            f"{settled} While no one has applied, go back to draft to change it: {_WAY_BACK}, "
             "under More… on the phase rail."
         )
     return settled
@@ -577,6 +574,11 @@ def _normalized_application_form(
                 f"Field key '{key}' uses the reserved "
                 f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
                 "essential questions every form already asks."
+            )
+        if key in CsvImport.RESERVED_TARGETS:
+            raise BadRequestError(
+                f"Field key '{key}' is reserved: the import reads that column as "
+                f"{CsvImport.RESERVED_TARGETS[key]}. Choose another key."
             )
         if key in seen_keys:
             raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")
@@ -901,6 +903,11 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits
         else ResultOutcome.outcome_counts(market)
     )
+    # Stopping and resuming applications (E38/F04/S02): whether the form is stopped now, and the
+    # rule of the stage that says when it may be, beside the table's Stop taking applications
+    # answer, so the rail offers the action exactly when the endpoint would take it.
+    market_dict['applicationsStopped'] = market.applications_stopped
+    market_dict['applicationsStopReason'] = ApplicantsApi.applications_stop_refusal(market)
     # Deprecated, for a tab still on the old bundle; the next release removes them.
     market_dict.update(deprecated_screen_reasons(
         refusals, verdicts_settled, adding_vendors, publish_waits))
@@ -910,10 +917,6 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
-    # The phases this market's path steps through rather than stops in (E32/F02/S01), for the rail
-    # to leave off its stages. The moves themselves are the keys above; the browser keeps no copy
-    # of the rule that makes either.
-    market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     # Whether this deployment has Discord's values (E46/F01/S02): the Discord card offers nothing
     # without them, and says so.
     market_dict['discordSetUp'] = DiscordClient.credentials() is not None
@@ -1110,6 +1113,10 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
+    # Server-owned too: the import mapping is the import's and the start's to write, and what the
+    # start kept of its file the start's alone (E38/F02), so a new market carries neither.
+    market_dict["import_mapping"] = None
+    market_dict["example_columns"] = None
     # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
     # organization's default is copied in here once it has one (E39/F02/S01).
     market_dict["permissions"] = {}
@@ -1361,14 +1368,12 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
     return payload, 200
 
 
-def get_placement_history(
-    market_id: str, requesting_user: str, vendor: Optional[str] = None
-) -> tuple[Dict[str, Any], int]:
+def get_placement_history(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
     """This market's placement trail - its history narrowed to placements - newest first. Asks
-    ``Actions.READ``.
+    ``Actions.READ_HISTORY``.
 
-    Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
-    who may look at where vendors are sitting may look at how they came to be sitting there.
+    Read on the history's row, written on the Assignment row: the trail is the market's history
+    narrowed, and anyone who may read that history may read how vendors came to sit where they do.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -1376,17 +1381,111 @@ def get_placement_history(
     if context.market is None:
         return {"error": "Invalid market data"}, 400
 
-    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
     if refused:
         return {"error": refused}, 403
 
-    entries = History.placement_entries(market_id, vendor)
+    entries = History.placement_entries(market_id)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as
         # people rather than as a column of email.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
     }, 200
+
+
+#: The table's groups that change something, in its order: the kinds of change the history is
+#: narrowed by. An applicant's own change (``History.APPLY``), which no row asks, is an
+#: application's.
+_HISTORY_GROUPS_LEFT_OUT = frozenset({"Reading"})
+
+
+def history_groups() -> List[Dict[str, Any]]:
+    """The groups of the table the history may be narrowed to, each with its actions' ids and
+    labels, for the screen's kind filter."""
+    groups: Dict[str, List[Dict[str, str]]] = {}
+    for row in Actions.ACTIONS.values():
+        if row.group not in _HISTORY_GROUPS_LEFT_OUT:
+            groups.setdefault(row.group, []).append({"id": row.id, "label": row.label})
+    groups.setdefault("Applications", []).append(
+        {"id": History.APPLY, "label": "Apply, or change one's own application"})
+    return [{"group": group, "actions": actions} for group, actions in groups.items()]
+
+
+def _history_instant(value: Optional[str]) -> Tuple[Optional[str], bool]:
+    """A filter's instant, in the format the history stores ``at`` in, and whether it read: an
+    absent one reads as None; one without its offset does not read, since it names no instant."""
+    if not value:
+        return None, True
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None, False
+    if instant.tzinfo is None:
+        return None, False
+    return instant.astimezone(timezone.utc).isoformat(), True
+
+
+def get_history(
+    market_id: str, requesting_user: str, args: Dict[str, str],
+) -> tuple[Dict[str, Any], int]:
+    """One page of this market's history, newest first, for Manage market (E40/F01/S03). Asks
+    ``Actions.READ_HISTORY``.
+
+    ``args`` are the request's: ``before`` (the cursor the last page answered with), ``actor``,
+    ``group`` (a group of the table), ``vendor``, and ``since`` and ``until`` (ISO instants, the
+    first kept and the second not). The first page also answers what the filters may offer: the
+    people who changed something, and the groups.
+    """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
+    if refused:
+        return {"error": refused}, 403
+
+    groups = history_groups()
+    actions = None
+    group = args.get("group")
+    if group:
+        actions = next(
+            ([row["id"] for row in g["actions"]] for g in groups if g["group"] == group), None)
+        if actions is None:
+            return {"error": "The history has no such kind of change."}, 400
+    since, since_read = _history_instant(args.get("since"))
+    until, until_read = _history_instant(args.get("until"))
+    if not (since_read and until_read):
+        return {"error": "The history's dates could not be read."}, 400
+    before = args.get("before")
+    if before and History.parse_cursor(before) is None:
+        return {"error": "That page of the history could not be read."}, 400
+
+    entries, after = History.entries_page(
+        market_id, before=before or None, actor=args.get("actor") or None, actions=actions,
+        vendor=args.get("vendor") or None, since=since, until=until,
+    )
+    body: Dict[str, Any] = {
+        # Only the entry's own fields are recased: its subject and detail are served as stored,
+        # since their keys are data (a question's key, an application's id).
+        "entries": [
+            {**convert_keys_to_camel_case({k: v for k, v in entry.items()
+                                           if k not in ("subject", "detail")}),
+             "subject": entry.get("subject") or {}, "detail": entry.get("detail")}
+            for entry in entries
+        ],
+        "next": after,
+        # Names against addresses, so an entry reads as people.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+    }
+    if not before:
+        body["actors"] = History.actors(market_id)
+        body["groups"] = groups
+    return body, 200
 
 
 def _market_csv_filename(
@@ -1520,8 +1619,17 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market_id)
     return {
-        "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
+        # Each occupant's price and the card's row that set it ride on their row, for the
+        # organizer's eyes only: this read is the market's people's, never an applicant's
+        # (E43/F01/S01, S02; Q20.2).
+        "rows": [
+            {**convert_keys_to_camel_case(row.model_dump()),
+             "prices": Pricing.row_prices(groups, row, answers)}
+            for row in rows
+        ],
         # Name against address, for the surfaces that only ever knew the address. Sent with
         # the rows rather than fetched separately so the grid and its occupants' names can
         # never be a request apart.
@@ -1569,14 +1677,14 @@ def finalization_update(
     If that edge is ever retired, this field becomes derivable and should be DELETED rather than
     maintained. Left here so that is a decision next time and not an archaeology problem.
 
-    A market may reach ``applications_open`` with no stored form at all: a form is its custom fields
+    A market may reach ``applications`` with no stored form at all: a form is its custom fields
     PLUS the essential questions the plan asks, and either half alone is a form. Such a market is
     still finalized, so it gets one with no custom fields rather than no stamp.
     """
     form_key = market_doc_key("application_form")
     stored_form = document.get(form_key)
 
-    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS_OPEN.value:
+    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS.value:
         stamp = datetime.now(timezone.utc).isoformat()
         published_key = market_doc_key("published_at")
         if isinstance(stored_form, dict):
@@ -1588,6 +1696,19 @@ def finalization_update(
             return {f"{form_key}.{market_doc_key('published_at')}": None}
         return {}
 
+    return {}
+
+
+def taking_applications_update(to_phase: str) -> Dict[str, Any]:
+    """A stop belongs to the one stay in the stage it was made in (E38/F04/S02).
+
+    Reopen for Editing and then Open Applications is opening applications, so a stop made before
+    must not leave the form shut; cleared on entering draft and on entering the stage, in the
+    update that moves the phase. Elsewhere it is left alone: past the stage the phase closes the
+    form whatever the flag says.
+    """
+    if to_phase in (MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value):
+        return {market_doc_key("applications_stopped"): False}
     return {}
 
 
@@ -1624,8 +1745,8 @@ def apply_phase_transition(
 ) -> None:
     """Write one phase change, conditional on the market still being where the caller thinks.
 
-    The ONE writer of a market's phase: the transition endpoint and the form-amendment chain
-    (E20/F03/S01) both move a market through it. A second copy is how the `isDraft` stamp and the
+    The ONE writer of a market's phase: every move, the transition endpoint's and a Google Form
+    market's first import's, comes through ``take_move`` to it. A second copy is how the `isDraft` stamp and the
     finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
     ONE atomic update, and one conditional on the stored phase: a failure between the phase and
@@ -1650,6 +1771,7 @@ def apply_phase_transition(
                 phase_key: to_phase,
                 is_draft_key: to_phase == MarketPhase.DRAFT.value,
                 **finalization_update(from_phase, to_phase, document),
+                **taking_applications_update(to_phase),
             },
             "$push": PhaseRecord.push_entries(document, to_phase, by),
         },
@@ -1664,31 +1786,6 @@ def apply_phase_transition(
     raise PhaseChangedUnderRequest(phase_from_market_document(latest).value, from_phase, to_phase)
 
 
-def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
-    """Take a move's steps in order through the one phase writer, each recorded as the phase it
-    entered (E32/F02/S01). The first step is conditional on the document the caller loaded; each
-    later one re-reads it, because the phase history is pushed from the document, and is taken only
-    if the market still stands where the step before left it - a request that moved it in between
-    stops the walk there rather than being carried over.
-
-    Raises what ``apply_phase_transition`` raises, at the step where it happened; a conflict names
-    the whole move, from where the walk began to where it was headed, not the step it stopped at.
-    """
-    origin = phase_from_market_document(document).value
-    for index, target in enumerate(route):
-        if index:
-            document = markets_collection.find_one({"id": market_id})
-            if document is None:
-                raise MarketNotFoundError("Market not found")
-            standing = phase_from_market_document(document).value
-            if standing != route[index - 1]:
-                raise PhaseChangedUnderRequest(standing, origin, route[-1])
-        try:
-            apply_phase_transition(market_id, document, target, by=by)
-        except PhaseChangedUnderRequest as changed:
-            raise PhaseChangedUnderRequest(changed.actual_phase, origin, route[-1]) from changed
-
-
 class MoveUnavailable(BadRequestError):
     """The move is not open from the phase the market stands in: a 400."""
 
@@ -1696,18 +1793,16 @@ class MoveUnavailable(BadRequestError):
 def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
     """Judge a move and, when nothing blocks it, take it. Returns its blockers; none means taken.
 
-    The one way a market is moved: the transition endpoint and the operator's seeder
-    (``seed_test_markets.py``) both come here, so neither can take a move unjudged. A move on the
-    market's path may step through a phase it does not stop in, every step's guards judged before
-    the first is taken (E32/F02/S01). Who may move it is the caller's to ask first.
+    The one way a market is moved: the transition endpoint, a Google Form market's first import
+    (``csv_import.import_applications``) and the operator's seeder (``seed_test_markets.py``) all
+    come here, so none can take a move unjudged. Who may move it is the caller's to ask first.
 
-    Raises ``MoveUnavailable``, and what ``walk_route`` raises.
+    Raises ``MoveUnavailable``, and what ``apply_phase_transition`` raises.
     """
     market = context.market
     market_id = context.document["id"]
     from_phase = market.phase.value
-    route = move_route(market, to_phase)
-    if route is None:
+    if (from_phase, to_phase) not in VALID_TRANSITIONS:
         raise MoveUnavailable(
             f"Transition from '{from_phase}' to '{to_phase}' is not available in the current phase."
         )
@@ -1715,8 +1810,8 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     if blockers:
         return blockers
     # Through the one phase writer, so the phase, its two stamps and the phase history move in one
-    # atomic update a step (E26/F06/S03); a route of two steps is two such updates.
-    walk_route(market_id, context.document, route, by=by)
+    # atomic update (E26/F06/S03).
+    apply_phase_transition(market_id, context.document, to_phase, by=by)
 
     # Only after the phase is written.
     swept: Dict[str, int] = {}
@@ -1932,9 +2027,12 @@ def set_permission(
     if Actions.minimum_role(row, market).value == role:
         return Actions.table(market)
     after = MarketPermission(role=role, source=Actions.ON_THIS_MARKET)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
-        f"{market_doc_key('permissions')}.{row.id}": after.model_dump(),
-    }})
+    key = market_doc_key('permissions')
+    # Mongo cannot set a key inside a stored null or string, so a field that is not a map, which
+    # the read already takes as no rows held, is replaced by one holding this row.
+    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market_id)
+             else {key: {row.id: after.model_dump()}})
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": write})
     _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
     market.permissions[row.id] = after
     return Actions.table(market)
@@ -1960,11 +2058,52 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
     return Actions.table(market)
 
 
+def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Return every row of this market's table to its built-in default, as its owner
+    (E39/F01/S04). Asks ``Actions.CHANGE_THE_TABLE``.
+
+    One write and one history entry for the one act, its detail every row the market held, before
+    and after, so the record reads as the owner did it rather than as a row-by-row run. A market
+    holding no row it can read is already at the built-in table, and resetting it records nothing. Returns the
+    market's table.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    held_rows = [
+        (row, held) for row in Actions.ACTIONS.values()
+        if (held := Actions.held_row(row, market.permissions)) is not None
+    ]
+    if not held_rows:
+        return Actions.table(market)
+    # Exactly the rows it returns: a row this build cannot read (a later build's, a malformed one)
+    # is left as the per-row reset leaves it, and is not in the entry.
+    key = market_doc_key('permissions')
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
+        f"{key}.{row.id}": "" for row, _ in held_rows
+    }})
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
+        detail=lambda: {
+            "before": {row.id: _permission_state(row, held) for row, held in held_rows},
+            "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
+        },
+    )
+    for row, _ in held_rows:
+        market.permissions.pop(row.id, None)
+    return Actions.table(market)
+
+
+def _stored_rows_are_a_map(market_id: str) -> bool:
+    """Whether the market's stored ``permissions`` is a map or absent, as Mongo can set a key in."""
+    key = market_doc_key('permissions')
+    stored = markets_collection.find_one(market_doc_filter("id", market_id), {key: 1}) or {}
+    return isinstance(stored.get(key, {}), dict)
+
+
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
     """Every change to this market's table, newest first: who, when, the row, and its role and
-    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
-    see who changed what they may do on it."""
-    _load_market_for(market_id, requesting_user, Actions.READ)
+    source before and after (E39/F01/S03). Asks ``Actions.READ_HISTORY``: these changes are the
+    market's history narrowed, so they are read on the history's row, as the whole history is."""
+    _load_market_for(market_id, requesting_user, Actions.READ_HISTORY)
     return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
 
 
@@ -2105,8 +2244,8 @@ def _record_plan(
     market: Market, plan: SetupObject, update: Dict[str, Any], requesting_user: str,
 ) -> None:
     """A plan write as the actions it took: Market Setup's fields and the intake mode as one
-    entry, the assignment rules as another, each only when it changed - the plan saves as the
-    organizer types, and restating it changes nothing."""
+    entry, the prices as another, the assignment rules as a third, each only when it changed - the
+    plan saves as the organizer types, and restating it changes nothing."""
     def setup() -> Optional[Dict[str, Any]]:
         stored = market.setup_object.model_dump() if market.setup_object else {}
         proposed = plan.model_dump()
@@ -2119,6 +2258,10 @@ def _record_plan(
 
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
+    History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   subject=lambda: Pricing.pricing_subject(plan),
+                   detail=lambda: History.changes(
+                       Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
                    detail=lambda: History.changes(
                        assignment_rules(market.setup_object), assignment_rules(plan)))
@@ -2141,6 +2284,9 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
             "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
             "default."
         )
+    priced = Pricing.pricing_refusal(plan)
+    if priced:
+        raise BadRequestError(priced)
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:
@@ -2231,7 +2377,9 @@ def save_rejection_rules(
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
     rules are worth most once applications arrive, which is when the form freezes. Refused once the
-    market can no longer return to review (``rejection_rules_lock_reason``).
+    market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
+    taken away returns what it rejected to open only for someone who may overturn an automatic
+    rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     settled = rejection_rules_lock_reason(market.phase)
@@ -2241,7 +2389,8 @@ def save_rejection_rules(
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
-    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
+                                    overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
@@ -2265,7 +2414,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    form_dict, verdicts = write_application_form(market, application_form_data)
+    form_dict, verdicts = write_application_form(
+        market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
     return form_dict
@@ -2280,11 +2430,12 @@ def _with_counts(
 
 
 def write_application_form(
-    market: Market, application_form_data: dict,
+    market: Market, application_form_data: dict, overturns: bool = True,
 ) -> Tuple[dict, RejectionRules.Judged]:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
     stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment."""
+    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
+    rejection, as ``RejectionRules.judge`` takes it."""
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
         {"id": market.id},
@@ -2294,7 +2445,8 @@ def write_application_form(
     # nobody, and what it rejected is judged again.
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        return form_dict, RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market.id)
+        return form_dict, RejectionRules.judge(
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
     return form_dict, RejectionRules.Judged()
 
 
@@ -2346,7 +2498,7 @@ def prepared_application_form(market: Market, application_form_data: dict) -> di
 def parsed_application_form(market_id: str, application_form_data: Any) -> ApplicationForm:
     """The form a request body proposes, or a ``BadRequestError`` naming each field it gets wrong.
 
-    The one parse of a proposed form, for the form write and the amendment alike.
+    The one parse of a proposed form, for the form write.
     """
     try:
         return ApplicationForm.model_validate(application_form_data)

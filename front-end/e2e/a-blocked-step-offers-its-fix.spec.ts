@@ -33,7 +33,7 @@ test.describe('A blocked step offers its fix', () => {
     await page.goto(marketSetupPath(seed.marketId, 'form'));
     const fix = page.getByTestId('phase-rail-fix');
     await expect(fix).toHaveText('Add a location', { timeout: 15000 });
-    const open = page.getByTestId('phase-transition-applications_open');
+    const open = page.getByTestId('phase-transition-applications');
     await expect(open).toBeDisabled();
     await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
     // A link standing in for a button stands as tall as the buttons beside it.
@@ -64,7 +64,7 @@ test.describe('A blocked step offers its fix', () => {
     );
 
     await page.goto(marketSetupPath(seed.marketId, 'form'));
-    await expect(page.getByTestId('phase-transition-applications_open')).toBeEnabled({
+    await expect(page.getByTestId('phase-transition-applications')).toBeEnabled({
       timeout: 15000,
     });
     await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
