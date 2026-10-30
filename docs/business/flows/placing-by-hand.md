@@ -76,7 +76,7 @@ Covered by: `placement-edit.spec.ts`.
 ## J9. Allocate tables again, keeping hand assignments
 
 **Status:** Works (walked live).
-Every hand assignment is a pin; on Assignment, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
+Every hand assignment is a pin; on the Settings page, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
 Covered by: `placement-pins.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 ## J10. A pin the plan no longer holds
