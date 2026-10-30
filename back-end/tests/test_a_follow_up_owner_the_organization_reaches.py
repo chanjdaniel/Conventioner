@@ -59,7 +59,7 @@ def _account(email):
 def market(monkeypatch, applications):
     """A market in review, of the organization, with an application waiting on a verdict."""
     doc = stored_market(
-        MarketPhase.REVIEW, _id="mongo-m1", organizationId=ORG_ID,
+        MarketPhase.APPLICATIONS, _id="mongo-m1", organizationId=ORG_ID,
         roles={**MARKET_ROLES, "org-member": "editor"},
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(doc))

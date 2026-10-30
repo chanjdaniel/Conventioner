@@ -47,7 +47,7 @@ test('every seat is one width, an empty table claims no size, and the date chip 
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 5 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });

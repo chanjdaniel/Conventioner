@@ -127,13 +127,12 @@ class TestWhatEachPublicSurfaceServes:
 
     def test_applicant_intake_serves_a_market_taking_applications(self):
         found = applicant_intake_market_by_slug(
-            self._collection(MarketPhase.APPLICATIONS_OPEN), SLUG,
+            self._collection(MarketPhase.APPLICATIONS), SLUG,
         )
         assert found
 
     @pytest.mark.parametrize("phase", [
-        MarketPhase.APPLICATIONS_CLOSED,
-        MarketPhase.REVIEW,
+        MarketPhase.APPLICATIONS,
         MarketPhase.ASSIGNMENT,
         MarketPhase.MARKET_DAYS,
         MarketPhase.ARCHIVED,

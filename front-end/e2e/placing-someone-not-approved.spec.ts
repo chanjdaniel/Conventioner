@@ -42,7 +42,7 @@ async function aMarketWithARejectedApplicant(request: APIRequestContext): Promis
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 3 }],
     assignmentOptions: { maxAssignmentsPerVendor: 1, maxHalfTableProportionPerSection: 50 },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });

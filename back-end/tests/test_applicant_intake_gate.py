@@ -22,11 +22,11 @@ SLUG = market_name_slug("Test Market")
 TOKEN = {"application_id": "app-1", "market_id": "market-123", "email": "vendor@example.com"}
 
 
-def _market(intake_mode="form", phase=MarketPhase.APPLICATIONS_OPEN, **overrides):
+def _market(intake_mode="form", phase=MarketPhase.APPLICATIONS, **overrides):
     """A market whose applicant surface is live.
 
-    Since E03/F03 that is `applications_open`, not "any non-draft phase": each public surface names
-    its own phases, and intake stops when applications close. Check-in serves `market_days`, so the
+    That is the stage, `applications`, not "any non-draft phase": each public surface names its own
+    phases, and intake stops when the organizer stops it or the market moves to assignment. Check-in serves `market_days`, so the
     two tests about it pass that explicitly.
     """
     doc = stored_market(phase=phase, **overrides)

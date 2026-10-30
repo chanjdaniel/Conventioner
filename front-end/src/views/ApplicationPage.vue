@@ -5,7 +5,11 @@ import type { EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
 import EssentialApplicationFields from '@/components/application/EssentialApplicationFields.vue';
 import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm';
-import { EMPTY_ESSENTIAL_OPTIONS, essentialValidationErrors } from '@/utils/essentialFields';
+import {
+  EMPTY_ESSENTIAL_OPTIONS,
+  essentialValidationErrors,
+  planDerivedAskedKeys,
+} from '@/utils/essentialFields';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import { useApplicationStore } from '@/stores/application';
 import PageNotFound from '@/components/PageNotFound.vue';
@@ -30,6 +34,14 @@ const validationErrors = ref<Record<string, string>>({});
 const saving = ref(false);
 
 const sortedFields = computed(() => sortedFormFields(fields.value));
+/**
+ * Whether the form asks the applicant anything: its own questions, or the essential ones the plan
+ * offers. A market asking the essential questions alone is the ordinary case (E03/F01/S01), and
+ * this page told its vendors it had no form, its Save disabled.
+ */
+const asksSomething = computed(
+  () => sortedFields.value.length > 0 || planDerivedAskedKeys(essentialOptions.value).length > 0,
+);
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
 function toSignIn() {
@@ -162,7 +174,7 @@ async function submitForm() {
       </div>
 
       <template v-else>
-        <div v-if="!sortedFields.length" class="apply-no-form" data-testid="apply-no-form">
+        <div v-if="!asksSomething" class="apply-no-form" data-testid="apply-no-form">
           <p>This market does not have an application form yet.</p>
         </div>
 
@@ -190,7 +202,7 @@ async function submitForm() {
             <button
               type="submit"
               class="btn btn--primary"
-              :disabled="!sortedFields.length || saving"
+              :disabled="!asksSomething || saving"
               data-testid="apply-submit-button"
             >
               {{ saving ? 'Saving…' : 'Save application' }}

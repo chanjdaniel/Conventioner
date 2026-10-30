@@ -32,7 +32,7 @@ ALEX = VerdictGiver(kind="person", user_id="user-alex", email="alex@market.test"
 
 
 def _market(*rules, **overrides):
-    return client_market(phase=MarketPhase.REVIEW, application_form=ApplicationForm(fields=FIELDS),
+    return client_market(phase=MarketPhase.APPLICATIONS, application_form=ApplicationForm(fields=FIELDS),
                          setup_object=complete_setup(), rejection_rules=list(rules), **overrides)
 
 

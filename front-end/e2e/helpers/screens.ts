@@ -254,19 +254,19 @@ export const SCREENS: Screen[] = [
     open: at(setup('open', 'form'), 'form-steps'),
   },
   {
-    name: 'applications closed',
+    name: 'not taking applications',
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(oneByOne('closed'), 'app-monitor-card'),
   },
   {
-    name: 'in review',
+    name: 'a Google Form market in review',
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(oneByOne('review'), 'app-monitor-card'),
   },
   {
-    name: 'a CSV market, importing applications',
+    name: 'a CSV market, redoing its import',
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('csv', 'import'), 'import-view'),

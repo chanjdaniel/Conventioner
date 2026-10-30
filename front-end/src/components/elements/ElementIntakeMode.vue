@@ -2,10 +2,10 @@
 /**
  * How vendors reach this market (E18/F04/S01).
  *
- * The phase cannot express this. Application submission is already gated to `applications_open`,
- * but a CSV market passes through that phase too - that is where the import happens - so during
- * that window its public application form would be live and taking applications from strangers the
- * organizer has no way to answer.
+ * The phase cannot express this. Application submission is already gated to `applications`, but a
+ * CSV market is in that phase too - that is where its imported responses are reviewed - so its
+ * public application form would be live and taking applications from strangers the organizer has
+ * no way to answer.
  *
  * Settable while the market is a DRAFT and frozen afterwards, which is the rule the back end
  * already enforces in `_intake_mode_for_update`: switching mid-lifecycle strands whatever the

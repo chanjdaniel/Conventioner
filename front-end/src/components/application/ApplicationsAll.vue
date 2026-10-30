@@ -25,7 +25,6 @@ import {
   allViewFilter,
   heldElsewhere as heldBySomeoneElse,
   reviewAnswers,
-  reviewQueue,
   selectAll,
 } from '@/utils/reviewQueue';
 import { useVendorDetails } from '@/utils/vendorDetails';
@@ -41,8 +40,6 @@ import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 
 const props = defineProps<{ market: Market | null }>();
-/** What is still to decide, follow-ups included, for the page's own line about it. */
-const emit = defineEmits<{ 'update:undecidedCount': [count: number] }>();
 
 const route = useRoute();
 const router = useRouter();
@@ -139,15 +136,6 @@ function setQuery(change: Record<string, string | null>) {
   }
   void router.replace({ query });
 }
-
-// Only once the list has been read: before that, or after a failed first load, it counts nothing.
-watch(
-  () => (readAt.value === null ? null : reviewQueue(applications.value, true).length),
-  (count) => {
-    if (count !== null) emit('update:undecidedCount', count);
-  },
-  { immediate: true },
-);
 
 const shown = computed(() =>
   allViewApplications(applications.value, filter.value, mine.value, me.value),

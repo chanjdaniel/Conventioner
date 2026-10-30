@@ -5,7 +5,7 @@ describes:
   - back-end/csv_import.py#_would_return_to_review
   - back-end/csv_import.py#_merge_shape
   - back-end/essential_fields.py#solver_relevant_change
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/05
   - E01/F03
@@ -57,8 +57,8 @@ Rejected:
 - An application's id, verdict and history survive every import, so a reviewer's work is never undone by a correction that does not touch placement.
 - **The set of answers that reopen a review is `SOLVER_RELEVANT_KEYS`**, the essential questions the solver reads ([essential fields](../implementation/modules/essential-fields.md)).
   A custom answer never reopens one, including an answer a priority rule orders by.
-- **Importing stops when review begins** (`IMPORT_PHASES`, [the CSV import](../implementation/modules/csv-import.md)), because rows appearing, changing or returning to `open` beneath a reviewer is the hazard this answer otherwise allows; a late export is brought in by moving review back to importing, every verdict kept ([review needs an import](../business/rules/review-needs-an-import.md)).
-  A late export goes back through the existing `review -> applications_closed` edge, which the Google Form path takes in one move as "Import more responses", keeping every verdict.
+- **A late export is a Redo import in Review** (`IMPORT_PHASES`, [the CSV import](../implementation/modules/csv-import.md)): the whole file is read again while the review goes on, so this answer is what keeps rows changing beneath a reviewer harmless, every verdict kept except an approval whose solver answers changed ([review needs an import](../business/rules/review-needs-an-import.md), E38/F04/S03).
+  Importing stopped when review began until the import and the review became one stage ([ADR 0016](0016-one-stage-for-applications-and-review.md)).
 - Two concurrent writes can still meet on one application; a verdict is written only on the answers the reviewer saw (`if_unchanged_since`), so a re-import's new answers are never approved unseen.
 - When a market can take vendors both ways at once, the `source` field becomes a fact of its own; nothing needs it before then.
 - So the application does not record that an imported address is the file's word rather than proven by a sign-in code; the intake mode says it, and what to do with it is settled before any mail but a sign-in code is sent ([an imported email is asserted](../business/rules/an-imported-email-is-asserted.md)).

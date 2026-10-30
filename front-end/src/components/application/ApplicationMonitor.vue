@@ -55,8 +55,6 @@ const props = defineProps<{
   named?: string;
 }>();
 
-const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
-
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
@@ -152,18 +150,6 @@ const rest = computed(() => split.value.rest);
  */
 const restOpen = ref(false);
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
-
-// The surface above leads with this in the review phase, where clearing the queue is the whole of
-// what the market is waiting on (E18/F02/S03).
-// Everything still to decide, follow-ups included: each holds Begin Assignment (E34/F02/S01).
-// Only once the list has been read: before that, or after a failed first load, it counts nothing.
-watch(
-  () => (readAt.value === null ? null : reviewQueue(applications.value, true).length),
-  (count) => {
-    if (count !== null) emit('update:undecidedCount', count);
-  },
-  { immediate: true },
-);
 
 /**
  * Whether this person may change what leads the card - the form's row - on a market that can

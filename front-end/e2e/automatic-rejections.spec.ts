@@ -85,13 +85,7 @@ test.describe('Automatic rejections', () => {
     await addRule(page, 'no_shows', 'not ticked');
 
     // Applications open: the form locks, the rules do not (decision 24).
-    await transitionMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      marketId,
-      'applications_open',
-    );
+    await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     await openReviewSetup(page, marketId);
     await expect(page.getByTestId('rejection-rules-locked')).toHaveCount(0);
     await addRule(page, 'affiliation', NOT_UBC);
@@ -157,7 +151,8 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       '1 was rejected by your automatic rejections',
     );
 
-    await page.getByTestId('phase-transition-review').click();
+    // The first import took the market into Review (E38/F04/S01); its done step leads there.
+    await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     const monitor = new ApplicationMonitorPage(page);
     await monitor.switchTo();

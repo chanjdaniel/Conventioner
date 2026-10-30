@@ -39,11 +39,8 @@ test('publishing waits for a run, then says who will read what before it tells t
     sections: ['Main Hall', 'Garden'],
   });
   seedApplicationWithStatus(market.marketId, 'reviewer_rejected', 'turned-away@example.com');
-  for (const toPhase of ['applications_closed', 'review']) {
-    await post(request, `/markets/${market.marketId}/transition`, { toPhase });
-  }
 
-  // Not offered at all before the assignment, not even disabled (Daniel, 2026-10-29).
+  // Not offered at all before the assignment, in the stage where applications are reviewed, not even disabled (Daniel, 2026-10-29).
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(marketSetupPath(market.marketId, 'applications'));
   await expect(page.getByTestId('applications-all')).toBeVisible();

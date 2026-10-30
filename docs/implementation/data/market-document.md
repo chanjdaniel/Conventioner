@@ -7,6 +7,7 @@ describes:
   - back-end/datatypes.py#MarketPermission
   - back-end/datatypes.py#MarketPhase
   - back-end/datatypes.py#phase_from_market_document
+  - back-end/datatypes.py#applications_stopped_from_market_document
   - back-end/datatypes.py#intake_mode_from_market_document
   - back-end/datatypes.py#market_name_slug
   - back-end/datatypes.py#MarketSchemaContract
@@ -62,7 +63,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `slug` | derived from the name, persisted and uniquely indexed (below) |
 | `organizationId` | the one organization the market belongs to, fixed at creation; see [the organization document](organization-document.md) |
 | `roles` | a map from user id to `owner`, `admin`, `editor` or `viewer`, with exactly one `owner` |
-| `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
+| `phase` | the lifecycle, one of the six `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
 | `permissions` | the rows of [the table](../modules/market-actions.md#a-markets-own-rows) this market differs on: a map from action id to `{role, source}`, `source` being `market` or `organization`; a row it does not hold reads its built-in default, so absent or `{}` is the built-in table and needs no migration; written only by its owner's write, `{}` at creation ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)) |
@@ -73,7 +74,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
-| `formAmendment` | present only while [a form amendment](../modules/form-amendment.md) is walking the phases, naming where it returns |
+| `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
@@ -90,7 +91,7 @@ Every writer of `applicationForm` passes it through `_normalized_application_for
 - A `select` or `multi_select` has at least one option, each trimmed, non-blank and unique, since options are the stored answers; every other type's options are emptied.
 - `order` is rewritten to the field's position in the list.
 - `publishedAt` and `essentialOptions` are the server's, carried over from the stored form whatever the payload says; `unaskedEssentials` is the organizer's, and may name only a ranking.
-  `publishedAt` is stamped when the market moves from `draft` to `applications_open` and cleared when it returns to `draft`, in the update that moves the phase; `essentialOptions` is frozen by the first application's answers.
+  `publishedAt` is stamped when the market moves from `draft` to `applications` and cleared when it returns to `draft`, in the update that moves the phase; `essentialOptions` is frozen by the first application's answers.
 - A form with no custom fields is a form: whether it asks enough to open applications is the phase guard's question, counting the essential questions too.
 
 [`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts) (`applicationFormError`) mirrors these rules so the builder refuses a save before sending it; the back end is the authority.
@@ -131,6 +132,8 @@ Keep it that way.
 `phase_from_market_document()` (`datatypes.py`) is the one source of truth for that mapping: a document with no `phase`, or one this build does not recognize, reads as `draft` when `isDraft` (or the older `is_draft`) is true or absent and `archived` when it is false.
 The fallback stays `archived` though the old build's publishing meant a running market: redefining it as `market_days` would contradict `migrate_phase.py` and `migrate_is_draft_consistency.py`, which define a legacy published market as `archived` too, so one definition is kept and [`migrate_publishing_to_market_days.py`](../../../back-end/migrations/migrate_publishing_to_market_days.py) does the moving.
 Until it runs, such a market reads as finished: its check-in page takes no check-in, and is served at all only once someone has checked in there ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
+For one release it also reads the three phases E38/F04 folded into `applications` (`LEGACY_STAGE_PHASES`) as `migrate_to_one_stage.py` would leave them: `applications`, or `draft` for a Google Form market that imported nothing; and `applications_stopped_from_market_document()` reads a form market still stored in `applications_closed` or `review` as stopped, unless `applicationsStopped` says otherwise ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+`market_from_document()` takes `applications_stopped` from it, and nothing is written back; a later release drops the aliases.
 `load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.
 
 **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes both from their document readers, `phase_from_market_document()` and `intake_mode_from_market_document()`.

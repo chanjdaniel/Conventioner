@@ -18,7 +18,7 @@ def _doc(**overrides):
 class TestWhatTheTransitionStamps:
     def test_opening_applications_from_draft_stamps_the_form(self):
         update = MarketsApi.finalization_update(
-            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS_OPEN.value, _doc()
+            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value, _doc()
         )
 
         assert list(update) == ["applicationForm"]
@@ -28,7 +28,7 @@ class TestWhatTheTransitionStamps:
         document = _doc(applicationForm={"fields": [{"key": "shop", "label": "Shop", "type": "text"}]})
 
         update = MarketsApi.finalization_update(
-            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS_OPEN.value, document
+            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value, document
         )
 
         assert list(update) == ["applicationForm.publishedAt"]
@@ -38,7 +38,7 @@ class TestWhatTheTransitionStamps:
         # The essential questions ARE a form, so a market can open applications with no custom
         # fields and no stored form object at all. It is still finalized.
         update = MarketsApi.finalization_update(
-            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS_OPEN.value, _doc(applicationForm=None)
+            MarketPhase.DRAFT.value, MarketPhase.APPLICATIONS.value, _doc(applicationForm=None)
         )
 
         assert update["applicationForm"]["fields"] == []
@@ -46,12 +46,12 @@ class TestWhatTheTransitionStamps:
 
     def test_returning_to_draft_clears_the_stamp(self):
         document = _doc(
-            phase=MarketPhase.APPLICATIONS_OPEN.value,
+            phase=MarketPhase.APPLICATIONS.value,
             applicationForm={"fields": [], "publishedAt": "2026-09-01T00:00:00+00:00"},
         )
 
         update = MarketsApi.finalization_update(
-            MarketPhase.APPLICATIONS_OPEN.value, MarketPhase.DRAFT.value, document
+            MarketPhase.APPLICATIONS.value, MarketPhase.DRAFT.value, document
         )
 
         assert update == {"applicationForm.publishedAt": None}
@@ -68,8 +68,7 @@ class TestWhatTheTransitionStamps:
     @pytest.mark.parametrize(
         "from_phase,to_phase",
         [
-            (MarketPhase.APPLICATIONS_OPEN.value, MarketPhase.APPLICATIONS_CLOSED.value),
-            (MarketPhase.REVIEW.value, MarketPhase.ASSIGNMENT.value),
+            (MarketPhase.APPLICATIONS.value, MarketPhase.ASSIGNMENT.value),
             (MarketPhase.ASSIGNMENT.value, MarketPhase.MARKET_DAYS.value),
             (MarketPhase.MARKET_DAYS.value, MarketPhase.ARCHIVED.value),
         ],
@@ -81,7 +80,7 @@ class TestWhatTheTransitionStamps:
 
     def test_returning_to_draft_with_no_form_writes_nothing(self):
         update = MarketsApi.finalization_update(
-            MarketPhase.APPLICATIONS_OPEN.value, MarketPhase.DRAFT.value, _doc(applicationForm=None)
+            MarketPhase.APPLICATIONS.value, MarketPhase.DRAFT.value, _doc(applicationForm=None)
         )
 
         assert update == {}

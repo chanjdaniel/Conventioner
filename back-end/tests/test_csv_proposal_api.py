@@ -131,7 +131,7 @@ def test_a_draft_gets_its_proposal_and_nothing_is_written(client, markets):
 
 
 def test_a_market_past_draft_is_refused(client, markets):
-    markets(_market(phase="applications_open"))
+    markets(_market(phase="applications"))
     response = client.post("/markets/market-1/csv-proposal", json={"csvContent": CSV})
     assert response.status_code == 409
     assert "draft" in response.get_json()["error"]
@@ -178,7 +178,7 @@ def test_confirm_that_loses_a_race_writes_nothing(client, markets, monkeypatch):
 
     def find_then_publish(query):
         found = real_find(query)
-        collection.doc["phase"] = "applications_open"
+        collection.doc["phase"] = "applications"
         return found
 
     monkeypatch.setattr(collection, "find_one", find_then_publish)

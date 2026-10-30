@@ -73,7 +73,7 @@ export async function seedAssignedMarket(
   // Walk to `assignment` first. It is where an organizer looking at the results screen actually
   // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver
   // runs in (E10/F03/S02), so the walk has to come before the run rather than after it.
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(
       `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
       {

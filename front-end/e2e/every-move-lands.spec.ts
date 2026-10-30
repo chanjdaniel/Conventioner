@@ -14,7 +14,7 @@ import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/g
  * never reached the door. The page each lands on is the guide's page for the phase entered.
  */
 test.describe('Every move lands on its phase’s page', () => {
-  test('Begin Review leaves the import and its result for the review', async ({
+  test('the first import leaves its result for the review it began', async ({
     authenticatedPage: page,
   }) => {
     const seed = await seedApplicantMarket(
@@ -24,15 +24,9 @@ test.describe('Every move lands on its phase’s page', () => {
       TEST_USER.password,
       { setupObject: planSetupObject(), intakeMode: 'csv' },
     );
-    await transitionMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      seed.marketId,
-      'applications_closed',
-    );
 
-    // The organizer's walk: import the last responses, read the result, then begin review.
+    // A Google Form market's first import is its way into Review (E38/F04/S01): read the result,
+    // then go to the review.
     const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
     await importPage.importCsv(
@@ -41,11 +35,12 @@ test.describe('Every move lands on its phase’s page', () => {
       EXPORT_MAPPING,
     );
     await expect(importPage.resultSummary).toContainText('2 new applications');
+    await expect(page.getByTestId('import-result-in-review')).toBeVisible();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText(/Review/);
 
-    await page.getByTestId('phase-transition-review').click();
+    await page.getByTestId('import-finish-button').click();
 
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-current')).toHaveText(/Review/);
     await expect(importPage.resultSummary).toHaveCount(0);
     await expect(importPage.view).toHaveCount(0);
     // On the review's All view, where the page opens (E38/F05/S01).
@@ -59,9 +54,13 @@ test.describe('Every move lands on its phase’s page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    for (const phase of ['applications_open', 'applications_closed', 'review']) {
-      await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, seed.marketId, phase);
-    }
+    await transitionMarket(
+      page.request,
+      BACKEND_URL,
+      TEST_USER.email,
+      seed.marketId,
+      'applications',
+    );
 
     await page.goto(marketSetupPath(seed.marketId, 'applications'));
     await page.getByTestId('phase-transition-assignment').click();
@@ -105,7 +104,7 @@ test.describe('Every move lands on its phase’s page', () => {
       BACKEND_URL,
       TEST_USER.email,
       seed.marketId,
-      'applications_open',
+      'applications',
     );
 
     await page.goto(marketSetupPath(seed.marketId, 'applications'));

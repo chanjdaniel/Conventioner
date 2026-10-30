@@ -57,6 +57,7 @@ async function seedMarketWithAForm(
       assignmentObject: {},
       // Complete, so it may open applications: a review card is of a market that has (E31/F01).
       setupObject: completePlan(),
+      intakeMode: 'form',
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -69,7 +70,7 @@ async function seedMarketWithAForm(
   expect(form.ok(), await form.text()).toBeTruthy();
   const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers,
-    data: { toPhase: 'applications_open' },
+    data: { toPhase: 'applications' },
   });
   expect(opened.ok(), await opened.text()).toBeTruthy();
 

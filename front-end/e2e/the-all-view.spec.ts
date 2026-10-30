@@ -33,12 +33,10 @@ test('every application, filtered, held and decided from the drawer', async ({
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   const theo = seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
   seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });
@@ -61,10 +59,6 @@ test('every application, filtered, held and decided from the drawer', async ({
     await page.goto(marketScreenPath(marketId, 'applications'));
     await expect(all.rows).toHaveCount(3);
     await expect(page).not.toHaveURL(/view=/);
-    // The page's own line counts what is left from this view too.
-    await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
-      '3 applications still to decide',
-    );
     await expect(all.holders().filter({ hasText: SECOND.email })).toHaveText(
       `${SECOND.email} is looking at this`,
     );
@@ -174,10 +168,8 @@ test('a verdict changes while the review is open, then the drawer only shows it'
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'applications');
   seedApplicationWithStatus(reviewing, 'reviewer_approved', 'nadia@ember.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'review');
   await all.goto(reviewing);
   await all.rows.first().getByRole('button').click();
   await expect(all.drawerButton('reject')).toBeVisible();
@@ -210,13 +202,11 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
   const ines = seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
   seedApplicationWithStatus(marketId, 'open', 'omar@kiln.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });

@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - E26/F06/S02
   - E26/F08/S01
@@ -76,7 +76,7 @@ Each market is listed with its phase, whether it ran and how many placements it 
 
 ### B5c. It holds a market mid-lifecycle
 
-Applications Open through Market Days.
+Applications (Review) through Market Days.
 **Status:** Works (walked live).
 Refused, naming each blocking market and its phase: "Archive or delete them first, then come back."
 

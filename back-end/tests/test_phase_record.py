@@ -77,13 +77,13 @@ class TestAWholeRecord:
     def test_it_is_taken_at_its_word(self):
         doc = stored_market(
             MarketPhase.ARCHIVED,
-            phaseHistory=[dated("draft"), dated("applications_open"), dated("archived")],
+            phaseHistory=[dated("draft"), dated("applications"), dated("archived")],
         )
 
         result = reached(doc)
 
         assert result.complete
-        assert result.phases == {"draft", "applications_open", "archived"}
+        assert result.phases == {"draft", "applications", "archived"}
         assert not result.ran
 
     def test_a_market_that_ran_ran_though_nobody_checked_in(self):
@@ -98,11 +98,11 @@ class TestAWholeRecord:
         """Reopening for editing clears the form's published stamp - the evidence the rail read."""
         doc = stored_market(
             MarketPhase.ARCHIVED,
-            phaseHistory=[dated("draft"), dated("applications_open"), dated("draft"),
+            phaseHistory=[dated("draft"), dated("applications"), dated("draft"),
                           dated("archived")],
         )
 
-        assert "applications_open" in reached(doc).phases
+        assert "applications" in reached(doc).phases
 
 
 class TestAMarketThatPredatesIt:
@@ -128,7 +128,7 @@ class TestAMarketThatPredatesIt:
             applicationForm={"fields": [], "publishedAt": "2026-09-01T00:00:00+00:00"},
         )
 
-        assert "applications_open" in reached(doc).phases
+        assert "applications" in reached(doc).phases
 
     def test_a_check_in_proves_it_ran(self):
         assert reached(stored_market(MarketPhase.ARCHIVED), somebody_checked_in).ran

@@ -56,25 +56,11 @@ test.describe('Placement pins', () => {
     await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
     seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
     await setPlan(request, seed, 3);
-    await transitionMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      seed.marketId,
-      'applications_open',
-    );
-    await transitionMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      seed.marketId,
-      'applications_closed',
-    );
-    // Before review, which a CSV market enters once something is imported (E32/F02/S01).
+    // Before Review, which a CSV market enters holding its imported responses (E38/F04/S01).
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'pinned@example.com');
     // A seat goes only to an applicant (E36/F02/S01), the one refused here included.
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'other@example.com');
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'review');
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
   });
 
   // `request` is test-scoped, so the session `beforeAll` signed in on is not this one's.

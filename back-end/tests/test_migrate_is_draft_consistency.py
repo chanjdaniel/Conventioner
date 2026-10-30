@@ -141,7 +141,7 @@ def test_consistent_markets_are_untouched_and_migration_is_idempotent():
     docs = [
         {"_id": 1, "id": "m1", "phase": "draft", "isDraft": True},
         {"_id": 2, "id": "m2", "phase": "archived", "isDraft": False},
-        {"_id": 3, "id": "m3", "phase": "applications_open", "isDraft": True},
+        {"_id": 3, "id": "m3", "phase": "applications", "isDraft": True},
     ]
     db = FakeDatabase(docs)
     migrate(db)
@@ -187,7 +187,7 @@ def test_concurrent_unpublish_is_not_overwritten():
 
 def test_concurrent_phase_change_is_not_overwritten():
     """The same guarantee on the isDraft repair: a phase the app moves mid-run wins."""
-    db = FakeDatabase([{"_id": 1, "id": "m1", "phase": "applications_open", "isDraft": True}])
+    db = FakeDatabase([{"_id": 1, "id": "m1", "phase": "applications", "isDraft": True}])
 
     def back_to_draft(docs):
         docs[0].update({"phase": "draft", "isDraft": True})

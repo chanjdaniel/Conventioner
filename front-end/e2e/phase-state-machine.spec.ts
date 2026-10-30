@@ -47,17 +47,8 @@ function setUserInPage(page: Page) {
 async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMarketSeed> {
   const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
-  // Navigate to review
-  await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase: 'applications_open' },
-  });
-  await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase: 'applications_closed' },
-  });
-  // Seed approved applications so assignment guard passes - before review, which a CSV market
-  // enters only once something has been imported (E32/F02/S01).
+  // Seed approved applications so assignment guard passes - before Review, which a CSV market
+  // enters only holding its imported responses (E38/F04/S01).
   const appId = seedApplicationWithStatus(
     seed.marketId,
     'reviewer_approved',
@@ -66,7 +57,7 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase: 'review' },
+    data: { toPhase: 'applications' },
   });
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
@@ -96,7 +87,7 @@ test.describe('Phase state machine - full walk', () => {
     });
   });
 
-  test('walk draft -> applications_open -> applications_closed -> review -> assignment -> offers -> market_days', async ({
+  test('walk draft -> applications -> assignment -> offers -> market_days', async ({
     authenticatedPage: page,
   }) => {
     const marketBody = await loadMarket(page, seed.marketId);
@@ -108,23 +99,12 @@ test.describe('Phase state machine - full walk', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-draft.png`, fullPage: true });
 
-    await page.getByTestId('phase-transition-applications_open').click();
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+    // One stage where applications arrive and are reviewed (E38/F04/S01).
+    await page.getByTestId('phase-transition-applications').click();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/02-applications-open.png`, fullPage: true });
-
-    await page.getByTestId('phase-transition-applications_closed').click();
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Closed', {
-      timeout: 10000,
-    });
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/03-applications-closed.png`, fullPage: true });
-
-    await page.getByTestId('phase-transition-review').click();
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
-      timeout: 10000,
-    });
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/04-review.png`, fullPage: true });
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/02-applications.png`, fullPage: true });
 
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'walk-a@example.com');
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'walk-b@example.com');
@@ -200,9 +180,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
   test('cannot enter assignment while applications are still open', async ({
     authenticatedPage: page,
   }) => {
-    await transitionViaPage(page, seed.marketId, 'applications_open');
-    await transitionViaPage(page, seed.marketId, 'applications_closed');
-    await transitionViaPage(page, seed.marketId, 'review');
+    await transitionViaPage(page, seed.marketId, 'applications');
 
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'guard-a@example.com');
     seedApplicationWithStatus(seed.marketId, 'open', 'guard-b@example.com');
@@ -211,7 +189,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
 
@@ -219,9 +197,11 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(page.getByTestId('phase-transition-assignment')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
     await expect(next).toContainText('still awaiting review');
-    // In review nothing more is coming in, and the rail says so before the work left (ticket 02).
-    await expect(next).toContainText(/^Nothing more is coming in.*Finish deciding: /);
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
+    // Applications keep arriving, and the rail says so before the work left (E38/F04/S01).
+    await expect(next).toContainText(
+      /^Applications are open on your application page.*Finish deciding: /,
+    );
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
 
     // The remedy is reviewing the applications, which is one tab along - so the fix, the rail's
     // main button (E32/F01/S02), goes there and going there is visible. It used to point at
@@ -255,9 +235,7 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
   test('cannot enter offers while approved applications remain', async ({
     authenticatedPage: page,
   }) => {
-    await transitionViaPage(page, seed.marketId, 'applications_open');
-    await transitionViaPage(page, seed.marketId, 'applications_closed');
-    await transitionViaPage(page, seed.marketId, 'review');
+    await transitionViaPage(page, seed.marketId, 'applications');
 
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'offer-a@example.com');
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'offer-b@example.com');
@@ -388,14 +366,14 @@ test.describe('Phase state machine - archive confirmation', () => {
   test('archive shows confirmation, cancel preserves phase, confirm archives', async ({
     authenticatedPage: page,
   }) => {
-    await transitionViaPage(page, seed.marketId, 'applications_open');
+    await transitionViaPage(page, seed.marketId, 'applications');
 
     const marketBody = await loadMarket(page, seed.marketId);
     await setUserInPage(page);
 
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
 
@@ -416,7 +394,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     // Cancel
     await page.getByTestId('archive-confirm-cancel-button').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications');
 
     // Confirm. The menu closes when a transition is chosen, so archiving again reopens it -
     // which is the point of putting a destructive edge behind one.
@@ -456,9 +434,9 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
       timeout: 10000,
     });
 
-    await page.getByTestId('phase-transition-applications_open').click();
+    await page.getByTestId('phase-transition-applications').click();
 
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
     await expect(page.getByTestId('phase-rail-blockers')).toBeHidden();
@@ -489,7 +467,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
 
     // Refused before the click (E31/F02/S01), and the first thing missing is said: the dates. The
     // setup is completed on this page, so the rail offers no link to it.
-    await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
+    await expect(page.getByTestId('phase-transition-applications')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
     await expect(next).toContainText('To open applications: This market has no market dates.');
     await expect(next.locator('a')).toHaveCount(0);
@@ -502,53 +480,49 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
   });
 });
 
-test.describe('The applications surface says which phase it is in', () => {
+test.describe('The applications surface says where the market stands', () => {
   /**
-   * One surface serves three phases (E18/F02/S03), which ticket 11 settled by measuring: recording
-   * a verdict has no phase gate at all, importing spans two of the three, and applications-closed
-   * changes nothing for a CSV market.
-   *
-   * The cost is the rail showing three steps over one place, and the mitigation is that the
-   * surface SAYS which. Hiding the Import button is not stating it - a surface whose only
-   * difference is a missing control teaches an organizer that the phases are arbitrary.
+   * One surface serves the stage where applications arrive and are reviewed, on both paths
+   * (E38/F04/S01), and it SAYS where the market stands: taking applications on its page, not
+   * taking them, or a Google Form market's imported responses. It offers no import on either path
+   * (E38/F04/S03): a surface whose only difference is a missing control teaches an organizer that
+   * the states are arbitrary.
    */
-  test('an organizer can tell the three apart by reading, not by which button is missing', async ({
+  test('an organizer can tell them apart by reading, and is offered no import', async ({
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const move = (toPhase: string) =>
-      request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-        data: { toPhase },
-      });
-    const conditionNow = async () => {
+    const conditionOf = async (marketId: string) => {
       await setUserInPage(page);
-      await page.goto(marketSetupPath(seed.marketId, 'applications'));
+      await page.goto(marketSetupPath(marketId, 'applications'));
       const line = page.getByTestId('market-setup-applications-condition');
       await expect(line).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
       return (await line.innerText()).trim();
     };
 
-    await move('applications_open');
-    const open = await conditionNow();
-    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+    const form = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
+    await transitionViaPage(page, form.marketId, 'applications');
+    const taking = await conditionOf(form.marketId);
 
-    await move('applications_closed');
-    const closed = await conditionNow();
-    // Still offered: importing spans two of the three phases.
-    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+    const stopped = await page.request.post(
+      `${BACKEND_URL}/markets/${form.marketId}/applications-stopped`,
+      { data: { stopped: true } },
+    );
+    expect(stopped.ok(), await stopped.text()).toBeTruthy();
+    const notTaking = await conditionOf(form.marketId);
 
-    // A CSV market enters review once something has been imported (E32/F02/S01).
-    seedApplicationWithStatus(seed.marketId, 'open', 'imported@example.com');
-    await move('review');
-    const review = await conditionNow();
-    // Not offered here: reviewing is a step of its own, said in words by the line above, and the
-    // way back to importing is the rail's (E32/F02/S03).
-    await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
+    const csv = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    seedApplicationWithStatus(csv.marketId, 'open', 'imported@example.com');
+    await transitionViaPage(page, csv.marketId, 'applications');
+    const imported = await conditionOf(csv.marketId);
 
-    expect(new Set([open, closed, review]).size, `"${open}" / "${closed}" / "${review}"`).toBe(3);
-    expect(review).toMatch(/decided/);
+    expect(
+      new Set([taking, notTaking, imported]).size,
+      `"${taking}" / "${notTaking}" / "${imported}"`,
+    ).toBe(3);
   });
 });
 
@@ -565,7 +539,9 @@ test.describe('Where the workspace opens', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
 
     // The market's own address decides by phase (E22/F04/S02); a page's address always shows it.
     await setUserInPage(page);
@@ -575,7 +551,7 @@ test.describe('Where the workspace opens', () => {
 
     const opened = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { toPhase: 'applications_open' },
+      data: { toPhase: 'applications' },
     });
     expect(opened.ok()).toBe(true);
     await setUserInPage(page);

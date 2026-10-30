@@ -104,7 +104,7 @@ def _market_doc():
         "modificationList": [],
         "assignmentObject": {},
         "isDraft": False,
-        "phase": MarketPhase.APPLICATIONS_OPEN.value,
+        "phase": MarketPhase.APPLICATIONS.value,
         "applicationForm": {"fields": []},
         "organizationId": None,
     }
