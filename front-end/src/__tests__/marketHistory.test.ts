@@ -797,7 +797,7 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
       sentence({
         action: 'adjust-paid',
         kind: 'payment_edited',
-        subject: { payment_id: 'p1', ...CAD },
+        subject: { payment_id: 'p1', payment_kind: 'payment', ...CAD },
         detail: { before: { cents: 3000 }, after: { cents: 3500 } },
       }),
     ).toBe('dana@ember.test changed a payment from [Ana Rivera]');
@@ -805,10 +805,21 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
       sentence({
         action: 'adjust-paid',
         kind: 'payment_removed',
-        subject: { payment_id: 'p2', ...CAD },
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
         detail: { before: { ...fields, cents: -1500 }, after: none },
       }),
     ).toBe('dana@ember.test removed a refund to [Ana Rivera]');
+  });
+
+  it('says an edited refund is a refund when only its note changed (review 2, note 8)', () => {
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_edited',
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
+        detail: { before: { note: null }, after: { note: 'Given at the desk' } },
+      }),
+    ).toBe('dana@ember.test changed a refund to [Ana Rivera]');
   });
 
   it('words an amount owed set, and taken back to the calculated price', () => {

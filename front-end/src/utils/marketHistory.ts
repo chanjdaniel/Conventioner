@@ -486,13 +486,13 @@ export function entryParts(
     case 'adjust-paid/payment_edited':
       return [
         actor,
-        text(wasRefund(detail) ? 'changed a refund to ' : 'changed a payment from '),
+        text(isRefund(entry) ? 'changed a refund to ' : 'changed a payment from '),
         vendor,
       ];
     case 'adjust-paid/payment_removed':
       return [
         actor,
-        text(wasRefund(detail) ? 'removed a refund to ' : 'removed a payment from '),
+        text(isRefund(entry) ? 'removed a refund to ' : 'removed a payment from '),
         vendor,
       ];
     case 'change-owed/owed_set':
@@ -593,9 +593,10 @@ function paymentValue(entry: MarketHistoryEntry, key: string, value: unknown): s
   return valueText(value);
 }
 
-/** Whether an edited or removed entry was a refund: its amount, before, was below zero. */
-function wasRefund(detail: Detail): boolean {
-  return Number(asDetail(detail.before).cents) < 0;
+/** Whether an entry is about a refund: its subject says, since an edit records only the fields
+ * it changed, and a refund's note changed alone carries no amount. */
+function isRefund(entry: MarketHistoryEntry): boolean {
+  return entry.subject.payment_kind === 'refund';
 }
 
 /** The row of the permission table a change to it is about, by its label, else by its id. */

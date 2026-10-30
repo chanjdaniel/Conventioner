@@ -58,7 +58,8 @@ const props = defineProps<{
   errorMessage?: string;
   /**
    * What freeing this seat may also take off what its vendor owes (E44/F01/S02), for whoever may
-   * change the amount owed: the seat's price and the vendor's name. Null where it is not asked.
+   * change the amount owed: what the seat's line owes and the vendor's name. Null where it is not
+   * asked.
    */
   deduction?: { amount: string; name: string } | null;
 }>();

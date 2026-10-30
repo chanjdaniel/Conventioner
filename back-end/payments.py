@@ -29,7 +29,7 @@ owed are deleted with the market (``market_deletion``).
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from datatypes import PaymentEntry
 from db_config import get_database
@@ -160,6 +160,20 @@ def keep_freed_line(market_id: str, vendor_email: str, date: str, seat: Seat, by
         {"$set": {"freed": {**asdict(seat), "by": by, "at": _now()}}},
         upsert=True,
     )
+
+
+def clear_freed_lines(market_id: str, seated: Iterable[Tuple[str, str]]) -> None:
+    """Forget the freed line of each ``(vendor, date)`` seated again: the line reads the new seat,
+    and a freed record left behind would come back as the line if that seat went some other way
+    than a free."""
+    wanted = {(normalized_email(email), date) for email, date in seated}
+    if not wanted:
+        return
+    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
+        key = (doc.get(VENDOR_EMAIL_FIELD), doc.get("date"))
+        if doc.get("freed") and key in wanted:
+            amounts_owed_collection.update_one(
+                _owed_key(market_id, *key), {"$set": {"freed": None}})
 
 
 def set_amount_owed(market_id: str, vendor_email: str, date: str, cents: int, by: str) -> None:

@@ -38,6 +38,7 @@ Conventioner tracks what is expected and what came in, not accounting (Daniel, T
 By default the amount is the price of the seat the vendor holds that day, by the price group their answers put them in (`Groups` and `row_prices` in [`back-end/pricing.py`](../../../back-end/pricing.py), [a price follows the table](../../business/rules/a-price-follows-the-table.md)), and the line names the group as the date card does ("Atrium 1, Gold, full table, UBC student + club member"), so a line nobody has set follows its seat: a seat moved from Gold to Silver owes the Silver price (Q26: "the pricing scheme sets the default amount owed by calculating it").
 The seats are read off the market's stored assignment, through the same rows and the same pricing the drawer's date cards read (`derive_market_table_rows`, `seats_by_vendor`), so a line and its date card never disagree.
 A seat held now is never copied into these collections; only what the assignment cannot say is kept.
+A day seated again, by hand or by a run, forgets its freed line (`clear_freed_lines`), so a freed record never outlives the seat that replaced it.
 
 **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline "the amount owed and amount paid dont change even though the table did").
 `remove_placement` in [`back-end/api/placements.py`](../../../back-end/api/placements.py), the one door that frees a seat ([placements](../modules/placements.md)), keeps the seat's line as it stood (`keep_freed_line`) before it frees the seat, so a line that could not be kept leaves the seat where it was.
@@ -45,10 +46,9 @@ The line stays, owing what the seat cost the day it was freed, until someone set
 A run keeps no line for a seat of its own that a later run moves: it runs only in assignment, before results are published, while the assignment is still being made, and every hand placement is a pin each run keeps.
 Every free keeps the line, before results are published too (Daniel chose this over dropping it, after T121's review).
 
-**Freeing a table asks** (Q26: "when we remove a table, promp the user to ask if it should also dedudct from amount owed"): whoever may change the amount owed is asked in the placement dialog, beside "Free this seat", "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, for a seat with a price.
+**Freeing a table asks** (Q26: "when we remove a table, promp the user to ask if it should also dedudct from amount owed"): whoever may change the amount owed is asked in the placement dialog, beside "Free this seat", "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, naming what the day's line owes, set by hand or calculated, read from the vendor's account as the dialog opens; a line that owes nothing asks nothing.
 Ticked, the free sends `deductOwed: true`, and `remove_placement` asks the row "Change the amount owed" before it frees anything, then sets the line's amount to $0 in the same change (`deduct_freed_line`); the amount paid is untouched, so a vendor who paid reads paid more than owed, a refund to issue.
 Anyone else frees the seat with no such question, and the line stays owed for an Admin to decide.
-The question names the seat's price, not an amount set by hand.
 
 **An amount set by hand holds whatever the seat does** (`set_amount_owed`): setting it to $0 is the waiver (Q26: "instead of a button to waive, the admin will set amount owed to zero"), and there is no waive control anywhere.
 The line then shows the calculated price struck beside the amount set, with who set it and when; "Use the calculated price" (`use_calculated_price`) takes the amount back.
@@ -59,7 +59,8 @@ The line then shows the calculated price struck beside the amount set, with who 
 An entry is a payment, or a refund: money given back, recorded once it is given (Q26: "when the refund is settled they can come back and adjust amount paid so it zeros out"), the same fields, stored as a negative amount and shown "-$15", "Refund by e-transfer, given …".
 The app never proposes a refund (Q20), and there is no "refund due" state: paid more than owed, "Paid $15 more than owed", is the sign one is to be issued.
 
-**An edit or a removal keeps the entry's own history**: an edit sets the entry's fields and pushes what it read before onto its `changes`, with who and when, and the entry shows "Edited by …"; a removal marks it `removed_by` and `removed_at`, pushes the same, and leaves it listed, its amount struck, "Removed by …", out of the amount paid.
+**An edit or a removal keeps the entry's own history**: an edit sets the entry's fields and pushes what it read before onto its `changes`, with who and when; a removal marks it `removed_by` and `removed_at`, pushes the same, and leaves it listed, its amount struck, out of the amount paid.
+Either way the entry still reads "Recorded by …", with "Edited by …" or "Removed by …" under it.
 A removed entry is changed no more.
 
 ## The stored shape
@@ -86,7 +87,7 @@ Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_acc
   It asks the row "Record a payment", an Editor's by default (Q15: "editors can"; [what each role may do](../../business/rules/what-each-role-may-do.md)), refuses an archived market, and a vendor the market has no application from, 404, as a seat is.
 - `PUT /markets/:id/payments/:email/owed/:date`, body `{cents}` from 0 to $100,000, sets a table-day's amount owed, and `DELETE` on the same path uses the calculated price again; both ask the row "Change the amount owed", an Admin's by default (Q26: "this number can be changed by the admin"), and refuse a day with no line, 404.
 - `POST /markets/:id/payments/:email/refunds` records a refund, `PUT /markets/:id/payment-entries/:payment_id` edits an entry and `DELETE` on it removes it; all three ask the row "Adjust the amount paid", an Admin's by default, and an entry of another market, or one removed, is not found, 404.
-- Each write is recorded in [the market's history](history.md): a payment under `record-payment`; an amount owed set, a free's deduction included, or taken back under `change-owed`, subject `{date, currency}`, the line's `owed_cents` before and after; a refund, an edit or a removal under `adjust-paid`, subject `{payment_id, currency}`, the entry's fields before and after.
+- Each write is recorded in [the market's history](history.md): a payment under `record-payment`; an amount owed set, a free's deduction included, or taken back under `change-owed`, subject `{date, currency}`, the line's `owed_cents` before and after; a refund, an edit or a removal under `adjust-paid`, subject `{payment_id, payment_kind, currency}`, the entry's fields before and after; `payment_kind` (`payment` or `refund`, on `record-payment` too) words an edit that changed no amount.
   Each names the vendor, so it reads in their drawer's History tab as in Manage market's ([reading the market's history](../../business/flows/reading-the-markets-history.md)), worded by `marketHistory.ts` ("… recorded a payment of $50 from Alice Example", "… set what Alice Example owes on May 8, 2099 to $0", "… recorded a refund of $15 to Alice Example"), opening to its fields in the Payment tab's words and money.
 
 The front end words the account in [`front-end/src/utils/payments.ts`](../../../front-end/src/utils/payments.ts) ("Owes $27", "Paid in full", "Paid $15 more than owed", "Nothing owed") and shows it in [`VendorPaymentTab.vue`](../../../front-end/src/components/VendorPaymentTab.vue).

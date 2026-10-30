@@ -112,12 +112,14 @@ export function seatText(line: PaymentLine): string {
 /**
  * Where a line's number came from, under its day: the seat it prices, and for a freed seat that it
  * was freed and when (Daniel: "from Sunday, now deleted"): "Atrium 1, Gold, full table - table
- * freed Oct 30, 2026".
+ * freed" and "Oct 30, 2026", the day apart so the screen keeps it on one line.
  */
-export function lineSource(line: PaymentLine): string {
-  if (!line.freed) return seatText(line);
-  const when = line.freedAt ? ` ${getTimestampDate(line.freedAt)}` : '';
-  return `${seatText(line)} - table freed${when}`;
+export function lineSource(line: PaymentLine): { text: string; freedOn: string | null } {
+  if (!line.freed) return { text: seatText(line), freedOn: null };
+  return {
+    text: `${seatText(line)} - table freed`,
+    freedOn: line.freedAt ? getTimestampDate(line.freedAt) : null,
+  };
 }
 
 /** An entry as it reads: "Cash, paid Friday, April 3, 2099", or "Refund by e-transfer, …". */
@@ -129,12 +131,14 @@ export function entryText(payment: Payment): string {
   return `${methodLabel(payment.method)}, paid ${day}`;
 }
 
-/** Who last touched an entry, and when: "Recorded by …", "Edited by …" or "Removed by …". */
-export function entryWho(payment: Payment): { verb: string; by: string; at: string } {
-  if (payment.removedAt)
+/** The last change to an entry since it was recorded, "Edited by …" or "Removed by …", shown
+ * under "Recorded by …"; null for an entry as it was recorded. */
+export function entryChange(payment: Payment): { verb: string; by: string; at: string } | null {
+  if (payment.removedAt) {
     return { verb: 'Removed', by: payment.removedBy ?? '', at: payment.removedAt };
+  }
   if (payment.editedAt) return { verb: 'Edited', by: payment.editedBy ?? '', at: payment.editedAt };
-  return { verb: 'Recorded', by: payment.recordedBy, at: payment.recordedAt };
+  return null;
 }
 
 export function methodLabel(method: PaymentMethod): string {

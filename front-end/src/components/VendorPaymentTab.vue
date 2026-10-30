@@ -23,8 +23,8 @@ import { dateLabel } from '@/utils/vendorDetails';
 import {
   balanceState,
   balanceText,
+  entryChange,
   entryText,
-  entryWho,
   lineSource,
   loadAccount,
   money,
@@ -221,9 +221,13 @@ defineExpose({ reload: load });
           >
             <div class="payment-line-main">
               <span class="payment-line-date">{{ dateLabel(line.date) }}</span>
-              <span class="payment-line-seat" data-testid="payment-line-source">{{
-                lineSource(line)
-              }}</span>
+              <span class="payment-line-seat" data-testid="payment-line-source"
+                >{{ lineSource(line).text
+                }}<template v-if="lineSource(line).freedOn"
+                  >{{ ' '
+                  }}<span class="payment-entry-when">{{ lineSource(line).freedOn }}</span></template
+                ></span
+              >
               <span v-if="line.owedSetBy" class="payment-line-seat" data-testid="payment-line-set">
                 Set by {{ line.owedSetBy }},
                 <span class="payment-entry-when">{{
@@ -292,9 +296,19 @@ defineExpose({ reload: load });
               <span class="payment-entry-what">{{ entryText(payment) }}</span>
               <span v-if="payment.note" class="payment-entry-note">{{ payment.note }}</span>
               <span class="payment-entry-who" data-testid="payment-entry-who">
-                {{ entryWho(payment).verb }} by {{ entryWho(payment).by }},
+                Recorded by {{ payment.recordedBy }},
                 <span class="payment-entry-when">{{
-                  getFormattedTimestamp(entryWho(payment).at) || entryWho(payment).at
+                  getFormattedTimestamp(payment.recordedAt) || payment.recordedAt
+                }}</span>
+              </span>
+              <span
+                v-if="entryChange(payment)"
+                class="payment-entry-who"
+                data-testid="payment-entry-change"
+              >
+                {{ entryChange(payment)?.verb }} by {{ entryChange(payment)?.by }},
+                <span class="payment-entry-when">{{
+                  getFormattedTimestamp(entryChange(payment)?.at) || entryChange(payment)?.at
                 }}</span>
               </span>
             </div>

@@ -160,9 +160,26 @@ class TestAdjustingTheAmountPaid:
         assert (kept["by"], kept["what"], kept["before"]["cents"]) == (ADMIN, "edited", 3000)
         [recorded] = entries(stores, "adjust-paid")
         assert recorded["kind"] == History.PAYMENT_EDITED
-        assert recorded["subject"] == {"payment_id": paid["id"], "currency": "CAD"}
+        assert recorded["subject"] == {
+            "payment_id": paid["id"], "payment_kind": "payment", "currency": "CAD"}
         assert recorded["detail"] == {"before": {"cents": 3000, "note": None},
                                       "after": {"cents": 3500, "note": "Miscounted"}}
+
+    def test_a_refund_edited_only_in_its_note_is_still_said_to_be_a_refund(self, admin, stores):  # noqa: F811
+        """Review 2's note 8: an edit records only the fields it changed, so the entry's kind rides
+        in its subject for the history to word it."""
+        refund = PaymentsApi.record_refund(
+            MARKET, ANA, {"cents": 1500, "method": "cash", "paidOn": "2099-04-10"}, ADMIN,
+        )["payments"][0]
+
+        PaymentsApi.edit_payment(
+            MARKET, refund["id"], {"cents": 1500, "method": "cash", "paidOn": "2099-04-10",
+                                   "note": "Given at the desk"}, ADMIN)
+
+        edited = entries(stores, "adjust-paid")[-1]
+        assert edited["kind"] == History.PAYMENT_EDITED
+        assert edited["subject"]["payment_kind"] == "refund"
+        assert "cents" not in edited["detail"]["after"]
 
     def test_a_removal_takes_it_out_of_what_is_paid_and_keeps_it(self, admin, stores):  # noqa: F811
         paid = pay(3500)["payments"][0]

@@ -101,7 +101,7 @@ def _record_entry(
     History.record(
         market_id, requesting_user, row,
         kind=None if kind == Payments.PAYMENT else History.REFUND_RECORDED, vendors=[address],
-        subject={"payment_id": stored["id"], **_currency(market)},
+        subject={"payment_id": stored["id"], "payment_kind": kind, **_currency(market)},
         detail=lambda: History.changes(_fields(None), _fields(stored)),
     )
     return _account(market, address)
@@ -146,7 +146,8 @@ def _change_entry(
     History.record(
         market_id, requesting_user, Actions.ADJUST_PAID, kind=kind,
         vendors=[before.get("vendor_email")],
-        subject={"payment_id": before["id"], **_currency(market)},
+        subject={"payment_id": before["id"],
+                 "payment_kind": before.get("kind") or Payments.PAYMENT, **_currency(market)},
         detail=lambda: History.changes(_fields(before), _fields(recorded_after)),
     )
     return _account(market, before.get("vendor_email") or "")

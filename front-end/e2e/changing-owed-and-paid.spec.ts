@@ -202,4 +202,35 @@ test.describe('changing what is owed and paid', () => {
     await expect(sunday.getByTestId('payment-line-owed')).toHaveText('$15');
     await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');
   });
+
+  test('the question names what the line owes, set by hand, and is not asked where it owes nothing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await alicePaidInFull(request);
+    const tables = new TablesPage(page);
+    const openSunday = async () => {
+      await tables.gotoWithFilters(marketId, { date: SUNDAY, search: ALICE });
+      const seat = tables.row('Landing 1').locator(`[data-vendor-email="${ALICE}"]`);
+      await expect(seat).toBeVisible({ timeout: 15000 });
+      await tables.change(seat);
+      await expect(tables.dialog).toBeVisible();
+    };
+
+    await call(request, 'put', `/markets/${marketId}/payments/${ALICE}/owed/${SUNDAY}`, {
+      cents: 1000,
+    });
+    await openSunday();
+    await expect(
+      tables.dialog.getByLabel(/Also remove its \$10 from what .* owes\?/),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await call(request, 'put', `/markets/${marketId}/payments/${ALICE}/owed/${SUNDAY}`, {
+      cents: 0,
+    });
+    await openSunday();
+    await expect(tables.dialog.getByTestId('placement-dialog-free')).toBeVisible();
+    await expect(tables.dialog.getByTestId('placement-dialog-deduct')).toHaveCount(0);
+  });
 });

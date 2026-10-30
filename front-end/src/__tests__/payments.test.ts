@@ -6,7 +6,7 @@ import {
   balanceState,
   balanceText,
   entryText,
-  entryWho,
+  entryChange,
   lineSource,
   methodLabel,
   money,
@@ -85,7 +85,7 @@ describe('a line’s seat', () => {
 
 describe('where a line’s number came from', () => {
   it('is the seat it prices, for a seat held now', () => {
-    expect(lineSource(LINE)).toBe('Atrium 1, Gold, full table');
+    expect(lineSource(LINE)).toEqual({ text: 'Atrium 1, Gold, full table', freedOn: null });
   });
 
   it('says a freed seat was freed, and when', () => {
@@ -95,11 +95,17 @@ describe('where a line’s number came from', () => {
       freedAt: '2026-10-30T12:00:00+00:00',
       freedBy: 'editor@example.com',
     };
-    expect(lineSource(freed)).toBe('Atrium 1, Gold, full table - table freed Oct 30, 2026');
+    expect(lineSource(freed)).toEqual({
+      text: 'Atrium 1, Gold, full table - table freed',
+      freedOn: 'Oct 30, 2026',
+    });
   });
 
   it('says a freed seat was freed when the day it was is not known', () => {
-    expect(lineSource({ ...LINE, freed: true })).toBe('Atrium 1, Gold, full table - table freed');
+    expect(lineSource({ ...LINE, freed: true })).toEqual({
+      text: 'Atrium 1, Gold, full table - table freed',
+      freedOn: null,
+    });
   });
 });
 
@@ -141,17 +147,17 @@ describe('an entry', () => {
     expect(money(-3500, { currency: 'CAD' })).toBe('-$35');
   });
 
-  it('says who touched it last: recorded, edited or removed', () => {
-    expect(entryWho(ENTRY).verb).toBe('Recorded');
+  it('says its last change since it was recorded: edited or removed, or none', () => {
+    expect(entryChange(ENTRY)).toBeNull();
     const edited = { ...ENTRY, editedBy: 'admin@example.com', editedAt: '2099-04-04T12:00:00Z' };
-    expect(entryWho(edited)).toEqual({
+    expect(entryChange(edited)).toEqual({
       verb: 'Edited',
       by: 'admin@example.com',
       at: '2099-04-04T12:00:00Z',
     });
     expect(
-      entryWho({ ...edited, removedBy: 'owner@example.com', removedAt: '2099-04-05T12:00:00Z' })
-        .verb,
+      entryChange({ ...edited, removedBy: 'owner@example.com', removedAt: '2099-04-05T12:00:00Z' })
+        ?.verb,
     ).toBe('Removed');
   });
 });

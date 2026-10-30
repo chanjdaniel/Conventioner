@@ -15,6 +15,7 @@ import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
+import { loadAccount } from '@/utils/payments';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
 import ResultSeat from '@/components/ResultSeat.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
@@ -392,22 +393,39 @@ function placeVendor(payload: { email: string; seat: Seat }): void {
 }
 
 /**
- * What freeing the open seat may also take off what its vendor owes (E44/F01/S02), offered only to
- * whoever may change the amount owed and only for a seat with a price: "Also remove its $15 from
- * what Alice owes?". Null where the question is not asked.
+ * What the open seat's vendor owes for its day, read from their account when the seat opens, for
+ * whoever may change the amount owed: the line's own amount, set by hand or calculated, which is
+ * what the deduction takes away. Null until it is read, and for anyone else.
  */
-const deduction = computed(() => {
-  const seat = openSeat.value;
+const seatOwed = ref<{ seat: OpenSeat; cents: number | null; currency: string | null } | null>(
+  null,
+);
+watch(openSeat, async (seat) => {
+  seatOwed.value = null;
   const email = seat?.occupantEmail;
   if (seat?.mode !== 'occupied' || !email || !mayTake(market.value, MarketAction.ChangeOwed)) {
-    return null;
+    return;
   }
-  const prices = (seat.row as { prices?: { email: string; cents: number }[] }).prices ?? [];
-  const cents = prices.find((price) => price.email.toLowerCase() === email.toLowerCase())?.cents;
-  if (!cents) return null;
-  const currency = market.value?.setupObject?.pricing?.currency ?? 'CAD';
+  try {
+    const account = await loadAccount(marketId.value, email);
+    if (openSeat.value !== seat) return;
+    const line = account.lines.find((candidate) => candidate.date === seat.row.date);
+    seatOwed.value = { seat, cents: line?.owedCents ?? null, currency: account.currency };
+  } catch {
+    // An account that cannot be read asks nothing: the free still frees, and the line stays owed.
+  }
+});
+
+/**
+ * What freeing the open seat may also take off what its vendor owes (E44/F01/S02): "Also remove its
+ * $15 from what Alice owes?", naming what the line owes, and not asked where it owes nothing.
+ */
+const deduction = computed(() => {
+  const owed = seatOwed.value;
+  const email = owed?.seat.occupantEmail;
+  if (!owed || owed.seat !== openSeat.value || !email || !owed.cents) return null;
   return {
-    amount: formatPrice(cents, currency),
+    amount: formatPrice(owed.cents, owed.currency ?? 'CAD'),
     name: vendorName(email, vendorNames.value) || email,
   };
 });

@@ -181,6 +181,32 @@ class TestFreeingATable:
 
         assert owed(account()["lines"])[1] == (SUN, "Landing 1", 3000, False)
 
+    def test_seating_a_freed_day_again_forgets_its_freed_line(self, market, stores):
+        """Review 1's note 3: a freed record left behind would come back as the line if the new
+        seat went some other way than a free."""
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+        assert stores.owed.documents[0]["freed"]
+
+        PlacementsApi.write_placement(MARKET, {"email": ANA, "date": SUN, "table_code": "Landing 1",
+                                               "table_choice": "Full Table"}, EDITOR)
+
+        assert stores.owed.documents[0]["freed"] is None
+        market.doc["assignmentObject"]["vendorAssignments"] = [
+            seat for seat in market.doc["assignmentObject"]["vendorAssignments"]
+            if seat["date"] != SUN]
+        assert [line["date"] for line in account()["lines"]] == [SAT]
+
+    def test_a_run_that_seats_a_freed_day_forgets_its_freed_line(self, stores):
+        Payments.keep_freed_line(MARKET, ANA, SUN, Payments.Seat("Atrium 1", "Gold", "Full Table",
+                                                                 3500), EDITOR)
+        Payments.keep_freed_line(MARKET, ANA, SAT, Payments.Seat("Atrium 1", "Gold", "Full Table",
+                                                                 3500), EDITOR)
+
+        Payments.clear_freed_lines(MARKET, [("Ana@Example.com", SUN)])
+
+        kept = {doc["date"]: doc["freed"] for doc in stores.owed.documents}
+        assert kept[SUN] is None and kept[SAT]
+
     def test_freeing_a_seat_nobody_holds_keeps_no_line(self, market, stores):
         PlacementsApi.remove_placement(MARKET, "ben@example.com", SUN, EDITOR)
 
@@ -287,7 +313,8 @@ class TestTheHistory:
         [entry] = stores.history.documents
         assert (entry["actor"], entry["action"], entry["kind"]) == (EDITOR, "record-payment", None)
         assert entry["vendors"] == [ANA]
-        assert entry["subject"] == {"payment_id": account()["payments"][0]["id"], "currency": "CAD"}
+        assert entry["subject"] == {
+            "payment_id": account()["payments"][0]["id"], "payment_kind": "payment", "currency": "CAD"}
         assert entry["detail"] == {
             "before": {"cents": None, "method": None, "paid_on": None, "note": None},
             "after": {"cents": 3500, "method": "cash", "paid_on": "2099-04-01",

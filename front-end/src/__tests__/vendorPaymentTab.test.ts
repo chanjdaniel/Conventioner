@@ -231,7 +231,11 @@ describe('the Payment tab', () => {
     );
 
     const entry = wrapper.get('[data-testid="payment-entry"]');
+    // Who recorded it still reads, and the removal under it (review 2, note 9).
     expect(entry.get('[data-testid="payment-entry-who"]').text()).toContain(
+      'Recorded by editor@example.com',
+    );
+    expect(entry.get('[data-testid="payment-entry-change"]').text()).toContain(
       'Removed by admin@example.com',
     );
     expect(entry.get('[data-testid="payment-entry-amount"]').element.tagName).toBe('S');
