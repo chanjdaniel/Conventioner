@@ -23,6 +23,7 @@ sources:
   - E34/F03/S02
   - E36/F03/S01
   - E41/F01/S01
+  - E41/F01/S02
 ---
 
 # The application document
@@ -79,12 +80,12 @@ Writing over `form_data` instead would last until the next re-import.
 `write_answer_updates` sets and unsets each update by its own dotted path, so two organizers updating different answers at once both land; an update does not move `updated_at`, which is the vendor's answers' time a verdict is conditioned on.
 
 **`effective_answers` is the one reader of the answers as the organizer reads them**: `form_data` with each update's value in its place.
-The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`) and the [automatic rejections](../../business/rules/automatic-rejections.md) read through it, and so does any reader added later that calls it.
+The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`), the [automatic rejections](../../business/rules/automatic-rejections.md), the solver's input (`_solver_vendor` in `assignment/vendor_input.py`, and so the placement warnings and what a run was made from), the empty-tier check (`NoAskedForTierWithoutTablesGuard`), the table-share notice (`_share_request` in `api/applicants.py`) and the vendor's request beside the notes (`get_vendor_notes`) read through it, and so does any reader added later that calls it.
 The applicant's own view serves `form_data`, what they wrote, and no update.
-The solver's input still reads `form_data`: the essential answers it reads cannot be updated yet (E41/F01/S02).
+A re-import still compares the file with `form_data` (`csv_import._would_return_to_review`): whether the vendor's own answer changed is the question there, not how it reads.
 
 `answerUpdates` serves each update with `theyWrote`, the vendor's answer now, and `changedSince`, whether that differs from `over`: a re-import or their own edit changed it after the update, which the drawer says.
-[`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py) makes the update (`PUT /markets/:id/applications/:app_id/answers`): it validates each answer as the form does (`validated_answer` in `application_write.py`), refuses an essential key and a key the form does not ask, takes an update away when its answer is set back to what the vendor wrote, and keeps an update restated as it stands, with who made it.
+[`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py) makes the update (`PUT /markets/:id/applications/:app_id/answers`): it validates each answer as the form does (`validated_answer` in `application_write.py`, and `validated_essential_update` in `essential_fields.py` for an essential question), refuses a key the form does not ask, takes an update away when its answer is set back to what the vendor wrote, and keeps an update restated as it stands, with who made it.
 
 ## Statuses
 

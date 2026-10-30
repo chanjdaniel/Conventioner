@@ -22,6 +22,7 @@ sources:
   - E35/F01/S02
   - E43/F01/S01
   - E41/F01/S01
+  - E41/F01/S02
 ---
 
 # The vendor drawer
@@ -43,7 +44,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 4. Three tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
      An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it, and "Their answer changed since your update." once a re-import or their own edit changed what they wrote.
-     "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer", and the answers the assignment reads show read-only ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
+     "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer"; below them the essential questions, as the form asks them, those the assignment reads read-only to whoever the row "Update info the assignment or price reads" refuses ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
      Escape closes the dialog alone; once it saves, the drawer reads the market's vendors again, which the Vendors list shares, and the review's All view behind it reads its list again.
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).

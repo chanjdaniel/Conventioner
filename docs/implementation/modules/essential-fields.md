@@ -4,6 +4,7 @@ kind: module
 describes:
   - back-end/essential_fields.py
   - front-end/src/utils/essentialFields.ts
+  - front-end/src/components/application/EssentialApplicationFields.vue
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
@@ -26,6 +27,7 @@ sources:
   - E18
   - E19
   - E41/F01/S01
+  - E41/F01/S02
 ---
 
 # Essential fields
@@ -44,7 +46,9 @@ The import lists its targets in that order and the CSV proposal its unanswered q
   The applicant validator, the solver's input translation ([the assignment solver](assignment-solver.md)), the import and the automatic rejections all read it, so the solver can never reject answers the form has just accepted.
 - **Required** is `REQUIRED_ESSENTIAL_KEYS`, every essential question but the preferred name, the partner and the request, and only when asked ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)); an import may leave the number of dates unanswered ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
 - **Solver-relevant** is `SOLVER_RELEVANT_KEYS`: a re-import that changes one of those answers sends an approved vendor back to review, because the approval was given on the old answer; correcting a name, or reformatting an answer, does not.
-- **Not updated by an organizer, yet**: [an update of a vendor's answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md) refuses every `essential_*` key, and its dialog shows the essential answers read-only (`answerText` and `applicationAnswerRows` in `essentialFields.ts` render them), since the solver reads them; updating them is an Admin's, a later story (E41/F01/S02).
+- **Updated by an organizer** ([an update of a vendor's answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md)) through `validated_essential_update`, which runs the form's own steps over the update and the answers it leaves, judges only the steps the update touches, and returns the stored answers each updated question writes (`UPDATABLE_ESSENTIAL_QUESTIONS`: the table-share words write the addresses read out of them too).
+  A question whose stored answers meet `SOLVER_RELEVANT_KEYS` also asks the row "Update info the assignment or price reads", an Admin's by default; the solver and the other readers read the update through `effective_answers`.
+  The dialog asks them with the applicant's own component ([`EssentialApplicationFields.vue`](../../../front-end/src/components/application/EssentialApplicationFields.vue), its `locked` questions read-only and its `after` slot under each), on the offering `marketEssentialOptions` in `essentialFields.ts` mirrors from `effective_essential_options_for_market`.
 - **Switched off** is `unaskedEssentials` on the form: a market may declare the two rankings and the request unasked (`UNASKABLE_ESSENTIAL_KEYS`), and nothing else, since only a ranking is a preference the solver never filters on, and a default for a date, a tier or a table choice would answer for the vendor.
 
 **Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever floorplans it carries, so the table-type ranking is never asked.
