@@ -134,3 +134,39 @@ describe('resetting every row', () => {
     );
   });
 });
+
+describe("a row's select", () => {
+  it('opens its list on ArrowDown rather than stepping to the next role and asking about it', async () => {
+    const section = await openSection(BUILT_IN);
+    const showPicker = vi.fn();
+    const select = section.get<HTMLSelectElement>(
+      '[data-testid="manage-market-permission-select"]',
+    );
+    Object.defineProperty(select.element, 'showPicker', { value: showPicker });
+
+    for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']) {
+      const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true });
+      select.element.dispatchEvent(event);
+      expect(event.defaultPrevented, key).toBe(true);
+    }
+    await flushPromises();
+
+    expect(showPicker).toHaveBeenCalledTimes(6);
+    expect(document.querySelector('[data-testid="manage-market-permission-confirm-window"]')).toBe(
+      null,
+    );
+  });
+
+  it('leaves Alt+ArrowDown, Tab and the rest to the browser', async () => {
+    const section = await openSection(BUILT_IN);
+    const select = section.get<HTMLSelectElement>(
+      '[data-testid="manage-market-permission-select"]',
+    );
+
+    for (const init of [{ key: 'ArrowDown', altKey: true }, { key: 'Tab' }, { key: ' ' }]) {
+      const event = new KeyboardEvent('keydown', { ...init, cancelable: true, bubbles: true });
+      select.element.dispatchEvent(event);
+      expect(event.defaultPrevented, init.key).toBe(false);
+    }
+  });
+});

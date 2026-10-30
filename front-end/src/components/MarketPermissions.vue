@@ -117,6 +117,25 @@ function askChange(row: PermissionTableRow, select: HTMLSelectElement) {
   pendingChange.value = { row, role, select };
 }
 
+/** The keys that step a closed select's value, each step its own change and so its own question. */
+const STEPPING_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']);
+
+/**
+ * A closed select steps its value on these keys, and every step is a change, so a keyboard user
+ * met a confirmation at the first option past their own (T114's review). They open the list
+ * instead, where the keys move among the options and only Enter chooses.
+ */
+function openInsteadOfStepping(event: KeyboardEvent) {
+  if (event.altKey || !STEPPING_KEYS.has(event.key)) return;
+  event.preventDefault();
+  const select = event.currentTarget as HTMLSelectElement & { showPicker?: () => void };
+  try {
+    select.showPicker?.();
+  } catch {
+    // Refused without a user gesture somewhere: Space and Alt+ArrowDown still open the list.
+  }
+}
+
 /** Cancelling puts the select back on the role the row still asks. */
 function cancelChange() {
   if (pendingChange.value) pendingChange.value.select.value = pendingChange.value.row.role;
@@ -224,6 +243,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
               :aria-labelledby="`manage-market-permission-${row.id}`"
               class="field field--select select"
               data-testid="manage-market-permission-select"
+              @keydown="openInsteadOfStepping"
               @change="askChange(row, $event.target as HTMLSelectElement)"
             >
               <option v-for="role in WHO_MAY_CHOICES" :key="role" :value="role">
