@@ -465,6 +465,12 @@ def _reset_permission(client, world):
     return client.delete(f"/markets/{MARKET}/permissions/check-in")
 
 
+def _reset_permissions(client, world):
+    world.market(MarketPhase.REVIEW,
+                 permissions={"check-in": {"role": "admin", "source": "market"}})
+    return client.delete(f"/markets/{MARKET}/permissions")
+
+
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
 PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
@@ -554,6 +560,8 @@ WRITES = [
     Write("a row of the table reset", "DELETE", f"{M}/permissions/<action_id>",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_RESET, _reset_permission,
           subject={"action": "check-in"}),
+    Write("the table reset", "DELETE", f"{M}/permissions",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
 ]
 
 #: The write routes that change nothing on a market's record, and why.

@@ -138,13 +138,16 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // With its Permissions section open, which is closed until asked for (E39/F01/S04).
     name: 'the manage-market dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(fixed('/markets'), 'markets-result-count', [
-      'market-card-manage-button',
-      'manage-market-window',
-    ]),
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['market-card-manage-button', 'manage-market-window'],
+      ['manage-market-permissions-toggle', 'manage-market-permission-row'],
+    ),
   },
   {
     // The app's own menu, behind the banner's button on every organizer screen.

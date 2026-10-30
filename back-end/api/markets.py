@@ -1928,9 +1928,12 @@ def set_permission(
     if Actions.minimum_role(row, market).value == role:
         return Actions.table(market)
     after = MarketPermission(role=role, source=Actions.ON_THIS_MARKET)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
-        f"{market_doc_key('permissions')}.{row.id}": after.model_dump(),
-    }})
+    key = market_doc_key('permissions')
+    # Mongo cannot set a key inside a stored null or string, so a field that is not a map, which
+    # the read already takes as no rows held, is replaced by one holding this row.
+    write = ({f"{key}.{row.id}": after.model_dump()} if _stored_rows_are_a_map(market_id)
+             else {key: {row.id: after.model_dump()}})
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": write})
     _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
     market.permissions[row.id] = after
     return Actions.table(market)
@@ -1954,6 +1957,43 @@ def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> Li
     _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
     market.permissions.pop(row.id, None)
     return Actions.table(market)
+
+
+def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Return every row of this market's table to its built-in default, as its owner
+    (E39/F01/S04). Asks ``Actions.CHANGE_THE_TABLE``.
+
+    One write and one history entry for the one act, its detail every row the market held, before
+    and after, so the record reads as the owner did it rather than as a row-by-row run. A market
+    holding no row is already at the built-in table, and resetting it records nothing. Returns the
+    market's table.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    held = {
+        row.id: (row, Actions.held_row(row, market.permissions)) for row in Actions.ACTIONS.values()
+    }
+    held = {row_id: pair for row_id, pair in held.items() if pair[1] is not None}
+    if not held:
+        return Actions.table(market)
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
+        market_doc_key('permissions'): {},
+    }})
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
+        detail={
+            "before": {row_id: _permission_state(row, before) for row_id, (row, before) in held.items()},
+            "after": {row_id: _permission_state(row, None) for row_id, (row, _) in held.items()},
+        },
+    )
+    market.permissions = {}
+    return Actions.table(market)
+
+
+def _stored_rows_are_a_map(market_id: str) -> bool:
+    """Whether the market's stored ``permissions`` is a map or absent, as Mongo can set a key in."""
+    key = market_doc_key('permissions')
+    stored = markets_collection.find_one(market_doc_filter("id", market_id), {key: 1}) or {}
+    return isinstance(stored.get(key, {}), dict)
 
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:

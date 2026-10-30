@@ -190,7 +190,7 @@ export interface RejectionQuestion {
   answers: Array<{ value: string; label: string }>;
 }
 
-/** One row of a market's table, as the market read serves it (E39/F01/S03). */
+/** One row of a market's table, as the market read serves it (E39/F01/S03, S04). */
 export interface PermissionTableRow {
   id: string;
   group: string;
@@ -201,6 +201,8 @@ export interface PermissionTableRow {
   /** No row held, copied from the organization's default at creation, or changed here. */
   source: 'built-in' | 'organization' | 'market';
   fixed: boolean;
+  /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
+  mayWhat: string;
 }
 
 export interface Market {
