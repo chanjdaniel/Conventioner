@@ -651,7 +651,7 @@ def validated_essential_update(
     Returns ``(error_message, stored)``, ``stored`` holding the stored answers the updated
     questions write, as the form stores them.
     """
-    merged = {**current, TABLE_SHARE_EMAIL_KEY: _share_words(current), **incoming}
+    merged = {**current, **incoming}
     touched = set(incoming)
     stored: Dict[str, Any] = {}
     for key, step in _essential_steps(merged, options, stored, limit_required):
@@ -660,12 +660,6 @@ def validated_essential_update(
             return error, {}
     written = {key for question in incoming for key in UPDATABLE_ESSENTIAL_QUESTIONS[question]}
     return None, {key: value for key, value in stored.items() if key in written}
-
-
-def _share_words(answers: Dict[str, Any]) -> str:
-    """The table-share answer in the vendor's words, as the form asks it; an application written
-    before the words were kept holds them in the address field."""
-    return answers.get(TABLE_SHARE_ANSWER_KEY, answers.get(TABLE_SHARE_EMAIL_KEY)) or ""
 
 
 def _essential_steps(
