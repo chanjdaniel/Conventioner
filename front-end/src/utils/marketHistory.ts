@@ -248,7 +248,8 @@ export function entryParts(
     case 'add-vendor/':
       return [actor, text('added '), vendor, text(' as a vendor')];
     case 'update-vendor-info/':
-      return [actor, text('updated '), vendor, text('’s info')];
+      // The vendor last: the address drawn after their name cannot carry a possessive.
+      return [actor, text('updated the info of '), vendor];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':

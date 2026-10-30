@@ -249,7 +249,7 @@ describe('what an entry says', () => {
         vendors: ['ana@ember.test'],
         detail: { before: { category: 'Crafts' }, after: { category: 'Food' } },
       }),
-    ).toBe('dana@ember.test updated [Ana Rivera]’s info');
+    ).toBe('dana@ember.test updated the info of [Ana Rivera]');
   });
 
   it('says a change it has no words and no row label for is a change, never its id', () => {

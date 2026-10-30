@@ -50,7 +50,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).
      "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
    - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, and their info updated.
-     Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads as text, and any other vendor an entry names links to their own drawer.
+     Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.

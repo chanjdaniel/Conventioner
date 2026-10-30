@@ -32,7 +32,7 @@ const props = defineProps<{
   /** How the market's vendors arrive, so a phase reads as its other screens name it. */
   path: IntakeMode;
   /** Only this vendor's entries, for their drawer: the filters are not drawn, and the vendor is
-   * named as text rather than a link to the drawer that already shows them. */
+   * named by name alone, as text rather than a link to the drawer that already shows them. */
   vendor?: string | null;
 }>();
 
@@ -322,14 +322,12 @@ const emptyText = computed(() => {
             :key="index"
           >
             <template v-if="part.kind === 'text'">{{ part.text }}</template>
+            <!-- The drawer's head names them with their address, so here the name is enough. -->
             <span
               v-else-if="part.email.toLowerCase() === ownVendor"
               class="history-vendor-self"
               data-testid="market-history-own-vendor"
-              >{{ part.name || part.email
-              }}<template v-if="part.name"
-                >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
-              ></span
+              >{{ part.name || part.email }}</span
             >
             <RouterLink
               v-else

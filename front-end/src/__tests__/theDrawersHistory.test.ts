@@ -135,13 +135,22 @@ describe('one vendor’s history', () => {
     const history = mountFor(ANA);
     await flushPromises();
 
+    // The drawer's head already names them with their address: here they read by name alone.
     expect(history.get('[data-testid="market-history-sentence"]').text()).toBe(
-      `dana@ember.test swapped Ana Rivera ${ANA} and Ben Okafor ${BEN} - now at A3 and B7 on Nov 19, 2026`,
+      `dana@ember.test swapped Ana Rivera and Ben Okafor ${BEN} - now at A3 and B7 on Nov 19, 2026`,
     );
-    expect(history.get('[data-testid="market-history-own-vendor"]').text()).toContain(ANA);
+    expect(history.get('[data-testid="market-history-own-vendor"]').text()).toBe('Ana Rivera');
     const links = history.findAll('[data-testid="market-history-vendor-link"]');
     expect(links).toHaveLength(1);
     expect(links[0].text()).toContain(BEN);
+  });
+
+  it('names a vendor with no name by their address, the one thing that names them', async () => {
+    serve({ entries: [entry('e1', 1, { vendors: ['cy@ember.test'] })], next: null });
+    const history = mountFor('cy@ember.test');
+    await flushPromises();
+
+    expect(history.get('[data-testid="market-history-own-vendor"]').text()).toBe('cy@ember.test');
   });
 
   it('says so when nothing about the vendor has been recorded', async () => {
