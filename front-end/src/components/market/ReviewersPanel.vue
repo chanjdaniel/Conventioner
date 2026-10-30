@@ -63,7 +63,8 @@ async function save() {
 <template>
   <section v-if="shown" class="reviewers" aria-labelledby="reviewers-title" data-testid="reviewers">
     <div class="reviewers-head">
-      <h3 id="reviewers-title" class="field-label reviewers-title">Reviewers</h3>
+      <!-- The page's h1 is the market bar's; this tab has no heading over the panel. -->
+      <h2 id="reviewers-title" class="field-label reviewers-title">Reviewers</h2>
       <button
         v-if="chooses"
         type="button"
