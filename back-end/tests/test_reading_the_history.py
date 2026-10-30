@@ -352,7 +352,8 @@ class TestTheEndpoint:
         assert body["actors"] == ["dana@x.test"]
         groups = {group["group"]: [a["id"] for a in group["actions"]] for group in body["groups"]}
         assert "Reading" not in groups
-        assert groups["Applications"] == ["import-applications", "give-verdicts", "apply"]
+        assert groups["Applications"] == [
+            "import-applications", "give-verdicts", "change-verdicts", "apply"]
         assert groups["Assignment"] == ["assign"]
 
     def test_detail_and_subject_are_served_as_stored(self, market, history, monkeypatch):

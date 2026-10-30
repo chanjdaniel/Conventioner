@@ -50,6 +50,15 @@ const VERDICTS: readonly string[] = [
 ];
 
 /**
+ * Whether an application carries a verdict, so a verdict on it changes one: the table's row "Change
+ * a verdict, or overturn an automatic rejection" (E38/F06/S01). A follow-up is marked, not decided:
+ * deciding one is giving a verdict.
+ */
+export function isDecided(application: Pick<Application, 'status'>): boolean {
+  return VERDICTS.includes(application.status);
+}
+
+/**
  * Who gave an application its verdict, and when, in the review's words (E34/F01/S01): "Approved by
  * alex@market.test, Oct 19, 2026 at 5:04 PM", or "Rejected automatically: did not tick ..." for a
  * rule's (E33/F03/S02). Null when nobody was recorded - an application decided before verdicts

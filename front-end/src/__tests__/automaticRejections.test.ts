@@ -83,3 +83,27 @@ describe('the automatic rejections', () => {
     ).toHaveProperty('disabled');
   });
 });
+
+describe('who may overturn an automatic rejection (E38/F06/S01)', () => {
+  it('is named from the market table, as its row stands', () => {
+    const wrapper = mount(AutomaticRejections, {
+      props: {
+        questions: QUESTIONS,
+        rules: [],
+        lockReason: null,
+        overturnedBy: 'an Admin or the owner',
+      },
+    });
+
+    expect(wrapper.get('.rejections-help').text()).toContain(
+      'An Admin or the owner can overturn it, and the applicant never sees the reason.',
+    );
+  });
+
+  it('names nobody when the market read carries no such row', () => {
+    const help = mountRules([]).get('.rejections-help').text();
+
+    expect(help).not.toContain('overturn');
+    expect(help).toContain('The applicant never sees the reason.');
+  });
+});
