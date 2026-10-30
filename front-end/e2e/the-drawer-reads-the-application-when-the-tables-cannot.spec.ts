@@ -47,4 +47,13 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   await page.getByTestId('vendors-search-input').fill('Bob');
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Bob Example');
+
+  // An address asking for the unassigned, or for a section, asks where vendors sit: both are
+  // ignored, by the list and by Export, which opens on the page's filters.
+  await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?show=unassigned&section=Hall%20A`);
+  await expect(rows).toHaveCount(2, { timeout: 15000 });
+  await expect(page.getByTestId('vendors-summary')).toHaveText('2 vendors');
+  await page.getByTestId('vendors-export-button').click();
+  await expect(page.getByTestId('vendor-export-placed')).toHaveValue('');
+  await expect(page.getByTestId('vendor-export-summary')).toContainText('2 vendors');
 });

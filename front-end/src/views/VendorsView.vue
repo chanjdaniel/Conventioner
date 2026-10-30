@@ -99,20 +99,23 @@ function show(choice: VendorsShown): void {
  */
 const { filters: addressFilters } = useResultFilters();
 /** The where-filters, or the date alone beside "Unassigned only" (`filtersBeside`). */
-const offered = computed(() => filtersBeside('vendors', onlyUnassigned.value));
+const offered = computed(() =>
+  // None on a refused read: a filter by where vendors sit would ask that read of the list, and
+  // Export opens on these.
+  placementsRefused.value ? [] : filtersBeside('vendors', onlyUnassigned.value),
+);
 const filters = computed(() => offeredFilters(addressFilters.value, offered.value));
 const filterOptionsShown = computed(() => filterOptions(tableRows.value));
-const placeFiltered = computed(() => !placementsRefused.value && hasPlaceFilter(filters.value));
+const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 
 const filteredVendors = computed(() => {
   const listed = vendors.value.filter(
     (v) =>
       inVendorsShown({ inTheRun: v.inTheRun, rejected: isRejected(v) }, shown.value) &&
-      (placementsRefused.value ||
-        vendorShown(v.assignmentsByDate, filters.value, {
-          onlyUnassigned: onlyUnassigned.value,
-          isAssigned: v.isAssigned,
-        })),
+      vendorShown(v.assignmentsByDate, filters.value, {
+        onlyUnassigned: onlyUnassigned.value,
+        isAssigned: v.isAssigned,
+      }),
   );
   const term = filterText.value.trim();
   if (!term) return listed;
