@@ -79,7 +79,7 @@ Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market
 
 **Status:** Works (E39/F01/S04; read from the code and driven by `the-permissions-section.spec.ts`).
 
-1. "Permissions", after "Users with access", is closed until "Show" opens it, and says while closed "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults.
+1. "Permissions", after "Users with access", is closed until "Show" opens it, and says beneath its heading "Who may do what on this market." with "Every row is at its built-in default." or how many rows differ from the built-in defaults.
 2. Open, it lists every row of [the market's table](../../implementation/modules/market-actions.md#a-markets-own-rows) under its group, in the table's order: its label, where its role came from ("Built-in default", "Copied from the organization", or "Changed on this market by <address>, <when>", from the row's newest change), and its role as "Viewer and above", "Editor and above", "Admin and above" or "Owner only".
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.

@@ -54,7 +54,7 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
-/** The Permissions section is closed until asked for: the table is 17 rows and its changes. */
+/** The Permissions section is closed until asked for: every row of the table, and its changes. */
 const permissionsOpen = ref(false);
 const permissionHistory = ref<PermissionHistoryEntry[]>([]);
 const permissionHistoryError = ref('');
@@ -893,7 +893,7 @@ function closeAddUser() {
   padding: 0;
 }
 
-/* A compact table rather than a card per row: 17 rows of cards would make the dialog unwieldy. */
+/* A compact table rather than a card per row, which would make the dialog unwieldy. */
 .permission-row {
   display: flex;
   flex-wrap: wrap;
