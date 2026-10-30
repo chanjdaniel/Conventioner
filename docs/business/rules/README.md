@@ -23,6 +23,7 @@ One line per node, sorted by file name.
 - [An assignment knows when it is out of date](an-assignment-knows-when-it-is-out-of-date.md) - the result says which of the rules, the plan and the approved applications changed since it ran
 - [An imported email is asserted](an-imported-email-is-asserted.md) - an imported applicant's address is the organizer's word, an online one's proven by a code; settled before any other mail
 - [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the assignment, naming the applicants
+- [An update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md) - an organizer's update reads in the answer's place, says who, when and what they wrote, and outlasts a re-import
 - [Assign runs only in assignment](assign-runs-only-in-assignment.md) - the run is refused in every other phase, and once results are published
 - [Automatic rejections](automatic-rejections.md) - answers the organizer names reject an undecided application, with the reason; a person's verdict is never touched
 - [Dates fill one at a time, in the plan's order](dates-fill-in-calendar-order.md) - the solver fills each date before the next, in the plan's order; kept on purpose

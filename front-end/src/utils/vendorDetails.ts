@@ -1,7 +1,8 @@
 import { computed, ref, type Ref } from 'vue';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
-import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+// One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
+import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -16,6 +17,7 @@ import {
 } from '@/utils/placementReason';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import type {
+  AnswerUpdate,
   Application,
   ApplicationStatus,
   Market,
@@ -54,6 +56,8 @@ export interface VendorTableAssignment {
 /** One vendor as the Vendors list and the vendor drawer read them: their application and seats. */
 export interface VendorRow {
   rowIndex: number;
+  /** Their application, which "Update info" writes to (E41/F01/S01). */
+  applicationId: string;
   email: string;
   displayEmail: string;
   assignmentsByDate: Map<string, VendorTableAssignment>;
@@ -61,8 +65,13 @@ export interface VendorRow {
   assignedDateCount: number;
   /** The dates they could have had: their own answers, within the market's ceiling. */
   reachableDateCount: number;
-  /** Every answer, keyed by field key; the drawer shows the organizer's own questions. */
+  /**
+   * Every answer, keyed by field key, an organizer's update read in its place (E41/F01/S01); the
+   * drawer shows the organizer's own questions.
+   */
   answers: Record<string, unknown>;
+  /** The answers an organizer updated: who, when, and what the vendor wrote. */
+  answerUpdates: Record<string, AnswerUpdate>;
   /** Why their table-share request pairs nobody, when it does not (E27/F01/S03). */
   tableShareNotice: TableShareNoticeData | null;
   /** Who gave their verdict, and when (E34/F01/S01); null where nobody was recorded. */
@@ -73,6 +82,15 @@ export interface VendorRow {
   status: ApplicationStatus;
   /** Recorded on the day rather than applying (E36/F03/S01): outside the run, though approved. */
   added: boolean;
+}
+
+/** One of the organizer's own questions as the drawer lists it. */
+export interface SubmittedAnswer {
+  key: string;
+  label: string;
+  value: string;
+  /** An organizer's update of it, or null where the answer is the vendor's own. */
+  update: AnswerUpdate | null;
 }
 
 function extractEmail(raw: unknown): string {
@@ -87,13 +105,6 @@ function errorText(err: unknown, fallback: string): string {
   const resp = (err as { response?: { data?: { error?: string } } })?.response;
   if (resp?.data?.error) return resp.data.error;
   return err instanceof Error && err.message ? err.message : fallback;
-}
-
-function answerText(value: unknown): string {
-  if (value == null) return '';
-  if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return String(value);
 }
 
 function assignmentSummary(assignment: VendorTableAssignment): string {
@@ -217,6 +228,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       const answers = (application.formData ?? {}) as Record<string, unknown>;
       return {
         rowIndex: index,
+        applicationId: application.id,
         email,
         displayEmail: emailRaw || `Applicant ${index + 1}`,
         assignmentsByDate,
@@ -232,6 +244,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
           ),
         ),
         answers,
+        answerUpdates: application.answerUpdates ?? {},
         tableShareNotice: application.tableShareNotice ?? null,
         // Someone added by hand says so, in place of a verdict nobody reviewed (E36/F03/S01).
         verdict: addedLine(application) ?? verdictLine(application),
@@ -247,16 +260,24 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return rows.value.find((row) => row.email === address) ?? null;
   }
 
-  /** The organizer's own questions, in the order their form asks them, as this vendor answered. */
-  function submission(row: VendorRow): { label: string; value: string }[] {
+  /**
+   * The organizer's own questions, in the order their form asks them, as this vendor answered, each
+   * update in its place with who made it and what the vendor wrote (E41/F01/S01).
+   */
+  function submission(row: VendorRow): SubmittedAnswer[] {
     return (market.value?.applicationForm?.fields ?? [])
       .filter((field) => !field.key.startsWith(ESSENTIAL_KEY_PREFIX))
       .slice()
       .sort((a, b) => a.order - b.order)
-      .map((field) => ({
-        label: field.label || field.key,
-        value: answerText(row.answers[field.key]) || 'Not answered',
-      }));
+      .map((field) => {
+        const update = row.answerUpdates[field.key];
+        return {
+          key: field.key,
+          label: field.label || field.key,
+          value: answerText(row.answers[field.key]) || 'Not answered',
+          update: update ?? null,
+        };
+      });
   }
 
   /** Where they were placed on this date, or null - which is what makes the card's state. */

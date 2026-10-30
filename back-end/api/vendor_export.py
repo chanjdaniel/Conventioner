@@ -119,8 +119,9 @@ class Vendor:
 
     @property
     def answers(self) -> Dict[str, Any]:
-        """Every answer, keyed by question: the one place the export reads them."""
-        return self.application.form_data or {}
+        """Every answer, keyed by question, each update in its place (E41/F01/S01): the one place
+        the export reads them."""
+        return ApplicationsApi.effective_answers(self.application)
 
 
 def answer_text(value: Any) -> str:

@@ -162,6 +162,23 @@ class TestTheAnswerCounts:
             ("other", None, 2), ("none", None, 2),
         ]
 
+    def test_an_answer_an_organizer_updated_is_counted_as_updated(self):
+        """Counted as the organizer reads it, the update in the vendor's answer's place
+        (E41/F01/S01): Theo said they never vended with us, and the organizer knows otherwise."""
+        updated = [
+            {**application, "answer_updates": {"returning": {
+                "value": "Yes", "by": {"user_id": "u1", "email": "owner@market.test"},
+                "at": "2026-10-30T09:00:00Z", "over": "No"}}}
+            if application["applicant_email"] == "theo@thistle.test" else application
+            for application in APPLICATIONS
+        ]
+
+        returning = _counted(applications=updated)["questions"][1]
+
+        assert _rows(returning, "all") == [
+            ("option", "Yes", 3), ("option", "No", 0), ("none", None, 2),
+        ]
+
     def test_approved_narrows_every_chart_to_the_approved(self):
         selling, returning, own_work = _counted()["questions"]
 

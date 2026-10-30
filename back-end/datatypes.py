@@ -753,6 +753,16 @@ class MarketPerson(BaseModel):
         return {"userId": self.user_id, "email": self.email}
 
 
+class AnswerUpdate(BaseModel):
+    """An organizer's update of one of a vendor's answers (E41/F01/S01), kept beside the answer the
+    vendor gave, which is never written over: the value, who made it, when, and the vendor's answer
+    it was made over, so a reader can tell when what they wrote has changed since."""
+    value: Any = None
+    by: MarketPerson
+    at: str
+    over: Any = None
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -780,6 +790,9 @@ class Application(BaseModel):
     # never an input to the run.
     added_by: Optional[MarketPerson] = None
     added_at: Optional[str] = None
+    # The organizer's updates of the vendor's answers, by question (E41/F01/S01): read in the place
+    # of the answer in ``form_data``, which stays as the vendor gave it.
+    answer_updates: Dict[str, AnswerUpdate] = Field(default_factory=dict)
 
 
 def to_camel(string: str) -> str:
