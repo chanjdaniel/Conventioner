@@ -195,12 +195,12 @@ VIEWER_REFUSAL = (
 #: may see it and whether to keep it - which are not changes to it (bug 30). Every other row is
 #: refused on an archived market whoever may, a row added later included.
 ARCHIVED_STILL_TAKES = frozenset({
-    Actions.READ, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS,
-    Actions.DELETE_MARKET,
+    Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS,
+    Actions.MANAGE_ADMINS, Actions.DELETE_MARKET,
 })
 
 #: The rows that read the market rather than change it.
-READING_ROWS = frozenset({Actions.READ, Actions.EXPORT_CSV})
+READING_ROWS = frozenset({Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV})
 
 
 def _answers(
@@ -1375,10 +1375,10 @@ def get_placement_history(
     market_id: str, requesting_user: str, vendor: Optional[str] = None
 ) -> tuple[Dict[str, Any], int]:
     """This market's placement trail - its history narrowed to placements - newest first. Asks
-    ``Actions.READ``.
+    ``Actions.READ_HISTORY``.
 
-    Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
-    who may look at where vendors are sitting may look at how they came to be sitting there.
+    Read on the history's row, written on the Assignment row: the trail is the market's history
+    narrowed, and anyone who may read that history may read how vendors came to sit where they do.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -1386,7 +1386,8 @@ def get_placement_history(
     if context.market is None:
         return {"error": "Invalid market data"}, 400
 
-    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
     if refused:
         return {"error": refused}, 403
 
@@ -1397,6 +1398,99 @@ def get_placement_history(
         # people rather than as a column of email.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
     }, 200
+
+
+#: The table's groups that change something, in its order: the kinds of change the history is
+#: narrowed by. An applicant's own change (``History.APPLY``), which no row asks, is an
+#: application's.
+_HISTORY_GROUPS_LEFT_OUT = frozenset({"Reading"})
+
+
+def history_groups() -> List[Dict[str, Any]]:
+    """The groups of the table the history may be narrowed to, each with its actions' ids and
+    labels, for the screen's kind filter."""
+    groups: Dict[str, List[Dict[str, str]]] = {}
+    for row in Actions.ACTIONS.values():
+        if row.group not in _HISTORY_GROUPS_LEFT_OUT:
+            groups.setdefault(row.group, []).append({"id": row.id, "label": row.label})
+    groups.setdefault("Applications", []).append(
+        {"id": History.APPLY, "label": "Apply, or change one's own application"})
+    return [{"group": group, "actions": actions} for group, actions in groups.items()]
+
+
+def _history_instant(value: Optional[str]) -> Tuple[Optional[str], bool]:
+    """A filter's instant, in the format the history stores ``at`` in, and whether it read: an
+    absent one reads as None; one without its offset does not read, since it names no instant."""
+    if not value:
+        return None, True
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None, False
+    if instant.tzinfo is None:
+        return None, False
+    return instant.astimezone(timezone.utc).isoformat(), True
+
+
+def get_history(
+    market_id: str, requesting_user: str, args: Dict[str, str],
+) -> tuple[Dict[str, Any], int]:
+    """One page of this market's history, newest first, for Manage market (E40/F01/S03). Asks
+    ``Actions.READ_HISTORY``.
+
+    ``args`` are the request's: ``before`` (the cursor the last page answered with), ``actor``,
+    ``group`` (a group of the table), ``vendor``, and ``since`` and ``until`` (ISO instants, the
+    first kept and the second not). The first page also answers what the filters may offer: the
+    people who changed something, and the groups.
+    """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
+    if refused:
+        return {"error": refused}, 403
+
+    groups = history_groups()
+    actions = None
+    group = args.get("group")
+    if group:
+        actions = next(
+            ([row["id"] for row in g["actions"]] for g in groups if g["group"] == group), None)
+        if actions is None:
+            return {"error": "The history has no such kind of change."}, 400
+    since, since_read = _history_instant(args.get("since"))
+    until, until_read = _history_instant(args.get("until"))
+    if not (since_read and until_read):
+        return {"error": "The history's dates could not be read."}, 400
+    before = args.get("before")
+    if before and History.parse_cursor(before) is None:
+        return {"error": "That page of the history could not be read."}, 400
+
+    entries, after = History.entries_page(
+        market_id, before=before or None, actor=args.get("actor") or None, actions=actions,
+        vendor=args.get("vendor") or None, since=since, until=until,
+    )
+    body: Dict[str, Any] = {
+        # Only the entry's own fields are recased: its subject and detail are served as stored,
+        # since their keys are data (a question's key, an application's id).
+        "entries": [
+            {**convert_keys_to_camel_case({k: v for k, v in entry.items()
+                                           if k not in ("subject", "detail")}),
+             "subject": entry.get("subject") or {}, "detail": entry.get("detail")}
+            for entry in entries
+        ],
+        "next": after,
+        # Names against addresses, so an entry reads as people.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+    }
+    if not before:
+        body["actors"] = History.actors(market_id)
+        body["groups"] = groups
+    return body, 200
 
 
 def _market_csv_filename(
@@ -2045,9 +2139,9 @@ def _stored_rows_are_a_map(market_id: str) -> bool:
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
     """Every change to this market's table, newest first: who, when, the row, and its role and
-    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
-    see who changed what they may do on it."""
-    _load_market_for(market_id, requesting_user, Actions.READ)
+    source before and after (E39/F01/S03). Asks ``Actions.READ_HISTORY``: these changes are the
+    market's history narrowed, so they are read on the history's row, as the whole history is."""
+    _load_market_for(market_id, requesting_user, Actions.READ_HISTORY)
     return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
 
 

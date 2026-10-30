@@ -75,6 +75,7 @@ const MIGRATED = [
   'src/components/PhaseRail.vue',
   'src/components/PlacementDialog.vue',
   'src/components/SearchPicker.vue',
+  'src/components/MarketHistory.vue',
   'src/components/PlacementHistory.vue',
   'src/components/PlacementHistoryDialog.vue',
   'src/components/VendorNameButton.vue',

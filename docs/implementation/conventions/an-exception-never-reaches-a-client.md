@@ -46,6 +46,7 @@ describes:
   - back-end/app.py#add_vendor
   - back-end/app.py#write_placement
   - back-end/app.py#get_placement_history
+  - back-end/app.py#get_history
   - back-end/app.py#swap_placements
   - back-end/app.py#remove_placement
   - back-end/app.py#public_get_vendor_assignments
@@ -178,7 +179,7 @@ So do the application form and phase routes: reading and saving the form, the ph
 None catches anything, and each keeps its literal answers (`to_phase is required`, `stopped must be true or false`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
 A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
 
-So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history.
+So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
 None catches anything.
 A run over incomplete answers is still `run_assignment`'s 400 in [`back-end/api/placements.py`](../../../back-end/api/placements.py), with `IncompleteApplicationsError.message()` and the applicants; a run outside its phase, a vendor the market already holds and a taken seat answer 409, and a placement the plan has no seat for 400, each as raised ([placements](../modules/placements.md)).
 A builtin `PermissionError` is no longer answered 403 with its text: nothing of ours raises one, so it is a bug, and it answers 500.
