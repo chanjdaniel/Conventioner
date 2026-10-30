@@ -1965,7 +1965,7 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
 
     One write and one history entry for the one act, its detail every row the market held, before
     and after, so the record reads as the owner did it rather than as a row-by-row run. A market
-    holding no row is already at the built-in table, and resetting it records nothing. Returns the
+    holding no row it can read is already at the built-in table, and resetting it records nothing. Returns the
     market's table.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
@@ -1975,8 +1975,11 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     ]
     if not held_rows:
         return Actions.table(market)
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
-        market_doc_key('permissions'): {},
+    # Exactly the rows it returns: a row this build cannot read (a later build's, a malformed one)
+    # is left as the per-row reset leaves it, and is not in the entry.
+    key = market_doc_key('permissions')
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
+        f"{key}.{row.id}": "" for row, _ in held_rows
     }})
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
@@ -1985,7 +1988,8 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
             "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
         },
     )
-    market.permissions = {}
+    for row, _ in held_rows:
+        market.permissions.pop(row.id, None)
     return Actions.table(market)
 
 

@@ -250,6 +250,22 @@ class TestTheOwnerResetsTheWholeTable:
         ]
         assert entries[0]["action"] == Actions.CHANGE_THE_TABLE.id
 
+    def test_a_row_this_build_cannot_read_is_left_in_place_and_out_of_the_entry(self, world):
+        world.markets.doc()["permissions"] = {
+            "check-in": {"role": "admin", "source": "market"},
+            "add-vendor": "owner",
+            "a-later-row": {"role": "viewer", "source": "market"},
+        }
+
+        MarketsApi.reset_permissions("market-123", OWNER)
+
+        assert world.markets.doc()["permissions"] == {
+            "add-vendor": "owner", "a-later-row": {"role": "viewer", "source": "market"},
+        }
+        assert len(world.markets.updates) == 1
+        [entry] = MarketsApi.get_permission_history("market-123", OWNER)
+        assert list(entry["detail"]["before"]) == ["check-in"]
+
     @pytest.mark.parametrize("stored", [None, {}, "admin", {"check-in": "admin"}],
                              ids=["no rows", "an empty map", "rows that are not a map",
                                   "only a row this build cannot read"])
