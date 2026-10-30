@@ -74,7 +74,7 @@ def test_restating_the_stored_setup_is_not_a_change(market, phase):
     assert collection.last_update is not None
 
 
-@pytest.mark.parametrize("phase", [MarketPhase.REVIEW, MarketPhase.ASSIGNMENT])
+@pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT])
 def test_the_rules_are_not_setup_and_still_save(market, phase):
     collection = market(phase)
     rules = _changed(assignmentOptions={"maxAssignmentsPerVendor": 2})
@@ -93,38 +93,32 @@ def test_the_reason_rides_on_the_market_and_names_the_way_back(applications):
         return MarketsApi.setup_lock_reason(market)
 
     assert reason(MarketPhase.DRAFT) is None
-    assert "settled" in reason(MarketPhase.APPLICATIONS_OPEN)
-    assert "back to draft" in reason(MarketPhase.APPLICATIONS_OPEN)
-    assert "back to draft" not in reason(MarketPhase.APPLICATIONS_OPEN, applied=1)
-    assert "back to draft" not in reason(MarketPhase.REVIEW)
+    assert "settled" in reason(MarketPhase.APPLICATIONS)
+    assert "back to draft" in reason(MarketPhase.APPLICATIONS)
+    assert "back to draft" not in reason(MarketPhase.APPLICATIONS, applied=1)
+    assert "back to draft" not in reason(MarketPhase.ASSIGNMENT)
 
 
-@pytest.mark.parametrize("intake_mode, phase, moves", [
-    ("form", MarketPhase.APPLICATIONS_OPEN, "Reopen for Editing"),
-    ("form", MarketPhase.APPLICATIONS_CLOSED, "Reopen Applications, then Reopen for Editing"),
-    ("csv", MarketPhase.APPLICATIONS_CLOSED, "Import more responses, then Reopen for Editing"),
-])
-def test_the_way_back_names_each_move_from_where_the_market_is(
-        applications, intake_mode, phase, moves):
-    """A closed market nobody applied to gets back to draft too, by reopening first."""
+@pytest.mark.parametrize("intake_mode", ["form", "csv"])
+def test_the_way_back_names_the_move_on_either_path(applications, intake_mode):
     applications.count = 0
-    market = MarketsApi.market_from_document(
-        stored_market(phase=phase, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
+    market = MarketsApi.market_from_document(stored_market(
+        phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
 
     reason = MarketsApi.setup_lock_reason(market)
 
     assert "go back to draft" in reason
-    assert f": {moves}, under More… on the phase rail." in reason
+    assert ": Reopen for Editing, under More… on the phase rail." in reason
 
 
 @pytest.mark.parametrize("intake_mode, words", [
     ("form", "once applications have opened"),
-    ("csv", "once the market has moved on to importing"),
+    ("csv", "once its responses have been imported"),
 ])
 def test_the_reason_speaks_of_the_markets_own_path(applications, intake_mode, words):
     """A CSV market never opens applications: it collects on its Google Form (E31/F01/S03)."""
     market = MarketsApi.market_from_document(stored_market(
-        phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
+        phase=MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
 
     assert words in MarketsApi.setup_lock_reason(market)
 

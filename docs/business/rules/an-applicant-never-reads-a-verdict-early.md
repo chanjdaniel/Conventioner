@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py#outcome_of
   - back-end/result_outcome.py#seats_of
   - front-end/src/utils/applicantOutcome.ts
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/rejection-visibility/01
   - wayfinding/rejection-visibility/02
@@ -22,7 +22,7 @@ sources:
 # An applicant never reads a verdict early
 
 An applicant's own page reads "Submitted" until the organizer publishes results, whatever review has decided; after that it reads "You have a table", with their seats, or "You did not get assigned", and never a verdict or a reason.
-Applying, and changing one's answers, is open only while the market is in `applications_open`; reading one's application is open in every phase but draft.
+Applying, and changing one's answers, is open only while the market is in `applications` and the organizer has not stopped taking applications (`takes_applications`); reading one's application is open in every phase but draft.
 
 **Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
@@ -37,7 +37,7 @@ A rejected applicant seated by hand has a table, and an approved one the run cou
 It is read on every request, so a seat changed by hand shows at once.
 
 **Reading stays open after applying closes** (E26/F07/S02): closing the applicant surface with applications hid every verdict before most organizers published one (bug 20).
-A stranger applying to a closed market stays wrong, so the save refuses outside `applications_open` in words naming the phase.
+A stranger applying to a closed market stays wrong, so the save refuses otherwise in words naming the phase, "Applications Closed" for a stopped form.
 
 ## Where it is kept
 

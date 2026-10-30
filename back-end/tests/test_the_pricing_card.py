@@ -142,7 +142,7 @@ class TestThePlanWrite:
             MarketsApi.save_plan("market-123", _with(pricing), "user-1")
         assert collection.last_update is None
 
-    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN, MarketPhase.ASSIGNMENT])
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS, MarketPhase.ASSIGNMENT])
     def test_after_draft_a_price_change_is_refused(self, market, phase):
         """The prices settle with the rest of the setup (Q6)."""
         collection = market(phase, pricing=PRICED)
@@ -153,7 +153,7 @@ class TestThePlanWrite:
         assert collection.last_update is None
 
     def test_after_draft_restating_the_prices_saves(self, market):
-        collection = market(MarketPhase.REVIEW, pricing=PRICED)
+        collection = market(MarketPhase.APPLICATIONS, pricing=PRICED)
 
         MarketsApi.save_plan("market-123", _with(PRICED), "user-1")
 

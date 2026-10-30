@@ -32,8 +32,9 @@ def response_ok(response):
     return True
 
 
-def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN):
-    """A market document as it is stored in Mongo (camelCase keys).
+def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN, intake="form"):
+    """A market document as it is stored in Mongo (camelCase keys), whose vendors apply on its page
+    unless ``intake`` says otherwise: a Google Form market's way into the stage is its import.
 
     ``phase=None`` models a market created before the phase field existed and never
     touched by migrations/migrate_phase.py -- the document simply has no phase key.
@@ -49,6 +50,7 @@ def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN):
         "applicationForm": {"fields": fields if fields is not None else []},
         # Complete, so leaving draft is judged on the form alone here (E31/F01/S01).
         "setupObject": plan,
+        "intakeMode": intake,
     }
     if phase is not None:
         doc["phase"] = phase
@@ -159,26 +161,26 @@ def _spy_on_the_conflict(monkeypatch):
 
 
 class TestTransitionSuccess:
-    def test_draft_to_applications_open_when_form_has_fields(self, client, markets):
+    def test_draft_to_applications_when_form_has_fields(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 200
-        assert response.get_json() == {"phase": "applications_open"}
-        assert collection.doc["phase"] == "applications_open"
+        assert response.get_json() == {"phase": "applications"}
+        assert collection.doc["phase"] == "applications"
 
     def test_the_move_is_recorded_with_who_made_it_in_the_same_update(self, client, markets):
         """The market's phase history (E26/F06/S03) is written by the phase writer, atomically."""
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
-        assert response_ok(_post(client, {"toPhase": "applications_open"}))
+        assert response_ok(_post(client, {"toPhase": "applications"}))
 
         [(_, update)] = collection.updates
         entered = update["$push"]["phaseHistory"]["$each"][-1]
-        assert entered["phase"] == "applications_open"
+        assert entered["phase"] == "applications"
         assert entered["by"] == OWNER_EMAIL
-        assert update["$set"]["phase"] == "applications_open"
+        assert update["$set"]["phase"] == "applications"
 
     def test_opening_applications_stamps_the_form_in_the_same_update(self, client, markets):
         """Leaving draft IS finalizing (E18/F03/S01), and the stamp lands atomically with the phase.
@@ -188,14 +190,14 @@ class TestTransitionSuccess:
         """
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
-        assert response_ok(_post(client, {"toPhase": "applications_open"}))
-        assert collection.doc["phase"] == "applications_open"
+        assert response_ok(_post(client, {"toPhase": "applications"}))
+        assert collection.doc["phase"] == "applications"
         assert collection.doc["applicationForm"]["publishedAt"]
         assert collection.doc["applicationForm"]["fields"][0]["key"] == "name"
 
     def test_returning_to_draft_clears_the_stamp(self, client, markets):
         collection = markets(
-            _market_doc(phase="applications_open", is_draft=False, fields=[])
+            _market_doc(phase="applications", is_draft=False, fields=[])
         )
         collection.doc["applicationForm"]["publishedAt"] = "2026-09-01T00:00:00+00:00"
 
@@ -212,31 +214,19 @@ class TestTransitionSuccess:
         assert collection.doc["applicationForm"].get("publishedAt") is None
 
     def test_accepts_snake_case_body(self, client, markets):
-        markets(_market_doc(phase="applications_open"))
+        markets(_market_doc(phase="applications"))
 
-        response = _post(client, {"to_phase": "applications_closed"})
+        response = _post(client, {"to_phase": "archived"})
 
         assert response.status_code == 200
 
     def test_unguarded_transition_needs_no_preconditions(self, client, markets):
-        markets(_market_doc(phase="applications_open"))
+        markets(_market_doc(phase="applications"))
 
-        response = _post(client, {"toPhase": "applications_closed"})
-
-        assert response.status_code == 200
-        assert response.get_json() == {"phase": "applications_closed"}
-
-    def test_reopen_succeeds_when_form_has_fields(self, client, markets):
-        collection = markets(_market_doc(
-            phase="applications_closed",
-            fields=[{"key": "name", "label": "Name", "type": "text"}],
-        ))
-
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "archived"})
 
         assert response.status_code == 200
-        assert response.get_json() == {"phase": "applications_open"}
-        assert collection.doc["phase"] == "applications_open"
+        assert response.get_json() == {"phase": "archived"}
 
     def test_guards_receive_the_database_handle(self, client, markets, monkeypatch):
         markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
@@ -251,10 +241,10 @@ class TestTransitionSuccess:
                 return guards.PreconditionResult(id=self.id, passed=True, message="")
 
         monkeypatch.setitem(
-            guards.TRANSITION_GUARDS, ("draft", "applications_open"), [RecordingGuard()]
+            guards.TRANSITION_GUARDS, ("draft", "applications"), [RecordingGuard()]
         )
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 200
         assert seen == [MarketsApi.db]
@@ -266,11 +256,11 @@ class TestTransitionSuccess:
             fields=[{"key": "name", "label": "Name", "type": "text"}],
         ))
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 200
-        assert response.get_json() == {"phase": "applications_open"}
-        assert collection.doc["phase"] == "applications_open"
+        assert response.get_json() == {"phase": "applications"}
+        assert collection.doc["phase"] == "applications"
         assert collection.updates[0][0] == {"id": "market-1", "phase": {"$exists": False}}
 
     def test_draft_to_archived_publishes_without_form(self, client, markets):
@@ -299,13 +289,13 @@ class TestTransitionBlocked:
         # No plan either: a complete setup always gives the form something to ask (E31/F01/S01).
         collection = markets(_market_doc(fields=[], plan=None))
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 409
         body = response.get_json()
         assert body["error"] == "preconditions_not_met"
         assert body["currentPhase"] == "draft"
-        assert body["targetPhase"] == "applications_open"
+        assert body["targetPhase"] == "applications"
 
         blocker = next(b for b in body["blockers"] if b["id"] == "form_has_fields")
         assert blocker["passed"] is False
@@ -320,38 +310,23 @@ class TestTransitionBlocked:
 
         assert collection.doc["phase"] == "draft"
 
-    def test_empty_form_blocks_reopen(self, client, markets):
-        collection = markets(_market_doc(phase="applications_closed", fields=[], plan=None))
-
-        response = _post(client, {"toPhase": "applications_open"})
-
-        assert response.status_code == 409
-        body = response.get_json()
-        assert body["error"] == "preconditions_not_met"
-        assert body["currentPhase"] == "applications_closed"
-        assert body["targetPhase"] == "applications_open"
-        assert body["blockers"][0]["id"] == "form_has_fields"
-        assert body["blockers"][0]["resolutionLink"] is None
-
-        assert collection.doc["phase"] == "applications_closed"
-
     def test_phase_changed_underneath_returns_conflict(self, client, markets):
         collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
 
         original_update_one = collection.update_one
 
         def racing_update_one(filter_query, update):
-            collection.doc["phase"] = "applications_open"
+            collection.doc["phase"] = "archived"
             return original_update_one(filter_query, update)
 
         collection.update_one = racing_update_one
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 409
         body = response.get_json()
         assert body["error"] == "phase_changed"
-        assert body["currentPhase"] == "applications_open"
+        assert body["currentPhase"] == "archived"
         assert body["blockers"][0]["id"] == "phase_changed"
         assert body["blockers"][0]["passed"] is False
 
@@ -364,11 +339,11 @@ class TestTransitionBlocked:
         original_update_one = collection.update_one
 
         def racing_update_one(filter_query, update):
-            collection.doc["phase"] = "applications_open"
+            collection.doc["phase"] = "archived"
             return original_update_one(filter_query, update)
         collection.update_one = racing_update_one
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == raised[0].status == 409
         assert response.get_json() == raised[0].body()
@@ -384,7 +359,7 @@ class TestTransitionBlocked:
 
         collection.update_one = deleting_update_one
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 404
         assert response.get_json()["error"] == "Market not found"
@@ -396,7 +371,7 @@ class TestTransitionRejected:
 
         response = client.post(
             "/markets/market-1/transition",
-            data="toPhase=applications_open",
+            data="toPhase=applications",
             content_type="text/plain",
             headers={"X-Owner-Email": OWNER_EMAIL},
         )
@@ -408,7 +383,7 @@ class TestTransitionRejected:
     def test_transition_not_in_registry_is_400(self, client, markets):
         markets(_market_doc(phase="draft"))
 
-        response = _post(client, {"toPhase": "applications_closed"})
+        response = _post(client, {"toPhase": "assignment"})
 
         assert response.status_code == 400
         assert "not available" in response.get_json()["error"]
@@ -420,7 +395,7 @@ class TestTransitionRejected:
             fields=[{"key": "name", "label": "Name", "type": "text"}],
         ))
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 400
         assert "'archived'" in response.get_json()["error"]
@@ -445,7 +420,7 @@ class TestTransitionRejected:
         collection = markets(_market_doc())
         collection.doc["id"] = "other-market"
 
-        response = _post(client, {"toPhase": "applications_open"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 404
 
@@ -459,13 +434,13 @@ class TestTransitionRejected:
             ),
         )
 
-        response = _post(client, {"toPhase": "applications_open"}, email="stranger@example.com")
+        response = _post(client, {"toPhase": "applications"}, email="stranger@example.com")
 
         assert response.status_code == 403
 
 
 class TestTheGoogleFormPath:
-    """Begin Review from importing is one move through the closed phase (E32/F02/S01)."""
+    """A Google Form market enters Review by its first import, never by a bare move (E38/F04/S01)."""
 
     @pytest.fixture
     def imported(self, monkeypatch):
@@ -475,80 +450,27 @@ class TestTheGoogleFormPath:
             monkeypatch.setattr(ApplicationsApi, "count_applications_for_market", lambda _id: n)
         return _set
 
-    def test_begin_review_walks_both_steps_and_records_each(self, client, markets, imported):
-        imported(2)
-        collection = markets(_market_doc(phase="applications_open", is_draft=False))
-
-        response = _post(client, {"toPhase": "review"})
-
-        assert response.status_code == 200, response.get_json()
-        assert response.get_json() == {"phase": "review"}
-        assert collection.doc["phase"] == "review"
-        entered = [u["$set"]["phase"] for _, u in collection.updates]
-        assert entered == ["applications_closed", "review"]
-        # Each step is conditional on the phase the one before it left.
-        assert [f["phase"] for f, _ in collection.updates] == ["applications_open", "applications_closed"]
-
     def test_nothing_moves_while_nothing_has_been_imported(self, client, markets, imported):
         imported(0)
-        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+        collection = markets(_market_doc(
+            fields=[{"key": "name", "label": "Name", "type": "text"}], intake="csv",
+        ))
 
-        response = _post(client, {"toPhase": "review"})
+        response = _post(client, {"toPhase": "applications"})
 
         assert response.status_code == 409
-        assert [b["id"] for b in response.get_json()["blockers"]] == ["responses_imported"]
-        assert collection.doc["phase"] == "applications_open"
+        [blocker] = response.get_json()["blockers"]
+        assert blocker["id"] == "responses_imported"
+        assert blocker["resolutionLink"] == "import"
+        assert collection.doc["phase"] == "draft"
         assert collection.updates == []
 
-    def test_a_form_market_has_no_such_move(self, client, markets, imported):
+    def test_a_draft_holding_imported_responses_may_enter_review(self, client, markets, imported):
+        """What the import's own move meets once its rows are written."""
         imported(2)
-        markets({**_market_doc(phase="applications_open", is_draft=False), "intakeMode": "form"})
+        collection = markets(_market_doc(
+            fields=[{"key": "name", "label": "Name", "type": "text"}], intake="csv",
+        ))
 
-        assert _post(client, {"toPhase": "review"}).status_code == 400
-
-    def test_the_single_step_is_still_taken_when_asked_for(self, client, markets):
-        """The path steps through the closed phase on the rail; the edge itself is still there."""
-        collection = markets(_market_doc(phase="applications_open", is_draft=False))
-
-        assert response_ok(_post(client, {"toPhase": "applications_closed"}))
-        assert collection.doc["phase"] == "applications_closed"
-
-    def test_a_market_moved_between_the_two_steps_is_not_carried_on(self, client, markets, imported):
-        """Each step is taken only from where the one before left it."""
-        imported(2)
-        collection = markets(_market_doc(phase="applications_open", is_draft=False))
-        first_step = collection.update_one
-
-        def and_then_someone_reopens(filter_query, update):
-            result = first_step(filter_query, update)
-            collection.doc["phase"] = "applications_open"
-            return result
-        collection.update_one = and_then_someone_reopens
-
-        response = _post(client, {"toPhase": "review"})
-
-        assert response.status_code == 409
-        assert response.get_json()["error"] == "phase_changed"
-        assert [u["$set"]["phase"] for _, u in collection.updates] == ["applications_closed"]
-        assert collection.doc["phase"] == "applications_open"
-
-    def test_a_conflict_between_the_steps_names_the_move_asked_for(
-        self, client, markets, imported, monkeypatch,
-    ):
-        """Not the step it stopped at: the organizer asked for review, from applications open."""
-        raised = _spy_on_the_conflict(monkeypatch)
-        imported(2)
-        collection = markets(_market_doc(phase="applications_open", is_draft=False))
-        first_step = collection.update_one
-
-        def and_then_someone_reopens(filter_query, update):
-            result = first_step(filter_query, update)
-            collection.doc["phase"] = "applications_open"
-            return result
-        collection.update_one = and_then_someone_reopens
-
-        response = _post(client, {"toPhase": "review"})
-
-        assert response.get_json() == raised[0].body()
-        assert raised[0].body()["targetPhase"] == "review"
-        assert "to 'review' from 'applications_open'" in raised[0].message
+        assert response_ok(_post(client, {"toPhase": "applications"}))
+        assert collection.doc["phase"] == "applications"

@@ -94,13 +94,13 @@ def test_stored_phase_wins_over_is_draft(collection):
     collection.docs.append(
         {
             **_pre_migration_market("migrated-market", is_draft=True),
-            "phase": MarketPhase.APPLICATIONS_OPEN.value,
+            "phase": MarketPhase.APPLICATIONS.value,
         }
     )
 
     listed = {m["id"]: m for m in MarketsApi.get_markets_for_user(USER_EMAIL)}
 
-    assert listed["migrated-market"]["phase"] == MarketPhase.APPLICATIONS_OPEN.value
+    assert listed["migrated-market"]["phase"] == MarketPhase.APPLICATIONS.value
 
 
 def test_market_context_derives_phase_for_pre_migration_document(collection):
@@ -200,12 +200,12 @@ class TestSharedParser:
     def test_a_stored_phase_is_taken_as_given(self):
         document = {
             **_pre_migration_market("m-3", is_draft=True),
-            "phase": MarketPhase.APPLICATIONS_OPEN.value,
+            "phase": MarketPhase.APPLICATIONS.value,
         }
 
         market = market_from_document(document)
 
-        assert market.phase == MarketPhase.APPLICATIONS_OPEN
+        assert market.phase == MarketPhase.APPLICATIONS
 
 
 def test_corrupt_market_document_is_logged(collection, caplog):

@@ -20,12 +20,16 @@ import { useOpenMarket } from '@/utils/openMarket';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate, oneLine } from '@/utils/utils';
-import { canImportInto, importRefusal } from '@/utils/importPhase';
+import { importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicationAnswerRows } from '@/utils/essentialFields';
-import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
+import {
+  MarketPhase,
+  type ApplicationForm,
+  type EssentialFormOptions,
+} from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -96,24 +100,31 @@ const router = useRouter();
 
 /**
  * The market in the route, from the one store (E21/F02/S04). It used to be read out of
- * `localStorage`, because `/import-applications` carried no id - and the form amendment below moves
- * the market's phase twice and rewrites its form without ever touching that copy, so returning to
- * Market Setup after one showed the market as it had been.
+ * `localStorage`, because `/import-applications` carried no id - and an import writes the market
+ * without ever touching that copy, so returning to Market Setup after one showed the market as it
+ * had been.
  */
 const route = useRoute();
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
- * Importing belongs to the phases that take applications. The server enforces this - all three
- * import endpoints are reachable directly, and a hidden button is not a rule - but saying so
- * before the organizer picks a file beats letting them choose one and then refusing it.
+ * Importing belongs to a draft's first import and to Review (E38/F04/S01). The server enforces this
+ * - all three import endpoints are reachable directly, and a hidden button is not a rule - but
+ * saying so before the organizer picks a file beats letting them choose one and then refusing it.
  */
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
 /** Importing is the table's import row: who is asking comes before the phase (bug 37). */
 const roleRefusal = computed(() => actionRefusal(market.value, MarketAction.ImportApplications));
-const takingApplications = computed(() => canImportInto(marketPhase.value) && !roleRefusal.value);
-const phaseRefusal = computed(() => roleRefusal.value || importRefusal(marketPhase.value));
+const phaseRefusal = computed(() => roleRefusal.value || importRefusal(market.value));
+const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal.value);
+/**
+ * A draft's first import takes it into Review once it is written; in Review the import reads the
+ * whole responses file again (E38/F04/S01, S03). Said on the page, since the file to bring differs.
+ */
+const firstImport = computed(() => marketPhase.value === MarketPhase.Draft);
+/** The market entered Review with this import: the done step says where it now stands. */
+const enteredReview = ref(false);
 
 const step = ref<Step>('upload');
 
@@ -207,11 +218,7 @@ const repeats = ref<ImportRepeat[]>([]);
 onMounted(() => {
   if (!marketId.value) {
     error.value = 'No market is open. Open a market first, then import into it.';
-    return;
   }
-  // Asked once, on the way in: both dead ends need the answer, and neither should discover it by
-  // offering a control that then refuses.
-  loadAmendAvailability();
 });
 
 const activeGroups = computed(() => groups.value.filter((g) => !splitStems.value.has(g.stem)));
@@ -481,36 +488,26 @@ async function acceptFile(file: File | undefined) {
  *
  * Both of the ledger's dead ends end here, because they are the same shape: a column with nowhere
  * to go needs a custom field, and a question the form never asked needs that question turned off.
- * What used to be printed instructions - four manual steps, two phase transitions, and the file
- * gone - is now a dialog that walks the market down to draft, writes the form and puts it back.
+ * A first import runs in draft, where the form is writable, so the dialog writes it there and the
+ * file and the mapping stay; once anything is imported the form is fixed, and the dead end says so.
  */
 const amendOpen = ref(false);
 const amendFieldLabel = ref('');
 const amendUnasked = ref('');
 const amendForm = ref<ApplicationForm | null>(null);
 const amendOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
-const amendAvailability = ref<{ available: boolean; reason: string | null } | null>(null);
-
-/** Whether this market serves applicants, so the dialog can say what goes off the air. */
-const intakeIsForm = computed(
-  () => String((market.value as { intakeMode?: string })?.intakeMode ?? 'csv') === 'form',
-);
-
 /**
- * Ask the server whether the chain is possible before offering it.
- *
- * A control that fails when pressed is a broken one; this is what lets the wizard say "the form
- * is frozen and here is why" instead.
+ * Whether the form may change from here, by the lock the market read serves: a control that fails
+ * when pressed is a broken one, so the wizard says "the questions are fixed, and here is why".
  */
-async function loadAmendAvailability() {
-  if (!marketId.value) return;
-  try {
-    const { data } = await api.get(`/markets/${marketId.value}/application-form/amendment`);
-    amendAvailability.value = { available: data?.available === true, reason: data?.reason ?? null };
-  } catch {
-    amendAvailability.value = null;
-  }
-}
+const amendAvailability = computed(() =>
+  market.value
+    ? {
+        available: !market.value.applicationFormLockReason,
+        reason: market.value.applicationFormLockReason ?? null,
+      }
+    : null,
+);
 
 async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
   amendFieldLabel.value = options.fieldLabel ?? '';
@@ -535,8 +532,7 @@ async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
  * across - without this the story trades a four-step round trip for a two-step one.
  */
 async function onAmended() {
-  // The amendment walked the market out of its phase and back and rewrote its form: a write, so
-  // the store re-reads it and every screen showing the market follows.
+  // The form is a write, so the store re-reads the market and every screen showing it follows.
   void refreshMarket();
   const keptColumns = { ...columnTarget.value };
   const keptGroups = { ...groupTarget.value };
@@ -555,7 +551,6 @@ async function onAmended() {
   step.value = keptStep;
   // What the values mean follows the decisions just put back, not the ones inspect restored.
   await readValues(false).catch(() => {});
-  await loadAmendAvailability();
 }
 
 async function inspect() {
@@ -712,6 +707,7 @@ async function runImport() {
     rejectedByRules.value = data.rejectedByRules ?? 0;
     failures.value = data.failures ?? [];
     repeats.value = data.repeats ?? [];
+    enteredReview.value = firstImport.value && data.phase === MarketPhase.Applications;
     step.value = 'done';
     // Applications now exist, which locks the form: part of the market every screen reads.
     void refreshMarket();
@@ -745,7 +741,7 @@ function startOver() {
     <div class="import-view" data-testid="import-view">
       <header class="import-header">
         <div>
-          <h1>Import applications</h1>
+          <h1>{{ firstImport ? 'Import responses' : 'Redo import' }}</h1>
           <p v-if="fileName" class="import-subtitle" data-testid="import-filename">
             {{ fileName }}
           </p>
@@ -770,7 +766,9 @@ function startOver() {
           {{
             roleRefusal
               ? 'Importing into this market is not yours to do'
-              : 'This market is not taking applications right now'
+              : firstImport
+                ? 'This market is not ready for its first import'
+                : 'This market is not taking applications right now'
           }}
         </h2>
         <p class="import-help">{{ phaseRefusal }}</p>
@@ -792,6 +790,14 @@ function startOver() {
         <p v-if="market" class="import-help" data-testid="import-target-market">
           Importing into <strong>{{ market.name }}</strong
           >. Nothing is written until you confirm.
+        </p>
+        <!-- What this import does to the market, which differs by where it stands (E38/F04). -->
+        <p class="import-help" data-testid="import-what-it-does">
+          {{
+            firstImport
+              ? 'Bring every response your Google Form collected. Once the import is written, the market enters Review.'
+              : 'Bring your whole responses file again, the earlier responses with the new: new rows are added, changed rows are updated and the rest stay as they are. The market stays in Review.'
+          }}
         </p>
         <label
           class="drop-zone"
@@ -993,9 +999,8 @@ function startOver() {
                     </select>
 
                     <!--
-                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01). It still
-                    does not write the form from here: the dialog calls the amendment endpoint,
-                    which walks the market to draft and goes through
+                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01) while the
+                    market is a draft: the dialog writes the form through
                     PUT /markets/<id>/application-form like everything else - which is what keeps
                     the D9 lock unbypassable.
                   -->
@@ -1109,10 +1114,8 @@ function startOver() {
           </p>
 
           <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
-             (D9). This wizard runs in TWO phases - `applications_open` and `applications_closed` -
-             and the form is editable in neither, so it points at where to do it rather than
-             offering a button that would be refused here. Same shape as the unmapped-column dead
-             end in the ledger, and E20/F03 is the story that removes both. -->
+             (D9): offered on a first import, and once anything is imported the lock says why not.
+             Same shape as the unmapped-column dead end in the ledger. -->
           <div
             v-for="target in declarableUnasked"
             :key="target.key"
@@ -1255,6 +1258,9 @@ function startOver() {
           }}<span v-if="updated">, updated {{ updated }}</span
           >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
         </h2>
+        <p v-if="enteredReview" class="import-note" data-testid="import-result-in-review">
+          This market is now in Review: decide every application, then begin assignment.
+        </p>
         <p v-if="rejectedByRules" class="import-note" data-testid="import-result-rejected-note">
           {{ rejectedByRules }} {{ rejectedByRules === 1 ? 'was' : 'were' }} rejected by your
           automatic rejections, each with its reason; a reviewer can overturn any of them.
@@ -1317,15 +1323,16 @@ function startOver() {
         >
           Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
         </button>
-        <!-- Secondary: once something is imported, the one next step is the rail's Begin Review
-             (E32/F02/S01), and two green buttons would make it one of two. -->
+        <!-- Once imported, the one next step is the review itself (E38/F04/S01). -->
         <button
           v-if="step === 'done'"
-          class="button-secondary"
+          class="button-primary"
           data-testid="import-finish-button"
           @click="leaveImport()"
         >
-          Back to applications
+          {{
+            marketPhase === MarketPhase.Applications ? 'Go to the review' : 'Back to applications'
+          }}
         </button>
       </footer>
 
@@ -1336,7 +1343,6 @@ function startOver() {
         :essential-options="amendOptions"
         :suggested-field-label="amendFieldLabel"
         :suggested-unasked="amendUnasked"
-        :intake-is-form="intakeIsForm"
         @close="amendOpen = false"
         @amended="onAmended()"
       />

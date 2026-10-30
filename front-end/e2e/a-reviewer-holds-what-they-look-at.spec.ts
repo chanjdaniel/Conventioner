@@ -33,11 +33,9 @@ test('two reviewers walk different cards, and a lapsed claim is offered again', 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });
@@ -93,11 +91,9 @@ test('a reader walks the queue, holding nothing, and sees who has a card open', 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: READER.email, role: 'viewer' },
   });

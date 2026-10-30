@@ -67,7 +67,7 @@ function market(table: PermissionTableRow[]): Market {
   return {
     id: 'market-1',
     name: 'Riverside',
-    phase: MarketPhase.Review,
+    phase: MarketPhase.Applications,
     actionRefusals: answersRefusing(),
     permissionTable: table,
   } as unknown as Market;

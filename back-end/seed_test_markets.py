@@ -6,7 +6,8 @@ read as absent - needs markets to run against that are nobody's real market (E32
 makes them, owned by an operator's own account:
 
 - "Conventioner Test - Online Applications": vendors apply on its page, open for applications.
-- "Conventioner Test - Google Form": its vendors are imported, open for importing.
+- "Conventioner Test - Google Form": its vendors are imported, a draft ready for its first import,
+  which takes it into Review.
 
 Both are in "Conventioner Test Organization", carry a plan a year out and two plain questions, and
 hold no applicant. Every write goes through the product's own (create, the plan, the form, the
@@ -127,7 +128,13 @@ def _seeded_market(
 
 def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
                      today: date) -> str:
-    """Make ``test_market`` open, or leave it as it stands once it has left draft. Returns its phase."""
+    """Make ``test_market`` ready for its vendors, or leave it as it stands once it has left draft.
+    Returns its phase.
+
+    A market whose vendors apply on its page opens applications. A Google Form market is left a
+    draft, planned and with its questions: its first import is its way into Review (E38/F04/S01),
+    and an import is the operator's to make.
+    """
     context = _seeded_market(test_market, organization_id, owner)
     market_id = context.document["id"]
     if context.market.phase != MarketPhase.DRAFT:
@@ -142,15 +149,17 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
         "intakeMode": test_market.intake_mode.value,
     }, owner.email)
     MarketsApi.save_application_form(market_id, {"fields": TEST_FORM_FIELDS}, owner.email)
+    if test_market.intake_mode is IntakeMode.CSV:
+        return MarketPhase.DRAFT.value
     blockers = MarketsApi.take_move(
-        MarketsApi.load_market_context(market_id), MarketPhase.APPLICATIONS_OPEN.value,
+        MarketsApi.load_market_context(market_id), MarketPhase.APPLICATIONS.value,
         by=owner.email,
     )
     if blockers:
         raise SeedError(
             f"{test_market.name!r} could not open: " + " ".join(b.message for b in blockers)
         )
-    return MarketPhase.APPLICATIONS_OPEN.value
+    return MarketPhase.APPLICATIONS.value
 
 
 def seed_test_markets(owner_email: str, today: Optional[date] = None) -> List[str]:

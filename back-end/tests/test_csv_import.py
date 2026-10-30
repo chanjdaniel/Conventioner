@@ -11,7 +11,9 @@ import pytest
 
 from conftest import FakeMarketsCollection, stored_market
 
+import api.markets as MarketsApi
 import csv_import as CsvImport
+import guards
 import essential_fields as EssentialFields
 from datatypes import ApplicationStatus, MarketPhase
 
@@ -72,8 +74,10 @@ GOOD_ROW = (
 )
 
 
-def _market_doc(setup=None, fields=None, **overrides):
+def _market_doc(setup=None, fields=None, phase=MarketPhase.APPLICATIONS, **overrides):
+    """A Google Form market in Review, where a Redo import reads the whole file again."""
     return stored_market(
+        phase,
         setupObject=setup or SETUP_CAMEL,
         applicationForm={
             "fields": FORM_FIELDS if fields is None else fields,
@@ -1553,85 +1557,115 @@ class TestAnApplicantListedMoreThanOnce:
 
 
 class TestWhenImportingIsAllowed:
-    """Importing is an intake operation, so it belongs to the phases that take applications.
+    """Importing is how a Google Form market's vendors arrive (E38/F04/S01): its first import, in
+    draft, takes it into Review, and in Review a Redo import reads the whole file again. From
+    assignment on the applicants are settled."""
 
-    Once review has begun the applicant set must stop moving under the reviewer. The organizer is
-    not stuck: `review -> applications_closed` is an existing edge, so the way through is to
-    reopen, import, and move forward again - deliberate and visible, and needing no new edges.
-    """
+    def test_a_draft_and_review_take_an_import(self, before_the_market):
+        doc = _market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT)
 
-    def test_the_intake_phases_are_allowed(self):
-        for phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
-            doc = _market_doc()
-            doc["phase"] = phase.value
+        assert CsvImport.import_refusal(doc) is None
+        assert CsvImport.import_refusal(_market_doc()) is None
 
-            assert CsvImport.import_refusal(doc) is None, phase
-
-    def test_review_onward_is_refused(self):
+    def test_from_assignment_on_nothing_is_imported(self):
         for phase in (
-            MarketPhase.REVIEW, MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
-            MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED,
+            MarketPhase.ASSIGNMENT, MarketPhase.OFFERS, MarketPhase.MARKET_DAYS,
+            MarketPhase.ARCHIVED,
         ):
-            doc = _market_doc()
-            doc["phase"] = phase.value
-
-            refusal = CsvImport.import_refusal(doc)
+            refusal = CsvImport.import_refusal(_market_doc(phase=phase))
 
             assert refusal is not None, phase
             assert phase.value.replace("_", " ") in refusal
-
-    def test_the_refusal_points_at_the_way_through(self):
-        """By the rail's own name for the move (bug 42), as a CSV market's rail names it: importing
-        is the CSV path's alone (E31/F03/S04)."""
-        doc = _market_doc()
-        doc["phase"] = MarketPhase.REVIEW.value
-
-        refusal = CsvImport.import_refusal(doc)
-
-        assert "Import more responses" in refusal
-
-    def test_past_review_it_offers_no_way_back_that_does_not_exist(self):
-        """From Assignment on there is no route back to the intake phases, so none is offered.
-
-        It used to tell a market in Assignment to "move back to applications closed" - a move the
-        transition table does not have.
-        """
-        for phase in (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED):
-            doc = _market_doc()
-            doc["phase"] = phase.value
-
-            refusal = CsvImport.import_refusal(doc)
-
-            assert "Applications Closed" not in refusal, phase
             assert "no more applications" in refusal, phase
 
-    def test_a_draft_is_refused_for_its_own_reason(self):
-        """Not "reopen applications" - a draft has never opened them."""
-        doc = _market_doc()
-        doc["phase"] = MarketPhase.DRAFT.value
+    def test_a_draft_whose_setup_would_not_enter_review_is_told_what_it_lacks(
+        self, before_the_market,
+    ):
+        """Judged before a row is read, so a refused first import writes nothing."""
+        doc = _market_doc(phase=MarketPhase.DRAFT)
 
         refusal = CsvImport.import_refusal(doc)
 
-        assert refusal is not None and "still a draft" in refusal
+        assert refusal is not None and "location" in refusal
 
     def test_a_market_vendors_apply_to_on_its_own_page_imports_nothing(self):
         """Intake is exactly one mode, so import is the CSV path's (E31/F03/S04): a form market
         offered "Import from CSV" as its primary button while applications were open."""
-        for phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
-            doc = {**_market_doc(), "phase": phase.value, "intakeMode": "form"}
+        for phase in (MarketPhase.DRAFT, MarketPhase.APPLICATIONS):
+            doc = {**_market_doc(phase=phase), "intakeMode": "form"}
 
             refusal = CsvImport.import_refusal(doc)
 
             assert refusal is not None and "own page" in refusal, phase
 
-    def test_reopening_makes_importing_possible_again(self):
-        doc = _market_doc()
-        doc["phase"] = MarketPhase.REVIEW.value
-        assert CsvImport.import_refusal(doc) is not None
 
-        doc["phase"] = MarketPhase.APPLICATIONS_CLOSED.value
+# Market Setup complete, so a draft may enter Review: a location, and every tier given tables.
+COMPLETE_SETUP = {
+    **SETUP_CAMEL,
+    "locations": [{"name": "Town Hall"}],
+    "sections": [
+        {"name": name, "count": 4, "tier": {"id": index, "name": tier}}
+        for index, (name, tier) in enumerate(zip(SECTIONS, TIERS))
+    ],
+}
 
-        assert CsvImport.import_refusal(doc) is None
+
+@pytest.fixture
+def before_the_market(monkeypatch):
+    """The market's dates are still to come, as a draft's must be to leave draft."""
+    from datetime import datetime, timezone
+
+    monkeypatch.setattr(guards, "_utc_now", lambda: datetime(2026, 7, 1, tzinfo=timezone.utc))
+
+
+class TestTheFirstImportEntersReview:
+    """A Google Form market enters Review on its first import, confirmed and written; nothing moves
+    before the write, so leaving the import keeps it a draft (E38/F04/S01)."""
+
+    def _draft(self, monkeypatch):
+        markets = FakeMarketsCollection(_market_doc(setup=COMPLETE_SETUP, phase=MarketPhase.DRAFT))
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        return markets
+
+    def test_a_drafts_first_import_takes_it_into_review(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["created"] == 1
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
+        update = markets.last_update
+        assert update["$set"]["phase"] == MarketPhase.APPLICATIONS.value
+        assert update["$push"]["phaseHistory"]["$each"][-1]["by"] == "organizer@example.com"
+
+    def test_a_first_import_that_writes_nothing_leaves_a_draft(
+        self, monkeypatch, applications, before_the_market,
+    ):
+        markets = self._draft(monkeypatch)
+        no_email = GOOD_ROW.replace("nadia@ember.test", "")
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(no_email), MAPPING, by="organizer@example.com",
+        )
+
+        assert status == 200, body
+        assert body["created"] == 0
+        assert body["phase"] == MarketPhase.DRAFT.value
+        assert "phase" not in (markets.last_update or {}).get("$set", {})
+
+    def test_an_import_in_review_moves_nothing(self, monkeypatch, markets, applications):
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert status == 200, body
+        assert body["phase"] == MarketPhase.APPLICATIONS.value
+        assert "phase" not in markets.last_update.get("$set", {})
 
 
 class TestWhatTheImportBringsBesideTheAnswers:

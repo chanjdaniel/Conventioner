@@ -8,6 +8,7 @@ describes:
   - front-end/src/utils/marketActions.ts
 verified: 2026-10-30
 sources:
+  - E38/F04/S02
   - wayfinding/the-market-frame/03
   - wayfinding/claims-and-room/02
   - E21/F02/S01
@@ -46,6 +47,8 @@ Each control asks the row of the action it takes:
 | Screen | Control | Row |
 | --- | --- | --- |
 | The phase rail | every move | Move the phase |
+| The phase rail's More…, in Applications | Redo import | Import applications |
+| The phase rail's More…, in Applications | Stop taking applications, Take applications again | Stop taking applications, and take them again, while `applicationsStopReason` is null |
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
 | Market Setup, the Assignment page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
 | Market Setup, the Assignment page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |

@@ -14,7 +14,6 @@ import pytest
 from conftest import COMPLETE_PLAN, client_market, stored_market
 import api.added_vendors as AddedVendorsApi
 import api.door as DoorApi
-import api.form_amendment as FormAmendmentApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -25,7 +24,8 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), the rows E38 registers left out: (id, group, label, default, fixed).
+#: The epic's table (E39), with E38/F04's stop row and without the form amendment's, which E38/F04
+#: removed (the amendment's walk is gone): (id, group, label, default, fixed).
 THE_TABLE = [
     ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance, "
      "history and floorplan export", MarketRole.VIEWER, True),
@@ -35,11 +35,12 @@ THE_TABLE = [
     ("change-form", "Market Setup",
      "Change the form, the automatic rejections and the review highlights", MarketRole.EDITOR,
      False),
-    ("amend-form", "Market Setup", "Amend a locked form", MarketRole.ADMIN, False),
     ("import-applications", "Applications", "Import applications, and start a market from a CSV",
      MarketRole.ADMIN, False),
     ("give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR, False),
     ("move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, False),
+    ("stop-applications", "Lifecycle", "Stop taking applications, and take them again",
+     MarketRole.ADMIN, False),
     ("publish-results", "Lifecycle", "Publish results", MarketRole.ADMIN, False),
     ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
@@ -159,9 +160,6 @@ EACH_LOAD_ASKS = [
      Actions.CHECK_IN),
     (lambda: AddedVendorsApi.add_vendor(
         "market-123", {}, MarketPerson(user_id="u", email="u@x.test")), Actions.ADD_VENDOR),
-    (lambda: FormAmendmentApi.amend_application_form("market-123", {}, "u@x.test"),
-     Actions.AMEND_FORM),
-    (lambda: FormAmendmentApi.resume_amendment("market-123", "u@x.test"), Actions.AMEND_FORM),
     (lambda: VendorExportApi.preview("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
     (lambda: VendorExportApi.export("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
 ]
@@ -178,7 +176,7 @@ def test_each_load_asks_its_row_and_refuses_in_its_words(call, row, monkeypatch)
     monkeypatch.setattr(Actions, "refusal", refuse)
     monkeypatch.setattr(
         MarketsApi, "markets_collection",
-        SimpleNamespace(find_one=lambda *_a, **_k: stored_market(MarketPhase.REVIEW)))
+        SimpleNamespace(find_one=lambda *_a, **_k: stored_market(MarketPhase.APPLICATIONS)))
     monkeypatch.setattr(MarketsApi, "_load_organization", lambda _org_id: None)
 
     with pytest.raises(ForbiddenError) as refused:
@@ -186,6 +184,35 @@ def test_each_load_asks_its_row_and_refuses_in_its_words(call, row, monkeypatch)
 
     assert asked == [row]
     assert str(refused.value) == Actions.refusal_sentence(row)
+
+
+def test_stopping_applications_asks_its_row(monkeypatch):
+    """The route asks the table's Stop taking applications row, and refuses in its words."""
+    import app as app_module
+    import api.users as UsersApi
+    from conftest import sessions_load_through_get_user
+
+    asked = []
+    monkeypatch.setattr(
+        Actions, "refusal",
+        lambda action, *_a: asked.append(action) or Actions.refusal_sentence(action))
+    monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
+        market=client_market(), document={}, organization=None, organization_dict=None))
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    sessions_load_through_get_user(monkeypatch)
+    monkeypatch.setattr(UsersApi, "get_user", lambda email: SimpleNamespace(
+        id="u", email=email, is_active=True, is_authenticated=True, is_anonymous=False,
+        get_id=lambda e=email: e))
+    client = app_module.app.test_client()
+    with client.session_transaction() as session:
+        session["_user_id"] = "u@x.test"
+        session["_fresh"] = True
+
+    response = client.post("/markets/market-123/applications-stopped", json={"stopped": True})
+
+    assert response.status_code == 403
+    assert response.get_json() == {"error": Actions.refusal_sentence(Actions.STOP_APPLICATIONS)}
+    assert asked == [Actions.STOP_APPLICATIONS]
 
 
 def test_the_market_read_asks_the_read_row(monkeypatch):
@@ -260,7 +287,7 @@ class TestRolesAskTheirRows:
             roles = {"user-1": "owner"}
             if target_role is not None:
                 roles["target"] = target_role.value
-            doc = stored_market(MarketPhase.REVIEW, roles=roles)
+            doc = stored_market(MarketPhase.APPLICATIONS, roles=roles)
             monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: (
                 MarketsApi.MarketContext(doc, MarketsApi.market_from_document(doc), None, None)))
             monkeypatch.setattr(MarketsApi, "markets_collection", SimpleNamespace(

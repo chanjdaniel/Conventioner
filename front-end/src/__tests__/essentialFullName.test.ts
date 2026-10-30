@@ -13,6 +13,7 @@ import {
   UNASKABLE_ESSENTIAL_KEYS,
   applicationAnswerRows,
   essentialValidationErrors,
+  planDerivedAskedKeys,
 } from '@/utils/essentialFields';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
 
@@ -89,5 +90,17 @@ describe('an answer reads back as a named question', () => {
       value: 'Ana Rivera',
       custom: false,
     });
+  });
+});
+
+describe('what an applicant applies for', () => {
+  // The mirror of `plan_derived_asked_keys`: identity is asked of everyone, so it is not a form.
+  it('is nothing on a plan that offers nothing, the name asked or not', () => {
+    expect(planDerivedAskedKeys(NO_PLAN)).toEqual([]);
+  });
+
+  it('is the questions a plan offers, so a market asking only those has a form', () => {
+    expect(planDerivedAskedKeys(A_PLAN)).toContain('essential_tier_preference');
+    expect(planDerivedAskedKeys(A_PLAN)).not.toContain(FULL_NAME_KEY);
   });
 });
