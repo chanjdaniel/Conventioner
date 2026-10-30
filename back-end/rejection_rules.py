@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from client_errors import BadRequestError
-from datatypes import ApplicationStatus, Market, RejectionRule, VerdictGiver
+from datatypes import AnswerCondition, ApplicationStatus, Market, RejectionRule, VerdictGiver
 
 #: A checkbox's two answers, as a rule names them.
 TICKED = "ticked"
@@ -135,19 +135,40 @@ class Rulebook:
         written, or a column an import left out, is not an unticked box.
         """
         for rule in self.rules:
-            if not rule.answers or rule.key not in form_data:
+            met = self.met(rule, form_data)
+            if not met:
                 continue
             field_type = self.types[rule.key]
             question = self.by_key[rule.key]
-            met = [v for v in _answer_values(field_type, form_data[rule.key]) if v in rule.answers]
-            if not met:
-                continue
             if field_type == "checkbox":
                 verb = "Did not tick" if met[0] == NOT_TICKED else "Ticked"
                 return rule.key, f"{verb} “{question['label']}”"
             labels = {a["value"]: a["label"] for a in question["answers"]}
             return rule.key, f"Answered “{labels.get(met[0], met[0])}” to “{question['label']}”"
         return None
+
+
+    def met(self, condition: AnswerCondition, form_data: Dict[str, Any]) -> List[str]:
+        """The answers in ``form_data`` that meet ``condition``, in the order given; none for a
+        condition with no answer ticked yet, on a question the form does not ask as a choice, or
+        that the application holds no answer to. A price group's conditions are judged here as
+        well as the rules (E43/F01/S02), so both read an answer alike."""
+        if not condition.answers or condition.key not in self.by_key \
+                or condition.key not in form_data:
+            return []
+        values = _answer_values(self.types[condition.key], form_data[condition.key])
+        return [value for value in values if value in condition.answers]
+
+    def broken(self, condition: AnswerCondition) -> bool:
+        """Whether ``condition`` names a question the form no longer asks as a choice, or an answer
+        the question no longer offers. The rules simply leave out what the form no longer has (see
+        ``__init__``); a price group's condition is kept and shown, since it decides what a vendor
+        pays (E43/F01/S02)."""
+        question = self.by_key.get(condition.key)
+        if question is None:
+            return True
+        offered = {answer["value"] for answer in question["answers"]}
+        return any(answer not in offered for answer in condition.answers)
 
 
 def _answer_values(field_type: str, raw: Any) -> List[str]:

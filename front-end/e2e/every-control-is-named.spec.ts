@@ -67,6 +67,19 @@ test('every field on the plan, the rules and the form preview has a name', async
     locations: [{ name: 'Main Hall' }],
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
+    // A price group with a condition, so its name, prices and condition are walked (E43/F01/S02).
+    pricing: {
+      currency: 'CAD',
+      halfTablePercent: 50,
+      groups: [
+        {
+          name: 'Ceramicists',
+          conditions: [{ key: 'craft', answers: ['Ceramics'] }],
+          prices: [{ tier: 'Gold', cents: 2000 }],
+        },
+      ],
+      everyoneElse: [{ tier: 'Gold', cents: 3500 }],
+    },
   });
 
   for (const tab of ['setup', 'assignment', 'form']) {

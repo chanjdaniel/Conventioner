@@ -72,7 +72,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | --- | --- | --- | --- | --- | --- |
 | `change-setup` | `renamed` | renaming a draft | - | - | `name` |
 | `change-setup` | `plan` | a Market Setup card, or the intake mode (`PUT /markets/:id/plan`) | - | - | whichever of `market_dates`, `tiers`, `locations`, `sections`, `floorplans` and `intake_mode` changed |
-| `change-setup` | `pricing` | the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md)) | - | - | whichever of `currency`, `half_table_percent` and `everyone_else` (each tier's `{tier, cents}`) changed; every one null before on a market never priced |
+| `change-setup` | `pricing` | the Pricing card, in the same plan write ([a price follows the table](../../business/rules/a-price-follows-the-table.md)) | - | `currency`, the market's, so the prices can be written in it | whichever of `currency`, `half_table_percent`, `groups` (each `{name, conditions, prices}`, the whole list) and `everyone_else` (each tier's `{tier, cents}`) changed; a market never priced is the card's defaults before (CAD, 50, no group, no price), so its first price records only the prices typed |
 | `change-setup` | `floorplan` | saving a floorplan to the market | - | `floorplan_id` | whichever of `sections`, `locations` and `floorplan_ids` changed |
 | `change-setup` | `floorplan_image_deleted` | deleting a floorplan image | - | `image_id` | `image_id`, then null |
 | `change-form` | `form` | the form builder | - | - | the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed |

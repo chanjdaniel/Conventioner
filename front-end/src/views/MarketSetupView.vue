@@ -437,6 +437,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
+          :choiceQuestions="market.rejectionQuestions ?? []"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @held="(held: boolean) => (planHeld = held)"
