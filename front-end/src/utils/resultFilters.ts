@@ -258,14 +258,15 @@ export function vendorsShownFrom(query: unknown): VendorsShown {
 }
 
 /**
- * Whether a vendor belongs to that choice. Unassigned is a vendor of the run without a seat, so a
- * rejected applicant is never one of them, seated or not: counting them was bug 10.
+ * Whether a vendor belongs to that choice. Unassigned is a vendor who needs a table and has none:
+ * the run's own, and a vendor added by hand, whom the run never reads (E38/F08/S02). A rejected
+ * applicant is never one of them, seated or not: counting them was bug 10.
  */
 export function inVendorsShown(
-  vendor: { inTheRun: boolean; rejected: boolean },
+  vendor: { needsATable: boolean; rejected: boolean },
   shown: VendorsShown,
 ): boolean {
-  if (shown === 'unassigned') return vendor.inTheRun;
+  if (shown === 'unassigned') return vendor.needsATable;
   if (shown === 'rejected') return vendor.rejected;
   return true;
 }

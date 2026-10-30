@@ -38,14 +38,14 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
     `Added by ${TEST_USER.email}`,
   );
   await page.getByTestId('vendors-detail-close').click();
-  // Listed as added, and outside the run's count: Vendors and Assignments still agree (bug 10).
+  // Listed as added, and counted as needing a table though outside the run (E38/F08/S02).
   await expect(
     page
       .getByTestId('vendors-list-item')
       .filter({ hasText: 'Walk-in Wares' })
       .getByTestId('vendors-list-status'),
   ).toHaveText('Added');
-  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+2\s+vendors assigned/);
+  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+3\s+vendors assigned/);
 
   // An address the market already has is refused, naming it.
   await page.getByTestId('vendors-add-button').click();

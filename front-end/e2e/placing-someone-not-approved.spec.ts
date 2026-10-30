@@ -109,8 +109,8 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
 
 /**
  * The Vendors page lists every applicant (E36/F02/S04): Reza with his verdict, "Rejected only"
- * beside "Unassigned only" and kept by a refresh, and the count still the run's, so it agrees with
- * Assignments.
+ * beside "Unassigned only" and kept by a refresh, and the count still of who needs a table, so it
+ * agrees with Assignments.
  */
 test('the Vendors page lists the rejected too, and counts only the run', async ({
   authenticatedPage: page,
@@ -132,7 +132,7 @@ test('the Vendors page lists the rejected too, and counts only the run', async (
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Reza Example');
 
-  // Unassigned is a vendor of the run with no seat: Reza is neither, and nobody else is unseated.
+  // Unassigned is a vendor who needs a table and has none: Reza needs none, and nobody else is unseated.
   await page.getByTestId('vendors-filter-unassigned').click();
   await expect(rows).toHaveCount(0);
   await expect(page.getByText('Every vendor has a table.')).toBeVisible();

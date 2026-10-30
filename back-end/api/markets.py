@@ -32,6 +32,7 @@ from datatypes import (
     SetupObject,
     UnassignedTableEntry,
     User,
+    VendorAssignmentResult,
     intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
@@ -1324,12 +1325,22 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 
     rows = derive_market_table_rows(assigned_market)
     stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+    placed_rows = assigned_market.assignment_object.vendor_assignments or []
+    # Everyone the run does not read, read once: the vendors added by hand are counted below, and
+    # the applicants the review did not approve are marked where a seat overrides them.
+    outside = outside_solver_vendors(
+        market.id, EssentialFields.effective_essential_options_for_market(market),
+        {vendor.email for vendor in vendors},
+    )
+    count_added_vendors(
+        stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
+        placed_rows,
+    )
 
     payload = convert_keys_to_camel_case(stats.model_dump())
     # Why each vendor holds no table, computed from the plan, the applications and the
     # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
     # unplaced, so the panel listing them can say why without a second request.
-    placed_rows = assigned_market.assignment_object.vendor_assignments or []
     payload["unplacedDates"] = [
         {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
         for entry in unplaced_dates(
@@ -1350,7 +1361,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         }
         for entry in overridden_placements(
             vendors, placed_rows,
-            not_approved_vendors(market, {vendor.email for vendor in vendors}),
+            [vendor for vendor, application in outside if is_not_approved(application)],
         )
     ]
     # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
@@ -1446,6 +1457,35 @@ def is_not_approved(application: Application) -> bool:
     return application.status is not ApplicationStatus.REVIEWER_APPROVED
 
 
+def needs_a_table(outside: Optional[Application]) -> bool:
+    """Whether a vendor needs a table (E38/F08/S02): everyone the run reads (``outside`` None), and
+    an applicant outside it whom nothing left out - a vendor added by hand, approved by the adding.
+
+    Said apart from "in the run", which is only who the run places: an added vendor stays out of
+    the run, whose answers they may not have, and is still unassigned like anyone until seated. A
+    rejected or undecided applicant needs none, seated by hand or not (bug 10)."""
+    return outside is None or not is_not_approved(outside)
+
+
+def count_added_vendors(
+    stats: AssignmentStatistics, added: Iterable[str], placements: Iterable[VendorAssignmentResult],
+) -> None:
+    """Count the vendors added by hand in the statistics' vendors (E38/F08/S02), beside the run's.
+
+    The run counts only the vendors it reads, so a vendor added without a table was missing from
+    "N unassigned" while Vendors' "Unassigned only" listed them, and the link led to a list longer
+    than its number. An added vendor needs a table on every market day, and holds one when seated
+    on any, as the run's vendors do; satisfaction stays the run's, measured against their answers.
+    """
+    seated = {placement.email for placement in placements}
+    for email in sorted(set(added)):
+        stats.total_vendors += 1
+        if email in seated:
+            stats.total_assigned_vendors += 1
+        else:
+            stats.unassigned_vendors.append(email)
+
+
 def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[SolverVendor]:
     """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
     to one by hand is marked "not approved" wherever the other overrides show."""
@@ -1473,6 +1513,9 @@ def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str
         # Said, never inferred (E36/F02/S04): a vendor added by hand is approved and still outside
         # the run, and counting them in it made Vendors and Result disagree again (bug 10).
         "inTheRun": outside is None,
+        # And whether they need a table, said apart (E38/F08/S02): a vendor added by hand is out
+        # of the run and unassigned like anyone until seated.
+        "needsATable": needs_a_table(outside),
         "addedByHand": bool(outside is not None and outside.added_by),
         "email": vendor.email,
         "tableChoice": vendor.table_choice,

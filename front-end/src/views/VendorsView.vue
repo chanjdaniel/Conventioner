@@ -62,11 +62,12 @@ watch(marketId, () => void loadVendors(), { immediate: true });
 
 /**
  * Every applicant (E36/F02/S04): anyone may be seated by hand, so anyone may need finding. The
- * counts stay the run's - a vendor is an applicant being placed (CONTEXT.md) - because a rejected
- * applicant counted as an unassigned vendor made this page disagree with Result (bug 10).
+ * counts are of the vendors who need a table - the run's own and those added by hand (E38/F08/S02)
+ * - as the Assignments page's are, because a rejected applicant counted as an unassigned vendor
+ * made this page disagree with it (bug 10).
  */
 const vendors = computed(() => details.rows.value);
-const runVendors = computed(() => vendors.value.filter((v) => v.inTheRun));
+const tableVendors = computed(() => vendors.value.filter((v) => v.needsATable));
 const isRejected = (v: { status: string }) => v.status === ApplicationStatus.ReviewerRejected;
 const anyRejected = computed(() => vendors.value.some(isRejected));
 
@@ -98,7 +99,7 @@ const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 const filteredVendors = computed(() => {
   const listed = vendors.value.filter(
     (v) =>
-      inVendorsShown({ inTheRun: v.inTheRun, rejected: isRejected(v) }, shown.value) &&
+      inVendorsShown({ needsATable: v.needsATable, rejected: isRejected(v) }, shown.value) &&
       vendorShown(v.assignmentsByDate, filters.value, {
         onlyUnassigned: onlyUnassigned.value,
         isAssigned: v.isAssigned,
@@ -142,8 +143,8 @@ function openExport(): void {
 }
 
 const totalVendorCount = computed(() => vendors.value.length);
-const runVendorCount = computed(() => runVendors.value.length);
-const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAssigned).length);
+const tableVendorCount = computed(() => tableVendors.value.length);
+const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.isAssigned).length);
 </script>
 
 <template>
@@ -211,13 +212,13 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               vendors shown
             </template>
             <template v-else-if="!assigned">
-              <span class="summary-strong">{{ runVendorCount }}</span>
-              {{ runVendorCount === 1 ? 'vendor' : 'vendors' }}
+              <span class="summary-strong">{{ tableVendorCount }}</span>
+              {{ tableVendorCount === 1 ? 'vendor' : 'vendors' }}
             </template>
             <template v-else>
               <span class="summary-strong">{{ assignedVendorCount }}</span>
               of
-              <span class="summary-strong">{{ runVendorCount }}</span>
+              <span class="summary-strong">{{ tableVendorCount }}</span>
               vendors assigned
             </template>
           </div>
@@ -268,7 +269,17 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
                 :names="vendorNames"
               />
               <span v-if="assigned" class="vendor-meta">
-                <!-- Outside the run, the verdict is what to know first (E36/F02/S04). -->
+                <!-- Whoever needs a table says whether they have one, a vendor added by hand
+                     included, with "Added" beside it (E38/F08/S02); for anyone else the verdict
+                     is what to know first (E36/F02/S04). -->
+                <span
+                  v-if="vendor.needsATable"
+                  class="vendor-badge"
+                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
+                  data-testid="vendors-list-badge"
+                >
+                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                </span>
                 <span
                   v-if="vendor.added"
                   class="chip chip--informational"
@@ -276,18 +287,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
                   >Added</span
                 >
                 <span
-                  v-else-if="!vendor.inTheRun"
+                  v-else-if="!vendor.needsATable"
                   :class="statusChip(vendor.status)"
                   data-testid="vendors-list-status"
                   >{{ statusLabel(vendor.status) }}</span
                 >
-                <span
-                  v-else
-                  class="vendor-badge"
-                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
-                >
-                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
-                </span>
                 <span class="vendor-date-count" data-testid="vendor-date-count">
                   {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
                   {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}

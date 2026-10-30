@@ -55,10 +55,11 @@ describe('the seed the Vendors page gives the export', () => {
     expect(vendorsPageSeed({ shown: null, filters: NOTHING, search: '' })).toEqual(NO_FILTERS);
   });
 
-  it('turns "Unassigned only" into the approved vendors with no seat', () => {
+  it('turns "Unassigned only" into the approved and added vendors with no seat', () => {
+    // An added vendor needs a table like anyone, so the file holds who the page lists (E38/F08/S02).
     expect(vendorsPageSeed({ shown: 'unassigned', filters: NOTHING, search: '' })).toEqual({
       ...NO_FILTERS,
-      statuses: ['approved'],
+      statuses: ['approved', 'added'],
       placed: 'unplaced',
     });
   });

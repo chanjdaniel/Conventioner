@@ -4,7 +4,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
 import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
-import { datesWithinReach } from '@/utils/datesWithinReach';
+import { datesTheyNeed } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
 import { priceLine } from '@/utils/pricing';
 import {
@@ -63,7 +63,10 @@ export interface VendorRow {
   assignmentsByDate: Map<string, VendorTableAssignment>;
   isAssigned: boolean;
   assignedDateCount: number;
-  /** The dates they could have had: their own answers, within the market's ceiling. */
+  /**
+   * The dates they need a table on: their own answers, within the market's ceiling; every market
+   * day for a vendor added by hand (E38/F08/S02).
+   */
   reachableDateCount: number;
   /**
    * Every answer, keyed by field key, an organizer's update read in its place (E41/F01/S01); the
@@ -78,6 +81,11 @@ export interface VendorRow {
   verdict: string | null;
   /** Whether the assignment run reads them: an approved applicant (E36/F02/S04). */
   inTheRun: boolean;
+  /**
+   * Whether they need a table, as the server says (E38/F08/S02): the run's own, and a vendor added
+   * by hand, who is out of the run and unassigned like anyone until seated.
+   */
+  needsATable: boolean;
   /** Their application's status, which the Vendors list shows for anyone outside the run. */
   status: ApplicationStatus;
   /** Recorded on the day rather than applying (E36/F03/S01): outside the run, though approved. */
@@ -137,6 +145,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
    * outside the run with why, so the run's own are those it says nothing against.
    */
   const placeable = ref<Set<string>>(new Set());
+  /** Who needs a table: the run's own and the vendors added by hand (E38/F08/S02). */
+  const needingATable = ref<Set<string>>(new Set());
   const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
   const placementOverrides = ref<Map<string, PlacementOverride[]>>(new Map());
   const unassignedEmails = ref<Set<string>>(new Set());
@@ -157,15 +167,15 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         api.get<{
           rows: MarketTableRowResponse[];
           vendorNames: VendorNames;
-          vendors?: { email: string; inTheRun: boolean }[];
+          vendors?: { email: string; inTheRun: boolean; needsATable: boolean }[];
         }>(`/markets/${encoded}/tables`),
       ]);
       applications.value = Array.isArray(applicationList) ? applicationList : [];
-      placeable.value = new Set(
-        (tablesResp.data?.vendors ?? [])
-          .filter((vendor) => vendor.inTheRun)
-          .map((vendor) => vendor.email.trim().toLowerCase()),
-      );
+      const served = tablesResp.data?.vendors ?? [];
+      const addresses = (pick: (vendor: (typeof served)[number]) => boolean) =>
+        new Set(served.filter(pick).map((vendor) => vendor.email.trim().toLowerCase()));
+      placeable.value = addresses((vendor) => vendor.inTheRun);
+      needingATable.value = addresses((vendor) => vendor.needsATable);
       unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
       placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
       const statsList = statsResp.data?.unassignedVendors ?? [];
@@ -181,6 +191,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       tableRows.value = [];
       vendorNames.value = {};
       placeable.value = new Set();
+      needingATable.value = new Set();
       unplacedReasons.value = new Map();
       placementOverrides.value = new Map();
       unassignedEmails.value = new Set();
@@ -237,8 +248,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         // A hand placement can give more than they asked for; never read as "3 of 2".
         reachableDateCount: Math.max(
           assignmentsByDate.size,
-          datesWithinReach(
-            answers,
+          datesTheyNeed(
+            { answers, added: Boolean(application.addedBy) },
             marketDates.value.map((d) => d.date),
             market.value?.setupObject?.assignmentOptions?.maxAssignmentsPerVendor,
           ),
@@ -249,6 +260,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         // Someone added by hand says so, in place of a verdict nobody reviewed (E36/F03/S01).
         verdict: addedLine(application) ?? verdictLine(application),
         inTheRun: placeable.value.has(email),
+        needsATable: needingATable.value.has(email),
         status: application.status,
         added: Boolean(application.addedBy),
       };

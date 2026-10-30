@@ -22,6 +22,7 @@ sources:
   - E42/F01/S02
   - E42/F01/S03
   - E41/F01/S01
+  - E38/F08/S02
 ---
 
 # Vendors
@@ -30,25 +31,25 @@ sources:
 **Where they start:** the Vendors page, the Assignment tab's third page, or the Assignments page's "N unassigned".
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
-The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md); what the page counts is the vendors the run places.
+The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
 
 ## J11. Browse by vendor
 
 **Status:** Works (re-walked live on 2026-10-03; every applicant listed, and the filters, read from the code as of E36/F02/S04 and E36/F03/S01: `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`).
 
 1. "Search vendors" ("Filter by name or email…") finds a vendor by name or address; each row names the vendor, with their address beside.
-2. "N of M vendors assigned" counts the vendors the run places, the approved applicants (bug 10); a filter or search reads "N of M vendors shown".
-3. Each row in the run shows Assigned or Unassigned and "N of M dates", against the dates they could have had; a rejected applicant shows "Rejected", and a vendor added by hand "Added".
-4. "Unassigned only", and "Rejected only" when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
-5. The Assignments page's "N unassigned" link opens this list filtered, as "Unassigned only".
+2. "N of M vendors assigned" counts the vendors who need a table, the approved applicants and the vendors added by hand, and never a rejected applicant (bug 10); a filter or search reads "N of M vendors shown".
+3. Each row of a vendor who needs a table shows Assigned or Unassigned and "N of M dates", against the dates they could have had; a vendor added by hand needs a table on every market day, and shows "Added" beside it; a rejected applicant shows "Rejected".
+4. "Unassigned only" lists the vendors who need a table and hold none, and with a date chosen those with none that day, a vendor added by hand included (E38/F08/S02); it and "Rejected only", shown when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
+5. The Assignments page's "N unassigned" link opens this list filtered, as "Unassigned only", and counts the same vendors.
 
 Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 **Adding a vendor who never applied.**
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email; "Add vendor".
-They are listed as "Added", offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
-Covered by: `adding-a-vendor.spec.ts`.
+They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
+Covered by: `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`.
 
 ## J12. Find out why a vendor was not placed
 
@@ -62,7 +63,7 @@ Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff scr
 **Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`).
 For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
 
-1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; and the search.
+1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; and the search.
    The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
 2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; and the options of each of the form's choice questions, any of which the vendor chose.
 3. The columns are ticked under three headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none) and "Assignment".
@@ -82,7 +83,8 @@ Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`,
 ## Superseded
 
 - The page was to list only the vendors the run places, a rejected applicant leaving it, so that it and the Assignments page counted the same people by construction (wayfinding/claims-and-room/04, E26/F05/S04).
-  It lists every applicant, so a rejected one can be found and seated by hand, and only its count is the run's vendors, the people the Assignments page counts (E36/F02/S04).
+  It lists every applicant, so a rejected one can be found and seated by hand, and only its count was the run's vendors, the people the Assignments page counted (E36/F02/S04).
+- A vendor added by hand was outside "Unassigned only" and the counts, as outside the run, so one with no table was missing from the list of who still needs one; they are counted as needing a table, apart from the run (E38/F08/S02).
 
 ## The rules it obeys
 

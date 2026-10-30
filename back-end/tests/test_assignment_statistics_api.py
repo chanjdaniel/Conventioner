@@ -333,6 +333,7 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
             "maxDates": 1,
             "notApproved": None,
             "inTheRun": True,
+            "needsATable": True,
             "addedByHand": False,
         }
     ]
@@ -379,6 +380,7 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
             "verdictReason": "Not a UBC student",
         },
         "inTheRun": False,
+        "needsATable": False,
         "addedByHand": False,
     }]
 

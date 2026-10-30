@@ -46,8 +46,9 @@ export const NO_FILTERS: ExportFilters = Object.freeze({
 }) as ExportFilters;
 
 /**
- * The Vendors page's filters as the export's. "Unassigned only" is the approved vendors with no
- * seat, on the date when one is chosen; where they are placed is the vendors placed there.
+ * The Vendors page's filters as the export's. "Unassigned only" is the approved vendors and those
+ * added by hand with no seat (E38/F08/S02), on the date when one is chosen; where they are placed
+ * is the vendors placed there.
  */
 export function vendorsPageSeed(page: {
   shown: VendorsShown;
@@ -56,7 +57,12 @@ export function vendorsPageSeed(page: {
 }): ExportFilters {
   const seed: ExportFilters = { ...NO_FILTERS, search: page.search.trim() };
   if (page.shown === 'unassigned') {
-    return { ...seed, statuses: ['approved'], placed: 'unplaced', date: page.filters.date };
+    return {
+      ...seed,
+      statuses: ['approved', 'added'],
+      placed: 'unplaced',
+      date: page.filters.date,
+    };
   }
   if (page.shown === 'rejected') seed.statuses = ['rejected'];
   if (!hasPlaceFilter(page.filters)) return seed;
