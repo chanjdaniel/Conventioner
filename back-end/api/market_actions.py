@@ -89,6 +89,9 @@ ADD_VENDOR = action(
 WRITE_VENDOR_NOTES = action(
     "write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR,
     "write notes on this market's vendors")
+UPDATE_VENDOR_INFO = action(
+    "update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR,
+    "update this market's vendors' info")
 ASSIGN = action(
     "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
     MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")

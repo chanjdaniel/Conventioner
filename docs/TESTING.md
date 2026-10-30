@@ -11,6 +11,7 @@ sources:
   - E35/F02/S01
   - T47
   - T74
+  - E41/F01/S01
 ---
 
 # Testing Conventioner
@@ -284,8 +285,8 @@ The page objects in `front-end/e2e/pages/` are `LoginPage`, `NewMarketPage`, `Ma
 `OrganizationsPage`, `ManageMarketPage`, `PasswordResetPage`, `ApplicationFormPage`,
 `FloorplanWorkflowPage`, `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`,
 `CsvImportPage`, `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage`,
-`ApplicationMonitorPage`, `StatsPage` and `VendorExportDialog` (the export dialog,
-wherever it opens).
+`ApplicationMonitorPage`, `StatsPage`, `VendorExportDialog` (the export dialog, wherever it
+opens) and `UpdateInfoDialog` (the vendor drawer's Update info dialog).
 
 ### Bypassing CAPTCHA and email in tests
 

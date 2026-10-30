@@ -6,6 +6,7 @@ describes:
 verified: 2026-10-25
 sources:
   - E26
+  - E41/F01/S01
 ---
 
 # Walking the flows
@@ -74,7 +75,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | [I7 and J1 to J5, J14](../../business/flows/assignment-and-result.md) | `market-pipeline.spec.ts`, `the-assignment-tabs-pages.spec.ts`, `assignment-options.spec.ts`, `the-result-page.spec.ts`, `tables.spec.ts`, `a-search-on-the-results.spec.ts`, `a-refused-run-says-who-and-where.spec.ts`, `the-result-knows-what-it-was-made-from.spec.ts`, `the-assignment-rules-close.spec.ts`, `results-wait-for-the-allocation.spec.ts` | none noted |
 | [J6 to J10, J13 Placing by hand](../../business/flows/placing-by-hand.md) | `placement-edit.spec.ts`, `override-warnings.spec.ts`, `placing-someone-not-approved.spec.ts`, `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`, `the-placement-history-dialog.spec.ts` | none noted |
 | [J11, J12, J15 Vendors](../../business/flows/vendors.md) | `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, `adding-a-vendor.spec.ts`, `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts` | none noted |
-| [The vendor drawer](../../business/flows/vendor-drawer.md) | `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `vendor-notes.spec.ts` | none noted |
+| [The vendor drawer](../../business/flows/vendor-drawer.md) | `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts` | none noted |
 | [K Publishing and market days](../../business/flows/market-day-door.md) | `phase-rail.spec.ts`, `checkin.spec.ts`, `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `alignment.spec.ts` | none noted |
 | [L Ending and managing](../../business/flows/ending-and-managing-a-market.md) | `phase-state-machine.spec.ts`, `an-archive-is-read-only.spec.ts`, `an-archive-keeps-its-check-in-page.spec.ts`, `tier2.spec.ts`, `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `public-address.spec.ts`, `org-deletion.spec.ts`, `market-records-go-with-it.spec.ts` | none noted |
 | Paths: [P1 and P2](../../business/flows/the-google-form-path.md), [P3](../../business/flows/the-online-path.md), [P4](../../business/flows/the-mixed-path.md) | `market-journey.spec.ts` walks P1 from creation to the result; `start-from-csv.spec.ts` walks P2's seam from the confirm to the first import; `what-to-show-and-when.spec.ts` holds P4 refused | **P1 and P2 whole, from creation to archive** |

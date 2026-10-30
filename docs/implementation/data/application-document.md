@@ -8,9 +8,10 @@ describes:
   - back-end/datatypes.py#ApplicationType
   - back-end/datatypes.py#VerdictGiver
   - back-end/datatypes.py#MarketPerson
+  - back-end/datatypes.py#AnswerUpdate
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-10-28
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01
@@ -21,6 +22,7 @@ sources:
   - E34/F02/S01
   - E34/F03/S02
   - E36/F03/S01
+  - E41/F01/S01
 ---
 
 # The application document
@@ -47,6 +49,7 @@ The organizer's and the applicant's views camel-case an application on the way o
 | `applicant_email` | the applicant, stored lowercased and trimmed by every writer ([users and email](users-and-email.md)); proven by a sign-in code on the online path, asserted by the file on an import, and nothing here says which ([an imported email is asserted](../../business/rules/an-imported-email-is-asserted.md)) |
 | `application_type` | `main`, or `waitlist` for a second application beside it (`main_application_id` names the main one) |
 | `form_data` | the answers, keyed by form field key; the essential questions' answers under their reserved `essential_*` keys |
+| `answer_updates` | an organizer's updates of the answers, by form field key ([below](#an-organizers-update-of-an-answer)); absent or empty where none was made |
 | `status` | where review has got to (below) |
 | `submitted_at` | ISO 8601; the first save's time, kept through later edits |
 | `updated_at` | when the answers last changed; a verdict is conditioned on it |
@@ -68,6 +71,21 @@ A mapped timestamp that is not a time refuses its row, naming the value, rather 
 [`migrate_submitted_at_to_iso.py`](../../../back-end/migrations/migrate_submitted_at_to_iso.py) rewrote the raw `9/12/2025 18:22:56` values imported before that, which sorted wrongly as strings and scored every vendor alike in the solver.
 It has no boot marker: a raw timestamp misorders in plain sight, and the marker is for a hazard nobody can see.
 
+## An organizer's update of an answer
+
+**An update is stored beside the vendor's answer, never over it** ([an update is kept beside the vendor's answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md)): `answer_updates` maps a form field key to an `AnswerUpdate`, `{value, by, at, over}`, the value read, who made it (`{user_id, email}`), when, and the vendor's answer it was made over.
+`form_data` stays the vendor's: only their own save and an import write it, so a re-import writes the file's answers there and leaves every update standing.
+Writing over `form_data` instead would last until the next re-import.
+`write_answer_updates` sets and unsets each update by its own dotted path, so two organizers updating different answers at once both land; an update does not move `updated_at`, which is the vendor's answers' time a verdict is conditioned on.
+
+**`effective_answers` is the one reader of the answers as the organizer reads them**: `form_data` with each update's value in its place.
+The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`) and the [automatic rejections](../../business/rules/automatic-rejections.md) read through it, and so does any reader added later that calls it.
+The applicant's own view serves `form_data`, what they wrote, and no update.
+The solver's input still reads `form_data`: the essential answers it reads cannot be updated yet (E41/F01/S02).
+
+`answerUpdates` serves each update with `theyWrote`, the vendor's answer now, and `changedSince`, whether that differs from `over`: a re-import or their own edit changed it after the update, which the drawer says.
+[`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py) makes the update (`PUT /markets/:id/applications/:app_id/answers`): it validates each answer as the form does (`validated_answer` in `application_write.py`), refuses an essential key and a key the form does not ask, takes an update away when its answer is set back to what the vendor wrote, and keeps an update restated as it stands, with who made it.
+
 ## Statuses
 
 The applicant never reads a status: their page reads "Submitted" until results are published, then an outcome read off the stored seats ([an applicant never reads a verdict early](../../business/rules/an-applicant-never-reads-a-verdict-early.md)).
@@ -87,7 +105,7 @@ Given the application as the caller read it (`if_unchanged_since`), it writes on
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).
 
-**Each verdict or follow-up a person gives, each follow-up handed on, each vendor added and each change an applicant makes to their own application records into [the market's history](history.md)**: the verdict fields here stay the state the review reads, and the history keeps every verdict a person gives, not only the latest.
+**Each verdict or follow-up a person gives, each follow-up handed on, each vendor added, each update of a vendor's answers and each change an applicant makes to their own application records into [the market's history](history.md)**: the verdict fields here stay the state the review reads, and the history keeps every verdict a person gives, not only the latest.
 A rule's verdict is not an entry of its own: the write that judged counts it in its entry (the form, the rules, an amendment, an applicant's save, an import).
 
 ## Indexes

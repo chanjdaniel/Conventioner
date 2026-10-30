@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14
@@ -20,6 +20,7 @@ sources:
   - E36/F03/S01
   - E35/F01/S01
   - E35/F01/S02
+  - E41/F01/S01
 ---
 
 # The vendor drawer
@@ -40,6 +41,9 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
 4. Three tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
+     An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it, and "Their answer changed since your update." once a re-import or their own edit changed what they wrote.
+     "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer", and the answers the assignment reads show read-only ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
+     Escape closes the dialog alone; once it saves, the drawer reads the market's vendors again, which the Vendors list shares, and the review's All view behind it reads its list again.
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
@@ -47,7 +51,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
-Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
+Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
 
 ## The rules it obeys
 
@@ -56,5 +60,6 @@ Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.sp
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): the All view's verdicts leave the drawer when the review closes.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 - [Vendor notes](../rules/vendor-notes.md): the request, the note and the sheet's line, each under its own label.
+- [An update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md): "Update info", and what an updated answer says.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
