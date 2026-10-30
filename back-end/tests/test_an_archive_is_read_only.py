@@ -132,6 +132,8 @@ ROW_WRITES = {
     "update-vendor-info": ("put", "/markets/market-123/applications/app-1/answers",
                            {"answers": {"business_name": "Ember Ceramics"}}),
     "assign": ("post", "/markets/market-123/assignment", None),
+    "record-payment": ("post", "/markets/market-123/payments/ana@example.com",
+                       {"cents": 3500, "method": "cash", "paidOn": "2026-05-01"}),
     "check-in": ("post", "/markets/market-123/attendance",
                  {"vendorEmail": "ana@example.com", "date": "2026-05-01"}),
     "manage-editors-and-viewers": ("post", "/markets/market-123/roles",

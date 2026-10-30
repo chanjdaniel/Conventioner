@@ -550,13 +550,17 @@ def market_records(monkeypatch):
     import api.applicant_auth as ApplicantAuth
     import api.attendance as AttendanceApi
     import history as History
+    import payments as Payments
     import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
-        placement_history=FakeApplicationsCollection(),
+        placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
+        amounts_owed=FakeApplicationsCollection(),
     )
+    monkeypatch.setattr(Payments, "payments_collection", fakes.payments)
+    monkeypatch.setattr(Payments, "amounts_owed_collection", fakes.amounts_owed)
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)

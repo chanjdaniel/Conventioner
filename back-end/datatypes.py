@@ -391,6 +391,36 @@ class PricingObject(BaseModel):
         return value
 
 
+class PaymentEntry(BaseModel):
+    """One payment a vendor made, as an organizer records it (E44/F01/S01): the amount in whole
+    cents of the market's currency, how it was paid, the day it was paid, and an optional note.
+
+    Strict, so an amount sent as text or with a fraction of a cent is refused rather than read; a
+    payment is never zero or negative, since taking money back is an Admin's adjustment (ticket 20).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cents: int = Field(ge=1, le=10_000_000, strict=True)
+    #: How the organizers take a payment (Daniel, T92 Q7).
+    method: Literal["e-transfer", "cash"]
+    paid_on: str
+    note: str = Field(default="", max_length=500, strict=True)
+
+    @field_validator("paid_on")
+    @classmethod
+    def _a_day(cls, value: str) -> str:
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+        except (TypeError, ValueError):
+            raise ValueError("must be a date, YYYY-MM-DD") from None
+
+    @field_validator("note")
+    @classmethod
+    def _trimmed(cls, value: str) -> str:
+        return value.strip()
+
+
 class SetupObject(BaseModel):
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]

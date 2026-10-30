@@ -421,6 +421,15 @@ def _free(client, world):
     return client.delete(f"/markets/{MARKET}/placements", json={"email": VENDOR, "date": DATE})
 
 
+# --- Payments ---------------------------------------------------------------------------------------
+
+def _record_payment(client, world):
+    _seats(VENDOR)(world)
+    world.applications.insert_one(_application("app-1", VENDOR))
+    return client.post(f"/markets/{MARKET}/payments/{VENDOR}",
+                       json={"cents": 3500, "method": "cash", "paidOn": "2026-07-20"})
+
+
 # --- The door ---------------------------------------------------------------------------------------
 
 def _door(organizer: bool, undo: bool):
@@ -539,6 +548,9 @@ WRITES = [
           vendors=(VENDOR, "ben@example.com"), before_after=False),
     Write("a seat freed", "DELETE", f"{M}/placements", Actions.ASSIGN, History.FREED, _free,
           vendors=(VENDOR,), before_after=False),
+    Write("a payment recorded", "POST", f"{M}/payments/<path:vendor_email>",
+          Actions.RECORD_PAYMENT, None, _record_payment, vendors=(VENDOR,),
+          subject={"payment_id": None}),
     Write("a check-in at the door", "POST", f"{M}/attendance", Actions.CHECK_IN,
           History.CHECKED_IN, _door(organizer=True, undo=False), vendors=(VENDOR,),
           subject={"date": DATE}),

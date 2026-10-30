@@ -12,6 +12,7 @@ import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
+import api.payments as PaymentsApi
 import api.vendor_export as VendorExportApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -747,6 +748,27 @@ def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
     MarketsApi.mark_vendor_request_handled(
         market_id, vendor_email, data["handled"], authenticated_email())
     return jsonify({"message": "Saved"}), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>', methods=['GET'])
+@login_required
+def get_vendor_account(market_id: str, vendor_email: str) -> Response:
+    """What one vendor owes for each table-day, and the payments recorded (E44/F01/S01). Asks
+    ``Actions.READ``."""
+    return jsonify(PaymentsApi.vendor_account(market_id, vendor_email, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>', methods=['POST'])
+@login_required
+def record_payment(market_id: str, vendor_email: str) -> Response:
+    """Record one payment a vendor made, and answer their account. Asks
+    ``Actions.RECORD_PAYMENT``.
+
+    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "" }
+    """
+    data = json_object(required=True)
+    return jsonify(PaymentsApi.record_payment(
+        market_id, vendor_email, data, authenticated_email())), 200
 
 
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])

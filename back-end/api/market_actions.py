@@ -95,6 +95,9 @@ UPDATE_VENDOR_INFO = action(
 ASSIGN = action(
     "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
     MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")
+RECORD_PAYMENT = action(
+    "record-payment", "Payments", "Record a payment", MarketRole.EDITOR,
+    "record payments on this market")
 CHECK_IN = action(
     "check-in", "The door", "Check vendors in", MarketRole.EDITOR,
     "check vendors in at this market")

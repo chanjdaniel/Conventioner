@@ -4,8 +4,9 @@
  * attendance entry, the bulk review.
  *
  * Their notes are pinned at the top - what the organizer knows and did about them reads on every
- * tab - and below them three tabs: Application (the submission), Assignments (their seats, each one
- * click from changing) and History (who moved them, when). The drawer used to stack all of it on the
+ * tab - and below them four tabs: Application (the submission), Assignments (their seats, each one
+ * click from changing), Payment (what they owe and paid, E44/F01/S01) and History (who moved them,
+ * when). The drawer used to stack all of it on the
  * Vendors page alone, with the assignments and the history at the bottom where nobody found them.
  *
  * The screen that opens it holds which vendor and which tab - in the address, so a link, a refresh
@@ -30,10 +31,12 @@ import TableShareNotice from '@/components/TableShareNotice.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
+import VendorPaymentTab from '@/components/VendorPaymentTab.vue';
 
 const TABS: readonly { id: VendorTab; label: string }[] = [
   { id: 'application', label: 'Application' },
   { id: 'assignments', label: 'Assignments' },
+  { id: 'payment', label: 'Payment' },
   { id: 'history', label: 'History' },
 ];
 
@@ -306,6 +309,15 @@ useInertBehind(
               @place="goToResult(date.date)"
             />
           </ul>
+        </div>
+
+        <div v-else-if="tab === 'payment'" class="detail-section">
+          <VendorPaymentTab
+            v-if="market?.id"
+            :marketId="market.id"
+            :email="email"
+            :canRecord="mayTake(market, MarketAction.RecordPayment)"
+          />
         </div>
 
         <!-- Who moved this vendor, and when. A placement that differs from what the solver

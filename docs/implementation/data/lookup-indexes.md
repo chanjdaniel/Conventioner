@@ -4,9 +4,10 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - E32/F03/S04
+  - E44/F01/S01
 ---
 
 # Lookup indexes
@@ -30,6 +31,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `attendance` | `market_id, vendor_email` |
 | `history` | `market_id` ([the market's history](history.md)) |
 | `vendor_notes` | `market_id, vendor_email` |
+| `payments`, `amounts_owed` | `market_id, vendor_email` ([payments](payments.md)) |
 | `deletion_trail` | `organization_id` ([market deletion](../modules/market-deletion.md)) |
 
 Market fields are named through `market_doc_key`, so the list holds the stored camelCase spelling ([the market document](market-document.md#key-spelling)).

@@ -38,6 +38,8 @@ APP_COLLECTIONS = (
     'placement_history',
     'deletion_trail',
     'vendor_notes',
+    'payments',
+    'amounts_owed',
 )
 
 # GridFS buckets, which are a pair of collections each and are not listed above.

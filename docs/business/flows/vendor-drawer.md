@@ -22,11 +22,12 @@ sources:
   - E35/F01/S02
   - E43/F01/S01
   - E41/F01/S01
+  - E44/F01/S01
 ---
 
 # The vendor drawer
 
-**Who:** anyone who can read the market; notes and placing are an Editor's, and a market that is read-only shows them without the controls ([what each role may do](../rules/what-each-role-may-do.md)).
+**Who:** anyone who can read the market; notes, placing and recording a payment are an Editor's, and a market that is read-only shows them without the controls ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** wherever a vendor appears: a row on the Vendors page ([J11](vendors.md#j11-browse-by-vendor)), a name on a seat or "View vendor" in the placement dialog ([J7](placing-by-hand.md#j7-swap-two-vendors)), a name on Attendance ([K5](market-day-door.md#k5-watch-attendance)), and a row of the review's All view ([the All view](review.md#the-all-view)).
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md), [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
@@ -40,7 +41,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    Opened from the review's All view, the application's status sits under the head, with who holds it open, and Reject, Needs follow-up and Approve beside it while the review is open; everywhere else the verdict and its giver only read.
    The drawer offers verdicts on the server's answers, the verdicts row's and `verdictsSettledReason`, never on a list of phases of its own, so it and the review cannot disagree.
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
-4. Three tabs, moved between with the arrow keys:
+4. Four tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
      An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it, and "Their answer changed since your update." once a re-import or their own edit changed what they wrote.
      "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer", and the answers the assignment reads show read-only ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
@@ -48,12 +49,18 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).
      "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
+   - **Payment:** what they owe and what they paid ([payments](../../implementation/data/payments.md)), for the organizers alone (Q20.2).
+     Both totals head it, "Owed" and "Paid", with how the two compare: "Owes $27", "Paid in full", "Paid $15 more than owed" (the case where a refund is to be issued by hand), or "Nothing owed".
+     Then a line per table-day, its date, table, tier and size, and what is owed for it: the price of the seat they hold that day, following the seat when it moves; a market with no prices reads "No price".
+     A day whose table was freed keeps its line, marked "Table freed", still owed: freeing a table changes neither amount by itself (Daniel, T92 Q26).
+     Then each payment, the last recorded first: its amount, e-transfer or cash, the day it was paid, its note, and who recorded it and when.
+     "Record payment", at the end of the Payments heading for whoever the row "Record a payment" allows, opens a dialog of the amount, e-transfer or cash, the day paid (today to begin with) and an optional note; once recorded, the tab reads the account the server answers.
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
-Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
+Covered by: `the-vendor-drawer.spec.ts`, `the-payment-tab.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
 
 ## The rules it obeys
 

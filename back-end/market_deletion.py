@@ -1,8 +1,8 @@
 """Deleting a market, and everything kept with it (bug 47).
 
 A market keeps records beside itself, keyed by its id: its applications (each vendor's name, email
-and answers), its check-ins, its applicant sign-in codes, its history and the organizer's
-notes on its vendors. Deleting the market document alone left all of them behind for ever,
+and answers), its check-ins, its applicant sign-in codes, its history, the organizer's
+notes on its vendors, and its vendors' payments and amounts owed. Deleting the market document alone left all of them behind for ever,
 describing a market nobody could reach any more. Both doors that delete a market - its own Delete,
 and its organization's - come through here, so a record kind added later is one line in one place
 rather than a third door that forgets it.
@@ -16,6 +16,7 @@ import api.applicant_auth as ApplicantAuth
 import api.applications as ApplicationsApi
 import api.attendance as AttendanceApi
 import history as History
+import payments as Payments
 import vendor_notes as VendorNotes
 
 
@@ -26,4 +27,5 @@ def delete_market_and_records(markets_collection: Any, market_id: str) -> Any:
     ApplicantAuth.delete_challenges_for_market(market_id)
     History.delete_for_market(market_id)
     VendorNotes.delete_for_market(market_id)
+    Payments.delete_for_market(market_id)
     return markets_collection.delete_one({"id": market_id})

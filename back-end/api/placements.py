@@ -36,6 +36,7 @@ from datatypes import (
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import api.payments as PaymentsApi
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError
 import history as History
@@ -392,6 +393,10 @@ def remove_placement(
         if existing.email == email and existing.date == date
     ]
     if freed:
+        # Before the seat goes, while the market still says what it cost: freeing a table changes
+        # neither what the vendor owes nor what they paid (E44/F01/S01). Kept first, so a seat
+        # whose line could not be kept is not freed.
+        PaymentsApi.keep_freed_line(market, email, date, requesting_user)
         _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
         for placement in freed:
             History.record_freed(

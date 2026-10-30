@@ -16,6 +16,7 @@ sources:
   - E39/F01/S04
   - E41/F01/S01
   - E38/F04/S02
+  - E44/F01/S01
 ---
 
 # The market's history
@@ -86,6 +87,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
 | `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |
 | `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
+| `record-payment` | null | [recording a vendor's payment](payments.md) | the vendor | `payment_id` | `cents`, `method`, `paid_on` and `note` (when there is one), null before |
 | `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here | the vendor | `date` | `checked_in`, and `via: check_in_page` from the public page, whose actor is null |
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |

@@ -12,6 +12,7 @@ verified: 2026-10-30
 sources:
   - T92
   - E43/F01/S01
+  - E44/F01/S01
 ---
 
 # A price follows the table
@@ -51,6 +52,7 @@ Changing the prices is part of "Change Market Setup", an Editor's ([what each ro
   A change after draft is refused with the setup's own reason, since `setup_part` includes the prices; and each change is recorded in [the market's history](../../implementation/data/history.md) as a `pricing` entry, before and after.
 - `assignment_price` in `back-end/pricing.py` prices one assignment; the tables read (`get_market_tables`) carries each vendor's price on their table's row as `prices`, `{email, cents}`, empty where the table has none.
   The drawer's date cards read it there ("Gold, full table, $35"; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
+- What an assignment costs is what the vendor owes for that table-day by default, on the drawer's Payment tab, where a line follows its seat until someone sets the amount by hand, and a freed table's line stays owed ([payments, and what a vendor owes](../../implementation/data/payments.md)).
 - The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing); a tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it (`pricingAfterTierChange`); a cell or the share holding text that is no value keeps the value from before it, no price for a cell that had none, and holds the plan's autosave (`held`, `planHeld` in `MarketSetupView.vue`) until it is fixed.
   That text moves with its tier's rename and goes with its tier, and the share's goes with the last tier, so no hold outlives its field.
 - `back-end/tests/test_the_pricing_card.py`, `front-end/src/__tests__/pricing.test.ts`, `elementPricing.test.ts` and `front-end/e2e/the-pricing-card.spec.ts` pin it.
