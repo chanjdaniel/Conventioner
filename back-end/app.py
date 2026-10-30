@@ -841,7 +841,8 @@ def choose_reviewers(market_id: str) -> Response:
     (E38/F07/S02).
 
     Body: { "reviewers": ["sam@example.com", ...] }, the whole team; an empty list removes every
-    reviewer. Answers { "reviewTeam": {"reviewers": [{"email", "able"}]}, "dealt": <count> }.
+    reviewer. Answers { "reviewTeam": {"reviewers": [{"email", "able"}]}, "dealt": <count> }, or
+    409 while another deal holds the market for longer than a choice waits.
 
     The only writer of the market's reviewers.
     """
