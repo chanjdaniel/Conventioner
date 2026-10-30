@@ -58,11 +58,11 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   const tables = new TablesPage(page);
   await tables.goto(marketId);
   await tables.vacantSeat('A 3').click();
-  const who = tables.dialog.getByTestId('placement-dialog-vendor');
-  await expect(who.getByTestId('placement-dialog-added').locator('option')).toHaveText([
+  const who = await tables.openPicker('vendor');
+  await expect(who.getByTestId('placement-dialog-added').getByRole('option')).toHaveText([
     /Walk-in Wares/,
   ]);
-  await who.selectOption('walk.in@example.com');
+  await tables.pick('vendor', 'walk.in@example.com', 'walk-in');
   // Nothing they answered to cross, said as such - not that they declined the date.
   await expect(tables.dialogWarning).toHaveText(
     'Added by hand: they gave no answers to check this seat against.',

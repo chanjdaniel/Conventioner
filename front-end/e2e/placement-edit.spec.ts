@@ -39,7 +39,7 @@ test.describe('Changing a placement on the Tables view', () => {
     // product says so before the change rather than rewriting their answer afterwards.
     await tables.vacantSeat('Hall A 4').click();
     await expect(tables.dialog).toBeVisible();
-    await tables.dialog.getByTestId('placement-dialog-vendor').selectOption(freedVendor);
+    await tables.pick('vendor', freedVendor);
     await tables.dialog.getByTestId('placement-dialog-seat-Half Table (Left)').check();
     await expect(tables.dialogWarning).toContainText('whole table');
 

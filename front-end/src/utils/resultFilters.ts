@@ -124,21 +124,31 @@ function placeMatches(place: VendorPlacement, filters: ResultFilters): boolean {
 const WHOLE_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * The search: the table's label, or anyone at it by address, name or text answer. A whole address
- * finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer naming it.
+ * Whether words find one vendor: by part of their address, their names or a short answer
+ * (`VendorSearch`), or by where they are when that is given, such as the table they sit at. A whole
+ * address finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer
+ * naming it. The pages' search and the placement dialog's pickers both ask it (E38/F08/S03), so a
+ * search finds the same vendors everywhere.
  */
+export function vendorFound(
+  words: string,
+  address: string,
+  search: VendorSearch,
+  where: readonly string[] = [],
+): boolean {
+  const needle = words.trim().toLowerCase();
+  if (!needle) return true;
+  const vendor = address.trim().toLowerCase();
+  if (WHOLE_ADDRESS.test(needle)) return vendor === needle;
+  const found = (text: string) => text.toLowerCase().includes(needle);
+  return found(vendor) || (search[vendor] ?? []).some(found) || where.some(found);
+}
+
+/** The search: the table's label, or anyone at it (`vendorFound`). */
 function matchesSearch(row: MarketTableRow, needle: string, search: VendorSearch): boolean {
   if (!needle) return true;
-  if (WHOLE_ADDRESS.test(needle)) {
-    return (row.assignmentSlots ?? []).some((email) => email?.trim().toLowerCase() === needle);
-  }
-  const found = (text: string) => text.toLowerCase().includes(needle);
-  if (found(row.tableCode)) return true;
-  return (row.assignmentSlots ?? []).some((email) => {
-    if (!email) return false;
-    const address = email.trim().toLowerCase();
-    return found(address) || (search[address] ?? []).some(found);
-  });
+  if (!WHOLE_ADDRESS.test(needle) && row.tableCode.toLowerCase().includes(needle)) return true;
+  return (row.assignmentSlots ?? []).some((email) => !!email && vendorFound(needle, email, search));
 }
 
 /** Every filter but the status, the search's words prepared once for every row. */

@@ -358,6 +358,36 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // Its swap picker searched, the list open with a choice active on its beige (E38/F08/S03).
+    name: 'the swap picker, searched',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-change',
+        'placement-dialog-window',
+      ])(page, seed);
+      const field = page.getByTestId('placement-dialog-swap-target-input');
+      await field.fill('a');
+      await field.press('ArrowDown');
+      await visible(page, 'placement-dialog-swap-target-list');
+    },
+  },
+  {
+    // And the place picker's groups, open on a free seat.
+    name: 'the place picker, open',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-empty',
+        'placement-dialog-window',
+      ])(page, seed);
+      await page.getByTestId('placement-dialog-vendor-input').click();
+      await visible(page, 'placement-dialog-vendor-list');
+    },
+  },
+  {
     name: 'the placement history',
     who: 'organizer',
     sizes: ORGANIZER,

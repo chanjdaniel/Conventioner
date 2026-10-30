@@ -129,13 +129,33 @@ export class TablesPage {
     await this.page.getByTestId(`tables-filter-${name}`).selectOption(value);
   }
 
+  /**
+   * One of the placement dialog's two pickers (E38/F08/S03): "Who sits here" to place someone,
+   * "Swap them with" to trade seats. Each is a field that narrows its list as it is typed in.
+   */
+  picker(which: 'vendor' | 'swap-target'): Locator {
+    return this.dialog.getByTestId(`placement-dialog-${which}`);
+  }
+
+  /** A picker's list, opened as a click on its field opens it. */
+  async openPicker(which: 'vendor' | 'swap-target'): Promise<Locator> {
+    await this.picker(which).getByRole('combobox').click();
+    return this.picker(which).getByRole('listbox');
+  }
+
+  /** Choose a vendor in a picker by typing part of what finds them, then clicking them. */
+  async pick(which: 'vendor' | 'swap-target', email: string, words = email): Promise<void> {
+    await this.picker(which).getByRole('combobox').fill(words);
+    await this.picker(which).locator(`[role="option"][data-value="${email}"]`).click();
+  }
+
   async placeVendor(email: string): Promise<void> {
-    await this.dialog.getByTestId('placement-dialog-vendor').selectOption(email);
+    await this.pick('vendor', email);
     await this.dialog.getByTestId('placement-dialog-confirm').click();
   }
 
   async swapWith(email: string): Promise<void> {
-    await this.dialog.getByTestId('placement-dialog-swap-target').selectOption(email);
+    await this.pick('swap-target', email);
     await this.dialog.getByTestId('placement-dialog-swap').click();
   }
 

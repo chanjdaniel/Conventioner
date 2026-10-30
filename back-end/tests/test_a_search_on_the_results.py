@@ -101,3 +101,49 @@ def test_a_long_answer_is_a_description_not_what_identifies_them(monkeypatch):
     }])
 
     assert terms == {"nadia@ember.test": ["Ember & Ash"]}
+
+
+def test_the_vendors_the_place_dialog_offers_are_served_too(monkeypatch):
+    """The placement dialog's "Who sits here" is searched by the same terms (E38/F08/S03), and
+    offers vendors at no table that day, or at none, so they are served beside the seated."""
+    import api.markets as MarketsApi
+    from assignment.vendor_input import SolverVendor
+    from datatypes import Application, ApplicationStatus, MarketTableRow
+    from test_assignment_statistics_api import _sample_market_doc_with_setup
+
+    def vendor(email):
+        return SolverVendor(
+            application_id=f"app-{email}", email=email, available_dates=frozenset({"2026-01-01"}),
+            max_dates=None, accepted_tiers_by_date={}, table_choice=None, table_share_email=None,
+            section_ranking=(), table_type_ranking=(),
+        )
+
+    walk_in = Application(
+        id="app-3", market_id="market-123", applicant_email="walk.in@example.com",
+        status=ApplicationStatus.REVIEWER_APPROVED, form_data={},
+        added_by={"user_id": "user-1", "email": "editor@market.test"},
+    )
+    monkeypatch.setattr(
+        MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc_with_setup())
+    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
+    monkeypatch.setattr(MarketsApi, "derive_market_table_rows", lambda _market: [MarketTableRow(
+        date="2026-01-01", assignment=["held@example.com", "held@example.com"],
+        assignment_slots=["held@example.com", "held@example.com"],
+        location="Main Hall", section="A", table_choice="Full Table", table_code="A1", tier="Gold",
+    )])
+    monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
+    monkeypatch.setattr(
+        MarketsApi, "solver_vendors_for",
+        lambda _market: [vendor("ana@example.com"), vendor("ben@example.com")])
+    monkeypatch.setattr(
+        MarketsApi, "outside_solver_vendors",
+        lambda *_args: [(vendor("walk.in@example.com"), walk_in)])
+    asked = []
+    monkeypatch.setattr(
+        MarketsApi.ApplicationsApi, "vendor_search_terms_for_market",
+        lambda _id, _fields, addresses: asked.extend(addresses) or {})
+
+    MarketsApi.get_market_tables("market-123", "viewer@example.com")
+
+    assert sorted(asked) == [
+        "ana@example.com", "ben@example.com", "held@example.com", "walk.in@example.com"]

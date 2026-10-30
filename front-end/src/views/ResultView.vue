@@ -340,6 +340,7 @@ const swapTargets = computed((): SwapTarget[] => {
       targets.push({
         email,
         tableCode: row.tableCode,
+        section: row.section,
         tier: row.tier,
         seat: seatHeldBy(row, email),
       });
@@ -614,6 +615,7 @@ function swapSeats(withEmail: string): void {
       :marketCeiling="marketCeiling"
       :swapTargets="swapTargets"
       :vendorNames="vendorNames"
+      :vendorSearch="vendorSearch"
       :busy="placementBusy"
       :errorMessage="placementError"
       @place="placeVendor"

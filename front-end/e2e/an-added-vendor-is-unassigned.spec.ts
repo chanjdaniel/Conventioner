@@ -70,7 +70,7 @@ test('a vendor added without a table is unassigned until seated', async ({
   const tables = new TablesPage(page);
   await tables.gotoWithFilters(marketId, { date: FIRST });
   await tables.vacantSeat('Hall A 5').click();
-  await tables.dialog.getByTestId('placement-dialog-vendor').selectOption('walk.in@example.com');
+  await tables.pick('vendor', 'walk.in@example.com', 'walk');
   await tables.dialog.getByTestId('placement-dialog-confirm').click();
   await expect(tables.dialog).toBeHidden();
   await expect(unassignedLink).toHaveText(/^0\s+unassigned\s*$/);

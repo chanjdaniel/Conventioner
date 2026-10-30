@@ -1562,6 +1562,18 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
 
     rows = derive_market_table_rows(assigned_market)
     pricing = market.setup_object.pricing if market.setup_object else None
+    # Who may be put in a seat, and what they asked for. Sent with the grid because the view has
+    # to warn - before the change, not after - when a placement would alter a vendor's table choice
+    # away from their own answer (E11/F03/S01). Every applicant, the ones outside the run with why
+    # (E36/F02/S02): an organizer may seat anyone by hand, warned, and the run's own come first.
+    placeable = [_placeable(vendor, None) for vendor in vendors] + [
+        _placeable(vendor, application)
+        for vendor, application in outside_solver_vendors(
+            market_id,
+            EssentialFields.effective_essential_options_for_market(market),
+            {vendor.email for vendor in vendors},
+        )
+    ]
     return {
         # Each occupant's price rides on their row, for the organizer's eyes only: this read is
         # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
@@ -1574,25 +1586,16 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
         # the rows rather than fetched separately so the grid and its occupants' names can
         # never be a request apart.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-        # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+        # What the page's search finds each vendor by, beyond their address (E35/F02/S01): every
+        # vendor at a table, and every one the place dialog offers, whose picker searches by the
+        # same terms (E38/F08/S03).
         "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
             market_id,
             market.application_form.fields if market.application_form else [],
-            {email for row in rows for email in row.assignment_slots if email},
+            {email for row in rows for email in row.assignment_slots if email}
+            | {vendor["email"] for vendor in placeable},
         ),
-        # Who may be put in a seat, and what they asked for. Sent with the grid because the
-        # view has to warn - before the change, not after - when a placement would alter a
-        # vendor's table choice away from their own answer (E11/F03/S01).
-        # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
-        # seat anyone by hand, warned, and the run's own vendors come first.
-        "vendors": [_placeable(vendor, None) for vendor in vendors] + [
-            _placeable(vendor, application)
-            for vendor, application in outside_solver_vendors(
-                market_id,
-                EssentialFields.effective_essential_options_for_market(market),
-                {vendor.email for vendor in vendors},
-            )
-        ],
+        "vendors": placeable,
     }, 200
 
 

@@ -229,9 +229,10 @@ def vendor_search_terms_for_market(
     ``vendor_names_for_market`` is: the name they chose, the one on their identification, then
     their short answers to the form's text and email questions, in the form's order.
 
-    Only the vendors in ``placed`` - the ones at a table - are read, since the search finds tables.
-    Blank and long answers are left out, and so is a vendor with nothing to search; the page matches
-    the address itself. ``fields`` is the market's own form: which questions are text is its to say.
+    Only the vendors in ``placed`` are read: the ones at a table, whom the search finds tables by,
+    and the ones the placement dialog's pickers offer (E38/F08/S03). Blank and long answers are left
+    out, and so is a vendor with nothing to search; the page matches the address itself. ``fields``
+    is the market's own form: which questions are text is its to say.
     """
     asked = [field.key for field in fields if field.type in SEARCHED_ANSWER_TYPES]
     keys = [EssentialFields.PREFERRED_NAME_KEY, EssentialFields.FULL_NAME_KEY, *asked]
