@@ -25,7 +25,7 @@ test.describe('The assignment rules close with the assignment', () => {
   });
 
   test('publishing from the rail settles the rules', async ({ authenticatedPage: page }) => {
-    await page.goto(marketSetupPath(marketId, 'assignment'));
+    await page.goto(marketSetupPath(marketId, 'settings'));
     const maxPerVendor = page.getByTestId('setup-options-max-assignments-input');
     await expect(maxPerVendor).toBeEnabled({ timeout: 15000 });
     await expect(page.getByTestId('priority-add-rule')).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('The assignment rules close with the assignment', () => {
     });
     await expect(page).toHaveURL(/\/attendance$/);
     await page.getByTestId('market-bar-tab-assignment').click();
-    await page.getByTestId('market-pages-assignment').click();
+    await page.getByTestId('market-pages-settings').click();
 
     await expect(maxPerVendor).toBeDisabled();
     await expect(page.getByTestId('setup-options-max-proportion-input')).toBeDisabled();

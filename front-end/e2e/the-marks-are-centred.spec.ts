@@ -35,11 +35,11 @@ test('the current dot sits on the middle of its label, on the bar and on the pag
   authenticatedPage: page,
   request,
 }) => {
-  // An assigned market's current tab is Assignment and its current page Result, so both rows
+  // An assigned market's current tab is Assignment and its current page Assignments, so both rows
   // carry a dot on one screen.
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto(marketScreenPath(seed.marketId, 'result'));
+  await page.goto(marketScreenPath(seed.marketId, 'assignments'));
   await page.evaluate(() => document.fonts.ready);
 
   const tabDot = page.getByTestId('market-bar-current-dot');

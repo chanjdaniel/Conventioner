@@ -1,5 +1,5 @@
 /**
- * How the Result page narrows what it shows (E09/F02/S01, E28/F02).
+ * How the Assignments page narrows what it shows (E09/F02/S01, E28/F02).
  *
  * Every filter lives in the address, so a filtered view is a link. The status filter is the odd
  * one out: its options are also counts, and a count must not be narrowed by itself - choosing
@@ -189,7 +189,7 @@ export function hasPlaceFilter(filters: ResultFilters): boolean {
 }
 
 /**
- * The part of a query both Result pages share (E28/F02/S02): moving from the tables to the vendors
+ * The part of a query both the Assignments and Vendors pages share (E28/F02/S02): moving from the tables to the vendors
  * keeps the day, section, tier and table size the organizer is looking at. The status belongs to
  * tables and the open vendor to the vendors page, so neither travels.
  */
@@ -271,7 +271,7 @@ export function inVendorsShown(
 }
 
 /**
- * Which filters a Result page offers. The tables take every one; the vendors take the where-filters
+ * Which filters the Assignments or Vendors page offers. The tables take every one; the vendors take the where-filters
  * - the status is a fact about tables - and, with "Unassigned only", the date alone, since the
  * others describe a placement an unplaced vendor does not have. A filter not offered draws neither a
  * picker nor a chip, so nothing on screen claims to narrow a list it does not.

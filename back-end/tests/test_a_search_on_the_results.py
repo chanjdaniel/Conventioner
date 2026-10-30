@@ -1,6 +1,6 @@
 """A search on the results (E35/F02/S01).
 
-The Result page finds a vendor's tables by what identifies them: the names they gave, their address,
+The Assignments page finds a vendor's tables by what identifies them: the names they gave, their address,
 and their answers to the form's text and email questions - a business name, a business email, a
 handle. The page has the addresses already; the server serves the rest beside the grid, keyed by
 address, so the search reads the same applications every other surface does.

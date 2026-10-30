@@ -47,12 +47,12 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      Escape closes the dialog alone; once it saves, the drawer reads the market's vendors again, which the Vendors list shares, and the review's All view behind it reads its list again.
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35" ([a price follows the table](../rules/a-price-follows-the-table.md)).
-     "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
+     "Change assignment" opens the Assignments page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
-A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
+A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
 
 ## The rules it obeys

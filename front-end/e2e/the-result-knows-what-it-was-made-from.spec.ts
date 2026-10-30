@@ -27,7 +27,7 @@ test.describe('The result knows what it was made from', () => {
   test('change a rule and the result says so; run again and it is gone', async ({
     authenticatedPage: page,
   }) => {
-    await page.goto(marketSetupPath(marketId, 'assignment'));
+    await page.goto(marketSetupPath(marketId, 'settings'));
     // The half-table proportion: max-per-vendor is clamped to the market's one date, so changing it
     // can land back on the value it had.
     const halfTables = page.getByTestId('setup-options-max-proportion-input');
@@ -38,8 +38,8 @@ test.describe('The result knows what it was made from', () => {
     await halfTables.fill(current === '40' ? '30' : '40');
     await halfTables.blur();
 
-    // The line is on the Result page, where the assignment it describes is (E22/F04/S04).
-    await page.getByTestId('market-pages-result').click();
+    // The line is on the Assignments page, where the assignment it describes is (E22/F04/S04).
+    await page.getByTestId('market-pages-assignments').click();
     const line = page.getByTestId('assignment-out-of-date');
     await expect(line).toContainText('Your rules changed since tables were allocated', {
       timeout: 10000,
@@ -47,7 +47,9 @@ test.describe('The result knows what it was made from', () => {
 
     await line.getByRole('link', { name: 'Allocate tables again' }).click();
     await page.getByTestId('market-setup-assign-button').click();
-    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignments$`), {
+      timeout: 15000,
+    });
     await expect(page.getByTestId('result-strip')).toBeVisible();
     await expect(line).toHaveCount(0);
   });

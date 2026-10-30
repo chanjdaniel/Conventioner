@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The Result pages' filter bar: date, section, tier and table size, with a chip for each filter
+ * The Assignments and Vendors pages' filter bar: date, section, tier and table size, with a chip for each filter
  * that is set (E28/F02/S02).
  *
  * One bar for the tables and the vendors, under the same address keys, so the two pages filter

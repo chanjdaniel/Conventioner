@@ -71,10 +71,10 @@ On the Google Form path, Begin Review from Import is one move through `applicati
 | Applications Open / Import | Online applications arrive and can be reviewed as they do / the Google Form's responses are imported and reviewed | Applications; a move into Import lands on the import | Close Applications / Begin Review | Reopen for Editing, Archive Market |
 | Applications Closed / Imported | Finish deciding / drawn only for a market already standing there | Applications | Begin Review | Reopen Applications / Import more responses, Archive Market |
 | Review / Review | Finish reviewing: nothing more is coming in | Applications | Begin Assignment | Return to Applications Closed / Import more responses, Archive Market |
-| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Assignment, then Result once run | Publish Market | Archive Market |
-| Offers (planned) | Vendors accept or refuse | Result once run, else Assignment | Publish Market | Archive Market |
+| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish Market | Archive Market |
+| Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish Market | Archive Market |
 | Market Days / Market Days | Vendors check in | Attendance | Archive Market, once every date has passed | Archive Market, until then |
-| Archived / Archived | Read only | Result if it was assigned, else Market Setup | none | none |
+| Archived / Archived | Read only | Assignments if it was assigned, else Market Setup | none | none |
 
 "Send Offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
 
@@ -97,7 +97,7 @@ When the server would refuse that step, the sentence is its first blocker instea
 
 Every tab stays on the bar from Draft to the end, on both paths.
 A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Import opens once the market leaves draft."), and Attendance until the market is published ("Opens when the market is published.").
-Result and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
+Assignments and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
 The setup, the form and the assignment rules each say they are settled where they are edited, in the server's own words.
 
 ## What refuses a move

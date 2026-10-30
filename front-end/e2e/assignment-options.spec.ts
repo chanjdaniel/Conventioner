@@ -32,7 +32,7 @@ test('a blank ceiling runs with no ceiling, and both options are named fields', 
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
 
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   const ceiling = page.getByRole('spinbutton', { name: 'Max assignments per vendor' });
   const halves = page.getByRole('spinbutton', { name: /Max half table proportion/ });
   await expect(ceiling).toHaveValue('');
@@ -46,7 +46,7 @@ test('a blank ceiling runs with no ceiling, and both options are named fields', 
   const run = page.getByTestId('market-setup-assign-button');
   await expect(run).toBeEnabled();
   await run.click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignments$`), { timeout: 15000 });
 
   const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as {
@@ -86,7 +86,7 @@ test('a blank half-table share runs at the 30% default', async ({
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
   });
 
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   const halves = page.getByRole('spinbutton', { name: /Max half table proportion/ });
   await expect(halves).toHaveValue('');
   await expect(halves).toHaveAttribute('placeholder', '30% (default)');
@@ -95,5 +95,5 @@ test('a blank half-table share runs at the 30% default', async ({
   const run = page.getByTestId('market-setup-assign-button');
   await expect(run).toBeEnabled();
   await run.click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignments$`), { timeout: 15000 });
 });

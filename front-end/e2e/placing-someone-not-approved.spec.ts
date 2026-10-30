@@ -110,7 +110,7 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
 /**
  * The Vendors page lists every applicant (E36/F02/S04): Reza with his verdict, "Rejected only"
  * beside "Unassigned only" and kept by a refresh, and the count still the run's, so it agrees with
- * Result.
+ * Assignments.
  */
 test('the Vendors page lists the rejected too, and counts only the run', async ({
   authenticatedPage: page,

@@ -1,5 +1,5 @@
 /**
- * Satisfaction as the Result page shows it: a whole percent, rounded DOWN.
+ * Satisfaction as the Assignments page shows it: a whole percent, rounded DOWN.
  *
  * Rounding to the nearest showed a run that missed one date in 210 as "100%", which tells the
  * organizer nobody was short-changed when someone was (known gap 7). The small nudge keeps a score

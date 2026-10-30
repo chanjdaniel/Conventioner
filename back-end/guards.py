@@ -311,7 +311,7 @@ class AssignmentComputedGuard:
                     "No tables have been allocated for this market, so its check-in page could "
                     "not tell anyone where to stand. Allocate tables first."
                 ),
-                resolution_link="assignment",
+                resolution_link="settings",
                 resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
@@ -422,7 +422,7 @@ class NoApprovedApplicationsGuard:
                     "assigned or unassigned. Allocate tables before "
                     "sending offers."
                 ),
-                resolution_link="assignment",
+                resolution_link="settings",
                 resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
@@ -651,7 +651,8 @@ class NoOrphanedPinGuard:
                 "Restore the seat in the plan, or move or free those vendors."
             ),
             # Two remedies again, on two pages: restoring the seat is Market Setup, and moving a
-            # vendor is the Result page. This used to say `?tab=assignment`, which holds neither.
+            # vendor is the Assignments page. This used to say `?tab=assignment`, which holds
+            # neither.
             resolution_link=None,
         )
 

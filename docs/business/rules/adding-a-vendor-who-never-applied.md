@@ -14,7 +14,7 @@ sources:
 # Adding a vendor who never applied
 
 From Assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never assigned when tables are allocated, and is assigned by hand.
-An address the market already holds an application for is refused: that vendor is assigned on the Result page instead.
+An address the market already holds an application for is refused: that vendor is assigned on the Assignments page instead.
 
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [The door on market day](../intents/the-door-on-market-day.md).
 

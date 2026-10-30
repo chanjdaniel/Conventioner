@@ -72,7 +72,7 @@ const anyRejected = computed(() => vendors.value.some(isRejected));
 
 /**
  * One kind of applicant, in the address so a link is a link: "Unassigned only", where "N
- * unassigned" on the Result page leads (E22/F04/S04), and "Rejected only" beside it.
+ * unassigned" on the Assignments page leads (E22/F04/S04), and "Rejected only" beside it.
  */
 const shown = computed<VendorsShown>(() => vendorsShownFrom(route.query.show));
 const onlyUnassigned = computed(() => shown.value === 'unassigned');
@@ -85,7 +85,7 @@ function show(choice: VendorsShown): void {
 }
 
 /**
- * The Result page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
+ * The Assignments page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
  * the same address keys as the tables, so a filter set there is still set here.
  */
 const { filters: addressFilters } = useResultFilters();

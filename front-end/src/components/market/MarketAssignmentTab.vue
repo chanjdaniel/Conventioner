@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * The Assignment page: the rules and the run (E18/F02/S04, E22/F04/S03).
+ * The Settings page: the rules and the run (E18/F02/S04, E22/F04/S03), called Assignment until
+ * E38/F08/S01. Its heading says "Assignment settings", so it is never taken for the market's own
+ * settings on Market Setup.
  *
- * The result used to sit under the rules on one long page; it is a page of its own now (Result), and
- * a run lands there. Once an assignment exists the button runs it again and says what that keeps:
+ * The result used to sit under the rules on one long page; it is a page of its own now
+ * (Assignments), and a run lands there. Once an assignment exists the button runs it again and says what that keeps:
  * every hand placement is a pin, and a run re-places only what the solver placed, so there is no
  * confirmation to ask for.
  *
@@ -60,6 +62,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 
 <template>
   <div class="settings-body settings-body-stacked">
+    <h2 class="settings-heading" data-testid="assignment-settings-heading">Assignment settings</h2>
     <!-- The rules as they were run, and why nothing offers to change them (E22/F02/S02). Only the
          rules' own lock: why this person may change nothing is the frame's to say (T15). -->
     <p v-if="rulesLockReason" class="note" data-testid="assignment-rules-settled">
@@ -169,6 +172,14 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
   display: flex;
   gap: var(--space-8);
   padding: var(--space-6);
+}
+
+.settings-heading {
+  margin: 0;
+  font-family: 'Merge One';
+  font-size: var(--text-xl);
+  line-height: 1.3;
+  color: var(--mm-black);
 }
 
 .settings-body-stacked {

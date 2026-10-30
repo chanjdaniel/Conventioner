@@ -3,7 +3,7 @@
  * Adding a vendor who never applied (E36/F03/S01): a walk-in, or a late arrangement.
  *
  * A name and an address, and the market records an application saying who added it and when. They
- * are then seated by hand on the Result page, like anyone; the run never places them.
+ * are then seated by hand on the Assignments page, like anyone; the run never places them.
  */
 import { ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
@@ -57,8 +57,8 @@ async function add(): Promise<void> {
     @submit="add"
   >
     <p class="add-vendor-note">
-      For someone who never applied. They are added as approved, and you assign them on the Result
-      page.
+      For someone who never applied. They are added as approved, and you assign them on the
+      Assignments page.
     </p>
     <label class="field-label" for="add-vendor-name">Name</label>
     <input

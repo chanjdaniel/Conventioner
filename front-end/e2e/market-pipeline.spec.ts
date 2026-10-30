@@ -150,8 +150,8 @@ test.describe('Market pipeline E2E', () => {
     const assignError = page.getByTestId('market-setup-assign-error');
     await expect(assignError).toBeHidden();
 
-    // Phase 3: Verify the result. A run lands on the Result page (E22/F04/S03).
-    await expect(page).toHaveURL(/\/result$/, { timeout: 15000 });
+    // Phase 3: Verify the result. A run lands on the Assignments page (E22/F04/S03).
+    await expect(page).toHaveURL(/\/assignments$/, { timeout: 15000 });
     const resultsPage = new ResultPage(page);
     await expect(resultsPage.strip).toBeVisible({ timeout: 15000 });
 

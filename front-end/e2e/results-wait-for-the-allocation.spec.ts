@@ -74,7 +74,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await expect(page.getByTestId('app-monitor-published-badge')).toBeVisible();
 
   // Publishing settles the assignment: no run after it, and its rules read as settled.
-  await page.goto(marketSetupPath(market.marketId, 'assignment'));
+  await page.goto(marketSetupPath(market.marketId, 'settings'));
   await expect(page.getByTestId('assignment-rules-settled')).toContainText(
     'Results are published, so the table allocation is settled',
   );

@@ -37,7 +37,7 @@ export function assignRefusal(phase: string | undefined | null): string | null {
     return 'This market is archived. An archived market is the record of what happened, so nothing in it can be changed.';
   }
   // Past assignment: the assignment is settled and vendors have been told. Changing one
-  // placement is what is wanted here, and the Result page is where that happens (E11/F03,
+  // placement is what is wanted here, and the Assignments page is where that happens (E11/F03,
   // E22/F04/S04).
-  return 'The table allocation for this market is settled. Change a single assignment on the Result page instead of allocating tables again.';
+  return 'The table allocation for this market is settled. Change a single assignment on the Assignments page instead of allocating tables again.';
 }

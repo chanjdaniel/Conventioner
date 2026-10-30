@@ -37,7 +37,7 @@ test.describe('One market, from the server', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(marketScreenPath(seeded.marketId, 'result'));
+    await page.goto(marketScreenPath(seeded.marketId, 'assignments'));
     await expect(page.getByTestId('market-bar-title')).toContainText(seeded.marketName, {
       timeout: 15000,
     });
@@ -58,7 +58,7 @@ test.describe('One market, from the server', () => {
   test('a market that does not exist reads as one this organizer cannot reach', async ({
     authenticatedPage: page,
   }) => {
-    for (const screen of ['result', 'floorplan'] as const) {
+    for (const screen of ['assignments', 'floorplan'] as const) {
       await page.goto(marketScreenPath('no-such-market', screen));
 
       await expect(page.getByTestId('market-arrival-missing')).toHaveText(
@@ -136,7 +136,7 @@ test.describe('One market, from the server', () => {
     expect(form.ok()).toBe(true);
 
     // Straight to the Assignment tab, the way Assign and the links back from Tables arrive.
-    await page.goto(marketSetupPath(seed.marketId, 'assignment'));
+    await page.goto(marketSetupPath(seed.marketId, 'settings'));
     await page.getByTestId('priority-add-rule').click({ timeout: 15000 });
 
     const target = page.getByTestId('priority-target-select').last();

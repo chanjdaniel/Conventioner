@@ -65,7 +65,7 @@ test.describe('Every move lands on its phase’s page', () => {
     await page.goto(marketSetupPath(seed.marketId, 'applications'));
     await page.getByTestId('phase-transition-assignment').click();
 
-    await expect(page).toHaveURL(/\/assignment$/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/settings$/, { timeout: 15000 });
   });
 
   test('Publish lands at the door', async ({ authenticatedPage: page }) => {
@@ -79,7 +79,7 @@ test.describe('Every move lands on its phase’s page', () => {
     // Short enough that the result scrolls: the rail sticks, so Publish can be pressed from low on
     // the page, and the door must still open at its top.
     await page.setViewportSize({ width: 1440, height: 480 });
-    await page.goto(marketScreenPath(seed.marketId, 'result'));
+    await page.goto(marketScreenPath(seed.marketId, 'assignments'));
     await expect(page.getByTestId('phase-transition-market_days')).toBeVisible({ timeout: 15000 });
     await page.mouse.wheel(0, 2000);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);

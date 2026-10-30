@@ -255,7 +255,7 @@ The contract says which values are text and holds those to AA; it does not raise
 
 **Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
 Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
-It also serves Result's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
+It also serves the Assignments page's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
 
 **Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
 That check is what made the brand green darker rather than leaving each button to a judgement call.

@@ -56,7 +56,7 @@ test('every seat is one width, an empty table claims no size, and the date chip 
   const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok(), await run.text()).toBeTruthy();
 
-  await page.goto(marketScreenPath(marketId, 'result'));
+  await page.goto(marketScreenPath(marketId, 'assignments'));
   const rows = page.getByTestId('tables-table-row');
   await expect(rows).toHaveCount(5);
 

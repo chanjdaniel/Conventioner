@@ -23,7 +23,7 @@ const refusal = computed(() => assignRefusal(props.market.phase));
     <!-- The space is spoken for: a template's trailing whitespace is condensed away, which ran
          "phase." into "Set the rules" (E30/F01/S01). -->
     <template v-if="refusal">{{ `${refusal} ` }}</template>
-    <RouterLink :to="marketPath(market.id, 'assignment')">
+    <RouterLink :to="marketPath(market.id, 'settings')">
       {{ refusal ? 'Set the rules' : 'Set the rules and allocate tables' }}</RouterLink
     >.
     <slot />

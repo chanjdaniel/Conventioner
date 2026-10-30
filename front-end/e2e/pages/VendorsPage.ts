@@ -13,7 +13,7 @@ export class VendorsPage {
   readonly detailPanel: Locator;
   readonly detailOverlay: Locator;
   readonly detailAssignmentItems: Locator;
-  /** The Result pages' shared filter bar (E28/F02/S02). */
+  /** The Assignments and Vendors pages' shared filter bar (E28/F02/S02). */
   readonly dateFilter: Locator;
   readonly choiceFilter: Locator;
   readonly dateFilterChip: Locator;

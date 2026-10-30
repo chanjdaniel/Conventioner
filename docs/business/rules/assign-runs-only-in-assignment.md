@@ -22,7 +22,7 @@ Inside `assignment` it may be run again as often as needed, until results are pu
 ## Why
 
 Before `assignment` the review is not finished, so a run would place vendors who may yet be rejected.
-After it the answer is settled and vendors have been told, so a run could move someone who already knows their seat; a single placement is changed by hand on the Result page instead.
+After it the answer is settled and vendors have been told, so a run could move someone who already knows their seat; a single placement is changed by hand on the Assignments page instead.
 Inside `assignment` an organizer who changes the plan or approves a late application needs a fresh answer, and there is nothing yet to protect.
 
 **It says only where Assign may run.**

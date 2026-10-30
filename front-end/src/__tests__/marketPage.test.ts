@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PAGE_LABELS,
   TAB_PAGES,
   SETUP_VIEW_PAGES,
   hasAssignment,
@@ -15,7 +16,8 @@ import { MarketPhase } from '@/assets/types/datatypes';
  * How a market's pages are reached (E22/F04/S02, from the-assignment-tab ticket 02).
  *
  * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance and Stats in
- * every phase. The Assignment tab holds three pages - Assignment, Result, Vendors - and a tab opens
+ * every phase. The Assignment tab holds three pages - Settings, Assignments, Vendors (E38/F08/S01) -
+ * and a tab opens
  * the page the market is worked on in its phase: the one carrying the dot.
  */
 describe('the page a market is worked on in its phase', () => {
@@ -34,9 +36,9 @@ describe('the page a market is worked on in its phase', () => {
   });
 
   it('is the rules until an assignment exists, and the result after', () => {
-    expect(currentPage(MarketPhase.Assignment, false)).toBe('assignment');
-    expect(currentPage(MarketPhase.Assignment, true)).toBe('result');
-    expect(currentPage(MarketPhase.Offers, true)).toBe('result');
+    expect(currentPage(MarketPhase.Assignment, false)).toBe('settings');
+    expect(currentPage(MarketPhase.Assignment, true)).toBe('assignments');
+    expect(currentPage(MarketPhase.Offers, true)).toBe('assignments');
   });
 
   it('is attendance while the market is running', () => {
@@ -44,7 +46,7 @@ describe('the page a market is worked on in its phase', () => {
   });
 
   it('is the result of an archived market that ran, and the plan of one that never did', () => {
-    expect(currentPage(MarketPhase.Archived, true)).toBe('result');
+    expect(currentPage(MarketPhase.Archived, true)).toBe('assignments');
     expect(currentPage(MarketPhase.Archived, false)).toBe('setup');
   });
 
@@ -74,11 +76,20 @@ describe('the tabs', () => {
   it('put every page under exactly one tab', () => {
     const pages: MarketPage[] = Object.values(TAB_PAGES).flat();
     expect(new Set(pages).size).toBe(pages.length);
-    expect(TAB_PAGES.assignment).toEqual(['assignment', 'result', 'vendors']);
+    expect(TAB_PAGES.assignment).toEqual(['settings', 'assignments', 'vendors']);
+  });
+
+  it('read Settings, Assignments and Vendors under the Assignment tab (E38/F08/S01)', () => {
+    expect(TAB_PAGES.assignment.map((page) => PAGE_LABELS[page])).toEqual([
+      'Settings',
+      'Assignments',
+      'Vendors',
+    ]);
   });
 
   it('name the tab a page or a flow stands under', () => {
-    expect(tabOf('result')).toBe('assignment');
+    expect(tabOf('settings')).toBe('assignment');
+    expect(tabOf('assignments')).toBe('assignment');
     expect(tabOf('vendors')).toBe('assignment');
     expect(tabOf('import')).toBe('applications');
     expect(tabOf('floorplan')).toBe('setup');
@@ -88,12 +99,12 @@ describe('the tabs', () => {
 
 describe('the page a tab opens', () => {
   it('is the page carrying the dot, when the tab holds it', () => {
-    expect(pageForTab('assignment', MarketPhase.Assignment, true)).toBe('result');
-    expect(pageForTab('assignment', MarketPhase.Assignment, false)).toBe('assignment');
+    expect(pageForTab('assignment', MarketPhase.Assignment, true)).toBe('assignments');
+    expect(pageForTab('assignment', MarketPhase.Assignment, false)).toBe('settings');
   });
 
   it("is the tab's first page otherwise", () => {
-    expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('assignment');
+    expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('settings');
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
     expect(pageForTab('stats', MarketPhase.Review, false)).toBe('stats');
@@ -102,13 +113,13 @@ describe('the page a tab opens', () => {
 
 describe('the page a route is', () => {
   it('reads the four pages of the market view off its address', () => {
-    for (const page of ['setup', 'form', 'applications', 'assignment']) {
+    for (const page of ['setup', 'form', 'applications', 'settings']) {
       expect(pageOfRoute('market-setup', { page })).toBe(page);
     }
   });
 
   it('names the pages and flows that are views of their own', () => {
-    expect(pageOfRoute('market-result', {})).toBe('result');
+    expect(pageOfRoute('market-assignments', {})).toBe('assignments');
     expect(pageOfRoute('vendors', {})).toBe('vendors');
     expect(pageOfRoute('attendance-status', {})).toBe('attendance');
     expect(pageOfRoute('market-stats', {})).toBe('stats');
@@ -136,7 +147,7 @@ describe('whether a market has an assignment', () => {
 
 describe('the pages one view shows', () => {
   it('are the plan, the form, the applications and the rules, all under their own tabs', () => {
-    expect(SETUP_VIEW_PAGES).toEqual(['setup', 'form', 'applications', 'assignment']);
+    expect(SETUP_VIEW_PAGES).toEqual(['setup', 'form', 'applications', 'settings']);
     for (const page of SETUP_VIEW_PAGES) expect(pageOfRoute('market-setup', { page })).toBe(page);
   });
 });

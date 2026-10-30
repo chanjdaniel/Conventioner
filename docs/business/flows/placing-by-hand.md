@@ -26,10 +26,10 @@ sources:
 # Placing by hand
 
 **Who:** the market's Editor, Admin or owner; a Viewer reads every seat and changes none ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Result page, in Assignment or Market Days; on an archived market every seat is a record.
+**Where they start:** the Assignments page, in Assignment or Market Days; on an archived market every seat is a record.
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
-Every seat on the Result page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
+Every seat on the Assignments page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
 "Change" shows at rest, not on hover, since it is the only way to a held seat's dialog and a touch has no hover; a seat on a market that can no longer change draws as text, with nothing to press.
 Before a run the tables are drawn already, so a seat can be given first: "Anyone you assign below first keeps their table: allocating tables assigns everyone else around them."
 A hand placement warns about every answer it overrides and never blocks on one; what it may not do is seat someone with no application, or two people in one seat ([a seat only for an applicant](../rules/a-seat-only-for-an-applicant.md)).
@@ -53,7 +53,7 @@ Every change goes through [the one writer of placements](../../implementation/mo
 5. "Assign them here".
 
 A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
-A seat held by someone not approved is marked "Not approved" on the Result page and in the drawer, and the next run keeps them there.
+A seat held by someone not approved is marked "Not approved" on the Assignments page and in the drawer, and the next run keeps them there.
 Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `placing-someone-not-approved.spec.ts`.
 
 ## J7. Swap two vendors
@@ -88,7 +88,7 @@ Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 ## J13. Assignment history
 
 **Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Assignment history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
+"Assignment history" on the Assignments page opens the market's whole history, and a vendor's drawer has their own on its History tab.
 Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved".
 Anyone who can read the market can read it.
 Covered by: `the-placement-history-dialog.spec.ts`.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A vendor's name that opens their drawer (E35/F01/S02): on a seat of the Result page and on a row
+ * A vendor's name that opens their drawer (E35/F01/S02): on a seat of the Assignments page and on a row
  * at the door. It reads as the name it is, underlined when pointed at, and does nothing else - the
  * seat's change and the door's check-in stay controls of their own beside it.
  */

@@ -106,7 +106,7 @@ test.describe('Changing a placement on the Tables view', () => {
     await link.click();
 
     // Scoped to the date, which is what makes the Tables view's filters reachable at all.
-    await page.waitForURL(/\/result\?.*date=/, { timeout: 10000 });
+    await page.waitForURL(/\/assignments\?.*date=/, { timeout: 10000 });
     const tables = new TablesPage(page);
     await expect(tables.dateFilterChip).toBeVisible();
 

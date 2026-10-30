@@ -71,10 +71,10 @@ describe('a move lands on the page for the phase it enters', () => {
     expect(router.push).toHaveBeenCalledWith('/markets/market-1/applications');
   });
 
-  it('Begin Assignment lands on the assignment', async () => {
+  it('Begin Assignment lands on the assignment settings', async () => {
     await move({ phase: MarketPhase.Review }, MarketPhase.Assignment);
 
-    expect(router.push).toHaveBeenCalledWith('/markets/market-1/assignment');
+    expect(router.push).toHaveBeenCalledWith('/markets/market-1/settings');
   });
 
   it('Publish lands at the door', async () => {

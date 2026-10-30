@@ -267,7 +267,7 @@ def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Opti
 
 VERDICTS_SETTLED = (
     "The review is closed: the verdicts settled when this market entered Assignment. To assign "
-    "someone or free a seat, change the assignment on the Result page."
+    "someone or free a seat, change the assignment on the Assignments page."
 )
 
 
@@ -370,14 +370,14 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 ASSIGNMENT_RULES_SETTLED = (
     "The table allocation for this market is settled. A rule only takes effect when tables are "
     "allocated, and this market can no longer allocate them. Change a single assignment on the "
-    "Result page instead."
+    "Assignments page instead."
 )
 
 
 ASSIGNMENT_RULES_PUBLISHED = (
     "Results are published, so the table allocation is settled: a rule only takes effect when "
     "tables are allocated, and they are not allocated again once applicants have been told. Change "
-    "a single assignment on the Result page instead."
+    "a single assignment on the Assignments page instead."
 )
 
 
@@ -865,7 +865,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
-    # Hand placements at a seat the plan no longer has, for Result and the vendor's panel to mark
+    # Hand placements at a seat the plan no longer has, for Assignments and the vendor's panel to mark
     # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
     # deciding for themselves which seats exist.
     market_dict['orphanedPins'] = [

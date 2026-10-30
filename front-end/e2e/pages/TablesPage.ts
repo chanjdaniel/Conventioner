@@ -53,12 +53,12 @@ export class TablesPage {
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(marketScreenPath(marketId, 'result'));
+    await this.page.goto(marketScreenPath(marketId, 'assignments'));
   }
 
   async gotoWithFilters(marketId: string, query: Record<string, string>): Promise<void> {
     const params = new URLSearchParams(query).toString();
-    await this.page.goto(`${marketScreenPath(marketId, 'result')}?${params}`);
+    await this.page.goto(`${marketScreenPath(marketId, 'assignments')}?${params}`);
   }
 
   async clearAllFilters(): Promise<void> {

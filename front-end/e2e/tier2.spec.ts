@@ -204,8 +204,8 @@ test.describe('Tier 2 - Assignment CSV export', () => {
       localStorage.setItem('user', JSON.stringify(user));
     }, TEST_USER.email);
 
-    // The assignment is read on the Result page (E22/F04/S04), addressed by the market's id.
-    await page.goto(marketScreenPath(marketId, 'result'));
+    // The assignment is read on the Assignments page (E22/F04/S04), addressed by the market's id.
+    await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.getByTestId('result-strip')).toBeVisible({ timeout: 15000 });
 
     const downloadButton = page.getByTestId('result-download-csv-button');

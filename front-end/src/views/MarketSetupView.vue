@@ -393,7 +393,7 @@ const handleAssign = async () => {
     // the market back from the server is all it takes for them to show the new run.
     await refreshMarket();
     // A run lands on the result it produced (E22/F04/S03).
-    showTab('result');
+    showTab('assignments');
   } catch (err: unknown) {
     const data = (
       err as {
@@ -469,7 +469,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
                phase strip above, and "I have finished looking at this" is what leaving a page
                already is. -->
         <MarketAssignmentTab
-          v-if="activeTab === 'assignment'"
+          v-if="activeTab === 'settings'"
           :setupObject="setupObject"
           :formFields="formFields"
           :assignmentOptionsComplete="assignmentOptionsComplete"

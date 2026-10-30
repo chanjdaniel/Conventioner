@@ -47,13 +47,13 @@ Each control asks the row of the action it takes:
 | --- | --- | --- |
 | The phase rail | every move | Move the phase |
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
-| Market Setup, the Assignment page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
-| Market Setup, the Assignment page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| Market Setup, the Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
+| Market Setup, the Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null |
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
-| Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| Assignments, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
 | The drawer | Update info | Update a vendor's info |
@@ -62,7 +62,7 @@ Each control asks the row of the action it takes:
 | Manage market | the Permissions section's Show, its rows and its changes | Read the market; each row's select and Reset to built-in defaults, Change this table |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
 | The markets list | Manage | Read the market |
-| Vendors, Applications' All view, and Result | Export; Download CSV | Export CSV |
+| Vendors, Applications' All view, and Assignments | Export; Download CSV | Export CSV |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
 No screen reads the role-shaped reasons the screens read before: every screen that read one is in the table above.

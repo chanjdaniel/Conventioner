@@ -46,8 +46,8 @@ test('an orphaned pin is marked where the organizer looks, and holds Publish bac
   // settled setup could have it (E31/F01/S01).
   changeASettledPlan(marketId, plan(4));
 
-  // Result marks the table the plan no longer has.
-  await page.goto(marketScreenPath(marketId, 'result'));
+  // Assignments marks the table the plan no longer has.
+  await page.goto(marketScreenPath(marketId, 'assignments'));
   const row = page.locator('[data-testid="tables-table-row"][data-table-code="Hall A 5"]');
   await expect(row.getByTestId('tables-orphaned')).toBeVisible();
 

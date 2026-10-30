@@ -174,7 +174,7 @@ test.describe('The MVP journey', () => {
     // (E10/F03/S02), and Begin Assignment lands on its page (E32/F01/S01). This spec is the one
     // that goes the whole way, so the walk belongs here rather than being skipped past by a seed.
     await setup.advancePhaseTo('assignment', 'Assignment');
-    await expect(page).toHaveURL(/\/assignment$/);
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(setup.assignPhaseHint).toBeHidden();
     await setup.setMaxAssignmentsPerVendor(2);
     await setup.setMaxHalfTableProportion(100);
@@ -185,8 +185,8 @@ test.describe('The MVP journey', () => {
     await expect(setup.assignError).toBeHidden();
 
     // --- 7. The result --------------------------------------------------------------------
-    // A run lands on the Result page (E22/F04/S03): the strip over the tables grid.
-    await expect(page).toHaveURL(/\/result$/, { timeout: 15000 });
+    // A run lands on the Assignments page (E22/F04/S03): the strip over the tables grid.
+    await expect(page).toHaveURL(/\/assignments$/, { timeout: 15000 });
     await expect(results.strip).toBeVisible({ timeout: 15000 });
     await expect(results.occupiedSeats.first()).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: testInfo.outputPath('04-assigned.png'), fullPage: true });

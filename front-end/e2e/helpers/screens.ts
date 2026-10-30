@@ -277,13 +277,13 @@ export const SCREENS: Screen[] = [
     name: 'in assignment, the rules open',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('assignment', 'assignment'), 'assignment-card-priority'),
+    open: at(setup('assignment', 'settings'), 'assignment-card-priority'),
   },
   {
     name: 'in assignment, nothing placed yet',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('assignment', 'result'), 'market-bar-title'),
+    open: at(screen('assignment', 'assignments'), 'market-bar-title'),
   },
 
   // Market days: 36 vendors placed over four dates and three sections.
@@ -297,7 +297,7 @@ export const SCREENS: Screen[] = [
     name: 'the result',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned'),
+    open: at(screen('big', 'assignments'), 'tables-count-assigned'),
   },
   {
     // The ledger of bars (E35/F03/S01): a share in muted ink on white.
@@ -305,7 +305,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'assignments')}?stats=open`);
       await visible(page, 'result-statistics-date');
     },
   },
@@ -315,7 +315,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'assignments')}?stats=open`);
       await visible(page, 'result-statistics-date');
       await page.getByTestId('result-statistics-date').first().hover();
     },
@@ -325,7 +325,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await at(screen('big', 'assignments'), 'tables-count-assigned')(page, seed);
       await page.getByTestId('phase-rail-menu-button').click();
       await expect(page.locator('.rail-menu-item').first()).toBeVisible();
     },
@@ -337,7 +337,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await at(screen('big', 'assignments'), 'tables-count-assigned')(page, seed);
       await page.getByTestId('phase-rail-menu-button').click();
       await page.locator('.rail-menu-item--end').click();
       await visible(page, 'archive-confirm-window');
@@ -352,7 +352,7 @@ export const SCREENS: Screen[] = [
     name: 'the change-placement dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned', [
+    open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'tables-seat-change',
       'placement-dialog-window',
     ]),
@@ -361,7 +361,7 @@ export const SCREENS: Screen[] = [
     name: 'the placement history',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned', [
+    open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'result-history-button',
       'placement-history-dialog-window',
     ]),
@@ -496,19 +496,19 @@ export const SCREENS: Screen[] = [
     name: 'the rules, settled',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('rules', 'assignment'), 'assignment-rules-settled'),
+    open: at(setup('rules', 'settings'), 'assignment-rules-settled'),
   },
   {
     name: 'the result of a market with rules',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('rules', 'result'), 'tables-count-assigned'),
+    open: at(screen('rules', 'assignments'), 'tables-count-assigned'),
   },
   {
     name: 'an archive, its result',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('archived', 'result'), 'tables-count-assigned'),
+    open: at(screen('archived', 'assignments'), 'tables-count-assigned'),
   },
   {
     name: 'an archive, its plan',

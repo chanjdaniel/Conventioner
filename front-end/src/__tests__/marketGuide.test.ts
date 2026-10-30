@@ -119,12 +119,12 @@ describe('the next step', () => {
     });
     expect(nextStep(unrun, TODAY)).toMatchObject({
       text: 'Set the rules and allocate tables.',
-      page: 'assignment',
+      page: 'settings',
     });
     const run = market(MarketPhase.Assignment, {
       assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
     } as Partial<Market>);
-    expect(nextStep(run, TODAY)).toMatchObject({ page: 'result' });
+    expect(nextStep(run, TODAY)).toMatchObject({ page: 'assignments' });
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
   });
 

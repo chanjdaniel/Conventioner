@@ -9,7 +9,7 @@ import { namelessControls } from './helpers/accessibleNames';
  * A vendor who never applied, added by hand on the day (E36/F03/S01).
  *
  * A walk-in is recorded as a vendor the market knows: added on the Vendors page with a name and an
- * address, shown as added by whoever added them, seated by hand on the Result page, and checked in
+ * address, shown as added by whoever added them, seated by hand on the Assignments page, and checked in
  * at the door like anyone.
  */
 test('a walk-in is added on market day, seated, and checked in at the door', async ({
@@ -38,7 +38,7 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
     `Added by ${TEST_USER.email}`,
   );
   await page.getByTestId('vendors-detail-close').click();
-  // Listed as added, and outside the run's count: Vendors and Result still agree (bug 10).
+  // Listed as added, and outside the run's count: Vendors and Assignments still agree (bug 10).
   await expect(
     page
       .getByTestId('vendors-list-item')

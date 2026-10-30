@@ -4,18 +4,26 @@
  * Every market page has its own address, and the market's bar - rendered once, by `MarketFrame` -
  * reaches every one of them the same way. The bar carries Market Setup, Application Form,
  * Applications, Assignment, Attendance and Stats in every phase. The Assignment tab holds three
- * pages: Assignment (the rules and the run), Result (the assignment by table, read and changed) and
- * Vendors (the assignment by vendor). Import and Floorplan are flows entered from a tab rather than
- * places to go, so they stand under that tab.
+ * pages: Settings (the rules and the run), Assignments (the assignment by table, read and changed)
+ * and Vendors (the assignment by vendor); they were Assignment, Result and Vendors until E38/F08/S01.
+ * Import and Floorplan are flows entered from a tab rather than places to go, so they stand under
+ * that tab.
  *
  * A tab opens the page the market is worked on in its phase - the one carrying the dot - so the
  * bar and the rail beneath it say the same thing about where the market is. This replaced
- * `marketSurface.ts`, whose four surfaces could not name Result, Vendors or Attendance.
+ * `marketSurface.ts`, whose four surfaces could not name the assignment, Vendors or Attendance.
  */
 import { type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
-  'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance' | 'stats';
+  | 'setup'
+  | 'form'
+  | 'applications'
+  | 'settings'
+  | 'assignments'
+  | 'vendors'
+  | 'attendance'
+  | 'stats';
 
 /** A flow entered from a tab, rather than a page of one. */
 export type MarketFlow = 'import' | 'floorplan' | 'start-from-csv';
@@ -26,8 +34,8 @@ export const MARKET_PAGES: MarketPage[] = [
   'setup',
   'form',
   'applications',
-  'assignment',
-  'result',
+  'settings',
+  'assignments',
   'vendors',
   'attendance',
   'stats',
@@ -37,12 +45,12 @@ export const MARKET_PAGES: MarketPage[] = [
  * The pages one view shows (`MarketSetupView`): the plan, the form, the applications and the rules.
  * The router's route for them, and the view's own reading of its address, both come from here.
  */
-export const SETUP_VIEW_PAGES = ['setup', 'form', 'applications', 'assignment'] as const;
+export const SETUP_VIEW_PAGES = ['setup', 'form', 'applications', 'settings'] as const;
 export type SetupViewPage = (typeof SETUP_VIEW_PAGES)[number];
 
 /**
  * Whether the market holds an assignment: any placement stored. The one statement of it, read by
- * every page that changes with it - the bar and page row's dot, the landing, the Result page.
+ * every page that changes with it - the bar and page row's dot, the landing, the Assignments page.
  */
 export function hasAssignment(
   market: Pick<Market, 'assignmentObject'> | null | undefined,
@@ -55,7 +63,7 @@ export const TAB_PAGES: Record<MarketTab, MarketPage[]> = {
   setup: ['setup'],
   form: ['form'],
   applications: ['applications'],
-  assignment: ['assignment', 'result', 'vendors'],
+  assignment: ['settings', 'assignments', 'vendors'],
   attendance: ['attendance'],
   stats: ['stats'],
 };
@@ -73,8 +81,8 @@ export const PAGE_LABELS: Record<MarketPage, string> = {
   setup: 'Market Setup',
   form: 'Application Form',
   applications: 'Applications',
-  assignment: 'Assignment',
-  result: 'Result',
+  settings: 'Settings',
+  assignments: 'Assignments',
   vendors: 'Vendors',
   attendance: 'Attendance',
   stats: 'Stats',
@@ -121,8 +129,8 @@ export function pageOfRoute(
       const page = String(params.page ?? '');
       return (MARKET_PAGES as string[]).includes(page) ? (page as MarketPage) : 'setup';
     }
-    case 'market-result':
-      return 'result';
+    case 'market-assignments':
+      return 'assignments';
     case 'vendors':
       return 'vendors';
     case 'attendance-status':
