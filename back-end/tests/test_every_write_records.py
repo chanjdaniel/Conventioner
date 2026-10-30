@@ -351,7 +351,7 @@ def _follow_up_owner(client, world):
 
 
 def _update_info(client, world):
-    world.market(MarketPhase.REVIEW, applicationForm={"fields": [QUESTION]})
+    world.market(MarketPhase.APPLICATIONS, applicationForm={"fields": [QUESTION]})
     world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
     return client.put(f"/markets/{MARKET}/applications/app-1/answers",
                       json={"answers": {"shop": "Ember Ceramics"}})
@@ -465,7 +465,7 @@ def _reset_permission(client, world):
 
 
 def _reset_permissions(client, world):
-    world.market(MarketPhase.REVIEW,
+    world.market(MarketPhase.APPLICATIONS,
                  permissions={"check-in": {"role": "admin", "source": "market"}})
     return client.delete(f"/markets/{MARKET}/permissions")
 
