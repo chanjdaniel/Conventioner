@@ -4,11 +4,8 @@ import { ManageMarketPage } from './pages/ManageMarketPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { completePlan } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
-import {
-  seedApplicationWithStatus,
-  seedPhaseMarket,
-  transitionMarket,
-} from './helpers/seedPhaseMarket';
+import { approvedVendorApplication, insertApplications } from './helpers/seedApplication';
+import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
@@ -23,6 +20,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 const COLLEAGUE = { email: 'e2e-history-colleague@example.com', password: 'e2epassword123' };
 const VENDOR = 'e2e-history-vendor@example.com';
+const VENDOR_NAME = 'Hollis Vendor';
 /** Enough renames that the first page of ten ends before the setup change. */
 const RENAMES = 6;
 
@@ -49,8 +47,18 @@ async function seedAHistory(request: APIRequestContext) {
       }),
     );
   }
-  // As an import leaves it, which a Google Form market's stage waits for.
-  const applicationId = seedApplicationWithStatus(seed.marketId, 'open', VENDOR);
+  // As an import leaves it, which a Google Form market's stage waits for, with the essential
+  // answers the Vendors page reads, so the drawer a vendor link opens has a vendor to show.
+  const application = {
+    ...approvedVendorApplication(seed.marketId, VENDOR, {
+      dates: [plan.marketDates[0].date],
+      tiers: ['Gold'],
+      fullName: VENDOR_NAME,
+    }),
+    status: 'open',
+  };
+  insertApplications([application]);
+  const applicationId = application.id;
   await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
   await ok(
     await request.put(
@@ -118,11 +126,13 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
     `${me} changed ${COLLEAGUE.email} from Editor to Viewer`,
     `${me} gave ${COLLEAGUE.email} the Editor role`,
     expect.stringMatching(
-      new RegExp(`^${me} assigned ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`),
+      new RegExp(
+        `^${me} assigned ${VENDOR_NAME} ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`,
+      ),
     ),
     // A Google Form market's stage is its Review, as its other screens name it.
     `${me} moved the market from Review to Assignment`,
-    `${me} set ${VENDOR} to Approved`,
+    `${me} set ${VENDOR_NAME} ${VENDOR} to Approved`,
   ]);
   expect(first).not.toContain(`${me} changed Market Setup: sections`);
 
@@ -159,7 +169,7 @@ test('each filter narrows the list, and a vendor links to their drawer', async (
   await manage.historyKind.selectOption('');
   await manage.historyVendor.fill(VENDOR);
   await expect(manage.historySentences).toHaveCount(2);
-  await expect(manage.historySentences.first()).toContainText(`assigned ${VENDOR}`);
+  await expect(manage.historySentences.first()).toContainText(`assigned ${VENDOR_NAME}`);
   await expect(manage.historySentences.last()).toContainText('to Approved');
 
   // Who may be narrowed to is whoever changed something here: the colleague only received.
