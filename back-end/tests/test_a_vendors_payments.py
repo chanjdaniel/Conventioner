@@ -201,6 +201,7 @@ class TestFreeingATable:
         on one of them goes, and one on a day it leaves empty stays."""
         PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
         PlacementsApi.remove_placement(MARKET, ANA, SAT, EDITOR)
+        Payments.set_amount_owed(MARKET, ANA, SUN, 0, EDITOR, by_free=True)
         market.doc["phase"] = MarketPhase.ASSIGNMENT.value
         seated_on_sunday = VendorAssignmentResult(
             email=ANA, date=SUN, table_code="Landing 1", table_choice="Full Table",
@@ -221,6 +222,11 @@ class TestFreeingATable:
         assert kept[SUN] is None and kept[SAT]
         assert owed(account()["lines"]) == [(SAT, "North Wing 1", 3500, True),
                                             (SUN, "Landing 1", 3000, False)]
+        # The deduction the run took back is recorded, by whoever ran it (review, note 18).
+        [taken_back] = [entry for entry in stores.history.documents
+                        if entry["kind"] == History.OWED_TAKEN_BACK]
+        assert (taken_back["actor"], taken_back["subject"]["date"]) == (EDITOR, SUN)
+        assert taken_back["detail"]["after"] == {"owed_cents": 3000}
 
     def test_freeing_a_seat_nobody_holds_keeps_no_line(self, market, stores):
         PlacementsApi.remove_placement(MARKET, "ben@example.com", SUN, EDITOR)

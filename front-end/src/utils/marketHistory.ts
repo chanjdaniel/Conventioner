@@ -502,6 +502,16 @@ export function entryParts(
         vendor,
         text(` owes${onDay(entry.subject.date)} to ${entryMoney(entry, after.owed_cents)}`),
       ];
+    case 'assign/owed_taken_back':
+      return [
+        actor,
+        text('seated '),
+        vendor,
+        text(
+          ` again${onDay(entry.subject.date)}, taking back the ${entryMoney(entry, before.owed_cents)}` +
+            ' set when the table was freed',
+        ),
+      ];
     case 'change-owed/owed_calculated':
       return [
         actor,
@@ -756,7 +766,10 @@ export function entryChanges(
       recorded: [],
     };
   }
-  if (['record-payment', 'adjust-paid', 'change-owed'].includes(entry.action)) {
+  if (
+    ['record-payment', 'adjust-paid', 'change-owed'].includes(entry.action) ||
+    (entry.action === 'assign' && entry.kind === 'owed_taken_back')
+  ) {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
     const keys = Object.keys(PAYMENT_FIELDS).filter((key) => key in before || key in after);

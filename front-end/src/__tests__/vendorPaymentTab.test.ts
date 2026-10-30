@@ -213,6 +213,26 @@ describe('the Payment tab', () => {
     wrapper.unmount();
   });
 
+  it('tells a free’s deduction apart from an amount set by hand (review, note 19)', async () => {
+    const wrapper = await tab(true, {
+      ...ACCOUNT,
+      lines: [
+        {
+          ...ACCOUNT.lines[1],
+          owedCents: 0,
+          owedSetBy: 'admin@example.com',
+          owedSetAt: '2099-04-21T12:00:00+00:00',
+          owedByFree: true,
+        },
+      ],
+      owedCents: 0,
+    });
+
+    expect(wrapper.get('[data-testid="payment-line-set"]').text()).toContain(
+      'Removed when the table was freed, by admin@example.com',
+    );
+  });
+
   it('lists a removed entry as removed, by whom, and offers it no menu', async () => {
     const wrapper = await tab(
       true,

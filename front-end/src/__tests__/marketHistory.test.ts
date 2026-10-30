@@ -849,6 +849,21 @@ describe("a vendor's payments, as the drawer's History and Manage market's say t
     );
   });
 
+  it('words a free’s deduction taken back by seating the day again (review, note 18)', () => {
+    const takenBack = entry({
+      action: 'assign',
+      kind: 'owed_taken_back',
+      subject: { date: '2099-05-08', ...CAD },
+      detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+    });
+    expect(said(entryParts(takenBack, NAMES))).toBe(
+      'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0 set when the table was freed',
+    );
+    expect(entryChanges(takenBack).changed).toEqual([
+      { field: 'Amount owed', before: '$0', after: '$15' },
+    ]);
+  });
+
   it('opens to the fields in the Payment tab’s words and money', () => {
     const { changed, recorded } = entryChanges(
       entry({

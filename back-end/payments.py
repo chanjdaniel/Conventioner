@@ -162,21 +162,30 @@ def keep_freed_line(market_id: str, vendor_email: str, date: str, seat: Seat, by
     )
 
 
-def clear_freed_lines(market_id: str, seated: Iterable[Tuple[str, str]]) -> None:
+def clear_freed_lines(
+    market_id: str, seated: Iterable[Tuple[str, str]],
+) -> List[Tuple[str, str, int]]:
     """Forget the freed line of each ``(vendor, date)`` seated again: the line reads the new seat,
     and a freed record left behind would come back as the line if that seat went some other way
     than a free. A $0 the free's deduction set goes with it, since it was about the freed table;
-    an amount an Admin set by hand stays, as it holds whatever the seat does."""
+    an amount an Admin set by hand stays, as it holds whatever the seat does.
+
+    Returns each deduction taken back, ``(vendor, date, cents)``, for the history to record.
+    """
     wanted = {(normalized_email(email), date) for email, date in seated}
+    taken_back: List[Tuple[str, str, int]] = []
     if not wanted:
-        return
+        return taken_back
     for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
         key = (doc.get(VENDOR_EMAIL_FIELD), doc.get("date"))
         if doc.get("freed") and key in wanted:
             cleared: Dict[str, Any] = {"freed": None}
-            if (doc.get("set_by_hand") or {}).get("by_free"):
+            deduction = doc.get("set_by_hand") or {}
+            if deduction.get("by_free"):
                 cleared["set_by_hand"] = None
+                taken_back.append((key[0], key[1], deduction.get("cents") or 0))
             amounts_owed_collection.update_one(_owed_key(market_id, *key), {"$set": cleared})
+    return taken_back
 
 
 def set_amount_owed(
@@ -234,6 +243,9 @@ def lines(
             "owedCents": by_hand["cents"] if by_hand else seat.cents,
             "owedSetBy": by_hand["by"] if by_hand else None,
             "owedSetAt": by_hand["at"] if by_hand else None,
+            # Set by the free that asked "Also remove its $35 …?", not by hand: seating the day
+            # again takes it back, so the tab says which amounts hold.
+            "owedByFree": bool(by_hand and by_hand.get("by_free")),
             "freed": held is None,
             "freedAt": freed.get("at") if freed else None,
             "freedBy": freed.get("by") if freed else None,

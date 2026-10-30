@@ -11,7 +11,7 @@ changing a table-day's amount owed asks ``Actions.CHANGE_OWED``, and recording a
 or removing an entry ``Actions.ADJUST_PAID``, each an Admin's by default (Q26, E44/F01/S02). An
 archived market refuses every write.
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -253,3 +253,23 @@ def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> 
     Payments.set_amount_owed(market.id, address, date, 0, by, by_free=True)
     _record_owed(market, by, address, date, History.OWED_SET, before,
                  _line(market, address, date))
+
+
+def seated_again(market_id: str, seated: List[Tuple[str, str]], by: str) -> None:
+    """Days seated again, by hand or by a run, forget their freed lines; each deduction a free set
+    that goes with them is recorded under the row the seating asked (``Actions.ASSIGN``), as the
+    amount it took back and what the day owes now, read off the market as it stands."""
+    for address, date, cents in Payments.clear_freed_lines(market_id, seated):
+        def detail(address=address, date=date, cents=cents):
+            market = MarketsApi.market_from_document(
+                MarketsApi.markets_collection.find_one({"id": market_id}))
+            line = _line(market, address, date) or {}
+            return History.changes({"owed_cents": cents}, {"owed_cents": line.get("owedCents")})
+
+        def subject(date=date):
+            market = MarketsApi.market_from_document(
+                MarketsApi.markets_collection.find_one({"id": market_id}))
+            return {"date": date, **_currency(market)}
+
+        History.record(market_id, by, Actions.ASSIGN, kind=History.OWED_TAKEN_BACK,
+                       vendors=[address], subject=subject, detail=detail)

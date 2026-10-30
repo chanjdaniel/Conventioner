@@ -39,6 +39,8 @@ By default the amount is the price of the seat the vendor holds that day, by the
 The seats are read off the market's stored assignment, through the same rows and the same pricing the drawer's date cards read (`derive_market_table_rows`, `seats_by_vendor`), so a line and its date card never disagree.
 A seat held now is never copied into these collections; only what the assignment cannot say is kept.
 A day seated again, by hand or by a run, forgets its freed line (`clear_freed_lines`), so a freed record never outlives the seat that replaced it, and with it the $0 the free's deduction set (marked `by_free`), which was about the freed table; an amount an Admin set by hand stays.
+Each deduction taken back is recorded under the seating's own row, `assign`, kind `owed_taken_back`, by whoever placed the vendor or ran the assignment ("… seated Alice Example again on May 8, 2099, taking back the $0 set when the table was freed").
+The tab tells the two apart: a free's $0 reads "Removed when the table was freed, by …", an amount set by hand "Set by …" (`owedByFree` on the line).
 
 **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline "the amount owed and amount paid dont change even though the table did").
 `remove_placement` in [`back-end/api/placements.py`](../../../back-end/api/placements.py), the one door that frees a seat ([placements](../modules/placements.md)), keeps the seat's line as it stood (`keep_freed_line`) before it frees the seat, so a line that could not be kept leaves the seat where it was.
@@ -81,7 +83,7 @@ Both collections are indexed on `market_id, vendor_email` ([lookup indexes](look
 
 Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_account`, `record_payment`, `record_refund`, `set_amount_owed`, `use_calculated_price`, `edit_payment`, `remove_payment`), and every write answers the vendor's account as it now reads.
 
-- `GET /markets/:id/payments/:email` (`vendor_account`) answers one vendor's account: `currency` (null on a market that sets no prices), `lines` (each `date`, `tableCode`, `tier`, `tableChoice`, `group`, `priceCents`, `owedCents`, `owedSetBy`, `owedSetAt`, `freed`, and `freedAt` and `freedBy` for a freed seat), `payments` (the last recorded first), `owedCents` and `paidCents`; an unpriced line owes nothing toward the total.
+- `GET /markets/:id/payments/:email` (`vendor_account`) answers one vendor's account: `currency` (null on a market that sets no prices), `lines` (each `date`, `tableCode`, `tier`, `tableChoice`, `group`, `priceCents`, `owedCents`, `owedSetBy`, `owedSetAt`, `owedByFree`, `freed`, and `freedAt` and `freedBy` for a freed seat), `payments` (the last recorded first), `owedCents` and `paidCents`; an unpriced line owes nothing toward the total.
   It asks the table's Read row: anyone with a role reads it.
 - `POST /markets/:id/payments/:email` (`record_payment`), body `{cents, method, paidOn, note}`, records one payment and answers the account as it now reads.
   It asks the row "Record a payment", an Editor's by default (Q15: "editors can"; [what each role may do](../../business/rules/what-each-role-may-do.md)), refuses an archived market, and a vendor the market has no application from, 404, as a seat is.

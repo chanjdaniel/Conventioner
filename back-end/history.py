@@ -95,6 +95,7 @@ OWED_CALCULATED = "owed_calculated"
 REFUND_RECORDED = "refund_recorded"
 PAYMENT_EDITED = "payment_edited"
 PAYMENT_REMOVED = "payment_removed"
+OWED_TAKEN_BACK = "owed_taken_back"
 
 
 def _now() -> str:

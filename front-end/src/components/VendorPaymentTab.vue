@@ -229,7 +229,10 @@ defineExpose({ reload: load });
                 ></span
               >
               <span v-if="line.owedSetBy" class="payment-line-seat" data-testid="payment-line-set">
-                Set by {{ line.owedSetBy }},
+                <!-- A free's deduction is told apart from a hand-set amount: seating the day again
+                     takes it back, where an amount set by hand holds. -->
+                {{ line.owedByFree ? 'Removed when the table was freed, by' : 'Set by' }}
+                {{ line.owedSetBy }},
                 <span class="payment-entry-when">{{
                   getFormattedTimestamp(line.owedSetAt) || line.owedSetAt
                 }}</span>

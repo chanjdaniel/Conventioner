@@ -33,6 +33,9 @@ export interface PaymentLine {
   owedCents: number | null;
   owedSetBy: string | null;
   owedSetAt: string | null;
+  /** The amount was set by the free's "Also remove its $15 …?", which seating the day again
+   * takes back, rather than by hand. */
+  owedByFree?: boolean;
   /** The table was freed; the line stays, still owed (Q26). */
   freed: boolean;
   /** When and by whom it was freed; null for a seat held now. */

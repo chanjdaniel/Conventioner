@@ -142,6 +142,29 @@ class TestFreeingATableAsks:
         assert (sunday["freed"], sunday["owedCents"], sunday["owedSetBy"]) == (False, 3000, None)
         assert line(SAT)["owedCents"] == 2000
 
+        # Recorded under the seating's own row, by whoever seated them (review, note 18).
+        [taken_back] = [entry for entry in stores.history.documents
+                        if entry["kind"] == History.OWED_TAKEN_BACK]
+        assert (taken_back["action"], taken_back["actor"], taken_back["vendors"]) == (
+            "assign", ADMIN, [ANA])
+        assert taken_back["subject"] == {"date": SUN, "currency": "CAD"}
+        assert taken_back["detail"] == {"before": {"owed_cents": 0}, "after": {"owed_cents": 3000}}
+
+    def test_the_deduction_is_told_apart_from_an_amount_set_by_hand(self, admin):
+        """Review, note 19: the tab says which amounts hold when the day is seated again."""
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
+        PaymentsApi.set_amount_owed(MARKET, ANA, SAT, {"cents": 2000}, ADMIN)
+
+        assert (line(SUN)["owedByFree"], line(SAT)["owedByFree"]) == (True, False)
+
+    def test_seating_a_day_with_no_deduction_records_no_taking_back(self, admin, stores):  # noqa: F811
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN)
+        PlacementsApi.write_placement(MARKET, {"email": ANA, "date": SUN, "table_code": "Landing 1",
+                                               "table_choice": "Full Table"}, ADMIN)
+
+        assert [entry for entry in stores.history.documents
+                if entry["kind"] == History.OWED_TAKEN_BACK] == []
+
     def test_unticked_the_line_stays_owed(self, admin):
         PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN)
 

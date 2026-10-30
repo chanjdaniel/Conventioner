@@ -37,7 +37,6 @@ import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.payments as PaymentsApi
-import payments as Payments
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError, ForbiddenError
 import history as History
@@ -296,14 +295,15 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         assignment.assignment_date,
         MadeFrom.fingerprint(market.setup_object, vendors),
     )
-    Payments.clear_freed_lines(
-        market_id, [(seat.email, seat.date) for seat in assignment.vendor_assignments])
     History.record_assignment_run(
         market_id,
         requesting_user,
         placements_written=len(assignment.vendor_assignments),
         pins_preserved=sum(1 for row in assignment.vendor_assignments if row.hand_placed),
     )
+    PaymentsApi.seated_again(
+        market_id, [(seat.email, seat.date) for seat in assignment.vendor_assignments],
+        requesting_user)
 
     # The same shape ``GET /markets/<id>/assignment`` returns, so a caller swapping to this one
     # reads the result the same way - the organization's display name included, because the
@@ -360,8 +360,8 @@ def write_placement(
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
-    Payments.clear_freed_lines(market_id, [(placement.email, placement.date)])
     History.record_placed(market_id, requesting_user, placement, left)
+    PaymentsApi.seated_again(market_id, [(placement.email, placement.date)], requesting_user)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
