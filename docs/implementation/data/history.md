@@ -103,7 +103,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 
 ### What an organization records
 
-An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) and market creation call once the change has landed, under the same guard as `record`.
+An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`.
 An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
 None names a vendor.
 

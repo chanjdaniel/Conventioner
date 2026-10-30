@@ -25,7 +25,7 @@ An organizer investigating a problem or a mistake asks who did what on the marke
 
 ## Decision
 
-There is one history for every change on a market, and the placement history is it, widened: the `history` collection, owned by [`back-end/history.py`](../../back-end/history.py), the only writer and reader.
+There is one history for every change on a market and on an organization itself, and the placement history is it, widened: the `history` collection, owned by [`back-end/history.py`](../../back-end/history.py), the only writer and reader.
 Its existing entries are moved into it with every field they had ([`migrate_placement_history.py`](../../back-end/migrations/migrate_placement_history.py)), and the placement trail is the history narrowed to placements.
 
 An entry is the market (or, from E40/F02, the organization), the actor (an organizer's address, or an applicant's when the change is theirs), when, the action, the vendors it is about, a subject for whatever else it is about (an application, a table-day, a question, a setting), and a structured detail with the changed fields before and after.
