@@ -90,7 +90,17 @@ defineProps<{
   align-items: center;
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  border-radius: var(--radius-card);
+}
+
+/* A hovered heading's beige, and a focused one's halo, keep to the list's own rounded corners. */
+.import-row:first-child > .import-row-heading {
+  border-start-start-radius: var(--radius-card);
+  border-start-end-radius: var(--radius-card);
+}
+
+.import-row:last-child:not([open]) > .import-row-heading {
+  border-end-start-radius: var(--radius-card);
+  border-end-end-radius: var(--radius-card);
 }
 
 .import-row-heading::-webkit-details-marker {

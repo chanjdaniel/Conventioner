@@ -76,6 +76,14 @@ interface UnmatchedValue {
   offered: string[];
 }
 
+/** A row of the file as the dry run says it will be stored, and why a rule rejects it, if one does. */
+interface PreviewRow {
+  row: number;
+  email: string;
+  formData: Record<string, unknown> | null;
+  reason?: string;
+}
+
 /** A value a saved decision settles, with that decision: listed so it can be changed. */
 interface DecidedValue extends UnmatchedValue {
   choice: string | null;
@@ -193,12 +201,27 @@ const unchangedRows = ref(0);
  */
 const previewHeadline = computed(() => {
   const rows = `${rowCount.value} row${rowCount.value === 1 ? '' : 's'}`;
-  if (unchangedRows.value === 0) return `${validRows.value} of ${rows} will be imported`;
+  if (unchangedRows.value === 0)
+    return `${validRows.value} of ${rows} will be imported${rejectedClause(true)}`;
   const writing = newRows.value + updatedRows.value;
-  if (writing > 0) return `${writing} of ${rows} will be imported`;
+  if (writing > 0) return `${writing} of ${rows} will be imported${rejectedClause(false)}`;
   const verb = unchangedRows.value === 1 ? 'is' : 'are';
-  return `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged`;
+  return (
+    `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged` +
+    rejectedClause(true, 'are')
+  );
 });
+
+/**
+ * The headline's count of the rows the automatic rejections reject (E38/F03/S02). "Of them" only
+ * where the headline counts every row it could be: an unchanged row a rule rejects is listed too,
+ * and is not among the rows a re-import writes.
+ */
+function rejectedClause(ofThem: boolean, verb = 'will be'): string {
+  const count = previewRejected.value.length;
+  if (!count) return '';
+  return `; ${count}${ofThem ? ' of them' : ''} ${verb} rejected by your automatic rejections`;
+}
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
@@ -379,16 +402,21 @@ function sourceLabelFor(key: string): string {
  * as skipped a few lines above, and read availability as "no answer" when a tier grid had answered
  * it.
  */
-const previewSamples = ref<
-  Array<{ row: number; email: string; formData: Record<string, unknown> | null }>
->([]);
+const previewSamples = ref<PreviewRow[]>([]);
 
 const sampleApplications = computed(() => previewRows(previewSamples.value));
 
+/**
+ * Every row the automatic rejections would reject, with the reason, judged by the dry run as the
+ * import's end judges them (E38/F03/S02). Not among the samples: those check the mapping, these
+ * check the rules.
+ */
+const previewRejected = ref<PreviewRow[]>([]);
+
+const rejectedApplications = computed(() => previewRows(previewRejected.value));
+
 /** The preview's rows as `ImportRowList` heads and opens them. */
-function previewRows(
-  rows: Array<{ row: number; email: string; formData: Record<string, unknown> | null }>,
-): ImportRow[] {
+function previewRows(rows: PreviewRow[]): ImportRow[] {
   const held = market.value as Market | null;
   return rows
     .filter((row) => row.formData)
@@ -396,6 +424,7 @@ function previewRows(
       row: row.row,
       email: row.email,
       name: applicantName(row.formData),
+      reason: row.reason,
       ...reviewAnswers(
         { formData: row.formData ?? {} },
         held?.applicationForm,
@@ -701,6 +730,7 @@ async function readValues(advance: boolean) {
   updatedRows.value = data.updatedRows ?? 0;
   unchangedRows.value = data.unchangedRows ?? 0;
   previewSamples.value = data.samples ?? [];
+  previewRejected.value = data.rejected ?? [];
   absentApplications.value = data.absentApplications ?? 0;
   absentEmails.value = data.absentEmails ?? [];
   returningToReview.value = data.returningToReview ?? 0;
@@ -1236,6 +1266,26 @@ function startOver() {
           </h3>
           <p class="preview-rows-why">A check that each answer lands in the right question.</p>
           <ImportRowList :rows="sampleApplications" open-first row-testid="import-sample-row" />
+        </section>
+
+        <!-- Every row a rule rejects, in the samples' format: a check of the rules, before they
+           reject anyone (E38/F03/S02). -->
+        <section
+          v-if="rejectedApplications.length"
+          class="preview-rows"
+          data-testid="import-rejected"
+        >
+          <h3>
+            Rejected by your automatic rejections
+            <span class="chip chip--destructive" data-testid="import-rejected-count">{{
+              rejectedApplications.length
+            }}</span>
+          </h3>
+          <p class="preview-rows-why">
+            A check that your rules reject who they should. These are imported as rejected, each
+            with its reason; an Admin or the owner can overturn one.
+          </p>
+          <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
         </section>
 
         <h3 class="preview-mapping-heading">Where each answer comes from</h3>
