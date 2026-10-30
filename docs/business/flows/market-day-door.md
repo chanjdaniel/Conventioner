@@ -35,12 +35,12 @@ Both read the stored assignment, so a vendor placed, swapped or freed by hand is
 **Task:** "Your assignment is final. Make it live so vendors can find their tables."
 
 1. Rail: "Publish Market", the main button in Assignment.
-2. "Publish Market?": "Publishing puts this market's check-in page on the air: every vendor you placed can look themselves up and check in on the day. The assignment they see is the one you have now." and "A published market cannot be returned to an earlier phase."; focus starts on Cancel.
+2. "Publish Market?": "Publishing puts this market's check-in page on the air: every vendor you assigned can look themselves up and check in on the day. The tables they see are the ones you have now." and "A published market cannot be returned to an earlier phase."; focus starts on Cancel.
 3. Expect Market Days, landing on Attendance, and "Check-in page" with its address and "Copy" in the rail; the rail says "Check vendors in at the door."
 
 Disabled before the click, with the rail naming the first blocker:
 
-- no assignment is stored: "No assignment has been computed for this market, so its check-in page could not tell anyone where to stand. Run the assignment first.", with "Run the assignment";
+- no assignment is stored: "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first.", with "Allocate tables";
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds));
 - on a market whose vendors apply on its page, the results are not published: "Applicants have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results" ([I7](assignment-and-result.md#i7-publish-results)).
 
@@ -83,7 +83,7 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `th
 4. Each vendor placed that day, by table: their name, which opens the [vendor drawer](vendor-drawer.md) and never checks them in; the time they checked in and by whom ("by you", or the organizer's address; a vendor's own check-in names nobody), or "Not yet"; and their notes under the row when they have some.
 5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door.
 
-It lists everyone expected on the day, so it shows who is missing; "Nobody is placed on this date." on a date with nobody.
+It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, the one organizer market screen that does, and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
 Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `checkin.spec.ts`.
 

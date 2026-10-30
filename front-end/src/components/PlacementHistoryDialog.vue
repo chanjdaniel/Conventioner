@@ -16,7 +16,7 @@ const emit = defineEmits<{ close: [] }>();
 <template>
   <AppDialog
     :open="open"
-    title="Placement history"
+    title="Assignment history"
     testid="placement-history-dialog"
     wide
     @close="emit('close')"

@@ -192,7 +192,7 @@ def test_publish_results_refuses_on_draft_market(monkeypatch):
     result, status = publish_results("market-1", "owner@example.com")
 
     assert status == 409
-    assert "from the assignment" in result.get("error", "")
+    assert "once tables have been allocated" in result.get("error", "")
 
 
 # ── list_market_applications (organizer always sees raw status) ─────────────

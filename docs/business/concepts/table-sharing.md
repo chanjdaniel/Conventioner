@@ -6,7 +6,7 @@ verified: 2026-10-22
 
 # Table sharing
 
-**Table sharing** is defined in [the glossary](../../../CONTEXT.md#placing), under Placing, beside Table choice and Placed as; this node gathers what the graph says about it.
+**Table sharing** is defined in [the glossary](../../../CONTEXT.md#assigning), under Assigning, beside Table choice and Assigned as; this node gathers what the graph says about it.
 
 ## Rules
 

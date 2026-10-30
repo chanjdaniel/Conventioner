@@ -298,7 +298,7 @@ class AssignmentComputedGuard:
     """
 
     id: str = "assignment_computed"
-    description: str = "An assignment has been computed"
+    description: str = "Tables have been allocated"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         assignment = market.assignment_object
@@ -308,11 +308,11 @@ class AssignmentComputedGuard:
                 id=self.id,
                 passed=False,
                 message=(
-                    "No assignment has been computed for this market, so its check-in page could "
-                    "not tell anyone where to stand. Run the assignment first."
+                    "No tables have been allocated for this market, so its check-in page could "
+                    "not tell anyone where to stand. Allocate tables first."
                 ),
                 resolution_link="assignment",
-                resolution_label="Run the assignment",
+                resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -377,7 +377,7 @@ class AllApplicationsReviewedGuard:
                 passed=False,
                 message=(
                     f"{' and '.join(waiting)}. Every application must be approved or rejected "
-                    "before assignment can begin."
+                    "before the market can enter Assignment."
                 ),
                 resolution_link="applications",
                 resolution_label="Finish deciding",
@@ -388,7 +388,7 @@ class AllApplicationsReviewedGuard:
                 passed=False,
                 message=(
                     "There are no applications for this market. "
-                    "At least one application must exist before assignment can begin."
+                    "At least one application must exist before the market can enter Assignment."
                 ),
                 resolution_link=None,
             )
@@ -419,11 +419,11 @@ class NoApprovedApplicationsGuard:
                 passed=False,
                 message=(
                     f"{approved_count} {app_word} still approved but not yet "
-                    "assigned or unassigned. Run the assignment solver before "
+                    "assigned or unassigned. Allocate tables before "
                     "sending offers."
                 ),
                 resolution_link="assignment",
-                resolution_label="Run the assignment",
+                resolution_label="Allocate tables",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -605,7 +605,7 @@ class NoAskedForTierWithoutTablesGuard:
             message=(
                 f"{len(parts)} {tier_word} no tables, and approved applicants are waiting on "
                 f"them: {'; '.join(parts)}. Add a section at that tier, or reject those "
-                f"applications, before assigning."
+                f"applications, before allocating tables."
             ),
             # Add a section at that tier is Market Setup; reject those applications is
             # Applications. Naming one would quietly recommend it over the other.
@@ -629,7 +629,7 @@ class NoOrphanedPinGuard:
     """
 
     id: str = "no_orphaned_pin"
-    description: str = "Every hand-placed vendor's seat still exists in the plan"
+    description: str = "Every hand-assigned vendor's seat still exists in the plan"
 
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         orphans = orphaned_pins(
@@ -642,7 +642,7 @@ class NoOrphanedPinGuard:
             f"{pin.email} at {pin.table_code} on {pin.date}"
             for pin in sorted(orphans, key=lambda pin: (pin.date, pin.table_code, pin.email))
         )
-        pin_word = "placement names a seat" if len(orphans) == 1 else "placements name seats"
+        pin_word = "assignment names a seat" if len(orphans) == 1 else "assignments name seats"
         return PreconditionResult(
             id=self.id,
             passed=False,

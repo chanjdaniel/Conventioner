@@ -25,7 +25,7 @@ def market(phase=MarketPhase.ASSIGNMENT):
 def told(market_, user="u@x"):
     """Why this person may change nothing here, and what they are told of moving the phase."""
     role = PermissionsApi.get_user_market_role(user, market_, None)
-    refusals = MarketsApi.role_action_refusals(role, market_.phase)
+    refusals = MarketsApi.role_action_refusals(role, market_.phase, {})
     return MarketsApi.read_only_reason(market_, refusals), refusals["move-phase"]
 
 

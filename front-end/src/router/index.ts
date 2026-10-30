@@ -126,6 +126,12 @@ const router = createRouter({
       // The door on market day is sometimes a phone (E29/F01).
       meta: { fitsAPhone: true },
     },
+    // The market's figures, in every phase (E45/F01/S01).
+    {
+      path: '/markets/:marketId/stats',
+      name: 'market-stats',
+      component: () => import('@/views/StatsView.vue'),
+    },
     // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
     // preserve, so it can only send the organizer to choose a market.
     {

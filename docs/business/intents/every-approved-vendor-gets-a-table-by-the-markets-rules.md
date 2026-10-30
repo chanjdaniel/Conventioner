@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: intent
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - E02
   - E11
@@ -46,6 +46,6 @@ And the assignment reads the applications themselves, so whichever way vendors c
 ## Flows
 
 - [The assignment and its result](../flows/assignment-and-result.md): the rules, the run and the result.
-- [Placing by hand](../flows/placing-by-hand.md): placing, swapping and freeing a seat, pins, and the placement history.
+- [Placing by hand](../flows/placing-by-hand.md): assigning, swapping and freeing a seat, pins, and the assignment history.
 - [Vendors](../flows/vendors.md): every applicant by vendor, adding one who never applied, and why a date was not given.
 - [The vendor drawer](../flows/vendor-drawer.md): one vendor's assignments, and the way to change them.

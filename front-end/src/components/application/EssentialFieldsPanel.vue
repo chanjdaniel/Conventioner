@@ -79,7 +79,7 @@ function asks(key: string): boolean {
             ? 'Every application form asks these'
             : "Every market needs these answers, each read from a column of your Google Form's responses when you import"
         }}
-        - the table assignment reads them directly, so they cannot be removed. What they offer comes
+        - the table allocation reads them directly, so they cannot be removed. What they offer comes
         from your market plan{{ locked ? ' and is frozen with the rest of the form' : '' }}.
       </p>
       <span class="essential-badge" data-testid="essential-fields-badge">Always included</span>
@@ -201,8 +201,9 @@ function asks(key: string): boolean {
         <span class="essential-type-badge">optional</span>
       </div>
       <p class="essential-item-detail">
-        The only optional essential question. An applicant who names a partner is seated with them
-        when possible; one who leaves it blank may be paired with anyone else sharing.
+        The only optional essential question. An applicant who names a partner is assigned to the
+        same table as them when possible; one who leaves it blank may be paired with anyone else
+        sharing.
       </p>
     </div>
 
@@ -217,7 +218,7 @@ function asks(key: string): boolean {
         data-testid="essential-section-not-asked"
       >
         {{ doesNot }} for a section ranking, so every vendor is treated equally on it. Vendors are
-        still placed in sections; nobody states a preference.
+        still assigned in sections; nobody states a preference.
       </p>
       <div v-else-if="options.sections.length" class="essential-chips">
         <span

@@ -46,7 +46,7 @@ sources:
 **Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can enter Assignment." or "Every application has been decided. This market is ready to enter Assignment."; from Assignment on "The review is closed: every verdict settled when the market entered Assignment. …".
 The page has two views, chosen above it and kept in the address (`?view=all`, with the All view's filters): "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
@@ -116,7 +116,7 @@ Covered by: `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`.
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
 From Review, "Begin Assignment", disabled before the click with the rail naming the first blocker:
 
-- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before assignment can begin.", with "Finish deciding" leading back to the review;
+- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).

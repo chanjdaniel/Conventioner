@@ -38,7 +38,7 @@ An EDITOR, the bar every placement write sets; an archived market refuses anyone
 
 ## Where it is kept
 
-- `assign_phase_refusal` in [`back-end/api/placements.py`](../../../back-end/api/placements.py) says the phase rule, and `assign_refusal` adds published results (E36/F04/S02); the market read serves it as `assignRefusalReason`, so the Assign button says no first.
+- `assign_phase_refusal` in [`back-end/api/placements.py`](../../../back-end/api/placements.py) says the phase rule, and `assign_refusal` adds published results (E36/F04/S02); the market read serves it as `assignRefusalReason`, so the "Allocate tables" button says no first.
 - [`front-end/src/utils/assignPhase.ts`](../../../front-end/src/utils/assignPhase.ts) mirrors the phase rule for the screens that word it before a read (the empty result, the pin hint, the out-of-date line); the server is the enforcement.
 - The run itself is [placements](../../implementation/modules/placements.md).
 - **A seed or a spec that wants an assignment walks the market to `assignment` first**: assigning from `draft` is a 409 (`front-end/e2e/helpers/seedAssignedMarket.ts`, [the E2E seeds](../../implementation/testing/e2e-seeds.md#reaching-a-stored-assignment)).
