@@ -210,6 +210,10 @@ test('every field on every other organizer screen and dialog has a name', async 
   // Its Permissions section, open, and a row's confirmation (E39/F01/S04).
   await page.getByTestId('manage-market-permissions-toggle').click();
   await expect(page.getByTestId('manage-market-permission-select').first()).toBeVisible();
+  // Its History section's filters, and an entry opened to its before and after (E40/F01/S03).
+  await page.getByTestId('manage-market-history-toggle').click();
+  await page.getByTestId('market-history-toggle').first().click();
+  await expect(page.getByTestId('market-history-changes')).toBeVisible();
   await named('Manage market');
   await page.getByTestId('manage-market-permission-select').first().selectOption('owner');
   await expect(page.getByTestId('manage-market-permission-confirm-window')).toBeVisible();

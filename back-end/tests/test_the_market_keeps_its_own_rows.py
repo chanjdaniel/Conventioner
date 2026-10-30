@@ -542,6 +542,20 @@ class TestTheRoutes:
             "error": "Only the market's owner may change who may do what on this market."}
         assert world.markets.updates == []
 
+    def test_the_permission_history_asks_the_historys_row(self, client, world):
+        raised = client(OWNER).put(
+            "/markets/market-123/permissions/read-history", json={"role": "editor"})
+        assert raised.status_code == 200
+
+        refused = client(VIEWER).get("/markets/market-123/permission-history")
+        assert refused.status_code == 403
+        assert "entries" not in refused.get_json()
+        assert client(VIEWER).get("/markets/market-123/history").status_code == 403
+
+        history = client(EDITOR).get("/markets/market-123/permission-history")
+        assert history.status_code == 200
+        assert [e["subject"]["action"] for e in history.get_json()["entries"]] == ["read-history"]
+
     @pytest.mark.parametrize("who,path,body,status,error", [
         (ORG_ADMIN, "check-in", {"role": "admin"}, 403,
          "Only the market's owner may change who may do what on this market."),
