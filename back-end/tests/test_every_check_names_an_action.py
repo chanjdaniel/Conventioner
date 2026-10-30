@@ -27,8 +27,9 @@ BACK_END = Path(__file__).resolve().parent.parent
 #: The epic's table (E39), with E38/F04's stop row and without the form amendment's, which E38/F04
 #: removed (the amendment's walk is gone): (id, group, label, default, fixed).
 THE_TABLE = [
-    ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance, "
-     "history and floorplan export", MarketRole.VIEWER, True),
+    ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance "
+     "and floorplan export", MarketRole.VIEWER, True),
+    ("read-history", "Reading", "Read the market's history", MarketRole.VIEWER, False),
     ("export-csv", "Reading", "Export CSV", MarketRole.VIEWER, False),
     ("change-setup", "Market Setup",
      "Change Market Setup: the plan, its floorplans, the market's name", MarketRole.EDITOR, False),
