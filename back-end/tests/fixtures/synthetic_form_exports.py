@@ -11,7 +11,8 @@ options, refused rows and a few hundred rows.
 Why it is synthetic: a real export names real people, and its question text names the real
 organization, its market and its clubs. Nothing here comes from one. Every header is written for
 this file, every person is drawn from the pools of common names below, every address and link is at
-a fixture domain, and every other answer is made from the word lists in this file.
+a fixture domain (an upload keeps the Google Drive host, with an invented file id, because the
+proposal knows an upload by that host), and every other answer is made from the word lists here.
 
 Each form is described declaratively: its header row, and one cell kind per column with the
 counts it must produce. Generation is seeded per form, so the output is the same bytes every time,
