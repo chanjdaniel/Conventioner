@@ -33,8 +33,16 @@ const props = defineProps<{
   /** The applications a refused run named, each linked to where it can be dealt with (bug 42). */
   assignIncomplete: IncompleteApplication[];
   marketId: string;
-  /** This person may not change the rules or run them, by the table (E39/F01/S02). */
+  /**
+   * This person may not change the rules, by the table: they ride in the plan, so their write asks
+   * both the Market Setup row and the Assignment row (E39/F01/S01).
+   */
   readOnly: boolean;
+  /**
+   * This person may allocate tables, by the table's Assignment row alone: a market's owner may set
+   * it apart from Market Setup's (E39/F01/S03).
+   */
+  mayAllocate: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
   /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
@@ -46,7 +54,7 @@ const emit = defineEmits<{
   (event: 'assign'): void;
 }>();
 
-/** The rules cannot change and nothing runs, for either reason. */
+/** The rules cannot change, for either reason. */
 const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 </script>
 
@@ -85,9 +93,9 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       </ElementSettingContainer>
     </section>
 
-    <!-- Nothing can run once the rules are settled, or for a person who may change nothing, so
-         there is no button to explain. -->
-    <div v-if="!locked" class="assign-actions">
+    <!-- Nothing can be allocated once the rules are settled, or by a person the Assignment row
+         refuses, so there is no button to explain. -->
+    <div v-if="mayAllocate && !rulesLockReason" class="assign-actions">
       <button
         type="button"
         class="btn btn--primary done-button"

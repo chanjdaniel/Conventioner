@@ -11,6 +11,7 @@ describes:
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/tests/test_an_organizations_admins_run_its_markets.py
   - back-end/utils/identity.py
+  - back-end/tests/test_the_market_keeps_its_own_rows.py
 verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#22
@@ -22,6 +23,7 @@ sources:
   - decision/2026-10-20
   - E39/F01/S01
   - E39/F01/S02
+  - E39/F01/S03
   - E42/F01/S01
 ---
 
@@ -30,6 +32,8 @@ sources:
 A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
+**A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
+So the table below is what a market allows until its owner says otherwise.
 
 **Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
@@ -56,6 +60,7 @@ A market may also give a person a role of its own; both are held, and the higher
 So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.
 **Nobody is a market's Owner through its organization**: deleting a market and managing its admins stay with the one person who owns it.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
+**An organization's owner and admins do not change a market's own rows**: they hold Admin there, and the table is its owner's.
 See [the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market) for how a role is resolved.
 
 ## Who signs in, and how
@@ -78,6 +83,8 @@ See [the organization document](../../implementation/data/organization-document.
   `noScreenComparesARole.test.ts` fails on a source file that compares or ranks a market role, or reads the role the person holds.
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move to someone the Move the phase row refuses, and still says where the market stands.
+- **A market keeps the rows it differs on**, in its `permissions`, and every check and the market read ask the market's row where it holds one (`minimum_role`); its owner sets or resets a row through `PUT` and `DELETE /markets/:id/permissions/<action>`, each change an entry in [the market's history](../../implementation/data/history.md) with its role before and after.
+  [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins that a market without rows reads every default, that an Editor's check-in is refused where "Check vendors in" asks for an Admin and allowed on another market, and each refusal of the write: anyone but the owner (an organization admin included), a fixed row, an unknown row, a role not one of the four, an archived market.
 - **Who is asking is the session's answer, never the request's.**
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
@@ -91,4 +98,5 @@ See [the organization document](../../implementation/data/organization-document.
 
 Verdicts were an admin action, served on a reason that also stood for moving the phase; they and follow-ups drop to an Editor, and phase moves stay an Admin's (brain-dump/2026-10-19#22, E34/F01/S01).
 The screens read five role-shaped reasons, each standing for several rows, and Manage market and the markets list compared the person's role; each screen now asks its own row's answer (E39/F01/S02).
+Every market answered by the built-in table alike; a market now keeps the rows its owner changed (E39/F01/S03).
 Organization membership gave only Viewer on its markets, even to its owner and admins, and a role on the market replaced the organization's rather than adding to it; an organization's owner and admins became Admin, and the higher role counts (T15, decision/2026-10-20).

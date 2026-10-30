@@ -454,6 +454,17 @@ def _take_role(client, world):
     return client.delete(f"/markets/{MARKET}/roles/user-sam")
 
 
+def _set_permission(client, world):
+    world.market(MarketPhase.REVIEW)
+    return client.put(f"/markets/{MARKET}/permissions/check-in", json={"role": "admin"})
+
+
+def _reset_permission(client, world):
+    world.market(MarketPhase.REVIEW,
+                 permissions={"check-in": {"role": "admin", "source": "market"}})
+    return client.delete(f"/markets/{MARKET}/permissions/check-in")
+
+
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
 PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
@@ -540,6 +551,12 @@ WRITES = [
           History.ROLE_CHANGED, _change_role, subject=SAM_BY_ID),
     Write("a role taken", "DELETE", f"{M}/roles/<user_id>", Actions.MANAGE_EDITORS_AND_VIEWERS,
           History.ROLE_TAKEN, _take_role, subject=SAM_BY_ID),
+    Write("a row of the table set", "PUT", f"{M}/permissions/<action_id>",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_SET, _set_permission,
+          subject={"action": "check-in"}),
+    Write("a row of the table reset", "DELETE", f"{M}/permissions/<action_id>",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_RESET, _reset_permission,
+          subject={"action": "check-in"}),
 ]
 
 #: The write routes that change nothing on a market's record, and why.
@@ -571,8 +588,6 @@ NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
-    Actions.CHANGE_THE_TABLE.id: "no write takes it yet; E39/F01/S03, which adds the market's own "
-                                 "rows, records their changes",
 }
 
 

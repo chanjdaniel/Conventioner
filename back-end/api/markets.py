@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import re
 import uuid
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
@@ -22,6 +22,7 @@ from datatypes import (
     FormField,
     IntakeMode,
     Market,
+    MarketPermission,
     MarketPerson,
     MarketPhase,
     MarketRole,
@@ -214,10 +215,10 @@ def _answers(
 
 
 def role_action_refusals(
-    role: Optional[MarketRole], phase: MarketPhase,
+    role: Optional[MarketRole], phase: MarketPhase, rows: Mapping[str, Any],
 ) -> Dict[str, Optional[str]]:
-    """What a person holding ``role`` is told of every action on a market in ``phase``, by row id
-    (E39/F01/S02).
+    """What a person holding ``role`` is told of every action on a market in ``phase`` holding
+    ``rows`` of the table, by row id (E39/F01/S02, S03).
 
     Each row is asked by ``Actions.role_refusal`` of the role already resolved, the ranking the
     writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
@@ -225,7 +226,7 @@ def role_action_refusals(
     a control on the answer of the action it takes. The rules of a market's life other than the
     archived one are each served on their own.
     """
-    return _answers(phase, lambda row: Actions.role_refusal(row, role))
+    return _answers(phase, lambda row: Actions.role_refusal(row, role, rows))
 
 
 def deprecated_screen_reasons(
@@ -831,7 +832,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     # The person's role, resolved once: every answer below is asked of it (E39/F01/S02).
     user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
-    if Actions.role_refusal(Actions.READ, user_role):
+    if Actions.role_refusal(Actions.READ, user_role, market.permissions):
         return None
 
     market_dict['_id'] = str(market_dict['_id'])
@@ -881,9 +882,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # What this person is told of every action here, by row (E39/F01/S02), and why they may change
     # nothing at all (E26/F06/S01, T15): asked of the role resolved above by the ranking every
     # write asks, served so each screen offers no control the server would refuse.
-    refusals = role_action_refusals(user_role, market.phase)
+    refusals = role_action_refusals(user_role, market.phase, market.permissions)
     market_dict['actionRefusals'] = refusals
     market_dict['readOnlyReason'] = read_only_reason(market, refusals)
+    # And the table itself, for Manage market to show every row's role and where it came from
+    # (E39/F01/S03): the rows this market holds, the built-in default for the rest.
+    market_dict['permissionTable'] = Actions.table(market)
     # The rules of the market's life the table never overrides, each on its own: the verdicts
     # settle on entering assignment (E36/F01/S01), a vendor is added from the assignment on
     # (E36/F03/S01), and results wait for the allocation (E36/F04/S01), with how many will read
@@ -917,7 +921,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
     # and so name one (the table's verdicts row): the organization's people too, if the reader is
     # one.
-    may_give_verdicts = Actions.role_refusal(Actions.GIVE_VERDICTS, user_role) is None
+    may_give_verdicts = Actions.role_refusal(
+        Actions.GIVE_VERDICTS, user_role, market.permissions) is None
     reader = UsersApi.get_user(user_email) if may_give_verdicts else None
     ids = (
         PermissionsApi.follow_up_owners_for(
@@ -982,7 +987,8 @@ def _decorate_market_summary(
     _stamp_effective_market_state(market, phase)
     # The table's answers for the role the entry names, so the card offers Manage on its row as
     # the market's own page does (E39/F01/S02).
-    market['actionRefusals'] = role_action_refusals(_market_role(user_role), phase)
+    market['actionRefusals'] = role_action_refusals(
+        _market_role(user_role), phase, market_doc_field(market, 'permissions') or {})
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
@@ -1102,6 +1108,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
+    # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
+    # organization's default is copied in here once it has one (E39/F02/S01).
+    market_dict["permissions"] = {}
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1870,6 +1879,98 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
         _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
                      current_role, new_role)
     return result.modified_count > 0
+
+
+NO_SUCH_ROW = "This market's table has no such row."
+NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
+
+
+def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tuple[Market, Actions.Action]:
+    """The market and the row its owner is changing, or the refusal (E39/F01/S03).
+
+    Asks the fixed row ``change-the-table`` first, which only the market's owner reaches (an
+    organization's admins hold Admin on its markets, never Owner), and the archived rule with it:
+    an archived market's table is its record too. Then the row: one the table has, and not fixed.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    row = Actions.ACTIONS.get(action_id) if isinstance(action_id, str) else None
+    if row is None:
+        raise BadRequestError(NO_SUCH_ROW)
+    if row.fixed:
+        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+    return market, row
+
+
+def _permission_state(row: Actions.Action, held: Optional[MarketPermission]) -> Dict[str, str]:
+    """A row as a history entry's before or after: the role it asks, and where that came from."""
+    if held is None:
+        return {"role": row.default.value, "source": Actions.BUILT_IN}
+    return {"role": held.role, "source": held.source}
+
+
+def _record_permission(
+    market_id: str, requesting_user: str, kind: str, row: Actions.Action,
+    before: Optional[MarketPermission], after: Optional[MarketPermission],
+) -> None:
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=kind,
+        subject={"action": row.id},
+        detail={"before": _permission_state(row, before), "after": _permission_state(row, after)},
+    )
+
+
+def set_permission(
+    market_id: str, action_id: Any, role: Any, requesting_user: str,
+) -> List[Dict[str, Any]]:
+    """Set the role a row of this market's table asks, as its owner (E39/F01/S03). Asks
+    ``Actions.CHANGE_THE_TABLE``.
+
+    The row is then the market's own, whatever it was before, except that setting the role it
+    already asks stores and records nothing: who may take it has not changed, so a row copied from
+    the organization keeps its source. Returns the market's table.
+    """
+    market, row = _row_to_change(market_id, action_id, requesting_user)
+    if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
+        raise BadRequestError(NOT_A_ROLE)
+
+    before = Actions.held_row(row, market.permissions)
+    if Actions.minimum_role(row, market).value == role:
+        return Actions.table(market)
+    after = MarketPermission(role=role, source=Actions.ON_THIS_MARKET)
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
+        f"{market_doc_key('permissions')}.{row.id}": after.model_dump(),
+    }})
+    _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
+    market.permissions[row.id] = after
+    return Actions.table(market)
+
+
+def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> List[Dict[str, Any]]:
+    """Return a row of this market's table to its built-in default, as its owner (E39/F01/S03).
+    Asks ``Actions.CHANGE_THE_TABLE``.
+
+    The market stops holding the row, whether it was changed here or copied from the organization.
+    A row it does not hold is already at its default, and resetting it records nothing. Returns
+    the market's table.
+    """
+    market, row = _row_to_change(market_id, action_id, requesting_user)
+    before = Actions.held_row(row, market.permissions)
+    if before is None:
+        return Actions.table(market)
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
+        f"{market_doc_key('permissions')}.{row.id}": "",
+    }})
+    _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
+    market.permissions.pop(row.id, None)
+    return Actions.table(market)
+
+
+def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Every change to this market's table, newest first: who, when, the row, and its role and
+    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
+    see who changed what they may do on it."""
+    _load_market_for(market_id, requesting_user, Actions.READ)
+    return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
 
 
 def _record_role(
