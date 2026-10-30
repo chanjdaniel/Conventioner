@@ -217,7 +217,7 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
   await expect(stats).toBeInViewport({ ratio: 1 });
 });
 
-const SELLING = 'What will you be selling at the event?';
+const SELLING = 'What will you sell at the fair?';
 
 test('a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned', async ({
   authenticatedPage: page,

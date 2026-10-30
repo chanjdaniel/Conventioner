@@ -4,8 +4,8 @@
 Why (E01/F05, wayfinder ticket 02): `essential_tier_preference` used to be one set of tiers for the
 whole application. Tier is a hard filter AND it sets the price, so a single set lets the solver
 place a vendor at a tier they offered on one day - and charge them for it - on another. A real form
-asks the question per day and promises "the highest tier available among the selections made" for
-that day, in writing, to the applicant.
+asks the question per day and promises the applicant, in writing, the best tier they chose that is
+free on that day.
 
 The conversion is the only honest one available: a flat answer meant "these tiers, on every date I
 am available", so it becomes exactly that. No information is invented and none is lost.

@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment.best_table_for
   - back-end/assignment/assignment.py#MarketAssignment.is_valid_vendor
   - back-end/assignment/vendor_input.py#SolverVendor
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/01
   - wayfinding/real-market-readiness/02
@@ -25,7 +25,7 @@ A vendor's section ranking is a preference: they get their highest-ranked sectio
 
 **Tier is a filter because it sets the price**: what a vendor pays for a table on a given day follows from its tier ([a price follows the table](a-price-follows-the-table.md)), so placing them at one they refused charges them for something they did not agree to.
 It is answered per date, because a vendor who offered Gold on Monday and only Bronze on Friday must not be placed at Gold on Friday.
-A real Google Form asks it per day and promises the applicant, in writing, "the highest tier available among the selections made" for that day; one set of tiers for the whole market, the union of the days, would let the solver break that promise and charge for it.
+A real Google Form asks it per day and promises the applicant, in writing, the best tier they chose that is free on that day; one set of tiers for the whole market, the union of the days, would let the solver break that promise and charge for it.
 A tier is matched by name, as set membership; the spreadsheet era's substring test let a tier named `A` match an answer of `AB`.
 
 **Availability stays an answer of its own**, beside the tiers: "who can come on Tuesday" is a question a market with no tiers still asks.
