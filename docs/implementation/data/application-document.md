@@ -59,6 +59,7 @@ The organizer's and the applicant's views camel-case an application on the way o
 | `follow_up_owner` | who is reaching out, while the status is `needs_follow_up` |
 | `held_by`, `held_until` | the reviewer looking at it, and until when: a five-minute lease, renewed while the card stays open |
 | `added_by`, `added_at` | who recorded a vendor who never applied, and when |
+| `dealing_by`, `dealing_until` | the deal holding an arriving application while it takes a turn for it, and until when: a one-minute lease (`begin_dealing`, `DEALING_LEASE`), cleared as the reviewer is written, so a turn is only ever taken for an application that deal will write ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)) |
 | `reviewer` | whose share it was dealt to (`{user_id, email}`), absent when it never was ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); only `deal`, called by [`back-end/review_team.py`](../../../back-end/review_team.py), writes it, while the application is open: when reviewers are chosen or changed, and when it arrives open (an applicant's save, an import, or the rules returning it to open), and a verdict never clears it, so it stays the record of whose share it was; not who is looking at it now, which is `held_by` |
 
 A vendor's names are answers in `form_data` too; `vendor_names_for_market` reads them as one map from address to the name to call each vendor ([a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md)).

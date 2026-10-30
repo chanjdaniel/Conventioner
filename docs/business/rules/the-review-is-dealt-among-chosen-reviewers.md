@@ -35,7 +35,8 @@ Seven open applications among three reviewers deal three, two and two, the extra
 
 **Each application that arrives open is dealt to the next reviewer in turn**: an applicant's submission, every import ([the CSV import](../../implementation/modules/csv-import.md)), and an application the [automatic rejections](automatic-rejections.md) return to open when the rules are saved, the form is saved or a vendor's info is updated.
 An application a rule rejects as it arrives is decided, so it is not dealt until the rules return it to open.
-The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer, and two applicants submitting at once take different turns.
+The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer; two applications arriving at once take the next two turns, and no reviewer is skipped.
+An applicant's own save deals their application and nobody else's, so the history never names a vendor as dealing another's.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
 A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up, unless its owner is a reviewer removed by the change.
@@ -59,6 +60,6 @@ Anyone else's address is refused by name; a current reviewer the chooser is not 
 
 - The team, and how far the deal has gone, are `reviewTeam` on [the market document](../../implementation/data/market-document.md); whose share an application is, `reviewer` on [the application document](../../implementation/data/application-document.md); [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md) records why.
 - `PUT /markets/:id/reviewers` (`choose_reviewers` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) is the one write of the team, asking [the market's actions](../../implementation/modules/market-actions.md) row `choose-reviewers`; [`back-end/review_team.py`](../../../back-end/review_team.py) deals, and nothing else writes either field.
-- The market read serves every reader the reviewers, each with whether they may still review here, and serves whom the reader may choose only to someone who may choose.
+- The market read serves every reader the reviewers, each with whether they may still review here, and serves whom the reader may choose only to someone who may choose, while the review is open.
 - A choice and the deal it made are entries of [the market's history](../../implementation/data/history.md), worded on Manage market's History and, for one vendor, in their drawer ([reading the market's history](../flows/reading-the-markets-history.md)).
 - The Reviewers panel on the Applications tab ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)) shows the reviewers and changes them, through one picker ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)) and the words [`front-end/src/utils/reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts) holds ([reviewing applications](../flows/review.md#dividing-the-review)).

@@ -89,7 +89,7 @@ _Avoid_: Important field, priority (means the solver's ordering rules)
 See [Review highlight](docs/business/concepts/review-highlight.md).
 
 **Reviewer**:
-Someone chosen to review a market's applications, by an Admin or the owner. Chosen from the people with a role on the market, and kept only for this review: being chosen is not a role. With none chosen, everyone reviews first come, first served.
+Someone chosen to review a market's applications, by an Admin or the owner. Chosen from the people with a role on the market or through its organization (only the market's own, to a chooser from outside the organization), and kept only for this review: being chosen is not a role. With none chosen, everyone reviews first come, first served.
 _Avoid_: Assignee (an assignment is a table), the reviewer for whoever happens to have a card open (that is who holds it)
 See [The review is dealt among chosen reviewers](docs/business/rules/the-review-is-dealt-among-chosen-reviewers.md).
 
@@ -97,7 +97,7 @@ See [The review is dealt among chosen reviewers](docs/business/rules/the-review-
 The applications dealt to one reviewer. An application stays in the share it was dealt to after it is decided, as the record of whose it was.
 
 **Deal**:
-Handing the open applications out among the reviewers, round robin in the order they arrived. Any change of reviewers deals the open applications again; a decided application and a follow-up stay where they are.
+Handing the open applications out among the reviewers, round robin in the order they arrived. Any change of reviewers deals the open applications again; a decided application stays where it is, and so does a follow-up, unless its owner is a reviewer the change removed.
 _Avoid_: Assign (means giving a vendor a table)
 
 **Solver-relevant answer**:

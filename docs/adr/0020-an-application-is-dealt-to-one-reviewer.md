@@ -37,6 +37,7 @@ Absent, both read as before this existed: no reviewers, first come, first served
 One module, [`back-end/review_team.py`](../../back-end/review_team.py), writes both fields; nothing else does.
 Choosing reviewers stores the team with its turn reset, then deals every open application (undecided: `open` or `under_review`) round robin from the first reviewer in the order they arrived, and moves the turn on by as many; the first reviewers in address order take the remainder, and the next arrivals go first to those who got one fewer.
 A deal never counts what each reviewer has left open.
+An arrival is first won for its deal, a short lease on the application, and only then takes its turn by one atomic increment of the market's, so a turn is never taken for an application another deal writes, and two at once skip no reviewer.
 Each application's write (`deal` in [`back-end/api/applications.py`](../../back-end/api/applications.py)) is conditioned on it still being open and still dealt as it was read, so a verdict landing mid-deal is never touched.
 A decided application stays where it is, and so does a follow-up, unless its owner is a reviewer the change removed: then it is dealt with the open applications and handed, still a follow-up, to the reviewer it goes to. An unchanged set writes and records nothing; no reviewers returns every open application to first come, first served.
 
