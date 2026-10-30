@@ -8,7 +8,7 @@ import { TablesPage } from './pages/TablesPage';
  * A seat and an attendance entry open the vendor drawer (E35/F01/S02).
  *
  * The vendor drawer opened only from the Vendors list, so an organizer looking at a table on the
- * Result page, or at a name at the door, went to another page and searched to learn who it was.
+ * Assignments page, or at a name at the door, went to another page and searched to learn who it was.
  * The name opens it now, one click, and a seat's change and the door's check-in stay their own
  * controls: opening the drawer never moves or checks in anybody.
  *

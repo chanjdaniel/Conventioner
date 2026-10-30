@@ -1,5 +1,5 @@
 /**
- * The Result page's statistics as a ledger of bars (E35/F03/S01): per date, section, tier and table
+ * The Assignments page's statistics as a ledger of bars (E35/F03/S01): per date, section, tier and table
  * size, each count with its share of all placements and a bar against the largest in its group, so
  * the busiest day and the fuller section read before the numbers do. Layout A of the two shown,
  * chosen 2026-10-20. The counts are the server's; nothing here adds or drops one.

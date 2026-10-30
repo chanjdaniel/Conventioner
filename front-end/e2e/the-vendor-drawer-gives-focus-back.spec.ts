@@ -59,7 +59,7 @@ test('the drawer gives focus back to the row, the seat and the name that opened 
   await openByKeyboard(page, row);
   await closeAndFindFocusOn(page, row, 'its close');
 
-  // The Result page: a seat's name.
+  // The Assignments page: a seat's name.
   const tables = new TablesPage(page);
   await tables.goto(seed.marketId);
   const seat = page.getByTestId('tables-seat-occupied').first();

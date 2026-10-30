@@ -1,7 +1,7 @@
 /**
  * Every export is offered on the table's Export CSV row (E39/F01/S02, E42/F01/S01).
  *
- * The Vendors page's and the All view's Export, and Result's Download CSV, were drawn for everyone
+ * The Vendors page's and the All view's Export, and the Assignments page's Download CSV, were drawn for everyone
  * who could open the page: right while the row's default is Viewer, the same as Read, but a market
  * that raised the row would have offered a button whose file the server refuses with a 403.
  */
@@ -84,7 +84,7 @@ describe.each([
     expect(wrapper.find('[data-testid="applications-all-export-button"]').exists()).toBe(offered);
   });
 
-  it(`Result ${offered ? 'offers' : 'hides'} Download CSV`, async () => {
+  it(`Assignments ${offered ? 'offers' : 'hides'} Download CSV`, async () => {
     const wrapper = mount(ResultSummary, { props: { market: market(refused) }, shallow: true });
     await flushPromises();
 

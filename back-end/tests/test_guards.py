@@ -772,8 +772,10 @@ class TestEveryResolutionLinkPointsAtItsFix:
         "setup",
         "form",
         "applications",
-        "assignment",
-        "result",
+        # The Assignment tab's Settings and Assignments, named Assignment and Result until
+        # E38/F08/S01; the old names redirect, so a link naming one is refused below.
+        "settings",
+        "assignments",
         "vendors",
         "attendance",
         # The import flow, which has its own address (E32/F02/S01: the fix for an empty review).
@@ -787,6 +789,8 @@ class TestEveryResolutionLinkPointsAtItsFix:
         "setup?tab=assignment",
         "setup?tab=setup",
         "tables",
+        "assignment",
+        "result",
         "/market-setup",
         "/market-setup?tab=applications",
         "/market-setup?tab=assignment",

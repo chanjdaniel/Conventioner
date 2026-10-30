@@ -41,9 +41,9 @@ async function walkToAssignment(request: APIRequestContext, marketId: string) {
 
 /** Allocate tables the way an organizer does, and count who it assigned. */
 async function assignFromThePage(page: Page, request: APIRequestContext, marketId: string) {
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   await page.getByTestId('market-setup-assign-button').click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignments$`), { timeout: 15000 });
   const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);
   const { market } = (await res.json()) as {
     market: { assignmentObject: { vendorAssignments?: unknown[] } };

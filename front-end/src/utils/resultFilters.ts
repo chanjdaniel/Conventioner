@@ -1,5 +1,5 @@
 /**
- * How the Result page narrows what it shows (E09/F02/S01, E28/F02).
+ * How the Assignments page narrows what it shows (E09/F02/S01, E28/F02).
  *
  * Every filter lives in the address, so a filtered view is a link. The status filter is the odd
  * one out: its options are also counts, and a count must not be narrowed by itself - choosing
@@ -124,21 +124,31 @@ function placeMatches(place: VendorPlacement, filters: ResultFilters): boolean {
 const WHOLE_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * The search: the table's label, or anyone at it by address, name or text answer. A whole address
- * finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer naming it.
+ * Whether words find one vendor: by part of their address, their names or a short answer
+ * (`VendorSearch`), or by where they are when that is given, such as the table they sit at. A whole
+ * address finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer
+ * naming it. The pages' search and the placement dialog's pickers both ask it (E38/F08/S03), so a
+ * search finds the same vendors everywhere.
  */
+export function vendorFound(
+  words: string,
+  address: string,
+  search: VendorSearch,
+  where: readonly string[] = [],
+): boolean {
+  const needle = words.trim().toLowerCase();
+  if (!needle) return true;
+  const vendor = address.trim().toLowerCase();
+  if (WHOLE_ADDRESS.test(needle)) return vendor === needle;
+  const found = (text: string) => text.toLowerCase().includes(needle);
+  return found(vendor) || (search[vendor] ?? []).some(found) || where.some(found);
+}
+
+/** The search: the table's label, or anyone at it (`vendorFound`). */
 function matchesSearch(row: MarketTableRow, needle: string, search: VendorSearch): boolean {
   if (!needle) return true;
-  if (WHOLE_ADDRESS.test(needle)) {
-    return (row.assignmentSlots ?? []).some((email) => email?.trim().toLowerCase() === needle);
-  }
-  const found = (text: string) => text.toLowerCase().includes(needle);
-  if (found(row.tableCode)) return true;
-  return (row.assignmentSlots ?? []).some((email) => {
-    if (!email) return false;
-    const address = email.trim().toLowerCase();
-    return found(address) || (search[address] ?? []).some(found);
-  });
+  if (!WHOLE_ADDRESS.test(needle) && row.tableCode.toLowerCase().includes(needle)) return true;
+  return (row.assignmentSlots ?? []).some((email) => !!email && vendorFound(needle, email, search));
 }
 
 /** Every filter but the status, the search's words prepared once for every row. */
@@ -189,7 +199,7 @@ export function hasPlaceFilter(filters: ResultFilters): boolean {
 }
 
 /**
- * The part of a query both Result pages share (E28/F02/S02): moving from the tables to the vendors
+ * The part of a query both the Assignments and Vendors pages share (E28/F02/S02): moving from the tables to the vendors
  * keeps the day, section, tier and table size the organizer is looking at. The status belongs to
  * tables and the open vendor to the vendors page, so neither travels.
  */
@@ -258,20 +268,21 @@ export function vendorsShownFrom(query: unknown): VendorsShown {
 }
 
 /**
- * Whether a vendor belongs to that choice. Unassigned is a vendor of the run without a seat, so a
- * rejected applicant is never one of them, seated or not: counting them was bug 10.
+ * Whether a vendor belongs to that choice. Unassigned is a vendor who needs a table and has none:
+ * the run's own, and a vendor added by hand, whom the run never reads (E38/F08/S02). A rejected
+ * applicant is never one of them, seated or not: counting them was bug 10.
  */
 export function inVendorsShown(
-  vendor: { inTheRun: boolean; rejected: boolean },
+  vendor: { needsATable: boolean; rejected: boolean },
   shown: VendorsShown,
 ): boolean {
-  if (shown === 'unassigned') return vendor.inTheRun;
+  if (shown === 'unassigned') return vendor.needsATable;
   if (shown === 'rejected') return vendor.rejected;
   return true;
 }
 
 /**
- * Which filters a Result page offers. The tables take every one; the vendors take the where-filters
+ * Which filters the Assignments or Vendors page offers. The tables take every one; the vendors take the where-filters
  * - the status is a fact about tables - and, with "Unassigned only", the date alone, since the
  * others describe a placement an unplaced vendor does not have. A filter not offered draws neither a
  * picker nor a chip, so nothing on screen claims to narrow a list it does not.

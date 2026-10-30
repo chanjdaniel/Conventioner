@@ -9,7 +9,9 @@
  */
 import { computed, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
+import SearchPicker, { type PickerGroup, type PickerOption } from '@/components/SearchPicker.vue';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
+import { vendorFound, type VendorSearch } from '@/utils/resultFilters';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -27,6 +29,7 @@ import {
 export interface SwapTarget {
   email: string;
   tableCode: string;
+  section: string;
   tier: string;
   seat: Seat;
 }
@@ -54,6 +57,8 @@ const props = defineProps<{
   marketCeiling: number | null;
   swapTargets: SwapTarget[];
   vendorNames: VendorNames;
+  /** What the pages' search finds each vendor by, which the pickers search by too (E38/F08/S03). */
+  vendorSearch: VendorSearch;
   busy?: boolean;
   errorMessage?: string;
 }>();
@@ -175,6 +180,59 @@ function whereTheySit(target: SwapTarget): string {
   if (target.seat === FULL_TABLE) return target.tableCode;
   return tableInWords(target.tableCode, target.seat);
 }
+
+/**
+ * The two pickers, searched by the pages' terms (E38/F08/S03): a vendor's name, business or
+ * address, and for a swap partner the table they sit at, by its code or its section.
+ */
+const vendorOption = (email: string): PickerOption => ({ value: email, label: label(email) });
+
+/** "Who sits here", grouped and never filtered (claims-and-room 05): a search only narrows. */
+const placeGroups = computed((): PickerGroup[] => [
+  {
+    label: 'Fits this seat',
+    testid: 'placement-dialog-fits',
+    options: groups.value.fits.map((v) => vendorOption(v.email)),
+  },
+  {
+    label: 'Would override their answers',
+    testid: 'placement-dialog-overrides',
+    options: groups.value.overrides.map((v) => vendorOption(v.email)),
+  },
+  // Anyone may be seated by hand (E36/F02/S02): the review governs the run, and an applicant it
+  // left out is one deliberate, warned pick away.
+  {
+    label: 'Not approved',
+    testid: 'placement-dialog-not-approved',
+    options: groups.value.notApproved.map((v) => vendorOption(v.email)),
+  },
+  // Recorded on the day, with no answers to fit or override (E36/F03/S01).
+  {
+    label: 'Added by hand',
+    testid: 'placement-dialog-added',
+    options: groups.value.addedByHand.map((v) => vendorOption(v.email)),
+  },
+]);
+const findsToPlace = (option: PickerOption, words: string) =>
+  vendorFound(words, option.value, props.vendorSearch);
+
+/** "Swap them with": everyone seated that day, in table order. */
+const swapGroups = computed((): PickerGroup[] => [
+  {
+    options: props.swapTargets.map((target) => ({
+      ...vendorOption(target.email),
+      detail: whereTheySit(target),
+    })),
+  },
+]);
+const swapTargetOf = computed(
+  () => new Map(props.swapTargets.map((target) => [target.email, target])),
+);
+function findsToSwap(option: PickerOption, words: string): boolean {
+  const target = swapTargetOf.value.get(option.value);
+  const where = target ? [target.tableCode, target.section] : [];
+  return vendorFound(words, option.value, props.vendorSearch, where);
+}
 </script>
 
 <template>
@@ -195,57 +253,17 @@ function whereTheySit(target: SwapTarget): string {
     </p>
 
     <template v-if="mode === 'place'">
-      <label class="placement-field">
-        <span class="field-label">Who sits here</span>
-        <select
-          v-model="chosenEmail"
-          class="field field--select"
-          data-testid="placement-dialog-vendor"
-        >
-          <option value="">Choose a vendor…</option>
-          <!-- Grouped, never filtered (claims-and-room 05): overriding an answer stays possible,
-               it just is not mixed in with the vendors this seat fits. -->
-          <optgroup
-            v-if="groups.fits.length"
-            label="Fits this seat"
-            data-testid="placement-dialog-fits"
-          >
-            <option v-for="vendor in groups.fits" :key="vendor.email" :value="vendor.email">
-              {{ label(vendor.email) }}
-            </option>
-          </optgroup>
-          <optgroup
-            v-if="groups.overrides.length"
-            label="Would override their answers"
-            data-testid="placement-dialog-overrides"
-          >
-            <option v-for="vendor in groups.overrides" :key="vendor.email" :value="vendor.email">
-              {{ label(vendor.email) }}
-            </option>
-          </optgroup>
-          <!-- Anyone may be seated by hand (E36/F02/S02): the review governs the run, and an
-               applicant it left out is one deliberate, warned pick away. -->
-          <optgroup
-            v-if="groups.notApproved.length"
-            label="Not approved"
-            data-testid="placement-dialog-not-approved"
-          >
-            <option v-for="vendor in groups.notApproved" :key="vendor.email" :value="vendor.email">
-              {{ label(vendor.email) }}
-            </option>
-          </optgroup>
-          <!-- Recorded on the day, with no answers to fit or override (E36/F03/S01). -->
-          <optgroup
-            v-if="groups.addedByHand.length"
-            label="Added by hand"
-            data-testid="placement-dialog-added"
-          >
-            <option v-for="vendor in groups.addedByHand" :key="vendor.email" :value="vendor.email">
-              {{ label(vendor.email) }}
-            </option>
-          </optgroup>
-        </select>
-      </label>
+      <!-- Grouped, never filtered (claims-and-room 05): overriding an answer stays possible, it
+           just is not mixed in with the vendors this seat fits, and a search narrows each group
+           without hiding one. -->
+      <SearchPicker
+        v-model="chosenEmail"
+        :groups="placeGroups"
+        :finds="findsToPlace"
+        label="Who sits here"
+        placeholder="Search by name, business or email…"
+        testid="placement-dialog-vendor"
+      />
       <p v-if="candidates.length === 0" class="placement-note">
         Every vendor who applied already has a table on this date.
       </p>
@@ -289,19 +307,14 @@ function whereTheySit(target: SwapTarget): string {
         </button>
       </div>
 
-      <label class="placement-field">
-        <span class="field-label">Swap them with</span>
-        <select
-          v-model="swapWith"
-          class="field field--select"
-          data-testid="placement-dialog-swap-target"
-        >
-          <option value="">Choose a vendor to trade seats with…</option>
-          <option v-for="target in swapTargets" :key="target.email" :value="target.email">
-            {{ label(target.email) }} - {{ whereTheySit(target) }}
-          </option>
-        </select>
-      </label>
+      <SearchPicker
+        v-model="swapWith"
+        :groups="swapGroups"
+        :finds="findsToSwap"
+        label="Swap them with"
+        placeholder="Search by name, business, email or table…"
+        testid="placement-dialog-swap-target"
+      />
       <p v-if="swapTargets.length === 0" class="placement-note">
         Nobody else holds a table on this date, so there is nobody to trade with.
       </p>

@@ -29,7 +29,7 @@ test("from a vendor's placement on day 2, the results show only their day-2 tabl
   const dayTwo = vendors.detailAssignmentItems.filter({ hasText: /May 2, 2099/ });
   await dayTwo.getByTestId('vendor-date-card-place-link').click();
 
-  await page.waitForURL(/\/result\?/);
+  await page.waitForURL(/\/assignments\?/);
   const url = new URL(page.url());
   expect(url.searchParams.get('date')).toBe(DAY_TWO);
   expect(url.searchParams.get('search')).toBe('alice@example.com');

@@ -174,8 +174,8 @@ describe('openMarket', () => {
 describe('marketPath', () => {
   it('gives every market page its own address, so a link opens that page of that market', () => {
     expect(marketPath('m1', 'setup')).toBe('/markets/m1/setup');
-    expect(marketPath('m1', 'assignment')).toBe('/markets/m1/assignment');
-    expect(marketPath('m1', 'result')).toBe('/markets/m1/result');
+    expect(marketPath('m1', 'settings')).toBe('/markets/m1/settings');
+    expect(marketPath('m1', 'assignments')).toBe('/markets/m1/assignments');
     expect(marketPath('m1', 'import')).toBe('/markets/m1/import');
   });
 

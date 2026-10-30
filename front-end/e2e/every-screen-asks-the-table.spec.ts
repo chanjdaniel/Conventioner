@@ -145,10 +145,10 @@ for (const role of Object.keys(PEOPLE) as Role[]) {
       await offered(page, 'vendors-detail-update-info', edits);
 
       // The Assignment tab, in assignment: running it and placing seats are the Assignment row's.
-      await page.goto(marketSetupPath(markets.assignment, 'assignment'));
+      await page.goto(marketSetupPath(markets.assignment, 'settings'));
       await expect(page.getByTestId('assignment-card-priority')).toBeVisible({ timeout: 15000 });
       await offered(page, 'market-setup-assign-button', edits);
-      await page.goto(marketScreenPath(markets.assignment, 'result'));
+      await page.goto(marketScreenPath(markets.assignment, 'assignments'));
       await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({
         timeout: 15000,
       });
