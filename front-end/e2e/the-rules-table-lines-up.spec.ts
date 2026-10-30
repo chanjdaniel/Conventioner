@@ -183,11 +183,15 @@ test("a rule's question stays in its column, however long the form's other quest
       fields: [
         {
           key: 'student',
-          label: 'Are you a UBC student or alumni?',
+          label: 'Are you an Example College student or alumni?',
           type: 'select',
           required: true,
           order: 0,
-          options: ['Yes, I am a CURRENT UBC student', 'Yes, I am an UBC alumni/staff', 'No'],
+          options: [
+            'Yes, I am a CURRENT Example College student',
+            'Yes, I am Example College alumni/staff',
+            'No',
+          ],
         },
         {
           key: 'returning',
@@ -207,7 +211,11 @@ test("a rule's question stays in its column, however long the form's other quest
       {
         id: 1,
         target: 'student',
-        ordering: ['Yes, I am a CURRENT UBC student', 'Yes, I am an UBC alumni/staff', 'No'],
+        ordering: [
+          'Yes, I am a CURRENT Example College student',
+          'Yes, I am Example College alumni/staff',
+          'No',
+        ],
         direction: null,
       },
     ],

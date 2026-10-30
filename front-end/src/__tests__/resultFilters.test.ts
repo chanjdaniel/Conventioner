@@ -235,19 +235,19 @@ describe('the filters each page offers', () => {
 describe('the order a date lists its sections in (E30/F01/S05)', () => {
   const plan = {
     tiers: [{ name: 'Gold' }, { name: 'Silver' }, { name: 'Bronze' }],
-    sections: [{ name: 'Upper Atrium' }, { name: 'Lower Atrium' }, { name: 'Courtyard' }],
+    sections: [{ name: 'South Wing' }, { name: 'North Wing' }, { name: 'Courtyard' }],
   };
 
   it('lists them by tier, as the plan ranks its tiers, not by name', () => {
     // The walk: "Courtyard (Bronze)" came first, alphabetically.
     const groups = [
       { section: 'Courtyard', tier: 'Bronze' },
-      { section: 'Lower Atrium', tier: 'Silver' },
-      { section: 'Upper Atrium', tier: 'Gold' },
+      { section: 'North Wing', tier: 'Silver' },
+      { section: 'South Wing', tier: 'Gold' },
     ];
     expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
-      'Upper Atrium',
-      'Lower Atrium',
+      'South Wing',
+      'North Wing',
       'Courtyard',
     ]);
   });
@@ -255,13 +255,13 @@ describe('the order a date lists its sections in (E30/F01/S05)', () => {
   it('within a tier, follows the plan, and puts what the plan does not know last, by name', () => {
     const groups = [
       { section: 'Zed', tier: 'Gold' },
-      { section: 'Lower Atrium', tier: 'Gold' },
+      { section: 'North Wing', tier: 'Gold' },
       { section: 'Alpha', tier: 'Gold' },
-      { section: 'Upper Atrium', tier: 'Gold' },
+      { section: 'South Wing', tier: 'Gold' },
     ];
     expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
-      'Upper Atrium',
-      'Lower Atrium',
+      'South Wing',
+      'North Wing',
       'Alpha',
       'Zed',
     ]);

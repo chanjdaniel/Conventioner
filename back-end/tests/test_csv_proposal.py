@@ -310,23 +310,24 @@ class TestWhatAColumnCarries:
         assert help_text.startswith("Instagram, a website")
 
     def test_a_sentence_does_not_end_inside_parentheses(self):
-        long = ("If you do not have an UBC email, please attach proof of affiliation (e.g. a "
-                "Workday timetable or a staff card photo). We only use it to check eligibility.")
+        long = ("Without an Example College address, upload something that shows your affiliation "
+                "(e.g. a class timetable or a photo of a staff card). We only use it to check "
+                "eligibility.")
         label, help_text = CsvProposal.label_and_help(long)
-        assert label.endswith("staff card photo).")
+        assert label.endswith("photo of a staff card).")
         assert help_text == "We only use it to check eligibility."
 
     def test_a_long_first_line_with_no_sentence_end_stays_whole(self):
         """Cut at the last word that fit, it put half a sentence on the form (bug 41)."""
-        long = ("If you do not have an UBC email, please attach proof of UBC affiliation (e.g. "
-                "Workday timetable for this term, alumni card, grad certificate, etc.)")
+        long = ("Without an Example College address, upload something that shows your affiliation "
+                "(e.g. a class timetable for this term, an alumni card, a graduation letter, etc.)")
         assert CsvProposal.label_and_help(long) == (long, None)
 
     def test_an_exclamation_ends_a_sentence(self):
-        long = ("Please provide a link to your portfolio or any samples of your work that you will "
-                "be selling at UBC Makers Market! (e.g. Google Drive, website, Instagram)")
+        long = ("Share a link to your portfolio or to photos of the pieces you plan to bring and "
+                "sell at Example Makers Fair! (e.g. Google Drive, website, Instagram)")
         label, help_text = CsvProposal.label_and_help(long)
-        assert label.endswith("UBC Makers Market!")
+        assert label.endswith("Example Makers Fair!")
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
     @pytest.mark.parametrize("name", ["days-as-one-question", "four-day-grid", "no-timestamp",

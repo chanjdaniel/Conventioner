@@ -15,8 +15,11 @@ import type { RejectionQuestion, RejectionRule } from '@/assets/types/datatypes'
 const QUESTIONS: RejectionQuestion[] = [
   {
     key: 'affiliation',
-    label: 'Are you a UBC student?',
-    answers: ['Current UBC student', 'Not a UBC student'].map((a) => ({ value: a, label: a })),
+    label: 'Are you an Example College student?',
+    answers: ['Current Example College student', 'Not an Example College student'].map((a) => ({
+      value: a,
+      label: a,
+    })),
   },
   {
     key: 'no_shows',
@@ -61,12 +64,14 @@ describe('the automatic rejections', () => {
   it('removes a rule', async () => {
     const wrapper = mountRules([
       { key: 'no_shows', answers: ['not ticked'] },
-      { key: 'affiliation', answers: ['Not a UBC student'] },
+      { key: 'affiliation', answers: ['Not an Example College student'] },
     ]);
 
     await wrapper.get('[data-testid="rejection-rule-remove-no_shows"]').trigger('click');
 
-    expect(lastWrite(wrapper)).toEqual([{ key: 'affiliation', answers: ['Not a UBC student'] }]);
+    expect(lastWrite(wrapper)).toEqual([
+      { key: 'affiliation', answers: ['Not an Example College student'] },
+    ]);
   });
 
   it('shows settled rules fixed, saying why', () => {

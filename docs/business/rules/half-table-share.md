@@ -7,7 +7,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment.is_max_half_tables
   - back-end/assignment/assignment.py#MarketAssignment.get_valid_vendors
   - back-end/datatypes.py#AssignmentOptionObject
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - wayfinding/november-2026-dry-run/08
   - E27

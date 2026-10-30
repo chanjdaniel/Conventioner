@@ -790,7 +790,7 @@ def _grid_values(
 def _whole_number_text(text: str) -> str:
     """A count as the form wrote it, reduced to the number in it.
 
-    A real form asks "maximum number of days you wish to booth" with a dropdown reading "2 days",
+    A real form asks for the most days an applicant wants a table, with a dropdown reading "2 days",
     so the cell is never a bare integer. Normalised at the boundary for the same reason the
     timestamp is: the alternative is every reader knowing about the word.
 
