@@ -464,7 +464,6 @@ useInertBehind(
   border-bottom: 2px solid transparent;
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- a border's width, not spacing: the underline lies over the strip's rule */
   margin-bottom: -1px;
-  border-radius: var(--radius-control);
   background: none;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
@@ -475,10 +474,12 @@ useInertBehind(
   color: var(--mm-black);
 }
 
-/* Above the section beneath, which would otherwise paint over the halo's lower edge. */
+/* Above the section beneath, which would otherwise paint over the halo's lower edge; rounded only
+   while focused, since at rest a radius would curl the current tab's underline. */
 .detail-tab:focus-visible {
   position: relative;
   z-index: 1;
+  border-radius: var(--radius-control);
 }
 
 .detail-tab--current {

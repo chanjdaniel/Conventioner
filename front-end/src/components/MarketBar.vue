@@ -154,7 +154,6 @@ function linkFor(tab: MarketTab): string {
   min-height: var(--target-min);
   padding: var(--space-2) var(--space-4);
   border-bottom: 2px solid transparent;
-  border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--mm-text-muted-on-dark);
   text-decoration: none;
@@ -167,8 +166,10 @@ function linkFor(tab: MarketTab): string {
   color: var(--mm-text-hover-on-dark);
 }
 
-/* The bar is dark, so its tabs take the white halo rather than the green one (E38/F01/S01). */
+/* The bar is dark, so its tabs take the white halo rather than the green one (E38/F01/S01).
+   Rounded only while focused: at rest a radius would curl the active tab's underline. */
 .market-bar-tab:focus-visible {
+  border-radius: var(--radius-control);
   box-shadow: var(--focus-halo-on-dark);
 }
 

@@ -11,8 +11,8 @@ import type { Page } from '@playwright/test';
  *   Daniel's decision on the 2026-10-29 walk.
  * - A control focused by Tab draws the soft halo and no outline, so neither the old ring nor the
  *   browser's own is left anywhere; a control with no shadow of its own may have a box around it
- *   wear the halo, as a market card does for its name: `--focus-halo` on a light ground, `--focus-halo-on-dark` on a
- *   dark one (the market bar, the vendor drawer's head).
+ *   wear the halo, as a market card does for its name. The halo is `--focus-halo` on a light
+ *   ground and `--focus-halo-on-dark` on a dark one (the market bar, the vendor drawer's head).
  *
  * It presses Tab rather than calling `focus()`, since `:focus-visible` is what the keyboard gets.
  */
@@ -136,8 +136,8 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
         }
         const dark = 0.2126 * ground[0] + 0.7152 * ground[1] + 0.0722 * ground[2] < 96;
         const wanted = dark ? haloOnDark : halo;
-        // A control with no shadow of its own may have a box up to four levels around it wear the halo,
-        // as a market card does for its name.
+        // A control with no shadow of its own may have a box up to four levels around it wear
+        // the halo, as a market card does for its name.
         const wears = (node: Element) => getComputedStyle(node).boxShadow.includes(wanted);
         let worn = wears(el);
         for (
