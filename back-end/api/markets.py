@@ -1573,7 +1573,9 @@ def count_added_vendors(
     The run counts only the vendors it reads, so a vendor added without a table was missing from
     "N unassigned" while Vendors' "Unassigned only" listed them, and the link led to a list longer
     than its number. An added vendor needs a table on every market day, and holds one when seated
-    on any, as the run's vendors do; satisfaction stays the run's, measured against their answers.
+    on any, as the run's vendors do; a seat the plan no longer has is no seat, so the caller
+    leaves an orphaned pin out of `placements`. Satisfaction stays the run's, measured against
+    their answers.
     """
     seated = {placement.email for placement in placements}
     for email in sorted(set(added)):
