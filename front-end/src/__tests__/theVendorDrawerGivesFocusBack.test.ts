@@ -81,7 +81,10 @@ describe('the vendor drawer opens on its close and gives focus back', () => {
     ['its close', () => byTestId('vendors-detail-close')!.click()],
     ['the scrim', () => byTestId('vendors-detail-overlay')!.click()],
     ['Escape', () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))],
-    ['the screen, as Back does', () => ((wrapper!.vm as unknown as HostVm).email = null)],
+    [
+      'the screen, as the address losing `?vendor=` does',
+      () => ((wrapper!.vm as unknown as HostVm).email = null),
+    ],
   ])('gives focus back to its opener when it closes by %s', async (_how, close) => {
     const opener = await openFromTheButton();
 
