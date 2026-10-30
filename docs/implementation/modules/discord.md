@@ -47,11 +47,12 @@ Connecting is two requests around Discord's approval screen:
 1. `POST /markets/:id/discord/authorization` keeps a one-time state in the person's session, bound to this market, and answers the screen's address: `scope=bot`, the permissions Manage Roles and Create Instant Invite, `response_type=code`, and the redirect `FRONTEND_URL` + `/discord/connected`.
    The state leads with the market's id and a dot, so the page Discord returns to knows which market it was.
 2. Discord sends the person back to [`DiscordConnectedView.vue`](../../../front-end/src/views/DiscordConnectedView.vue) with a code and the state, and the page posts both to `POST /markets/:id/discord/connection`, then opens the market's Market Setup.
-   The server spends the state, refuses one this session never started, one for another market or one older than 15 minutes, exchanges the code with Discord, and keeps the server the token answer names.
+   The server spends the state, refuses one this session never started, one another person started (a second account signed in on the same browser), one for another market or one older than 15 minutes, exchanges the code with Discord, and keeps the server the token answer names.
 
 **The server is read from the code exchange's token answer, never from the redirect's `guild_id`**: Discord calls that one "only a hint" ([OAuth2, Advanced Bot Authorization](https://docs.discord.com/developers/topics/oauth2)), and anyone can type one.
 The user's access token in the same answer is neither kept nor used.
-The Developer Portal's "Requires OAuth2 Code Grant" setting makes the code exchange the only way the bot joins a server; the code reads the token answer whether it is on or off.
+**The application runs with "Requires OAuth2 Code Grant" on** (the Developer Portal's Bot page): it makes the code exchange the only way the bot joins a server, so every server it is in was added through Conventioner's approval screen, and Discord sends the code this flow needs.
+Discord's OAuth2 page describes the bot-only flow without the setting as needing no redirect, so a deployment with it off is not one this flow is built or walked for.
 
 Connecting again to the same server keeps the role and the invite link; connecting to another server forgets them.
 **Disconnecting** (`DELETE /markets/:id/discord/connection`, after a confirmation) forgets the server, its role and its invite link, and keeps the username question, which is about the form; the bot stays in the server until someone removes it there, since another market may use it.
@@ -63,6 +64,7 @@ They defend nothing the product serves without them, so they are not among the [
 Each is read through `configured_secret` when asked for (`credentials()`), never at import, so a blank or a published placeholder is no value.
 The market read serves `discordSetUp`, and without it the card says "Discord is not set up on this Conventioner." and offers nothing; a route that needs Discord answers that sentence as a 503.
 The redirect registered in the Developer Portal is `FRONTEND_URL` + `/discord/connected` for each deployment: `https://conventioner.io/discord/connected`, and `http://127.0.0.1:5173/discord/connected` for the primary checkout's stack.
+**`FRONTEND_URL` must be the address the organizer signs in at**: the state lives in that host's session, so a stack whose `FRONTEND_URL` says `localhost` while the organizer signs in at `127.0.0.1` sends Discord a redirect that is not registered, or brings the organizer back to a host without their session; locally it is `FRONTEND_URL=http://127.0.0.1:5173`.
 
 ## REST only
 
@@ -83,7 +85,7 @@ None of these endpoints says a gateway connection is required.
 
 ## Sharp edges
 
-**A failure is answered in Conventioner's words, never Discord's, and never with a value sent**: a 400 or 401 from the exchange asks to connect again, a 403 or 404 from the bot says it can no longer reach the server, a 429 asks to wait, and anything else is "could not reach Discord"; a log line names the status and the route's first segment only.
+**A failure is answered in Conventioner's words, never Discord's, and never with a value sent**: a 400 from the exchange asks to connect again, a 401 from the exchange or the bot says Discord refused this Conventioner's Discord settings and logs the 401 (the client secret or the bot token is wrong or revoked, which only whoever runs the deployment can fix), a 403 or 404 from the bot says it can no longer reach the server, a 429 asks to wait, and anything else is "could not reach Discord"; a log line names the status and what was asked, never a value.
 Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits (50 requests a second per bot, 429 with `retry_after`, [rate limits](https://docs.discord.com/developers/topics/rate-limits)) and handle them there.
 
 **Every request names itself** as `DiscordBot (https://conventioner.io, 1.0)`, the shape Discord asks of an HTTP client.
@@ -92,7 +94,7 @@ Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits 
 
 **The market document's `discord` field is `DiscordConnection`** in [`back-end/datatypes.py`](../../../back-end/datatypes.py), stored camelCase ([the market document](../data/market-document.md)).
 
-**Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`); who connected it and when are the entry's actor and time, and starting the approval screen changes nothing on the market.
+**Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`); who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
 
 ## Why
 

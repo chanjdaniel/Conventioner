@@ -572,7 +572,8 @@ If neither key is set, the endpoint answers with an error and nothing else chang
 
 The Discord card on Market Setup connects a market to a Discord server through Conventioner's bot ([the Discord connection](implementation/modules/discord.md)).
 It is **optional**: without its values the card says Discord is not set up, and nothing else changes.
-To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` from the Discord Developer Portal in the root `.env` (forwarded by `docker-compose.yml`), and add `http://127.0.0.1:5173/discord/connected` to the application's OAuth2 redirects.
+To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` from the Discord Developer Portal in the root `.env` (forwarded by `docker-compose.yml`), with `FRONTEND_URL=http://127.0.0.1:5173`, the address you sign in at: the redirect Discord is sent is `FRONTEND_URL` + `/discord/connected`, and a `localhost` one brings you back without your session.
+In the Developer Portal, add `http://127.0.0.1:5173/discord/connected` to the application's OAuth2 redirects, and switch on "Requires OAuth2 Code Grant" on the Bot page.
 
 ### Backend Structure
 
