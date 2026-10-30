@@ -61,6 +61,12 @@ const props = withDefaults(
      * which an update leaves as it is (`validated_essential_update`). The form always asks it.
      */
     maxDatesOptional?: boolean;
+    /**
+     * The table-share answer accepts the vendor's own words, as an import keeps them. Update info
+     * shows those words here, so an email-only control would refuse to submit any other answer in
+     * the dialog; the applicant's own form keeps its address constraint.
+     */
+    tableShareAcceptsWords?: boolean;
   }>(),
   {
     errors: () => ({}),
@@ -69,6 +75,7 @@ const props = withDefaults(
     disabled: false,
     locked: () => [],
     maxDatesOptional: false,
+    tableShareAcceptsWords: false,
   },
 );
 
@@ -501,7 +508,7 @@ function errorFor(key: string): string {
       <input
         :id="`${prefix}-essential-table-share-email-input`"
         class="field essential-text-input"
-        type="email"
+        :type="tableShareAcceptsWords ? 'text' : 'email'"
         autocomplete="off"
         placeholder="their@example.com"
         :value="tableShareEmail"

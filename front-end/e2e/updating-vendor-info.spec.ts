@@ -37,6 +37,7 @@ const HEADERS = [
   'Which tiers will you accept?',
   'Full or half table?',
   'Rank the sections',
+  'Table-share partner',
 ];
 
 /** The import's mapping, by column: what the organizer maps on the import screen. */
@@ -50,10 +51,16 @@ const MAPPING = {
   essential_tier_preference: 6,
   essential_table_choice: 7,
   essential_section_ranking: 8,
+  essential_table_share_email: 9,
 };
 
 /** The market's Google Form responses, imported as the import screen imports them. */
-async function importResponses(request: APIRequestContext, marketId: string, business: string) {
+async function importResponses(
+  request: APIRequestContext,
+  marketId: string,
+  business: string,
+  shareWords = '',
+) {
   const row = [
     '2026/05/02 9:14:03',
     VENDOR,
@@ -64,6 +71,7 @@ async function importResponses(request: APIRequestContext, marketId: string, bus
     'Gold',
     'half',
     '"Garden, Main Hall"',
+    `"${shareWords}"`,
   ].join(',');
   const res = await request.post(`${BACKEND_URL}/markets/${marketId}/applications/import`, {
     data: { csvContent: [HEADERS.join(','), row].join('\n'), mapping: MAPPING },
@@ -185,4 +193,36 @@ test('an organizer updates a vendor’s info, the review reads it, and a re-impo
   await expect(
     page.getByTestId('vendor-drawer-panel-history').getByTestId('market-history-sentence').first(),
   ).toHaveText('e2e@example.com kept their update to the info of Nadia Okonkwo');
+});
+
+test('an imported table-share answer in the vendor’s words does not block another answer’s Save', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject(), intakeMode: 'csv', fields: FIELDS },
+  );
+  const words = 'Seat me with Ana, ana@example.com';
+  await importResponses(request, seed.marketId, 'Ember Ceramcs', words);
+
+  const all = new ApplicationsAllPage(page);
+  const dialog = new UpdateInfoDialog(page);
+  const business = drawerAnswer(page, 'business_name');
+  const share = dialog.essential('table-share-email-input');
+  await all.goto(seed.marketId);
+  await all.open(VENDOR);
+  await dialog.open();
+  await expect(share).toHaveValue(words);
+
+  await dialog.input('business_name').fill('Ember Ceramics');
+  await dialog.save();
+  await expect(business.answer).toContainText('Ember Ceramics');
+  await expect(business.updated).toBeVisible();
+
+  await dialog.open();
+  await expect(share).toHaveValue(words);
 });

@@ -309,6 +309,7 @@ async function save(): Promise<void> {
         :modelValue="draft"
         :locked="locked"
         :maxDatesOptional="maxDatesOptional"
+        table-share-accepts-words
         prefix="update-info"
         @update:modelValue="answeredEssentials"
         @field-change="essentialChanged"
