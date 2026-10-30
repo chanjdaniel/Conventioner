@@ -1,5 +1,6 @@
 #!/bin/sh
-# Refuses a push whose commits hold a real person's email, phone or name, in a line or a message
+# Refuses a push whose commits hold a real person's email, phone or name, or a listed real
+# organization's, market's, place's or group's name, in a line or a message
 # (scripts/real_data_check.py): the second net, for a commit made with the hooks skipped. Then runs
 # any pre-push hook installed in the git directory, which core.hooksPath would otherwise skip.
 top=$(git rev-parse --show-toplevel) || exit 1

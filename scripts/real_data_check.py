@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Refuse a real person's contact details in what is about to leave this machine.
+"""Refuse a real person's contact details, or a listed real name, in what is about to leave this
+machine.
 
     python scripts/real_data_check.py staged
     python scripts/real_data_check.py commits REV... [--not REV...]
     python scripts/real_data_check.py pre-push REMOTE [URL] < refs
+    python scripts/real_data_check.py add-term < names
 
 `staged` reads what `git commit` would record (the pre-commit hook); `commits` reads each commit a
 rev-list range names, its message too (the gate and CI); `pre-push` reads the commits a push sends,
@@ -12,6 +14,12 @@ outside the fixture domains, a phone number shaped like a real one, a MongoDB At
 a placeholder, and, where `.scratch/examples/` holds real exports, an exact email, phone or
 applicant's name from them. Conventioner is public, so a pushed branch is public the moment it
 lands: this runs before anything leaves the PC.
+
+A line or message may not name a real organization, market, place or group whose name is listed,
+as a SHA-256 hash, in `scripts/real_data_terms.txt`, outside the files where the real market may be
+named (the README, the changelog, `docs/records/` and the list). `add-term` lists a name from
+standard input, one per line, and prints only how many the list holds; it lists none, and exits 1,
+when a line is empty, listed already or longer than the six words a name is matched by.
 
 A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
 cells and shared strings, a CSV or TSV in UTF-8, UTF-16 or Windows-1252 with any common delimiter,
@@ -25,10 +33,12 @@ finding, 2 when git fails. Standard library only, Python 3.8+.
 
 import codecs
 import csv
+import hashlib
 import io
 import re
 import subprocess
 import sys
+import unicodedata
 import zipfile
 import zlib
 from pathlib import Path
@@ -83,6 +93,9 @@ ATLAS_PLACEHOLDER_ID = "example"
 # Any run that may spell a phone number, however it is punctuated: only compared with the exports.
 DIGIT_RUN = re.compile(r"(?<![\w.])\+?\d[\d ().-]{8,}\d(?![\w.])")
 WORD = re.compile(r"[^\W\d_]+(?:['’.-][^\W\d_]+)*")
+# A word of a real name: a run of letters, so a name matches however it is cased, spaced or
+# punctuated (a handle's dots, a slug's hyphens, a possessive), but never inside a longer word.
+LETTERS = re.compile(r"[^\W\d_]+")
 
 # ── The real exports ─────────────────────────────────────────────────────────
 
@@ -194,6 +207,80 @@ def phone_numbers(text):
         if len(digits) == 10 and digits[0] in "23456789" and digits[3] in "23456789":
             numbers.add(digits)
     return numbers
+
+
+# ── The real names ───────────────────────────────────────────────────────────
+
+# The SHA-256 of each real name no test data may hold. Hashing keeps the list from reading as a
+# directory of them; it hides nothing from anyone who guesses a short name.
+TERMS = Path(__file__).with_name("real_data_terms.txt")
+TERMS_PATH = "scripts/real_data_terms.txt"
+# Where the real market may be named: the README's account of the market the product first
+# serves, the changelog release-please writes, the records of real usage runs, and the list.
+NAMES_ALLOWED_IN = ("README.md", "CHANGELOG.md", TERMS_PATH)
+NAMES_ALLOWED_UNDER = ("docs/records/",)
+MAX_TERM_WORDS = 6
+
+
+def term_words(text):
+    return LETTERS.findall(unicodedata.normalize("NFKC", text).lower())
+
+
+def term_hash(words):
+    return hashlib.sha256(" ".join(words).encode("utf-8")).hexdigest()
+
+
+def read_terms(path=TERMS):
+    """The listed hashes: every line but a blank or a `#` comment."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return frozenset()
+    return frozenset(line.strip() for line in lines if line.strip() and not line.startswith("#"))
+
+
+def names_a_term(line, terms):
+    words = term_words(line)
+    return any(
+        term_hash(words[start:start + size]) in terms
+        for size in range(1, MAX_TERM_WORDS + 1)
+        for start in range(len(words) - size + 1)
+    )
+
+
+def may_name_the_market(path):
+    """Whether a file may name the real market; a commit message (no path) never may."""
+    return path is not None and (path in NAMES_ALLOWED_IN or path.startswith(NAMES_ALLOWED_UNDER))
+
+
+def add_terms(text, path=TERMS):
+    """List each line of `text` by its hash, or none of them, saying why by line number only."""
+    listed = set(read_terms(path))
+    lines = text.splitlines()
+    if not lines:
+        print("real-data-check: no name on standard input", file=sys.stderr)
+        return 1
+    new, refused = [], []
+    for number, line in enumerate(lines, 1):
+        words = term_words(line)
+        digest = term_hash(words)
+        if not words:
+            refused.append(f"line {number} has no words")
+        elif len(words) > MAX_TERM_WORDS:
+            refused.append(f"line {number} has more than {MAX_TERM_WORDS} words, so it could never match")
+        elif digest in listed:
+            refused.append(f"line {number} is listed already")
+        else:
+            listed.add(digest)
+            new.append(digest)
+    if refused:
+        print("\n".join(f"real-data-check: {why}; nothing was listed" for why in refused), file=sys.stderr)
+        return 1
+    with path.open("a", encoding="utf-8") as terms:
+        terms.write("".join(f"{digest}\n" for digest in new))
+    count = len(listed)
+    print(f"real-data-check: the list holds {count} name{'' if count == 1 else 's'}")
+    return 0
 
 
 # ── Spreadsheets ─────────────────────────────────────────────────────────────
@@ -430,9 +517,11 @@ def masked_email(address):
     return f"{local[0]}***@{domain[0]}***{domain[domain.rfind('.'):]}"
 
 
-def findings(line, real):
+def findings(line, real, terms=frozenset()):
     """What is wrong with one added line, each said without its value."""
     found = []
+    if terms and names_a_term(line, terms):
+        found.append(f"a real organization's, market's, place's or group's name (listed in {TERMS_PATH})")
     for match in EMAIL.finditer(line):
         address, domain = match.group(0), match.group(1)
         if NOT_A_DOMAIN.search(domain):
@@ -543,26 +632,29 @@ def blob(spec):
 
 
 def staged_lines():
+    """(path, where, text) of each added line, a spreadsheet's cells as lines."""
     for path, number, text in added_lines(git("diff", "--cached", *DIFF_OPTIONS)):
         if number is None:
-            yield from spreadsheet_lines(path, blob(f":{path}"))
+            for where, found in spreadsheet_lines(path, blob(f":{path}")):
+                yield path, where, found
         else:
-            yield f"{path}:{number}", text
+            yield path, f"{path}:{number}", text
 
 
 def commit_lines(revisions):
-    """Each commit's message and added lines, the commit a value came in by named with it."""
+    """Each commit's message and added lines, the commit a value came in by named with it, as
+    (path, where, text); a message's path is None."""
     # NUL separates the fields: git treats a file holding one as binary, and a message cannot.
     log = git("log", "--cc", *DIFF_OPTIONS, "--format=%x00%H%x00%B%x00", *revisions, "--").split("\0")
     for sha, message, diff in zip(log[1::3], log[2::3], log[3::3]):
         for number, text in enumerate(message.split("\n"), 1):
-            yield f"{sha[:12]} message:{number}", text
+            yield None, f"{sha[:12]} message:{number}", text
         for path, number, text in added_lines(diff):
             if number is None:
                 for where, found in spreadsheet_lines(path, blob(f"{sha}:{path}")):
-                    yield f"{sha[:12]} {where}", found
+                    yield path, f"{sha[:12]} {where}", found
             else:
-                yield f"{sha[:12]} {path}:{number}", text
+                yield path, f"{sha[:12]} {path}:{number}", text
 
 
 def pushed_revisions(refs):
@@ -600,6 +692,8 @@ def main(argv=None):
             lines = staged_lines()
         elif mode == "commits" and args:
             lines = commit_lines(args)
+        elif mode == "add-term" and not args:
+            return add_terms(sys.stdin.read())
         elif mode == "pre-push" and 1 <= len(args) <= 2:
             revisions = pushed_revisions(sys.stdin.read())
             lines = commit_lines(revisions) if revisions else iter(())
@@ -607,10 +701,14 @@ def main(argv=None):
             print(__doc__.split("\n\n")[1], file=sys.stderr)
             return 2
         real = RealValues.read(export_folders())
+        terms = read_terms()
         found = [
             f"real-data-check: {where}: {what}"
-            for where, text in lines
-            for what in ([text] if isinstance(text, Refusal) else findings(text, real))
+            for path, where, text in lines
+            for what in (
+                [text] if isinstance(text, Refusal)
+                else findings(text, real, frozenset() if may_name_the_market(path) else terms)
+            )
         ]
     except GitFailed as error:
         print(f"real-data-check: {error}", file=sys.stderr)

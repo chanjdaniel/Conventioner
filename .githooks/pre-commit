@@ -1,7 +1,8 @@
 #!/bin/sh
-# Refuses a commit whose staged lines hold a real person's email, phone or name
-# (scripts/real_data_check.py), then runs any pre-commit hook installed in the git directory,
-# which core.hooksPath would otherwise skip. Installed by scripts/treehouse-setup.sh, or by hand:
+# Refuses a commit whose staged lines hold a real person's email, phone or name, or a listed real
+# organization's, market's, place's or group's name (scripts/real_data_check.py), then runs any
+# pre-commit hook installed in the git directory, which core.hooksPath would otherwise skip.
+# Installed by scripts/treehouse-setup.sh, or by hand:
 #     git config core.hooksPath .githooks
 top=$(git rev-parse --show-toplevel) || exit 1
 python3 "$top/scripts/real_data_check.py" staged || exit 1

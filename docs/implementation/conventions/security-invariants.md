@@ -24,10 +24,12 @@ describes:
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
   - scripts/real_data_check.py
+  - scripts/real_data_terms.txt
   - .githooks/
 verified: 2026-10-29
 sources:
   - T74
+  - T109
   - T84
 ---
 
@@ -134,6 +136,17 @@ Where `.scratch/examples/` holds real exports (the checkout's own, or the primar
 A name counts when it stands in a person's-name column of a row that gives an email, has two to five words, and fewer than three applicants gave it: a name three applicants share identifies nobody.
 The exports are read into memory at each run: nothing derived from them is written or printed, and a finding names the file and line with at most a masked hint (`j***@g***.com`, `***-***-**19`), never the value.
 The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
+
+**No line names the real market's organization, venue or groups.**
+The checker fails a line or a commit message holding a name listed in [`scripts/real_data_terms.txt`](../../../scripts/real_data_terms.txt): the real organization's abbreviation, its market's name, its student society and clubs, its venue's rooms and sections, its social handle, and the distinctive parts of the document links its forms named.
+The list is committed, so the gate and CI apply it as the hooks do.
+It holds each name's SHA-256, taken of the name's words, as Unicode NFKC lower-cased runs of letters joined by single spaces, and every run of one to six such words of a line is hashed and looked up: a name matches however a line cases, spaces or punctuates it (a handle's dots, a slug's hyphens, a possessive), and never inside a longer word.
+Hashing keeps the list from reading as a directory of the real names; it hides nothing from anyone who guesses a short one.
+A finding names the file and line, never the name.
+The real market may be named only in the root `README.md` (which says whom the product first serves), `CHANGELOG.md`, [`docs/records/`](../../records/README.md) (the records of real usage runs) and the list itself; a commit message never may.
+A generic word of a listed name is not listed alone, so a project id or a time zone that shares one passes.
+`python3 scripts/real_data_check.py add-term` lists the names it reads from standard input, one per line, and prints only how many names the list holds; it lists none when a line is empty, already listed or longer than six words.
+Run it and type the name at it, never on a command line or in a file, so listing a name never publishes it.
 Only added lines count, and a merge answers only for the lines new to every parent.
 A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in UTF-8, UTF-16 or Windows-1252 with its delimiter found from its first record (a comma, or the semicolon a European-locale Excel saves), and each of these inside a `.zip`, which is what Google Forms' "Download responses" saves.
 The exports are read the same way, a zipped one included.

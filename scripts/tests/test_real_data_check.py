@@ -3,6 +3,7 @@ test's own, on fake data only. The "real export" here is a CSV the test writes i
 repository's ignored .scratch/examples/."""
 
 import csv
+import hashlib
 import importlib.util
 import io
 import re
@@ -728,6 +729,197 @@ def test_a_refusal_sends_a_fixture_to_the_generator_never_to_a_real_export(repo)
     assert "back-end/tests/fixtures/synthetic_form_exports.py" in result.stdout
 
 
+# --- The real names ----------------------------------------------------------------------------
+
+# Invented, in place of the real names the committed list holds.
+LISTED = "Brindlewick Lantern Guild"
+LISTED_HASH = hashlib.sha256(b"brindlewick lantern guild").hexdigest()
+TERMS = "scripts/real_data_terms.txt"
+NAMED = f"a real organization's, market's, place's or group's name (listed in {TERMS})"
+
+
+def own_check(repo, *args, stdin=None):
+    """The checker copied into the test's repository, so it reads the list beside it there."""
+    return subprocess.run(
+        [sys.executable, str(repo / "scripts" / "real_data_check.py"), *args],
+        cwd=repo,
+        input=stdin,
+        text=True,
+        capture_output=True,
+    )
+
+
+def with_own_checker(repo):
+    (repo / "scripts").mkdir(exist_ok=True)
+    shutil.copy2(CHECKER, repo / "scripts" / "real_data_check.py")
+
+
+@pytest.fixture
+def listed(repo):
+    """The test's repository with the checker and a list of its own, which holds LISTED."""
+    with_own_checker(repo)
+    added = own_check(repo, "add-term", stdin=f"{LISTED}\n")
+    assert added.returncode == 0, added.stdout + added.stderr
+    git(repo, "add", "scripts")
+    git(repo, "commit", "-q", "--no-verify", "-m", "chore: the checker and its list")
+    return repo
+
+
+def says_no_name(result):
+    return "brindlewick" not in (result.stdout + result.stderr).lower()
+
+
+def test_a_listed_name_in_a_staged_line_is_refused_without_being_said(listed):
+    stage(listed, "back-end/tests/test_market.py", f'first\nMARKET = "the {LISTED} spring fair"\n')
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/test_market.py:2: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+def test_a_listed_name_is_refused_in_a_range_its_lines_and_its_messages(listed):
+    base = git(listed, "rev-parse", "HEAD").stdout.strip()
+    sha = commit(listed, "notes.md", f"{LISTED}\n", message=f"test: add the {LISTED} fixture")
+
+    result = own_check(listed, "commits", "HEAD", "--not", base)
+
+    assert result.returncode == 1
+    assert f"{sha[:12]} notes.md:1: {NAMED}" in result.stdout
+    assert f"{sha[:12]} message:1: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+def test_a_listed_name_is_refused_in_a_push(listed):
+    head = commit(listed, "notes.md", f"fine\n{LISTED}\n")
+
+    result = own_check(listed, "pre-push", "origin", stdin=f"HEAD {head} refs/heads/feature {'0' * 40}\n")
+
+    assert result.returncode == 1
+    assert f"{head[:12]} notes.md:2: {NAMED}" in result.stdout
+
+
+def test_a_listed_name_in_a_spreadsheets_cell_is_refused(listed):
+    stage_bytes(listed, "back-end/tests/test_data/form.xlsx", xlsx([["Club"], [f"{LISTED} members"]]))
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 1
+    assert f"form.xlsx [sheet 1, row 2, column 1]: {NAMED}" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "name", ["README.md", "CHANGELOG.md", "docs/records/MVP_TEST_RUN_2026-11-01.md", TERMS]
+)
+def test_a_listed_name_passes_where_the_real_market_may_be_named(listed, name):
+    stage(listed, name, f"{LISTED}\n")
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("name", ["back-end/tests/test_data/README.md", "docs/README.md", "records/notes.md"])
+def test_a_listed_name_is_refused_in_any_other_readme_or_records_folder(listed, name):
+    stage(listed, name, f"{LISTED}\n")
+
+    assert own_check(listed, "staged").returncode == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "BRINDLEWICK LANTERN GUILD",
+        "brindlewick  lantern\tguild",
+        "the brindlewick-lantern-guild handle",
+        "@brindlewick.lantern_guild",
+        "Brindlewick Lantern Guild's table",
+        "Brindlewick, Lantern, Guild",
+        "Ｂrindlewick Lantern Guild",  # a fullwidth letter, which NFKC makes plain
+        "Brindlewick Lantern Guild2026",
+    ],
+)
+def test_a_listed_name_matches_however_it_is_cased_spaced_or_punctuated(listed, line):
+    stage(listed, "notes.md", f"{line}\n")
+
+    assert own_check(listed, "staged").returncode == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Brindlewick Lanterns Guild",
+        "Brindlewick Lantern",
+        "BrindlewickLanternGuild",
+        "Brindlewick Lantern Guildhall",
+        "Brindlewick Lantern Market Guild",
+    ],
+)
+def test_a_listed_names_words_inside_longer_words_or_apart_pass(listed, line):
+    stage(listed, "notes.md", f"{line}\n")
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_add_term_lists_a_name_by_its_hash_and_prints_only_the_count(repo):
+    with_own_checker(repo)
+
+    result = own_check(repo, "add-term", stdin=f"{LISTED}\nBrindlewick Gardens\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == "real-data-check: the list holds 2 names\n"
+    assert says_no_name(result)
+    written = (repo / TERMS).read_text()
+    assert LISTED_HASH in written.split()
+    assert "brindlewick" not in written.lower()
+
+
+def test_add_term_keeps_the_lists_comments_and_counts_only_hashes(repo):
+    with_own_checker(repo)
+    (repo / TERMS).write_text("# What the list is.\n\n")
+
+    result = own_check(repo, "add-term", stdin=f"{LISTED}\n")
+
+    assert result.stdout == "real-data-check: the list holds 1 name\n"
+    assert (repo / TERMS).read_text() == f"# What the list is.\n\n{LISTED_HASH}\n"
+
+
+@pytest.mark.parametrize(
+    "stdin, why",
+    [
+        (f"{LISTED.upper()}\n", "line 1 is listed already"),
+        (f"Brindlewick Gardens\n{LISTED}\n", "line 2 is listed already"),
+        ("Brindlewick Gardens\nbrindlewick, gardens\n", "line 2 is listed already"),
+        ("", "no name on standard input"),
+        ("Brindlewick Gardens\n\n", "line 2 has no words"),
+        ("--- 2026 ---\n", "line 1 has no words"),
+        ("one two three four five six seven\n", "line 1 has more than 6 words"),
+    ],
+)
+def test_add_term_refuses_a_listed_empty_or_long_name_and_adds_nothing(listed, stdin, why):
+    before = (listed / TERMS).read_text()
+
+    result = own_check(listed, "add-term", stdin=stdin)
+
+    assert result.returncode == 1
+    assert why in result.stderr
+    assert says_no_name(result) and "gardens" not in result.stdout + result.stderr
+    assert (listed / TERMS).read_text() == before
+
+
+def test_the_committed_list_holds_only_hashes_and_comments():
+    lines = (REPO / TERMS).read_text().splitlines()
+
+    hashes = [line for line in lines if line.strip() and not line.startswith("#")]
+
+    assert hashes, "the list holds no name"
+    assert all(re.fullmatch(r"[0-9a-f]{64}", line) for line in hashes)
+    assert len(set(hashes)) == len(hashes)
+
+
 # --- Commits -----------------------------------------------------------------------------------
 
 
@@ -874,6 +1066,20 @@ def test_a_hook_in_the_git_directory_still_runs(hooked):
     assert marker.exists()
 
 
+def test_the_pre_commit_hook_refuses_a_listed_name(hooked):
+    added = own_check(hooked, "add-term", stdin=f"{LISTED}\n")
+    assert added.returncode == 0, added.stdout + added.stderr
+    git(hooked, "add", TERMS)
+    git(hooked, "commit", "-q", "-m", "chore: list a name")
+    stage(hooked, "notes.md", f"{LISTED}\n")
+
+    result = git(hooked, "commit", "-m", "docs: notes", check=False)
+
+    assert result.returncode != 0
+    assert f"notes.md:1: {NAMED}" in result.stdout + result.stderr
+    assert git(hooked, "log", "-1", "--format=%s").stdout.strip() == "chore: list a name"
+
+
 @pytest.mark.parametrize("code", [0, 1])
 def test_a_pre_push_hook_in_the_git_directory_gets_the_refs_and_decides(hooked, code):
     got = hooked / "got"
@@ -924,3 +1130,23 @@ def test_the_ci_jobs_command_fails_a_pr_adding_a_real_shaped_address(repo, addre
     )
 
     assert result.returncode == code, result.stdout + result.stderr
+
+
+def test_the_ci_jobs_command_fails_a_pr_adding_a_listed_name(listed):
+    git(listed, "update-ref", "refs/remotes/origin/dev", "HEAD")
+    head = commit(listed, "notes.md", "fine\n", message=f"test: the {LISTED} fixture")
+    git(listed, "checkout", "-q", "--detach", "origin/dev")
+    command = ci_step("No real data in the PR's commits").replace(
+        "python scripts/real_data_check.py", f"{sys.executable} scripts/real_data_check.py", 1
+    )
+
+    result = subprocess.run(
+        [BASH, "-c", command],
+        cwd=listed,
+        env={"PATH": "/usr/bin:/bin", "BASE_REF": "dev", "HEAD_SHA": head},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"{head[:12]} message:1: {NAMED}" in result.stdout
