@@ -50,7 +50,7 @@ Stored snake_case with the market foreign key `market_id` (an organization's own
 | `market_id` | the market; an organization's own change holds `organization_id` in its place, and no `market_id` |
 | `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a check-in made on the vendors' public check-in page, which asks only an address and a date and so proves nobody (its detail says `via: check_in_page`) |
 | `at` | ISO 8601, UTC |
-| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks; an organization's own change uses one of the history's own verbs instead, since an organization has no table ([below](#what-an-organization-records)) |
+| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks; an organization's own change uses one of the history's own verbs instead, since an organization has no table, except a market deleted from it, which keeps the table's `delete-market` ([below](#what-an-organization-records)) |
 | `kind` | the finer kind where one action covers several changes, else null: a placement's is `placed`, `freed`, `swapped` or `assigned` |
 | `vendors` | the lowercased addresses the entry is about, empty for a run |
 | `subject` | what else the entry is about; a placement's is its table-day, `{date, table_codes}`, and a run's is empty |
@@ -104,7 +104,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 ### What an organization records
 
 An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) and market creation call once the change has landed, under the same guard as `record`.
-An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`; the kinds and details are a market's where the change is the same.
+An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
 None names a vendor.
 
 | Action | Kind | The write | Subject | Detail |
