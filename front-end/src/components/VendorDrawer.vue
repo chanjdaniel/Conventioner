@@ -13,13 +13,13 @@
  * The screen that opens it holds which vendor and which tab - in the address, so a link, a refresh
  * or Back returns to the same panel - and hands it the market's vendors (`useVendorDetails`).
  */
-import { MarketAction, mayTake } from '@/utils/marketActions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
 import { intakeModeOf } from '@/utils/marketGuide';
-import { TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
+import { TABLE_SHARE_ANSWER_KEY, marketEssentialOptions } from '@/utils/essentialFields';
 import { dateLabel, type VendorDetails } from '@/utils/vendorDetails';
 import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
 import type { VendorTab } from '@/utils/vendorDrawer';
@@ -392,6 +392,8 @@ watch(
     :marketId="marketId"
     :application="application"
     :form="market?.applicationForm"
+    :options="marketEssentialOptions(market)"
+    :assignmentRefusal="actionRefusal(market, MarketAction.UpdateAssignmentOrPriceInfo)"
     @close="updating = false"
     @saved="infoSaved"
   />

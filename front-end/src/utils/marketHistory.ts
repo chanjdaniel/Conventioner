@@ -11,6 +11,14 @@
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import {
+  ESSENTIAL_KEY_PREFIX,
+  TABLE_SHARE_ALSO_KEY,
+  TABLE_SHARE_ANSWER_KEY,
+  TABLE_SHARE_EMAIL_KEY,
+  essentialAnswerText,
+  essentialLabel,
+} from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
@@ -396,6 +404,9 @@ export function entryParts(
     case 'update-vendor-info/':
       // The vendor last: the address drawn after their name cannot carry a possessive.
       return [actor, text('updated the info of '), vendor];
+    case 'update-vendor-info/kept':
+      // Saved as it stood over an answer the vendor changed since: the update is kept.
+      return [actor, text('kept their update to the info of '), vendor];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':
@@ -620,8 +631,13 @@ export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
 }
 
-/** A field's name in words: `follow_up_owner` reads "Follow up owner". */
+/**
+ * A field's name in words: `follow_up_owner` reads "Follow up owner"; an essential question's
+ * answer reads as the form asks it, "Tier preference" (E41/F01/S02).
+ */
 export function fieldName(key: string): string {
+  const label = essentialLabel(key);
+  if (label !== key) return label;
   const words = key.replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -682,9 +698,12 @@ const WORDED_VALUES: Partial<Record<string, (value: unknown) => string>> = {
   },
 };
 
-/** A field's value as the screens name it, a phase as the market's `path` does, else as
- * `valueText` draws it. */
+/** A field's value as the screens name it, a phase as the market's `path` does, an essential
+ * answer as the review card does, else as `valueText` draws it. */
 export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
+  if (key.startsWith(ESSENTIAL_KEY_PREFIX) && essentialLabel(key) !== key) {
+    return essentialAnswerText(key, value).trim() || 'none';
+  }
   const worded = WORDED_VALUES[key];
   if (worded) return worded(value);
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
@@ -710,6 +729,62 @@ export interface RecordedField {
 function permissionState(value: unknown): string {
   const state = asDetail(value);
   return `${fieldValue('role', state.role)}, ${fieldValue('source', state.source)}`;
+}
+
+/** The table-share question is one answer stored as three keys: the words, the address read out of
+ * them, and any further addresses named. The history reads it as one row under the question's
+ * label, never as its storage keys. */
+const TABLE_SHARE_KEYS = [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY];
+
+/** The table-share answer as a person reads it: the vendor's own words where they were kept, else
+ * the address the server read out of them. */
+function tableShareAnswer(snapshot: Detail): unknown {
+  const words = snapshot[TABLE_SHARE_ANSWER_KEY];
+  return typeof words === 'string' && words.trim() ? words : snapshot[TABLE_SHARE_EMAIL_KEY];
+}
+
+/** Each update an organizer kept over what the vendor wrote since, under its question, the
+ * table-share question's storage keys as one answer in the vendor's words. */
+function keptFields(kept: Detail, path: IntakeMode, said: string): RecordedField[] {
+  return changedFields(kept, kept, path, true).map((row) => ({
+    field: `${said}: ${row.field}`,
+    value: row.after,
+  }));
+}
+
+/** The fields a before/after detail set, each as it was and as it is, the table-share question's
+ * three storage keys collapsed into one row in the vendor's words; `listing` keeps a row that reads
+ * the same on both sides, for a list of answers kept as they stood. */
+function changedFields(
+  before: Detail,
+  after: Detail,
+  path: IntakeMode,
+  listing = false,
+): ChangedField[] {
+  const rows: ChangedField[] = [];
+  let wroteTableShare = false;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (TABLE_SHARE_KEYS.includes(key)) {
+      if (wroteTableShare) continue;
+      wroteTableShare = true;
+      const row = {
+        field: fieldName(TABLE_SHARE_EMAIL_KEY),
+        before: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(before), path),
+        after: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after), path),
+      };
+      // The further addresses are read out of the words, so they never change alone; a row that
+      // reads the same before and after says nothing, unless it is a list of answers kept as they
+      // stood.
+      if (listing || row.before !== row.after) rows.push(row);
+      continue;
+    }
+    rows.push({
+      field: fieldName(key),
+      before: fieldValue(key, before[key], path),
+      after: fieldValue(key, after[key], path),
+    });
+  }
+  return rows;
 }
 
 /**
@@ -793,19 +868,14 @@ export function entryChanges(
     detail.before && detail.after && typeof detail.after === 'object'
       ? { before: asDetail(detail.before), after: asDetail(detail.after) }
       : null;
-  const changed = changes
-    ? [...new Set([...Object.keys(changes.before), ...Object.keys(changes.after)])].map((key) => ({
-        field: fieldName(key),
-        before: fieldValue(key, changes.before[key], path),
-        after: fieldValue(key, changes.after[key], path),
-      }))
-    : [];
+  const changed = changes ? changedFields(changes.before, changes.after, path) : [];
   const recorded = Object.entries(detail)
     .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
-    .map(([key, value]) => ({
-      field: fieldName(key),
-      value: key === 'date' ? day(value) : valueText(value),
-    }));
+    .flatMap(([key, value]) =>
+      (key === 'kept' || key === 'matched') && value && typeof value === 'object'
+        ? keptFields(value as Detail, path, key === 'kept' ? 'Kept' : 'Their answer now matches')
+        : [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }],
+    );
   return { changed, recorded };
 }
 
