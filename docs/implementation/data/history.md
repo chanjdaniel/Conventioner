@@ -23,6 +23,7 @@ sources:
   - E41/F01/S01
   - E38/F04/S02
   - E40/F02/S01
+  - E38/F06/S01
 ---
 
 # The market's history
@@ -81,8 +82,9 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-form` | `rejection_rules` | the [automatic rejections](../../business/rules/automatic-rejections.md) | - | - | `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved |
 | `import-applications` | `imported` | an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
 | `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
-| `give-verdicts` | `verdict` | one verdict, or a follow-up | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
-| `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
+| `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
+| `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
+| `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
 | `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |

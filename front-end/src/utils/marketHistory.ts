@@ -203,7 +203,16 @@ export function entryParts(
       ];
     case 'give-verdicts/verdict':
       return [actor, text('set '), vendor, text(` to ${statusLabel(str(after.status))}`)];
-    case 'give-verdicts/verdicts': {
+    // A verdict already given, changed (E38/F06/S01): what it was is the point of the entry.
+    case 'change-verdicts/verdict':
+      return [
+        actor,
+        text('changed '),
+        vendor,
+        text(` from ${statusLabel(str(before.status))} to ${statusLabel(str(after.status))}`),
+      ];
+    case 'give-verdicts/verdicts':
+    case 'change-verdicts/verdicts': {
       const statuses = Object.values(after).map((state) =>
         statusLabel(str(asDetail(state).status)),
       );

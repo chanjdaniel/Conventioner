@@ -17,6 +17,7 @@ sources:
   - E34/F02/S01
   - T15
   - decision/2026-10-22
+  - E38/F06/S01
 ---
 
 # Needs follow-up
@@ -45,7 +46,7 @@ Nothing is sent to the owner; the All view's "Mine" filter is how they find thei
 
 ## Who may
 
-An Editor marks one, hands it on and resolves it, as with every verdict; it settles with the other verdicts on entering `assignment` ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)).
+An Editor marks one, hands it on and resolves it, as with every verdict; marking an application already approved or rejected as needing a follow-up changes its verdict, so that is the row "Change a verdict, or overturn an automatic rejection" (default Admin, [what each role may do](what-each-role-may-do.md), E38/F06/S01); it settles with the other verdicts on entering `assignment` ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)).
 They name as its owner one of the people they are offered: everyone with a role on the market if they are in its organization, only the people the market's roles name if not.
 
 ## Where it is kept

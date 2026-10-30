@@ -26,6 +26,7 @@ sources:
   - E41/F01/S01
   - E38/F04/S01
   - E38/F03/S02
+  - E38/F06/S01
 ---
 
 # The CSV import
@@ -86,7 +87,7 @@ The import saves it on the market's `importMapping` after every import (`save_ma
 A saved target the form lacks is skipped, which is how the start's left-out columns wait under their would-be keys ([the CSV proposal and start](csv-proposal-and-start.md)); the targets that are not questions (`RESERVED_TARGETS`: who applied, when, the sheet's note) are never a question's key: the start's `key_for` passes over them and the form's save refuses them.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
-**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`).
+**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`), returning one only when the importer may overturn an automatic rejection (`may_overturn`, E38/F06/S01).
 The preview judges the file first, writing nothing (`_rule_rejections`): each row's application as the import would leave it, judged only where a rule may judge it (`is_judgeable`), its answers as stored with an organizer's update read in place, so it names the rows the import's judging will newly reject (E38/F03/S02).
 An organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
