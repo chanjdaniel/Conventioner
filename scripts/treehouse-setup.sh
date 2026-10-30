@@ -7,7 +7,8 @@
 # A fresh git checkout has no git-ignored files, so we recreate:
 #   - .env files (copied from the primary checkout)
 #   - front-end/node_modules           -> front-end / JS tooling works locally
-# and points git at the committed hooks (.githooks/), which keep real people's details off GitHub.
+# and points git at the committed hooks (.githooks/), which keep real people's details off GitHub,
+# and at the knowledge-graph nodes' merge driver (scripts/merge_node.py).
 #
 # Back-end Python is intentionally NOT set up as a local venv: the project runs
 # the back-end via Docker (python:3.12-slim, see back-end/Dockerfile), and this
@@ -23,10 +24,16 @@ cd "$WORKTREE"
 # Primary checkout = parent of the shared .git dir. Source for git-ignored files.
 MAIN="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 
-# 1. The committed git hooks: they refuse a commit or a push that holds a real person's details
-#    (scripts/real_data_check.py). The setting is the repository's, so every worktree gets it.
-#    First, before any step that can fail: th-lease.sh hands out a slot whose pre-warm failed.
+# 1. The repository's git settings, which every worktree shares. First, before any step that can
+#    fail: th-lease.sh hands out a slot whose pre-warm failed.
+#    The committed git hooks: they refuse a commit or a push that holds a real person's details
+#    (scripts/real_data_check.py).
 git -C "$WORKTREE" config core.hooksPath .githooks
+#    The merge driver .gitattributes names for docs/: a node's describes and sources lists merge as
+#    sets, so two branches that each add an id merge clean (scripts/merge_node.py).
+if [ -f "$WORKTREE/scripts/merge_node.py" ]; then
+  python3 "$WORKTREE/scripts/merge_node.py" install
+fi
 
 # 2. Env files (git-ignored, absent in a fresh checkout)
 for f in .env front-end/.env back-end/.env; do

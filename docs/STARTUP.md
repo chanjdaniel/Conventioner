@@ -38,6 +38,17 @@ git config core.hooksPath .githooks
 The hooks refuse a commit or a push that holds a real person's email, phone number or name, since the repository is public and a pushed branch is published at once ([real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc)).
 A treehouse worktree gets them from `scripts/treehouse-setup.sh`.
 
+## The knowledge-graph merge driver
+
+Once per clone:
+
+```bash
+python3 scripts/merge_node.py install
+```
+
+It registers the merge driver `.gitattributes` names for `docs/`, so two branches that each add an id to a node's `sources` or `describes` merge clean ([merging nodes](README.md#merging-nodes)).
+A treehouse worktree gets it from `scripts/treehouse-setup.sh`.
+
 ## Quick Start with Docker (Recommended)
 
 The easiest way to get started is using Docker Compose:

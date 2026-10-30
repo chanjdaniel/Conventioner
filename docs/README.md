@@ -118,6 +118,15 @@ Today is your own calendar day: `check` refuses only a day that has not begun an
 Either way the node is in the diff, and the warning clears.
 To find the nodes for a file before changing it: `git grep -l 'path/to/file' docs`.
 
+## Merging nodes
+
+Every story adds its id to the end of a node's `sources`, and often a path to its `describes`, so two branches that each touch one node would conflict on the frontmatter's last line though both lines belong.
+[`.gitattributes`](../.gitattributes) gives every Markdown file under `docs/` the merge driver [`scripts/merge_node.py`](../scripts/merge_node.py), which merges those two lists as sets: the ancestor's items, less any either side removed, then the items ours added and the items theirs added.
+It takes the later of the two `verified` days, and leaves every other line, the other keys and the body, to git's own text merge, so a prose conflict is marked as git marks it.
+A list one side dropped, a list written inline and a file with no frontmatter merge as text.
+The driver is registered in the repository's git config, which every worktree shares: `scripts/treehouse-setup.sh` registers it on each lease, and a clone runs `python3 scripts/merge_node.py install` once ([STARTUP.md](STARTUP.md#the-knowledge-graph-merge-driver)).
+A checkout where it is not registered merges these files as text, as git does without it.
+
 ## Reading it in Obsidian
 
 The graph is ordinary Markdown, and Obsidian draws it.
