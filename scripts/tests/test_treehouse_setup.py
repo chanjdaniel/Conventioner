@@ -63,6 +63,8 @@ def slot(tmp_path):
     for name in ("package.json", "package-lock.json"):
         shutil.copy(REPO / "front-end" / name, worktree / "front-end" / name)
     shutil.copy(REPO / ".nvmrc", worktree / ".nvmrc")
+    (worktree / "scripts").mkdir()
+    shutil.copy(REPO / "scripts" / "merge_node.py", worktree / "scripts" / "merge_node.py")
     (worktree / ".gitignore").write_text("node_modules/\n")
     git = ["git", "-C", str(worktree)]
     subprocess.run([*git, "init", "-q"], check=True)
@@ -121,6 +123,16 @@ def test_a_failed_install_still_leaves_the_real_data_hooks_on(bin_dir, slot):
         ["git", "-C", str(slot), "config", "--get", "core.hooksPath"], capture_output=True, text=True
     )
     assert hooks.stdout.strip() == ".githooks"
+
+
+def test_a_failed_install_still_leaves_the_node_merge_driver_registered(bin_dir, slot):
+    result = warm(bin_dir, slot, CI_FAILS="1")
+
+    assert result.returncode != 0
+    driver = subprocess.run(
+        ["git", "-C", str(slot), "config", "--get", "merge.kg-node.driver"], capture_output=True, text=True
+    )
+    assert driver.stdout.strip() == "python3 scripts/merge_node.py %O %A %B %L %P %S %X %Y"
 
 
 def test_a_warm_slot_is_left_alone(bin_dir, slot):
