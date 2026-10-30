@@ -24,6 +24,7 @@ import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
 import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
@@ -170,6 +171,25 @@ useInertBehind(
   () => open.value,
   () => [overlay.value, panel.value],
 );
+
+/**
+ * Focus moves in as the drawer opens, and goes back to what opened it as it closes, as a dialog's
+ * does (`docs/implementation/conventions/dialogs.md`): the row or name that opened it is
+ * inert behind the drawer, and closing unmounts the drawer's controls, which dropped focus to
+ * `<body>`. It opens on its close, its first control, since what follows may be a verdict or a note.
+ * Only opening moves focus: another vendor shown in the open drawer leaves it where it is.
+ */
+const closeButton = ref<HTMLButtonElement | null>(null);
+useFocusGoesBack(() => open.value);
+watch(
+  open,
+  async (opened) => {
+    if (!opened) return;
+    await nextTick();
+    closeButton.value?.focus();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -212,6 +232,7 @@ useInertBehind(
         </div>
         <button
           type="button"
+          ref="closeButton"
           class="detail-close"
           aria-label="Close vendor detail"
           @click="emit('close')"
@@ -265,6 +286,17 @@ useInertBehind(
         class="detail-panel-body"
         :data-testid="`vendor-drawer-panel-${shownTab}`"
       >
+        <!-- What the read could not get, on every tab: the server's reason, such as an approved
+             application whose answers are incomplete refusing where anyone sits (T123). -->
+        <p
+          v-if="details.loadError.value && !details.isLoading.value"
+          class="detail-error"
+          role="alert"
+          data-testid="vendors-detail-load-error"
+        >
+          {{ details.loadError.value }}
+        </p>
+
         <p v-if="details.isLoading.value && !vendor" class="detail-empty">Loading…</p>
 
         <template v-else-if="shownTab === 'application'">
@@ -301,7 +333,7 @@ useInertBehind(
                 </dd>
               </template>
             </dl>
-            <p v-else class="detail-empty">This market asks no questions of its own.</p>
+            <p v-else-if="vendor" class="detail-empty">This market asks no questions of its own.</p>
           </div>
         </template>
 
@@ -309,7 +341,7 @@ useInertBehind(
           <div v-if="details.marketDates.value.length === 0" class="detail-empty">
             No market dates configured.
           </div>
-          <ul v-else-if="vendor" class="assignment-list">
+          <ul v-else-if="vendor && details.placementsRead.value" class="assignment-list">
             <VendorDateCard
               v-for="date in details.marketDates.value"
               :key="date.date"
@@ -568,6 +600,14 @@ useInertBehind(
   margin: 0;
   padding: var(--space-4) var(--space-6);
   color: var(--mm-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* As the Vendors page says its own read failed: red ink, 5.44 on white. */
+.detail-error {
+  margin: 0;
+  padding: var(--space-4) var(--space-6) 0;
+  color: var(--mm-red);
   font-size: var(--text-sm);
 }
 
