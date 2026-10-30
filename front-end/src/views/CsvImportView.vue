@@ -207,6 +207,15 @@ const updatedRows = ref(0);
 const unchangedRows = ref(0);
 
 /**
+ * How many rows the import will write: every row it will not skip, less those already here
+ * unchanged. The headline and the button both say it, so "4 of 5 rows will be imported" is never
+ * confirmed with "Import 5 rows".
+ */
+const writingRows = computed(() =>
+  unchangedRows.value === 0 ? validRows.value : newRows.value + updatedRows.value,
+);
+
+/**
  * The preview's headline: what the import will write. It counted every readable row, so importing
  * the same file again read "212 of 212 rows will be imported" beside "0 new, 0 updated, 212
  * unchanged" (2026-10-18 dry run).
@@ -214,9 +223,9 @@ const unchangedRows = ref(0);
 const previewHeadline = computed(() => {
   const rows = `${rowCount.value} row${rowCount.value === 1 ? '' : 's'}`;
   if (unchangedRows.value === 0)
-    return `${validRows.value} of ${rows} will be imported${rejectedClause(true)}`;
-  const writing = newRows.value + updatedRows.value;
-  if (writing > 0) return `${writing} of ${rows} will be imported${rejectedClause(false)}`;
+    return `${writingRows.value} of ${rows} will be imported${rejectedClause(true)}`;
+  if (writingRows.value > 0)
+    return `${writingRows.value} of ${rows} will be imported${rejectedClause(false)}`;
   const verb = unchangedRows.value === 1 ? 'is' : 'are';
   return (
     `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged` +
@@ -1196,7 +1205,8 @@ function startOver() {
             >. </template
           >Each imported row becomes an application awaiting your review<template
             v-if="previewRejected.length"
-            >; the rows your automatic rejections reject arrive rejected</template
+            >, except the {{ previewRejected.length }} listed below, which arrive already
+            rejected</template
           >. Nothing has been written yet.
         </p>
 
@@ -1373,7 +1383,11 @@ function startOver() {
           data-testid="import-confirm-button"
           @click="runImport"
         >
-          Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
+          <!-- Still offered with nothing to write: the import saves the mapping, and judges. -->
+          <template v-if="writingRows"
+            >Import {{ writingRows }} row{{ writingRows === 1 ? '' : 's' }}</template
+          >
+          <template v-else>Import nothing new</template>
         </button>
         <!-- Once imported, the one next step is the review itself (E38/F04/S01). -->
         <button

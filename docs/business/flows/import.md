@@ -70,7 +70,7 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
 1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
    A draft whose setup would keep it out of Review is told what it lacks before a file is picked ("This market is not ready for its first import"), and nothing is written.
 2. **Map columns:** every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
-3. **Preview** ("Preview import"): "N of M rows will be imported", ending "; K of them will be rejected by your automatic rejections" when a rule rejects any, then "Each imported row becomes an application awaiting your review. Nothing has been written yet.", which then reads "...awaiting your review; the rows your automatic rejections reject arrive rejected. Nothing has been written yet."
+3. **Preview** ("Preview import"): "N of M rows will be imported", ending "; K of them will be rejected by your automatic rejections" when a rule rejects any, then "Each imported row becomes an application awaiting your review. Nothing has been written yet.", which, when a rule rejects any, reads "...awaiting your review, except the K listed below, which arrive already rejected. Nothing has been written yet."
    "The first N rows, as they will be imported" checks the mapping: the first rows that import and no rule rejects, as a list of rows that expand, each headed by the vendor's name over their email and its file row ("Row 2"), the first open.
    A row opens to its answers as the review card lays them out: the market's highlighted answers, then "N more answers" ([review highlights](../rules/review-highlights.md)).
    "Rejected by your automatic rejections", with its count, checks the rules: every row a rule would reject, in the same format, each marked "Rejected" and opening on "Rejected automatically:" and its reason; its line says an Admin or the owner can overturn one, which E38/F06/S01 makes so.
@@ -128,7 +128,7 @@ Why a later export updates rather than adds, and why only a changed answer the s
 
 1. The mapping is restored by column heading; "N columns are new since then." and lost columns are named to map again.
 2. The preview says "N new, M updated, K unchanged"; how many approved applications "will return to review" because their answers changed; and how many existing applications are not in the file ("They will be left exactly as they are.").
-   A file with nothing new reads "Nothing to import: N of M rows are already here, unchanged".
+   A file with nothing new reads "Nothing to import: N of M rows are already here, unchanged", and its button "Import nothing new"; otherwise the button counts the rows the headline counts, so an unchanged row is never among them.
 3. Confirm: "Imported N new applications, updated M."
 
 A first-come-first-served priority rule with no column mapped to "Submitted at" warns that "That rule will order nothing."
