@@ -76,6 +76,21 @@ export function priceText(cents: number | null | undefined): string {
 }
 
 /**
+ * The one tier renamed in place when the tiers changed from `before` to `after`, the names in
+ * order, as `[from, to]`; null when the change was anything else, or `from` is still a tier.
+ */
+export function tierRenamed(
+  before: readonly string[],
+  after: readonly string[],
+): readonly [string, string] | null {
+  if (before.length !== after.length) return null;
+  const changed = before.flatMap((name, i) => (name !== after[i] ? [i] : []));
+  if (changed.length !== 1) return null;
+  const [from, to] = [before[changed[0]], after[changed[0]]];
+  return after.includes(from) ? null : [from, to];
+}
+
+/**
  * The prices once the tiers changed from `before` to `after`, the names in order: a tier renamed
  * in place keeps its price, a removed tier's price goes, and a tier never has two. The same object
  * where nothing changed, so a caller writes only a real change.
@@ -87,14 +102,10 @@ export function pricingAfterTierChange<P extends PricingObject | null | undefine
 ): P {
   if (!pricing) return pricing;
   let prices = pricing.everyoneElse;
-  const renamed =
-    before.length === after.length
-      ? before.flatMap((name, i) => (name !== after[i] ? [i] : []))
-      : [];
-  if (renamed.length === 1) {
-    const from = before[renamed[0]];
-    const to = after[renamed[0]];
-    if (!after.includes(from) && !prices.some((price) => price.tier === to)) {
+  const renamed = tierRenamed(before, after);
+  if (renamed) {
+    const [from, to] = renamed;
+    if (!prices.some((price) => price.tier === to)) {
       prices = prices.map((price) => (price.tier === from ? { ...price, tier: to } : price));
     }
   }

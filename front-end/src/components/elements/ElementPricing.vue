@@ -19,6 +19,7 @@ import {
   percentFromText,
   priceText,
   pricingAfterTierChange,
+  tierRenamed,
 } from '@/utils/pricing';
 
 const props = defineProps<{ setupObject: SetupObject }>();
@@ -38,15 +39,6 @@ const tiers = computed(() => [
 function write(next: PricingObject) {
   emit('update:setupObject', { ...props.setupObject, pricing: next });
 }
-
-// A tier renamed in Tier Setup keeps its price, and a removed one's goes with it.
-watch(
-  () => props.setupObject.tiers.map((tier) => tier.name),
-  (after, before) => {
-    const next = pricingAfterTierChange(props.setupObject.pricing, before, after);
-    if (next !== props.setupObject.pricing && next) write(next);
-  },
-);
 
 /**
  * A field being typed in: its text, and the value it held before. The text is shown as typed until
@@ -120,6 +112,29 @@ function onShareLeft() {
 function onCurrency(code: string) {
   write({ ...pricing.value, currency: code });
 }
+
+/**
+ * A tier renamed in Tier Setup keeps its price and the text being typed in its cell, and a removed
+ * one's go with it, as the share's text goes with the last tier: otherwise text that is no value
+ * would hold the plan with no field left to fix it.
+ */
+watch(
+  () => props.setupObject.tiers.map((tier) => tier.name),
+  (after, before) => {
+    const next = pricingAfterTierChange(props.setupObject.pricing, before, after);
+    if (next !== props.setupObject.pricing && next) write(next);
+
+    const renamed = tierRenamed(before, after);
+    const moved = (tier: string) =>
+      renamed && tier === renamed[0] && !(renamed[1] in cells.value) ? renamed[1] : tier;
+    cells.value = Object.fromEntries(
+      Object.entries(cells.value)
+        .map(([tier, typing]) => [moved(tier), typing] as const)
+        .filter(([tier]) => tiers.value.includes(tier)),
+    );
+    if (tiers.value.length === 0) share.value = null;
+  },
+);
 
 const held = computed(() => invalidCells.value.length > 0 || shareInvalid.value);
 watch(held, (value) => emit('held', value));

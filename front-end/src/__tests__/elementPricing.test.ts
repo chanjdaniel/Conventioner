@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { defineComponent, h, ref } from 'vue';
+import { defineComponent, h, nextTick, ref } from 'vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
 import type { PricingObject, SetupObject } from '@/assets/types/datatypes';
 
@@ -162,9 +162,9 @@ describe('a tier changing in Tier Setup', () => {
  */
 function heldCard(setupObject: SetupObject) {
   const held: boolean[] = [];
+  const kept = ref(setupObject);
   const host = defineComponent({
     setup() {
-      const kept = ref(setupObject);
       return () =>
         h(ElementPricing, {
           setupObject: kept.value,
@@ -174,9 +174,12 @@ function heldCard(setupObject: SetupObject) {
     },
   });
   const wrapper = mount(host, { attachTo: document.body });
-  const kept = () =>
-    (wrapper.findComponent(ElementPricing).props('setupObject') as SetupObject).pricing;
-  return Object.assign(wrapper, { kept, held });
+  /** What Tier Setup does: the same plan with these tier names, in this order. */
+  const renameTiers = async (names: string[]) => {
+    kept.value = { ...kept.value, tiers: names.map((name, id) => ({ id, name })) };
+    await nextTick();
+  };
+  return Object.assign(wrapper, { kept: () => kept.value.pricing, held, renameTiers });
 }
 
 async function typeKeys(input: ReturnType<ReturnType<typeof mount>['get']>, text: string) {
@@ -247,6 +250,54 @@ describe('text that ends as no value keeps the value from before (review note 2)
     expect(wrapper.held.at(-1)).toBe(true);
     await cell.trigger('blur');
     expect((cell.element as HTMLInputElement).value).toBe('3x');
+  });
+});
+
+describe('text that is no value, when Tier Setup changes the tiers (rereview finding 9)', () => {
+  const priced: PricingObject = {
+    currency: 'CAD',
+    halfTablePercent: 50,
+    everyoneElse: [{ tier: 'Silver', cents: 3000 }],
+  };
+
+  it('moves with its tier when the tier is renamed', async () => {
+    const wrapper = heldCard(plan(priced));
+    await typeKeys(wrapper.get('[data-testid="pricing-price-1"]'), '30x');
+
+    await wrapper.renameTiers(['Gold', 'Silvery']);
+
+    const cell = wrapper.get('[data-testid="pricing-price-1"]');
+    expect((cell.element as HTMLInputElement).value).toBe('30x');
+    expect(cell.attributes('aria-invalid')).toBe('true');
+    expect(wrapper.held.at(-1)).toBe(true);
+
+    await cell.setValue('31');
+    expect(wrapper.kept()?.everyoneElse).toEqual([{ tier: 'Silvery', cents: 3100 }]);
+    expect(wrapper.find('[data-testid="pricing-error"]').exists()).toBe(false);
+    expect(wrapper.held.at(-1)).toBe(false);
+  });
+
+  it('goes with its tier when the tier is removed', async () => {
+    const wrapper = heldCard(plan(priced));
+    await typeKeys(wrapper.get('[data-testid="pricing-price-1"]'), '30x');
+
+    await wrapper.renameTiers(['Gold']);
+
+    expect(wrapper.find('[data-testid="pricing-error"]').exists()).toBe(false);
+    expect(wrapper.held.at(-1)).toBe(false);
+  });
+
+  it("the share's goes when the last tier is removed", async () => {
+    const wrapper = heldCard(plan(priced));
+    const share = wrapper.get('[data-testid="pricing-half-percent"]');
+    await share.setValue('');
+    await typeKeys(share, '150');
+
+    await wrapper.renameTiers([]);
+
+    expect(wrapper.find('[data-testid="pricing-share-error"]').exists()).toBe(false);
+    expect(wrapper.held.at(-1)).toBe(false);
+    expect(wrapper.kept()?.halfTablePercent).toBe(50);
   });
 });
 
