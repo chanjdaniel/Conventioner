@@ -164,6 +164,20 @@
      read as outlined in grey fog. Its inset twin is what makes the setup fields look pressed. */
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
+
+  /* A focused control's halo (E38/F01/S01), Daniel's choice C on the 2026-10-29 walk: a white 2px
+     gap, then a translucent green glow, hugging the control. It replaced a 2px `--mm-black` ring.
+     Measured, the glow is 1.58:1 against white and 1.50 against beige, below WCAG's 3:1 for a focus
+     indicator by Daniel's choice of look (3:1 takes about 77% green on white and 87% on beige, no
+     longer soft); on the green primary button the white gap is 4.59 against its fill. A field shows
+     no focus (primitives.css). `contrast.test.ts` computes each figure here. */
+  --focus-halo: 0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35);
+  /* The halo on a dark ground (the market bar, the vendor drawer's head): white at 35%, 3.17:1 on
+     `--mm-black`. The walk's prototype had 28%, at 2.53; 35% reaches 3:1 with the same look.
+     `contrast.test.ts` computes it. */
+  --focus-halo-on-dark: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  /* The same halo drawn inside the control's edge, for one whose box a scroller clips. */
+  --focus-halo-on-dark-inset: inset 0 0 0 3px rgba(255, 255, 255, 0.35);
 }
 
 /*

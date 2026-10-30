@@ -223,6 +223,11 @@ function canManage(org: Organization): boolean {
   box-shadow: var(--shadow-card);
 }
 
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.new-button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
+
 .new-button:hover {
   background: var(--mm-green);
   opacity: 0.9;

@@ -23,6 +23,7 @@ sources:
   - E21/F04/S02
   - T15
   - E45/F01/S01
+  - E38/F01/S01
   - E38/F08/S01
 ---
 
@@ -82,6 +83,7 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 
 **On a phone the tabs scroll inside the bar.**
 At 640px and below the name takes its own line and the tabs scroll sideways rather than widening the page, since six tabs are wider than a phone; only Attendance reaches that width (see [attendance and the door](attendance-and-door.md)).
+A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the six tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
 
 ## Why

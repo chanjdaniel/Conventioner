@@ -6,7 +6,9 @@ import type {
   PlaywrightWorkerOptions,
   TestType,
 } from '@playwright/test';
-import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL } from '../fixtures';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL, FloorplanWorkflowPage } from '../fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
@@ -15,9 +17,9 @@ import { settle } from './settle';
 
 /**
  * Every screen and deliberate state of the app, walked by every sweep: contrast
- * (`contrast-sweep.spec.ts`), what axe can see (`accessibility-sweep.spec.ts`) and layout
- * (`layout-sweep.spec.ts`). Each sweep passes its own `check` and nothing else, so a state added
- * here is walked by all three.
+ * (`contrast-sweep.spec.ts`), what axe can see (`accessibility-sweep.spec.ts`), layout
+ * (`layout-sweep.spec.ts`) and focus (`focus-sweep.spec.ts`). Each sweep passes its own `check` and
+ * nothing else, so a state added here is walked by all four.
  *
  * **A sweep is only worth the states it walks.** A twenty-screen pass missed the invisible
  * archive-confirmation button, because nobody opened that dialog; a layout trial missed the
@@ -102,6 +104,60 @@ const slug =
 const fixed = (path: string) => () => path;
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
+
+/** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
+const FLOORPLAN = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'fixtures',
+  'test-floorplan.png',
+);
+
+/**
+ * The draft's floorplan wizard with its plan uploaded, at one of its steps (E38/F01/S01). The
+ * market-days market's wizard is settled and draws no field, so these walk the draft's; nothing is
+ * saved, so the draft's plan is the seed's.
+ */
+function floorplanAt(stage: 'calibrating' | 'table types' | 'sections' | 'ready' | 'saving') {
+  return async (page: Page, seed: TheScreensSeed) => {
+    const wizard = new FloorplanWorkflowPage(page);
+    await wizard.goto(seed.draft.marketId);
+    if (stage === 'calibrating') {
+      await wizard.waitForWizard();
+      await wizard.uploadFloorplanImage(FLOORPLAN);
+      await wizard.waitForUploadComplete();
+      await wizard.clickNext();
+      await wizard.calibrateStage.waitFor({ state: 'visible', timeout: 10000 });
+      await wizard.drawCalibrationLine();
+      await visible(page, 'scale-calibration-length-input');
+      return;
+    }
+    if (stage === 'table types') {
+      await wizard.reachTableTypes(FLOORPLAN);
+      await wizard.tableTypeAddBtn.click();
+      await expect(wizard.tableTypeNameInput).toBeVisible();
+      return;
+    }
+    if (stage === 'sections') {
+      await wizard.reachTableTypes(FLOORPLAN);
+      await wizard.addTableType('6ft Table', '1800', '900');
+      await wizard.setAutoPlaceCount(4);
+      await wizard.autoPlaceTables();
+      await wizard.waitForNextEnabled();
+      await wizard.clickNext();
+      await wizard.sectionGroupToggle.waitFor({ state: 'visible', timeout: 10000 });
+      await wizard.groupAllTablesIntoSection('Main', 'Main Hall');
+      await page.getByRole('button', { name: /^Sections/ }).click();
+      await expect(page.getByRole('button', { name: /^Sections/ })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      return;
+    }
+    await wizard.reachSaveStep(FLOORPLAN);
+    if (stage === 'saving') await wizard.openSaveDialog();
+  };
+}
 
 export const SCREENS: Screen[] = [
   // The organizer's own pages.
@@ -489,6 +545,36 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('big', 'floorplan'), 'market-bar-title'),
+  },
+  {
+    name: 'the floorplan, calibrating',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: floorplanAt('calibrating'),
+  },
+  {
+    name: 'the floorplan, adding a table type',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: floorplanAt('table types'),
+  },
+  {
+    name: 'the floorplan, its sections listed',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: floorplanAt('sections'),
+  },
+  {
+    name: 'the floorplan, ready to save',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: floorplanAt('ready'),
+  },
+  {
+    name: 'the floorplan, saving',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: floorplanAt('saving'),
   },
   {
     name: 'market days, the plan',

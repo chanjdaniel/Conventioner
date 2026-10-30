@@ -10,6 +10,7 @@ describes:
   - front-end/e2e/contrast-sweep.spec.ts
   - front-end/e2e/accessibility-sweep.spec.ts
   - front-end/e2e/layout-sweep.spec.ts
+  - front-end/e2e/focus-sweep.spec.ts
   - front-end/e2e/layout-detectors.spec.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
@@ -47,6 +48,7 @@ sources:
   - T81
   - T79
   - T82
+  - E38/F01/S01
   - E38/F08/S03
   - E38/F05/S01
 ---
@@ -231,7 +233,7 @@ It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left,
 
 ## Elevation
 
-One shadow, extracted from the newer screens, where it is already used 77 times on a single screen.
+One elevation shadow, extracted from the newer screens, where it is already used 77 times on a single screen.
 
 ```css
 --shadow-card:
@@ -240,7 +242,7 @@ One shadow, extracted from the newer screens, where it is already used 77 times 
   0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
-**The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic.
+**The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
 
 ## Colour
 
@@ -295,7 +297,7 @@ Translucent tints took on the beige review card beneath them and fell below AA t
 
 Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, sixty button-ish class names, two designs for the same `Manage` button.
 
-Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
+Three primitives own height, padding, radius, type and the disabled state, and `primitives.css` holds the one focus halo every control wears. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Reach for a primitive rather than deciding again.
 They and `AppDialog` are the app's components: it installs no component library, and a widget too hard to own starts from a headless one styled with these tokens ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
 The searchable picker is the app's own, and the ADR records why that combobox did not take a headless one.
@@ -317,18 +319,26 @@ A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 
-**A focus ring on every primitive**, in `--mm-black` rather than the brand green - it has to be visible against the control's own fill too, and a green ring on the green primary button is invisible. The product has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+**A field shows no focus at all**, by Daniel's decision on the 2026-10-29 walk (E38/F01/S01): no outline, ring, glow, or border or fill change on any `input`, `textarea` or `select`, by click or by Tab, and a text field shows its caret.
+A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.
+`primitives.css` sets `outline: none` on every focused field, so the browser's own outline does not appear either, and no component draws a ring around a field's box (`:focus-within`).
+
+**A soft halo on every control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
+`primitives.css` gives it to the primitives and to every link, button, `summary`, `[role='button']` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
+The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.
+A control on a dark ground (the market bar's tabs, the vendor drawer's close) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab on a phone (`--focus-halo-on-dark-inset`), where the tabs scroll sideways on the bar's lower edge and the scroller would clip it; a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself; and a market card wears the halo for its name, whose own box clips it.
+Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below the 3:1 WCAG asks of a focus indicator by Daniel's choice of look, since 3:1 takes about 77% green on white and 87% on beige, no longer a soft halo; the white gap is 4.59:1 against the green button's fill; and the dark halo is 3.17:1 on `--mm-black`, raised from the prototype's 28% (2.53:1), which looked the same.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
 
 ## What keeps this true
 
-A convention nothing enforces is how the product got here. Five checks, the first three in `E16/F01` and `E16/F02`:
+A convention nothing enforces is how the product got here. Six checks, the first three in `E16/F01` and `E16/F02`:
 
 1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
    It holds every `margin*`, `padding*`, `gap`, `row-gap` and `column-gap` to the spacing scale with `declaration-property-value-allowed-list`, by the values the [Spacing](#spacing) section lists, and [`spacingScale.test.ts`](../front-end/src/__tests__/spacingScale.test.ts) runs the real config over what it allows and refuses.
    `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (`MIGRATED` in `stylelint.config.js`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
-   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 266 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
+   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 264 remaining warnings are the floorplan GUI, a beta, 148 of them spacing.
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
@@ -345,11 +355,15 @@ A convention nothing enforces is how the product got here. Five checks, the firs
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
+6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01).
+   A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
+   It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the dashboard's and the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
+   It needed the floorplan wizard walked at each step with a plan uploaded, which the other sweeps then walked too, and they found the beta's step labels below AA on their beige, its progress bar with no name and an invalid value, its empty table types in a 40% grey, and its Export PNG button named something other than its words; all are fixed.
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
-All three sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
-The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
-Contrast and axe measure each state at its first size; the layout sweep at every size.
+All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
+The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
+Contrast, axe and focus measure each state at its first size; the layout sweep at every size.
 
 ## Evidence
 
@@ -360,3 +374,4 @@ The contrast contract rests on an audit that measured every colour on the ground
 - White text on `--mm-yellow` was to reach AA like every other fill (wayfinding/readable-journey/03); yellow is a black-text fill, and the contract asserts white is never put on it (E09/F01).
 - `--list-max` was to hold a market's Tables, Vendors and Attendance (wayfinding/claims-and-room/01); every market screen is the workspace width, set by the frame (E22/F04/S01).
 - A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).
+- Every primitive was to show a 2px `--mm-black` focus ring at 2px of offset, fields included (E16/F04); a field shows no focus and a control the soft halo (E38/F01/S01).

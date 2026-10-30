@@ -110,11 +110,6 @@ function tail(row: LedgerRow): string {
   background: var(--mm-beige);
 }
 
-.bar-ledger-row--link:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 1px;
-}
-
 .bar-ledger-label {
   overflow-wrap: anywhere;
 }

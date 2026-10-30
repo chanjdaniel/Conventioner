@@ -14,6 +14,7 @@ sources:
   - bug/52
   - T45
   - T75
+  - E38/F01/S01
 ---
 
 # Every control is named
@@ -32,7 +33,7 @@ Words a screen reader needs beyond those go beside them in a `.visually-hidden` 
 **A control holds no control**: a market row was a `role="button"` around its own Manage button, so the row is now a click target for the pointer only, and its name is the real button the keyboard and a screen reader reach it by ([`SummaryCard.vue`](../../../front-end/src/components/SummaryCard.vue)).
 Both are caught by the accessibility sweep ([the design language](../../design-system.md#what-keeps-this-true)), which this walk does not replace: it names what axe cannot judge, a control whose name is empty by intent.
 
-**A field styled `all: unset` loses its focus ring with everything else, so its container draws one** (`:focus-within`), as the plan's tier, section and location cards do.
+**A field draws no focus ring, and neither does its container**: a text field's caret is its focus indicator, by Daniel's decision (E38/F01/S01, [the design language](../../design-system.md#the-primitive-layer)), so the plan cards' name fields lost the `:focus-within` ring bug 44 gave them.
 
 **Native checks and radios take `accent-color` from `body`**, which sets it once to the product's green in [`front-end/src/assets/base.css`](../../../front-end/src/assets/base.css); a component never sets it for its own inputs.
 **No link pads itself**: the global `a` rule carries no padding, so a link sits on the text beside it (bug 52).
@@ -42,7 +43,7 @@ The answer is the applicant's own text, so that line is what keeps a `javascript
 
 ## How it is enforced
 
-The walk is part of the Playwright suite; the visual side of the same idea (focus rings, the one disabled state) is owned by the primitives in [the design language](../../design-system.md#the-primitive-layer).
+The walk is part of the Playwright suite; the visual side of the same idea (the focus halo, the one disabled state) is owned by the primitives in [the design language](../../design-system.md#the-primitive-layer).
 The front end's lint refuses `v-html` anywhere (`vue/no-v-html` as an error in [`eslint.config.ts`](../../../front-end/eslint.config.ts)), so no template can render an answer, or any other text, as raw HTML.
 
 ## What breaks it

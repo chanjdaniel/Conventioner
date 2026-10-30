@@ -1102,7 +1102,7 @@ function submittedOn(app: Application): string {
   margin-left: auto;
 }
 
-/* The verdicts are the primitives' (`.btn`): one height, one focus ring, one disabled state. */
+/* The verdicts are the primitives' (`.btn`): one height, one focus halo, one disabled state. */
 .card-actions kbd {
   font-family: monospace;
   font-size: var(--text-xs);

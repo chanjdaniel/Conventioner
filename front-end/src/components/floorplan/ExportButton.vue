@@ -57,12 +57,12 @@ function toggleDropdown() {
       :disabled="isExporting"
       @click="toggleDropdown"
       title="Export floorplan as PNG"
-      aria-label="Export floorplan"
     >
-      <!-- Download icon -->
+      <!-- Download icon. The button is named by its words, "Export PNG" (WCAG 2.5.3). -->
       <svg
         v-if="!isExporting"
         class="export-icon"
+        aria-hidden="true"
         width="16"
         height="16"
         viewBox="0 0 24 24"

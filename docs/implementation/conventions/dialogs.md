@@ -61,7 +61,7 @@ So an opener that goes away with the click hands focus on first: the phase rail'
 Load Template focuses its confirm view's Cancel, then the chosen card again on Cancel ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)).
 
 **A field looks like a field.**
-A dialog's text input is the `.field` primitive ([the design language](../../design-system.md#the-primitive-layer)), which owns its height, padding, corners, type, focus and disabled state; nothing resets it (`all: unset` once left the market name as bare text).
+A dialog's text input is the `.field` primitive ([the design language](../../design-system.md#the-primitive-layer)), which owns its height, padding, corners, type and disabled state; nothing resets it (`all: unset` once left the market name as bare text).
 
 **Errors sit in the layout.**
 A field's error goes beneath its field, in the body; the `error` prop is for one about the submission as a whole and renders in flow above the actions, never positioned over them.

@@ -375,16 +375,6 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  transition:
-    border-color 0.15s ease-in-out,
-    box-shadow 0.15s ease-in-out;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: var(--mm-green);
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .summary-line {
@@ -487,6 +477,11 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 .vendor-row-button:hover {
   border-color: var(--mm-green);
   box-shadow: var(--shadow-card);
+}
+
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.vendor-row-button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
 }
 
 .vendor-row-button:active {

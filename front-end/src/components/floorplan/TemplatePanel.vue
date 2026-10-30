@@ -477,11 +477,6 @@ function formatDate(dateStr: string): string {
   box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
-.tp-template-card:focus-visible {
-  outline: 2px solid var(--mm-green);
-  outline-offset: 2px;
-}
-
 .tp-template-card-main {
   display: flex;
   flex-direction: column;

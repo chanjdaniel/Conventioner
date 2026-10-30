@@ -17,8 +17,9 @@
  * - What the words find is the caller's (`finds`), so every use searches by its own terms.
  * - The list opens in the page's flow, under the field, rather than over what follows: inside a
  *   dialog a floating list is clipped by the dialog's own scroller.
- * - The field shows no focus ring (E38/F01): its caret is its focus. The active choice is drawn
- *   as a tint, since it is never focused itself (`aria-activedescendant`).
+ * - The field shows no focus ring, as no field does (E38/F01, `primitives.css`): its caret is its
+ *   focus. The active choice is drawn as a tint, since it is never focused itself
+ *   (`aria-activedescendant`).
  */
 import { computed, nextTick, ref, useId, watch } from 'vue';
 
@@ -181,7 +182,7 @@ function onBlur(): void {
       v-model="text"
       type="text"
       role="combobox"
-      class="field search-picker-field"
+      class="field"
       autocomplete="off"
       spellcheck="false"
       aria-autocomplete="list"
@@ -253,12 +254,6 @@ function onBlur(): void {
 .search-picker {
   display: flex;
   flex-direction: column;
-}
-
-/* Its caret is its focus (E38/F01): no ring, glow, or border change, by click or by Tab. */
-.search-picker-field:focus,
-.search-picker-field:focus-visible {
-  outline: none;
 }
 
 .search-picker-list {

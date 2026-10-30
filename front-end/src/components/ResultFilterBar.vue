@@ -210,11 +210,6 @@ const chips = computed(() => {
   border-color: var(--mm-green);
 }
 
-.filter-chip:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .filter-chip-close {
   font-size: var(--text-md);
   line-height: 1;

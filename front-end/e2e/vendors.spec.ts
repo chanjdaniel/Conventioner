@@ -214,7 +214,7 @@ test.describe('Vendor browsing and search', () => {
    * QC finding F13 read this as an appearance problem - a rail that "keeps its full green and looks
    * live". It does not: the scrim dims everything behind it to 60%, measured, the rail no more
    * brightly than the Back button beside it. What actually presented itself as available was the
-   * focus ring.
+   * focus indicator.
    */
   test('while the vendor drawer is open, nothing behind it can be tabbed to', async ({
     authenticatedPage: page,

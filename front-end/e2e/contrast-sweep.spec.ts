@@ -58,9 +58,16 @@ async function sweep(page: Page): Promise<Sweep> {
       };
       const luminance = ([r, g, b]: number[]) =>
         0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+      // A `color-mix()` computes to `color(srgb r g b / a)`, its channels 0 to 1: read as 0 to
+      // 255, the floorplan's hovered Sections button measured as black (E38/F01/S01).
       const parse = (value: string) => {
-        const parts = value.match(/[\d.]+/g);
-        return parts ? parts.slice(0, 4).map(Number) : null;
+        const parts = value
+          .match(/[\d.]+/g)
+          ?.slice(0, 4)
+          .map(Number);
+        if (!parts) return null;
+        if (!value.startsWith('color(srgb')) return parts;
+        return parts.map((part, i) => (i < 3 ? part * 255 : part));
       };
       const over = (fg: number[], bg: number[]) => {
         const alpha = fg[3] === undefined ? 1 : fg[3];
