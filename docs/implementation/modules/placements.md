@@ -92,7 +92,7 @@ The statistics serve the list as `overriddenPlacements`, and it is the second of
 Deleting the section a pinned seat belongs to, or dropping its table count below the pin, leaves the row in place (`orphaned_pins` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py)).
 `NoOrphanedPinGuard` in [`back-end/guards.py`](../../../back-end/guards.py) refuses the moves into `assignment` and into `market_days` until the seat is restored to the plan or the vendor is moved or freed, naming each vendor and seat.
 The market read serves the same list as `orphanedPins`, for the Assignments page and the vendor's panel to mark (bug 31).
-The solver keeps an orphaned pin's vendor on the date it claimed, seated nowhere, rather than quietly placing them elsewhere.
+The solver keeps an orphaned pin's vendor on the date it claimed, at that pin and nowhere else, rather than quietly placing them elsewhere; the pin stays their seat for the statistics, the Vendors list and the export alike.
 
 ## What a read shows
 
