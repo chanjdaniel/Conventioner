@@ -134,7 +134,7 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
 3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
 4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
-5. The same picker is offered as an own-form market opens applications, so its reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications)).
+5. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).
 
 ## I3. Choose what leads the card
 
@@ -144,9 +144,9 @@ Covered by: `review-highlights.spec.ts`.
 
 ## I4. Enter the review
 
-**Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`).
-An own-form market enters by "Open Applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
-Covered by: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`.
+**Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`).
+An own-form market enters by "Open Applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
+Covered by: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`.
 
 ## I5. Begin assignment
 

@@ -13,7 +13,7 @@ import type { Market } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
 import { getApiErrorMessage } from '@/utils/api';
-import { chooseReviewers, reviewerAddresses } from '@/utils/reviewTeam';
+import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
 
 const props = defineProps<{
   open: boolean;
@@ -38,12 +38,6 @@ watch(
   },
   { immediate: true },
 );
-
-function sameTeam(chosen: readonly string[], stored: readonly string[]): boolean {
-  const key = (addresses: readonly string[]) =>
-    [...new Set(addresses.map((address) => address.trim().toLowerCase()))].sort().join('\n');
-  return key(chosen) === key(stored);
-}
 
 async function confirm() {
   if (!props.market || saving.value || props.moving) return;

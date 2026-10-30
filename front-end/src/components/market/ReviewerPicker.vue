@@ -46,6 +46,8 @@ function toggle(address: string, on: boolean) {
         <label class="reviewer-picker-choice">
           <input
             type="checkbox"
+            name="reviewers"
+            :value="address"
             :checked="isTicked(address)"
             :disabled="disabled"
             :data-testid="`reviewer-picker-${address}`"
@@ -66,6 +68,11 @@ function toggle(address: string, on: boolean) {
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+/* A legend's own inline padding would set it 2px right of the boxes below it. */
+.reviewer-picker legend {
+  padding: 0;
 }
 
 /* A market's organization can name dozens of people: the list scrolls inside the dialog. Ruled
