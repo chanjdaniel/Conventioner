@@ -14,6 +14,7 @@ sources:
   - E40/F01/S02
   - E39/F01/S03
   - E39/F01/S04
+  - E41/F01/S01
 ---
 
 # The market's history
@@ -79,6 +80,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
 | `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name` and `status`, null before |
+| `update-vendor-info` | null | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, as the organizer read them before and after; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
 | `write-vendor-notes` | `note` | the organizer's [note](../../business/rules/vendor-notes.md) | the vendor | - | `note` |
 | `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
 | `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |

@@ -11,6 +11,7 @@ import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 
 /**
  * Every screen offers a control on the table's answer for the action it takes (E39/F01/S02).
@@ -136,6 +137,13 @@ for (const role of Object.keys(PEOPLE) as Role[]) {
       await offered(page, 'app-monitor-choose-highlights', edits);
       await offered(page, 'app-monitor-publish-button', administers);
       await railOffersMoves(page, administers);
+
+      // The vendor drawer, from the All view: updating a vendor's info is its own row (E41/F01/S01).
+      const all = new ApplicationsAllPage(page);
+      await all.goto(markets.review);
+      await all.open('ana@thistle.test');
+      await expect(all.drawer.getByText('Submission')).toBeVisible({ timeout: 15000 });
+      await offered(page, 'vendors-detail-update-info', edits);
 
       // The Assignment tab, in assignment: running it and placing seats are the Assignment row's.
       await page.goto(marketSetupPath(markets.assignment, 'assignment'));

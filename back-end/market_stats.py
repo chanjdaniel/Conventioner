@@ -7,7 +7,8 @@ Applications tab's All view filters, which are decided by status alone, so the t
 out rather than days because the server keeps no time zone for a market, and a day is the
 reader's.
 
-What they answered: each select, multi-select and checkbox question of the form gets a row per
+What they answered, as the organizer reads it, each organizer's update of an answer in its place
+(``effective_answers``): each select, multi-select and checkbox question of the form gets a row per
 option it offers, in the form's order, with how many applicants gave it; a multi-select counts
 every option ticked, so its rows add up to more than its applicants. An answer the form does not
 offer - written in under "Other" on a Google Form, or an option since taken off - counts once per
@@ -106,7 +107,8 @@ def _rows(field: FormField, applications: List[Dict[str, Any]]) -> List[Dict[str
     counts = {option: 0 for option in offered}
     other = none = 0
     for application in applications:
-        given = _given(field, (application.get("form_data") or {}).get(field.key))
+        # As the organizer reads it, an update of the answer in its place (E41/F01/S01).
+        given = _given(field, ApplicationsApi.effective_answers(application).get(field.key))
         if not given:
             none += 1
             continue

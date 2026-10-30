@@ -11,6 +11,7 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
+import api.vendor_info as VendorInfoApi
 import api.vendor_export as VendorExportApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
@@ -1497,6 +1498,24 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
         context.market, context.organization, person, data.get('ownerEmail'))
     result, status_code = ApplicantsApi.reassign_follow_up(
         market_id, application_id, owner, person.email)
+    return jsonify(result), status_code
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/answers', methods=['PUT'])
+@login_required
+def update_vendor_info(market_id: str, application_id: str) -> Response:
+    """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
+    ``Actions.UPDATE_VENDOR_INFO``.
+
+    Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
+    vendor wrote takes its update away.
+    """
+    data = json_object(required=True)
+    requesting_user = authenticated_email()
+    user = UsersApi.get_user(requesting_user)
+    updater = MarketPerson(user_id=user.id if user else None, email=requesting_user)
+    result, status_code = VendorInfoApi.update_vendor_info(
+        market_id, application_id, data.get("answers"), updater)
     return jsonify(result), status_code
 
 

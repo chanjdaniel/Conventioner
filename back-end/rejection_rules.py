@@ -183,7 +183,8 @@ def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) 
     rejected = returned = 0
     for doc in ApplicationsApi.judgeable_applications(market_id, application_id):
         by_rule = doc.get("status") == ApplicationStatus.REVIEWER_REJECTED.value
-        met = book.rejecting(doc.get("form_data") or {})
+        # What the organizer reads, an update of an answer in its place (E41/F01/S01).
+        met = book.rejecting(ApplicationsApi.effective_answers(doc))
         if met is None:
             if by_rule and not book.results_published and ApplicationsApi.update_application_status(
                     doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc):

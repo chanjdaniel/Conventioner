@@ -11,6 +11,7 @@ verified: 2026-10-29
 sources:
   - E45/F01/S01
   - E45/F01/S02
+  - E41/F01/S01
 ---
 
 # The market's statistics
@@ -48,7 +49,7 @@ Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Ap
    A form with no question to chart says "The form asks no question with choices to count."
 
 A row leads nowhere: the All view filters by status, not by an answer.
-The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as stored.
+The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as the organizer does, an organizer's [update of an answer](../rules/an-update-is-kept-beside-the-vendors-answer.md) counted in its place.
 Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned"), `test_the_stats_tab.py`.
 
 ## The rules it obeys
