@@ -493,7 +493,9 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   background: white;
 }
 
-/* `--mm-text-muted` is 4.27 on the tint; this is 5.25 (`contrast.test.ts`). */
+/* `--mm-text-muted` is 4.27 on the tint; this is 5.25 (`contrast.test.ts`). Both muted lines take
+   it: the address under a name, and the date count. */
+.vendor-row--open :deep(.vendor-identity-email),
 .vendor-row--open .vendor-date-count {
   color: var(--mm-text-muted-on-beige);
 }
