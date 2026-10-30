@@ -148,7 +148,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       EXPORT_MAPPING,
     );
     await expect(page.getByTestId('import-result-rejected-note')).toContainText(
-      '1 was rejected by your automatic rejections',
+      '1 was rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.',
     );
 
     // The first import took the market into Review (E38/F04/S01); its done step leads there.

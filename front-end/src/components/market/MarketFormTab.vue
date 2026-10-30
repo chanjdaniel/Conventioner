@@ -15,6 +15,7 @@
  * priority offers as the questions a rule can order by.
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
+import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -442,6 +443,7 @@ watch(formLocked, (locked, wasLocked) => {
                 :rules="rejectionRules"
                 :lockReason="market?.rejectionRulesLockReason ?? null"
                 :disabled="!changesForm"
+                :overturnedBy="whoMayTake(market?.permissionTable, MarketAction.ChangeVerdicts)"
                 @update:rules="saveRejectionRules"
               />
               <p
