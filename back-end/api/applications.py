@@ -471,6 +471,38 @@ def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, 
     return result.matched_count > 0
 
 
+#: How long a deal holds an arriving application it is dealing (E38/F07/S03): long enough to take
+#: a turn and write the reviewer, so one left by a deal that stopped half way is dealt by the next.
+DEALING_LEASE = timedelta(minutes=1)
+_DEALING_UNSET = {"dealing_by": "", "dealing_until": ""}
+
+
+def begin_dealing(app_id: str, deal: str, now: Optional[datetime] = None) -> bool:
+    """Win an arriving application for one deal before it takes a turn, so a turn is only ever
+    taken for an application that deal will write: still open, with no reviewer, and not being
+    dealt by another deal whose lease stands. ``deal`` names the deal; only ``review_team.py``
+    calls it."""
+    ensure_application_indexes()
+    now = _now(now)
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         "reviewer": {"$in": [None]},
+         "$nor": [{"dealing_until": {"$gt": now.isoformat()}}]},
+        {"$set": {"dealing_by": deal, "dealing_until": (now + DEALING_LEASE).isoformat()}},
+    )
+    return result.matched_count > 0
+
+
+def finish_dealing(app_id: str, deal: str, reviewer: Optional[MarketPerson]) -> bool:
+    """Write the reviewer ``deal`` took a turn for, and let go of the application; with None, let
+    go without dealing it. Written only while that deal still holds it."""
+    update: Dict[str, Any] = {"$unset": dict(_DEALING_UNSET)}
+    if reviewer is not None:
+        update["$set"] = {"reviewer": reviewer.model_dump()}
+    result = applications_collection.update_one({"id": app_id, "dealing_by": deal}, update)
+    return result.matched_count > 0
+
+
 def deal_follow_up(app_id: str, reviewer: MarketPerson, owner_was: Dict[str, Any]) -> bool:
     """Hand a removed reviewer's follow-up to the reviewer it is dealt to: its owner and its
     reviewer both become them, and it keeps its status. Written only while it still needs a

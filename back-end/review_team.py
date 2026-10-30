@@ -13,6 +13,7 @@ never moves.
 With no reviewers chosen, everything is first come, first served, as before this existed.
 """
 import logging
+import uuid
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from pymongo import ReturnDocument
@@ -161,44 +162,54 @@ def _address(person: Optional[Dict[str, Any]]) -> Optional[str]:
     return (person or {}).get("email") or None
 
 
-def deal_arrivals(market: Market, actor: Optional[str], action: Union[Actions.Action, str]) -> int:
+def deal_arrivals(
+    market: Market, actor: Optional[str], action: Union[Actions.Action, str],
+    only: Optional[str] = None,
+) -> int:
     """Deal every open application that has no reviewer to the next reviewer in turn, in the
     order they arrived (E38/F07/S03), and record one ``dealt`` entry under ``action`` and ``actor``
-    when it dealt any. Answers how many it dealt.
+    when it dealt any. ``only`` narrows it to one application: an applicant's save deals theirs and
+    no one else's, so the record never names a vendor as dealing another's. Answers how many it
+    dealt.
 
     Called after every write that can leave an application open and undealt - an applicant's save,
     an import, and the writes whose automatic rejections can return one to open - once that
     write's rules have judged, so an application a rule rejected on arrival is not dealt. With no
     reviewers chosen it reads and writes nothing.
 
-    Each application takes its turn in one atomic update of the market (``$inc`` on the turn,
-    answering the market after), so two applications arriving at once are dealt different turns,
-    from the team as it stands at that instant. Its write is conditioned on it still being open
-    with no reviewer: one a concurrent deal or a verdict reached first is left as it is, and the
-    turn it took is given back unless another deal has taken one since.
+    Each application is first won for this deal (``begin_dealing``: still open, with no reviewer,
+    and no other deal holding it), and only then takes its turn, in one atomic update of the market
+    (``$inc`` on the turn, answering the market after), from the team as it stands at that instant.
+    So a turn is taken only for an application this deal will write, and two deals at once take
+    consecutive turns and skip no reviewer. A reviewer is written whatever happened to the
+    application since it was won: its reviewer is whose share it was, beside any verdict.
     """
     if not team_of(market).reviewers:
         return 0
     pool = [doc for doc in ApplicationsApi.undecided_in_arrival_order(market.id)
-            if not doc.get("reviewer")]
+            if not doc.get("reviewer") and (only is None or doc["id"] == only)]
     if not pool:
         return 0
     holding = set(PermissionsApi.people_with_market_role(market, _organization(market)))
+    deal = str(uuid.uuid4())
     dealt = []
     for doc in pool:
+        if not ApplicationsApi.begin_dealing(doc["id"], deal):
+            continue
         stored = markets_collection.find_one_and_update(
             {"id": market.id}, {"$inc": {_TURN: 1}}, return_document=ReturnDocument.AFTER)
         team = ReviewTeam(**convert_keys_to_snake_case(
             market_doc_field(stored or {}, "review_team") or {}))
         able = [person for person in team.reviewers if person.user_id in holding]
-        to = able[(team.turn - 1) % len(able)] if able else None
-        if to is not None and ApplicationsApi.deal(doc["id"], to, None):
-            dealt.append((doc, to))
-            continue
-        markets_collection.update_one(
-            {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
-        if to is None:
+        if not able:
+            # Nobody may review here: the turn is not one anybody had, so it goes back.
+            markets_collection.update_one(
+                {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
+            ApplicationsApi.finish_dealing(doc["id"], deal, None)
             break
+        to = able[(team.turn - 1) % len(able)]
+        if ApplicationsApi.finish_dealing(doc["id"], deal, to):
+            dealt.append((doc, to))
     if dealt:
         History.record(
             market.id, actor, action, kind=History.DEALT,

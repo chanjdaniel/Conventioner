@@ -439,8 +439,9 @@ def save_applicant_application(
         market_id, email, History.EDITED if existing else History.SUBMITTED, app.id,
         lambda: _with_rules(History.changes(answered, saved.form_data or {}), verdicts))
     # Then dealt to the next reviewer in turn, if reviewers are chosen and it is still open
-    # (E38/F07/S03): the applicant's own save is the arrival, so it is recorded as theirs.
-    ReviewTeam.deal_arrivals(market, email, History.APPLY)
+    # (E38/F07/S03): the applicant's own save is its arrival, so it is recorded as theirs, and it
+    # deals theirs alone.
+    ReviewTeam.deal_arrivals(market, email, History.APPLY, only=app.id)
     if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 

@@ -7,7 +7,6 @@ info). Each records one ``dealt`` entry under its own action and actor. An appli
 rejects on arrival is decided and is not dealt, until the rules return it to open. Two arriving at
 once take different turns.
 """
-import copy
 
 import pytest
 
@@ -218,26 +217,62 @@ class TestAnImport:
 
 
 class TestTwoAtOnce:
-    def test_two_deals_that_read_the_pool_together_go_to_different_reviewers(
-            self, world, monkeypatch):
-        _choose([ANA, BEN, CAT])
-        world.applications.documents += [
-            _application("a", 21), _application("b", 22)]
-        import api.applications as ApplicationsApi
-        # Both deals read the same pool before either takes a turn, as two submissions at once do.
-        pool = ApplicationsApi.undecided_in_arrival_order(MARKET)
-        monkeypatch.setattr(ApplicationsApi, "undecided_in_arrival_order",
-                            lambda _market_id: copy.deepcopy(pool))
-        market = MarketsApi.market_from_document(world.markets.doc)
+    """Two deals at once - an import and a save of the rules, say - read one pool and each take
+    turns from the market; neither may leave a turn untaken and so skip a reviewer."""
 
-        ReviewTeam.deal_arrivals(market, "a@vendor.test", History.APPLY)
-        ReviewTeam.deal_arrivals(market, "b@vendor.test", History.APPLY)
+    def test_interleaved_they_deal_to_the_next_two_reviewers_and_skip_none(
+            self, world, monkeypatch):
+        _choose([ANA, BEN, CAT])  # 7 dealt: the turn is 7, so Ben is next, then Cat
+        world.applications.documents += [_application("x", 21), _application("y", 22)]
+        market = MarketsApi.market_from_document(world.markets.doc)
+        real = world.markets.find_one_and_update
+        interleaved = []
+
+        def the_other_deal_runs_once_this_one_takes_its_turn(*args, **kwargs):
+            taken = real(*args, **kwargs)
+            if not interleaved:
+                interleaved.append(True)
+                ReviewTeam.deal_arrivals(market, ADMIN, "change-form")
+            return taken
+
+        monkeypatch.setattr(world.markets, "find_one_and_update",
+                            the_other_deal_runs_once_this_one_takes_its_turn)
+
+        ReviewTeam.deal_arrivals(market, ADMIN, "import-applications")
 
         dealt = _reviewers(world)
-        assert (dealt["a"], dealt["b"]) == (BEN, CAT)
-        # The second deal found both taken, and gave back each turn it took for them.
+        assert sorted([dealt["x"], dealt["y"]]) == [BEN, CAT]
         assert world.markets.doc["reviewTeam"]["turn"] == 9
-        assert len(_arrivals(world)) == 1
+        assert len(_arrivals(world)) == 2
+
+    def test_one_left_half_dealt_by_a_deal_that_stopped_is_dealt_by_the_next(self, world):
+        _choose([ANA, BEN, CAT])
+        world.applications.documents.append(_application(
+            "x", 21, dealing_by="a-deal-that-stopped",
+            dealing_until="2026-01-01T00:00:00+00:00"))
+
+        _submit(world, "v8@vendor.test")
+        ReviewTeam.deal_arrivals(
+            MarketsApi.market_from_document(world.markets.doc), ADMIN, "change-form")
+
+        dealt = _reviewers(world)
+        assert (dealt["v8"], dealt["x"]) == (BEN, CAT)
+        assert "dealing_by" not in next(
+            d for d in world.applications.documents if d["id"] == "app-x")
+
+
+class TestAnApplicantsSave:
+    def test_deals_their_own_application_and_no_one_elses(self, world):
+        _choose([ANA, BEN, CAT])
+        # Open and undealt from a time when nobody chosen could review here.
+        world.applications.documents.append(_application("left-over", 21))
+
+        _submit(world, "v8@vendor.test")
+
+        dealt = _reviewers(world)
+        assert (dealt["v8"], dealt["left-over"]) == (BEN, None)
+        [entry] = _arrivals(world)
+        assert entry["vendors"] == ["v8@vendor.test"]
 
 
 def test_a_market_with_no_team_is_not_read_for_a_deal(world, monkeypatch):
