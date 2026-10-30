@@ -50,8 +50,8 @@ Each control asks the row of the action it takes:
 | The phase rail's More…, in Applications | Redo import | Import applications |
 | The phase rail's More…, in Applications | Stop taking applications, Take applications again | Stop taking applications, and take them again, while `applicationsStopReason` is null |
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
-| Market Setup, the Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
-| Market Setup, the Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| The Assignment tab's Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
+| The Assignment tab's Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null |
