@@ -11,6 +11,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import MarketPermissions from '@/components/MarketPermissions.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -18,19 +19,6 @@ import {
   GIVEN_ROLES,
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
-import {
-  WHO_MAY_CHOICES,
-  changeConsequence,
-  changeLines,
-  changeQuestion,
-  groupedRows,
-  heldRows,
-  selfPromotionWarning,
-  sourceLine,
-  whoMayLabel,
-  type PermissionHistoryEntry,
-} from '@/utils/permissionTable';
-import { getFormattedTimestamp } from '@/utils/utils';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -54,19 +42,6 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
-/** The Permissions section is closed until asked for: every row of the table, and its changes. */
-const permissionsOpen = ref(false);
-const permissionHistory = ref<PermissionHistoryEntry[]>([]);
-const permissionHistoryError = ref('');
-/** A row's change waiting on its confirmation, with the select that asked, to put back on Cancel. */
-const pendingChange = ref<{
-  row: PermissionTableRow;
-  role: MarketRole;
-  select: HTMLSelectElement;
-} | null>(null);
-const resetConfirming = ref(false);
-/** A refused change to the table, said in the confirmation that sent it. */
-const permissionError = ref('');
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -81,12 +56,6 @@ watch(
       addUserError.value = '';
       renameError.value = '';
       deleteError.value = '';
-      permissionsOpen.value = false;
-      permissionHistory.value = [];
-      permissionHistoryError.value = '';
-      pendingChange.value = null;
-      resetConfirming.value = false;
-      permissionError.value = '';
       await fetchMarket();
     } else {
       marketData.value = null;
@@ -246,119 +215,9 @@ function handleDeleteCancel() {
   deleteError.value = '';
 }
 
-const permissionTable = computed(() => marketData.value?.permissionTable ?? []);
-const permissionGroups = computed(() => groupedRows(permissionTable.value));
-
-/** Changing the table is its own fixed row, the market owner's alone (E39/F01/S03). */
-const mayChangeTable = computed(() => mayTake(marketData.value, MarketAction.ChangeTheTable));
-
-/**
- * Why the section is read-only, or null for the owner. An archived market refuses its owner too,
- * and the archived rule's words say so; everyone else is told whose the table is.
- */
-const tableReadOnlyLine = computed(() => {
-  if (mayChangeTable.value) return null;
-  if (marketData.value?.phase === MarketPhase.Archived) {
-    return actionRefusal(marketData.value, MarketAction.ChangeTheTable);
-  }
-  return "Only the market's owner changes these.";
-});
-
-/** Said while the section is closed, so the dialog says whether there is anything to look at. */
-const tableSummary = computed(() => {
-  const held = heldRows(permissionTable.value);
-  if (!held) return 'Every row is at its built-in default.';
-  return `${held} ${held === 1 ? 'row differs' : 'rows differ'} from the built-in defaults.`;
-});
-
-/** The rows a reset would return, each from its role now to its default. */
-const resetChanges = computed(() =>
-  permissionTable.value
-    .filter((row) => row.source !== 'built-in')
-    .map((row) => `${row.label}: ${whoMayLabel(row.role)} to ${whoMayLabel(row.default)}`),
-);
-
-async function togglePermissions() {
-  permissionsOpen.value = !permissionsOpen.value;
-  if (permissionsOpen.value) await fetchPermissionHistory();
-}
-
-/** The market's history narrowed to its table, newest first: read when the section opens and
- * after each change, never on the market read, which every write re-reads. */
-async function fetchPermissionHistory() {
-  if (!marketData.value) return;
-  permissionHistoryError.value = '';
-  try {
-    const response = await api.get(
-      `/markets/${encodeURIComponent(marketData.value.id)}/permission-history`,
-    );
-    permissionHistory.value = response.data.entries ?? [];
-  } catch (err) {
-    permissionHistoryError.value = getApiErrorMessage(err, 'Failed to load the changes');
-  }
-}
-
-/** A choice is asked about before it is sent; choosing the role the row already asks is nothing. */
-function askPermissionChange(row: PermissionTableRow, select: HTMLSelectElement) {
-  const role = select.value as MarketRole;
-  if (role === row.role) return;
-  permissionError.value = '';
-  pendingChange.value = { row, role, select };
-}
-
-/** Cancelling puts the select back on the role the row still asks. */
-function cancelPermissionChange() {
-  if (pendingChange.value) pendingChange.value.select.value = pendingChange.value.row.role;
-  pendingChange.value = null;
-  permissionError.value = '';
-}
-
-async function confirmPermissionChange() {
-  const pending = pendingChange.value;
-  if (!marketData.value || !pending) return;
-  permissionError.value = '';
-  try {
-    const response = await api.put(
-      `/markets/${encodeURIComponent(marketData.value.id)}/permissions/${encodeURIComponent(pending.row.id)}`,
-      { role: pending.role },
-    );
-    pendingChange.value = null;
-    await afterTableChange(response.data.permissionTable);
-  } catch (err) {
-    permissionError.value = getApiErrorMessage(err, 'Failed to change who may do this');
-  }
-}
-
-function cancelPermissionsReset() {
-  resetConfirming.value = false;
-  permissionError.value = '';
-}
-
-async function confirmPermissionsReset() {
-  if (!marketData.value) return;
-  permissionError.value = '';
-  try {
-    const response = await api.delete(
-      `/markets/${encodeURIComponent(marketData.value.id)}/permissions`,
-    );
-    resetConfirming.value = false;
-    await afterTableChange(response.data.permissionTable);
-  } catch (err) {
-    permissionError.value = getApiErrorMessage(err, 'Failed to reset the table');
-  }
-}
-
-/**
- * The write answers the table, which the section shows at once; the changes are read again. The
- * open market is re-read if it is this one, as a rename does, and every other screen asks the table
- * at its next read of the market.
- */
-async function afterTableChange(table: PermissionTableRow[] | undefined) {
-  if (!marketData.value) return;
-  if (table) marketData.value = { ...marketData.value, permissionTable: table };
-  await fetchPermissionHistory();
-  const store = useMarketStore();
-  if (store.marketId === marketData.value?.id) void store.refresh();
+/** A change to who may do what answers the table, which this copy of the market then shows. */
+function handleTableChanged(table: PermissionTableRow[]) {
+  if (marketData.value) marketData.value = { ...marketData.value, permissionTable: table };
 }
 
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
@@ -493,115 +352,11 @@ function closeAddUser() {
 
       <!-- Who may do what on this market (E39/F01/S04): closed until opened, since the table and
            its changes would double the dialog's length for everyone who came to add a person. -->
-      <section
-        v-if="permissionTable.length"
-        class="section"
-        aria-labelledby="manage-market-permissions-heading"
-        data-testid="manage-market-permissions"
-      >
-        <div class="section-head">
-          <h3 id="manage-market-permissions-heading">Permissions</h3>
-          <button
-            type="button"
-            class="btn btn--secondary btn--compact"
-            :aria-expanded="permissionsOpen"
-            aria-controls="manage-market-permissions-body"
-            data-testid="manage-market-permissions-toggle"
-            @click="togglePermissions"
-          >
-            {{ permissionsOpen ? 'Hide' : 'Show' }}
-          </button>
-        </div>
-        <p class="form-hint" data-testid="manage-market-permissions-summary">
-          Who may do what on this market. {{ tableSummary }}
-        </p>
-        <div v-if="permissionsOpen" id="manage-market-permissions-body" class="permissions">
-          <p
-            v-if="tableReadOnlyLine"
-            class="form-hint"
-            data-testid="manage-market-permissions-read-only"
-          >
-            {{ tableReadOnlyLine }}
-          </p>
-          <div v-for="{ group, rows } in permissionGroups" :key="group">
-            <h4 class="subheading">{{ group }}</h4>
-            <ul class="permission-rows">
-              <li
-                v-for="row in rows"
-                :key="row.id"
-                class="permission-row"
-                :data-row="row.id"
-                data-testid="manage-market-permission-row"
-              >
-                <div class="permission-text">
-                  <span :id="`manage-market-permission-${row.id}`" class="permission-label">
-                    {{ row.label }}
-                  </span>
-                  <span class="permission-note" data-testid="manage-market-permission-source">
-                    {{ row.fixed ? 'Always' : sourceLine(row, permissionHistory) }}
-                  </span>
-                  <span
-                    v-if="row.id === MarketAction.ManageEditorsAndViewers"
-                    class="permission-note"
-                  >
-                    At “Viewer and above”, any Viewer can make themself an Editor.
-                  </span>
-                </div>
-                <!-- Named by the row's own words, which a voice user reads off the screen. -->
-                <select
-                  v-if="mayChangeTable && !row.fixed"
-                  :value="row.role"
-                  :aria-labelledby="`manage-market-permission-${row.id}`"
-                  class="field field--select permission-select"
-                  data-testid="manage-market-permission-select"
-                  @change="askPermissionChange(row, $event.target as HTMLSelectElement)"
-                >
-                  <option v-for="role in WHO_MAY_CHOICES" :key="role" :value="role">
-                    {{ whoMayLabel(role) }}
-                  </option>
-                </select>
-                <span v-else class="chip chip--neutral" data-testid="manage-market-permission-role">
-                  {{ whoMayLabel(row.role) }}
-                </span>
-              </li>
-            </ul>
-          </div>
-          <button
-            v-if="mayChangeTable"
-            type="button"
-            class="btn btn--secondary permissions-reset"
-            :disabled="!resetChanges.length"
-            data-testid="manage-market-permissions-reset"
-            @click="resetConfirming = true"
-          >
-            Reset to built-in defaults
-          </button>
-
-          <h4 class="subheading">Changes</h4>
-          <p v-if="permissionHistoryError" class="form-error">{{ permissionHistoryError }}</p>
-          <p v-else-if="!permissionHistory.length" class="empty-state">No changes yet.</p>
-          <ol v-else class="permission-changes" data-testid="manage-market-permission-changes">
-            <li
-              v-for="entry in permissionHistory"
-              :key="entry.id"
-              class="permission-change"
-              data-testid="manage-market-permission-change"
-            >
-              <span class="permission-label">{{ changeLines(entry, permissionTable).title }}</span>
-              <span
-                v-for="line in changeLines(entry, permissionTable).rows"
-                :key="line"
-                class="permission-change-line"
-              >
-                {{ line }}
-              </span>
-              <span class="permission-note">
-                {{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}
-              </span>
-            </li>
-          </ol>
-        </div>
-      </section>
+      <MarketPermissions
+        v-if="marketData.permissionTable?.length"
+        :market="marketData"
+        @changed="handleTableChanged"
+      />
 
       <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,
            "Organizations with access", with Add and Remove - but there is only ever one, "Add"
@@ -685,46 +440,6 @@ function closeAddUser() {
     <p v-if="publicPages" class="confirm-text" data-testid="manage-market-delete-public">
       {{ publicPages }}
     </p>
-  </AppDialog>
-
-  <!-- A row's change is saved on its own, once confirmed in words naming who may after it. -->
-  <AppDialog
-    :open="manageOpen && !!pendingChange"
-    :title="pendingChange ? changeQuestion(pendingChange.row, pendingChange.role) : ''"
-    testid="manage-market-permission-confirm"
-    confirm-label="Change"
-    :error="permissionError"
-    @close="cancelPermissionChange"
-    @submit="confirmPermissionChange"
-  >
-    <template v-if="pendingChange">
-      <p class="confirm-text" data-testid="manage-market-permission-confirm-change">
-        {{ pendingChange.row.label }}: {{ whoMayLabel(pendingChange.row.role) }} to
-        {{ whoMayLabel(pendingChange.role) }}.
-        {{ changeConsequence(pendingChange.row.role, pendingChange.role) }}
-      </p>
-      <p
-        v-if="selfPromotionWarning(pendingChange.row.id, pendingChange.role)"
-        class="confirm-text"
-        data-testid="manage-market-permission-confirm-warning"
-      >
-        {{ selfPromotionWarning(pendingChange.row.id, pendingChange.role) }}
-      </p>
-    </template>
-  </AppDialog>
-
-  <AppDialog
-    :open="manageOpen && resetConfirming"
-    title="Reset every row to its built-in default?"
-    testid="manage-market-permissions-reset-confirm"
-    confirm-label="Reset"
-    :error="permissionError"
-    @close="cancelPermissionsReset"
-    @submit="confirmPermissionsReset"
-  >
-    <ul class="reset-changes" data-testid="manage-market-permissions-reset-changes">
-      <li v-for="line in resetChanges" :key="line" class="confirm-text">{{ line }}</li>
-    </ul>
   </AppDialog>
 </template>
 
@@ -860,99 +575,5 @@ function closeAddUser() {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-1);
-}
-
-.section .section-head h3 {
-  margin: 0;
-}
-
-.subheading {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--mm-black);
-}
-
-.permissions {
-  margin-top: var(--space-2);
-}
-
-.permission-rows,
-.permission-changes,
-.reset-changes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-/* A compact table rather than a card per row, which would make the dialog unwieldy. */
-.permission-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-.permission-text {
-  flex: 1 1 16rem;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-}
-
-.permission-label {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-}
-
-.permission-note {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.permission-select {
-  width: auto;
-  flex: 0 0 auto;
-}
-
-.permissions-reset {
-  margin-top: var(--space-3);
-}
-
-.permission-change {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-/* The row an entry is about leads it, so a list of entries does not read as one run of lines. */
-.permission-change > .permission-label {
-  font-weight: 600;
-}
-
-.permission-change-line {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.reset-changes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 </style>

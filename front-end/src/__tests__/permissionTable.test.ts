@@ -14,6 +14,7 @@ import {
   changeQuestion,
   groupedRows,
   heldRows,
+  selfPromotionNote,
   selfPromotionWarning,
   sourceLine,
   WHO_MAY_CHOICES,
@@ -38,7 +39,8 @@ function row(overrides: Partial<PermissionTableRow> = {}): PermissionTableRow {
 const AT = '2026-11-02T18:20:00+00:00';
 const EARLIER = '2026-11-01T09:05:00+00:00';
 
-function entry(overrides: Partial<PermissionHistoryEntry> = {}): PermissionHistoryEntry {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function entry(overrides: Record<string, any> = {}): PermissionHistoryEntry {
   return {
     id: 'entry-1',
     actor: 'owner@example.com',
@@ -51,7 +53,7 @@ function entry(overrides: Partial<PermissionHistoryEntry> = {}): PermissionHisto
       after: { role: 'admin', source: 'market' },
     },
     ...overrides,
-  };
+  } as PermissionHistoryEntry;
 }
 
 describe('the choices', () => {
@@ -89,14 +91,14 @@ describe('groupedRows', () => {
 });
 
 describe('heldRows', () => {
-  it('counts the rows the market holds, copied or changed here', () => {
+  it('keeps the rows the market holds, copied or changed here', () => {
     expect(
       heldRows([
-        row({ source: 'built-in' }),
-        row({ source: 'organization' }),
-        row({ source: 'market' }),
-      ]),
-    ).toBe(2);
+        row({ id: 'export-csv', source: 'built-in' }),
+        row({ id: 'move-phase', source: 'organization' }),
+        row({ id: 'check-in', source: 'market' }),
+      ]).map((r) => r.id),
+    ).toEqual(['move-phase', 'check-in']);
   });
 });
 
@@ -173,6 +175,15 @@ describe('changeConsequence', () => {
     expect(changeConsequence(MarketRole.Admin, MarketRole.Viewer)).toBe(
       'Viewers and Editors gain this.',
     );
+  });
+});
+
+describe('selfPromotionNote', () => {
+  it('says beside the roles row that at Viewer a Viewer can make themself an Editor', () => {
+    expect(selfPromotionNote('manage-editors-and-viewers')).toBe(
+      'At “Viewer and above”, any Viewer can make themself an Editor.',
+    );
+    expect(selfPromotionNote('check-in')).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
 import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
@@ -40,19 +40,16 @@ test.beforeAll(async ({ request }) => {
   }
 });
 
-async function openPermissions(page: Page): Promise<Locator> {
+async function openPermissions(page: Page): Promise<ManageMarketPage> {
   await page.goto(`/markets?q=${encodeURIComponent(marketName)}`);
   await page.getByTestId('market-card-manage-button').click();
-  await new ManageMarketPage(page).waitForOverlay();
-  const section = page.getByTestId('manage-market-permissions');
-  const toggle = section.getByTestId('manage-market-permissions-toggle');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  return section;
+  const manage = new ManageMarketPage(page);
+  await manage.waitForOverlay();
+  await expect(manage.permissionsToggle).toHaveAttribute('aria-expanded', 'false');
+  await manage.showPermissions();
+  await expect(manage.permissionsToggle).toHaveAttribute('aria-expanded', 'true');
+  return manage;
 }
-
-const row = (section: Locator, id: string) => section.locator(`[data-row="${id}"]`);
 
 test.describe.configure({ mode: 'serial' });
 
@@ -61,36 +58,33 @@ test('the owner raises check-in to Admin, and an Editor is offered it nowhere', 
   browser,
   playwright,
 }) => {
-  const section = await openPermissions(page);
-  await expect(section.getByTestId('manage-market-permissions-read-only')).toHaveCount(0);
-  const checkIn = row(section, 'check-in');
-  await expect(checkIn.getByTestId('manage-market-permission-source')).toHaveText(
-    'Built-in default',
-  );
-  const select = checkIn.getByRole('combobox', { name: 'Check vendors in' });
-  await expect(select).toHaveValue('editor');
+  const manage = await openPermissions(page);
+  await expect(manage.permissionsReadOnly).toHaveCount(0);
+  await expect(manage.permissionSource('check-in')).toHaveText('Built-in default');
+  // Named by the row's own words.
+  await expect(manage.permissionSelect('check-in')).toHaveAccessibleName('Check vendors in');
+  await expect(manage.permissionSelect('check-in')).toHaveValue('editor');
 
   // Cancelling the confirmation leaves the row as it was.
-  await select.selectOption('admin');
-  const confirm = page.getByTestId('manage-market-permission-confirm-window');
-  await expect(confirm).toContainText(
+  await manage.choosePermission('check-in', 'admin');
+  await expect(manage.permissionConfirm).toContainText(
     'Let only Admins and the owner check vendors in at this market?',
   );
-  await expect(confirm).toContainText('Editors lose this.');
-  await page.getByTestId('manage-market-permission-confirm-cancel-button').click();
-  await expect(confirm).toHaveCount(0);
-  await expect(select).toHaveValue('editor');
+  await expect(manage.permissionConfirm).toContainText('Editors lose this.');
+  await manage.cancelPermission();
+  await expect(manage.permissionConfirm).toHaveCount(0);
+  await expect(manage.permissionSelect('check-in')).toHaveValue('editor');
 
-  await select.selectOption('admin');
-  await page.getByTestId('manage-market-permission-confirm-submit-button').click();
-  await expect(confirm).toHaveCount(0);
-  await expect(select).toHaveValue('admin');
-  await expect(checkIn.getByTestId('manage-market-permission-source')).toContainText(
+  await manage.choosePermission('check-in', 'admin');
+  await manage.confirmPermission();
+  await expect(manage.permissionConfirm).toHaveCount(0);
+  await expect(manage.permissionSelect('check-in')).toHaveValue('admin');
+  await expect(manage.permissionSource('check-in')).toContainText(
     `Changed on this market by ${TEST_USER.email}`,
   );
 
   // Under Changes: who, when, the row, before and after.
-  const change = section.getByTestId('manage-market-permission-change').first();
+  const change = manage.permissionChanges.first();
   await expect(change).toContainText('Check vendors in');
   await expect(change).toContainText('Editor to Admin');
   await expect(change).toContainText(TEST_USER.email);
@@ -125,18 +119,12 @@ test('an Admin and a Viewer read the section and its changes, and change nothing
 }) => {
   for (const person of [PEOPLE.admin, PEOPLE.viewer]) {
     await withUser(browser, person.email, person.password, async (page) => {
-      const section = await openPermissions(page);
-      await expect(section.getByTestId('manage-market-permissions-read-only')).toHaveText(
-        "Only the market's owner changes these.",
-      );
-      await expect(section.getByTestId('manage-market-permission-select')).toHaveCount(0);
-      await expect(section.getByTestId('manage-market-permissions-reset')).toHaveCount(0);
-      await expect(
-        row(section, 'check-in').getByTestId('manage-market-permission-role'),
-      ).toHaveText('Admin and above');
-      await expect(section.getByTestId('manage-market-permission-change').first()).toContainText(
-        'Editor to Admin',
-      );
+      const manage = await openPermissions(page);
+      await expect(manage.permissionsReadOnly).toHaveText("Only the market's owner changes these.");
+      await expect(manage.permissionSelects).toHaveCount(0);
+      await expect(manage.permissionsReset).toHaveCount(0);
+      await expect(manage.permissionRole('check-in')).toHaveText('Admin and above');
+      await expect(manage.permissionChanges.first()).toContainText('Editor to Admin');
     });
   }
 });
@@ -144,38 +132,35 @@ test('an Admin and a Viewer read the section and its changes, and change nothing
 test('a fixed row shows its role and Always, with no control', async ({
   authenticatedPage: page,
 }) => {
-  const section = await openPermissions(page);
+  const manage = await openPermissions(page);
   for (const id of ['read', 'manage-admins', 'delete-market', 'change-the-table']) {
-    await expect(row(section, id).getByTestId('manage-market-permission-select')).toHaveCount(0);
-    await expect(row(section, id).getByTestId('manage-market-permission-source')).toHaveText(
-      'Always',
-    );
+    await expect(manage.permissionSelect(id)).toHaveCount(0);
+    await expect(manage.permissionSource(id)).toHaveText('Always');
   }
-  await expect(
-    row(section, 'delete-market').getByTestId('manage-market-permission-role'),
-  ).toHaveText('Owner only');
+  await expect(manage.permissionRole('delete-market')).toHaveText('Owner only');
 });
 
 test('the owner resets every row to its built-in default, and the reset is recorded', async ({
   authenticatedPage: page,
 }) => {
-  const section = await openPermissions(page);
-  await expect(section.getByTestId('manage-market-permissions-summary')).toContainText(
+  const manage = await openPermissions(page);
+  await expect(manage.permissionsSummary).toContainText(
     '1 row differs from the built-in defaults.',
   );
-  await section.getByTestId('manage-market-permissions-reset').click();
-  const confirm = page.getByTestId('manage-market-permissions-reset-confirm-window');
-  await expect(confirm).toContainText('Check vendors in: Admin and above to Editor and above');
-  await page.getByTestId('manage-market-permissions-reset-confirm-submit-button').click();
-  await expect(confirm).toHaveCount(0);
+  await manage.resetPermissions();
+  await expect(manage.resetConfirm).toContainText(
+    'Check vendors in: Admin and above to Editor and above',
+  );
+  await manage.confirmReset();
+  await expect(manage.resetConfirm).toHaveCount(0);
 
-  await expect(row(section, 'check-in').getByRole('combobox')).toHaveValue('editor');
-  await expect(section.getByTestId('manage-market-permission-source').first()).toBeVisible();
-  for (const source of await section.getByTestId('manage-market-permission-source').all()) {
+  await expect(manage.permissionSelect('check-in')).toHaveValue('editor');
+  await expect(manage.permissionSources.first()).toBeVisible();
+  for (const source of await manage.permissionSources.all()) {
     await expect(source).toHaveText(/^(Built-in default|Always)$/);
   }
-  await expect(section.getByTestId('manage-market-permissions-reset')).toBeDisabled();
-  const reset = section.getByTestId('manage-market-permission-change').first();
+  await expect(manage.permissionsReset).toBeDisabled();
+  const reset = manage.permissionChanges.first();
   await expect(reset).toContainText('Reset to built-in defaults');
   await expect(reset).toContainText('Check vendors in: Admin to Editor');
   await expect(reset).toContainText(TEST_USER.email);

@@ -8,7 +8,7 @@ describes:
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/src/__tests__/aDialogGivesFocusBack.test.ts
   - front-end/e2e/dialog-idiom.spec.ts
-verified: 2026-10-28
+verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -19,6 +19,7 @@ sources:
   - E31/F03/S01
   - E20
   - T45
+  - E39/F01/S04
 ---
 
 # Dialogs
@@ -65,6 +66,7 @@ A control that can be focused and fired presents itself as available far more st
 
 **A dialog opened from a dialog is a sibling of it**, so [`useInertBehind`](../../../front-end/src/utils/useInertBehind.ts) marked it out of play: it rendered, read correctly, was visible and enabled, and could not be clicked.
 A dialog now takes `inert` off its own branch on open and puts the marks back on close; the marks are counted per element, so the dialog beneath still releases correctly.
+A component inside a dialog that opens a dialog of its own teleports it to the body, so it is that sibling rather than a window inside a window: Manage market's permission confirmations do ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
 Asserting this needs a control the page holds: the view container is an ancestor of the dialogs and is never marked, so an assertion on it passes whatever the marks say.
 
 ## The create-market dialog

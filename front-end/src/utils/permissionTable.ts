@@ -16,21 +16,29 @@ export interface PermissionState {
   source: string;
 }
 
-/** One change to the market's table, as `GET /markets/:id/permission-history` serves it. */
-export interface PermissionHistoryEntry {
+interface EntryBase {
   id: string;
   actor: string;
   at: string;
   action: string;
-  kind: 'permission_set' | 'permission_reset' | 'permission_table_reset';
-  /** The row a set or a reset is about; empty on a reset of the whole table. */
-  subject: { action?: string };
-  /** A row's before and after; on a reset of the whole table, each held row's, by its id. */
-  detail: {
-    before: PermissionState | Record<string, PermissionState>;
-    after: PermissionState | Record<string, PermissionState>;
-  };
 }
+
+/** One row set or returned to its default: the row, and its role before and after. */
+interface RowChange extends EntryBase {
+  kind: 'permission_set' | 'permission_reset';
+  subject: { action: string };
+  detail: { before: PermissionState; after: PermissionState };
+}
+
+/** Every row the market held returned to its default at once: each row's before and after, by id. */
+interface TableReset extends EntryBase {
+  kind: 'permission_table_reset';
+  subject: Record<string, never>;
+  detail: { before: Record<string, PermissionState>; after: Record<string, PermissionState> };
+}
+
+/** One change to the market's table, as `GET /markets/:id/permission-history` serves it. */
+export type PermissionHistoryEntry = RowChange | TableReset;
 
 /** The "Who may" choices, lowest first: each means that role and every one above it. */
 export const WHO_MAY_CHOICES: MarketRole[] = [
@@ -40,17 +48,30 @@ export const WHO_MAY_CHOICES: MarketRole[] = [
   MarketRole.Owner,
 ];
 
-const WHO_MAY_LABELS: Record<MarketRole, string> = {
-  [MarketRole.Viewer]: 'Viewer and above',
-  [MarketRole.Editor]: 'Editor and above',
-  [MarketRole.Admin]: 'Admin and above',
+/** What each role is called where the section speaks of it. */
+const ROLE_WORDS: Record<MarketRole, { choice: string; whoMay: string; plural: string }> = {
+  [MarketRole.Viewer]: {
+    choice: 'Viewer and above',
+    whoMay: 'anyone with a role',
+    plural: 'Viewers',
+  },
+  [MarketRole.Editor]: {
+    choice: 'Editor and above',
+    whoMay: 'only Editors, Admins and the owner',
+    plural: 'Editors',
+  },
+  [MarketRole.Admin]: {
+    choice: 'Admin and above',
+    whoMay: 'only Admins and the owner',
+    plural: 'Admins',
+  },
   // The owner is only ever one person.
-  [MarketRole.Owner]: 'Owner only',
+  [MarketRole.Owner]: { choice: 'Owner only', whoMay: 'only the owner', plural: 'the owner' },
 };
 
 /** A role as a choice of who may: "Admin and above". */
 export function whoMayLabel(role: MarketRole): string {
-  return WHO_MAY_LABELS[role];
+  return ROLE_WORDS[role].choice;
 }
 
 /** The table's rows under their groups, in the order the server lists them. */
@@ -66,9 +87,9 @@ export function groupedRows(
   return groups;
 }
 
-/** How many rows the market holds rather than reading at their built-in default. */
-export function heldRows(table: PermissionTableRow[]): number {
-  return table.filter((row) => row.source !== 'built-in').length;
+/** The rows the market holds, copied or changed here, rather than reading at their default. */
+export function heldRows(table: PermissionTableRow[]): PermissionTableRow[] {
+  return table.filter((row) => row.source !== 'built-in');
 }
 
 /**
@@ -86,24 +107,10 @@ export function sourceLine(row: PermissionTableRow, entries: PermissionHistoryEn
   return `Changed on this market by ${change.actor}, ${getFormattedTimestamp(change.at)}`;
 }
 
-const WHO_MAY: Record<MarketRole, string> = {
-  [MarketRole.Viewer]: 'anyone with a role',
-  [MarketRole.Editor]: 'only Editors, Admins and the owner',
-  [MarketRole.Admin]: 'only Admins and the owner',
-  [MarketRole.Owner]: 'only the owner',
-};
-
 /** The confirmation's question: "Let only Admins and the owner check vendors in at this market?" */
 export function changeQuestion(row: PermissionTableRow, role: MarketRole): string {
-  return `Let ${WHO_MAY[role]} ${row.mayWhat}?`;
+  return `Let ${ROLE_WORDS[role].whoMay} ${row.mayWhat}?`;
 }
-
-const PLURAL: Record<MarketRole, string> = {
-  [MarketRole.Viewer]: 'Viewers',
-  [MarketRole.Editor]: 'Editors',
-  [MarketRole.Admin]: 'Admins',
-  [MarketRole.Owner]: 'the owner',
-};
 
 function listed(words: string[]): string {
   return words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}` : words[0]!;
@@ -113,23 +120,34 @@ function listed(words: string[]): string {
 export function changeConsequence(from: MarketRole, to: MarketRole): string {
   const rank = (role: MarketRole) => WHO_MAY_CHOICES.indexOf(role);
   const [low, high] = rank(from) < rank(to) ? [from, to] : [to, from];
-  const between = WHO_MAY_CHOICES.slice(rank(low), rank(high)).map((role) => PLURAL[role]);
+  const between = WHO_MAY_CHOICES.slice(rank(low), rank(high)).map(
+    (role) => ROLE_WORDS[role].plural,
+  );
   return `${listed(between)} ${rank(from) < rank(to) ? 'lose' : 'gain'} this.`;
 }
 
 /**
  * Giving and taking roles asks one row for both the role given and the role taken, so at Viewer a
- * Viewer may give themself Editor (T108's review). The owner may choose it; the section says so.
+ * Viewer may give themself Editor (T108's review). The owner may choose it; the section says so
+ * beside the row, and in the confirmation of the role that allows it.
  */
-const SELF_PROMOTION: Partial<Record<string, Partial<Record<MarketRole, string>>>> = {
+const SELF_PROMOTION: Partial<
+  Record<string, { note: string; at: Partial<Record<MarketRole, string>> }>
+> = {
   [MarketAction.ManageEditorsAndViewers]: {
-    [MarketRole.Viewer]: 'A Viewer could then make themself an Editor.',
+    note: 'At “Viewer and above”, any Viewer can make themself an Editor.',
+    at: { [MarketRole.Viewer]: 'A Viewer could then make themself an Editor.' },
   },
 };
 
+/** What this row lets someone give themself at some role, said beside it, or null. */
+export function selfPromotionNote(rowId: string): string | null {
+  return SELF_PROMOTION[rowId]?.note ?? null;
+}
+
 /** What setting this row to this role would let someone give themself, or null. */
 export function selfPromotionWarning(rowId: string, role: MarketRole): string | null {
-  return SELF_PROMOTION[rowId]?.[role] ?? null;
+  return SELF_PROMOTION[rowId]?.at[role] ?? null;
 }
 
 function roleName(state: PermissionState | undefined): string {
@@ -143,8 +161,8 @@ export function changeLines(
 ): { title: string; rows: string[] } {
   const label = (id: string) => table.find((row) => row.id === id)?.label ?? id;
   if (entry.kind === 'permission_table_reset') {
-    const before = (entry.detail?.before ?? {}) as Record<string, PermissionState>;
-    const after = (entry.detail?.after ?? {}) as Record<string, PermissionState>;
+    const before = entry.detail?.before ?? {};
+    const after = entry.detail?.after ?? {};
     const order = (id: string) => {
       const at = table.findIndex((row) => row.id === id);
       return at === -1 ? table.length : at;
@@ -155,9 +173,7 @@ export function changeLines(
       rows: ids.map((id) => `${label(id)}: ${roleName(before[id])} to ${roleName(after[id])}`),
     };
   }
-  const before = entry.detail?.before as PermissionState | undefined;
-  const after = entry.detail?.after as PermissionState | undefined;
-  const change = `${roleName(before)} to ${roleName(after)}`;
+  const change = `${roleName(entry.detail?.before)} to ${roleName(entry.detail?.after)}`;
   return {
     title: label(entry.subject?.action ?? ''),
     rows: [entry.kind === 'permission_reset' ? `${change}, its built-in default` : change],

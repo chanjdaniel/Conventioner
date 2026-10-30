@@ -146,7 +146,7 @@ export const SCREENS: Screen[] = [
       fixed('/markets'),
       'markets-result-count',
       ['market-card-manage-button', 'manage-market-window'],
-      ['manage-market-permissions-toggle', 'manage-market-permission-row'],
+      ['manage-market-permissions-toggle', 'manage-market-permission-source'],
     ),
   },
   {

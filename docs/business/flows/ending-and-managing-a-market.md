@@ -3,6 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
+  - front-end/src/components/MarketPermissions.vue
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
 verified: 2026-10-30
@@ -84,12 +85,12 @@ Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market
 3. For the owner each row that is not fixed is a dropdown of those four, named by the row's label; a fixed row ("Read the market...", "Give and take Admin roles", "Delete the market", "Change this table") states its role with "Always" and no control.
    "Give and take Editor and Viewer roles" says beside it that at "Viewer and above" any Viewer can make themself an Editor, since one row asks for both the role given and the role taken.
 4. Choosing a role asks first, in words naming who may after it and who loses or gains it ("Let only Admins and the owner check vendors in at this market?", "Editors lose this."), and for that row lowered to Viewer adds "A Viewer could then make themself an Editor."; "Change" saves that row alone, Cancel puts the dropdown back, and a refusal is said in the confirmation.
-5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, and resets them all in one write, recorded as one change; it is disabled while every row is at its default.
+5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default.
 6. "Changes" lists the market's history narrowed to the table, newest first: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" with each row it returned, and who made it and when, by their address, as "Users with access" names people.
 7. For anyone but the owner the section is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
 
 A change reaches every screen at its next read of the market: the section shows the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
-The words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s; the server keeps the table and its changes structured.
+The section is [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its two confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.
 Covered by: [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts), `permissionTable.test.ts`, `manageIsOfferedToWhoeverReads.test.ts`, and the sweeps and `every-control-is-named.spec.ts`, which walk the section open.
 
 ## L4. Rename a market

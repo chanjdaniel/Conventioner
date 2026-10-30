@@ -1969,20 +1969,20 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     market's table.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
-    held = {
-        row.id: (row, Actions.held_row(row, market.permissions)) for row in Actions.ACTIONS.values()
-    }
-    held = {row_id: pair for row_id, pair in held.items() if pair[1] is not None}
-    if not held:
+    held_rows = [
+        (row, held) for row in Actions.ACTIONS.values()
+        if (held := Actions.held_row(row, market.permissions)) is not None
+    ]
+    if not held_rows:
         return Actions.table(market)
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
         market_doc_key('permissions'): {},
     }})
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
-        detail={
-            "before": {row_id: _permission_state(row, before) for row_id, (row, before) in held.items()},
-            "after": {row_id: _permission_state(row, None) for row_id, (row, _) in held.items()},
+        detail=lambda: {
+            "before": {row.id: _permission_state(row, held) for row, held in held_rows},
+            "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
         },
     )
     market.permissions = {}
