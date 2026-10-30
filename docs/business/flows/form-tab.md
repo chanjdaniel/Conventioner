@@ -98,7 +98,7 @@ The questions are editable only while the market is a draft and nobody has appli
 Once locked, the essential questions and "Your questions" are read only under the reason:
 
 - past Draft, on a market whose vendors apply on its page: "The application form is fixed: it cannot change once applications have opened, because applicants answer it.";
-- past Draft, on the Google Form path: "The questions are fixed: they cannot change once the market has moved on to importing, because your imports are mapped onto them.";
+- past Draft, on the Google Form path: "The questions are fixed: they cannot change once its responses have been imported, because your imports are mapped onto them.";
 - in Draft with an application: "Application form is locked. N applications have already been submitted for this market. The form cannot be modified once applicants have submitted."
 
 Covered by: `application-form.spec.ts` ("an existing application locks the form in the builder and on every route"), `what-to-show-and-when.spec.ts`, `screens-name-things.spec.ts`.
@@ -106,9 +106,10 @@ Covered by: `application-form.spec.ts` ("an existing application locks the form 
 ## F5. Reopen the market to fix the form
 
 **Status:** Works (walked live).
-From Applications Open (Import, on the Google Form path), More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+From Applications, More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
+A Google Form market is a draft until its first import, so its form is edited in place; once anything is imported there is no way back.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
-The import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
+The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by: `every-move-lands.spec.ts` ("a move back lands on its phase's page too"), `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu").
 
 ## F6. Table type preference

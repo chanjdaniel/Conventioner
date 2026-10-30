@@ -37,6 +37,7 @@ async function makeMarket(
   request: APIRequestContext,
   orgId: string,
   name: string,
+  intakeMode: 'csv' | 'form' = 'csv',
 ): Promise<string> {
   const res = await request.post(`${BACKEND_URL}/markets`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
@@ -47,6 +48,7 @@ async function makeMarket(
       roles: { [TEST_USER.email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      intakeMode,
     },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
@@ -85,7 +87,7 @@ async function runThenArchive(request: APIRequestContext, marketId: string) {
     ],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     await transition(request, marketId, toPhase);
   }
   const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
@@ -108,14 +110,15 @@ test.describe('Deleting an organization', () => {
     const orgName = `E2E DelBlocked ${Date.now()}`;
     const orgId = await makeOrg(request, orgName);
     const liveName = `Live Market ${Date.now()}`;
-    const live = await makeMarket(request, orgId, liveName);
+    // Vendors apply on its page, so opening applications puts it under way (E38/F04/S01).
+    const live = await makeMarket(request, orgId, liveName, 'form');
     // A form of essential questions alone is a form, so a plan with dates opens applications.
     await request.put(`${BACKEND_URL}/markets/${live}/application-form`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
     });
     await savePlan(request, BACKEND_URL, TEST_USER.email, live, completePlan());
-    await transition(request, live, 'applications_open');
+    await transition(request, live, 'applications');
 
     const orgs = new OrganizationsPage(page);
     await orgs.goto();

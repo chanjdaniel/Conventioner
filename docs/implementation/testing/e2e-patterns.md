@@ -74,6 +74,7 @@ A spec that picks dates on the calendar uses `upcomingSaturday()` ([`helpers/upc
 Only a spec about a market older than that rule rewrites a settled plan, straight into Mongo with `changeASettledPlan()` ([`helpers/settledPlanChanged.ts`](../../../front-end/e2e/helpers/settledPlanChanged.ts)): an orphaned pin (`placement-pins`, `orphaned-pin-in-assignment`), and the frozen offering that protects such a market's applicants (`essential-fields`).
 
 **A market a spec imports into is `intakeMode: 'csv'`**; a market whose vendors apply on its page says `'form'` ([intake mode fails closed](../../adr/0006-intake-mode-fails-closed.md)).
+A `csv` market enters `applications` only holding an application, so a spec that moves one there inserts its applications first, or imports from draft ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 
 **Market dates are calendar days, not instants**: a stored `YYYY-MM-DD` renders as the same day for every viewer, wherever they are.
 [`getFormattedDate`](../../../front-end/src/utils/utils.ts) formats with pure UTC arithmetic; never parse a market date through `new Date()` with an offset.

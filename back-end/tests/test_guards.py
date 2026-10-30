@@ -12,7 +12,7 @@ from conftest import complete_setup
 import guards
 from datatypes import (
     ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
-    Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
+    IntakeMode, Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
     VendorAssignmentResult,
 )
 from guards import (
@@ -22,6 +22,7 @@ from guards import (
     FormHasFieldsGuard,
     NoApprovedApplicationsGuard,
     PreconditionResult,
+    ResponsesImportedGuard,
     TRANSITION_GUARDS,
     VALID_TRANSITIONS,
     evaluate_transition,
@@ -205,11 +206,29 @@ class TestEvaluateTransition:
     def test_returns_blockers_when_guard_fails(self):
         # No plan and no form: the form asks nothing, and the setup is incomplete (E31/F01/S01).
         market = _make_market(phase=MarketPhase.DRAFT, application_form=None)
-        blockers = evaluate_transition(market, "applications_open", None)
+        blockers = evaluate_transition(market, "applications", None)
         assert "form_has_fields" in [b.id for b in blockers]
         assert all(b.passed is False for b in blockers)
 
     def test_returns_empty_when_guard_passes(self):
+        market = _make_market(
+            phase=MarketPhase.DRAFT,
+            intake_mode=IntakeMode.FORM,
+            setup_object=complete_setup(),
+            application_form=ApplicationForm(
+                fields=[FormField(key="name", label="Name", type="text")],
+            ),
+        )
+        blockers = evaluate_transition(market, "applications", None)
+        assert blockers == []
+
+    def test_returns_empty_for_unguarded_transition(self):
+        market = _make_market(phase=MarketPhase.APPLICATIONS)
+        blockers = evaluate_transition(market, "archived", None)
+        assert blockers == []
+
+    def test_a_guard_the_caller_satisfies_itself_is_left_out(self):
+        """A Google Form market's first import judges the move before writing what it waits on."""
         market = _make_market(
             phase=MarketPhase.DRAFT,
             setup_object=complete_setup(),
@@ -217,33 +236,13 @@ class TestEvaluateTransition:
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
         )
-        blockers = evaluate_transition(market, "applications_open", None)
-        assert blockers == []
 
-    def test_returns_empty_for_unguarded_transition(self):
-        market = _make_market(phase=MarketPhase.APPLICATIONS_OPEN)
-        blockers = evaluate_transition(market, "applications_closed", None)
-        assert blockers == []
-
-    def test_reopen_blocked_when_form_was_emptied(self):
-        market = _make_market(
-            phase=MarketPhase.APPLICATIONS_CLOSED,
-            application_form=ApplicationForm(fields=[]),
-        )
-        blockers = evaluate_transition(market, "applications_open", None)
-        assert len(blockers) == 1
-        assert blockers[0].id == "form_has_fields"
-        assert blockers[0].passed is False
-
-    def test_reopen_allowed_when_form_has_fields(self):
-        market = _make_market(
-            phase=MarketPhase.APPLICATIONS_CLOSED,
-            application_form=ApplicationForm(
-                fields=[FormField(key="name", label="Name", type="text")],
-            ),
-        )
-        blockers = evaluate_transition(market, "applications_open", None)
-        assert blockers == []
+        assert [b.id for b in evaluate_transition(market, "applications", None)] == [
+            "responses_imported",
+        ]
+        assert evaluate_transition(
+            market, "applications", None, leaving_out=("responses_imported",),
+        ) == []
 
     def test_returns_empty_for_nonexistent_transition(self):
         market = _make_market(phase=MarketPhase.DRAFT)
@@ -252,19 +251,21 @@ class TestEvaluateTransition:
 
 
 class TestValidTransitions:
-    def test_phase1_transitions_are_registered(self):
-        assert ("draft", "applications_open") in VALID_TRANSITIONS
-        assert ("applications_open", "applications_closed") in VALID_TRANSITIONS
-        assert ("applications_closed", "applications_open") in VALID_TRANSITIONS
+    def test_the_stage_is_entered_from_draft_and_left_for_assignment(self):
+        """One stage where applications arrive and are reviewed (E38/F04/S01)."""
+        assert ("draft", "applications") in VALID_TRANSITIONS
+        assert ("applications", "draft") in VALID_TRANSITIONS
+        assert ("applications", "assignment") in VALID_TRANSITIONS
+        assert {to for frm, to in VALID_TRANSITIONS if frm == "applications"} == {
+            "draft", "assignment", "archived",
+        }
 
     def test_later_phase_transitions_are_registered(self):
-        assert ("applications_closed", "review") in VALID_TRANSITIONS
-        assert ("review", "assignment") in VALID_TRANSITIONS
         assert ("assignment", "offers") in VALID_TRANSITIONS
         assert ("offers", "market_days") in VALID_TRANSITIONS
         assert ("market_days", "archived") in VALID_TRANSITIONS
 
-    def test_only_applications_open_may_return_to_draft(self):
+    def test_only_the_stage_may_return_to_draft(self):
         """The reverse edge exists now (E03/F04), and only from the phase right after draft.
 
         This used to assert no edge returned to draft at all. That made the application form
@@ -275,7 +276,7 @@ class TestValidTransitions:
         """
         into_draft = {frm for frm, to in VALID_TRANSITIONS if to == "draft"}
 
-        assert into_draft == {"applications_open"}
+        assert into_draft == {"applications"}
 
     def test_archive_from_every_phase_is_registered(self):
         phases = [p.value for p in MarketPhase if p != MarketPhase.ARCHIVED]
@@ -286,26 +287,25 @@ class TestValidTransitions:
 
 
 class TestTransitionGuards:
-    def test_draft_to_applications_open_has_form_guard(self):
-        guards = TRANSITION_GUARDS.get(("draft", "applications_open"), [])
+    def test_draft_to_the_stage_has_form_guard(self):
+        guards = TRANSITION_GUARDS.get(("draft", "applications"), [])
         assert any(isinstance(guard, FormHasFieldsGuard) for guard in guards)
 
-    def test_reopen_edge_has_form_guard(self):
-        guards = TRANSITION_GUARDS.get(("applications_closed", "applications_open"), [])
-        assert len(guards) == 1
-        assert isinstance(guards[0], FormHasFieldsGuard)
+    def test_draft_to_the_stage_waits_on_a_google_form_markets_import(self):
+        guards = TRANSITION_GUARDS.get(("draft", "applications"), [])
+        assert any(isinstance(guard, ResponsesImportedGuard) for guard in guards)
 
     def test_unguarded_transitions_not_in_registry(self):
-        assert ("applications_open", "applications_closed") not in TRANSITION_GUARDS
+        assert ("applications", "archived") not in TRANSITION_GUARDS
 
-    def test_every_edge_into_applications_open_is_guarded(self):
+    def test_every_edge_into_the_stage_is_guarded(self):
         """The form invariant belongs to the target phase, so no edge may skip it."""
-        inbound = [t for t in VALID_TRANSITIONS if t[1] == "applications_open"]
+        inbound = [t for t in VALID_TRANSITIONS if t[1] == "applications"]
         assert inbound
         for transition in inbound:
             guard_ids = {g.id for g in TRANSITION_GUARDS.get(transition, [])}
-            assert "form_has_fields" in guard_ids, (
-                f"{transition} enters applications_open without FormHasFieldsGuard"
+            assert {"form_has_fields", "responses_imported"} <= guard_ids, (
+                f"{transition} enters applications without its entry invariants"
             )
 
 
@@ -313,8 +313,8 @@ class TestRegistrySelfCheck:
     """The registry has to catch every way a one-file edit can silently drop a guard."""
 
     BOTH_INBOUND_EDGES = {
-        ("draft", "applications_open"),
-        ("applications_closed", "applications_open"),
+        ("draft", "applications"),
+        ("assignment", "applications"),
     }
 
     def _validate(self, monkeypatch, valid_transitions, transition_guards, entry_invariants=None):
@@ -323,7 +323,7 @@ class TestRegistrySelfCheck:
         monkeypatch.setattr(
             guards,
             "PHASE_ENTRY_INVARIANTS",
-            {"applications_open": [FormHasFieldsGuard()]} if entry_invariants is None
+            {"applications": [FormHasFieldsGuard()]} if entry_invariants is None
             else entry_invariants,
         )
         guards._validate_registry()
@@ -336,7 +336,7 @@ class TestRegistrySelfCheck:
         with pytest.raises(RuntimeError, match="not in VALID_TRANSITIONS"):
             self._validate(
                 monkeypatch,
-                {("draft", "applications_open")},
+                {("draft", "applications")},
                 {("draft", "application_open"): [FormHasFieldsGuard()]},
             )
 
@@ -346,7 +346,7 @@ class TestRegistrySelfCheck:
             self._validate(
                 monkeypatch,
                 self.BOTH_INBOUND_EDGES,
-                {("draft", "applications_open"): [FormHasFieldsGuard()]},
+                {("draft", "applications"): [FormHasFieldsGuard()]},
             )
 
     def test_every_inbound_edge_carrying_the_invariant_is_accepted(self, monkeypatch):
@@ -354,8 +354,8 @@ class TestRegistrySelfCheck:
             monkeypatch,
             self.BOTH_INBOUND_EDGES,
             {
-                ("draft", "applications_open"): [FormHasFieldsGuard()],
-                ("applications_closed", "applications_open"): [FormHasFieldsGuard()],
+                ("draft", "applications"): [FormHasFieldsGuard()],
+                ("assignment", "applications"): [FormHasFieldsGuard()],
             },
         )
 
@@ -367,8 +367,8 @@ class TestRegistrySelfCheck:
                 monkeypatch,
                 self.BOTH_INBOUND_EDGES,
                 {
-                    ("draft", "applications_open"): [],
-                    ("applications_closed", "applications_open"): [],
+                    ("draft", "applications"): [],
+                    ("assignment", "applications"): [],
                 },
                 entry_invariants={"applications_opne": [FormHasFieldsGuard()]},
             )
@@ -385,8 +385,7 @@ class TestRegistrySelfCheck:
     def test_edge_specific_guard_beyond_the_invariant_is_allowed(self, monkeypatch):
         """Entry invariants are a floor, not a ceiling: a route may demand more of its own.
 
-        "Cannot reopen applications once assignments are published" is a rule about the
-        reopen edge and is meaningless on draft -> applications_open, so the check must not
+        A rule about one route into a phase is meaningless on another, so the check must not
         insist both edges carry an identical guard list.
         """
         class _ReopenOnlyGuard:
@@ -400,8 +399,8 @@ class TestRegistrySelfCheck:
             monkeypatch,
             self.BOTH_INBOUND_EDGES,
             {
-                ("draft", "applications_open"): [FormHasFieldsGuard()],
-                ("applications_closed", "applications_open"): [
+                ("draft", "applications"): [FormHasFieldsGuard()],
+                ("assignment", "applications"): [
                     FormHasFieldsGuard(), _ReopenOnlyGuard(),
                 ],
             },
@@ -416,15 +415,16 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
-        # The form, then the three parts of a complete setup (E31/F01/S01): four list entries.
-        guards = TRANSITION_GUARDS[("draft", "applications_open")]
-        assert len(guards) == 4
+        # The three parts of a complete setup (E31/F01/S01), the form and a Google Form market's
+        # import (E38/F04/S01): five list entries.
+        guards = TRANSITION_GUARDS[("draft", "applications")]
+        assert len(guards) == 5
 
 
 class TestAllApplicationsReviewedGuard:
     def _market(self):
         return _make_market(
-            phase=MarketPhase.REVIEW,
+            phase=MarketPhase.APPLICATIONS,
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
@@ -510,11 +510,11 @@ class TestNoApprovedApplicationsGuard:
 
 
 class TestAssignmentEntryInvariants:
-    """Every edge into assignment (currently only review -> assignment) must carry the
+    """Every edge into assignment (currently only applications -> assignment) must carry the
     reviewed-every-application guard, and the no-guaranteed-rejections one (E12/F03/S02)."""
 
-    def test_review_to_assignment_is_guarded(self):
-        guards = TRANSITION_GUARDS.get(("review", "assignment"), [])
+    def test_the_stage_to_assignment_is_guarded(self):
+        guards = TRANSITION_GUARDS.get(("applications", "assignment"), [])
         kinds = {type(guard) for guard in guards}
         assert AllApplicationsReviewedGuard in kinds
         assert NoAskedForTierWithoutTablesGuard in kinds
@@ -541,7 +541,7 @@ class TestNoAskedForTierWithoutTablesGuard:
 
     def _market(self, tiers=("Gold", "Silver"), sections=(("Front", "Gold", 2),)):
         return _make_market(
-            phase=MarketPhase.REVIEW,
+            phase=MarketPhase.APPLICATIONS,
             setup_object=SetupObject(
                 priority=[],
                 market_dates=[MarketDateObject(date="2026-08-01")],
@@ -637,7 +637,7 @@ class TestNoAskedForTierWithoutTablesGuard:
         self._approved(monkeypatch, [])
 
         result = NoAskedForTierWithoutTablesGuard().evaluate(
-            _make_market(phase=MarketPhase.REVIEW, setup_object=None), None,
+            _make_market(phase=MarketPhase.APPLICATIONS, setup_object=None), None,
         )
 
         assert result.passed is True
@@ -660,7 +660,7 @@ class TestNoOrphanedPinGuard:
 
     def _market(self, placements=(), count=2):
         return _make_market(
-            phase=MarketPhase.REVIEW,
+            phase=MarketPhase.APPLICATIONS,
             setup_object=SetupObject(
                 priority=[],
                 market_dates=[MarketDateObject(date="2026-08-01")],
@@ -743,7 +743,7 @@ class TestNoOrphanedPinGuard:
 
     def test_a_market_with_no_plan_reports_its_pins_rather_than_passing(self):
         market = _make_market(
-            phase=MarketPhase.REVIEW,
+            phase=MarketPhase.APPLICATIONS,
             assignment_object=AssignmentObject(vendor_assignments=[self._placement()]),
         )
 
@@ -844,9 +844,10 @@ class TestEveryResolutionLinkPointsAtItsFix:
 
 
 def test_no_guard_reads_the_phase():
-    """A move's whole route, and the form amendment's chain, are judged against the market as it
-    stands, before any step is taken (``judge_route``). That is sound only while no guard's verdict
-    depends on the phase it is asked on, so a guard that reads it is refused here."""
+    """A move is judged against the market as it stands, and a Google Form market's first import
+    judges the move into Review before it writes (``first_import_blockers``). That is sound only
+    while no guard's verdict depends on the phase it is asked on, so a guard that reads it is
+    refused here."""
     source = pathlib.Path(guards.__file__).read_text()
     readers = []
     for cls in ast.walk(ast.parse(source)):

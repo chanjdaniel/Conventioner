@@ -55,12 +55,12 @@ describe('the market store', () => {
     const opened = store.open('m1');
     expect(store.status).toBe('loading');
     expect(calls[0].url).toBe('/markets/m1');
-    calls[0].resolve(apiMarket('m1', { phase: 'applications_open' }));
+    calls[0].resolve(apiMarket('m1', { phase: 'applications' }));
     await opened;
 
     expect(store.status).toBe('loaded');
     expect(store.market?.id).toBe('m1');
-    expect(store.market?.phase).toBe(MarketPhase.ApplicationsOpen);
+    expect(store.market?.phase).toBe(MarketPhase.Applications);
   });
 
   it('never shows the market it held for another id, not even while loading', async () => {
@@ -97,9 +97,9 @@ describe('the market store', () => {
     expect(store.market?.id).toBe('m1');
     expect(store.status).toBe('loaded');
 
-    calls[1].resolve(apiMarket('m1', { phase: 'applications_open' }));
+    calls[1].resolve(apiMarket('m1', { phase: 'applications' }));
     await reread;
-    expect(store.market?.phase).toBe(MarketPhase.ApplicationsOpen);
+    expect(store.market?.phase).toBe(MarketPhase.Applications);
   });
 
   it('re-opening the market already open re-reads it rather than blanking it', async () => {

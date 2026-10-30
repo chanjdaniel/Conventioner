@@ -87,7 +87,7 @@ class TestPhaseGate:
     def test_non_draft_phase_is_refused(self, monkeypatch, applications):
         monkeypatch.setattr(
             MarketsApi, "markets_collection",
-            FakeMarketsCollection(stored_market(phase=MarketPhase.APPLICATIONS_OPEN)),
+            FakeMarketsCollection(stored_market(phase=MarketPhase.APPLICATIONS)),
         )
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
 

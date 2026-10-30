@@ -26,7 +26,7 @@ describe('the out-of-date line', () => {
   });
 
   it('says nothing outside the assignment phase, where running again is impossible', () => {
-    for (const phase of ['review', 'offers', 'market_days', 'archived']) {
+    for (const phase of ['applications', 'offers', 'market_days', 'archived']) {
       expect(outOfDateLine(['rules'], phase)).toBeNull();
     }
   });

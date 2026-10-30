@@ -136,10 +136,9 @@ test.describe('Market pipeline E2E', () => {
     await setupPage.setMaxHalfTableProportion(100);
 
     // Assign is an operation of the `assignment` phase and refuses everywhere else
-    // (E10/F03/S02). These vendors arrive already approved, so the walk is three moves: a CSV
-    // market's Plan, Import, Review (E32/F02/S01), the closed phase stepped through.
-    await setupPage.advancePhaseTo('applications_open', 'Import');
-    await setupPage.advancePhaseTo('review', 'Review');
+    // (E10/F03/S02). These vendors arrive already approved, as though imported, so the walk is two
+    // moves: into a Google Form market's Review (E38/F04/S01), then on to Assignment.
+    await setupPage.advancePhaseTo('applications', 'Review');
     await setupPage.advancePhaseTo('assignment', 'Assignment');
 
     // Verify the Assign button is enabled and click it

@@ -12,15 +12,13 @@ than reaching an organizer as ``market_days``.
 
 import pytest
 
-from datatypes import MarketPhase, phase_label
+from datatypes import IntakeMode, MarketPhase, phase_label
 
 
 # Exactly the values of `PHASE_LABELS` in `front-end/src/utils/phase.ts`.
 FRONT_END_LABELS = {
     MarketPhase.DRAFT: "Draft",
-    MarketPhase.APPLICATIONS_OPEN: "Applications Open",
-    MarketPhase.APPLICATIONS_CLOSED: "Applications Closed",
-    MarketPhase.REVIEW: "Review",
+    MarketPhase.APPLICATIONS: "Applications",
     MarketPhase.ASSIGNMENT: "Assignment",
     MarketPhase.OFFERS: "Offers",
     MarketPhase.MARKET_DAYS: "Market Days",
@@ -36,6 +34,13 @@ def test_every_phase_reads_the_way_the_front_end_names_it(phase: MarketPhase) ->
 def test_every_phase_is_covered() -> None:
     """A phase added later has no label here, and that should fail rather than pass quietly."""
     assert set(FRONT_END_LABELS) == set(MarketPhase)
+
+
+def test_the_stage_is_review_on_a_google_form_market() -> None:
+    """As ``CSV_PHASE_LABELS`` in ``front-end/src/utils/marketGuide.ts`` names it (E38/F04/S01)."""
+    assert phase_label(MarketPhase.APPLICATIONS, IntakeMode.CSV) == "Review"
+    assert phase_label(MarketPhase.APPLICATIONS, IntakeMode.FORM) == "Applications"
+    assert phase_label(MarketPhase.ASSIGNMENT, IntakeMode.CSV) == "Assignment"
 
 
 def test_no_label_leaks_the_stored_spelling() -> None:

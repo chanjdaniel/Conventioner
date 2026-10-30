@@ -43,26 +43,68 @@ class MarketRole(str, Enum):
 
 class MarketPhase(str, Enum):
     DRAFT = "draft"
-    APPLICATIONS_OPEN = "applications_open"
-    APPLICATIONS_CLOSED = "applications_closed"
-    REVIEW = "review"
+    # The one stage in which applications arrive and are reviewed at once (E38/F04/S01): shown
+    # "Review" on a Google Form market and "Applications" on one whose vendors apply on its page
+    # (``phase_label``). It replaced ``applications_open``, ``applications_closed`` and ``review``;
+    # ``migrations/migrate_to_one_stage.py`` moves the markets stored in them.
+    APPLICATIONS = "applications"
     ASSIGNMENT = "assignment"
     OFFERS = "offers"
     MARKET_DAYS = "market_days"
     ARCHIVED = "archived"
 
 
-def phase_label(phase: MarketPhase) -> str:
+def phase_label(phase: MarketPhase, intake_mode: Optional["IntakeMode"] = None) -> str:
     """A phase as a person reads it: ``market_days`` -> ``Market Days``.
 
     Derived from the stored value rather than kept as a second table beside
     ``front-end/src/utils/phase.ts``'s ``PHASE_LABELS``. Two hand-maintained maps of the phase
     spine is exactly the drift ``_validate_registry`` exists to refuse elsewhere, and this
-    transform reproduces all eight of the front end's labels exactly - which
-    ``test_phase_label`` pins, so a phase whose label does not survive the derivation fails here
-    rather than reaching an organizer as ``market_days``.
+    transform reproduces every one of the front end's labels exactly - which ``test_phase_label``
+    pins, so a phase whose label does not survive the derivation fails here rather than reaching an
+    organizer as ``market_days``.
+
+    The stage is the one phase each path names its own way (E38/F04/S01): a Google Form market's
+    applications are all imported when it begins, so on that path it is "Review", as
+    ``CSV_PHASE_LABELS`` in ``front-end/src/utils/marketGuide.ts`` says.
     """
+    if phase is MarketPhase.APPLICATIONS and intake_mode is IntakeMode.CSV:
+        return "Review"
     return phase.value.replace("_", " ").title()
+
+
+#: The phases E38/F04/S01 folded into ``applications``, read as it for one release so the deploy can
+#: come before ``migrations/migrate_to_one_stage.py`` (Daniel's choice, review of T94): read, never
+#: written back. A later release drops them once the migration has run on every database.
+LEGACY_STAGE_PHASES = ("applications_open", "applications_closed", "review")
+#: The old phases an own-form market's form was closed in: ``review`` was reached only through
+#: ``applications_closed``.
+LEGACY_CLOSED_PHASES = ("applications_closed", "review")
+
+
+def _legacy_stage_phase(document: Dict[str, Any]) -> MarketPhase:
+    """An old stage phase as the migration would leave it: the stage, or, for a Google Form market
+    that imported nothing, draft, since the stage is entered by a first import."""
+    if intake_mode_from_market_document(document) is IntakeMode.CSV:
+        import api.applications as ApplicationsApi
+
+        if ApplicationsApi.count_applications_for_market(document.get("id", "")) == 0:
+            return MarketPhase.DRAFT
+    return MarketPhase.APPLICATIONS
+
+
+def applications_stopped_from_market_document(document: Dict[str, Any]) -> bool:
+    """Whether a stored market has stopped taking applications (E38/F04/S02).
+
+    The stored fact when there is one; else, for a form market still stored in an old closed phase,
+    true, as the migration would set it, since its form was closed.
+    """
+    if "applicationsStopped" in document:
+        return bool(document["applicationsStopped"])
+    return (
+        document.get("phase") in LEGACY_CLOSED_PHASES
+        and intake_mode_from_market_document(document) is IntakeMode.FORM
+    )
 
 
 def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
@@ -79,6 +121,8 @@ def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     same mapping rather than raising and taking down whatever list is being served.
     """
     stored_phase = document.get("phase")
+    if stored_phase in LEGACY_STAGE_PHASES:
+        return _legacy_stage_phase(document)
     if stored_phase:
         try:
             return MarketPhase(stored_phase)
@@ -100,10 +144,10 @@ class IntakeMode(str, Enum):
     a third value can be added later without disturbing either of these two.
 
     This is not the same question as the phase. Application submission is already gated to
-    ``applications_open``, but a CSV market passes through that phase too -- that is where the
-    import happens -- so during that window its public application form would be live and taking
-    applications from strangers the organizer never meant to hear from. The phase cannot tell the
-    two intakes apart; this is what does.
+    ``applications``, but a CSV market is in that phase too -- it is where its imported responses
+    are reviewed -- so its public application form would be live and taking applications from
+    strangers the organizer never meant to hear from. The phase cannot tell the two intakes apart;
+    this is what does.
     """
 
     CSV = "csv"
@@ -525,15 +569,11 @@ class Market(BaseModel):
     # highlights and for the same reason: they stay editable after the form locks, until the market
     # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
     rejection_rules: Optional[List[RejectionRule]] = None
-    # A form amendment in flight (E20/F03/S01): the phase the market must be returned to once the
-    # form has been written. Present ONLY while the chain is walking, so its presence is exactly
-    # the question "did a chain stop partway, and where was it going?".
-    #
-    # Without it a stalled chain is unrecoverable: the organizer would discover from the phase rail
-    # that their market is sitting in `draft` mid-import, with nothing saying why or how to finish.
-    # Server-owned - only the amendment endpoint writes it.
-    form_amendment: Optional["FormAmendment"] = None
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
+    # Whether the organizer has stopped taking applications, inside the stage (E38/F04/S02): a fact
+    # about the applicant form, not a phase (ADR 0005), so reviewing goes on. Server-owned: only
+    # ``set_applications_stopped`` writes it. Entering assignment closes the form whatever it says.
+    applications_stopped: bool = False
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
     # Server-owned: written only by the start from a Google Form's responses (``csv_start``), so the
@@ -696,19 +736,6 @@ class EssentialFormOptions(BaseModel):
     # nothing but the tie-break; a default for dates, tiers or table choice would invent a
     # commitment the applicant never made.
     unasked: List[str] = []
-
-
-class FormAmendment(BaseModel):
-    """Where a form amendment was going, recorded before it moves anything (E20/F03/S01).
-
-    The chain is pre-flight, not rollback: nothing moves until the whole path is known to
-    succeed. This exists for the failure pre-flight cannot prevent - a transport failure or a
-    concurrent change BETWEEN two hops - so the market can be told where it was headed rather
-    than leaving the organizer to work it out from the rail.
-    """
-
-    return_phase: str
-    started_at: str
 
 
 class MarketPermission(BaseModel):

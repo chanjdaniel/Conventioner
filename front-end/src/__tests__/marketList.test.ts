@@ -72,7 +72,7 @@ describe('search', () => {
 
 describe('filters', () => {
   const markets = [
-    market({ name: 'A', organizationId: 'org-a', phase: MarketPhase.Review }),
+    market({ name: 'A', organizationId: 'org-a', phase: MarketPhase.Applications }),
     market({ name: 'B', organizationId: 'org-b', phase: MarketPhase.Assignment }),
     market({ name: 'C', organizationId: 'org-a', phase: MarketPhase.Archived }),
     market({ name: 'D', organizationId: 'org-a', phase: undefined }),
@@ -85,7 +85,7 @@ describe('filters', () => {
   });
 
   it('keeps markets in any of several phases', () => {
-    const phases = [MarketPhase.Review, MarketPhase.Assignment];
+    const phases = [MarketPhase.Applications, MarketPhase.Assignment];
     expect(names(viewMarkets(markets, query({ phases, sort: 'name' }), TODAY))).toEqual(['A', 'B']);
   });
 
@@ -97,16 +97,16 @@ describe('filters', () => {
 
   it('composes search, both filters and the sort', () => {
     const many = [
-      market({ name: 'Fair Two', organizationId: 'org-a', phase: MarketPhase.Review }),
+      market({ name: 'Fair Two', organizationId: 'org-a', phase: MarketPhase.Applications }),
       market({ name: 'Fair One', organizationId: 'org-a', phase: MarketPhase.Assignment }),
-      market({ name: 'Fair Three', organizationId: 'org-b', phase: MarketPhase.Review }),
+      market({ name: 'Fair Three', organizationId: 'org-b', phase: MarketPhase.Applications }),
       market({ name: 'Fair Four', organizationId: 'org-a', phase: MarketPhase.Draft }),
-      market({ name: 'Bazaar', organizationId: 'org-a', phase: MarketPhase.Review }),
+      market({ name: 'Bazaar', organizationId: 'org-a', phase: MarketPhase.Applications }),
     ];
     const q = query({
       search: 'fair',
       organizationId: 'org-a',
-      phases: [MarketPhase.Review, MarketPhase.Assignment],
+      phases: [MarketPhase.Applications, MarketPhase.Assignment],
       sort: 'name',
     });
     expect(names(viewMarkets(many, q, TODAY))).toEqual(['Fair One', 'Fair Two']);
@@ -190,7 +190,7 @@ describe('the address', () => {
     const q = query({
       search: 'tes',
       organizationId: 'org-b',
-      phases: [MarketPhase.Review, MarketPhase.Assignment],
+      phases: [MarketPhase.Applications, MarketPhase.Assignment],
       sort: 'name',
     });
     expect(marketListQueryFromRoute(marketListQueryToRoute(q), orgIds)).toEqual(q);
@@ -206,8 +206,8 @@ describe('the address', () => {
   });
 
   it('ignores a phase this build does not know, keeping the ones it does', () => {
-    expect(marketListQueryFromRoute({ phase: 'review,bogus' }, orgIds).phases).toEqual([
-      MarketPhase.Review,
+    expect(marketListQueryFromRoute({ phase: 'applications,bogus' }, orgIds).phases).toEqual([
+      MarketPhase.Applications,
     ]);
   });
 

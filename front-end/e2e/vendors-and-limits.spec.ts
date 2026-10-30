@@ -53,7 +53,7 @@ async function seedMarketWithLimits(request: APIRequestContext): Promise<string>
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
     assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
   });
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       data: { toPhase },
     });

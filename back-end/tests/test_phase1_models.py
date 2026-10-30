@@ -14,16 +14,14 @@ from datatypes import (
 
 
 class TestMarketPhaseEnum:
-    def test_all_eight_values(self):
+    def test_all_six_values(self):
         assert MarketPhase.DRAFT == "draft"
-        assert MarketPhase.APPLICATIONS_OPEN == "applications_open"
-        assert MarketPhase.APPLICATIONS_CLOSED == "applications_closed"
-        assert MarketPhase.REVIEW == "review"
+        assert MarketPhase.APPLICATIONS == "applications"
         assert MarketPhase.ASSIGNMENT == "assignment"
         assert MarketPhase.OFFERS == "offers"
         assert MarketPhase.MARKET_DAYS == "market_days"
         assert MarketPhase.ARCHIVED == "archived"
-        assert len(MarketPhase) == 8
+        assert len(MarketPhase) == 6
 
     def test_is_string_enum(self):
         assert isinstance(MarketPhase.DRAFT, str)

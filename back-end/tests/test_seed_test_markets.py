@@ -35,7 +35,9 @@ def test_its_dates_are_saturdays_a_year_out_so_a_market_stays_open_long_after_it
 
 
 def test_each_market_may_leave_draft_as_seeded():
-    """The leaving-draft guards judge the plan and form the seeder writes, before it writes them."""
+    """The leaving-draft guards judge the plan and form the seeder writes, before it writes them. A
+    Google Form market's own import is the one thing left to it: its first import is its way in
+    (E38/F04/S01), and the seeder leaves it a draft for that."""
     for test_market in seeder.TEST_MARKETS:
         market = client_market(
             name=test_market.name,
@@ -45,7 +47,9 @@ def test_each_market_may_leave_draft_as_seeded():
             application_form=ApplicationForm(fields=seeder.TEST_FORM_FIELDS),
         )
 
-        assert evaluate_transition(market, MarketPhase.APPLICATIONS_OPEN.value, db=None) == []
+        assert evaluate_transition(
+            market, MarketPhase.APPLICATIONS.value, db=None, leaving_out=("responses_imported",),
+        ) == []
 
 
 def test_nothing_it_writes_names_a_person():

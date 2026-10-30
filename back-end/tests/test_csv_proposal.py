@@ -429,7 +429,7 @@ class TestWhoMayAsk:
         assert [c["fate"] for c in result["columns"]] == ["submitted_at", "applicant_email"]
 
     def test_a_market_past_draft_is_refused_with_the_reason(self):
-        result, status = CsvProposal.propose(_market(phase="applications_open"), self.CSV)
+        result, status = CsvProposal.propose(_market(phase="applications"), self.CSV)
         assert status == 409
         assert "draft" in result["error"]
 

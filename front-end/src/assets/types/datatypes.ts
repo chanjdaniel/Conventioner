@@ -7,9 +7,11 @@ export enum MarketRole {
 
 export enum MarketPhase {
   Draft = 'draft',
-  ApplicationsOpen = 'applications_open',
-  ApplicationsClosed = 'applications_closed',
-  Review = 'review',
+  /**
+   * The one stage where applications arrive and are reviewed (E38/F04/S01): "Review" on a Google
+   * Form market, "Applications" on one whose vendors apply on its page (`pathPhaseLabel`).
+   */
+  Applications = 'applications',
   Assignment = 'assignment',
   Offers = 'offers',
   MarketDays = 'market_days',
@@ -330,11 +332,13 @@ export interface Market {
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
    */
   transitionBlockers?: Record<string, PreconditionResult[]>;
+  /** Whether the organizer has stopped taking applications inside the stage (E38/F04/S02). */
+  applicationsStopped?: boolean;
   /**
-   * The phases this market's intake path steps through rather than stops in (E32/F02/S01), served
-   * with the moves above so the browser keeps no copy of the rule that makes either.
+   * Why taking applications cannot be stopped or resumed now, or null while it can: served so the
+   * rail offers the action exactly when the endpoint would take it (E38/F04/S02).
    */
-  phasesPassedThrough?: string[];
+  applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
 }

@@ -67,12 +67,15 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
   await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
   await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Mugs and bowls');
 
-  // Once applications close the answers are read, not changed - and a direct link still finds
-  // the vendor signed in.
-  const closed = await request.post(`${BACKEND_URL}/markets/${market.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase: 'applications_closed' },
-  });
+  // Once the market stops taking applications the answers are read, not changed (E38/F04/S02) -
+  // and a direct link still finds the vendor signed in.
+  const closed = await request.post(
+    `${BACKEND_URL}/markets/${market.marketId}/applications-stopped`,
+    {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { stopped: true },
+    },
+  );
   expect(closed.ok(), await closed.text()).toBeTruthy();
   await page.goto(`/${market.marketSlug}/applicant/dashboard`);
   await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Mugs and bowls', {

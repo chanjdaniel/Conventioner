@@ -106,7 +106,7 @@ A vendor added by hand is stored `reviewer_approved` with `added_by`, holding on
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).
 
 **Each verdict or follow-up a person gives, each follow-up handed on, each vendor added, each update of a vendor's answers and each change an applicant makes to their own application records into [the market's history](history.md)**: the verdict fields here stay the state the review reads, and the history keeps every verdict a person gives, not only the latest.
-A rule's verdict is not an entry of its own: the write that judged counts it in its entry (the form, the rules, an amendment, an applicant's save, an import).
+A rule's verdict is not an entry of its own: the write that judged counts it in its entry (the form, the rules, an applicant's save, an import).
 
 ## Indexes
 
