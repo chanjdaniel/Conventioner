@@ -94,7 +94,7 @@ const condition = computed(() => {
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       if (undecided.value === null) {
-        return 'Every application must be decided before this market can assign.';
+        return 'Every application must be decided before this market can enter Assignment.';
       }
       return undecided.value === 0
         ? 'Every application has been decided. This market is ready to enter Assignment.'

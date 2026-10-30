@@ -145,7 +145,9 @@ test('Refresh recovers from a list that failed to load, in both views', async ({
   await all.goto(marketId);
   await expect(page.getByText('Failed to load applications')).toBeVisible();
   // Nothing was read, so nothing is counted: not "Every application has been decided".
-  await expect(lead).toHaveText('Every application must be decided before this market can assign.');
+  await expect(lead).toHaveText(
+    'Every application must be decided before this market can enter Assignment.',
+  );
   await page.unroute(THE_LIST);
   await refresh.click();
   await expect(all.rows).toHaveCount(3);
