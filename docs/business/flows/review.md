@@ -126,11 +126,11 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 
 ## Dividing the review
 
-**Status:** Works (read from the code as of E38/F07/S02: `choosing-reviewers-deals-the-open-applications.spec.ts`).
+**Status:** Works (read from the code as of E38/F07/S02: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`).
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
-   It lists the chosen reviewers' addresses, "(you)" beside the reader's own, or says "No reviewers chosen. Everyone reviews first come, first served."
+   It lists the chosen reviewers' addresses, "(you)" beside the reader's own and "Can no longer review here" beside one who no longer holds a role on the market, or says "No reviewers chosen. Everyone reviews first come, first served."
 2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
 3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
 4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.

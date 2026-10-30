@@ -38,7 +38,7 @@ One module, [`back-end/review_team.py`](../../back-end/review_team.py), writes b
 Choosing reviewers stores the team with its turn reset, then deals every open application (undecided: `open` or `under_review`) round robin from the first reviewer in the order they arrived, and moves the turn on by as many; the first reviewers in address order take the remainder, and the next arrivals go first to those who got one fewer.
 A deal never counts what each reviewer has left open.
 Each application's write (`deal` in [`back-end/api/applications.py`](../../back-end/api/applications.py)) is conditioned on it still being open and still dealt as it was read, so a verdict landing mid-deal is never touched.
-A decided application and a follow-up stay where they are; an unchanged set writes and records nothing; no reviewers returns every open application to first come, first served.
+A decided application stays where it is, and so does a follow-up, unless its owner is a reviewer the change removed: then it is dealt with the open applications and handed, still a follow-up, to the reviewer it goes to. An unchanged set writes and records nothing; no reviewers returns every open application to first come, first served.
 
 **Choosing is a row of the market's table**, "Choose reviewers" (default Admin, [ADR 0019](0019-a-markets-permissions-are-a-table.md)), open while the review is (draft through the stage) and refused on an archived market.
 A reviewer is chosen from the people the chooser may hand a follow-up to, so someone outside the market's organization is never offered its people.
@@ -48,7 +48,7 @@ A reviewer is chosen from the people the chooser may hand a follow-up to, so som
 ## Consequences
 
 - Every write that can leave an application open and undealt must ask `review_team.py` to deal it, or it stays out of every share.
-- A chosen reviewer who loses their role on the market can review nothing; the read serves them as not `able`.
+- A chosen reviewer who loses their role on the market is skipped by every deal and served as not `able` until an Admin removes them: removing someone is always a person's act, recorded, never a side effect of a role taken away.
 - A verdict on someone else's share is not refused: dividing the review is a soft filter, and the warning is the screen's.
 
 ## Considered and rejected

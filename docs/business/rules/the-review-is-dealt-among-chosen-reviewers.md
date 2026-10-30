@@ -38,8 +38,14 @@ An application a rule rejects as it arrives is decided, so it is not dealt until
 The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer, and two applicants submitting at once take different turns.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
-A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up.
-Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served.
+A decided application stays with whoever had it, as the record of whose share it was, and so does a follow-up, unless its owner is a reviewer removed by the change.
+**A removed reviewer's follow-ups go back into the pool**, dealt in arrival order with the open applications: each keeps its status and is handed to the reviewer it is dealt to, as its owner and its reviewer, so someone still reaches out, and the history says who held it before.
+A follow-up handed to someone who was never a reviewer stays theirs.
+Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
+
+**A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone.
+Every deal skips them, the panel marks them "Can no longer review here", and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
+With nobody able, nothing is dealt.
 
 **Being dealt an application is never a lock**: the hold of [ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md) is who is looking at a card now, the reviewer is whose share it is, and a deal never moves a hold.
 
