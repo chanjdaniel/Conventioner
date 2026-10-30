@@ -60,9 +60,9 @@ Every finding is named by file and kind only: no real value is quoted here.
 
 `scripts/real_data_check.py` gained three rules (`T131`), described in [real data never leaves the PC](../implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc):
 
-- A list of real names, `scripts/real_data_terms.txt`, held as 21 hashes: the real organization's abbreviation, its market's name, its society and clubs, its venue's rooms and sections, its social handle and the distinctive parts of its document links.
+- A list of real names, `scripts/real_data_terms.txt`, held as 21 hashes: the real organization's full name and abbreviation, its market's name, its society and clubs, its venue's rooms and sections, its social handle and the distinctive parts of its document links.
   No line or commit message outside the exempt files may hold one.
-  The organization's full name was not listed, since no source in reach held it to read from.
+  The organization's full name is among them: Daniel's own `add-term` run found it listed already.
 - A whole-tree mode, `tree`, which the gate and CI's `real-data` job run after the commits; it was clean on this record's branch.
 - A copied-wording rule, where the real exports are on the machine: eight words in a row, a link or a handle from a real export's questions.
 

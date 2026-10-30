@@ -147,7 +147,7 @@ The files where the real market may be named, below, may quote its forms too, si
 Like the exact values, this is the hooks' work, and any run's from a checkout on the machine that has the exports: the gate's checkout and CI have none.
 
 **No line names the real market's organization, venue or groups.**
-The checker fails a line or a commit message holding a name listed in [`scripts/real_data_terms.txt`](../../../scripts/real_data_terms.txt): the real organization's abbreviation, its market's name, its student society and clubs, its venue's rooms and sections, its social handle, and the distinctive parts of the document links its forms named.
+The checker fails a line or a commit message holding a name listed in [`scripts/real_data_terms.txt`](../../../scripts/real_data_terms.txt): the real organization's full name and abbreviation, its market's name, its student society and clubs, its venue's rooms and sections, its social handle, and the distinctive parts of the document links its forms named.
 The list is committed, so the gate and CI apply it as the hooks do.
 It holds each name's SHA-256, taken of the name's words, as Unicode NFKC lower-cased runs of letters joined by single spaces, and every run of one to six such words of a line is hashed and looked up: a name matches however a line cases, spaces or punctuates it (a handle's dots, a slug's hyphens, a possessive), and never inside a longer word.
 Hashing keeps the list from reading as a directory of the real names; it hides nothing from anyone who guesses a short one.
