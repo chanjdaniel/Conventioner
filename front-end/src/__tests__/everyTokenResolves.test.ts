@@ -38,7 +38,13 @@ const GLOBAL_CSS = ['assets/base.css', 'assets/main.css']
  * only use is a local variable, and one defined in a component but used across the product is the
  * bug this test exists to catch. Naming them makes the difference explicit.
  */
-const LOCALLY_DEFINED = new Set(['--priority-columns', '--section-columns', '--tier-columns']);
+const LOCALLY_DEFINED = new Set([
+  '--priority-columns',
+  '--section-columns',
+  '--tier-columns',
+  // The history list's one Field width, defined and set on the list it lines up (HistoryEntries).
+  '--history-field-width',
+]);
 
 function sourceFiles(dir: string, extensions: string[]): string[] {
   return readdirSync(dir).flatMap((entry) => {

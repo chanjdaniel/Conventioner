@@ -5,14 +5,16 @@
  * organization's (`OrganizationHistory.vue`, E40/F02/S01) both draw their entries with it, so the
  * two read alike; each reads its own pages and says when it has none.
  */
-import { ref } from 'vue';
+import { onMounted, onUpdated, ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
 import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import {
+  addressParts,
   entryChanges,
   entryParts,
   entryWhen,
+  soleColumn,
   type MarketHistoryEntry,
 } from '@/utils/marketHistory';
 
@@ -60,10 +62,54 @@ const LONG_FIELD = 32;
 
 const changesOf = (entry: MarketHistoryEntry) =>
   entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
+
+/** The value columns an entry's table draws: Before and After, or the one an arrival needs. */
+function valueColumns(entry: MarketHistoryEntry): string[] {
+  const sole = soleColumn(entry, changesOf(entry).changed);
+  return sole ? [sole] : ['Before', 'After'];
+}
+
+/**
+ * One Field width for the whole list, so the value columns line up down it: as wide as the widest
+ * name of any table open, a long name counted at the most a name is given (it wraps there).
+ */
+const FIELD_MOST_REM = 12;
+const list = ref<HTMLOListElement | null>(null);
+const fieldWidth = ref('');
+
+function measureFields() {
+  const names = list.value?.querySelectorAll<HTMLElement>('.history-field-name') ?? [];
+  const cell = names[0]?.parentElement;
+  if (!cell) {
+    fieldWidth.value = '';
+    return;
+  }
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const most = FIELD_MOST_REM * rem;
+  let widest = 0;
+  for (const name of names) {
+    const long = name.parentElement?.classList.contains('history-field--long');
+    widest = Math.max(widest, long ? most : Math.min(name.getBoundingClientRect().width, most));
+  }
+  const style = getComputedStyle(cell);
+  const chrome =
+    parseFloat(style.paddingLeft) +
+    parseFloat(style.paddingRight) +
+    parseFloat(style.borderLeftWidth) +
+    parseFloat(style.borderRightWidth);
+  const next = widest ? `${Math.ceil(widest + (chrome || 0))}px` : '';
+  if (fieldWidth.value !== next) fieldWidth.value = next;
+}
+onMounted(measureFields);
+onUpdated(measureFields);
 </script>
 
 <template>
-  <ol class="history-list">
+  <ol
+    ref="list"
+    class="history-list"
+    :style="fieldWidth ? { '--history-field-width': fieldWidth } : undefined"
+  >
     <li
       v-for="entry in entries"
       :key="entry.id"
@@ -120,16 +166,22 @@ const changesOf = (entry: MarketHistoryEntry) =>
           <thead>
             <tr>
               <th scope="col">Field</th>
-              <th scope="col">Before</th>
-              <th scope="col">After</th>
+              <th v-for="column in valueColumns(entry)" :key="column" scope="col">
+                {{ column }}
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
               <th scope="row" :class="{ 'history-field--long': row.field.length > LONG_FIELD }">
-                {{ row.field }}
+                <span class="history-field-name">{{ row.field }}</span>
               </th>
-              <td v-for="(side, s) in [row.before, row.after]" :key="s">
+              <td
+                v-for="(side, s) in valueColumns(entry).length === 1
+                  ? [row.after]
+                  : [row.before, row.after]"
+                :key="s"
+              >
                 <template v-if="row.hanging">
                   <span
                     v-for="(line, i) in side.split('\n')"
@@ -139,7 +191,14 @@ const changesOf = (entry: MarketHistoryEntry) =>
                     >{{ line }}</span
                   >
                 </template>
-                <template v-else>{{ side }}</template>
+                <!-- An address breaks, if at all, only before its "@". -->
+                <template v-for="(part, p) in addressParts(side)" v-else :key="p">
+                  <template v-if="part.kind === 'text'">{{ part.text }}</template>
+                  <template v-else
+                    ><span class="history-address">{{ part.local }}</span
+                    ><wbr /><span class="history-address">{{ part.domain }}</span></template
+                  >
+                </template>
               </td>
             </tr>
           </tbody>
@@ -163,6 +222,8 @@ const changesOf = (entry: MarketHistoryEntry) =>
 
 <style scoped>
 .history-list {
+  /* Until a table is open and measured; `measureFields` sets it on the list. */
+  --history-field-width: 22%;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -227,13 +288,14 @@ const changesOf = (entry: MarketHistoryEntry) =>
   gap: var(--space-2);
 }
 
-/* The Field column as wide as its names, each on one line however narrow the drawer (in a fixed
-   share every question of an application wrapped to two or three lines beside a "none"), and
-   Before and After halves of the rest, so the values split alike in every entry down the list. */
+/* One Field width for the whole list (`--history-field-width`, the widest name of any open table),
+   so Before and After, halves of the rest, line up down it; each name on one line unless it is
+   long. An entry whose every Before is "none" draws its one value across the rest. */
 .history-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-xs);
+  table-layout: fixed;
 }
 
 .history-table th,
@@ -262,11 +324,7 @@ const changesOf = (entry: MarketHistoryEntry) =>
 
 /* The field's name is a few words; the values beside it are what is read. */
 .history-table thead th:first-child {
-  width: 1%;
-}
-
-.history-table thead th:not(:first-child) {
-  width: 50%;
+  width: var(--history-field-width);
 }
 
 .history-table tbody th {
@@ -276,8 +334,11 @@ const changesOf = (entry: MarketHistoryEntry) =>
 /* An organizer's long question wraps in a column of its own width rather than squeezing both
    values into slivers. */
 .history-table tbody th.history-field--long {
-  width: 12rem;
   white-space: normal;
+}
+
+.history-address {
+  white-space: nowrap;
 }
 
 .history-table thead th {
