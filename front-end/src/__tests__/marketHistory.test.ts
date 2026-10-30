@@ -619,19 +619,19 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
       }),
     ).toEqual([
       {
-        field: 'Group "Alumni"',
+        field: 'Group “Alumni”',
         before: 'Gold $25\nno condition yet, so it prices nobody',
         after: 'Gold $22\nno condition yet, so it prices nobody',
         hanging: true,
       },
       {
-        field: 'Group "Volunteers"',
+        field: 'Group “Volunteers”',
         before: 'not on the card',
         after: 'Gold $5\nno condition yet, so it prices nobody',
         hanging: true,
       },
       {
-        field: 'Group "Students, first year"',
+        field: 'Group “Students, first year”',
         before: 'Gold $10\nno condition yet, so it prices nobody',
         after: 'removed',
         hanging: true,
@@ -655,7 +655,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
       priced({ before: { groups: [a, b] }, after: { groups: [group('B', [], 900), a] } }),
     ).toEqual([
       {
-        field: 'Group "B"',
+        field: 'Group “B”',
         before: 'Gold $10\nno condition yet, so it prices nobody',
         after: 'Gold $9\nno condition yet, so it prices nobody',
         hanging: true,
@@ -664,12 +664,27 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     ]);
   });
 
-  it('adds no order row where a group was only added or taken away', () => {
-    const [a, b] = [group('A', []), group('B', [])];
+  it('adds no order row where a group was only taken away or added last', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+    const fields = (before: unknown[], after: unknown[]) =>
+      priced({ before: { groups: before }, after: { groups: after } }).map((row) => row.field);
+
+    expect(fields([a, b], [b])).toEqual(['Group “A”']);
+    expect(fields([a, b], [a, b, c])).toEqual(['Group “C”']);
+  });
+
+  it('says where a group added between others went', () => {
+    // Its place decides which group a price names when two price a vendor alike, as a move's does.
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
 
     expect(
-      priced({ before: { groups: [a, b] }, after: { groups: [b] } }).map((row) => row.field),
-    ).toEqual(['Group "A"']);
+      priced({ before: { groups: [a, b] }, after: { groups: [a, c, b] } }).map(
+        ({ field, before, after }) => [field, before, after],
+      ),
+    ).toEqual([
+      ['Group “C”', 'not on the card', 'Gold $15\nno condition yet, so it prices nobody'],
+      ['Order of the groups', 'A\nB', 'A\nC\nB'],
+    ]);
   });
 
   it("writes a condition on the organizer's own question by its label and answers", () => {

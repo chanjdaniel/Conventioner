@@ -187,7 +187,7 @@ test.describe('price groups', () => {
     const changes = await manage.openHistoryEntry(0);
     const after = changes
       .locator('tbody tr')
-      .filter({ has: page.getByRole('rowheader', { name: 'Group "UBC alumni + club member"' }) })
+      .filter({ has: page.getByRole('rowheader', { name: 'Group “UBC alumni + club member”' }) })
       .locator('td')
       .nth(1);
     await expect(after).toHaveText(

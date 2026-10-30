@@ -154,9 +154,10 @@ function groupText(value: unknown, currency: string, questions: readonly Rejecti
  * A change of the price groups as a row for each group that changed, by its name: one added reads
  * "not on the card" before it, one taken away "removed" after it, and the groups that stood as they
  * were are left out, so the one change is not buried among them. A row's lines hang, so a wrapped
- * condition does not read as a line of its own. Where the groups on both sides stand in another
- * order, a row of their names in each order follows: the card's order decides which group a price
- * names when two price a vendor alike (`back-end/pricing.py`).
+ * condition does not read as a line of its own. Where the groups stand in another order than they
+ * did, an added one put last, a row of their names in each order follows, so a move or a group
+ * added between others says where it went: the card's order decides which group a price names when
+ * two price a vendor alike (`back-end/pricing.py`).
  */
 function groupChanges(
   before: unknown,
@@ -169,7 +170,8 @@ function groupChanges(
   const named = (groups: Detail[], name: string) => groups.find((g) => str(g.name) === name);
   const read = (group: Detail, currency: string) => groupText(group, currency, questions);
   const row = (name: string, before: string, after: string): ChangedField => ({
-    field: `Group "${name}"`,
+    // Curly, as its conditions are quoted beside it.
+    field: `Group “${name}”`,
     before,
     after,
     hanging: true,
@@ -187,10 +189,14 @@ function groupChanges(
     const name = str(group.name);
     if (!named(now, name)) rows.push(row(name, read(group, currencies.before), 'removed'));
   }
+  // Where the groups stand other than where they were with any added put last: moved, or a group
+  // added between others. A group only taken away, or added last, says its place by its own row.
   const names = (groups: Detail[]) => groups.map((g) => str(g.name));
-  const kept = (groups: Detail[], other: Detail[]) =>
-    names(groups).filter((name) => named(other, name));
-  if (kept(was, now).join('\n') !== kept(now, was).join('\n')) {
+  const expected = [
+    ...names(was).filter((name) => named(now, name)),
+    ...names(now).filter((name) => !named(was, name)),
+  ];
+  if (expected.join('\n') !== names(now).join('\n')) {
     rows.push({
       field: 'Order of the groups',
       before: names(was).join('\n'),
