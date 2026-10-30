@@ -414,9 +414,9 @@ const previewSamples = ref<PreviewRow[]>([]);
 const sampleApplications = computed(() => previewRows(previewSamples.value));
 
 /**
- * Every row the automatic rejections would reject, with the reason, judged by the dry run as the
- * import's end judges them (E38/F03/S02). Not among the samples: those check the mapping, these
- * check the rules.
+ * The rows the import's judging will newly reject, with the reason, judged by the dry run as the
+ * import's end judges them (E38/F03/S02); a row a rule already rejected for the same reason is
+ * not among them. Not among the samples either: those check the mapping, these check the rules.
  */
 const previewRejected = ref<PreviewRow[]>([]);
 
@@ -1195,8 +1195,8 @@ function startOver() {
             >. </template
           >Each imported row becomes an application awaiting your review<template
             v-if="previewRejected.length"
-            >, except the {{ previewRejected.length }} listed below, which arrive already
-            rejected</template
+            >, except the {{ previewRejected.length }} listed below, which
+            {{ previewRejected.length === 1 ? 'arrives' : 'arrive' }} already rejected</template
           >. Nothing has been written yet.
         </p>
 
@@ -1274,8 +1274,8 @@ function startOver() {
           <ImportRowList :rows="sampleApplications" open-first row-testid="import-sample-row" />
         </section>
 
-        <!-- Every row a rule rejects, in the samples' format: a check of the rules, before they
-           reject anyone (E38/F03/S02). -->
+        <!-- The rows the import's judging will newly reject, in the samples' format: a check of the
+           rules, before they reject anyone (E38/F03/S02). -->
         <section
           v-if="rejectedApplications.length"
           class="preview-rows"

@@ -152,7 +152,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       '3 of 3 rows will be imported; 1 of them will be rejected by your automatic rejections',
     );
     await expect(importPage.previewMerge).toContainText(
-      'awaiting your review, except the 1 listed below, which arrive already rejected.',
+      'awaiting your review, except the 1 listed below, which arrives already rejected.',
     );
     await expect(importPage.rejectedCount).toHaveText('1');
     await expect(importPage.rejectedRows).toHaveCount(1);
