@@ -678,8 +678,10 @@ export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
 }
 
-/** A field's name in words: `follow_up_owner` reads "Follow up owner". */
+/** A field's name in words: `review_highlights` reads "Review highlights". */
 export function fieldName(key: string): string {
+  // The one spelling the screens use for it, and a deal's "Before and after" too (E38/F07/S02).
+  if (key === 'follow_up_owner') return 'Follow-up owner';
   const words = key.replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

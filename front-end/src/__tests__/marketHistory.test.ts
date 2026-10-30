@@ -9,6 +9,7 @@ import {
   dayStarts,
   entryChanges,
   entryParts,
+  fieldName,
   valueText,
   type MarketHistoryEntry,
   type MarketHistoryPart,
@@ -501,6 +502,13 @@ describe('who reviews which application (E38/F07/S02)', () => {
     expect(entryChanges(reviewers(['a@x.test'], [])).changed).toEqual([
       { field: 'Reviewers', before: 'a@x.test', after: 'none' },
     ]);
+  });
+});
+
+describe('a field’s name', () => {
+  it('spells a follow-up’s owner as the chips and a deal do', () => {
+    expect(fieldName('follow_up_owner')).toBe('Follow-up owner');
+    expect(fieldName('review_highlights')).toBe('Review highlights');
   });
 });
 
