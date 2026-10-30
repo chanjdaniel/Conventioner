@@ -127,10 +127,12 @@ function conditionText(value: unknown, questions: readonly RejectionQuestion[]):
   const condition = asDetail(value);
   const key = str(condition.key);
   const question = questions.find((q) => q.key === key);
-  const label = question ? question.label : `${key} (no longer on the form)`;
+  // Quoted, as the rules' reasons quote them (`Rulebook.rejecting`), so a label that is itself a
+  // question reads apart from the sentence around it.
+  const label = question ? `“${question.label}”` : `“${key}” (no longer on the form)`;
   const answers = (Array.isArray(condition.answers) ? condition.answers : []).map((answer) => {
     const offered = question?.answers.find((a) => a.value === str(answer));
-    return offered ? offered.label : str(answer);
+    return `“${offered ? offered.label : str(answer)}”`;
   });
   if (!answers.length) return `${label} has no answer ticked yet, so it prices nobody`;
   return `${label} includes ${answers.join(' or ')}`;
@@ -151,8 +153,10 @@ function groupText(value: unknown, currency: string, questions: readonly Rejecti
 /**
  * A change of the price groups as a row for each group that changed, by its name: one added reads
  * "not on the card" before it, one taken away "removed" after it, and the groups that stood as they
- * were are left out, so the one change is not buried among them. Groups that only moved are one row
- * of their names in each order.
+ * were are left out, so the one change is not buried among them. A row's lines hang, so a wrapped
+ * condition does not read as a line of its own. Where the groups on both sides stand in another
+ * order, a row of their names in each order follows: the card's order decides which group a price
+ * names when two price a vendor alike (`back-end/pricing.py`).
  */
 function groupChanges(
   before: unknown,
@@ -164,27 +168,36 @@ function groupChanges(
   const [was, now] = [list(before), list(after)];
   const named = (groups: Detail[], name: string) => groups.find((g) => str(g.name) === name);
   const read = (group: Detail, currency: string) => groupText(group, currency, questions);
+  const row = (name: string, before: string, after: string): ChangedField => ({
+    field: `Group "${name}"`,
+    before,
+    after,
+    hanging: true,
+  });
   const rows: ChangedField[] = [];
   for (const group of now) {
     const name = str(group.name);
     const old = named(was, name);
     const text = read(group, currencies.after);
-    if (!old) rows.push({ field: `Group "${name}"`, before: 'not on the card', after: text });
+    if (!old) rows.push(row(name, 'not on the card', text));
     else if (read(old, currencies.before) !== text)
-      rows.push({ field: `Group "${name}"`, before: read(old, currencies.before), after: text });
+      rows.push(row(name, read(old, currencies.before), text));
   }
   for (const group of was) {
     const name = str(group.name);
-    if (!named(now, name))
-      rows.push({
-        field: `Group "${name}"`,
-        before: read(group, currencies.before),
-        after: 'removed',
-      });
+    if (!named(now, name)) rows.push(row(name, read(group, currencies.before), 'removed'));
   }
-  if (rows.length) return rows;
-  const names = (groups: Detail[]) => groups.map((g) => str(g.name)).join('\n') || 'none';
-  return [{ field: fieldName(PRICING_FIELDS.groups), before: names(was), after: names(now) }];
+  const names = (groups: Detail[]) => groups.map((g) => str(g.name));
+  const kept = (groups: Detail[], other: Detail[]) =>
+    names(groups).filter((name) => named(other, name));
+  if (kept(was, now).join('\n') !== kept(now, was).join('\n')) {
+    rows.push({
+      field: 'Order of the groups',
+      before: names(was).join('\n'),
+      after: names(now).join('\n'),
+    });
+  }
+  return rows;
 }
 
 function listed(words: string[]): string {
@@ -500,6 +513,8 @@ export interface ChangedField {
   field: string;
   before: string;
   after: string;
+  /** Its lines hang: each one's wrap is indented under it (a price group's conditions). */
+  hanging?: boolean;
 }
 
 /** Something else the entry recorded about the change: a count, a date, where it was made. */

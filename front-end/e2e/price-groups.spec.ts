@@ -192,11 +192,18 @@ test.describe('price groups', () => {
       .nth(1);
     await expect(after).toHaveText(
       'Gold $25, Silver $22\n' +
-        'when Are you a UBC student or alumni? includes UBC alumni/staff\n' +
-        'and Which clubs are you a member of? includes Art Club or Craft Club',
+        'when “Are you a UBC student or alumni?” includes “UBC alumni/staff”\n' +
+        'and “Which clubs are you a member of?” includes “Art Club” or “Craft Club”',
       { useInnerText: true },
     );
     await expect(after).toHaveCSS('white-space', 'pre-line');
+    // Each condition a line whose wrap hangs under it, so a long label never reads as two lines.
+    const line = after.getByTestId('market-history-line');
+    await expect(line).toHaveCount(3);
+    await expect(line.nth(1)).toHaveCSS('display', 'block');
+    expect(
+      parseFloat(await line.nth(1).evaluate((el) => getComputedStyle(el).textIndent)),
+    ).toBeLessThan(0);
 
     // A student in a club, who is a student too: the cheaper of the two. An alumnus in no club:
     // no group, so "Everyone else".

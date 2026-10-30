@@ -585,16 +585,19 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         field: 'Group "Alumni"',
         before: 'Gold $25\nno condition yet, so it prices nobody',
         after: 'Gold $22\nno condition yet, so it prices nobody',
+        hanging: true,
       },
       {
         field: 'Group "Volunteers"',
         before: 'not on the card',
         after: 'Gold $5\nno condition yet, so it prices nobody',
+        hanging: true,
       },
       {
         field: 'Group "Students, first year"',
         before: 'Gold $10\nno condition yet, so it prices nobody',
         after: 'removed',
+        hanging: true,
       },
     ]);
   });
@@ -603,8 +606,33 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     const [a, b] = [group('A', []), group('B', [])];
 
     expect(priced({ before: { groups: [a, b] }, after: { groups: [b, a] } })).toEqual([
-      { field: 'Price groups', before: 'A\nB', after: 'B\nA' },
+      { field: 'Order of the groups', before: 'A\nB', after: 'B\nA' },
     ]);
+  });
+
+  it('keeps a move beside a change made in the same write', () => {
+    // The card's order decides which group a price names when two price a vendor alike.
+    const [a, b] = [group('A', [], 1000), group('B', [], 1000)];
+
+    expect(
+      priced({ before: { groups: [a, b] }, after: { groups: [group('B', [], 900), a] } }),
+    ).toEqual([
+      {
+        field: 'Group "B"',
+        before: 'Gold $10\nno condition yet, so it prices nobody',
+        after: 'Gold $9\nno condition yet, so it prices nobody',
+        hanging: true,
+      },
+      { field: 'Order of the groups', before: 'A\nB', after: 'B\nA' },
+    ]);
+  });
+
+  it('adds no order row where a group was only added or taken away', () => {
+    const [a, b] = [group('A', []), group('B', [])];
+
+    expect(
+      priced({ before: { groups: [a, b] }, after: { groups: [b] } }).map((row) => row.field),
+    ).toEqual(['Group "A"']);
   });
 
   it("writes a condition on the organizer's own question by its label and answers", () => {
@@ -616,7 +644,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen Are you a UBC student or alumni? includes Current UBC student or UBC alumni/staff',
+      'Gold $15\nwhen “Are you a UBC student or alumni?” includes “Current UBC student” or “UBC alumni/staff”',
     );
   });
 
@@ -632,9 +660,9 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
 
     expect(row.after).toBe(
       'Gold $15\n' +
-        'when I agree to the terms includes Ticked\n' +
-        'and Table choice includes Half a table, shared or Either is fine\n' +
-        'and Available dates includes Thursday, May 7, 2099',
+        'when “I agree to the terms” includes “Ticked”\n' +
+        'and “Table choice” includes “Half a table, shared” or “Either is fine”\n' +
+        'and “Available dates” includes “Thursday, May 7, 2099”',
     );
   });
 
@@ -649,8 +677,8 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
 
     expect(row.after).toBe(
       'Gold $15\n' +
-        'when year_of_study (no longer on the form) includes First\n' +
-        'and Are you a UBC student or alumni? includes Current UBC student or Faculty',
+        'when “year_of_study” (no longer on the form) includes “First”\n' +
+        'and “Are you a UBC student or alumni?” includes “Current UBC student” or “Faculty”',
     );
   });
 
@@ -661,7 +689,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen Are you a UBC student or alumni? has no answer ticked yet, so it prices nobody',
+      'Gold $15\nwhen “Are you a UBC student or alumni?” has no answer ticked yet, so it prices nobody',
     );
   });
 

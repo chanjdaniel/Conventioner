@@ -359,8 +359,18 @@ const emptyText = computed(() =>
                 :key="row.field"
               >
                 <th scope="row">{{ row.field }}</th>
-                <td>{{ row.before }}</td>
-                <td>{{ row.after }}</td>
+                <td v-for="(side, s) in [row.before, row.after]" :key="s">
+                  <template v-if="row.hanging">
+                    <span
+                      v-for="(line, i) in side.split('\n')"
+                      :key="i"
+                      class="history-line"
+                      data-testid="market-history-line"
+                      >{{ line }}</span
+                    >
+                  </template>
+                  <template v-else>{{ side }}</template>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -529,6 +539,14 @@ const emptyText = computed(() =>
    before and now read as the drawer shows them. Runs of spaces still collapse. */
 .history-table td {
   white-space: pre-line;
+}
+
+/* A row whose lines hang (a price group's prices, then each condition): a line that wraps goes on
+   indented under itself, so its tail never reads as a line of its own. */
+.history-line {
+  display: block;
+  padding-left: var(--space-3);
+  text-indent: calc(-1 * var(--space-3));
 }
 
 /* The field's name is a few words; the values beside it are what is read. */
