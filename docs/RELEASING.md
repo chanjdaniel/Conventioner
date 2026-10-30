@@ -216,7 +216,7 @@ A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marke
 
 | Variable | What it is | What an unset value does |
 |----------|------------|--------------------------|
-| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | The Conventioner application's OAuth2 client id and secret, from the Discord Developer Portal. Connecting a market exchanges the code Discord's approval screen sends back for the server the bot was added to. | With any of the three unset, Discord is off: the Discord card on Market Setup says "Discord is not set up on this Conventioner." and offers nothing. |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | The Conventioner application's OAuth2 client id and secret, from the Discord Developer Portal. Connecting a market exchanges the code Discord's approval screen sends back for the server the bot was added to. | With any of the three unset, Discord is off: the Discord card on the market's Tools tab says "Discord is not set up on this Conventioner." and offers nothing. |
 | `DISCORD_BOT_TOKEN` | The application's bot token (Bot, Reset Token). Every call the bot makes on a connected server is made with it. | As above. |
 
 None is a boot requirement, and a blank or placeholder value counts as unset (`back-end/discord_client.py`, [the Discord connection](implementation/modules/discord.md)).

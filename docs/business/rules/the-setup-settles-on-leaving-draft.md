@@ -39,7 +39,7 @@ A setup that leaves incomplete could therefore never be completed, so the move o
 The whole setup settles at once, rather than each part when something comes to depend on it, because one point is what an organizer can learn.
 Nothing gets past it but the way back to draft below; a venue that changes after applications open is not provided for, and would be a feature of its own.
 The assignment rules are not setup: they keep [their own lock](the-assignment-rules-close-with-the-assignment.md).
-Nor is the Discord card, which Market Setup also shows: it is a manual tool the organizer runs whenever they choose (T92 Q10, Q19), so it stays editable until the market is archived ([the Discord connection](../../implementation/modules/discord.md)).
+Nor is the Discord card, on the market's Tools tab rather than Market Setup: it is a manual tool the organizer runs whenever they choose (T92 Q10, Q19), so it stays editable until the market is archived ([the Discord connection](../../implementation/modules/discord.md)).
 
 **Leaving draft is finalizing.**
 There is no separate act for the organizer to find: the move out of draft is it, and it already judges the plan and the form together, since a plan that offers nothing gives a form that asks nothing ([the guards](../../implementation/modules/guards.md)).

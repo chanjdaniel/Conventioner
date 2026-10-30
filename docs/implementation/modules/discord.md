@@ -7,6 +7,8 @@ describes:
   - back-end/datatypes.py#DiscordConnection
   - front-end/src/components/market/MarketDiscordCard.vue
   - front-end/src/views/DiscordConnectedView.vue
+  - front-end/src/utils/discordConnected.ts
+  - front-end/src/utils/discordQuestion.ts
   - scripts/discord_rest_proof.py
 verified: 2026-10-30
 sources:
@@ -24,29 +26,36 @@ One Discord application, Conventioner's, is added to each organizer's server thr
 
 ## The Discord card
 
-**A "Discord" card on Market Setup** ([`MarketDiscordCard.vue`](../../../front-end/src/components/market/MarketDiscordCard.vue)) connects the market, names the server with "Disconnect", and holds three choices:
+**A "Discord" card on the market's Tools tab** ([`MarketDiscordCard.vue`](../../../front-end/src/components/market/MarketDiscordCard.vue), in [`ToolsView.vue`](../../../front-end/src/views/ToolsView.vue)) connects the market, names the server with "Disconnect", and holds three choices.
+The server's name stands on a line of its own, 16px and 600, under its "Connected to" label, since run into one sentence it read cramped (Daniel's hand walk).
+The choices:
 
 - **Role to give**: one of the server's roles, read by the bot when the card opens (`GET /markets/:id/discord/roles`); never `@everyone` and never a role an integration manages.
-  The role is the organizer's choice (Q11), so a role at or above the bot's own highest role is still offered, marked "above Conventioner's role", and choosing it shows "Move the Conventioner role above this one in your server's settings.": a bot gives only roles below its own ([Discord, permissions](https://docs.discord.com/developers/topics/permissions)).
+  The role is the organizer's choice (Q11), so a role at or above the bot's own highest role is still offered, marked "above Conventioner's role", and choosing it shows a warning in the attention tone, under the three choices: "Conventioner cannot give <role> yet", why, the steps (in Discord, Server Settings, then Roles; drag the Conventioner role above it, and save), and "Check again", which reads the server's roles again and drops the warning once the bot is above, or says it is still below.
+  A bot gives only roles below its own ([Discord, permissions](https://docs.discord.com/developers/topics/permissions)), as Daniel's REST proof met (403 Missing Permissions until the bot's role was moved); Daniel's hand walk asked for a warning with the steps rather than a hint.
 - **Username question**: one of the form's text questions.
   Connecting chooses one when none is chosen yet: the first text question whose label says "discord", as a market started from a Google Form with a "Discord Username" question has (Q12).
+  The form builder offers that question ready-made, "Add Discord username" (optional, key `discord_username`, [`discordQuestion.ts`](../../../front-end/src/utils/discordQuestion.ts)), until the form has a text question labelled for Discord ([building the application form](../../business/flows/form-tab.md#f2-custom-questions)).
 - **Invite link**: optional, an `https://` address of at most 200 characters.
 
 Each choice saves as it is made (`PUT /markets/:id/discord`, any of `roleId`, `usernameQuestion`, `inviteLink`, each a string or null), and the page then re-reads the market ([one market, from the server](../conventions/one-market-from-the-server.md)).
 
-**It is drawn outside the plan's fieldset, beneath the plan**, in [`MarketSetupView.vue`](../../../front-end/src/views/MarketSetupView.vue), because it is a manual tool the organizer runs when they choose (Q10, Q19): [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md), and this card stays editable in every phase until the market is archived.
+**It stands on the Tools tab, not Market Setup**, because it is a manual tool the organizer runs when they choose (Q10, Q19): [the setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md), and this card stays editable in every phase until the market is archived; it stood beneath the plan until Daniel's hand walk moved it to a tab of its own ([the market frame](market-frame.md)).
+The Tools tab fits a phone, and the card's choices stand one under another there.
 
 **Who may change it is the table's "Connect Discord and give roles" row** (`connect-discord`, Admin by default; Q19: "admins only"), [the market's actions](market-actions.md).
-Anyone the row refuses reads the card: the server, the role's name, the question's label and the link, with no control and no call to Discord.
+Anyone the row refuses reads the card: the server, the role's name, the question's label and the link, with no control, no call to Discord, and no word of when it may be changed.
 Every write loads through `_load_market_to_change`, so an archived market refuses it.
 
 ## Connecting
 
-Connecting is two requests around Discord's approval screen:
+Connecting is two requests around Discord's approval screen, which opens in a new tab so the market stays open in its own:
 
-1. `POST /markets/:id/discord/authorization` keeps a one-time state in the person's session, bound to this market, and answers the screen's address: `scope=bot`, the permissions Manage Roles and Create Instant Invite, `response_type=code`, and the redirect `FRONTEND_URL` + `/discord/connected`.
+1. "Connect Discord" opens a blank tab in the click itself (one opened after the request would be taken for a pop-up), cuts its `opener`, which `noopener` would do but leave nothing to send on, then posts `POST /markets/:id/discord/authorization` and sends the tab to the address it answers; a blocked tab says how to allow it and starts nothing.
+   The request keeps a one-time state in the person's session, bound to this market, and answers the screen's address: `scope=bot`, the permissions Manage Roles and Create Instant Invite, `response_type=code`, and the redirect `FRONTEND_URL` + `/discord/connected`.
    The state leads with the market's id and a dot, so the page Discord returns to knows which market it was.
-2. Discord sends the person back to [`DiscordConnectedView.vue`](../../../front-end/src/views/DiscordConnectedView.vue) with a code and the state, and the page posts both to `POST /markets/:id/discord/connection`, then opens the market's Market Setup.
+2. Discord sends the person back, in that tab, to [`DiscordConnectedView.vue`](../../../front-end/src/views/DiscordConnectedView.vue) with a code and the state, and the page posts both to `POST /markets/:id/discord/connection`, then says "Discord is connected. You can close this tab: the market's Tools tab shows the server.", with a link to the market's Tools; a cancelled approval or a refused state is said there too.
+   On success it tells the market's own tab on a `BroadcastChannel` ([`discordConnected.ts`](../../../front-end/src/utils/discordConnected.ts)), and the card re-reads the market and the server's roles without a reload; a browser that misses the message re-reads the market when its tab is shown again (`useOpenMarket`).
    The server spends the state, refuses one this session never started, one another person started (a second account signed in on the same browser), one for another market or one older than 15 minutes, exchanges the code with Discord, and keeps the server the token answer names.
 
 **The server is read from the code exchange's token answer, never from the redirect's `guild_id`**: Discord calls that one "only a hint" ([OAuth2, Advanced Bot Authorization](https://docs.discord.com/developers/topics/oauth2)), and anyone can type one.
@@ -98,6 +107,7 @@ Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits 
 
 ## Why
 
-- [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup that this card stands beneath.
+- [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup, which settle on leaving draft as this card does not.
+- [Building the application form](../../business/flows/form-tab.md): the one-click Discord username question this card picks up.
 - [What each role may do](../../business/rules/what-each-role-may-do.md): connecting and giving the role are an Admin's and the owner's (Q19).
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the rule this card is the stated exception to.
