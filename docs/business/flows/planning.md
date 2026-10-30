@@ -112,20 +112,6 @@ Only one table type is used by assignment in this release ([F6](form-tab.md#f6-t
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
 Covered by: `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures), `the-floorplan-beta-places-tables.spec.ts`.
 
-## E9. Pricing
-
-**Status:** Works (E43/F01/S01; `the-pricing-card.spec.ts`).
-Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
-
-1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the one row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
-2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
-3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
-4. Expect "Plan saved"; a cell that is not an amount turns its border red and is not saved, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."
-
-A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables."
-Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
-The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
-
 ## E7. Edit the plan after Draft
 
 **Status:** Works, as changed by E31/F01: the setup no longer changes after Draft (read from the code: `setup_lock_reason` in `back-end/api/markets.py`; `what-to-show-and-when.spec.ts`, "past draft the setup is settled, and a form market imports nothing").
@@ -151,6 +137,22 @@ What else freezes, and when:
 **Status:** Works (re-walked live on 2026-10-03).
 While the market is a draft, the "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above, and this form will have something to ask about."), offers "Build the application form" once it can, and once the form has questions of its own or is locked says so, with "Open the application form" or "See the application form" (bug 16).
 Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is").
+
+## E9. Pricing
+
+**Status:** Works (E43/F01/S01; `the-pricing-card.spec.ts`).
+Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
+
+1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the one row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
+3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
+4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept ("35.5" becomes "35.50").
+5. A cell that is not an amount turns its border red, and the card says "Enter a price like 35 or 35.50, or leave it blank for no price."; a share that is not a whole number from 0 to 100 says "The half table's share is a whole number from 0 to 100."
+   Either keeps the value it had before the typing, never a prefix of it ("15" on the way to "150"), and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
+
+A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
+The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## Superseded
 

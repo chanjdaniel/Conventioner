@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { defineComponent, h, ref } from 'vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
 import type { PricingObject, SetupObject } from '@/assets/types/datatypes';
 
@@ -152,5 +153,111 @@ describe('a tier changing in Tier Setup', () => {
     await wrapper.setProps({ setupObject: { ...setupObject, tiers: [...setupObject.tiers] } });
 
     expect(lastPricing(wrapper)?.everyoneElse).toEqual([{ tier: 'Golden', cents: 3500 }]);
+  });
+});
+
+/**
+ * The card as Market Setup holds it: every write comes straight back as the prop, as the plan's
+ * working copy does, so a field is redrawn between keystrokes exactly as on the page.
+ */
+function heldCard(setupObject: SetupObject) {
+  const held: boolean[] = [];
+  const host = defineComponent({
+    setup() {
+      const kept = ref(setupObject);
+      return () =>
+        h(ElementPricing, {
+          setupObject: kept.value,
+          'onUpdate:setupObject': (value: SetupObject) => (kept.value = value),
+          onHeld: (value: boolean) => held.push(value),
+        });
+    },
+  });
+  const wrapper = mount(host, { attachTo: document.body });
+  const kept = () =>
+    (wrapper.findComponent(ElementPricing).props('setupObject') as SetupObject).pricing;
+  return Object.assign(wrapper, { kept, held });
+}
+
+async function typeKeys(input: ReturnType<ReturnType<typeof mount>['get']>, text: string) {
+  const element = input.element as HTMLInputElement;
+  await input.trigger('focus');
+  for (let at = 1; at <= text.length; at += 1) {
+    element.value = text.slice(0, at);
+    await input.trigger('input');
+  }
+}
+
+describe('typing key by key (review finding 1)', () => {
+  it.each([
+    ['12.05', 1205],
+    ['30.01', 3001],
+    ['35.5', 3550],
+  ])('%s is kept as %d cents and shown as typed', async (text, cents) => {
+    const wrapper = heldCard(plan(null));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await typeKeys(cell, text);
+
+    expect(wrapper.kept()?.everyoneElse).toEqual([{ tier: 'Gold', cents }]);
+    expect((cell.element as HTMLInputElement).value).toBe(text);
+  });
+
+  it('leaving the cell redraws it from the cents', async () => {
+    const wrapper = heldCard(plan(null));
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await typeKeys(cell, '35.5');
+    await cell.trigger('blur');
+
+    expect((cell.element as HTMLInputElement).value).toBe('35.50');
+  });
+});
+
+describe('text that ends as no value keeps the value from before (review note 2)', () => {
+  it('a share typed past 100 keeps the share it had, and holds the plan', async () => {
+    const wrapper = heldCard(plan(null));
+    const share = wrapper.get('[data-testid="pricing-half-percent"]');
+
+    await share.setValue('');
+    await typeKeys(share, '150');
+
+    expect(wrapper.kept()?.halfTablePercent).toBe(50);
+    expect((share.element as HTMLInputElement).value).toBe('150');
+    expect(wrapper.get('[data-testid="pricing-share-error"]').exists()).toBe(true);
+    expect(wrapper.held.at(-1)).toBe(true);
+
+    await share.setValue('60');
+    expect(wrapper.kept()?.halfTablePercent).toBe(60);
+    expect(wrapper.held.at(-1)).toBe(false);
+  });
+
+  it('a price that turns into no amount keeps the price from before', async () => {
+    const wrapper = heldCard(
+      plan({
+        currency: 'CAD',
+        halfTablePercent: 50,
+        everyoneElse: [{ tier: 'Gold', cents: 3500 }],
+      }),
+    );
+    const cell = wrapper.get('[data-testid="pricing-price-0"]');
+
+    await cell.trigger('focus');
+    await typeKeys(cell, '3');
+    await typeKeys(cell, '3x');
+
+    expect(wrapper.kept()?.everyoneElse).toEqual([{ tier: 'Gold', cents: 3500 }]);
+    expect(wrapper.held.at(-1)).toBe(true);
+    await cell.trigger('blur');
+    expect((cell.element as HTMLInputElement).value).toBe('3x');
+  });
+});
+
+describe('a plan with no tiers', () => {
+  it('offers no share or currency until there is a tier (review note 4)', () => {
+    const wrapper = card(plan(null, []));
+
+    expect(wrapper.find('[data-testid="pricing-half-percent"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="pricing-currency"]').exists()).toBe(false);
   });
 });

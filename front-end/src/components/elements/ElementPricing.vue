@@ -10,18 +10,23 @@
  *
  * It sits in the plan's fieldset, so it settles with the rest of the setup on leaving draft.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { PricingObject, SetupObject } from '@/assets/types/datatypes';
 import {
   CURRENCIES,
   UNPRICED,
   centsFromText,
+  percentFromText,
   priceText,
   pricingAfterTierChange,
 } from '@/utils/pricing';
 
 const props = defineProps<{ setupObject: SetupObject }>();
-const emit = defineEmits<{ (event: 'update:setupObject', value: SetupObject): void }>();
+const emit = defineEmits<{
+  (event: 'update:setupObject', value: SetupObject): void;
+  /** Whether a field holds text that is not a value, so the plan waits rather than saving. */
+  (event: 'held', value: boolean): void;
+}>();
 
 const pricing = computed<PricingObject>(() => props.setupObject.pricing ?? UNPRICED);
 
@@ -43,53 +48,83 @@ watch(
   },
 );
 
-/** What is typed in a cell that is not yet an amount, by tier; a cell shows its price otherwise. */
-const drafts = ref<Record<string, string>>({});
+/**
+ * A field being typed in: its text, and the value it held before. The text is shown as typed until
+ * the field is left, never redrawn from the stored value under the caret, which once turned "12.05"
+ * into "125" a keystroke at a time. Text that is not a value keeps the value from before, so the
+ * plan never holds a prefix nobody chose ("15" on the way to "150"), and is shown until it is fixed.
+ */
+interface Typing<V> {
+  text: string;
+  before: V;
+}
+
+function storedCents(tier: string): number | null {
+  return pricing.value.everyoneElse.find((price) => price.tier === tier)?.cents ?? null;
+}
+
+/** The prices with `tier`'s set to `cents`, or left out for null, in the tiers' order. */
+function withPrice(tier: string, cents: number | null): PricingObject {
+  const everyoneElse = tiers.value.flatMap((name) => {
+    const price = name === tier ? cents : storedCents(name);
+    return price === null ? [] : [{ tier: name, cents: price }];
+  });
+  return { ...pricing.value, everyoneElse };
+}
+
+const cells = ref<Record<string, Typing<number | null>>>({});
 
 function cellText(tier: string): string {
-  return (
-    drafts.value[tier] ??
-    priceText(pricing.value.everyoneElse.find((price) => price.tier === tier)?.cents)
-  );
+  return cells.value[tier]?.text ?? priceText(storedCents(tier));
 }
 
 function onPrice(tier: string, text: string) {
+  const before = cells.value[tier]?.before ?? storedCents(tier);
+  cells.value = { ...cells.value, [tier]: { text, before } };
   const cents = centsFromText(text);
-  if (cents === undefined) {
-    drafts.value = { ...drafts.value, [tier]: text };
-    return;
-  }
-  drafts.value = Object.fromEntries(
-    Object.entries(drafts.value).filter(([typed]) => typed !== tier),
-  );
-  const rest = pricing.value.everyoneElse.filter((price) => price.tier !== tier);
-  const everyoneElse =
-    cents === null
-      ? rest
-      : tiers.value.flatMap((name) =>
-          name === tier ? [{ tier, cents }] : rest.filter((price) => price.tier === name),
-        );
-  write({ ...pricing.value, everyoneElse });
+  const kept = cents === undefined ? before : cents;
+  if (kept !== storedCents(tier)) write(withPrice(tier, kept));
 }
 
-const invalidCells = computed(() => Object.keys(drafts.value));
+/** Leaving a cell redraws it from what is kept, unless what it holds is not an amount. */
+function onPriceLeft(tier: string) {
+  const typing = cells.value[tier];
+  if (!typing || centsFromText(typing.text) === undefined) return;
+  cells.value = Object.fromEntries(Object.entries(cells.value).filter(([name]) => name !== tier));
+}
 
-const percentDraft = ref<string | null>(null);
-const percentText = computed(() => percentDraft.value ?? String(pricing.value.halfTablePercent));
+const invalidCells = computed(() =>
+  Object.entries(cells.value)
+    .filter(([, typing]) => centsFromText(typing.text) === undefined)
+    .map(([tier]) => tier),
+);
 
-function onPercent(text: string) {
-  const percent = /^\d{1,3}$/.test(text.trim()) ? Number(text.trim()) : NaN;
-  if (!(percent >= 0 && percent <= 100)) {
-    percentDraft.value = text;
-    return;
-  }
-  percentDraft.value = null;
-  write({ ...pricing.value, halfTablePercent: percent });
+const share = ref<Typing<number> | null>(null);
+const shareText = computed(() => share.value?.text ?? String(pricing.value.halfTablePercent));
+const shareInvalid = computed(
+  () => share.value !== null && percentFromText(share.value.text) === undefined,
+);
+
+function onShare(text: string) {
+  const before = share.value?.before ?? pricing.value.halfTablePercent;
+  share.value = { text, before };
+  const kept = percentFromText(text) ?? before;
+  if (kept !== pricing.value.halfTablePercent) write({ ...pricing.value, halfTablePercent: kept });
+}
+
+function onShareLeft() {
+  if (share.value && !shareInvalid.value) share.value = null;
 }
 
 function onCurrency(code: string) {
   write({ ...pricing.value, currency: code });
 }
+
+const held = computed(() => invalidCells.value.length > 0 || shareInvalid.value);
+watch(held, (value) => emit('held', value));
+onBeforeUnmount(() => {
+  if (held.value) emit('held', false);
+});
 </script>
 
 <template>
@@ -132,6 +167,7 @@ function onCurrency(code: string) {
                 :aria-invalid="invalidCells.includes(tier) || undefined"
                 :data-testid="`pricing-price-${index}`"
                 @input="onPrice(tier, ($event.target as HTMLInputElement).value)"
+                @blur="onPriceLeft(tier)"
               />
             </td>
           </tr>
@@ -142,7 +178,7 @@ function onCurrency(code: string) {
       </p>
     </template>
 
-    <div class="pricing-options">
+    <div v-if="tiers.length" class="pricing-options">
       <label class="pricing-half">
         Half table costs
         <input
@@ -150,10 +186,11 @@ function onCurrency(code: string) {
           type="text"
           inputmode="numeric"
           autocomplete="off"
-          :value="percentText"
-          :aria-invalid="percentDraft !== null || undefined"
+          :value="shareText"
+          :aria-invalid="shareInvalid || undefined"
           data-testid="pricing-half-percent"
-          @input="onPercent(($event.target as HTMLInputElement).value)"
+          @input="onShare(($event.target as HTMLInputElement).value)"
+          @blur="onShareLeft"
         />
         % of a full table
       </label>
@@ -171,7 +208,7 @@ function onCurrency(code: string) {
         </select>
       </label>
     </div>
-    <p v-if="percentDraft !== null" class="pricing-error" role="alert">
+    <p v-if="shareInvalid" class="pricing-error" role="alert" data-testid="pricing-share-error">
       The half table's share is a whole number from 0 to 100.
     </p>
     <p v-if="tiers.length" class="pricing-note">

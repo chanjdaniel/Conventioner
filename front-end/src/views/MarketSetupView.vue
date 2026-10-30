@@ -283,8 +283,25 @@ async function savePlan() {
   }
 }
 
+/**
+ * A card holds the autosave while one of its fields shows text that is not a value (the Pricing
+ * card's price or share, E43/F01/S01), so "Plan saved" never stands beside text that was not kept.
+ * The working copy already holds the value from before that text, so leaving or moving the phase
+ * still writes the plan as it is kept.
+ */
+const planHeld = ref(false);
+/** An edit arrived while the plan was held, and waits to be sent. */
+let planHeldEdit = false;
+watch(planHeld, (held) => {
+  if (held && planSaveTimer.value !== null) schedulePlanSave();
+  else if (!held && planHeldEdit) schedulePlanSave();
+});
+
 function schedulePlanSave() {
   if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
+  planSaveTimer.value = null;
+  planHeldEdit = planHeld.value;
+  if (planHeld.value) return;
   planSaveTimer.value = setTimeout(() => {
     planSaveTimer.value = null;
     void savePlan();
@@ -299,9 +316,10 @@ function schedulePlanSave() {
  * changed - refused by their own unsaved work.
  */
 async function flushPlanSave(): Promise<void> {
-  if (planSaveTimer.value === null) return;
-  clearTimeout(planSaveTimer.value);
+  if (planSaveTimer.value === null && !planHeldEdit) return;
+  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
   planSaveTimer.value = null;
+  planHeldEdit = false;
   await savePlan();
 }
 
@@ -313,9 +331,10 @@ async function startFromCsv(): Promise<void> {
 
 /** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 onUnmounted(() => {
-  if (planSaveTimer.value === null) return;
-  clearTimeout(planSaveTimer.value);
+  if (planSaveTimer.value === null && !planHeldEdit) return;
+  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
   planSaveTimer.value = null;
+  planHeldEdit = false;
   void savePlan();
 });
 
@@ -426,6 +445,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :formLockReason="market.applicationFormLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
+          @held="(held: boolean) => (planHeld = held)"
           @choosePath="showPathChoice = true"
           @startFromCsv="startFromCsv"
           @openForm="showTab('form')"

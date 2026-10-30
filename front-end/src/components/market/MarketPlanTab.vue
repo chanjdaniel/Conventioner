@@ -57,6 +57,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
   (event: 'update:intakeMode', value: IntakeMode): void;
+  /** A card's field shows text that is not a value: the plan waits rather than saving. */
+  (event: 'held', value: boolean): void;
   (event: 'choosePath'): void;
   (event: 'openForm'): void;
   /** Open the flow that starts this draft from its Google Form's responses. */
@@ -164,6 +166,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         <ElementPricing
           :setupObject="setupObject"
           @update:setupObject="(value) => emit('update:setupObject', value)"
+          @held="(held) => emit('held', held)"
         />
       </template>
     </ElementSettingContainer>

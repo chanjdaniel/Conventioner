@@ -144,6 +144,51 @@ test.describe('the Pricing card', () => {
     });
   });
 
+  test('prices typed key by key keep their cents, and text that is no value keeps nothing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { dates: [SEED_MARKET_DATE, SECOND_DATE] },
+    );
+    await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, PLAN);
+    const stored = async () =>
+      (await (await request.get(`${BACKEND_URL}/markets/${seed.marketId}`)).json()).market
+        .setupObject.pricing;
+
+    await page.goto(marketSetupPath(seed.marketId, 'setup'));
+    const card = page.getByTestId('plan-card-pricing');
+    await expect(card).toBeVisible({ timeout: 15000 });
+    const gold = card.getByRole('textbox', { name: 'Everyone else Gold' });
+    const silver = card.getByRole('textbox', { name: 'Everyone else Silver' });
+
+    // As an organizer types: one key at a time, the cell never redrawn under the caret.
+    await gold.pressSequentially('12.05');
+    await silver.pressSequentially('30.01');
+    await expect(gold).toHaveValue('12.05');
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    await expect.poll(stored).toMatchObject({
+      everyoneElse: [
+        { tier: 'Gold', cents: 1205 },
+        { tier: 'Silver', cents: 3001 },
+      ],
+    });
+
+    // A share typed past 100 is shown with its error, and the plan keeps the share it had.
+    const share = card.getByTestId('pricing-half-percent');
+    await share.fill('');
+    await share.pressSequentially('150');
+    await expect(card.getByTestId('pricing-share-error')).toBeVisible();
+    await expect(share).toHaveValue('150');
+    await page.reload();
+    await expect(card.getByTestId('pricing-half-percent')).toHaveValue('50', { timeout: 15000 });
+    expect((await stored()).halfTablePercent).toBe(50);
+  });
+
   test('a market with no prices shows no price on any card', async ({
     authenticatedPage: page,
     request,

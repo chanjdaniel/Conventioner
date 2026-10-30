@@ -61,6 +61,14 @@ export function centsFromText(text: string): number | null | undefined {
   return cents <= MOST_CENTS ? cents : undefined;
 }
 
+/** A typed half-table share: a whole percent from 0 to 100, or undefined for anything else. */
+export function percentFromText(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (!/^\d{1,3}$/.test(trimmed)) return undefined;
+  const percent = Number(trimmed);
+  return percent <= 100 ? percent : undefined;
+}
+
 /** A stored price as the cell shows it: "35", "35.50"; blank where there is none. */
 export function priceText(cents: number | null | undefined): string {
   if (cents == null) return '';
