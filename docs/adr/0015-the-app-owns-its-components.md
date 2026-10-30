@@ -43,7 +43,7 @@ The app owns its components and its icons, and depends on no component library o
 - The first combobox, the placement dialog's searchable vendor pickers (E38/F08/S03), stays the app's own: [`SearchPicker.vue`](../../front-end/src/components/SearchPicker.vue).
   It was built on Reka UI's Combobox as well, and that version was set aside for three reasons.
   It is a dependency, Reka UI with a second VueUse of its own, for one control of about 150 lines whose roles and keys its unit tests pin.
-  It put the entry JavaScript at 99,310 B against the bundle budget's 89,000 B, since the Vue runtime it uses lands in the chunk every first paint loads; the owned picker keeps it at 86,808 B.
+  It added about 12.5 KB gzipped to the entry JavaScript, since the Vue runtime it uses lands in the chunk every first paint loads: measured on the same dev on 2026-10-30, 99,310 B with it against 86,808 B with the owned picker, the bundle budget being 89,000 B.
   And the behaviour the dialog needs is not what it gives unasked: a search narrows each group and never hides one, where its filter drops a group with no match, and the list opens in the dialog's flow, so the dialog's scroller cannot clip it.
   A date picker or a popover menu, which must place itself over the page, is still a headless library's first.
 
