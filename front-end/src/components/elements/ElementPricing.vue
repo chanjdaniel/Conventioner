@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
     <p v-if="tiers.length && groups.length" class="pricing-note">
       A vendor is in a group when every one of its conditions holds of their answers. They pay the
       cheapest group they are in at their table's tier, and {{ EVERYONE_ELSE }} where they are in
-      none or their group leaves the tier blank.
+      none or their groups leave the tier blank.
     </p>
   </div>
 </template>
