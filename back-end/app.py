@@ -11,16 +11,19 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
+import api.vendor_export as VendorExportApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import typesafe_client as TypeSafe
+import market_stats as MarketStats
 import api.attendance as AttendanceApi
 import api.door as DoorApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
 import api.market_actions as Actions
+import history as History
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -30,7 +33,7 @@ from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, make_response, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
@@ -767,6 +770,36 @@ def save_review_highlights(market_id: str) -> Response:
     return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
 
 
+@app.route('/markets/<market_id>/permissions/<action_id>', methods=['PUT'])
+@login_required
+def set_market_permission(market_id: str, action_id: str) -> Response:
+    """Set the role one row of the market's table asks, as its owner (E39/F01/S03). Asks
+    ``Actions.CHANGE_THE_TABLE``; recorded in the market's history.
+
+    Body: { "role": "admin" }. Answers the market's table.
+    """
+    data = json_object(required=False)
+    table = MarketsApi.set_permission(market_id, action_id, data.get("role"), authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
+@app.route('/markets/<market_id>/permissions/<action_id>', methods=['DELETE'])
+@login_required
+def reset_market_permission(market_id: str, action_id: str) -> Response:
+    """Return one row of the market's table to its built-in default, as its owner (E39/F01/S03).
+    Asks ``Actions.CHANGE_THE_TABLE``; recorded in the market's history. Answers the table."""
+    table = MarketsApi.reset_permission(market_id, action_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
+@app.route('/markets/<market_id>/permission-history', methods=['GET'])
+@login_required
+def get_market_permission_history(market_id: str) -> Response:
+    """Every change to the market's table, newest first (E39/F01/S03). Asks ``Actions.READ``."""
+    entries = MarketsApi.get_permission_history(market_id, authenticated_email())
+    return jsonify({"entries": entries}), 200
+
+
 @app.route('/markets/<market_id>/rejection-rules', methods=['PUT'])
 @login_required
 def save_rejection_rules(market_id: str) -> Response:
@@ -1055,6 +1088,30 @@ def get_assignment_csv(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
+@app.route('/markets/<market_id>/vendor-export', methods=['POST'])
+@login_required
+def export_vendors(market_id: str) -> Response:
+    """Download the market's vendors as a CSV, filtered and with the columns chosen (E42/F01/S01).
+    Body: { "filters": {...}, "columns": ["name", "email", ...], "day": "2026-10-29" }. A read,
+    sent as a POST for the filters it carries. Asks ``Actions.EXPORT_CSV``."""
+    content, filename = VendorExportApi.export(
+        market_id, json_object(required=True), authenticated_email())
+    response = make_response(content)
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@app.route('/markets/<market_id>/vendor-export/preview', methods=['POST'])
+@login_required
+def preview_vendor_export(market_id: str) -> Response:
+    """What the export would hold: its count, header and first rows, and what the market offers to
+    filter and export by. Body as ``export_vendors``. Asks ``Actions.EXPORT_CSV``."""
+    result, status_code = VendorExportApi.preview(
+        market_id, json_object(required=True), authenticated_email())
+    return jsonify(result), status_code
+
+
 @app.route('/markets/<market_id>/tables', methods=['GET'])
 @login_required
 def get_market_tables(market_id: str) -> Response:
@@ -1217,13 +1274,33 @@ def list_market_applications(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
+@app.route('/markets/<market_id>/stats', methods=['GET'])
+@login_required
+def get_market_stats(market_id: str) -> Response:
+    """The Stats tab's figures: who applied, and what they answered. Asks ``Actions.READ``."""
+    requesting_user = authenticated_email()
+
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return jsonify({"error": "Market not found"}), 404
+    if context.market is None:
+        return jsonify({"error": "Invalid market data"}), 400
+
+    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    if refused:
+        return jsonify({"error": refused}), 403
+
+    return jsonify(MarketStats.stats_for_market(context.market)), 200
+
+
 def _reviewer_on(market_id: str):
     """The signed-in reviewer as a ``MarketPerson`` and the market's context, once they may give
     verdicts here, or an error response (E34).
 
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
-    card - asked through ``verdict_refusal``, the same rule the market read serves as
-    ``verdictLockReason``: the table's verdicts row, while the review is open (E36/F01/S01).
+    card - asked through ``verdict_refusal``, the same rules the market read serves as the
+    verdicts row's answer and ``verdictsSettledReason``: the table's verdicts row, while the review
+    is open (E36/F01/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)
@@ -1350,7 +1427,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
     data = json_object(required=False)
     owner = MarketsApi.follow_up_owner(
         context.market, context.organization, person, data.get('ownerEmail'))
-    result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
+    result, status_code = ApplicantsApi.reassign_follow_up(
+        market_id, application_id, owner, person.email)
     return jsonify(result), status_code
 
 
@@ -1437,7 +1515,7 @@ def confirm_csv_proposal(market_id: str) -> Response:
         return jsonify(error), status_code
 
     data = json_object(required=True)
-    result, status_code = CsvStart.confirm(market_doc, data)
+    result, status_code = CsvStart.confirm(market_doc, data, authenticated_email())
     return jsonify(result), status_code
 
 
@@ -1512,6 +1590,10 @@ def import_applications(market_id: str) -> Response:
         MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
         by=authenticated_email(),
     )
+    if status_code == 200:
+        # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
+        History.record(market_id, authenticated_email(), Actions.IMPORT_APPLICATIONS,
+                       kind=History.IMPORTED, detail=lambda: CsvImport.import_counts(result))
     return jsonify(result), status_code
 
 
@@ -1535,7 +1617,7 @@ def publish_market_results(market_id: str) -> Response:
     if refusal:
         return jsonify({"error": refusal}), 403
 
-    result, status_code = ApplicantsApi.publish_results(market_id)
+    result, status_code = ApplicantsApi.publish_results(market_id, requesting_user)
     return jsonify(result), status_code
 
 
@@ -1557,12 +1639,17 @@ def set_applications_stopped(market_id: str) -> Response:
         return jsonify({"error": "Market not found"}), 404
     if context.market is None:
         return jsonify({"error": "Invalid market data"}), 400
+    requesting_user = authenticated_email()
     refused = Actions.refusal(
-        Actions.STOP_APPLICATIONS, authenticated_email(), context.market, context.organization)
+        Actions.STOP_APPLICATIONS, requesting_user, context.market, context.organization)
     if refused:
         return jsonify({"error": refused}), 403
+    # An archived market refuses it in the archived rule's words, as every row it no longer takes.
+    archived = MarketsApi.archived_refusal(context.market)
+    if archived:
+        return jsonify({"error": archived}), 403
 
-    result, status_code = ApplicantsApi.set_applications_stopped(market_id, stopped)
+    result, status_code = ApplicantsApi.set_applications_stopped(market_id, stopped, requesting_user)
     return jsonify(convert_keys_to_camel_case(result)), status_code
 
 

@@ -39,7 +39,7 @@ async function walkToAssignment(request: APIRequestContext, marketId: string) {
   }
 }
 
-/** Run the assignment the way an organizer does, and count who it placed. */
+/** Allocate tables the way an organizer does, and count who it assigned. */
 async function assignFromThePage(page: Page, request: APIRequestContext, marketId: string) {
   await page.goto(marketSetupPath(marketId, 'assignment'));
   await page.getByTestId('market-setup-assign-button').click();

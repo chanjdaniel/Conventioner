@@ -14,6 +14,7 @@ import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { VALID_TRANSITIONS, transitionNeedsConfirmation } from '@/utils/phase';
 import { movesServedFrom } from './support/servedMoves';
+import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 
@@ -35,6 +36,7 @@ function marketIn(phase: MarketPhase): Market {
     phase,
     intakeMode: IntakeMode.Form,
     transitionBlockers: movesServedFrom(phase),
+    actionRefusals: answersRefusing(),
   } as Market;
 }
 

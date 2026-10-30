@@ -5,7 +5,7 @@ describes:
   - front-end/src/utils/market.ts#parseMarketFromApi
   - front-end/src/__tests__/noMarketInTheBrowser.test.ts
   - back-end/api/markets.py#get_market_for_user
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/02
@@ -41,7 +41,7 @@ The `localStorage` key `market` is gone, and [`noMarketInTheBrowser.test.ts`](..
 The dashboard keeps only the `lastMarketId` pointer, which the store sets when a market arrives.
 
 **Facts derived from the market are served on it, not fetched per tab.**
-`GET /markets/:id` ([`get_market_for_user`](../../../back-end/api/markets.py)) stamps every derived fact onto the market it serves: the form lock (`applicationFormLockReason`), the setup and rules locks, `transitionBlockers`, `applicationsStopped` and `applicationsStopReason`, `phasesReached`, `assignmentOutOfDate`, `orphanedPins`, each person's `readOnlyReason`, `adminActionsReason`, `verdictLockReason` and the rest, and `peopleOnMarket`, whom this reader's follow-up may name: everyone the role rule reaches to someone in the market's organization, the market's own roles to anyone else ([needs follow-up](../../business/rules/needs-follow-up.md)); `peopleOnMarket` is served only to someone who may give a verdict, and every other reader gets an empty list.
+`GET /markets/:id` ([`get_market_for_user`](../../../back-end/api/markets.py)) stamps every derived fact onto the market it serves: the form lock (`applicationFormLockReason`), the setup and rules locks, `transitionBlockers`, `applicationsStopped`, `phasesReached`, `assignmentOutOfDate`, `orphanedPins`, each person's `actionRefusals` (every row of [the market's actions](../modules/market-actions.md) answered for them, from the rows the market holds) and `readOnlyReason`, the table itself for display (`permissionTable`), the rules of the market's life the rows never override (`verdictsSettledReason`, `addingVendorsReason`, `publishWaitsReason`, and the stage's `applicationsStopReason`, when stopping applications may be taken, E38/F04/S02), and `peopleOnMarket`, whom this reader's follow-up may name: everyone the role rule reaches to someone in the market's organization, the market's own roles to anyone else ([needs follow-up](../../business/rules/needs-follow-up.md)); `peopleOnMarket` is served only to someone who may give a verdict, and every other reader gets an empty list.
 A tab that fetches a fact for itself and publishes it to its siblings is how the form builder and the priority rules went stale.
 Nothing a client sends can write one of these.
 

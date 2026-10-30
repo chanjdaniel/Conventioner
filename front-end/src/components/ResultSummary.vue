@@ -17,6 +17,8 @@ import NothingAssigned from '@/components/NothingAssigned.vue';
 import PlacementHistoryDialog from '@/components/PlacementHistoryDialog.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import { downloadErrorMessage, saveCsv } from '@/utils/download';
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { marketPath } from '@/utils/market';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
@@ -102,29 +104,10 @@ const unassignedCount = computed(() =>
  */
 const historyOpen = ref(false);
 
+/** Download CSV is the table's Export CSV row (E39/F01/S02). */
+const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
 const downloadError = ref('');
 const isDownloading = ref(false);
-
-function filenameFrom(header: string | undefined, fallback: string): string {
-  const match = header?.match(/filename="?([^";]+)"?/i);
-  return match?.[1] ?? fallback;
-}
-
-/** The error the server gave, whether it came back as JSON or inside the blob asked for. */
-async function errorFrom(err: unknown): Promise<string> {
-  const data =
-    err && typeof err === 'object' && 'response' in err
-      ? (err as { response?: { data?: unknown } }).response?.data
-      : undefined;
-  try {
-    const parsed = data instanceof Blob ? JSON.parse(await data.text()) : data;
-    const message = (parsed as { error?: unknown } | undefined)?.error;
-    if (typeof message === 'string' && message) return message;
-  } catch {
-    // Not JSON: fall through to the plain message.
-  }
-  return 'Failed to download CSV.';
-}
 
 async function downloadCsv(): Promise<void> {
   downloadError.value = '';
@@ -134,20 +117,9 @@ async function downloadCsv(): Promise<void> {
       `/markets/${encodeURIComponent(props.market.id)}/assignment-csv`,
       { responseType: 'blob' },
     );
-    const filename = filenameFrom(
-      (response.headers as Record<string, string | undefined>)['content-disposition'],
-      `${props.market.name || 'market'}_assigned.csv`,
-    );
-    const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    saveCsv(response, `${props.market.name || 'market'}_assigned.csv`);
   } catch (err: unknown) {
-    downloadError.value = await errorFrom(err);
+    downloadError.value = await downloadErrorMessage(err, 'Failed to download CSV.');
   } finally {
     isDownloading.value = false;
   }
@@ -159,15 +131,16 @@ async function downloadCsv(): Promise<void> {
     <!-- A fact, not an error: no dismiss, and running again is what clears it (E22/F03/S02). -->
     <p v-if="outOfDate" class="note" data-testid="assignment-out-of-date">
       {{ outOfDate }}
-      <RouterLink :to="marketPath(market.id, 'assignment')">Run it again</RouterLink>
-      to bring it up to date.
+      <RouterLink :to="marketPath(market.id, 'assignment')">Allocate tables again</RouterLink>
+      to bring the result up to date.
     </p>
 
     <template v-if="!assigned">
       <NothingAssigned :market="market" testid="result-empty">
         <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
         <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
-          Anyone you place below first keeps their table: the run places everyone else around them.
+          Anyone you assign below first keeps their table: allocating tables assigns everyone else
+          around them.
         </span>
       </NothingAssigned>
       <span class="result-actions">
@@ -177,14 +150,14 @@ async function downloadCsv(): Promise<void> {
           data-testid="result-history-button"
           @click="historyOpen = true"
         >
-          Placement history
+          Assignment history
         </button>
       </span>
     </template>
     <div v-else class="result-strip" data-testid="result-strip">
-      <span class="result-figure" data-testid="result-vendors-placed">
+      <span class="result-figure" data-testid="result-approved-assigned">
         <strong>{{ statistics?.totalAssignedVendors ?? '…' }}</strong> of
-        {{ statistics?.totalVendors ?? '…' }} vendors placed
+        {{ statistics?.totalVendors ?? '…' }} approved applicants assigned
       </span>
       <span class="result-figure" data-testid="result-tables-used">
         <strong>{{ statistics?.totalAssignedTables ?? '…' }}</strong> of
@@ -217,9 +190,10 @@ async function downloadCsv(): Promise<void> {
           data-testid="result-history-button"
           @click="historyOpen = true"
         >
-          Placement history
+          Assignment history
         </button>
         <button
+          v-if="mayExport"
           type="button"
           class="btn btn--secondary"
           :disabled="isDownloading"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
@@ -188,10 +189,19 @@ watch(
 // are published. The phase mirror stands in only until the market has been read.
 const assignRefusalReason = computed(
   () =>
-    market.value?.readOnlyReason ||
+    actionRefusal(market.value, MarketAction.Assign) ||
     (market.value?.assignRefusalReason !== undefined
       ? market.value.assignRefusalReason
       : assignRefusal(market.value?.phase)),
+);
+
+/**
+ * Whether this person may change the assignment rules. They ride in the plan, so their write asks
+ * both the Market Setup row and the Assignment row (E39/F01/S01).
+ */
+const rulesWritable = computed(
+  () =>
+    mayTake(market.value, MarketAction.ChangeSetup) && mayTake(market.value, MarketAction.Assign),
 );
 
 /**
@@ -245,7 +255,7 @@ const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 async function savePlan() {
   // A plan that cannot change is never sent (bug 30): its controls are disabled, and this is the
   // one door every edit reaches the server through, so nothing slips past them.
-  if (!market.value?.id || market.value.readOnlyReason) return;
+  if (!market.value?.id || !mayTake(market.value, MarketAction.ChangeSetup)) return;
   planSaveStatus.value = 'saving';
   planSaveError.value = '';
   try {
@@ -337,7 +347,12 @@ const handleAssign = async () => {
   assignError.value = '';
   assignIncomplete.value = [];
   try {
-    await updateMarket();
+    // Allocating reads the plan as the server holds it, so a pending edit is written first - by
+    // someone who may change the plan. Allocating asks the Assignment row alone, and a market's
+    // owner may set it apart from Change Market Setup (E39/F01/S03): to anyone that row refuses,
+    // the rules are read only, there is nothing of theirs to save, and the plan's write would
+    // refuse the allocation they may make.
+    if (mayTake(market.value, MarketAction.ChangeSetup)) await updateMarket();
 
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
@@ -355,7 +370,7 @@ const handleAssign = async () => {
         response?: { data?: { error?: string; incomplete?: IncompleteApplication[] } };
       }
     )?.response?.data;
-    assignError.value = data?.error || 'Assignment failed. Please try again.';
+    assignError.value = data?.error || 'Tables could not be allocated. Please try again.';
     assignIncomplete.value = data?.incomplete ?? [];
   }
 };
@@ -394,8 +409,12 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupObject="setupObject"
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
-          :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
-          :readOnly="Boolean(market.readOnlyReason)"
+          :csvStartRefusal="
+            actionRefusal(market, MarketAction.ImportApplications) ||
+            market?.csvStartRefusal ||
+            null
+          "
+          :readOnly="!mayTake(market, MarketAction.ChangeSetup)"
           :setupLockReason="market.setupLockReason ?? null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
@@ -426,7 +445,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignError="assignError"
           :assignIncomplete="assignIncomplete"
           :marketId="market.id"
-          :readOnly="Boolean(market.readOnlyReason)"
+          :readOnly="!rulesWritable"
+          :mayAllocate="mayTake(market, MarketAction.Assign)"
           :rulesLockReason="market.assignmentRulesLockReason ?? null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"

@@ -60,7 +60,7 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
   });
 
-  test('the bar keeps all five tabs, and one out of its phase says when it matters', async ({
+  test('the bar keeps all six tabs, and one out of its phase says when it matters', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -73,6 +73,16 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('market-bar-tab-attendance')).toBeVisible();
+    await expect(
+      page.getByTestId('market-bar-tabs').locator('[data-testid^="market-bar-tab-"]'),
+    ).toHaveText([
+      'Market Setup',
+      'Application Form',
+      'Applications',
+      'Assignment',
+      'Attendance',
+      'Stats',
+    ]);
 
     await page.getByTestId('market-bar-tab-attendance').click();
     await expect(page.getByTestId('market-tab-note')).toHaveText(
@@ -157,7 +167,7 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
-      'The review is closed: every verdict settled when the assignment began.',
+      'The review is closed: every verdict settled when the market entered Assignment.',
     );
   });
 
@@ -221,7 +231,7 @@ test.describe('What to show, and when', () => {
     await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('result-empty')).toContainText('Nothing assigned yet');
     await expect(page.getByTestId('phase-rail-next')).toHaveText(
-      /Set the rules and run the assignment\./,
+      /Set the rules and allocate tables\./,
     );
     await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
 

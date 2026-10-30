@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import re
 import uuid
-from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
@@ -22,6 +22,7 @@ from datatypes import (
     FormField,
     IntakeMode,
     Market,
+    MarketPermission,
     MarketPerson,
     MarketPhase,
     MarketRole,
@@ -62,7 +63,7 @@ from market_documents import (
 import api.market_actions as Actions
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
-import placement_history as PlacementHistory
+import history as History
 import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
@@ -186,53 +187,85 @@ VIEWER_REFUSAL = (
     "You can view this market but not change it. Its owner or an admin can give you editing "
     "access."
 )
-EDITOR_REFUSAL = (
-    "Moving this market's phase, publishing its results and importing applications are for its "
-    "owner and admins."
-)
+
+#: The rows an archived market still takes: reading it, and the decisions about its record - who
+#: may see it and whether to keep it - which are not changes to it (bug 30). Every other row is
+#: refused on an archived market whoever may, a row added later included.
+ARCHIVED_STILL_TAKES = frozenset({
+    Actions.READ, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS,
+    Actions.DELETE_MARKET,
+})
+
+#: The rows that read the market rather than change it.
+READING_ROWS = frozenset({Actions.READ, Actions.EXPORT_CSV})
 
 
-def change_refusal(
-    user_email: str, market: Market, organization: Optional[Organization],
-) -> Optional[str]:
-    """Why this person cannot change this market, or None while they can (E26/F08/S01).
+def _answers(
+    phase: MarketPhase, refused: Callable[[Actions.Action], Optional[str]],
+) -> Dict[str, Optional[str]]:
+    """Every row's answer, by id: None where the person may take it, else why not - the archived
+    rule first, as the screens always said it, then the row's own sentence."""
+    archived = ARCHIVED_REFUSAL if phase is MarketPhase.ARCHIVED else None
+    return {
+        row.id: (None if row in ARCHIVED_STILL_TAKES else archived) or refused(row)
+        for row in Actions.ACTIONS.values()
+    }
 
-    The archived rule, then the table's Market Setup row, which stands for every Editor write until
-    each screen asks its own row (E39/F01/S02). Served on the market as ``readOnlyReason``, so a
-    screen offers no control its write would refuse: a Viewer was shown every one, and each edit
-    appeared to work until its save failed with a 403 (bug 37).
+
+def role_action_refusals(
+    role: Optional[MarketRole], phase: MarketPhase, rows: Mapping[str, Any],
+) -> Dict[str, Optional[str]]:
+    """What a person holding ``role`` is told of every action on a market in ``phase`` holding
+    ``rows`` of the table, by row id (E39/F01/S02, S03).
+
+    Each row is asked by ``Actions.role_refusal`` of the role already resolved, the ranking the
+    writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
+    markets list from the documents it holds. Served as ``actionRefusals``, so every screen offers
+    a control on the answer of the action it takes. The rules of a market's life other than the
+    archived one are each served on their own.
     """
+    return _answers(phase, lambda row: Actions.role_refusal(row, role, rows))
+
+
+def deprecated_screen_reasons(
+    refusals: Dict[str, Optional[str]], verdicts_settled: Optional[str],
+    adding_vendors: Optional[str], publish_waits: Optional[str],
+) -> Dict[str, Optional[str]]:
+    """Deprecated: the reasons the screens read before each asked its row (E39/F01/S02), each now
+    its row's answer and the rule of the market's life it carried.
+
+    The back end deploys before the front end, and a tab keeps its bundle until it reloads; an old
+    bundle reads a missing reason as "allowed" and offers what the server refuses. Served for one
+    more release so it keeps refusing; the next release removes them, and the read's ``user_role``.
+    """
+    return {
+        # The old bundle says these words only on the import screens, and asks the rest only
+        # whether it is null: the import row's answer is the move row's yes and no in its words.
+        'adminActionsReason': refusals[Actions.IMPORT_APPLICATIONS.id],
+        'verdictLockReason': refusals[Actions.GIVE_VERDICTS.id] or verdicts_settled,
+        'addVendorReason': refusals[Actions.ADD_VENDOR.id] or adding_vendors,
+        'publishResultsReason': refusals[Actions.PUBLISH_RESULTS.id] or publish_waits,
+    }
+
+
+def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Optional[str]:
+    """Why this person may change nothing on this market, or None while they may change something
+    (E26/F08/S01, E39/F01/S02): the archived rule, then whether any of the table's changing rows
+    is theirs. Served as ``readOnlyReason``, which the frame says once for every page (T15)."""
     archived = archived_refusal(market)
     if archived:
         return archived
-    if Actions.may(Actions.CHANGE_SETUP, user_email, market, organization):
+    if any(
+        refusals[row.id] is None
+        for row in Actions.ACTIONS.values() if row not in READING_ROWS
+    ):
         return None
     return VIEWER_REFUSAL
 
 
-def admin_actions_refusal(
-    user_email: str, market: Market, organization: Optional[Organization],
-    action: Actions.Action = Actions.MOVE_PHASE,
-) -> Optional[str]:
-    """Why this person cannot take one of the Admin actions - moving the phase by default, or
-    publishing results - or None while they can (E26/F08/S01). Deciding applications is not one: a
-    verdict is the table's Editor row (E34/F01/S01), and ``verdict_refusal`` answers for it.
-
-    Served as ``adminActionsReason`` and in ``publishResultsReason``, in the words the screens say
-    until each asks its own row (E39/F01/S02). An Editor changes the plan and the seats but runs
-    none of these, and the rail offered them every phase move all the same.
-    """
-    refused = change_refusal(user_email, market, organization)
-    if refused:
-        return refused
-    if Actions.may(action, user_email, market, organization):
-        return None
-    return EDITOR_REFUSAL
-
-
 VERDICTS_SETTLED = (
-    "The review is closed: the verdicts settled when this market began its assignment. To seat "
-    "someone or free a seat, change the placement on the Result page."
+    "The review is closed: the verdicts settled when this market entered Assignment. To assign "
+    "someone or free a seat, change the assignment on the Result page."
 )
 
 
@@ -252,7 +285,8 @@ def verdict_refusal(
     A verdict - and a follow-up, a claim on a card - is the table's "Give verdicts and follow-ups"
     row (E34/F01/S01, E39/F01/S01), and open while the review is (E36/F01/S01): from assignment on,
     a verdict is the review's record, and a mistake is fixed with a seat placed or freed by hand.
-    Served as ``verdictLockReason``, so every review screen offers exactly what the write takes.
+    The screens read its parts from the market read: the row in ``actionRefusals`` and the review's
+    close as ``verdictsSettledReason``.
     """
     refused = archived_refusal(market) or Actions.refusal(
         Actions.GIVE_VERDICTS, user_email, market, organization)
@@ -268,7 +302,7 @@ def verdict_refusal(
 ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
 
 NOT_YET_ADDING = (
-    "A vendor is added by hand from the assignment on. Until then, vendors reach this market "
+    "A vendor is added by hand from Assignment on. Until then, vendors reach this market "
     "through its applications."
 )
 
@@ -276,18 +310,6 @@ NOT_YET_ADDING = (
 def adding_refusal(phase: MarketPhase) -> Optional[str]:
     """Why no vendor may be added in this phase, or None (E36/F03/S01): the write's rule."""
     return None if phase in ADDING_PHASES else NOT_YET_ADDING
-
-
-def add_vendor_refusal(
-    user_email: str, market: Market, organization: Optional[Organization],
-) -> Optional[str]:
-    """Why this person cannot add a vendor here, or None while they can (E36/F03/S01). Served as
-    ``addVendorReason``, so the page offers the action exactly when the write would take it."""
-    return (
-        archived_refusal(market)
-        or Actions.refusal(Actions.ADD_VENDOR, user_email, market, organization)
-        or adding_refusal(market.phase)
-    )
 
 
 def _load_market_to_change(
@@ -345,16 +367,16 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
 
 ASSIGNMENT_RULES_SETTLED = (
-    "The assignment for this market is settled. A rule only takes effect when the assignment "
-    "runs, and this market can no longer run it. Change a single placement on the Result page "
-    "instead."
+    "The table allocation for this market is settled. A rule only takes effect when tables are "
+    "allocated, and this market can no longer allocate them. Change a single assignment on the "
+    "Result page instead."
 )
 
 
 ASSIGNMENT_RULES_PUBLISHED = (
-    "Results are published, so the assignment is settled: a rule only takes effect when the "
-    "assignment runs, and it is not run again once applicants have been told. Change a single "
-    "placement on the Result page instead."
+    "Results are published, so the table allocation is settled: a rule only takes effect when "
+    "tables are allocated, and they are not allocated again once applicants have been told. Change "
+    "a single assignment on the Result page instead."
 )
 
 
@@ -449,7 +471,7 @@ def setup_lock_reason(market: Market) -> Optional[str]:
         return None
     settled = (
         f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
-        "applicants and the assignment rely on it."
+        "applicants and the table allocation rely on it."
     )
     can_return = (market.phase.value, MarketPhase.DRAFT.value) in VALID_TRANSITIONS
     if can_return and ApplicationsApi.count_applications_for_market(market.id) == 0:
@@ -796,11 +818,14 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market = context.market
     org_dict = context.organization_dict
 
-    if not Actions.may(Actions.READ, user_email, market, context.organization):
-        return None
+    # The person's role, resolved once: every answer below is asked of it (E39/F01/S02).
     user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
+    if Actions.role_refusal(Actions.READ, user_role, market.permissions):
+        return None
 
     market_dict['_id'] = str(market_dict['_id'])
+    # Deprecated: no screen reads the role since each asks the table (E39/F01/S02); an old bundle's
+    # Manage market does, and the next release removes it with ``deprecated_screen_reasons``.
     market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
     # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
@@ -842,30 +867,37 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     reached = PhaseRecord.phases_reached(market_dict, AttendanceApi.market_has_attendance)
     market_dict['phasesReached'] = sorted(reached.phases)
     market_dict['phaseRecordComplete'] = reached.complete
-    # Why this person cannot change this market, or take its admin actions; null while they can
-    # (E26/F06/S01, E26/F08/S01). The same rules every write meets, served so each screen offers
-    # no control the server would refuse.
-    market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
-    market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
-    market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
-    # Results wait for the allocation (E36/F04/S01): offered exactly when the endpoint would take
-    # them, with how many will read each outcome for the confirmation.
-    publish_reason = admin_actions_refusal(
-        user_email, market, context.organization, Actions.PUBLISH_RESULTS,
-    ) or ApplicantsApi.publish_results_refusal(market)
-    market_dict['publishResultsReason'] = publish_reason
+    # What this person is told of every action here, by row (E39/F01/S02), and why they may change
+    # nothing at all (E26/F06/S01, T15): asked of the role resolved above by the ranking every
+    # write asks, served so each screen offers no control the server would refuse.
+    refusals = role_action_refusals(user_role, market.phase, market.permissions)
+    market_dict['actionRefusals'] = refusals
+    market_dict['readOnlyReason'] = read_only_reason(market, refusals)
+    # And the table itself, for Manage market to show every row's role and where it came from
+    # (E39/F01/S03): the rows this market holds, the built-in default for the rest.
+    market_dict['permissionTable'] = Actions.table(market)
+    # The rules of the market's life the table never overrides, each on its own: the verdicts
+    # settle on entering assignment (E36/F01/S01), a vendor is added from the assignment on
+    # (E36/F03/S01), and results wait for the allocation (E36/F04/S01), with how many will read
+    # each outcome for the confirmation of someone who may publish now.
+    verdicts_settled = None if review_is_open(market.phase) else VERDICTS_SETTLED
+    market_dict['verdictsSettledReason'] = verdicts_settled
+    adding_vendors = adding_refusal(market.phase)
+    market_dict['addingVendorsReason'] = adding_vendors
+    publish_waits = ApplicantsApi.publish_results_refusal(market)
+    market_dict['publishWaitsReason'] = publish_waits
     market_dict['publishOutcomes'] = (
-        None if publish_reason else ResultOutcome.outcome_counts(market)
+        None if refusals[Actions.PUBLISH_RESULTS.id] or publish_waits
+        else ResultOutcome.outcome_counts(market)
     )
-    market_dict['adminActionsReason'] = admin_actions_refusal(
-        user_email, market, context.organization,
-    )
-    # Stopping and resuming applications (E38/F04/S02): offered exactly when the endpoint would take
-    # it, with whether the form is stopped now.
+    # Stopping and resuming applications (E38/F04/S02): whether the form is stopped now, and the
+    # rule of the stage that says when it may be, beside the table's Stop taking applications
+    # answer, so the rail offers the action exactly when the endpoint would take it.
     market_dict['applicationsStopped'] = market.applications_stopped
-    market_dict['applicationsStopReason'] = admin_actions_refusal(
-        user_email, market, context.organization, Actions.STOP_APPLICATIONS,
-    ) or ApplicantsApi.applications_stop_refusal(market)
+    market_dict['applicationsStopReason'] = ApplicantsApi.applications_stop_refusal(market)
+    # Deprecated, for a tab still on the old bundle; the next release removes them.
+    market_dict.update(deprecated_screen_reasons(
+        refusals, verdicts_settled, adding_vendors, publish_waits))
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
@@ -878,9 +910,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
     # and so name one (the table's verdicts row): the organization's people too, if the reader is
     # one.
-    may_give_verdicts = Actions.may(
-        Actions.GIVE_VERDICTS, user_email, market, context.organization,
-    )
+    may_give_verdicts = Actions.role_refusal(
+        Actions.GIVE_VERDICTS, user_role, market.permissions) is None
     reader = UsersApi.get_user(user_email) if may_give_verdicts else None
     ids = (
         PermissionsApi.follow_up_owners_for(
@@ -939,8 +970,14 @@ def _decorate_market_summary(
     whether it was served by the list endpoint or by ``get_market_for_user``.
     """
     market['_id'] = str(market['_id'])
+    # Deprecated, as the market read's: an old bundle's card offers Manage on it.
     market['user_role'] = user_role
-    _stamp_effective_market_state(market, phase_from_market_document(market))
+    phase = phase_from_market_document(market)
+    _stamp_effective_market_state(market, phase)
+    # The table's answers for the role the entry names, so the card offers Manage on its row as
+    # the market's own page does (E39/F01/S02).
+    market['actionRefusals'] = role_action_refusals(
+        _market_role(user_role), phase, market_doc_field(market, 'permissions') or {})
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
@@ -955,6 +992,14 @@ def _decorate_market_summary(
     return market
 
 
+def _market_role(value: Optional[str]) -> Optional[MarketRole]:
+    """A stored role value as a role, or None for no role or one this server does not know."""
+    try:
+        return MarketRole(value) if value else None
+    except ValueError:
+        return None
+
+
 def _summary_role(
     market: Dict[str, Any], user_id: str, lookups: _SummaryLookups
 ) -> Optional[str]:
@@ -965,10 +1010,7 @@ def _summary_role(
     run its markets, and the list called them viewers.
     """
     explicit = (market_doc_field(market, 'roles') or {}).get(user_id)
-    try:
-        on_the_market = MarketRole(explicit) if explicit else None
-    except ValueError:
-        on_the_market = None
+    on_the_market = _market_role(explicit)
     organization_id = market_doc_field(market, 'organization_id')
     org = lookups.organization(organization_id) if organization_id else None
     through_organization = PermissionsApi.organization_market_role(
@@ -1055,6 +1097,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
+    # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
+    # organization's default is copied in here once it has one (E39/F02/S01).
+    market_dict["permissions"] = {}
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1264,7 +1309,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         return {"error": incomplete.message()}, 400
     stats = assigned_market.assignment_object.assignment_statistics
     if stats is None:
-        return {"error": "Unable to derive assignment statistics"}, 500
+        return {"error": "The result's statistics could not be counted."}, 500
 
     rows = derive_market_table_rows(assigned_market)
     stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
@@ -1306,7 +1351,8 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 def get_placement_history(
     market_id: str, requesting_user: str, vendor: Optional[str] = None
 ) -> tuple[Dict[str, Any], int]:
-    """This market's placement trail, newest first. Asks ``Actions.READ``.
+    """This market's placement trail - its history narrowed to placements - newest first. Asks
+    ``Actions.READ``.
 
     Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
     who may look at where vendors are sitting may look at how they came to be sitting there.
@@ -1321,7 +1367,7 @@ def get_placement_history(
     if refused:
         return {"error": refused}, 403
 
-    entries = PlacementHistory.entries_for_market(market_id, vendor)
+    entries = History.placement_entries(market_id, vendor)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as
@@ -1330,12 +1376,15 @@ def get_placement_history(
     }, 200
 
 
-def _market_csv_filename(market_name: Optional[str], market_id: str) -> str:
-    """Build a deterministic, filesystem-safe CSV filename for assignment downloads."""
+def _market_csv_filename(
+    market_name: Optional[str], market_id: str, kind: str = "assigned",
+) -> str:
+    """Build a deterministic, filesystem-safe CSV filename for a market's downloads: the
+    assignment's, or the vendors' export (``kind``)."""
     name = (market_name or market_id or "market").strip() or "market"
     safe = "".join(c if c.isalnum() or c in (" ", "-", "_") else " " for c in name)
     safe = "_".join(safe.split())
-    return f"{safe}_assigned.csv"
+    return f"{safe}_{kind}.csv"
 
 
 def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
@@ -1644,12 +1693,13 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     apply_phase_transition(market_id, context.document, to_phase, by=by)
 
     # Only after the phase is written.
+    swept: Dict[str, int] = {}
     if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS.value:
         try:
-            swept = ApplicationsApi.sweep_unanswered_offers(market_id)
+            swept["swept"] = ApplicationsApi.sweep_unanswered_offers(market_id)
             logger.info(
                 "Swept %d assignment_sent applications to vendor_refused for market %s",
-                swept,
+                swept["swept"],
                 market_id,
             )
         except Exception:
@@ -1659,6 +1709,10 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
                 market_id,
                 exc_info=True,
             )
+    # After the sweep, so the move's entry counts the offers it turned to refusals: no entry of
+    # their own says who refused those vendors.
+    History.record(market_id, by, Actions.MOVE_PHASE, detail=lambda: {
+        **History.changes({"phase": from_phase}, {"phase": to_phase}), **swept})
     return []
 
 
@@ -1701,6 +1755,8 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
         {"$set": {"roles": roles}}
     )
     
+    if result.modified_count > 0:
+        _record_role(market_id, requesting_user, History.ROLE_GIVEN, user.id, None, role)
     return result.modified_count > 0
 
 
@@ -1726,16 +1782,13 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         if owner_count <= 1:
             raise BadRequestError("Cannot remove the only owner. Transfer ownership first.")
     
-    user_role_value = roles.get(user_id)
-    if user_role_value:
-        try:
-            user_role = MarketRole(user_role_value)
-        except ValueError:
-            user_role = MarketRole.VIEWER
-        refused = Actions.refusal(Actions.roles_row(user_role), requesting_user, market, organization)
-        if refused:
-            raise ForbiddenError(refused)
-    
+    # The role as the market model read it, which takes only the four roles: every removal asks
+    # the row of the role it takes.
+    refused = Actions.refusal(
+        Actions.roles_row(market.roles[user_id]), requesting_user, market, organization)
+    if refused:
+        raise ForbiddenError(refused)
+
     del roles[user_id]
     
     result = markets_collection.update_one(
@@ -1743,6 +1796,9 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         {"$set": {"roles": roles}}
     )
     
+    if result.modified_count > 0:
+        _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
+                     market.roles[user_id], None)
     return result.modified_count > 0
 
 
@@ -1763,10 +1819,7 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
     if not current_role_value:
         raise BadRequestError("User does not have a role in this market")
 
-    try:
-        current_role = MarketRole(current_role_value)
-    except ValueError:
-        current_role = MarketRole.VIEWER  # Default if invalid
+    current_role = market.roles[user_id]
 
     # Owners cannot have their role changed
     if current_role == MarketRole.OWNER:
@@ -1791,7 +1844,122 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
         {"$set": {"roles": roles}}
     )
     
+    if result.modified_count > 0:
+        _record_role(market_id, requesting_user, History.ROLE_CHANGED, user_id,
+                     current_role, new_role)
     return result.modified_count > 0
+
+
+NO_SUCH_ROW = "This market's table has no such row."
+NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
+
+
+def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tuple[Market, Actions.Action]:
+    """The market and the row its owner is changing, or the refusal (E39/F01/S03).
+
+    Asks the fixed row ``change-the-table`` first, which only the market's owner reaches (an
+    organization's admins hold Admin on its markets, never Owner), and the archived rule with it:
+    an archived market's table is its record too. Then the row: one the table has, and not fixed.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    row = Actions.ACTIONS.get(action_id) if isinstance(action_id, str) else None
+    if row is None:
+        raise BadRequestError(NO_SUCH_ROW)
+    if row.fixed:
+        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+    return market, row
+
+
+def _permission_state(row: Actions.Action, held: Optional[MarketPermission]) -> Dict[str, str]:
+    """A row as a history entry's before or after: the role it asks, and where that came from."""
+    if held is None:
+        return {"role": row.default.value, "source": Actions.BUILT_IN}
+    return {"role": held.role, "source": held.source}
+
+
+def _record_permission(
+    market_id: str, requesting_user: str, kind: str, row: Actions.Action,
+    before: Optional[MarketPermission], after: Optional[MarketPermission],
+) -> None:
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=kind,
+        subject={"action": row.id},
+        detail={"before": _permission_state(row, before), "after": _permission_state(row, after)},
+    )
+
+
+def set_permission(
+    market_id: str, action_id: Any, role: Any, requesting_user: str,
+) -> List[Dict[str, Any]]:
+    """Set the role a row of this market's table asks, as its owner (E39/F01/S03). Asks
+    ``Actions.CHANGE_THE_TABLE``.
+
+    The row is then the market's own, whatever it was before, except that setting the role it
+    already asks stores and records nothing: who may take it has not changed, so a row copied from
+    the organization keeps its source. Returns the market's table.
+    """
+    market, row = _row_to_change(market_id, action_id, requesting_user)
+    if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
+        raise BadRequestError(NOT_A_ROLE)
+
+    before = Actions.held_row(row, market.permissions)
+    if Actions.minimum_role(row, market).value == role:
+        return Actions.table(market)
+    after = MarketPermission(role=role, source=Actions.ON_THIS_MARKET)
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": {
+        f"{market_doc_key('permissions')}.{row.id}": after.model_dump(),
+    }})
+    _record_permission(market_id, requesting_user, History.PERMISSION_SET, row, before, after)
+    market.permissions[row.id] = after
+    return Actions.table(market)
+
+
+def reset_permission(market_id: str, action_id: Any, requesting_user: str) -> List[Dict[str, Any]]:
+    """Return a row of this market's table to its built-in default, as its owner (E39/F01/S03).
+    Asks ``Actions.CHANGE_THE_TABLE``.
+
+    The market stops holding the row, whether it was changed here or copied from the organization.
+    A row it does not hold is already at its default, and resetting it records nothing. Returns
+    the market's table.
+    """
+    market, row = _row_to_change(market_id, action_id, requesting_user)
+    before = Actions.held_row(row, market.permissions)
+    if before is None:
+        return Actions.table(market)
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$unset": {
+        f"{market_doc_key('permissions')}.{row.id}": "",
+    }})
+    _record_permission(market_id, requesting_user, History.PERMISSION_RESET, row, before, None)
+    market.permissions.pop(row.id, None)
+    return Actions.table(market)
+
+
+def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Every change to this market's table, newest first: who, when, the row, and its role and
+    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
+    see who changed what they may do on it."""
+    _load_market_for(market_id, requesting_user, Actions.READ)
+    return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
+
+
+def _record_role(
+    market_id: str, requesting_user: str, kind: str, user_id: str,
+    before: Optional[MarketRole], after: Optional[MarketRole],
+) -> None:
+    """A role given, changed or taken, as the row that gives it: the Admin row when an Admin or
+    Owner role is either side of it, as its check asked."""
+    rows = [Actions.roles_row(role) for role in (before, after) if role is not None]
+    row = Actions.MANAGE_ADMINS if Actions.MANAGE_ADMINS in rows else Actions.MANAGE_EDITORS_AND_VIEWERS
+
+    def person() -> Dict[str, Any]:
+        user = UsersApi.get_user_by_id(user_id)
+        return {"user_id": user_id, "email": user.email if user else None}
+
+    History.record(
+        market_id, requesting_user, row, kind=kind, subject=person,
+        detail=lambda: History.changes(
+            {"role": before.value if before else None}, {"role": after.value if after else None}),
+    )
 
 
 def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
@@ -1862,6 +2030,8 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     except DuplicateKeyError as e:
         # A rename that raced another write to the same address, refused by the unique index.
         raise BadRequestError(_address_taken(name)) from e
+    History.record(market_id, requesting_user, Actions.CHANGE_SETUP, kind=History.RENAMED,
+                   detail=lambda: History.changes({"name": market.name}, {"name": name}))
 
 
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
@@ -1898,6 +2068,34 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
         if refused:
             raise ForbiddenError(refused)
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    _record_plan(market, plan, update, requesting_user)
+
+
+#: The plan's fields that are Market Setup's; the rest, ``assignment_rules``, are the Assignment row's.
+_SETUP_FIELDS = ("market_dates", "tiers", "locations", "sections", "floorplans")
+
+
+def _record_plan(
+    market: Market, plan: SetupObject, update: Dict[str, Any], requesting_user: str,
+) -> None:
+    """A plan write as the actions it took: Market Setup's fields and the intake mode as one
+    entry, the assignment rules as another, each only when it changed - the plan saves as the
+    organizer types, and restating it changes nothing."""
+    def setup() -> Optional[Dict[str, Any]]:
+        stored = market.setup_object.model_dump() if market.setup_object else {}
+        proposed = plan.model_dump()
+        intake = update.get(market_doc_key("intake_mode"), market.intake_mode.value)
+        return History.changes(
+            {**{field: stored.get(field) for field in _SETUP_FIELDS},
+             "intake_mode": market.intake_mode.value},
+            {**{field: proposed.get(field) for field in _SETUP_FIELDS}, "intake_mode": intake},
+        )
+
+    History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
+                   detail=setup)
+    History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
+                   detail=lambda: History.changes(
+                       assignment_rules(market.setup_object), assignment_rules(plan)))
 
 
 def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -1960,7 +2158,7 @@ def save_review_highlights(
     organizer learns which answers they needed by reading real applications. A highlight that
     inherited the form's lock would be settable only before anyone could know what to set.
     """
-    _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
 
     seen: List[str] = []
     for key in keys:
@@ -1969,6 +2167,10 @@ def save_review_highlights(
             seen.append(cleaned)
 
     markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
+    History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REVIEW_HIGHLIGHTS,
+                   detail=lambda: History.changes(
+                       {"review_highlights": market.review_highlights or []},
+                       {"review_highlights": seen}))
     return seen
 
 
@@ -2013,7 +2215,12 @@ def save_rejection_rules(
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
-    RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
+    History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
+                   detail=lambda: _with_counts(History.changes(
+                       {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
+                       {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []]},
+                   ), verdicts))
     return prepared
 
 
@@ -2032,18 +2239,62 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
+    form_dict, verdicts = write_application_form(market, application_form_data)
+    History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
+                   detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
+    return form_dict
+
+
+def _with_counts(
+    detail: Optional[Dict[str, Any]], verdicts: RejectionRules.Judged,
+) -> Optional[Dict[str, Any]]:
+    """A write's detail with what the rules decided as it landed; a write that changed nothing
+    stays unrecorded, as the rules judged nothing new."""
+    return {**detail, **verdicts.counts()} if detail else None
+
+
+def write_application_form(
+    market: Market, application_form_data: dict,
+) -> Tuple[dict, RejectionRules.Judged]:
+    """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
+    stored with what the rules decided against it; the caller records it, as the action it was -
+    the form write, or an amendment."""
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
-        {"id": market_id},
+        {"id": market.id},
         {"$set": {"applicationForm": form_dict}}
     )
     # The rules stand against the form as it now is (E33/F03/S02): a question taken away judges
     # nobody, and what it rejected is judged again.
-    rewritten = load_market_context(market_id)
+    rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market_id)
+        return form_dict, RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market.id)
+    return form_dict, RejectionRules.Judged()
 
-    return form_dict
+
+def form_changes(market: Market, saved: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The questions a form write changed, by key, as they were and as they are, and the order and
+    the unasked essentials when those changed; None when the write changed nothing."""
+    def shape(form: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        fields = (form or {}).get("fields") or []
+        return {
+            "questions": {field.get("key"): field for field in fields},
+            "order": [field.get("key") for field in fields],
+            "unasked_essentials": (form or {}).get("unasked_essentials") or [],
+        }
+
+    before = shape(_application_form_dump(market))
+    after = shape(convert_keys_to_snake_case(saved))
+    questions = History.changes(before.pop("questions"), after.pop("questions"))
+    rest = History.changes(before, after)
+    if not questions and not rest:
+        return None
+    return {
+        "before": {**({"questions": questions["before"]} if questions else {}),
+                   **(rest["before"] if rest else {})},
+        "after": {**({"questions": questions["after"]} if questions else {}),
+                  **(rest["after"] if rest else {})},
+    }
 
 
 def prepared_application_form(market: Market, application_form_data: dict) -> dict:
@@ -2129,7 +2380,8 @@ def save_vendor_note(market_id: str, vendor_email: str, text: str, requesting_us
     """Replace the organizer's note on one vendor. Asks ``Actions.WRITE_VENDOR_NOTES``,
     which a door volunteer recording "chair given" meets; an archived market refuses it."""
     _load_market_to_change(market_id, requesting_user, Actions.WRITE_VENDOR_NOTES)
-    VendorNotes.write_note(market_id, vendor_email, text, requesting_user)
+    before, after = VendorNotes.write_note(market_id, vendor_email, text, requesting_user)
+    _record_note(market_id, vendor_email, requesting_user, History.NOTE, "note", before, after)
 
 
 def mark_vendor_request_handled(
@@ -2137,4 +2389,15 @@ def mark_vendor_request_handled(
 ) -> None:
     """Mark a vendor's request handled, or take the mark back. Asks ``Actions.WRITE_VENDOR_NOTES``."""
     _load_market_to_change(market_id, requesting_user, Actions.WRITE_VENDOR_NOTES)
-    VendorNotes.mark_request_handled(market_id, vendor_email, handled, requesting_user)
+    was = VendorNotes.mark_request_handled(market_id, vendor_email, handled, requesting_user)
+    _record_note(market_id, vendor_email, requesting_user, History.REQUEST_HANDLED, "handled",
+                 was, handled)
+
+
+def _record_note(
+    market_id: str, vendor_email: str, requesting_user: str, kind: str, field: str,
+    before: Any, after: Any,
+) -> None:
+    History.record(market_id, requesting_user, Actions.WRITE_VENDOR_NOTES, kind=kind,
+                   vendors=[vendor_email],
+                   detail=lambda: History.changes({field: before}, {field: after}))

@@ -33,7 +33,7 @@ A draft is a plan nobody else has seen, and an archived market is finished, so b
 
 **An archived market that ran is a record, and deleting it destroys one** ([an archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md)).
 That was weighed and kept: archived markets go with their organization, taking the only record of who sat where and a check-in address that was live.
-So a count of markets does not let an organizer decide: the confirmation names, per market, its name, its phase as its intake path names it (Review on a Google Form market, Applications on one whose vendors apply on its page), whether it ran, how many placements it holds, and the public address that stops resolving.
+So a count of markets does not let an organizer decide: the confirmation names, per market, its name, its phase as its intake path names it (Review on a Google Form market, Applications on one whose vendors apply on its page), whether it ran, how many assignments it holds, and the public address that stops resolving.
 What was deleted, by whom and when is recorded in the deletion trail before anything is destroyed.
 
 ## Who may

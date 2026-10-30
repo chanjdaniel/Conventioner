@@ -10,21 +10,23 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from datatypes import MarketPhase, MarketRole
 
-RANK = {MarketRole.VIEWER: 0, MarketRole.EDITOR: 1, MarketRole.ADMIN: 2, MarketRole.OWNER: 3}
-
 
 @pytest.fixture
 def role(monkeypatch):
     def holding(held):
-        monkeypatch.setattr(
-            PermissionsApi, "user_has_permission",
-            lambda _user, _market, needed, _org=None: RANK[held] >= RANK[needed],
-        )
+        monkeypatch.setattr(PermissionsApi, "get_user_market_role", lambda *_a, **_k: held)
     return holding
 
 
 def market(phase=MarketPhase.ASSIGNMENT):
     return MarketsApi.market_from_document(stored_market(phase))
+
+
+def told(market_, user="u@x"):
+    """Why this person may change nothing here, and what they are told of moving the phase."""
+    role = PermissionsApi.get_user_market_role(user, market_, None)
+    refusals = MarketsApi.role_action_refusals(role, market_.phase, {})
+    return MarketsApi.read_only_reason(market_, refusals), refusals["move-phase"]
 
 
 @pytest.mark.parametrize("held,changes,administers", [
@@ -36,28 +38,26 @@ def market(phase=MarketPhase.ASSIGNMENT):
 def test_each_role_is_told_exactly_what_it_may_not_do(role, held, changes, administers):
     role(held)
 
-    read_only = MarketsApi.change_refusal("u@x", market(), None)
-    admin_only = MarketsApi.admin_actions_refusal("u@x", market(), None)
+    read_only, moving = told(market())
 
     assert (read_only is None) is changes
-    assert (admin_only is None) is administers
+    assert (moving is None) is administers
 
 
 def test_a_viewer_is_told_they_can_view_and_who_can_let_them_edit(role):
     role(MarketRole.VIEWER)
 
-    assert "view this market" in MarketsApi.change_refusal("u@x", market(), None)
+    assert "view this market" in told(market())[0]
 
 
-def test_an_editor_is_told_what_is_for_admins(role):
+def test_an_editor_is_told_who_moves_the_phase(role):
     role(MarketRole.EDITOR)
 
-    assert MarketsApi.admin_actions_refusal("u@x", market(), None) == MarketsApi.EDITOR_REFUSAL
+    assert told(market())[1] == "Only an Admin or the owner may move this market's phase."
 
 
 def test_an_archived_market_is_read_only_whoever_holds_it(role):
     role(MarketRole.OWNER)
-    archived = market(MarketPhase.ARCHIVED)
 
-    assert MarketsApi.change_refusal("u@x", archived, None) == MarketsApi.ARCHIVED_REFUSAL
-    assert MarketsApi.admin_actions_refusal("u@x", archived, None) == MarketsApi.ARCHIVED_REFUSAL
+    assert told(market(MarketPhase.ARCHIVED)) == (
+        MarketsApi.ARCHIVED_REFUSAL, MarketsApi.ARCHIVED_REFUSAL)

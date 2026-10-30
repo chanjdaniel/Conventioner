@@ -39,7 +39,7 @@ Only this path's market has applicant pages, so a vendor brought in by an import
 | Open applications and share the application page's link from the rail | [H1](taking-applications.md#h1-open-applications) |
 | Vendors sign in with an emailed code, apply, and can edit while applications are open | [H3a to H3d](applying-online.md) |
 | Review as applications arrive, stop taking them when ready, and begin assignment | [I1 to I3](review.md), [H4](taking-applications.md#h4-stop-taking-applications), [I5](review.md#i5-begin-assignment) |
-| Run the assignment and adjust it | [J1 to J5](assignment-and-result.md), [J6 to J10 and J13](placing-by-hand.md), [J11 and J12](vendors.md) |
+| Allocate tables and adjust the assignments | [J1 to J5](assignment-and-result.md), [J6 to J10 and J13](placing-by-hand.md), [J11 and J12](vendors.md) |
 | Publish results, so vendors read whether they have a table | [I7](assignment-and-result.md#i7-publish-results), [H3c](applying-online.md#h3c-a-vendor-checks-their-application) |
 | Publish the market, run market day, end it | [K](market-day-door.md), [L](ending-and-managing-a-market.md) as in [P1](the-google-form-path.md#p1-csv-intake-form-built-by-hand) |
 

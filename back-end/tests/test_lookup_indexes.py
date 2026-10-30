@@ -46,7 +46,7 @@ def test_the_ids_every_screen_reads_by_are_among_them():
     assert ("id",) in LOOKUP_INDEXES["markets"]
     assert ("id",) in LOOKUP_INDEXES["applications"]
     assert ("id",) in LOOKUP_INDEXES["organizations"]
-    assert ("market_id",) in LOOKUP_INDEXES["placement_history"]
+    assert ("market_id",) in LOOKUP_INDEXES["history"]
 
 
 def test_the_login_id_every_request_loads_the_account_by_is_among_them():

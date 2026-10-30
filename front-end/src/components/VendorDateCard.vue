@@ -57,7 +57,7 @@ const state = computed(() => {
  * An unplaced date offers it only when a seat is actually free, because the other three reasons
  * are answered in the plan or in the vendor's own answers, never at a table.
  */
-const actionLabel = computed(() => (placed.value ? 'Change placement' : 'Place them'));
+const actionLabel = computed(() => (placed.value ? 'Change assignment' : 'Assign them'));
 const canPlace = computed(() => placed.value || reasonIsActionable(props.reason));
 </script>
 

@@ -5,8 +5,10 @@
  * A row is an application: who, the answers a reviewer reads first, its status, who gave it, and who
  * holds it open. Filtered by status - follow-ups among them - and by Mine, the follow-ups the viewer
  * owns, all in the address. A row opens the vendor drawer, which carries Approve, Reject and Needs
- * follow-up while the market is still deciding, each written only on what the reviewer saw.
+ * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
+ * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -27,9 +29,11 @@ import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVerdictActions } from '@/utils/verdictActions';
+import { applicationsAllSeed, NO_FILTERS, type ExportFilters } from '@/utils/vendorExport';
 import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
+import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 
 const props = defineProps<{ market: Market | null }>();
@@ -123,6 +127,16 @@ function holderOf(app: Application): string | null {
     : `${holder} is looking at this`;
 }
 
+/** The applications shown, as a CSV: the dialog opens on the filter and Mine, taken as it opens. */
+const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(props.market, MarketAction.ExportCsv));
+const exportSeed = ref<ExportFilters>(NO_FILTERS);
+function openExport(): void {
+  exportSeed.value = applicationsAllSeed({ filter: filter.value, mine: mine.value });
+  exporting.value = true;
+}
+
 // --- The drawer, and the verdicts it carries during review -----------------------------------
 
 const details = useVendorDetails(
@@ -138,7 +152,9 @@ const opened = computed(() =>
 );
 
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
-const decides = computed(() => !props.market?.verdictLockReason);
+const decides = computed(
+  () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
 
 const saving = ref(false);
 const verdictMessage = ref('');
@@ -278,6 +294,15 @@ async function decideSelection() {
       <span class="all-count" data-testid="applications-all-count">
         {{ shown.length }} of {{ applications.length }}
       </span>
+      <button
+        v-if="mayExport"
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-export-button"
+        @click="openExport"
+      >
+        Export
+      </button>
     </div>
 
     <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
@@ -463,6 +488,13 @@ async function decideSelection() {
         >
       </p>
     </AppDialog>
+
+    <ExportVendorsDialog
+      :open="exporting"
+      :market-id="marketId"
+      :seed="exportSeed"
+      @close="exporting = false"
+    />
 
     <FollowUpDialog
       :open="followUpOpen"

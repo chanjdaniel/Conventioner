@@ -4,9 +4,8 @@ kind: rule
 describes:
   - back-end/api/added_vendors.py
   - back-end/api/markets.py#adding_refusal
-  - back-end/api/markets.py#add_vendor_refusal
   - back-end/assignment/vendor_input.py#approved_solver_vendors
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01
@@ -14,8 +13,8 @@ sources:
 
 # Adding a vendor who never applied
 
-From the assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never placed by the run, and is seated by hand.
-An address the market already holds an application for is refused: that vendor is seated on the Result page instead.
+From Assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never assigned when tables are allocated, and is assigned by hand.
+An address the market already holds an application for is refused: that vendor is assigned on the Result page instead.
 
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
@@ -31,11 +30,12 @@ They are approved by the act of adding, and the organizer who added them is reco
 ## Who may
 
 An EDITOR, in `assignment` and `market_days` only; an archived market refuses anyone.
-The market read serves `addVendorReason` (the person's role and the phase in one reason), so the Vendors page offers the action exactly when the write would take it.
+The market read serves the table's Add a vendor who never applied answer and the phase's rule apart (`actionRefusals` and `addingVendorsReason`), and the Vendors page offers the action only when neither refuses, exactly when the write would take it.
 
 ## Where it is kept
 
 - `POST /markets/:id/vendors` is `add_vendor` in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py): a missing name or address is a 400; the wrong phase or a held address is a 409, each a [client error](../../implementation/conventions/an-exception-never-reaches-a-client.md) saying why.
-- The phases are `adding_refusal` and the served reason `add_vendor_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py).
+- The phases are `adding_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), served as `addingVendorsReason`.
 - The run skips any application with `added_by` in `approved_solver_vendors` ([`back-end/assignment/vendor_input.py`](../../../back-end/assignment/vendor_input.py), [the assignment solver](../../implementation/modules/assignment-solver.md)).
 - The stored application, its full name as the only answer and the `added_by`/`added_at` stamp are [the application document](../../implementation/data/application-document.md); the held seat is [placements](../../implementation/modules/placements.md).
+- Each vendor added is recorded in [the market's history](../../implementation/data/history.md) (`add-vendor`), with the name and status given and who added them.

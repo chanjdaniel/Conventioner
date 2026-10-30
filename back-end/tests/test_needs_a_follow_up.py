@@ -70,14 +70,14 @@ class TestReassigningIt:
         ApplicantsApi.review_application(
             "market-1", "app-1", ApplicationStatus.NEEDS_FOLLOW_UP, by=ALEX)
 
-        result, status = ApplicantsApi.reassign_follow_up("market-1", "app-1", SAM)
+        result, status = ApplicantsApi.reassign_follow_up("market-1", "app-1", SAM, ALEX.email)
 
         assert status == 200
         assert stored[0]["follow_up_owner"]["email"] == "sam@market.test"
         assert stored[0]["status"] == "needs_follow_up"
 
     def test_only_a_follow_up_has_an_owner(self, stored):
-        _, status = ApplicantsApi.reassign_follow_up("market-1", "app-1", SAM)
+        _, status = ApplicantsApi.reassign_follow_up("market-1", "app-1", SAM, ALEX.email)
 
         assert status == 409
 

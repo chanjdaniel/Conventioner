@@ -35,7 +35,7 @@ sources:
 
 # Importing a Google Form's responses
 
-**Who:** the market's Admin or owner; an Editor is offered no import on the rail, and the import itself tells them only an admin imports (bug 37).
+**Who:** the market's Admin or owner; an Editor or a Viewer is offered no import on the rail, and the import itself tells them the import row's words, "Only an Admin or the owner may import applications or start this market from a CSV." (bug 37).
 **Where they start:** a market whose vendors apply on the organizer's own Google Form: in Draft the rail's main button "Import responses" for the first import, which takes the market into Review once written; in Review the rail's More…, "Redo import" (E38/F04).
 **Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 

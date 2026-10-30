@@ -7,6 +7,7 @@
  * summary strip on top (`ResultSummary`), then the tables with their seat editing, then the
  * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -282,10 +283,11 @@ function openHalf(row: MarketTableRow, email: string | null, side: Seat): void {
 }
 
 /**
- * Nothing on this page may change the market (bug 30): it is archived, and so a record. The
- * server refuses every placement write on it; the seats say so by offering none.
+ * Whether this person may place, swap or free a seat here: the table's Assignment row (bug 37,
+ * E39/F01/S02), refused on an archived market, which is a record (bug 30). The server refuses
+ * every placement write it would; the seats say so by offering none.
  */
-const readOnly = computed(() => Boolean(market.value?.readOnlyReason));
+const readOnly = computed(() => !mayTake(market.value, MarketAction.Assign));
 
 /** Which seat at this table a vendor holds: the whole of it, or one side. */
 function seatHeldBy(row: MarketTableRow, email: string): Seat {
@@ -740,15 +742,13 @@ function swapSeats(withEmail: string): void {
 .status-message {
   padding: var(--space-12) 0;
   text-align: center;
-  color: var(--mm-black);
-  opacity: 0.7;
+  color: var(--mm-text-muted);
 }
 
 .empty-state {
   padding: var(--space-12) 0;
   text-align: center;
-  color: var(--mm-black);
-  opacity: 0.6;
+  color: var(--mm-text-muted);
 }
 
 .date-groups {
@@ -779,8 +779,7 @@ function swapSeats(withEmail: string): void {
 
 .date-heading-count {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.6;
+  color: var(--mm-text-muted);
 }
 
 .section-group {
@@ -861,8 +860,8 @@ function swapSeats(withEmail: string): void {
 
 .meta-tag {
   font-size: var(--text-xs);
-  color: var(--mm-black);
-  opacity: 0.65;
+  /* On an empty table's yellow ground too, where the plain muted ink falls short of AA. */
+  color: var(--mm-text-muted-on-beige);
 }
 
 .table-row-assignment {
@@ -885,8 +884,7 @@ function swapSeats(withEmail: string): void {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
   text-transform: uppercase;
-  color: var(--mm-black);
-  opacity: 0.55;
+  color: var(--mm-text-muted-on-beige);
   letter-spacing: 0.6px;
 }
 

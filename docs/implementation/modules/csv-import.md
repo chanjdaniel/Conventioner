@@ -48,7 +48,7 @@ In a draft it also refuses with the first of `first_import_blockers`, the move i
 
 **The first import takes the market into Review** once its rows are written: `enter_review` moves it through `take_move` under the importer, and the result says the phase it is in (`phase`).
 A first import that wrote nothing, or a move refused by a setup changed under it, leaves the market a draft.
-`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) and refuses an archived market first.
+`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) then refuses an archived market whoever may.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
@@ -82,7 +82,9 @@ It warns and does not refuse: any value still unmatched must be settled by hand 
 The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
-**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+
+**An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
 
 ## Superseded
 

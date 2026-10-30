@@ -13,6 +13,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { movesServedFrom } from './support/servedMoves';
+import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -44,6 +45,7 @@ async function move(market: Partial<Market>, toPhase: string) {
         id: 'market-1',
         name: 'Riverside',
         transitionBlockers: movesServedFrom(String(market.phase)),
+        actionRefusals: answersRefusing(),
         ...market,
       } as Market,
     },

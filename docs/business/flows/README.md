@@ -22,13 +22,14 @@ One line per node, sorted by file name.
 - [The market lifecycle at a glance](lifecycle.md) - the phases on both paths, the page each opens on, the moves and what refuses them
 - [Publishing, and the door on market day](market-day-door.md) - K1 to K5: publishing, the vendor's check-in page and Attendance
 - [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it
-- [Placing by hand](placing-by-hand.md) - J6 to J10, J13: placing, swapping and freeing a seat, pins, the placement history
+- [Placing by hand](placing-by-hand.md) - J6 to J10, J13: assigning, swapping and freeing a seat, pins, the assignment history
 - [Planning the market](planning.md) - E: Market Setup's dates, tiers, locations, sections and intake, and the setup settling
 - [Reviewing applications](review.md) - I1 to I6: one by one and All, follow-ups, two reviewers at once, the moves around review
 - [Starting from a Google Form's responses](starting-from-a-google-form.md) - G: the upload, the proposal, confirm and cancel
+- [The market's statistics](stats.md) - N1, N2: the Stats tab, who applied and what they answered
 - [Taking applications](taking-applications.md) - H1, H1a, H4, H5: opening applications, and stopping and taking them again on the online path
 - [The Google Form path](the-google-form-path.md) - P1 and P2: a market whose vendors' responses are imported, from creation to the end
 - [The mixed path](the-mixed-path.md) - P4: an online form plus imported stragglers, not offered
 - [The online path](the-online-path.md) - P3: a market whose vendors apply on its own page, from creation to the end
 - [The vendor drawer](vendor-drawer.md) - one vendor's notes, application, assignments and history, from wherever they appear
-- [Vendors](vendors.md) - J11, J12: every applicant by vendor, adding one who never applied, why a date was not given
+- [Vendors](vendors.md) - J11, J12, J15: every applicant by vendor, adding one who never applied, why a date was not given, exporting them to a CSV

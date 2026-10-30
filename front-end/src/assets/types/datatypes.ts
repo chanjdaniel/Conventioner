@@ -192,6 +192,19 @@ export interface RejectionQuestion {
   answers: Array<{ value: string; label: string }>;
 }
 
+/** One row of a market's table, as the market read serves it (E39/F01/S03). */
+export interface PermissionTableRow {
+  id: string;
+  group: string;
+  label: string;
+  /** The lowest role that may take the action on this market: that role and every one above it. */
+  role: MarketRole;
+  default: MarketRole;
+  /** No row held, copied from the organization's default at creation, or changed here. */
+  source: 'built-in' | 'organization' | 'market';
+  fixed: boolean;
+}
+
 export interface Market {
   id: string;
   name: string;
@@ -263,32 +276,33 @@ export interface Market {
   phasesReached?: string[];
   phaseRecordComplete?: boolean;
   /**
-   * Why the person reading cannot change this market, or null while they can (E26/F06/S01): the
-   * rule every write meets on the server, served so a screen offers no control it would refuse.
-   * Undefined on a read that does not carry it, such as the list.
+   * What the person reading is told of every action on this market, by the id of its row in the
+   * server's table (E39/F01/S02): null where they may take it, the sentence they would be refused
+   * with where not. Read through `actionRefusal` and `mayTake` (`utils/marketActions.ts`), never
+   * directly, so a missing answer offers nothing.
+   */
+  actionRefusals?: Record<string, string | null>;
+  /**
+   * The market's table itself, every row in order (E39/F01/S03): the role it asks, its built-in
+   * default, where the role came from and whether it is fixed. For Manage market to show; a
+   * control asks `actionRefusals`, never this. Undefined on the list.
+   */
+  permissionTable?: PermissionTableRow[];
+  /**
+   * Why the person reading may change nothing on this market, or null while they may change
+   * something (E26/F06/S01, E39/F01/S02): archived, or none of the table's changing actions is
+   * theirs. The frame says it once for every page (T15). Undefined on the list.
    */
   readOnlyReason?: string | null;
+  /** Why the review has closed, or null while verdicts may still be given (E36/F01/S01). */
+  verdictsSettledReason?: string | null;
+  /** Why no vendor may be added by hand in this phase, or null while one may (E36/F03/S01). */
+  addingVendorsReason?: string | null;
   /**
-   * Why the person reading cannot take this market's admin actions - moving its phase, publishing
-   * results, importing - or null while they can (E26/F08/S01). Served
-   * beside `readOnlyReason`, from the same permission check the writes ask.
+   * Why results cannot be published yet whoever may publish them, or null when they can
+   * (E36/F04/S01): a form market in assignment with a current run.
    */
-  adminActionsReason?: string | null;
-  /**
-   * Why the person reading cannot give verdicts on this market's applications, or null while they
-   * can (E34): below EDITOR, archived, or once the review has closed (E36/F01/S01).
-   */
-  verdictLockReason?: string | null;
-  /**
-   * Why the person reading cannot add a vendor who never applied, or null while they can
-   * (E36/F03/S01): below EDITOR, or outside the assignment and market days.
-   */
-  addVendorReason?: string | null;
-  /**
-   * Why the person reading cannot publish this market's results now, or null while they can
-   * (E36/F04/S01): an admin's, on a form market in assignment with a current run.
-   */
-  publishResultsReason?: string | null;
+  publishWaitsReason?: string | null;
   /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
   assignRefusalReason?: string | null;
   /** How many applicants will read each outcome, while results may be published; else null. */
@@ -307,7 +321,6 @@ export interface Market {
   applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
-  userRole?: MarketRole; // User's effective role (added by API)
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';

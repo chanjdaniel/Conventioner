@@ -242,9 +242,9 @@ export async function seedMarketWithVendors(
    * A name of the caller's choosing. A market can only be renamed while it is a draft
    * (E21/F03/S04), so a spec that needs a particular name for a market further along gives it here.
    * `dates` are the market's dates, every vendor available on each; one, `SEED_MARKET_DATE`, unless
-   * named.
+   * named. `intakeMode` is how vendors reach it; absent, a CSV market, as the server reads it.
    */
-  options: { name?: string; dates?: string[] } = {},
+  options: { name?: string; dates?: string[]; intakeMode?: 'csv' | 'form' } = {},
 ): Promise<SeedResult> {
   const [firstDate, ...moreDates] = options.dates ?? [SEED_MARKET_DATE];
   const userId = await loginViaApi(request, baseURL, email, password);
@@ -265,6 +265,7 @@ export async function seedMarketWithVendors(
       assignmentObject: {},
       // Complete, so the market may leave draft (E31/F01/S01).
       setupObject: completePlan(firstDate, moreDates),
+      ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
     },
   });
   if (!createRes.ok()) {

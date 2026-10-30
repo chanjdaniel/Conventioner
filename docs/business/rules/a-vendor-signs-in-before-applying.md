@@ -40,6 +40,7 @@ Telling the person who just read the code whether they have applied leaks nothin
   An applicant's application is found by market and address, its identity.
 - **The first valid save creates the application** (`save_applicant_application` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)): the answers are checked before anything is made, so a refused first try leaves nothing behind for the organizer to review as an empty application, and the application is created through the identity index of [the application document](../../implementation/data/application-document.md#indexes).
   The save is open only while the market is in `applications` and taking applications ([an applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md)).
+  Their first save, and each edit that changes an answer, is recorded in [the market's history](../../implementation/data/history.md) with their address as the actor.
 - A market's outstanding codes are deleted with it ([market deletion](../../implementation/modules/market-deletion.md)).
 
 ## Sign-in is bounded

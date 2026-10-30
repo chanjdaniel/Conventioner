@@ -18,6 +18,7 @@ import {
   type Market,
   type PreconditionResult,
 } from '@/assets/types/datatypes';
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
 import {
   TAB_PAGES,
@@ -138,12 +139,17 @@ export interface StageAction {
  * The actions the rail offers inside the stage, beside its moves (E38/F04): a Google Form market's
  * Redo import, which reads the whole responses file again while the review goes on, and an own-form
  * market's stop and resume, a fact about its form rather than a move. Each only for someone the
- * server would let take it - importing is an admin's, and the stop is served with its own reason.
+ * server would let take it: the table's import row and its stop row (E39/F01/S02), and the stop
+ * served with the stage's own reason beside it.
  */
 export function stageActions(market: Market | null | undefined): StageAction[] {
-  if (!market || market.phase !== MarketPhase.Applications || market.adminActionsReason) return [];
-  if (intakeModeOf(market) === IntakeMode.Csv) return [{ id: 'redo-import', label: 'Redo import' }];
-  if (market.applicationsStopReason) return [];
+  if (!market || market.phase !== MarketPhase.Applications) return [];
+  if (intakeModeOf(market) === IntakeMode.Csv) {
+    return mayTake(market, MarketAction.ImportApplications)
+      ? [{ id: 'redo-import', label: 'Redo import' }]
+      : [];
+  }
+  if (!mayTake(market, MarketAction.StopApplications) || market.applicationsStopReason) return [];
   return market.applicationsStopped
     ? [{ id: 'take-applications', label: 'Take applications again' }]
     : [{ id: 'stop-applications', label: 'Stop taking applications' }];
@@ -217,7 +223,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   // The application page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
-    statement: `${stageLead(standing)} Every application is decided: begin assignment.`,
+    statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
   }),
   // Worked on the rules until there is a result, and on the result after.
   [MarketPhase.Assignment]: ({ assigned, published }) =>
@@ -233,7 +239,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
             statement:
               'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
-        : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
+        : { page: 'assignment', statement: 'Set the rules and allocate tables.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'result' : 'assignment',
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,

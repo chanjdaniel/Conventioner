@@ -4,7 +4,7 @@ kind: module
 describes:
   - back-end/phase_record.py
   - back-end/datatypes.py#PhaseEntry
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03
@@ -36,11 +36,11 @@ For one release an entry still naming `applications_open`, `applications_closed`
 **It is a log, not a "furthest phase" field** ([ADR 0012](../../adr/0012-a-market-remembers-every-phase-it-entered.md)), because the machine has a back edge (Reopen for Editing) and because a log answers the next questions, when applications opened and who published, which a single field cannot.
 
 **On the market document, not beside it.**
-A market enters a handful of phases in its life, the rail reads them on every market screen, and the one market store already holds the document; placements are many and each names a vendor, which is why [the placement history](../data/placement-history.md) is its own collection.
+A market enters a handful of phases in its life, the rail reads them on every market screen, and the one market store already holds the document; a market's changes are many and most name a vendor, which is why [the market's history](../data/history.md) is its own collection.
 
 **A market older than the record is read from what it can prove.**
 A record whose first entry is not a dated `draft` began partway through the market's life: `push_entries` starts such a record with the phase the market was already in, undated, so it never passes for a whole one.
-For such a market `phases_reached` adds what the market holds that proves more (a check-in proves it ran, a stored assignment that it was assigned, a published form that it opened applications) and answers `complete: false`.
+For such a market `phases_reached` adds what the market holds that proves more (a check-in proves it ran, a stored table allocation that its tables were allocated, a published form that it opened applications) and answers `complete: false`.
 Only a complete record may say a market never reached a phase; [the phase rail](phase-rail.md) strikes nothing through without one.
 
 **`checked_in` is a parameter**, so this module reads documents and nothing else: the check-in surface needs its answer, and could not import a module that imported it.

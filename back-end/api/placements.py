@@ -38,7 +38,7 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import assignment.made_from as MadeFrom
 from client_errors import BadRequestError, ConflictError
-import placement_history as PlacementHistory
+import history as History
 from utils.email_address import normalized_email
 
 # The three seats a table holds. A table holds two, and a placement therefore always names a
@@ -126,7 +126,7 @@ def _applicant_address(market: Market, email: str) -> str:
     """
     address = normalized_email(email)
     if not address:
-        raise PlacementError("A placement must name the vendor it places.")
+        raise PlacementError("An assignment must name the vendor it assigns.")
     if not has_applied(market.id, address):
         raise PlacementError(
             f"{address} has no application in this market, so they cannot be given a seat. "
@@ -141,7 +141,7 @@ def _placement_for(
     """Build the row a placement writes, validating it against the market's own plan."""
     setup_object = market.setup_object
     if setup_object is None:
-        raise PlacementError("Market has no plan, so it has no tables to place anyone at.")
+        raise PlacementError("Market has no plan, so it has no tables to assign anyone to.")
 
     email = _applicant_address(market, email)
 
@@ -223,12 +223,12 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     if phase is MarketPhase.DRAFT:
         return (
             "This market is still a draft. Plan it, take its applications in and review them - "
-            "the assignment runs once the market reaches the assignment phase."
+            "tables are allocated once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS:
         return (
             "This market's applications are still being reviewed. Decide every one, then move the "
-            "market to the assignment phase to run the assignment."
+            "market to the assignment phase to allocate tables."
         )
     if phase is MarketPhase.ARCHIVED:
         return MarketsApi.ARCHIVED_REFUSAL
@@ -236,14 +236,15 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     # placement is what is wanted here, and the Result page is where that happens (E11/F03,
     # E22/F04/S04).
     return (
-        "The assignment for this market is settled. Change a single placement on the Result page "
-        "instead of re-running it."
+        "The table allocation for this market is settled. Change a single assignment on the Result "
+        "page instead of allocating tables again."
     )
 
 
 RESULTS_PUBLISHED_REFUSAL = (
-    "Results are published, so the assignment is settled: applicants have been told whether they "
-    "have a table, and a run could move them. Change a single placement on the Result page instead."
+    "Results are published, so the table allocation is settled: applicants have been told whether "
+    "they have a table, and allocating again could move them. Change a single assignment on the "
+    "Result page instead."
 )
 
 
@@ -293,7 +294,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
         assignment.assignment_date,
         MadeFrom.fingerprint(market.setup_object, vendors),
     )
-    PlacementHistory.record_assignment_run(
+    History.record_assignment_run(
         market_id,
         requesting_user,
         placements_written=len(assignment.vendor_assignments),
@@ -344,15 +345,18 @@ def write_placement(
             "Free that seat first, or swap the two vendors."
         )
 
+    stored = market.assignment_object.vendor_assignments
+    left = next((existing for existing in stored
+                 if existing.email == placement.email and existing.date == placement.date), None)
     kept = [
         existing
-        for existing in market.assignment_object.vendor_assignments
+        for existing in stored
         if not (existing.email == placement.email and existing.date == placement.date)
     ]
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
-    PlacementHistory.record_placed(market_id, requesting_user, placement)
+    History.record_placed(market_id, requesting_user, placement, left)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
@@ -375,7 +379,7 @@ def remove_placement(
     email = (email or "").strip()
     date = (date or "").strip()
     if not email or not date:
-        raise PlacementError("Removing a placement must name the vendor and the date.")
+        raise PlacementError("Removing an assignment must name the vendor and the date.")
 
     kept = [
         existing
@@ -390,7 +394,7 @@ def remove_placement(
     if freed:
         _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
         for placement in freed:
-            PlacementHistory.record_freed(
+            History.record_freed(
                 market_id, requesting_user, email, date, placement.table_code
             )
 
@@ -445,7 +449,7 @@ def swap_placements(
     _store_vendor_assignments(market_id, placements, market.assignment_object.assignment_date)
     # One entry, because it was one action: a trade recorded as two placements reads as two
     # unrelated decisions a week later.
-    PlacementHistory.record_swapped(
+    History.record_swapped(
         market_id,
         requesting_user,
         date,

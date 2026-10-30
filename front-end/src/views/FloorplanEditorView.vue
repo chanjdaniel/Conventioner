@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRouter, useRoute } from 'vue-router';
@@ -24,8 +25,8 @@ const { market } = useOpenMarket(marketId);
  * only be refused - as Market Setup does, in the same words. A person who may change nothing is
  * offered no wizard either, and the frame says why (T15).
  */
-const settled = computed(() =>
-  Boolean(market.value?.readOnlyReason || market.value?.setupLockReason),
+const settled = computed(
+  () => !mayTake(market.value, MarketAction.ChangeSetup) || Boolean(market.value?.setupLockReason),
 );
 
 function backToSetup() {

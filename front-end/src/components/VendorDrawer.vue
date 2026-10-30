@@ -11,6 +11,7 @@
  * The screen that opens it holds which vendor and which tab - in the address, so a link, a refresh
  * or Back returns to the same panel - and hands it the market's vendors (`useVendorDetails`).
  */
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
@@ -57,7 +58,7 @@ const names = computed(() => props.details.vendorNames.value);
 const submission = computed(() => (vendor.value ? props.details.submission(vendor.value) : []));
 
 const { load: loadNotes, entryFor } = useVendorNotes(marketId);
-const writesNotes = computed(() => !!props.market && !props.market.readOnlyReason);
+const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendorNotes));
 const showNotes = computed(
   () => !!props.email && (writesNotes.value || hasNotes(entryFor(props.email))),
 );
@@ -88,7 +89,7 @@ defineExpose({ entryFor, loadNotes });
  */
 function resultLinkFor(date: string): string | null {
   const id = props.market?.id;
-  if (!id || !props.email || props.market?.readOnlyReason) return null;
+  if (!id || !props.email || !mayTake(props.market, MarketAction.Assign)) return null;
   const query = new URLSearchParams({ date, search: props.email });
   return `${marketPath(id, 'result')}?${query.toString()}`;
 }

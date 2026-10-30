@@ -51,6 +51,8 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import api.market_actions as Actions
+import history as History
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
 from assignment.made_from import changed_since_run
@@ -401,10 +403,18 @@ def save_applicant_application(
             ApplicationsApi.delete_application(app_doc.get("id", ""))
         return {"error": error}, 422
 
+    answered = app_doc.get("form_data") or {}
+
     # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
     # Read whole, through the canonical parse: the applicant's projection carries only what they see.
     market = market_from_document(db["markets"].find_one({"id": market_id}))
-    if RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id):
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id)
+    # After the rules, so the entry says what they did to it: no rule records an entry of its own.
+    saved = app
+    History.record_applicant(
+        market_id, email, History.EDITED if existing else History.SUBMITTED, app.id,
+        lambda: _with_rules(History.changes(answered, saved.form_data or {}), verdicts))
+    if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
     results_published = bool(market_doc.get("resultsPublished"))
@@ -532,8 +542,32 @@ def review_application(
             "application": _application_response_organizer(Application(**now)),
         }, 409
 
-    app = Application(**ApplicationsApi.find_application_by_id(application_id))
+    stored = ApplicationsApi.find_application_by_id(application_id)
+    History.record(
+        market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICT,
+        vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
+        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
+    )
+    app = Application(**stored)
     return {"application": _application_response_organizer(app)}, 200
+
+
+def _with_rules(
+    answers: Optional[Dict[str, Any]], verdicts: RejectionRules.Judged,
+) -> Optional[Dict[str, Any]]:
+    """An applicant's changed answers, and whether the rules rejected or returned the application
+    as they landed; answers saved unchanged record nothing."""
+    if not answers:
+        return None
+    return {**answers, "rejected_by_rules": bool(verdicts.rejected),
+            "returned_by_rules": bool(verdicts.returned)}
+
+
+def _verdict_state(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """What a verdict changes, for its history entry: the status, and the follow-up's owner while
+    there is one. Recorded whole even when a verdict is given again, since each one is recorded."""
+    owner = (doc.get("follow_up_owner") or {}).get("email")
+    return {"status": doc.get("status"), **({"follow_up_owner": owner} if owner else {})}
 
 
 def review_selection(
@@ -552,6 +586,7 @@ def review_selection(
         return {"error": f"Invalid review status: {new_status.value}"}, 400
     me = {"user_id": by.user_id, "email": by.email}
     written: List[str] = []
+    was: Dict[str, Dict[str, Any]] = {}
     skipped: List[Dict[str, Any]] = []
     for app_id, seen in selection:
         doc = ApplicationsApi.find_application_by_id(app_id)
@@ -570,22 +605,46 @@ def review_selection(
         if ApplicationsApi.update_application_status(app_id, new_status, by=by,
                                                      if_unchanged_since=seen):
             written.append(app_id)
+            was[app_id] = doc
         else:
             now = ApplicationsApi.find_application_by_id(app_id) or doc
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": _changed_since_seen(now, seen)})
+    if written:
+        # One entry for the selection, as it was one action, naming every vendor it decided.
+        History.record(
+            market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICTS,
+            vendors=[was[app_id].get("applicant_email") for app_id in written],
+            subject={"application_ids": written},
+            detail=lambda: {
+                "before": {app_id: _verdict_state(was[app_id]) for app_id in written},
+                "after": {
+                    app_id: _verdict_state(ApplicationsApi.find_application_by_id(app_id))
+                    for app_id in written
+                },
+            },
+        )
     return {"written": written, "skipped": skipped}, 200
 
 
 def reassign_follow_up(
-    market_id: str, application_id: str, owner: MarketPerson,
+    market_id: str, application_id: str, owner: MarketPerson, by: str,
 ) -> Tuple[Dict[str, Any], int]:
-    """Hand a follow-up to someone else with a role on the market (E34/F02/S01)."""
+    """Hand a follow-up to someone else with a role on the market (E34/F02/S01), ``by`` the
+    signed-in reviewer."""
     app_doc = ApplicationsApi.find_application_by_id(application_id)
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
     if not ApplicationsApi.reassign_follow_up_owner(application_id, owner):
         return {"error": "Only an application that needs a follow-up has an owner."}, 409
+    History.record(
+        market_id, by, Actions.GIVE_VERDICTS, kind=History.FOLLOW_UP_OWNER,
+        vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
+        detail=lambda: History.changes(
+            {"follow_up_owner": (app_doc.get("follow_up_owner") or {}).get("email")},
+            {"follow_up_owner": owner.email},
+        ),
+    )
     app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200
 
@@ -600,8 +659,8 @@ def publish_results_refusal(market: Market) -> Optional[str]:
 
     Results wait for the allocation: in assignment, once a run is stored and current, so every
     applicant is told what the market will hold, and nobody's answer shifts under them through a
-    later run. Served as part of ``publishResultsReason``, so the button is offered exactly when
-    the endpoint would take it.
+    later run. Served as ``publishWaitsReason``, beside the table's Publish results answer, so the
+    button is offered exactly when the endpoint would take it.
     """
     if market.intake_mode is not IntakeMode.FORM:
         return NO_APPLICANTS_TO_TELL
@@ -609,15 +668,15 @@ def publish_results_refusal(market: Market) -> Optional[str]:
         return "Results are already published."
     if market.phase is not MarketPhase.ASSIGNMENT:
         return (
-            "Results are published from the assignment, once it has been run, so each applicant "
-            "is told whether they have a table."
+            "Results are published once tables have been allocated, so each applicant is told "
+            "whether they have a table."
         )
     if not market.assignment_object.vendor_assignments:
-        return "Run the assignment first: results tell each applicant whether they have a table."
+        return "Allocate tables first: results tell each applicant whether they have a table."
     if changed_since_run(market):
         return (
-            "The assignment is out of date. Run it again before publishing, so applicants are "
-            "told what the market will hold."
+            "The table allocation is out of date. Allocate tables again before publishing, so "
+            "applicants are told what the market will hold."
         )
     return None
 
@@ -627,7 +686,8 @@ def applications_stop_refusal(market: Market) -> Optional[str]:
 
     Inside the stage alone, and only where vendors apply on the market's own page: a Google Form
     market's form is the organizer's own, closed outside this product. Served on the market read as
-    ``applicationsStopReason``, so the rail offers the action exactly when the endpoint would take it.
+    ``applicationsStopReason``, beside the table's Stop taking applications answer, so the rail
+    offers the action exactly when the endpoint would take it.
     """
     if market.intake_mode is not IntakeMode.FORM:
         return "This market's vendors apply on its Google Form, so it has no application page to stop."
@@ -636,8 +696,11 @@ def applications_stop_refusal(market: Market) -> Optional[str]:
     return None
 
 
-def set_applications_stopped(market_id: str, stopped: bool) -> Tuple[Dict[str, Any], int]:
-    """Stop taking applications, or take them again, on a market whose vendors apply on its page.
+def set_applications_stopped(
+    market_id: str, stopped: bool, by: str,
+) -> Tuple[Dict[str, Any], int]:
+    """Stop taking applications, or take them again, on a market whose vendors apply on its page,
+    ``by`` the signed-in organizer.
 
     The write is conditional on the market still being where the refusal judged it, so a move into
     assignment that lands first leaves nothing to undo. Who may is the caller's to ask first.
@@ -663,10 +726,14 @@ def set_applications_stopped(market_id: str, stopped: bool) -> Tuple[Dict[str, A
     )
     if not result.matched_count:
         return {"error": "This market moved while the request was in flight. Reload it and try again."}, 409
+    # A stop restated records nothing.
+    History.record(market_id, by, Actions.STOP_APPLICATIONS, detail=lambda: History.changes(
+        {"applications_stopped": applications_stopped_from_market_document(doc)},
+        {"applications_stopped": stopped}))
     return {"applications_stopped": stopped}, 200
 
 
-def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
+def publish_results(market_id: str, by: str) -> Tuple[Dict[str, Any], int]:
     """Flip the results_published flag on a market, making verdicts visible to applicants.
 
     This is the single, deliberate, organizer-controlled moment the review verdicts become
@@ -696,4 +763,7 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
         {"id": market_id},
         {"$set": {"resultsPublished": True}},
     )
+    History.record(market_id, by, Actions.PUBLISH_RESULTS,
+                   detail=lambda: History.changes(
+                       {"results_published": False}, {"results_published": True}))
     return {"results_published": True}, 200

@@ -19,7 +19,7 @@ describes:
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -114,7 +114,7 @@ A write sets `vendorAssignments`, `assignmentDate` and, for a run alone, `madeFr
 
 ## The trail
 
-Every change here is recorded in [the placement history](../data/placement-history.md): a placement, a freed seat, a swap, and a solver run as one entry, with how many placements it wrote and how many pins it kept.
+Every change here is recorded in [the market's history](../data/history.md), under the `assign` action: a placement, a freed seat, a swap, and a solver run as one entry, with how many placements it wrote and how many pins it kept.
 
 ## Why
 

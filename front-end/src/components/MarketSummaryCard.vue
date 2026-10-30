@@ -15,7 +15,8 @@
  * Not progress counts: they are not in the list payload and would cost a query per row.
  */
 import { computed } from 'vue';
-import { type Market, MarketRole } from '@/assets/types/datatypes';
+import type { Market } from '@/assets/types/datatypes';
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import type { SummaryFact } from '@/utils/summary';
 import { getDateRange } from '@/utils/utils';
 import SummaryCard from '@/components/SummaryCard.vue';
@@ -29,9 +30,11 @@ const props = defineProps<{
 
 defineEmits<{ open: []; manage: [] }>();
 
-const canManage = computed(
-  () => props.market.userRole === MarketRole.Owner || props.market.userRole === MarketRole.Admin,
-);
+/**
+ * Manage is where roles are given, so it is offered to whoever may give Editor and Viewer roles:
+ * the table's answer, which the list serves for each market as its own page does (E39/F01/S02).
+ */
+const canManage = computed(() => mayTake(props.market, MarketAction.ManageEditorsAndViewers));
 
 const facts = computed<SummaryFact[]>(() => [
   {

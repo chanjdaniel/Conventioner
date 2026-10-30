@@ -27,7 +27,7 @@ _Avoid_: Status, stage, state (all used for other things; `isDraft` in particula
 See [Phase](docs/business/concepts/phase.md).
 
 **Publish**:
-To put a market's check-in page on the air: the `assignment` -> `market_days` transition, taken once the assignment has been computed. A published market is running, not finished.
+To put a market's check-in page on the air: the `assignment` -> `market_days` transition, taken once tables have been allocated. A published market is running, not finished.
 _Avoid_: Archive (that is the opposite), go live, release
 
 **Market days**:
@@ -94,19 +94,24 @@ An answer whose change invalidates a completed review, because it changes what t
 **These three are independent, and the glossary keeps them apart deliberately.** A required answer may be noise on a triage card; a review highlight may be optional; a solver-relevant answer may be neither. Blurring them is how the form builder grows two controls an organizer cannot tell apart.
 
 **Vendor**:
-An applicant being placed, or already placed, at tables. The solver's word for the thing it assigns.
+An assigned applicant: one with an **assignment**, a table on at least one date.
+_Avoid_: Vendor for an applicant who has no assignment
 
-### Placing
+**Approved applicants**:
+Everyone the review approved, assigned or not. There is no single word for them: say "approved applicants".
+_Avoid_: Vendors (that is the assigned ones)
+
+### Assigning
 
 **Market date**:
 One day the market runs. A **calendar day**, never an instant: a stored `YYYY-MM-DD` renders as the same day for every viewer regardless of timezone.
 
 **Section**:
-A named block of tables within the venue, carrying a tier, a location, and a count. Tables are generated from sections. A vendor ranks sections as a preference, and may be placed outside their top choice.
+A named block of tables within the venue, carrying a tier, a location, and a count. Tables are generated from sections. A vendor ranks sections as a preference, and may be assigned outside their top choice.
 _Avoid_: Area, zone, block
 
 **Tier**:
-A price band. **Determines what an applicant pays for a table on a given day**, which is why it is a hard filter: a vendor is never placed at a tier they did not accept, even if that leaves them unassigned.
+A price band. **Determines what an applicant pays for a table on a given day**, which is why it is a hard filter: a vendor is never assigned at a tier they did not accept, even if that leaves them unassigned.
 _Avoid_: Level, class, grade
 
 **Location**:
@@ -118,7 +123,7 @@ See [Placement and pin](docs/business/concepts/placement-and-pin.md).
 
 **Table code**:
 A table's name: its section, a space, then its number within that section - "Front Row 1".
-Built in exactly one place (`table_code_for` in `back-end/datatypes.py`), because it is both the label an organizer reads and the key a stored placement is matched against.
+Built in exactly one place (`table_code_for` in `back-end/datatypes.py`), because it is both the label an organizer reads and the key a stored assignment is matched against.
 _Avoid_: Table number, table ID, "Front Row1"
 
 **Table type**:
@@ -131,28 +136,37 @@ Stored as a code (`full`, `half`, `either`) and read back to a human as the sent
 Those sentences are the name of the thing - the CSV importer matches an imported column against them, and the review queue prints them - so the pairing lives in one place per side (`TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, `TABLE_CHOICES` in `front-end/src/utils/essentialFields.ts`) and the two must stay in step.
 _Avoid_: Table size, table preference, showing the stored code to anyone
 
-**Placed as**:
+**Assigned as**:
 What a vendor actually got: "Full Table", "Half Table (Left)", "Half Table (Right)".
-A different concept from **table choice**, which is what they asked for - an "Either is fine" applicant is placed as one or the other.
+A different concept from **table choice**, which is what they asked for - an "Either is fine" applicant is assigned as one or the other.
 _Avoid_: Using the applicant's sentence for an outcome, or "table choice" for either one alone
 See [Placement and pin](docs/business/concepts/placement-and-pin.md).
 
 **Table sharing**:
-Two half-table vendors placed at the same table. A vendor may name a preferred partner by email; one who names nobody may be paired with a stranger.
+Two half-table vendors assigned to the same table. A vendor may name a preferred partner by email; one who names nobody may be paired with a stranger.
 See [Table sharing](docs/business/concepts/table-sharing.md).
 
 **Assignment**:
-The output of the solver: which vendor sits at which table on which date.
-Changed afterwards only by hand placements, never by editing the rules - new rules take effect when the assignment is run again.
-The organizers' word for the whole job of placing vendors, which is why the page where the **Assignment rules** are set and run is also labelled Assignment; its sibling page, where the assignment is read and changed, is the **Result**.
-_Avoid_: Assignment results (the assignment is the result; there is no second thing)
+One applicant's table on one date: what they were given, by the solver or by hand.
+Assigning by hand is assigning: an organizer who puts someone at a table, or moves or frees them, changes their assignments.
+The Assignment phase, tab and page keep the name for the whole job, which is why the page where the **Assignment rules** are set and tables are allocated is labelled Assignment; its sibling page, where the assignments are read and changed, is the **Result**.
+_Avoid_: Assignment for the solver's whole output (that is the **table allocation**); placement, placed and placing (all now **assignment**, **assigned** and **assigning**)
 See [Assignment](docs/business/concepts/assignment.md).
 
+**Assigned / unassigned**:
+An applicant is assigned when they have an assignment on at least one date, and unassigned when they have none.
+Being assigned implies being approved; until approving on assigning lands, an applicant assigned by hand without approval is marked "Not approved".
+_Avoid_: Placed, unplaced, seated
+
+**Table allocation**:
+What the solver produces for the whole market: every assignment it makes in one run. "Allocate tables" runs it; assignments made by hand are kept, and new **assignment rules** take effect only when tables are allocated again.
+_Avoid_: Assignment, assignment results, "run the assignment"
+
 **Assignment rules**:
-The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before running an assignment, as distinct from the **Assignment** it produces.
+The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before allocating tables, as distinct from the **table allocation** it produces.
 
 **Priority**:
-The organizer's ordered rules for who gets placed first when demand exceeds tables. Each rule names a target - one of their own form questions, or a built-in fact about the application such as when it was submitted - and an ordering over that target's values.
+The organizer's ordered rules for who gets assigned first when demand exceeds tables. Each rule names a target - one of their own form questions, or a built-in fact about the application such as when it was submitted - and an ordering over that target's values.
 
 **Max assignments per vendor**:
 The organizer's ceiling on how many days any one vendor may be assigned, bounded by the market's own date count. A hard limit set by the market, distinct from the vendor's own `max dates` answer; the effective cap is the lower of the two.

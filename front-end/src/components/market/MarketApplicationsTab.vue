@@ -63,12 +63,12 @@ const condition = computed(() => {
           ? 'This market is not taking applications. No new ones will arrive.'
           : 'This market is open for applications. New ones keep arriving here.';
     // Past the stage every application is decided, and the assignment is made from them (ticket
-    // 02). The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with a seat.
+    // 02). The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with an assignment.
     case MarketPhase.Assignment:
-      return 'The review is closed: every verdict settled when the assignment began. The assignment works from the ones you approved, and a seat is changed by hand on the Result page.';
+      return 'The review is closed: every verdict settled when the market entered Assignment. Tables are allocated from the ones you approved, and an assignment is changed by hand on the Result page.';
     case MarketPhase.Offers:
     case MarketPhase.MarketDays:
-      return 'The review is closed: every verdict settled when the assignment began. The assignment was made from the ones you approved.';
+      return 'The review is closed: every verdict settled when the market entered Assignment. Tables were allocated from the ones you approved.';
     default:
       return '';
   }

@@ -39,7 +39,7 @@ What it says comes from [the market guide](market-guide.md); which moves exist a
 **The rail says no before the click.**
 `GET /markets/:id` serves `transitionBlockers`: every move open from the market's phase, each judged by the same guards the move runs (`transition_verdicts` in [`back-end/guards.py`](../../../back-end/guards.py)).
 A refused move is drawn disabled, with its first blocker as its reason: in the menu beside it, and for the forward step as the rail's sentence; when that blocker names a page that resolves it, the rail's main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
-The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Run the assignment"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
+The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
 
@@ -63,7 +63,7 @@ Only the one forward step is on the rail; every other move is in the "More…" m
 Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
-Someone below ADMIN (`adminActionsReason`) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.
 The rail navigates there itself: it once emitted an event no screen listened to, so every move landed on the server and the organizer stayed where they had clicked, an import's result still drawn (E32/F01/S01).

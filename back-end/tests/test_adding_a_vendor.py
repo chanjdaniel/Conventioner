@@ -63,7 +63,7 @@ def test_an_editor_adds_a_vendor_while_assigning_or_on_the_day(stored, phase):
 def test_before_the_assignment_a_vendor_applies_instead(stored, phase):
     written = stored(phase)
 
-    with pytest.raises(AddedVendors.AddVendorRefused, match="assignment"):
+    with pytest.raises(AddedVendors.AddVendorRefused, match="from Assignment on"):
         AddedVendors.add_vendor("market-123", {"name": "A", "email": "a@example.com"}, ADDER)
 
     assert written == []
@@ -96,28 +96,6 @@ def test_a_name_and_an_address_are_both_needed(stored, data):
 
     with pytest.raises(AddedVendors.AddVendorInvalid):
         AddedVendors.add_vendor("market-123", data, ADDER)
-
-
-class TestWhoMayAdd:
-    def test_the_read_says_why_not_before_the_assignment(self):
-        from conftest import client_market
-
-        assert MarketsApi.add_vendor_refusal(
-            "e@x.test", client_market(phase=MarketPhase.APPLICATIONS), None) is not None
-
-    def test_the_read_offers_it_to_an_editor_on_the_day(self, monkeypatch):
-        from conftest import client_market
-        monkeypatch.setattr(Actions, "refusal", lambda *_a: None)
-
-        assert MarketsApi.add_vendor_refusal(
-            "e@x.test", client_market(phase=MarketPhase.MARKET_DAYS), None) is None
-
-    def test_a_viewer_is_told_first_that_they_may_not_change_the_market(self, monkeypatch):
-        from conftest import client_market
-        monkeypatch.setattr(Actions, "refusal", lambda *_a: "Viewers read.")
-
-        assert MarketsApi.add_vendor_refusal(
-            "e@x.test", client_market(phase=MarketPhase.MARKET_DAYS), None) == "Viewers read."
 
 
 def test_an_added_vendor_is_never_an_input_to_the_run(monkeypatch):

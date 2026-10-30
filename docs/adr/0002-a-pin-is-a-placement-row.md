@@ -41,7 +41,7 @@ Two records could disagree, and the failure of disagreement is a vendor pinned t
 - A pin that breaks a vendor's own answers (a tier they did not accept, a half table for a full-table vendor) stands, and is marked as overriding what they asked for, since tier sets the price.
 - A pin the plan can no longer hold is orphaned, never deleted, and blocks the next move into `assignment` or `market_days` until it is re-placed or freed.
 - Every hand placement and both sides of a swap are flagged, so a re-run keeps them all.
-- The single writer, the held seat and the orphan check are described in [placements](../implementation/modules/placements.md); the trail of who pinned whom is [the placement history](../implementation/data/placement-history.md).
+- The single writer, the held seat and the orphan check are described in [placements](../implementation/modules/placements.md); the trail of who pinned whom is [the market's history](../implementation/data/history.md), narrowed to placements.
 - The seats are changed on the screen that shows the free ones (the Result page), and a vendor's own panel is the door to it: every edit asks "where can they go", which only the tables can show.
 
 ## Superseded

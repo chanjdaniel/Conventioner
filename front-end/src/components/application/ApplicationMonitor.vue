@@ -14,6 +14,7 @@
  * which is the solver's entire input (`assign_market` reads `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  */
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
@@ -94,10 +95,16 @@ const givers = computed(
 const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
 
 /**
- * Why results cannot be published yet, as the server judges it (E36/F04/S01): they wait for a
- * current run in assignment, so each applicant is told whether they have a table.
+ * Why results cannot be published yet, as the server judges it: who may, the table's row
+ * (E39/F01/S02), then that they wait for a current run in assignment, so each applicant is told
+ * whether they have a table (E36/F04/S01).
  */
-const publishReason = computed(() => props.market?.publishResultsReason ?? null);
+const publishReason = computed(
+  () =>
+    actionRefusal(props.market, MarketAction.PublishResults) ||
+    props.market?.publishWaitsReason ||
+    null,
+);
 const outcomes = computed(() => props.market?.publishOutcomes ?? null);
 const confirmingPublish = ref(false);
 /** The two outcomes in the applicant's own words (E36/F05/S02), worded once. */
@@ -173,19 +180,23 @@ const restOpen = ref(false);
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
 
 /**
- * Whether this person may change what leads the card - an EDITOR write - on a market that can
- * change at all (bugs 30 and 37).
+ * Whether this person may change what leads the card - the form's row - on a market that can
+ * change at all (bugs 30 and 37, E39/F01/S02).
  */
-const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
+const marksHighlights = computed(() => mayTake(props.market, MarketAction.ChangeForm));
+/** Whether this person may write the organizer's notes on the applicant up. */
+const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendorNotes));
 
 /**
- * Whether this person may give verdicts here: the server's `verdictLockReason` (E34) - EDITOR, like
- * every other change to the market's contents (E34/F01/S01), while the market can still run its
- * assignment. Viewers, archived markets and settled ones read the applications and their verdicts.
+ * Whether this person may give verdicts here: the table's verdicts row (E34/F01/S01, E39/F01/S02)
+ * while the review is open (E36/F01/S01). Viewers, archived markets and settled ones read the
+ * applications and their verdicts.
  */
-const decides = computed(() => !props.market?.verdictLockReason);
-/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
-const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
+const decides = computed(
+  () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
+/** Whether this person may publish the verdicts: the table's Publish results row (bug 37). */
+const publishes = computed(() => mayTake(props.market, MarketAction.PublishResults));
 
 /**
  * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
@@ -534,8 +545,8 @@ function submittedOn(app: Application): string {
         "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
       <p class="publish-outcomes">
-        Publishing cannot be undone, and the assignment cannot be run again after it: seats change
-        only by hand.
+        Publishing cannot be undone, and tables cannot be allocated again after it: assignments
+        change only by hand.
       </p>
     </AppDialog>
 
@@ -684,7 +695,7 @@ function submittedOn(app: Application): string {
           :marketId="market.id"
           :email="current.applicantEmail"
           :entry="entryFor(current.applicantEmail)"
-          :canWrite="!readOnly"
+          :canWrite="writesNotes"
           :showRequest="false"
           testid="app-monitor-notes"
           @changed="loadNotes"
@@ -696,7 +707,7 @@ function submittedOn(app: Application): string {
           Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the
           marks change what the card SHOWS, never which application is up.
         -->
-        <div v-if="!readOnly" class="choose-highlights">
+        <div v-if="marksHighlights" class="choose-highlights">
           <button
             type="button"
             class="choose-highlights-toggle"

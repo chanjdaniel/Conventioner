@@ -10,13 +10,13 @@ import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 describe('the out-of-date line', () => {
   it('names each group that changed, in plain words', () => {
     expect(outOfDateLine(['rules', 'applications'], 'assignment')).toBe(
-      'Your rules and the approved applications changed since this assignment ran.',
+      'Your rules and the approved applications changed since tables were allocated.',
     );
     expect(outOfDateLine(['rules', 'plan', 'applications'], 'assignment')).toBe(
-      'Your rules, the market plan and the approved applications changed since this assignment ran.',
+      'Your rules, the market plan and the approved applications changed since tables were allocated.',
     );
     expect(outOfDateLine(['plan'], 'assignment')).toBe(
-      'The market plan changed since this assignment ran.',
+      'The market plan changed since tables were allocated.',
     );
   });
 
@@ -33,7 +33,7 @@ describe('the out-of-date line', () => {
 
   it('ignores a group this build does not know, rather than printing its key', () => {
     expect(outOfDateLine(['rules', 'something_new'], 'assignment')).toBe(
-      'Your rules changed since this assignment ran.',
+      'Your rules changed since tables were allocated.',
     );
     expect(outOfDateLine(['something_new'], 'assignment')).toBeNull();
   });

@@ -11,6 +11,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import type { ApplicationForm, Market, SetupObject } from '@/assets/types/datatypes';
+import { answersRefusing, VIEWER_ANSWERS } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 vi.mock('@/utils/api', async (importOriginal) => {
@@ -64,6 +65,7 @@ async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
         applicationForm: FORM,
         applicationFormLockReason: null,
         readOnlyReason: null,
+        actionRefusals: answersRefusing(),
         ...market,
       } as Market,
       setupObject: SETUP,
@@ -248,12 +250,14 @@ describe('a locked form opens on the review setup (E33/F01/S03)', () => {
 
 describe('a person who may only read (E33/F01/S03, review)', () => {
   const READ_ONLY = 'You can view this market, but not change it.';
+  /** What a Viewer is served: told by the frame, and refused the form's row. */
+  const READER = { readOnlyReason: READ_ONLY, actionRefusals: VIEWER_ANSWERS };
 
   // The frame says why, once, on every page of the market (T15): the tab says only the form's lock.
   it('is offered no control on Review setup, and not told twice', async () => {
     const wrapper = await mountTab({
       applicationFormLockReason: null,
-      readOnlyReason: READ_ONLY,
+      ...READER,
     } as Partial<Market>);
 
     expect(currentStep(wrapper)).toContain('Review setup');
@@ -263,7 +267,7 @@ describe('a person who may only read (E33/F01/S03, review)', () => {
 
   it("reads the questions as read-only, and is told only the form's own lock", async () => {
     const LOCKED = 'Application form is locked: 1 application has already been submitted.';
-    const open = await mountTab({ readOnlyReason: READ_ONLY } as Partial<Market>);
+    const open = await mountTab(READER as Partial<Market>);
     await open.get('[data-testid="form-step-questions"]').trigger('click');
 
     expect(shown(open, 'form-builder-lock-banner')).toBe(false);
@@ -271,7 +275,7 @@ describe('a person who may only read (E33/F01/S03, review)', () => {
 
     const locked = await mountTab({
       applicationFormLockReason: LOCKED,
-      readOnlyReason: READ_ONLY,
+      ...READER,
     } as Partial<Market>);
     await locked.get('[data-testid="form-step-questions"]').trigger('click');
 

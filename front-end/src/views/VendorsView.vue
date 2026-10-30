@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, ref, watch } from 'vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
@@ -10,6 +11,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import AddVendorDialog from '@/components/AddVendorDialog.vue';
+import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import { hasAssignment } from '@/utils/marketPage';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
@@ -29,6 +31,7 @@ import { useResultFilters } from '@/utils/useResultFilters';
 import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
+import { NO_FILTERS, vendorsPageSeed, type ExportFilters } from '@/utils/vendorExport';
 
 const router = useRouter();
 const route = useRoute();
@@ -110,13 +113,32 @@ const filteredVendors = computed(() => {
 
 /** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
 const adding = ref(false);
-const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
+const canAdd = computed(
+  () => mayTake(market.value, MarketAction.AddVendor) && !market.value?.addingVendorsReason,
+);
 async function vendorAdded(email: string): Promise<void> {
   adding.value = false;
   // A write is followed by a re-read: the market's own facts count them too (publishOutcomes).
   void useMarketStore().refresh();
   await details.load();
   drawer.open(email);
+}
+
+/**
+ * The vendors shown, as a CSV (E42/F01/S01): the dialog opens on this page's filters and search,
+ * taken as it opens, so the file holds who the organizer was looking at.
+ */
+const exporting = ref(false);
+/** Export is the table's Export CSV row (E39/F01/S02): a market that raises it hides the button. */
+const mayExport = computed(() => mayTake(market.value, MarketAction.ExportCsv));
+const exportSeed = ref<ExportFilters>(NO_FILTERS);
+function openExport(): void {
+  exportSeed.value = vendorsPageSeed({
+    shown: shown.value,
+    filters: filters.value,
+    search: filterText.value,
+  });
+  exporting.value = true;
 }
 
 const totalVendorCount = computed(() => vendors.value.length);
@@ -162,6 +184,15 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               Rejected only<span v-if="shown === 'rejected'" aria-hidden="true"> &times;</span>
             </button>
           </div>
+          <button
+            v-if="mayExport"
+            type="button"
+            class="btn btn--secondary btn--compact"
+            data-testid="vendors-export-button"
+            @click="openExport"
+          >
+            Export
+          </button>
           <button
             v-if="canAdd"
             type="button"
@@ -273,6 +304,12 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
       :market-id="marketId"
       @close="adding = false"
       @added="vendorAdded"
+    />
+    <ExportVendorsDialog
+      :open="exporting"
+      :market-id="marketId"
+      :seed="exportSeed"
+      @close="exporting = false"
     />
     <VendorDrawer
       :market="market"

@@ -28,6 +28,7 @@ sources:
   - E36/F01/S01
   - E27/F01/S03
   - bug/42
+  - E42/F01/S03
   - bug/43
   - E08/F04
   - E30/F01/S05
@@ -47,7 +48,7 @@ sources:
 
 Applications arrive and are reviewed in one phase, shown as Review on a Google Form market and Applications on one whose vendors apply on its page ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 Verdicts are open from the first application until the market enters Assignment, so reviewing starts as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
-A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+A line above the review says where the market stands, in words: what arrives ("Every response you imported from your Google Form is here.", "This market is open for applications. New ones keep arriving here." or "This market is not taking applications. No new ones will arrive."); from Assignment on "The review is closed: every verdict settled when the market entered Assignment. …".
 How many are left to decide is the rail's to say, as the blocker on Begin Assignment.
 The page offers no import on either path ([review needs an import](../rules/review-needs-an-import.md)).
 The page has two views, chosen above it and kept in the address (`?view=all`, with the All view's filters): "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
@@ -86,7 +87,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`).
+**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. Filters: "Any status", "To review", "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; "N of M" says how many show.
@@ -95,6 +96,8 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
    A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
    A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
+6. "Export", after "N of M", opens the vendor export on the filter and Mine ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "To review" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
+   So the review's lists (approved, rejected, needs follow-up) leave as a CSV before assignment as well as after.
 
 A selection is only ever the rows ticked, never "everything matching".
 The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count moves.
@@ -116,7 +119,7 @@ Covered by: `market-journey.spec.ts`, `every-move-lands.spec.ts`.
 **Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
 From Review or Applications, "Begin Assignment", disabled before the click with the rail naming the first blocker:
 
-- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before assignment can begin.", with "Finish deciding" leading back to the review;
+- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before the market can enter Assignment.", with "Finish deciding" leading back to the review;
 - none at all: "There are no applications for this market. …";
 - an approved applicant named a tier with no tables, naming the tier and the applicants;
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).

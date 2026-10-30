@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/api/markets.py#assignment_rules_lock_reason
   - back-end/assignment/made_from.py#assignment_rules
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - E22/F02
   - E22/F02/S01
@@ -21,9 +21,9 @@ After that the plan write refuses a change to them, and restating them as stored
 
 ## Why
 
-A rule only takes effect when the assignment runs, and it runs in `assignment` alone ([assign runs only in assignment](assign-runs-only-in-assignment.md)).
-A rule changed after the market can no longer run it would read as in force while deciding nothing; a single placement is changed by hand on the Result page instead.
-Publishing results settles the rules too, since the run is not made again once applicants have been told.
+A rule only takes effect when tables are allocated, and they are allocated in `assignment` alone ([assign runs only in assignment](assign-runs-only-in-assignment.md)).
+A rule changed after the market can no longer allocate tables would read as in force while deciding nothing; a single assignment is changed by hand on the Result page instead.
+Publishing results settles the rules too, since tables are not allocated again once applicants have been told.
 
 **Derived, never listed.**
 Whether the market can still reach `assignment` is a walk of the transition table (`route_between` in `back-end/guards.py`), so a phase added or an edge moved decides it with no edit here.

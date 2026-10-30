@@ -155,7 +155,7 @@ test.describe('Market pipeline E2E', () => {
     await expect(resultsPage.strip).toBeVisible({ timeout: 15000 });
 
     const summaryText = await resultsPage.strip.textContent();
-    expect(summaryText).toContain('vendors placed');
+    expect(summaryText).toContain('approved applicants assigned');
     expect(summaryText).toContain('table-days used');
     expect(summaryText).toContain('unassigned');
     // Named and defined where it is shown: it used to be a bare "Satisfaction Score" with no

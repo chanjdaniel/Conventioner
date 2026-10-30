@@ -34,7 +34,7 @@ const assigned = computed(() => hasAssignment(props.market));
 const current = computed(() => currentPage(props.market?.phase, assigned.value));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
-/** The same five tabs in every phase (E31/F03/S02). */
+/** The same six tabs in every phase (E31/F03/S02, E45/F01/S01). */
 const tabs = computed((): MarketTab[] => tabsFor());
 const path = computed(() => intakeModeOf(props.market));
 
@@ -50,7 +50,7 @@ function linkFor(tab: MarketTab): string {
       <h1 class="market-bar-title" data-testid="market-bar-title" :title="market.name">
         {{ market.name }}
       </h1>
-      <nav class="market-bar-tabs" aria-label="Market">
+      <nav class="market-bar-tabs" aria-label="Market" data-testid="market-bar-tabs">
         <RouterLink
           v-for="tab in tabs"
           :key="tab"

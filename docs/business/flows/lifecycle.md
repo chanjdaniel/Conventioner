@@ -83,8 +83,8 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
-| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: begin assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: begin assignment." |
-| Assignment, nothing run | "Set the rules and run the assignment." | as the online path |
+| Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin Assignment." |
+| Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
 | Assignment, run | "Check the result, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
 | Assignment, results published | "Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
@@ -112,7 +112,7 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 | The stage → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
 | The stage → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
 | Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
-| Into Market Days | No assignment is stored | "No assignment has been computed for this market, so its check-in page could not tell anyone where to stand. Run the assignment first." |
+| Into Market Days | No assignment is stored | "No tables have been allocated for this market, so its check-in page could not tell anyone where to stand. Allocate tables first." |
 | Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.

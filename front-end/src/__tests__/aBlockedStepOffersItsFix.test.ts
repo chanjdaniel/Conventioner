@@ -12,6 +12,8 @@ import { mount, RouterLinkStub } from '@vue/test-utils';
 
 import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market, type PreconditionResult } from '@/assets/types/datatypes';
+import { answersRefusing } from './support/servedAnswers';
+import { MarketAction } from '@/utils/marketActions';
 
 const here = vi.hoisted(() => ({ path: '/markets/market-1/form' }));
 
@@ -49,6 +51,7 @@ function railFor(
         name: 'Riverside',
         phase: MarketPhase.Draft,
         transitionBlockers: { [MarketPhase.Applications]: blockers },
+        actionRefusals: answersRefusing(),
         ...overrides,
       } as Market,
     },
@@ -99,12 +102,12 @@ describe('before a run', () => {
   const NOT_RUN: PreconditionResult = {
     id: 'assignment_computed',
     passed: false,
-    message: 'No assignment has been computed for this market. Run the assignment first.',
+    message: 'No tables have been allocated for this market. Allocate tables first.',
     resolutionLink: 'assignment',
-    resolutionLabel: 'Run the assignment',
+    resolutionLabel: 'Allocate tables',
   };
 
-  it('Publish waits on running the assignment, offered from any other page', () => {
+  it('Publish waits on allocating tables, offered from any other page', () => {
     const rail = railFor(
       [],
       {
@@ -115,7 +118,7 @@ describe('before a run', () => {
     );
 
     const button = rail.get(fix);
-    expect(button.text()).toBe('Run the assignment');
+    expect(button.text()).toBe('Allocate tables');
     expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/assignment');
     expect(
       rail.get('[data-testid="phase-transition-market_days"]').attributes('disabled'),
@@ -139,7 +142,9 @@ describe('no fix is offered', () => {
   });
 
   it('to someone the move is not theirs to make, whose sentence still names where it is fixed', () => {
-    const rail = railFor([NO_LOCATION], { adminActionsReason: 'Only an admin moves the market.' });
+    const rail = railFor([NO_LOCATION], {
+      actionRefusals: answersRefusing(MarketAction.MovePhase),
+    });
 
     expect(rail.find(fix).exists()).toBe(false);
     expect(rail.get('[data-testid="phase-rail-next-link"]').text()).toBe('Add a location');
