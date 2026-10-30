@@ -1333,12 +1333,10 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         market.id, EssentialFields.effective_essential_options_for_market(market),
         {vendor.email for vendor in vendors},
     )
+    orphaned = orphaned_pins(assigned_market.setup_object, placed_rows)
     count_added_vendors(
         stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
-        [
-            placement for placement in placed_rows
-            if placement not in orphaned_pins(assigned_market.setup_object, placed_rows)
-        ],
+        [placement for placement in placed_rows if placement not in orphaned],
     )
 
     payload = convert_keys_to_camel_case(stats.model_dump())
@@ -1573,9 +1571,10 @@ def count_added_vendors(
     The run counts only the vendors it reads, so a vendor added without a table was missing from
     "N unassigned" while Vendors' "Unassigned only" listed them, and the link led to a list longer
     than its number. An added vendor needs a table on every market day, and holds one when seated
-    on any, as the run's vendors do; a seat the plan no longer has is no seat, so the caller
-    leaves an orphaned pin out of `placements`. Satisfaction stays the run's, measured against
-    their answers.
+    on any at a seat the plan still has: the caller leaves an orphaned pin out of `placements`, so
+    the count agrees with the Vendors page, which draws seats from the plan. (The solver still
+    counts a run vendor's orphaned pin as the date it claimed.) Satisfaction stays the run's,
+    measured against their answers.
     """
     seated = {placement.email for placement in placements}
     for email in sorted(set(added)):

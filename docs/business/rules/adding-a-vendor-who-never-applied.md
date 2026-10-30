@@ -32,7 +32,8 @@ They are approved by the act of adding, and the organizer who added them is reco
 
 **Out of the run, but needing a table like anyone.**
 "In the run" says only who the run places; a vendor added by hand needs a table on every market day, so one without a table is unassigned: listed under the Vendors page's "Unassigned only" (and on each date they hold none, with a date chosen), "Unassigned" beside "Added" on their row, and counted in the Assignments page's "N unassigned" and "N of M approved applicants assigned", so the link and the list agree (bug 10).
-The server says it of each vendor apart from "in the run" (`needs_a_table` and `count_added_vendors` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)); seated on any day at a seat the plan still holds, they count as assigned, as the run's vendors do, while a placement the plan no longer holds leaves them unassigned, matching the Vendors page (an orphaned pin, [placements](../../implementation/modules/placements.md#pins)).
+The server says it of each vendor apart from "in the run" (`needs_a_table` and `count_added_vendors` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)); seated on any day at a seat the plan still holds, they count as assigned, while a placement the plan no longer holds leaves them unassigned, matching the Vendors page, which draws seats from the plan (an orphaned pin, [placements](../../implementation/modules/placements.md#pins)).
+The solver, unlike this count, still counts a run vendor's orphaned pin as the date it claimed.
 
 ## Who may
 
