@@ -91,6 +91,23 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed Market Setup: tiers and market dates');
   });
 
+  it('words a change of the prices by what on the Pricing card changed (E43/F01/S02)', () => {
+    expect(
+      sentence({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        detail: {
+          before: { groups: [], everyone_else: [] },
+          after: {
+            groups: [{ name: 'UBC student only', conditions: [], prices: [] }],
+            everyone_else: [{ tier: 'Gold', cents: 3500 }],
+          },
+        },
+      }),
+    ).toBe('dana@ember.test changed the prices: price groups and "Everyone else"');
+  });
+
   it('words a role change by the person and both roles', () => {
     expect(
       sentence({

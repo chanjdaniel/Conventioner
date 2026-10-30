@@ -83,6 +83,14 @@ const SETUP_FIELDS: Record<string, string> = {
   name: 'name',
 };
 
+/** The Pricing card's fields, as the card names them (`pricing_fields` in `back-end/pricing.py`). */
+const PRICING_FIELDS: Record<string, string> = {
+  currency: 'currency',
+  half_table_percent: "half table's share",
+  groups: 'price groups',
+  everyone_else: '"Everyone else"',
+};
+
 function listed(words: string[]): string {
   const unique = [...new Set(words)];
   if (unique.length <= 1) return unique.join('');
@@ -173,6 +181,10 @@ export function entryParts(
     case 'change-setup/plan': {
       const fields = Object.keys(after).map((key) => SETUP_FIELDS[key] ?? key);
       return [actor, text(`changed Market Setup${fields.length ? `: ${listed(fields)}` : ''}`)];
+    }
+    case 'change-setup/pricing': {
+      const fields = Object.keys(after).map((key) => PRICING_FIELDS[key] ?? key);
+      return [actor, text(`changed the prices${fields.length ? `: ${listed(fields)}` : ''}`)];
     }
     case 'change-setup/floorplan':
       return [actor, text('saved a floorplan to the market')];
