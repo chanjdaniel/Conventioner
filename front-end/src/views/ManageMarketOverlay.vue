@@ -404,6 +404,7 @@ async function closeAddUser() {
           :row-labels="rowLabels"
           :path="intakeModeOf(marketData)"
           :changes-made="changesMade"
+          :questions="marketData.rejectionQuestions ?? []"
         />
       </HistorySection>
 

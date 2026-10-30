@@ -6,7 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, nextTick, ref } from 'vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
-import type { PricingObject, SetupObject } from '@/assets/types/datatypes';
+import type {
+  PriceGroup,
+  PricingObject,
+  RejectionQuestion,
+  SetupObject,
+} from '@/assets/types/datatypes';
 
 function plan(pricing?: PricingObject | null, tiers = ['Gold', 'Silver']): SetupObject {
   return {
@@ -82,6 +87,7 @@ describe('typing a price', () => {
     expect(lastPricing(wrapper)).toEqual({
       currency: 'CAD',
       halfTablePercent: 50,
+      groups: [],
       everyoneElse: [
         { tier: 'Gold', cents: 3550 },
         { tier: 'Silver', cents: 3000 },
@@ -307,5 +313,195 @@ describe('a plan with no tiers', () => {
 
     expect(wrapper.find('[data-testid="pricing-half-percent"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="pricing-currency"]').exists()).toBe(false);
+  });
+});
+
+const QUESTIONS: RejectionQuestion[] = [
+  {
+    key: 'affiliation',
+    label: 'Are you a UBC student or alumni?',
+    answers: ['Current UBC student', 'UBC alumni/staff'].map((a) => ({ value: a, label: a })),
+  },
+  {
+    key: 'clubs',
+    label: 'Which clubs are you a member of?',
+    answers: ['Art Club', 'Craft Club', 'No club'].map((a) => ({ value: a, label: a })),
+  },
+];
+
+const STUDENT_CLUB: PriceGroup = {
+  name: 'UBC student + club member',
+  conditions: [
+    { key: 'affiliation', answers: ['Current UBC student'] },
+    { key: 'clubs', answers: ['Art Club', 'Craft Club'] },
+  ],
+  prices: [
+    { tier: 'Gold', cents: 1200 },
+    { tier: 'Silver', cents: 1000 },
+  ],
+};
+
+function grouped(groups: PriceGroup[]): PricingObject {
+  return {
+    currency: 'CAD',
+    halfTablePercent: 50,
+    groups,
+    everyoneElse: [
+      { tier: 'Gold', cents: 3500 },
+      { tier: 'Silver', cents: 3000 },
+    ],
+  };
+}
+
+/** The card with the market's choice questions, as Market Setup mounts it, every write kept. */
+function groupCard(pricing: PricingObject | null, fixed = false) {
+  const held: boolean[] = [];
+  const kept = ref(plan(pricing));
+  const host = defineComponent({
+    setup() {
+      return () =>
+        h(ElementPricing, {
+          setupObject: kept.value,
+          questions: QUESTIONS,
+          fixed,
+          'onUpdate:setupObject': (value: SetupObject) => (kept.value = value),
+          onHeld: (value: boolean) => held.push(value),
+        });
+    },
+  });
+  const wrapper = mount(host, { attachTo: document.body });
+  return Object.assign(wrapper, { kept: () => kept.value.pricing, held });
+}
+
+describe('price groups (E43/F01/S02)', () => {
+  it('each group is a row above Everyone else, which stays last', () => {
+    const wrapper = groupCard(grouped([STUDENT_CLUB]));
+
+    // Its conditions sit beside its prices, in a column of their own.
+    expect(wrapper.findAll('thead th').map((th) => th.text())).toEqual([
+      'Who',
+      'Gold',
+      'Silver',
+      'In the group when',
+    ]);
+
+    const rows = wrapper.findAll('tbody tr th');
+    expect(rows.map((th) => th.attributes('data-testid'))).toEqual([
+      'pricing-group-0-who',
+      'pricing-everyone-else',
+    ]);
+    expect(
+      (wrapper.get('[data-testid="pricing-group-0-name"]').element as HTMLInputElement).value,
+    ).toBe('UBC student + club member');
+    expect(
+      (wrapper.get('[data-testid="pricing-group-0-price-0"]').element as HTMLInputElement).value,
+    ).toBe('12');
+    expect(wrapper.find('[data-testid="pricing-everyone-else-remove"]').exists()).toBe(false);
+  });
+
+  it("names a group's cell by its name and its tier", () => {
+    const wrapper = groupCard(grouped([STUDENT_CLUB]));
+
+    const ids = wrapper
+      .get('[data-testid="pricing-group-0-price-1"]')
+      .attributes('aria-labelledby')!
+      .split(' ');
+    expect(ids.map((id) => document.getElementById(id)?.textContent?.trim())).toEqual([
+      'UBC student + club member',
+      'Silver',
+    ]);
+  });
+
+  it('adding a group holds the plan until it is named, then writes it', async () => {
+    const wrapper = groupCard(grouped([]));
+
+    await wrapper.get('[data-testid="pricing-add-group"]').trigger('click');
+
+    expect(wrapper.kept()?.groups).toEqual([{ name: '', conditions: [], prices: [] }]);
+    expect(wrapper.held.at(-1)).toBe(true);
+    // Not met with an error before anything is typed: only once the field is left empty.
+    expect(wrapper.find('[data-testid="pricing-group-0-name-error"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="pricing-group-0-name"]').trigger('blur');
+    expect(wrapper.get('[data-testid="pricing-group-0-name-error"]').text()).toBe(
+      'Name this group.',
+    );
+
+    await wrapper.get('[data-testid="pricing-group-0-name"]').setValue('UBC student only');
+    await wrapper.get('[data-testid="pricing-group-0-price-0"]').setValue('15');
+
+    expect(wrapper.held.at(-1)).toBe(false);
+    expect(wrapper.kept()?.groups).toEqual([
+      { name: 'UBC student only', conditions: [], prices: [{ tier: 'Gold', cents: 1500 }] },
+    ]);
+  });
+
+  it('a second group with the same name holds the plan', async () => {
+    const wrapper = groupCard(grouped([STUDENT_CLUB]));
+
+    await wrapper.get('[data-testid="pricing-add-group"]').trigger('click');
+    await wrapper.get('[data-testid="pricing-group-1-name"]').setValue('ubc student + club member');
+
+    expect(wrapper.get('[data-testid="pricing-group-1-name-error"]').text()).toBe(
+      'Another group is called this.',
+    );
+    expect(wrapper.held.at(-1)).toBe(true);
+  });
+
+  it("a group's conditions are built as the automatic rejections are", async () => {
+    const wrapper = groupCard(grouped([{ ...STUDENT_CLUB, conditions: [] }]));
+
+    await wrapper.get('[data-testid="pricing-group-0-rule-question"]').setValue('affiliation');
+    await wrapper.get('[data-testid="pricing-group-0-rule-add"]').trigger('click');
+    await wrapper
+      .get('[data-testid="pricing-group-0-answer-affiliation-Current UBC student"] input')
+      .setValue(true);
+
+    expect(wrapper.kept()?.groups?.[0].conditions).toEqual([
+      { key: 'affiliation', answers: ['Current UBC student'] },
+    ]);
+    expect(wrapper.get('[data-testid="pricing-group-0-rule-affiliation"]').text()).toContain(
+      'includes any of',
+    );
+  });
+
+  it('a condition on a question the form no longer asks is shown broken', () => {
+    const gone = { ...STUDENT_CLUB, conditions: [{ key: 'year', answers: ['First'] }] };
+    const wrapper = groupCard(grouped([gone]));
+
+    expect(wrapper.get('[data-testid="pricing-group-0-broken-year"]').text()).toContain(
+      'no longer asks',
+    );
+    // Headed by what it is, not by the slug its label left behind.
+    expect(wrapper.get('[data-testid="pricing-group-0-rule-year"]').text()).toContain(
+      'A question no longer on the form includes any of',
+    );
+    expect(wrapper.get('[data-testid="pricing-group-0-rule-year"]').text()).not.toContain('year');
+    expect(wrapper.get('[data-testid="pricing-group-0-broken"]').text()).toContain('prices nobody');
+  });
+
+  it('removing a group takes its row away', async () => {
+    const second = { ...STUDENT_CLUB, name: 'UBC student only' };
+    const wrapper = groupCard(grouped([STUDENT_CLUB, second]));
+
+    await wrapper.get('[data-testid="pricing-group-0-remove"]').trigger('click');
+
+    expect(wrapper.kept()?.groups?.map((group) => group.name)).toEqual(['UBC student only']);
+  });
+
+  it('settled, a group is shown and cannot be added to or removed', () => {
+    const wrapper = groupCard(grouped([STUDENT_CLUB]), true);
+
+    expect(wrapper.find('[data-testid="pricing-add-group"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="pricing-group-0-remove"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="pricing-group-0-rule-add"]').exists()).toBe(false);
+  });
+
+  it('a market whose form asks no choice question has no group to add', () => {
+    const wrapper = mount(ElementPricing, {
+      props: { setupObject: plan(grouped([])), questions: [] },
+    });
+
+    expect(wrapper.find('[data-testid="pricing-add-group"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="pricing-no-questions"]').text()).toContain('Everyone else');
   });
 });

@@ -7,7 +7,7 @@
  */
 import { ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
-import { IntakeMode } from '@/assets/types/datatypes';
+import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import {
   entryChanges,
@@ -30,6 +30,8 @@ const props = withDefaults(
     vendorLink?: (email: string) => RouteLocationRaw;
     /** The vendor whose own history this is, in their drawer: named by name alone, as text. */
     ownVendor?: string;
+    /** The market's choice questions, so a price group's conditions read in the card's words. */
+    questions?: readonly RejectionQuestion[];
   }>(),
   {
     names: () => ({}),
@@ -37,6 +39,7 @@ const props = withDefaults(
     path: IntakeMode.Csv,
     vendorLink: undefined,
     ownVendor: '',
+    questions: () => [],
   },
 );
 
@@ -49,7 +52,8 @@ function toggle(id: string) {
   opened.value = now;
 }
 
-const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.labels, props.path);
+const changesOf = (entry: MarketHistoryEntry) =>
+  entryChanges(entry, props.labels, props.path, props.questions);
 </script>
 
 <template>
@@ -114,8 +118,18 @@ const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.label
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
               <th scope="row">{{ row.field }}</th>
-              <td>{{ row.before }}</td>
-              <td>{{ row.after }}</td>
+              <td v-for="(side, s) in [row.before, row.after]" :key="s">
+                <template v-if="row.hanging">
+                  <span
+                    v-for="(line, i) in side.split('\n')"
+                    :key="i"
+                    class="history-line"
+                    :data-testid="`${testid}-line`"
+                    >{{ line }}</span
+                  >
+                </template>
+                <template v-else>{{ side }}</template>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -216,6 +230,26 @@ const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.label
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
+}
+
+/* Every value keeps its line breaks: a price group's prices and each of its conditions
+   (`groupText`), and as well a vendor note's lines and an Update info answer's, which ran into one
+   before and now read as the drawer shows them. Runs of spaces still collapse. */
+.history-table td {
+  white-space: pre-line;
+}
+
+/* A row whose lines hang (a price group's prices, then each condition): a line that wraps goes on
+   indented under itself, so its tail never reads as a line of its own. */
+.history-line {
+  display: block;
+  padding-left: var(--space-3);
+  text-indent: calc(-1 * var(--space-3));
+}
+
+/* The field's name is a few words; the values beside it are what is read. */
+.history-table thead th:first-child {
+  width: 22%;
 }
 
 .history-table thead th {
