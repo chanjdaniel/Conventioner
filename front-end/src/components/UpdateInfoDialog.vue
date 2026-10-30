@@ -27,6 +27,7 @@ import { sortedFormFields } from '@/utils/applicationForm';
 import {
   ASSIGNMENT_READS,
   CHANGED_SINCE,
+  KEEPS_ON_SAVE,
   asAsked,
   inPlanOrder,
   questionKeys,
@@ -141,6 +142,28 @@ const changed = computed<Record<string, unknown>>(() => {
 
 const isChanged = (question: string) => questionKeys(question).some((key) => key in changed.value);
 
+/**
+ * An update their answer changed under, left as it stands: Save sends it as it is, which keeps it
+ * over what they wrote now and clears "Their answer changed since your update." (Daniel, T111
+ * review note 2). Not for an answer this person may not update.
+ */
+function keeps(question: string): boolean {
+  return (
+    !!updateOn(question)?.changedSince && !isChanged(question) && !locked.value.includes(question)
+  );
+}
+
+/** What Save sends: the answers changed here, and the updates kept as they stand. */
+const sent = computed<Record<string, unknown>>(() => ({
+  ...Object.fromEntries(
+    [...fields.value.map((field) => field.key), ...ESSENTIAL_QUESTIONS]
+      .filter(keeps)
+      .flatMap(questionKeys)
+      .map((key) => [key, draft.value[key]]),
+  ),
+  ...changed.value,
+}));
+
 /** Whether this answer, as it stands in the dialog, is not what the vendor wrote. */
 function differsFromTheirs(question: string): boolean {
   if (isEssential(question) && !touched.value.has(question) && !updateOn(question)) return false;
@@ -183,9 +206,10 @@ function updateOn(question: string) {
 function standingUpdate(question: string): string | null {
   const update = updateOn(question);
   if (!update || isChanged(question)) return null;
-  return update.changedSince
-    ? `${updatedByLine(update)}. ${CHANGED_SINCE}`
-    : `${updatedByLine(update)}.`;
+  if (!update.changedSince) return `${updatedByLine(update)}.`;
+  return keeps(question)
+    ? `${updatedByLine(update)}. ${CHANGED_SINCE} ${KEEPS_ON_SAVE}`
+    : `${updatedByLine(update)}. ${CHANGED_SINCE}`;
 }
 
 /** An update this dialog takes away by putting their answer back. */
@@ -216,11 +240,11 @@ function essentialChanged(key: string): void {
 
 async function save(): Promise<void> {
   const application = props.application;
-  if (busy.value || !application || !Object.keys(changed.value).length) return;
+  if (busy.value || !application || !Object.keys(sent.value).length) return;
   busy.value = true;
   error.value = '';
   try {
-    emit('saved', await updateVendorInfo(props.marketId, application.id, changed.value));
+    emit('saved', await updateVendorInfo(props.marketId, application.id, sent.value));
   } catch (err: unknown) {
     error.value = getApiErrorMessage(err, 'The update could not be saved.');
   } finally {
@@ -236,7 +260,7 @@ async function save(): Promise<void> {
     testid="update-info"
     wide
     :confirm-label="busy ? 'Saving…' : 'Save'"
-    :confirm-disabled="busy || !Object.keys(changed).length"
+    :confirm-disabled="busy || !Object.keys(sent).length"
     :error="error"
     @close="emit('close')"
     @submit="save"

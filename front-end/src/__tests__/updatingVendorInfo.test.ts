@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
-import { CHANGED_SINCE, sameAnswer, updatedLine } from '@/utils/answerUpdates';
+import { CHANGED_SINCE, KEEPS_ON_SAVE, sameAnswer, updatedLine } from '@/utils/answerUpdates';
 import {
   ApplicationStatus,
   ApplicationType,
@@ -176,6 +176,42 @@ describe('the Update info dialog', () => {
       'They wrote: Ember Pottery',
     );
     expect(wrapper.get(testid('update-info-updated-shop')).text()).toContain(CHANGED_SINCE);
+    wrapper.unmount();
+  });
+
+  it('keeps an update their answer changed under, with Save', async () => {
+    const wrapper = dialog(
+      application({
+        formData: { shop: 'Ember Ceramics', student: 'No' },
+        answerUpdates: {
+          shop: { ...UPDATE, theyWrote: 'Ember Pottery', changedSince: true },
+        },
+      }),
+    );
+
+    expect(wrapper.get(testid('update-info-updated-shop')).text()).toContain(KEEPS_ON_SAVE);
+    expect(wrapper.get(testid('update-info-submit-button')).attributes('disabled')).toBeUndefined();
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(sent[0].body).toEqual({ answers: { shop: 'Ember Ceramics' } });
+    wrapper.unmount();
+  });
+
+  it('offers no keeping to whoever may not update that answer', () => {
+    const wrapper = dialog(
+      essentialApplication({
+        answerUpdates: {
+          [TABLE_CHOICE_KEY]: { ...UPDATE, value: 'full', theyWrote: 'half', changedSince: true },
+        },
+      }),
+      { assignmentRefusal: ONLY_AN_ADMIN },
+    );
+
+    expect(wrapper.get(testid(`update-info-updated-${TABLE_CHOICE_KEY}`)).text()).not.toContain(
+      KEEPS_ON_SAVE,
+    );
+    expect(wrapper.get(testid('update-info-submit-button')).attributes('disabled')).toBeDefined();
     wrapper.unmount();
   });
 

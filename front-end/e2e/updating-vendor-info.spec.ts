@@ -171,4 +171,18 @@ test('an organizer updates a vendor’s info, the review reads it, and a re-impo
   await expect(business.answer).toContainText('Ember Ceramics');
   await expect(business.updated).toContainText('they wrote Ember Pottery');
   await expect(business.changed).toHaveText('Their answer changed since your update.');
+
+  // Saving the update as it stands keeps it over what they wrote now, and the line goes
+  // (Daniel, T111 review note 2); the vendor's History says it was kept.
+  await dialog.open();
+  await expect(dialog.updated('business_name')).toContainText('Save keeps your update.');
+  await expect(dialog.saveButton).toBeEnabled();
+  await dialog.save();
+  await expect(business.answer).toContainText('Ember Ceramics');
+  await expect(business.updated).toContainText('they wrote Ember Pottery');
+  await expect(business.changed).toHaveCount(0);
+  await page.getByTestId('vendor-drawer-tab-history').click();
+  await expect(
+    page.getByTestId('vendor-drawer-panel-history').getByTestId('market-history-sentence').first(),
+  ).toHaveText('e2e@example.com kept their update to the info of Nadia Okonkwo');
 });

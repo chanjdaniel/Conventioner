@@ -24,6 +24,9 @@ import { getFormattedTimestamp } from '@/utils/utils';
 /** Said beside an updated answer when what the vendor wrote has changed since the update. */
 export const CHANGED_SINCE = 'Their answer changed since your update.';
 
+/** Said under that line in Update info: saving keeps the update over what they wrote now. */
+export const KEEPS_ON_SAVE = 'Save keeps your update.';
+
 /** "Updated by alex@market.test, Oct 19, 2026 at 5:04 PM": who updated an answer, and when. */
 export function updatedByLine(update: AnswerUpdate): string {
   const when = update.at ? `, ${getFormattedTimestamp(update.at)}` : '';

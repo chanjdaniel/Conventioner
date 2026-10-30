@@ -45,6 +45,11 @@ export class UpdateInfoDialog {
     return this.page.getByTestId(`update-info-theirs-${key}`);
   }
 
+  /** Who updated it, under an answer the dialog leaves as it is. */
+  updated(key: string): Locator {
+    return this.page.getByTestId(`update-info-updated-${key}`);
+  }
+
   async useTheirs(key: string): Promise<void> {
     await this.page.getByTestId(`update-info-use-theirs-${key}`).click();
   }

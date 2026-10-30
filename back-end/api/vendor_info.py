@@ -76,10 +76,18 @@ def update_vendor_info(
         values.update(stored)
 
     now = datetime.now(timezone.utc).isoformat()
+    standing = doc.get(ApplicationsApi.ANSWER_UPDATES_FIELD) or {}
     updates: Dict[str, AnswerUpdate] = {}
     cleared = []
+    kept: Dict[str, Any] = {}
     for key, value in values.items():
         if value == before.get(key):
+            # Restated over an answer the vendor changed since: the organizer keeps their update
+            # over what they wrote now, which is what "Their answer changed since your update."
+            # asked of them. Restated otherwise, it changes nothing and keeps who made it.
+            if key in standing and _over(standing[key]) != theirs.get(key):
+                kept[key] = value
+                updates[key] = AnswerUpdate(value=value, by=updater, at=now, over=theirs.get(key))
             continue
         if value == theirs.get(key):
             cleared.append(key)
@@ -99,13 +107,15 @@ def update_vendor_info(
         RejectionRules.Rulebook(market), market_id, application_id,
         overturns=MarketsApi.may_overturn(updater.email, market))
         if judging else RejectionRules.Judged())
+    moved = [key for key in values if key not in kept]
     History.record(
         market_id, updater.email, Actions.UPDATE_VENDOR_INFO,
+        kind=History.KEPT if kept and not (updates.keys() - kept.keys() or cleared) else None,
         vendors=[doc.get("applicant_email")], subject={"application_id": application_id},
         detail=lambda: _with_rules(
-            History.changes({key: before.get(key) for key in values},
-                            {key: after.get(key) for key in values}),
-            verdicts),
+            History.changes({key: before.get(key) for key in moved},
+                            {key: after.get(key) for key in moved}),
+            kept, verdicts),
     )
     if verdicts.rejected or verdicts.returned:
         stored = ApplicationsApi.find_application_by_id(application_id) or stored
@@ -128,10 +138,17 @@ def _assert_may_update_what_the_assignment_reads(
         raise ForbiddenError(refused)
 
 
-def _with_rules(changed, verdicts: RejectionRules.Judged):
-    """The answers that changed, and whether the rules rejected the application, or returned it
-    to undecided, as they landed; an update that changed nothing records nothing."""
-    if not changed:
+def _over(update: Any) -> Any:
+    """The vendor's answer a stored update was made over."""
+    return update.over if isinstance(update, AnswerUpdate) else (update or {}).get("over")
+
+
+def _with_rules(changed, kept: Dict[str, Any], verdicts: RejectionRules.Judged):
+    """The answers that changed, the updates kept over what the vendor wrote since, and whether
+    the rules rejected the application, or returned it to undecided, as they landed; an update that
+    changed and kept nothing records nothing."""
+    if not changed and not kept:
         return None
-    return {**changed, "rejected_by_rules": bool(verdicts.rejected),
+    return {**(changed or {}), **({"kept": kept} if kept else {}),
+            "rejected_by_rules": bool(verdicts.rejected),
             "returned_by_rules": bool(verdicts.returned)}

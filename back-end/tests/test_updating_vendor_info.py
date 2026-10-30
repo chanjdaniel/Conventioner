@@ -392,3 +392,65 @@ class TestAReImportKeepsTheUpdate:
         assert update["changedSince"] is True
         assert update["theyWrote"] == "Ember Pottery"
         assert update["over"] == "Ember Ceramics"
+
+
+class TestKeepingAnUpdateTheirAnswerChangedUnder:
+    """Their answer changed since the update: saving the update as it stands keeps it over what they
+    wrote now, which clears "Their answer changed since your update.", and is recorded as kept."""
+
+    def _changed_under(self, market):
+        applications = market()
+        _update({"shop": "Ember Ceramics"})
+        applications.update_one({"id": "app-1"}, {"$set": {"form_data.shop": "Ember Pottery"}})
+        assert ApplicantsApi.organizer_view(_stored(applications))[
+            "answerUpdates"]["shop"]["changedSince"] is True
+        return applications
+
+    def test_saving_the_same_value_keeps_the_update_and_clears_the_line(self, market):
+        applications = self._changed_under(market)
+        keeper = MarketPerson(user_id="u2", email="sam@market.test")
+
+        result, status = _update({"shop": "Ember Ceramics"}, by=keeper)
+
+        assert status == 200
+        update = _stored(applications)["answer_updates"]["shop"]
+        assert update["value"] == "Ember Ceramics"
+        assert update["over"] == "Ember Pottery"
+        assert update["by"] == keeper.model_dump()
+        served = result["application"]["answerUpdates"]["shop"]
+        assert served["changedSince"] is False
+        assert served["theyWrote"] == "Ember Pottery"
+
+    def test_keeping_it_is_recorded_as_kept(self, market, market_records):
+        self._changed_under(market)
+
+        _update({"shop": "Ember Ceramics"})
+
+        entry = market_records.history.documents[-1]
+        assert entry["action"] == "update-vendor-info"
+        assert entry["kind"] == "kept"
+        assert entry["actor"] == "editor@market.test"
+        assert entry["vendors"] == [VENDOR]
+        assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
+        assert "before" not in entry["detail"]
+
+    def test_kept_beside_another_change_is_one_entry_saying_both(self, market, market_records):
+        self._changed_under(market)
+
+        _update({"shop": "Ember Ceramics", "student": "Yes"})
+
+        entry = market_records.history.documents[-1]
+        assert entry["kind"] is None
+        assert entry["detail"]["before"] == {"student": "No"}
+        assert entry["detail"]["after"] == {"student": "Yes"}
+        assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
+
+    def test_restating_an_update_their_answer_did_not_change_under_still_records_nothing(
+            self, market, market_records):
+        market()
+        _update({"shop": "Ember Ceramics"})
+        recorded = len(market_records.history.documents)
+
+        _update({"shop": "Ember Ceramics"})
+
+        assert len(market_records.history.documents) == recorded

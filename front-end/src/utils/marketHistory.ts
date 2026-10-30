@@ -267,6 +267,9 @@ export function entryParts(
     case 'update-vendor-info/':
       // The vendor last: the address drawn after their name cannot carry a possessive.
       return [actor, text('updated the info of '), vendor];
+    case 'update-vendor-info/kept':
+      // Saved as it stood over an answer the vendor changed since: the update is kept.
+      return [actor, text('kept their update to the info of '), vendor];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':
@@ -445,6 +448,15 @@ function tableShareAnswer(snapshot: Detail): unknown {
   return typeof words === 'string' && words.trim() ? words : snapshot[TABLE_SHARE_EMAIL_KEY];
 }
 
+/** Each update an organizer kept over what the vendor wrote since, under its question, the
+ * table-share question's storage keys as one answer in the vendor's words. */
+function keptFields(kept: Detail, path: IntakeMode): RecordedField[] {
+  return changedFields(kept, kept, path).map((row) => ({
+    field: `Kept: ${row.field}`,
+    value: row.after,
+  }));
+}
+
 /** The fields a before/after detail set, each as it was and as it is, the table-share question's
  * three storage keys collapsed into one row in the vendor's words. */
 function changedFields(before: Detail, after: Detail, path: IntakeMode): ChangedField[] {
@@ -511,10 +523,11 @@ export function entryChanges(
   const changed = changes ? changedFields(changes.before, changes.after, path) : [];
   const recorded = Object.entries(detail)
     .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
-    .map(([key, value]) => ({
-      field: fieldName(key),
-      value: key === 'date' ? day(value) : valueText(value),
-    }));
+    .flatMap(([key, value]) =>
+      key === 'kept' && value && typeof value === 'object'
+        ? keptFields(value as Detail, path)
+        : [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }],
+    );
   return { changed, recorded };
 }
 

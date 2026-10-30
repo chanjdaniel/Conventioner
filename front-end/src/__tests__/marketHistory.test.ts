@@ -256,6 +256,12 @@ describe('what an entry says', () => {
     );
   });
 
+  it('words keeping an update over a changed answer as keeping it', () => {
+    expect(
+      sentence({ action: 'update-vendor-info', kind: 'kept', vendors: ['ben@ember.test'] }),
+    ).toBe('dana@ember.test kept their update to the info of [Ben Okafor]');
+  });
+
   it('names a change it has no words for by its row of the table', () => {
     expect(
       sentence(
@@ -490,6 +496,30 @@ describe('what an entry opens to', () => {
       ).changed,
     ).toEqual([
       { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('opens a kept update to each answer kept, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: {
+            kept: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Ana, ana@example.com',
+              business_name: 'Ember Ceramics',
+            },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded.slice(0, 2),
+    ).toEqual([
+      { field: 'Kept: Table-share partner', value: 'Seat me with Ana, ana@example.com' },
+      { field: 'Kept: Business name', value: 'Ember Ceramics' },
     ]);
   });
 
