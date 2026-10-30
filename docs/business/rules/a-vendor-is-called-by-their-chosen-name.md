@@ -6,7 +6,7 @@ describes:
   - back-end/api/applications.py#vendor_names_for_market
   - front-end/src/utils/vendorIdentity.ts
   - front-end/src/components/VendorIdentity.vue
-verified: 2026-10-22
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/the-order-of-the-work/04
@@ -15,6 +15,7 @@ sources:
   - E35/F03/S02
   - E19
   - E38/F03/S01
+  - T123
 ---
 
 # A vendor is called by their chosen name
@@ -52,7 +53,7 @@ The results download carries both too: the name they chose, then their full name
   [Essential fields](../../implementation/modules/essential-fields.md) owns both questions and their validation.
 - `vendor_names_for_market` in [`back-end/api/applications.py`](../../../back-end/api/applications.py) serves it as `vendorNames`, address to name, lowercased, and only for applications that hold a name; [the application document](../../implementation/data/application-document.md) is where the answers live.
 - [`front-end/src/components/VendorIdentity.vue`](../../../front-end/src/components/VendorIdentity.vue) draws the name over the address on every screen that names a vendor from the served names, and [`front-end/src/utils/vendorIdentity.ts`](../../../front-end/src/utils/vendorIdentity.ts) holds the fallback and the search (`vendorHeadline`, `vendorMatches`).
-  The All view's rows and the import preview's, which hold the answers themselves, read the name with `applicantName` and draw it over the address the same way ([essential fields](../../implementation/modules/essential-fields.md)).
+  A screen that holds the answers themselves rather than the served names reads the name with `applicantName` and draws it over the address the same way ([essential fields](../../implementation/modules/essential-fields.md)).
 - `back-end/tests/test_preferred_name.py` and `front-end/src/__tests__/vendorIdentity.test.ts` pin it.
 
 ## Superseded

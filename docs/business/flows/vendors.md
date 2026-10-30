@@ -43,10 +43,10 @@ The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.v
 4. "Unassigned only", and "Rejected only" when anyone was rejected, narrow the list, each cleared with its "×"; the Result page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
 5. The Result page's "N unassigned" link opens this list filtered, as "Unassigned only".
 
-When the server refuses where vendors sit, as it does while an approved application's answers are incomplete, the page shows its reason above the list and says nothing of who is placed: "N vendors" in place of the count assigned, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
+When the server refuses where vendors sit, as it does while an approved application's answers are incomplete, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 
 Before a run the page lists the vendors and says nothing is assigned yet.
-Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, and the open row's look `the-open-vendor-reads-as-selected.spec.ts`.
+Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, and the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
 
 **Adding a vendor who never applied.**
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Result page.", with Name and Email; "Add vendor".
