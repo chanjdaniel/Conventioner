@@ -235,13 +235,16 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
+    // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
     name: 'the manage-organization dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(fixed('/organizations'), 'organization-card', [
-      'organizations-manage-button',
-      'manage-org-window',
-    ]),
+    open: at(
+      fixed('/organizations'),
+      'organization-card',
+      ['organizations-manage-button', 'manage-org-window'],
+      ['manage-org-permissions-toggle', 'manage-org-permission-source'],
+    ),
   },
   {
     // Its History section, loaded, with an entry opened to its before and after (E40/F02/S01):

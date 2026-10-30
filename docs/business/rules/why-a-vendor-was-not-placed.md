@@ -16,6 +16,7 @@ sources:
   - E12/F01/S01
   - E12/F03/S02
   - E31/F01/S01
+  - E41/F01/S02
   - bug/33
 ---
 
@@ -42,19 +43,19 @@ It also leaves the solver alone: nothing in the run records anything, and nothin
 6. Free: a table they accept is open that day (a half table counts for a vendor who would share).
 
 The limits come before the tables because they are where the solver stopped: a vendor with every date they asked for is left off the rest however many tables are free, and calling such a date free invited the organizer to break the limit (bug 33).
-Their own answer is named when it is the lower of the two limits, since it is the one they gave.
+Their answer as the organizer reads it (an update included) is named when it is the lower of the two limits, since it is the one that bound them.
 
 **The reason is a value, and the words are the screen's**, so a sentence changes without a migration or a back-end release.
 
 **Only "free" is something to do.**
-It offers "Assign them", which opens the Assignments page on that date searched for the vendor; every other reason is a report whose answer is in the plan or in the vendor's own answers.
+It offers "Assign them", which opens the Assignments page on that date searched for the vendor; every other reason is a report whose answer is in the plan or in their answers as the organizer reads them.
 
 **One card says what happened to a vendor on a date**, in one of three states: placed, placed against their own answer (a hand placement at a tier, date or table size they did not ask for, or for someone not approved), or not placed and why.
 The mark on a placement that overrides an answer is that card's second state, not a feature of its own; it is in [placements](../../implementation/modules/placements.md#pins).
 
 **A tier with no tables never reaches the run.**
 Tables come from sections and a section carries one tier, so a tier with no section has no tables on any date, which the plan alone shows.
-Market Setup marks such a tier "No tables" while it is built, leaving draft refuses it ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)), and the move into assignment refuses one an approved applicant named, naming the tier and the applicants, since both fixes (a section at that tier, or rejecting them) act on a named thing.
+Market Setup marks such a tier "No tables" while it is built, leaving draft refuses it ([the setup settles on leaving draft](the-setup-settles-on-leaving-draft.md)), and the move into assignment refuses one an approved application's answer names, as the organizer reads it (an update included), naming the tier and the applicants, since both fixes (a section at that tier, or rejecting them) act on a named thing.
 
 ## Where it is kept
 

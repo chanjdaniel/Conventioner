@@ -286,10 +286,41 @@ describe('what an entry says', () => {
     );
   });
 
+  it("words a copy of the organization's defaults by the rows it changed", () => {
+    expect(
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: {
+              'check-in': { role: 'editor', source: 'built-in' },
+              'move-phase': { role: 'owner', source: 'market' },
+            },
+            after: {
+              'check-in': { role: 'admin', source: 'organization' },
+              'move-phase': { role: 'admin', source: 'built-in' },
+            },
+          },
+        },
+        { 'check-in': 'Check vendors in', 'move-phase': 'Move the phase' },
+      ),
+    ).toBe(
+      "dana@ember.test copied the organization's defaults, changing Check vendors in and Move the phase",
+    );
+  });
+
   it('words an applicant’s own application as theirs', () => {
     expect(sentence({ actor: 'ana@ember.test', action: 'apply', kind: 'submitted' })).toBe(
       '[Ana Rivera] applied',
     );
+  });
+
+  it('words keeping an update over a changed answer as keeping it', () => {
+    expect(
+      sentence({ action: 'update-vendor-info', kind: 'kept', vendors: ['ben@ember.test'] }),
+    ).toBe('dana@ember.test kept their update to the info of [Ben Okafor]');
   });
 
   it('names a change it has no words for by its row of the table', () => {
@@ -522,7 +553,9 @@ describe('an applicant’s answers, before and after', () => {
           essential_available_dates: ['2099-08-01'],
           essential_tier_preference: { '2099-08-01': ['Gold', 'Silver'] },
           essential_table_choice: 'half',
-          essential_table_share_also: ['kai@example.com'],
+          // The table-share question's three storage keys read as one answer, the partner's.
+          essential_table_share_email: 'kai@example.com',
+          essential_table_share_also: ['lee@example.com'],
           // Stored empty, so it differs from absent, but reads as nothing either way.
           essential_preferred_name: '',
         },
@@ -538,7 +571,7 @@ describe('an applicant’s answers, before and after', () => {
       'Available dates',
       'Tier preference',
       'Table choice',
-      'Other table-share partners',
+      'Table-share partner',
       'Business name',
     ]);
     expect(changed.map((row) => row.after)).toEqual([
@@ -791,6 +824,149 @@ describe('what an entry opens to', () => {
     });
   });
 
+  it('shows an essential answer an organizer updated by its question, as the review card does', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_tier_preference: { '2099-08-01': ['Gold'] } },
+            after: { essential_tier_preference: { '2099-08-01': ['Silver'] } },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Tier preference',
+        before: 'Saturday, August 1, 2099: Gold',
+        after: 'Saturday, August 1, 2099: Silver',
+      },
+    ]);
+  });
+
+  it('reads the table-share answer as one row in the vendor’s words, never its storage keys', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: ['bea@example.com'],
+              essential_table_share_answer: 'Seat me with Ana',
+            },
+            after: {
+              essential_table_share_email: 'bea@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Bea',
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('reads a table-share answer kept only as the address under the same row', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_email: 'ana@example.com' },
+            after: { essential_table_share_email: 'bea@example.com' },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'ana@example.com', after: 'bea@example.com' },
+    ]);
+  });
+
+  it('shows no table-share row that reads the same before and after', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_also: ['bea@example.com'] },
+            after: { essential_table_share_also: [] },
+          },
+        }),
+      ).changed,
+    ).toEqual([]);
+  });
+
+  it('never names the table-share storage keys as rows', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_answer: 'Seat me with Ana',
+              essential_table_share_also: ['bea@example.com'],
+            },
+            after: {
+              essential_table_share_answer: 'Seat me with Bea',
+              essential_table_share_also: [],
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('opens an update taken away because their answer matches it, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            matched: { business_name: 'Ember Ceramics' },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded[0],
+    ).toEqual({ field: 'Their answer now matches: Business name', value: 'Ember Ceramics' });
+  });
+
+  it('opens a kept update to each answer kept, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: {
+            kept: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Ana, ana@example.com',
+              business_name: 'Ember Ceramics',
+            },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded.slice(0, 2),
+    ).toEqual([
+      { field: 'Kept: Table-share partner', value: 'Seat me with Ana, ana@example.com' },
+      { field: 'Kept: Business name', value: 'Ember Ceramics' },
+    ]);
+  });
+
   it('shows a phase before and after as the market’s path names it', () => {
     const move = entry({
       action: 'move-phase',
@@ -831,6 +1007,29 @@ describe('what an entry opens to', () => {
     ).toEqual([
       { field: 'Role', before: 'Editor', after: 'Admin' },
       { field: 'Source', before: 'The organization’s default', after: 'This market' },
+    ]);
+  });
+
+  it("opens a copy of the organization's defaults to each row it changed", () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: { 'check-in': { role: 'editor', source: 'built-in' } },
+            after: { 'check-in': { role: 'admin', source: 'organization' } },
+          },
+        }),
+        { 'check-in': 'Check vendors in' },
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Check vendors in',
+        before: 'Editor, Built in',
+        after: 'Admin, The organization’s default',
+      },
     ]);
   });
 

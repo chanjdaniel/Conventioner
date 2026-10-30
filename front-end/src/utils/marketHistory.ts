@@ -11,7 +11,16 @@
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
-import { answerLabel, answerReading, inFormOrder } from '@/utils/essentialFields';
+import {
+  ESSENTIAL_KEY_PREFIX,
+  TABLE_SHARE_ALSO_KEY,
+  TABLE_SHARE_ANSWER_KEY,
+  TABLE_SHARE_EMAIL_KEY,
+  answerLabel,
+  essentialAnswerText,
+  essentialLabel,
+  inFormOrder,
+} from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
@@ -531,6 +540,9 @@ export function entryParts(
     case 'update-vendor-info/':
       // The vendor last: the address drawn after their name cannot carry a possessive.
       return [actor, text('updated the info of '), vendor];
+    case 'update-vendor-info/kept':
+      // Saved as it stood over an answer the vendor changed since: the update is kept.
+      return [actor, text('kept their update to the info of '), vendor];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':
@@ -602,6 +614,10 @@ export function entryParts(
         ),
       ];
     }
+    case 'change-the-table/permission_table_copied': {
+      const rows = Object.keys(after).map((id) => labels[id] ?? id);
+      return [actor, text(`copied the organization's defaults, changing ${listed(rows)}`)];
+    }
     case 'stop-applications/':
       return [
         actor,
@@ -652,6 +668,17 @@ export function entryParts(
             getRoleDisplayName(str(after.role)),
         ),
       ];
+    case 'change-the-default/permission_table_reset': {
+      const rows = Object.keys(after).map((id) => labels[id] ?? id);
+      return [
+        actor,
+        text(
+          rows.length === 1
+            ? `reset ${rows[0]} for new markets to its built-in default`
+            : `reset ${listed(rows)} for new markets to their built-in defaults`,
+        ),
+      ];
+    }
     case 'apply/submitted':
       return [vendor, text(' applied')];
     case 'apply/edited':
@@ -679,10 +706,15 @@ export function entryWhen(entry: MarketHistoryEntry): string {
   return getFormattedTimestamp(entry.at) || entry.at;
 }
 
-/** A field's name in words: `review_highlights` reads "Review highlights". */
+/**
+ * A field's name in words: `review_highlights` reads "Review highlights", a follow-up's owner
+ * "Follow-up owner", the one spelling the screens use (E38/F07/S02); an essential question's
+ * answer reads as the form asks it, "Tier preference" (E41/F01/S02).
+ */
 export function fieldName(key: string): string {
-  // The one spelling the screens use for it, and a deal's "Before and after" too (E38/F07/S02).
   if (key === 'follow_up_owner') return 'Follow-up owner';
+  const label = essentialLabel(key);
+  if (label !== key) return label;
   const words = key.replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -743,9 +775,12 @@ const WORDED_VALUES: Partial<Record<string, (value: unknown) => string>> = {
   },
 };
 
-/** A field's value as the screens name it, a phase as the market's `path` does, else as
- * `valueText` draws it. */
+/** A field's value as the screens name it, a phase as the market's `path` does, an essential
+ * answer as the review card does, else as `valueText` draws it. */
 export function fieldValue(key: string, value: unknown, path: IntakeMode = IntakeMode.Csv): string {
+  if (key.startsWith(ESSENTIAL_KEY_PREFIX) && essentialLabel(key) !== key) {
+    return essentialAnswerText(key, value).trim() || 'none';
+  }
   const worded = WORDED_VALUES[key];
   if (worded) return worded(value);
   const name = key === 'phase' ? (phase: string) => pathPhaseLabel(phase, path) : NAMED_VALUES[key];
@@ -773,12 +808,98 @@ function permissionState(value: unknown): string {
   return `${fieldValue('role', state.role)}, ${fieldValue('source', state.source)}`;
 }
 
+/** The table-share question is one answer stored as three keys: the words, the address read out of
+ * them, and any further addresses named. The history reads it as one row under the question's
+ * label, never as its storage keys. */
+const TABLE_SHARE_KEYS = [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY];
+
+/** The table-share answer as a person reads it: the vendor's own words where they were kept, else
+ * the address the server read out of them. */
+function tableShareAnswer(snapshot: Detail): unknown {
+  const words = snapshot[TABLE_SHARE_ANSWER_KEY];
+  return typeof words === 'string' && words.trim() ? words : snapshot[TABLE_SHARE_EMAIL_KEY];
+}
+
+/** Each update an organizer kept over what the vendor wrote since, under its question, the
+ * table-share question's storage keys as one answer in the vendor's words. */
+function keptFields(kept: Detail, path: IntakeMode, said: string): RecordedField[] {
+  return changedFields(kept, kept, path, true).map((row) => ({
+    field: `${said}: ${row.field}`,
+    value: row.after,
+  }));
+}
+
+/** The fields a before/after detail set, each as it was and as it is, the table-share question's
+ * three storage keys collapsed into one row in the vendor's words; `listing` keeps a row that reads
+ * the same on both sides, for a list of answers kept as they stood. */
+function changedFields(
+  before: Detail,
+  after: Detail,
+  path: IntakeMode,
+  listing = false,
+): ChangedField[] {
+  const rows: ChangedField[] = [];
+  let wroteTableShare = false;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (TABLE_SHARE_KEYS.includes(key)) {
+      if (wroteTableShare) continue;
+      wroteTableShare = true;
+      const row = {
+        field: fieldName(TABLE_SHARE_EMAIL_KEY),
+        before: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(before), path),
+        after: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after), path),
+      };
+      // The further addresses are read out of the words, so they never change alone; a row that
+      // reads the same before and after says nothing, unless it is a list of answers kept as they
+      // stood.
+      if (listing || row.before !== row.after) rows.push(row);
+      continue;
+    }
+    rows.push({
+      field: fieldName(key),
+      before: fieldValue(key, before[key], path),
+      after: fieldValue(key, after[key], path),
+    });
+  }
+  return rows;
+}
+
+/** One thing an entry recorded beside its before and after, as rows: an update kept over what the
+ * vendor wrote since, or now matching it, as each answer under its question; a selection's
+ * `dealt_to` as each vendor's reviewer; a date as a day; anything else as `valueText` draws it. */
+function recordedField(
+  entry: MarketHistoryEntry,
+  key: string,
+  value: unknown,
+  path: IntakeMode,
+): RecordedField[] {
+  if ((key === 'kept' || key === 'matched') && value && typeof value === 'object')
+    return keptFields(value as Detail, path, key === 'kept' ? 'Kept' : 'Their answer now matches');
+  if (key === 'dealt_to' && value && typeof value === 'object')
+    return [{ field: fieldName(key), value: eachDealtTo(entry, asDetail(value)) }];
+  return [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }];
+}
+
+/** What an entry recorded beside its before and after (`recordedField`); `beside` leaves those two
+ * out, as an entry that has them draws them as its table. */
+function recordedFields(
+  entry: MarketHistoryEntry,
+  detail: Detail,
+  path: IntakeMode,
+  beside: boolean,
+): RecordedField[] {
+  return Object.entries(detail)
+    .filter(([key]) => !beside || (key !== 'before' && key !== 'after'))
+    .flatMap(([key, value]) => recordedField(entry, key, value, path));
+}
+
 /**
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
- * it, and the table taken. A reset of the whole table is each row it returned, by its label in
- * `labels`, and a phase reads as the market's `path` names it. A deal is each vendor's reviewer,
- * or the `own` vendor's alone in their own history.
+ * it, and the table taken. A reset of a whole table, a market's or an organization's default, and a
+ * market's copy of its organization's default are each row they changed, by its label in `labels`,
+ * and a phase reads as the market's `path` names it. A deal is each vendor's reviewer, or the
+ * `own` vendor's alone in their own history.
  */
 export function entryChanges(
   entry: MarketHistoryEntry,
@@ -820,27 +941,40 @@ export function entryChanges(
     };
   }
   // A vendor's answers, as they applied or as an organizer updated them: each question as the form
-  // asks it, each answer as the review card reads it, never a stored key or JSON (E38/F07/S02).
+  // asks it, in the form's order, each answer as the review card reads it, the table-share
+  // question's three storage keys as one answer in the vendor's words, and never a stored key or
+  // JSON (E38/F07/S02, E41/F01/S02). An answer that reads the same on both sides is no change.
   if (
     (entry.action === 'apply' && (entry.kind === 'submitted' || entry.kind === 'edited')) ||
     entry.action === 'update-vendor-info'
   ) {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
-    const reading = (key: string, value: unknown) => answerReading(key, value) || 'none';
-    return {
-      changed: inFormOrder([...new Set([...Object.keys(before), ...Object.keys(after)])], fields)
-        .map((key) => ({
-          field: answerLabel(key, fields),
-          before: reading(key, before[key]),
-          after: reading(key, after[key]),
-        }))
-        // An answer stored empty differs from none stored, but reads the same: not a change.
-        .filter((row) => row.before !== row.after),
-      recorded: Object.entries(detail)
-        .filter(([key]) => key !== 'before' && key !== 'after')
-        .map(([key, value]) => ({ field: fieldName(key), value: valueText(value) })),
-    };
+    const reading = (key: string, value: unknown) =>
+      essentialAnswerText(key, value).trim() || 'none';
+    const changed: ChangedField[] = [];
+    let wroteTableShare = false;
+    for (const key of inFormOrder(
+      [...new Set([...Object.keys(before), ...Object.keys(after)])],
+      fields,
+    )) {
+      const share = TABLE_SHARE_KEYS.includes(key);
+      if (share && wroteTableShare) continue;
+      wroteTableShare ||= share;
+      const row = share
+        ? {
+            field: answerLabel(TABLE_SHARE_EMAIL_KEY, fields),
+            before: reading(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(before)),
+            after: reading(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after)),
+          }
+        : {
+            field: answerLabel(key, fields),
+            before: reading(key, before[key]),
+            after: reading(key, after[key]),
+          };
+      if (row.before !== row.after) changed.push(row);
+    }
+    return { changed, recorded: recordedFields(entry, detail, path, true) };
   }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
     // One address a line, so no address is broken across two.
@@ -850,7 +984,11 @@ export function entryChanges(
       recorded: [],
     };
   }
-  if (entry.action === 'change-the-table' && entry.kind === 'permission_table_reset') {
+  // A whole table reset, or a market's replaced by its organization's default: each row it changed.
+  if (
+    entry.kind === 'permission_table_reset' ||
+    (entry.action === 'change-the-table' && entry.kind === 'permission_table_copied')
+  ) {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
     return {
@@ -898,25 +1036,8 @@ export function entryChanges(
     detail.before && detail.after && typeof detail.after === 'object'
       ? { before: asDetail(detail.before), after: asDetail(detail.after) }
       : null;
-  const changed = changes
-    ? [...new Set([...Object.keys(changes.before), ...Object.keys(changes.after)])].map((key) => ({
-        field: fieldName(key),
-        before: fieldValue(key, changes.before[key], path),
-        after: fieldValue(key, changes.after[key], path),
-      }))
-    : [];
-  const recorded = Object.entries(detail)
-    .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
-    .map(([key, value]) => ({
-      field: fieldName(key),
-      value:
-        key === 'date'
-          ? day(value)
-          : key === 'dealt_to' && value && typeof value === 'object'
-            ? eachDealtTo(entry, asDetail(value))
-            : valueText(value),
-    }));
-  return { changed, recorded };
+  const changed = changes ? changedFields(changes.before, changes.after, path) : [];
+  return { changed, recorded: recordedFields(entry, detail, path, !!changes) };
 }
 
 /** A selection's `dealt_to`, by application id, as each vendor's address and whose share it was. */

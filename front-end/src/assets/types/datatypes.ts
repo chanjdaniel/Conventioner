@@ -230,7 +230,7 @@ export interface PermissionTableRow {
   /** The lowest role that may take the action on this market: that role and every one above it. */
   role: MarketRole;
   default: MarketRole;
-  /** No row held, copied from the organization's default at creation, or changed here. */
+  /** No row held, copied from the organization's default, or changed here. */
   source: 'built-in' | 'organization' | 'market';
   fixed: boolean;
   /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
@@ -406,6 +406,8 @@ export interface Organization {
   memberEmails?: string[]; // Resolved display (from API)
   theme?: ThemeObject; // Organization theming
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
+  /** The table each market created in it starts with, copied (E39/F02/S01). */
+  defaultPermissionTable?: PermissionTableRow[];
 }
 
 export interface VendorAttendance {

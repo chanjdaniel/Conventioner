@@ -1,4 +1,9 @@
-import type { EssentialFormOptions, FormField, SetupObject } from '@/assets/types/datatypes';
+import type {
+  EssentialFormOptions,
+  FormField,
+  Market,
+  SetupObject,
+} from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 
 /**
@@ -208,6 +213,19 @@ export function essentialOptionsFromSetup(
 }
 
 /**
+ * What the essential questions offer on this market: the offering frozen at its first answer, else
+ * the plan as it stands, without the questions it declared unasked. The mirror of
+ * `effective_essential_options_for_market` in `back-end/essential_fields.py`.
+ */
+export function marketEssentialOptions(
+  market: Pick<Market, 'applicationForm' | 'setupObject'> | null | undefined,
+): EssentialFormOptions {
+  const form = market?.applicationForm;
+  const offered = form?.essentialOptions ?? essentialOptionsFromSetup(market?.setupObject);
+  return { ...offered, unasked: [...(form?.unaskedEssentials ?? [])] };
+}
+
+/**
  * A market date as the applicant reads it ("Saturday, August 1, 2026").
  *
  * It adds nothing to `getFormattedDate`. It used to append the year, because the `getFormattedDate`
@@ -274,12 +292,6 @@ export function essentialLabel(key: string): string {
   return ESSENTIAL_ORDER.find(([k]) => k === key)?.[1] ?? key;
 }
 
-/** The labels of the stored keys the form never asks as such: the table-share answer's parts. */
-const DERIVED_LABELS: Readonly<Record<string, string>> = {
-  [TABLE_SHARE_ANSWER_KEY]: TABLE_SHARE_EMAIL_LABEL,
-  [TABLE_SHARE_ALSO_KEY]: 'Other table-share partners',
-};
-
 /**
  * What a stored answer's key is called on screen: an essential question's label, the form's own
  * question's, else the key in words - so an answer the history recorded reads as the form asked it.
@@ -287,7 +299,6 @@ const DERIVED_LABELS: Readonly<Record<string, string>> = {
 export function answerLabel(key: string, fields: readonly FormField[] = []): string {
   const essential = essentialLabel(key);
   if (essential !== key) return essential;
-  if (DERIVED_LABELS[key]) return DERIVED_LABELS[key];
   const field = fields.find((f) => f.key === key);
   if (field?.label) return field.label;
   const words = key.replace(/_/g, ' ').trim();
@@ -311,11 +322,10 @@ export function inFormOrder(keys: readonly string[], fields: readonly FormField[
   return [...keys].sort((a, b) => rank(a) - rank(b));
 }
 
-/** One stored answer as a person reads it, the way the review card shows it: dates and table
- * choices in words, rankings numbered, a map of tiers by date. */
-export function answerReading(key: string, value: unknown): string {
+/** An essential answer as text, as the review card shows it: dates formatted, rankings numbered. */
+export function essentialAnswerText(key: string, value: unknown): string {
   const present = ESSENTIAL_ORDER.find(([k]) => k === key)?.[2] ?? ((v: unknown) => v);
-  return answerText(present(value)).trim();
+  return answerText(present(value));
 }
 
 /** The essential questions, in the order the form asks them. */

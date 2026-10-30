@@ -6,7 +6,7 @@ describes:
   - front-end/e2e/helpers/accessibleNames.ts
   - front-end/src/components/AnswerValue.vue
   - front-end/src/utils/answerLinks.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E26/F10/S03
   - bug/44

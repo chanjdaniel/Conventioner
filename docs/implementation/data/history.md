@@ -12,7 +12,8 @@ describes:
   - back-end/tests/test_every_write_records.py
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
-verified: 2026-10-30
+  - back-end/api/organizations.py#get_default_permission_history
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -27,6 +28,7 @@ sources:
   - E38/F06/S01
   - E38/F07/S02
   - E38/F07/S03
+  - E39/F02/S01
   - E46/F01/S02
 ---
 
@@ -97,7 +99,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
 | `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name` and `status`, null before |
-| `update-vendor-info` | null | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, as the organizer read them before and after; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
+| `update-vendor-info` | null, or `kept` when the save only kept updates | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value; `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
 | `write-vendor-notes` | `note` | the organizer's [note](../../business/rules/vendor-notes.md) | the vendor | - | `note` |
 | `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
 | `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |
@@ -107,6 +109,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
+| `change-the-table` | `permission_table_copied` | the market's owner copying its organization's default again, one entry for the one act | - | - | by row id, every row it changed, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
 A verdict on someone else's share reads "…, dealt to <address>", and nothing is added when its reviewer decided it or it was never dealt; an entry written before reviewers existed reads as it always did.
@@ -127,7 +130,8 @@ None names a vendor.
 | `create-market` | null | a market created in the organization | `market_id` | `name`, null before |
 | `delete-market` | null | a market of the organization deleted (Manage market's Delete), only by the deletion that took it; its own history goes with it, so its organization's keeps that it went | `market_id` | `name`, null after |
 | `manage-floorplan-templates` | `template_added`, `template_changed`, `template_removed`; `template_moved_out` and `template_moved_in` | a floorplan template filed under the organization; one filed under another organization, or none, records leaving in the one it left and arriving in the one it is filed under, neither naming the other | `template_id`, `name` as it is after (as it was, for one removed) | `name` added or removed; the changed fields of `name`, `table_types` and `aisles`, never an organization's id; a move that changed nothing else, empty |
-| `change-the-default` | `permission_set`, `permission_reset` | a row of the organization's default table, which E39/F02/S01 will write | `action`: the row | `role`, before and after, as the wording reads it |
+| `change-the-default` | `permission_set`, `permission_reset` | its owner or an admin setting a row of [the organization's default table](organization-document.md#its-default-table), or returning it to its built-in default | `action`: the row | `role` and `source` (`built-in` or `organization`) |
+| `change-the-default` | `permission_table_reset` | every row of the default returned to its built-in default, one entry for the one act | - | by row id, every row it returned, each its `role` and `source` before and after |
 
 [`back-end/tests/test_the_organizations_history.py`](../../../back-end/tests/test_the_organizations_history.py) makes each change and asserts its one entry (a template's in [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py)), and fails on a write route under `/organizations` or `/floorplans/templates` that neither records nor says why not; creating an organization and deleting one record nothing.
 
@@ -170,6 +174,7 @@ The answer carries the vendors' names against their addresses, so the trail read
 `GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`; it asks the same row, the history's, as the placements do, and Manage market's Permissions section words it ([`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)).
 
 An organization's own history is read the same way, a page at a time, newest first, by `organization_entries_page` on the [lookup index](lookup-indexes.md) (`organization_id`, `at`, `id`), served by `GET /organizations/:id/history` to the organization's owner, admins and members ([the organization document](organization-document.md#the-organizations-history)); Manage organization's History section words it with the same `marketHistory.ts`.
+`GET /organizations/:id/default-permission-history` (`get_default_permission_history`) serves `default_permission_entries`, the organization's history narrowed to `change-the-default`, newest first, to the same people, for the default table's own changes in Manage organization.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)), and an organization's own with the organization (`delete_for_organization`, called by `delete_organization` after the deletion trail is written and the organization's markets are deleted).
 The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).

@@ -9,9 +9,12 @@ import { describe, expect, it } from 'vitest';
 import { MarketRole, type PermissionTableRow } from '@/assets/types/datatypes';
 import { getFormattedTimestamp } from '@/utils/utils';
 import {
+  DEFAULT_REACHES,
   changeConsequence,
   changeLines,
   changeQuestion,
+  defaultChangeQuestion,
+  defaultSourceLine,
   groupedRows,
   heldRows,
   selfPromotionNote,
@@ -257,6 +260,25 @@ describe('changeLines', () => {
     });
   });
 
+  it("says a copy of the organization's defaults as every row it changed", () => {
+    expect(
+      changeLines(
+        entry({
+          kind: 'permission_table_copied',
+          subject: {},
+          detail: {
+            before: { 'check-in': { role: 'editor', source: 'built-in' } },
+            after: { 'check-in': { role: 'admin', source: 'organization' } },
+          },
+        }),
+        table,
+      ),
+    ).toEqual({
+      title: "Copied the organization's defaults",
+      rows: ['Check vendors in: Editor to Admin'],
+    });
+  });
+
   it('names a row the table no longer has by its id rather than dropping it', () => {
     expect(changeLines(entry({ subject: { action: 'gone-row' } }), table).title).toBe('gone-row');
   });
@@ -279,5 +301,31 @@ describe('whoMayTake', () => {
   it('says nobody is named when the market in hand carries no such row', () => {
     expect(whoMayTake(undefined, MarketAction.ChangeVerdicts)).toBeNull();
     expect(whoMayTake([row()], MarketAction.ChangeVerdicts)).toBeNull();
+  });
+});
+
+describe("an organization's default for new markets", () => {
+  it('says a row it does not set is the built-in default', () => {
+    expect(defaultSourceLine(row(), [])).toBe('Built-in default');
+  });
+
+  it("names who set a row for the organization and when, from the row's newest change", () => {
+    const set = row({ role: MarketRole.Admin, source: 'organization' });
+    const entries = [
+      entry({ actor: 'org-admin@example.com', action: 'change-the-default' }),
+      entry({ id: 'entry-0', at: EARLIER, actor: 'org-owner@example.com' }),
+    ];
+
+    expect(defaultSourceLine(set, entries)).toBe(
+      `Set for this organization by org-admin@example.com, ${getFormattedTimestamp(AT)}`,
+    );
+    expect(defaultSourceLine(set, [])).toBe('Set for this organization');
+  });
+
+  it('asks about a change by its row, and says it reaches only markets created from now on', () => {
+    expect(defaultChangeQuestion(row())).toBe('Change “Check vendors in” for new markets?');
+    expect(DEFAULT_REACHES).toBe(
+      'Markets created from now on start with this. The markets it already holds keep their own.',
+    );
   });
 });

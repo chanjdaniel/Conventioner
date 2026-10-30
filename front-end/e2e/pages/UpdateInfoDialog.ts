@@ -2,7 +2,8 @@ import type { Locator, Page } from '@playwright/test';
 
 /**
  * Page object for the Update info dialog (E41/F01/S01), opened from the vendor drawer: the vendor's
- * answers, each in its question's own control, with Save and Cancel.
+ * answers, each in its question's own control, with Save and Cancel; the essential questions below
+ * them, as the form asks them (E41/F01/S02).
  */
 export class UpdateInfoDialog {
   readonly page: Page;
@@ -12,6 +13,7 @@ export class UpdateInfoDialog {
   readonly saveButton: Locator;
   readonly cancelButton: Locator;
   readonly essentials: Locator;
+  readonly essentialsNote: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -20,6 +22,7 @@ export class UpdateInfoDialog {
     this.saveButton = page.getByTestId('update-info-submit-button');
     this.cancelButton = page.getByTestId('update-info-cancel-button');
     this.essentials = page.getByTestId('update-info-essentials');
+    this.essentialsNote = page.getByTestId('update-info-essentials-note');
   }
 
   async open(): Promise<void> {
@@ -32,9 +35,19 @@ export class UpdateInfoDialog {
     return this.page.getByTestId(`update-info-input-${key}`);
   }
 
+  /** An essential question's control, by the form's own name for it: `tier-2099-08-01-Gold`. */
+  essential(name: string): Locator {
+    return this.page.getByTestId(`update-info-essential-${name}`);
+  }
+
   /** What the vendor wrote, beside an answer that differs from it. */
   theirs(key: string): Locator {
     return this.page.getByTestId(`update-info-theirs-${key}`);
+  }
+
+  /** Who updated it, under an answer the dialog leaves as it is. */
+  updated(key: string): Locator {
+    return this.page.getByTestId(`update-info-updated-${key}`);
   }
 
   async useTheirs(key: string): Promise<void> {

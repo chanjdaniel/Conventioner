@@ -51,6 +51,8 @@ THE_TABLE = [
     ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
     ("update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR, False),
+    ("update-assignment-or-price-info", "Vendors", "Update info the assignment or price reads",
+     MarketRole.ADMIN, False),
     ("assign", "Assignment",
      "Allocate tables, change the assignment rules, and assign, swap or free seats",
      MarketRole.EDITOR, False),

@@ -7,7 +7,7 @@ describes:
   - back-end/essential_fields.py#partner_addresses
   - back-end/migrations/migrate_table_share_answer.py
   - back-end/api/applicants.py#list_market_applications
-verified: 2026-10-28
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/01
   - wayfinding/november-2026-dry-run/08
@@ -15,6 +15,7 @@ sources:
   - E27/F01/S01
   - E27/F01/S03
   - E27/F01/S02
+  - E41/F01/S02
 ---
 
 # Table-share pairing
@@ -44,6 +45,7 @@ One-way is enough, a person's own request outranks one about them, and an answer
 The question asks for the exact address the partner applied with, and real answers wrap one in a sentence or type it in other case.
 The write (`table_share_answers` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py)) reads every address out of the applicant's words, lowercased, once each, in the order written (`partner_addresses`): the first in `essential_table_share_email`, the rest in `essential_table_share_also`, and the words themselves in `essential_table_share_answer`, which the organizer reads.
 An answer with no address in it is never refused: it costs the pairing, not the application.
+An organizer's update of the answer is read the same way, and kept beside the vendor's ([an update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md)).
 [`migrations/migrate_table_share_answer.py`](../../../back-end/migrations/migrate_table_share_answer.py) rewrites stored applications into that shape, exactly as the write would; it has no boot marker, because an unmigrated answer shows as a request that pairs nobody.
 
 ## Why
@@ -59,7 +61,7 @@ A pair outranks the half-table share because two pairs were split on one date wh
 
 - [`back-end/table_share.py`](../../../back-end/table_share.py) is the one statement of the rule; do not restate it beside either reader.
   The solver seats the pairs by it (`pair_mate`, in [the assignment solver](../../implementation/modules/assignment-solver.md)), and the organizer's applications list serves `tableShareNotice` by it (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)): why a request pairs nobody, or that another applicant it named was not used.
-  The notice is derived on every read, from all the market's applications, and never stored.
+  The notice is derived on every read, from all the market's applications as the organizer reads them (`effective_answers`), and never stored.
   Every request that pairs nobody is shown, with why: the answer holds no address, nobody applied as it, the partner wants a full table, the partner was not accepted for this market (rejected or withdrawn), or the partner's own request names someone else and stands; a request that stands is noted when its answer also names another applicant, who was not used ([`TableShareNotice.vue`](../../../front-end/src/components/TableShareNotice.vue) words each).
 - How the answer is stored is [essential fields](../../implementation/modules/essential-fields.md).
 - A field added to `SolverVendor` for this changes every assignment fingerprint unless `made_from._ADDED_SINCE_FINGERPRINTS` names it; `table_share_also` is there.

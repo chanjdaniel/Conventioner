@@ -575,7 +575,7 @@ class NoAskedForTierWithoutTablesGuard:
             market.id, ApplicationStatus.REVIEWER_APPROVED.value,
         )
         for document in approved:
-            answers = document.get("form_data") or {}
+            answers = ApplicationsApi.effective_answers(document)
             named = _tiers_named_by(answers)
             email = str(document.get("applicant_email") or "").strip()
             for tier in sorted(named & empty_tiers):

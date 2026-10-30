@@ -195,10 +195,13 @@ def mongo_project(doc: dict, projection) -> dict:
 
     A fake that ignores the projection hands the caller fields the real query never fetched, which
     is exactly how a read of a field nobody asked for passes here and reads ``None`` in production.
-    Only the inclusion form is modelled, because that is the only form these callers use.
+    The exclusion form (every field 0, as the organization's history reads) drops the top-level
+    fields it names and keeps the rest.
     """
     if not projection:
         return doc
+    if not any(projection.values()):
+        return {key: value for key, value in doc.items() if key not in projection}
     kept: dict = {}
     for path, wanted in projection.items():
         if not wanted:

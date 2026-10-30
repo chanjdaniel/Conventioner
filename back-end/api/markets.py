@@ -1137,9 +1137,10 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # start kept of its file the start's alone (E38/F02), so a new market carries neither.
     market_dict["import_mapping"] = None
     market_dict["example_columns"] = None
-    # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
-    # organization's default is copied in here once it has one (E39/F02/S01).
-    market_dict["permissions"] = {}
+    # Server-owned too: a new market starts with its organization's default rows, each marked as
+    # copied from it, whatever the body carried; a market of no organization, or of one that sets
+    # none, starts at the built-in table (E39/F02/S01). A copy, not a link.
+    market_dict["permissions"] = _organization_default_rows(market.organization_id)
     # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
     market_dict["review_team"] = None
     market_dict["application_form"] = (
@@ -1182,6 +1183,13 @@ def create_market(market: Market, owner_email: str) -> tuple:
             logger.warning(f"Failed to add market to organization: {e}")
     
     return result, market_id
+
+def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict[str, str]]:
+    """The organization's default rows as a market of it holds them, copied (E39/F02/S01)."""
+    organization = OrgsApi.get_organization(organization_id) if organization_id else None
+    rows = Actions.organization_rows((organization or {}).get(OrgsApi.DEFAULT_PERMISSIONS))
+    return {row_id: held.model_dump() for row_id, held in rows.items()}
+
 
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
     """Why no market may be called this, or None when it may (E21/F03/S03).
@@ -2045,7 +2053,6 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
 
 
 NO_SUCH_ROW = "This market's table has no such row."
-NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
 
 
 def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tuple[Market, Actions.Action]:
@@ -2060,15 +2067,8 @@ def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tupl
     if row is None:
         raise BadRequestError(NO_SUCH_ROW)
     if row.fixed:
-        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+        raise BadRequestError(Actions.fixed_row_refusal(row))
     return market, row
-
-
-def _permission_state(row: Actions.Action, held: Optional[MarketPermission]) -> Dict[str, str]:
-    """A row as a history entry's before or after: the role it asks, and where that came from."""
-    if held is None:
-        return {"role": row.default.value, "source": Actions.BUILT_IN}
-    return {"role": held.role, "source": held.source}
 
 
 def _record_permission(
@@ -2078,7 +2078,7 @@ def _record_permission(
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=kind,
         subject={"action": row.id},
-        detail={"before": _permission_state(row, before), "after": _permission_state(row, after)},
+        detail={"before": Actions.row_state(row, before), "after": Actions.row_state(row, after)},
     )
 
 
@@ -2094,7 +2094,7 @@ def set_permission(
     """
     market, row = _row_to_change(market_id, action_id, requesting_user)
     if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
-        raise BadRequestError(NOT_A_ROLE)
+        raise BadRequestError(Actions.NOT_A_ROLE)
 
     before = Actions.held_row(row, market.permissions)
     if Actions.minimum_role(row, market).value == role:
@@ -2156,12 +2156,69 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
         detail=lambda: {
-            "before": {row.id: _permission_state(row, held) for row, held in held_rows},
-            "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
+            "before": {row.id: Actions.row_state(row, held) for row, held in held_rows},
+            "after": {row.id: Actions.row_state(row, None) for row, _ in held_rows},
         },
     )
     for row, _ in held_rows:
         market.permissions.pop(row.id, None)
+    return Actions.table(market)
+
+
+NO_ORGANIZATION_TO_COPY = "This market belongs to no organization, so it has no default to copy."
+
+
+def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Replace this market's table with its organization's default as it is now, as its owner
+    (E39/F02/S01). Asks ``Actions.CHANGE_THE_TABLE``.
+
+    For a market created before its organization's default changed, which a copy at creation never
+    follows: every row the organization sets is copied, marked so, and every other row returns to
+    its built-in default, the rows its owner changed here included. One write and one entry, every
+    row it changed before and after; a market already holding the default records nothing.
+    Returns the market's table.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    organization = (
+        OrgsApi.get_organization(market.organization_id) if market.organization_id else None)
+    if organization is None:
+        raise BadRequestError(NO_ORGANIZATION_TO_COPY)
+    copied = Actions.organization_rows(organization.get(OrgsApi.DEFAULT_PERMISSIONS))
+
+    changed = []
+    for row in Actions.ACTIONS.values():
+        before = Actions.held_row(row, market.permissions)
+        after = copied.get(row.id)
+        if Actions.row_state(row, before) != Actions.row_state(row, after):
+            changed.append((row, before, after))
+    if not changed:
+        return Actions.table(market)
+
+    key = market_doc_key('permissions')
+    if _stored_rows_are_a_map(market_id):
+        # Row by row, so a row this build cannot read stays, as a reset leaves it.
+        update: Dict[str, Any] = {}
+        sets = {f"{key}.{row.id}": after.model_dump() for row, _, after in changed if after}
+        unsets = {f"{key}.{row.id}": "" for row, _, after in changed if after is None}
+        if sets:
+            update["$set"] = sets
+        if unsets:
+            update["$unset"] = unsets
+    else:
+        update = {"$set": {key: {row_id: held.model_dump() for row_id, held in copied.items()}}}
+    markets_collection.update_one(market_doc_filter("id", market_id), update)
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_COPIED,
+        detail=lambda: {
+            "before": {row.id: Actions.row_state(row, before) for row, before, _ in changed},
+            "after": {row.id: Actions.row_state(row, after) for row, _, after in changed},
+        },
+    )
+    for row, _, after in changed:
+        if after is None:
+            market.permissions.pop(row.id, None)
+        else:
+            market.permissions[row.id] = after
     return Actions.table(market)
 
 
@@ -2688,7 +2745,8 @@ def get_vendor_notes(market_id: str, requesting_user: str) -> Dict[str, Dict[str
     _load_market_for(market_id, requesting_user, Actions.READ)
     notes = VendorNotes.notes_for_market(market_id)
     for application in ApplicationsApi.list_applications_for_market(market_id):
-        request = str((application.get("form_data") or {}).get(EssentialFields.REQUEST_KEY) or "")
+        request = str(
+            ApplicationsApi.effective_answers(application).get(EssentialFields.REQUEST_KEY) or "")
         email = str(application.get("applicant_email") or "").strip().lower()
         if request.strip() and email:
             notes.setdefault(email, VendorNotes.no_notes())["request"] = request.strip()

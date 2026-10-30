@@ -398,6 +398,14 @@ ORGANIZATION_AND_ROLE_ROUTES = [
     ("delete", f"/organizations/{ORG_ID}/users/user-2", None, OrgsApi, "remove_org_user"),
     ("post", f"/organizations/{ORG_ID}/transfer", {"new_owner_email": "next@example.com"},
      OrgsApi, "transfer_org_ownership"),
+    ("put", f"/organizations/{ORG_ID}/default-permissions/check-in", {"role": "admin"},
+     OrgsApi, "set_default_permission"),
+    ("delete", f"/organizations/{ORG_ID}/default-permissions/check-in", None,
+     OrgsApi, "reset_default_permission"),
+    ("delete", f"/organizations/{ORG_ID}/default-permissions", None,
+     OrgsApi, "reset_default_permissions"),
+    ("get", f"/organizations/{ORG_ID}/default-permission-history", None,
+     OrgsApi, "get_default_permission_history"),
     ("post", "/markets/market-123/roles", {"user_email": "editor@example.com", "role": "editor"},
      MarketsApi, "add_market_role"),
     ("delete", "/markets/market-123/roles/user-2", None, MarketsApi, "remove_market_role"),
@@ -548,6 +556,8 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
     ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
     ("delete", "/markets/market-123/permissions", None, "reset_permissions"),
+    ("post", "/markets/market-123/permissions/organization-default", None,
+     "copy_organization_default"),
     ("get", "/markets/market-123/permission-history", None, "get_permission_history"),
     ("delete", "/markets/market-123", None, "delete_market"),
 ]
@@ -1307,6 +1317,7 @@ OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/rejection-rules", None),
     ("put", "/markets/<market_id>/reviewers", None),
     ("put", "/markets/<market_id>/permissions/<action_id>", None),
+    ("put", "/organizations/<org_id>/default-permissions/<action_id>", None),
     ("post", "/markets/<market_id>/placements/swap", None),
     ("delete", "/markets/<market_id>/placements", None),
     ("post", "/public/markets/<market_slug>/attendance/checkin", None),
@@ -1335,6 +1346,12 @@ READS_NO_BODY = [
     ("delete", "/markets/<market_id>/permissions/<action_id>",
      [(MarketsApi, "reset_permission", [])]),
     ("delete", "/markets/<market_id>/permissions", [(MarketsApi, "reset_permissions", [])]),
+    ("post", "/markets/<market_id>/permissions/organization-default",
+     [(MarketsApi, "copy_organization_default", [])]),
+    ("delete", "/organizations/<org_id>/default-permissions/<action_id>",
+     [(OrgsApi, "reset_default_permission", [])]),
+    ("delete", "/organizations/<org_id>/default-permissions",
+     [(OrgsApi, "reset_default_permissions", [])]),
     ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),
     ("post", "/markets/<market_id>/assignment", [(PlacementsApi, "run_assignment", HANDED_ON)]),
     ("put", "/markets/<market_id>/applications/<application_id>/claim", [
@@ -1403,7 +1420,9 @@ def body_reads(monkeypatch):
 
 def send_body(client, monkeypatch, method, rule, phase, **kwargs):
     """``kwargs`` sent to the route at ``rule``, on a market in ``phase``, by an applicant signed in
-    where the route is theirs; the public check-in finds no market."""
+    where the route is theirs; the public check-in finds no market, nor an organization's route
+    its organization."""
+    monkeypatch.setattr(OrgsApi, "organizations_collection", FakeOrganizations())
     use_market(monkeypatch, stored_market(
         phase=phase or MarketPhase.APPLICATIONS, setupObject=COMPLETE_PLAN,
     ))

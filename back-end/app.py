@@ -521,6 +521,42 @@ def get_organization_history(org_id: str) -> Response:
     """
     return jsonify(OrgsApi.get_history(org_id, authenticated_email(), request.args.get("before"))), 200
 
+@app.route('/organizations/<org_id>/default-permissions/<action_id>', methods=['PUT'])
+@login_required
+def set_organization_default_permission(org_id: str, action_id: str) -> Response:
+    """Set the role one row of the organization's default asks, as its owner or an admin
+    (E39/F02/S01); markets created from now on copy it. Recorded in the organization's history.
+
+    Body: { "role": "admin" }. Answers the default table.
+    """
+    data = json_object(required=False)
+    table = OrgsApi.set_default_permission(org_id, action_id, data.get("role"), authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permissions/<action_id>', methods=['DELETE'])
+@login_required
+def reset_organization_default_permission(org_id: str, action_id: str) -> Response:
+    """Return one row of the organization's default to its built-in default, as its owner or an
+    admin (E39/F02/S01). Recorded in the organization's history. Answers the default table."""
+    table = OrgsApi.reset_default_permission(org_id, action_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permissions', methods=['DELETE'])
+@login_required
+def reset_organization_default_permissions(org_id: str) -> Response:
+    """Return every row of the organization's default to its built-in default, as its owner or an
+    admin (E39/F02/S01); one entry in its history. Answers the default table."""
+    table = OrgsApi.reset_default_permissions(org_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permission-history', methods=['GET'])
+@login_required
+def get_organization_default_permission_history(org_id: str) -> Response:
+    """Every change to the organization's default, newest first (E39/F02/S01). Its owner, admins
+    and members read it."""
+    entries = OrgsApi.get_default_permission_history(org_id, authenticated_email())
+    return jsonify({"entries": entries}), 200
+
 @app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
 @login_required
 def organization_deletion_preview(org_id: str) -> Response:
@@ -854,10 +890,20 @@ def reset_market_permissions(market_id: str) -> Response:
     return jsonify({"permissionTable": table}), 200
 
 
+@app.route('/markets/<market_id>/permissions/organization-default', methods=['POST'])
+@login_required
+def copy_market_organization_default(market_id: str) -> Response:
+    """Replace the market's table with its organization's default as it is now, as its owner
+    (E39/F02/S01). Asks ``Actions.CHANGE_THE_TABLE``; one entry in the market's history. Answers
+    the table."""
+    table = MarketsApi.copy_organization_default(market_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
 @app.route('/markets/<market_id>/permission-history', methods=['GET'])
 @login_required
 def get_market_permission_history(market_id: str) -> Response:
-    """Every change to the market's table, newest first (E39/F01/S03). Asks ``Actions.READ``."""
+    """Every change to the market's table, newest first (E39/F01/S03). Asks ``Actions.READ_HISTORY``."""
     entries = MarketsApi.get_permission_history(market_id, authenticated_email())
     return jsonify({"entries": entries}), 200
 
@@ -1538,7 +1584,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
 @login_required
 def update_vendor_info(market_id: str, application_id: str) -> Response:
     """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
-    ``Actions.UPDATE_VENDOR_INFO``.
+    ``Actions.UPDATE_VENDOR_INFO``, and ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` for an answer
+    the assignment reads.
 
     Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
     vendor wrote takes its update away.
