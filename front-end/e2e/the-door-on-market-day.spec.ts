@@ -46,8 +46,10 @@ test.describe('The door on market day', () => {
     await expect(attendance.rows).toHaveCount(1);
     await expect(attendance.row('bob@example.com')).toBeVisible();
 
-    // And finding one vendor among eighty.
+    // And finding one vendor among eighty, in a field with a name of its own, which Chrome asks of
+    // every form field.
     await attendance.show('all');
+    await expect(attendance.search).toHaveAttribute('name', 'attendance-search');
     await attendance.search.fill('alice');
     await expect(attendance.rows).toHaveCount(1);
     await expect(attendance.row('alice@example.com')).toBeVisible();

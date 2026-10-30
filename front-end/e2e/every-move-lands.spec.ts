@@ -43,7 +43,8 @@ test.describe('Every move lands on its phase’s page', () => {
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     await expect(importPage.resultSummary).toHaveCount(0);
     await expect(importPage.view).toHaveCount(0);
-    await expect(page.getByTestId('app-monitor-progress')).toContainText('of 2 to review');
+    // On the review's All view, where the page opens (E38/F05/S01).
+    await expect(page.getByTestId('applications-all-row')).toHaveCount(2);
   });
 
   test('Begin Assignment lands on the assignment', async ({ authenticatedPage: page }) => {
