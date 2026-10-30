@@ -541,6 +541,7 @@ class TestTheRoutes:
         assert response.get_json() == {
             "error": "Only the market's owner may change who may do what on this market."}
         assert world.markets.updates == []
+
     def test_the_permission_history_asks_the_historys_row(self, client, world):
         raised = client(OWNER).put(
             "/markets/market-123/permissions/read-history", json={"role": "editor"})
