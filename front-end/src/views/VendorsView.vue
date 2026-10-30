@@ -488,7 +488,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 }
 
 /* The tint is a chip's own ground, so a chip on it would lose its edge: each keeps its ink on
-   white, where every chip ink reads darker than on its tint. */
+   white, where every chip ink measures higher than on its own tint. */
 .vendor-row--open :is(.chip, .vendor-badge) {
   background: white;
 }

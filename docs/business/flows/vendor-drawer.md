@@ -51,7 +51,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
-   The drawer opens with focus on "×", and closing gives focus back to the row or name that opened it ([dialogs](../../implementation/conventions/dialogs.md)).
+   The drawer opens with focus on "×", and closing gives focus back to what opened it, a row, a name or a button ([dialogs](../../implementation/conventions/dialogs.md)).
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.

@@ -57,7 +57,7 @@ Focus skips `:disabled` controls, because `focus()` on a disabled element is a s
 **Closing gives focus back to what opened the dialog**, whichever way it closes, and when it is unmounted while open: closing unmounts the window, which dropped focus to `<body>`, so the next Tab started at the top of the page (T45).
 The opener is taken as the dialog opens, before focus moves in, and focused once the page behind is no longer inert.
 It is left alone when it has left the page, a deleted row or a navigation, and when the parent has already put focus somewhere itself in the same tick.
-[`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for the [vendor drawer](../../business/flows/vendor-drawer.md), the one modal that is not a dialog on the shell (T123).
+[`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for the [vendor drawer](../../business/flows/vendor-drawer.md), a modal that is not a dialog on the shell (T123).
 The drawer moved no focus in and gave none back, so after every vendor a keyboard user started again from the top of the page; it now opens on its close, its first control, since what follows it may be a verdict or a note, and gives focus back to the row, seat name or door name that opened it.
 So an opener that goes away with the click hands focus on first: the phase rail's "More…" menu focuses its button as a choice closes it, as its Escape does, and a Publish or Archive confirm then gives focus back there ([`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue)).
 `AppDialog` holds no focus trap, so a dialog that swaps one view for another moves focus itself: swapping unmounts the focused button.

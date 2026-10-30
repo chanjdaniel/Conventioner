@@ -295,9 +295,9 @@ describe('the focus halo measures what its comment says', () => {
 
 /**
  * The selected row (the Vendors page's open vendor) is the on toggle's ground, `--mm-chip-positive`
- * inside a `--mm-green` border. A chip's ground is no longer around its ink there, so the row's
- * inks are held to the tint itself: its own text, its muted figures, and each chip ink, which the
- * row sets on white (darker still for every ink).
+ * inside a `--mm-green` border. Its text and its muted lines are held to the tint itself, and the
+ * border to the 3:1 a boundary wants; a chip in the row is set on white, where the palette contract
+ * above already holds its ink.
  */
 describe('the selected row is legible on its tint', () => {
   const tint = resolve('--mm-chip-positive');
