@@ -94,6 +94,36 @@ describe('what an organization’s entry says', () => {
     ).toBe('olive@ember.test created the market "Winter Fair"');
   });
 
+  it('words a market deleted from it by its name', () => {
+    expect(
+      sentence({
+        action: 'delete-market',
+        kind: null,
+        subject: { market_id: 'm-1' },
+        detail: { before: { name: 'Winter Fair' }, after: { name: null } },
+      }),
+    ).toBe('olive@ember.test deleted the market "Winter Fair"');
+  });
+
+  it('words a floorplan template added, changed and removed by its name', () => {
+    const template = (kind: string) =>
+      sentence({
+        action: 'manage-floorplan-templates',
+        kind,
+        subject: { template_id: 't-1', name: 'Main hall' },
+        detail: { before: { aisles: {} }, after: { aisles: { wallBufferMm: 900 } } },
+      });
+    expect(template('template_added')).toBe(
+      'olive@ember.test added the floorplan template "Main hall"',
+    );
+    expect(template('template_changed')).toBe(
+      'olive@ember.test changed the floorplan template "Main hall"',
+    );
+    expect(template('template_removed')).toBe(
+      'olive@ember.test removed the floorplan template "Main hall"',
+    );
+  });
+
   it('words a row of the default for new markets by its label', () => {
     const labels = { 'check-in': 'Check vendors in' };
     expect(
@@ -235,6 +265,24 @@ describe('the History section of Manage organization', () => {
     wrapper.unmount();
   });
 
+  it('reads its first page again after a change made in the same dialog', async () => {
+    const asked = serve({ entries: [renamed('e1', 1, 'Ember Fairs')], next: null });
+    api.put.mockResolvedValue({ data: {} });
+    const wrapper = mountDialog();
+    await flushPromises();
+    byTestId('manage-org-history-toggle')!.click();
+    await flushPromises();
+
+    const input = byTestId('manage-org-rename-input') as HTMLInputElement;
+    input.value = 'Ember Collective';
+    input.dispatchEvent(new Event('input'));
+    input.form!.requestSubmit();
+    await flushPromises();
+
+    expect(asked).toEqual(['/organizations/org-1/history', '/organizations/org-1/history']);
+    wrapper.unmount();
+  });
+
   it('says so when nothing has changed yet', async () => {
     serve({ entries: [], next: null });
     const wrapper = mountDialog();
@@ -256,6 +304,42 @@ describe('the History section of Manage organization', () => {
     expect(byTestId('manage-org-history')).not.toBeNull();
     expect(byTestId('manage-org-add-member-button')).toBeNull();
     expect(byTestId('manage-org-rename-input')).toBeNull();
+    wrapper.unmount();
+  });
+});
+
+describe('Manage organization holds together as Manage market does', () => {
+  const WITH_AN_ADMIN: Organization = {
+    ...ORG,
+    admins: ['user-ada'],
+    adminEmails: ['ada@ember.test'],
+  };
+
+  it('opens on its first control that is not a Remove', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountDialog(WITH_AN_ADMIN);
+    await flushPromises();
+
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('manage-org-add-admin-button');
+    wrapper.unmount();
+  });
+
+  it('adds someone in one row with its own Cancel, the opening button out of the way', async () => {
+    serve({ entries: [], next: null });
+    const wrapper = mountDialog();
+    await flushPromises();
+    const add = byTestId('manage-org-add-admin-button')!;
+    expect(add.className).toBe('btn btn--secondary');
+
+    add.click();
+    await flushPromises();
+    expect(byTestId('manage-org-add-admin-button')).toBeNull();
+
+    byTestId('manage-org-add-admin-cancel')!.click();
+    await flushPromises();
+    expect(byTestId('manage-org-add-admin-input')).toBeNull();
+    expect(byTestId('manage-org-add-admin-button')).not.toBeNull();
+    expect(byTestId('manage-org-add-member-button')!.className).toBe('btn btn--secondary');
     wrapper.unmount();
   });
 });

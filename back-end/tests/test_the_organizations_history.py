@@ -337,6 +337,12 @@ class TestTheRoute:
 
         assert response.status_code == 403
 
+    def test_the_organization_itself_is_its_peoples_alone(self, client):
+        """``GET /organizations/:id`` answered anyone signed in, whose id they had."""
+        assert client(MEMBER).get(f"/organizations/{ORG}").status_code == 200
+        assert client(OUTSIDER).get(f"/organizations/{ORG}").status_code == 403
+        assert client(OWNER).get("/organizations/org-gone").status_code == 404
+
 
 #: The organization's write routes that record nothing, and why.
 NOT_RECORDED = {
@@ -353,19 +359,59 @@ RECORDED = {
     ("POST", "/organizations/<org_id>/members"): "a member added",
     ("DELETE", "/organizations/<org_id>/users/<user_id>"): "a person removed",
     ("POST", "/organizations/<org_id>/transfer"): "ownership handed on",
+    # Sent in ``test_floorplan_template_access.py``; one of no organization records nothing.
+    ("POST", "/floorplans/templates"): "a template added",
+    ("PUT", "/floorplans/templates/<template_id>"): "a template changed",
+    ("DELETE", "/floorplans/templates/<template_id>"): "a template removed",
 }
 
 
 def test_every_organization_write_route_records_or_says_why_not():
-    """A write added to an organization fails here until it records, or this says why not."""
+    """A write added to an organization or its templates fails here until it records, or this
+    says why not."""
     skip_without_real_dependencies()
     import app as app_module
 
     routes = {
         (method, rule.rule)
-        for rule in app_module.app.url_map.iter_rules() if rule.rule.startswith("/organizations")
+        for rule in app_module.app.url_map.iter_rules()
+        if rule.rule.startswith(("/organizations", "/floorplans/templates"))
         for method in rule.methods - {"GET", "HEAD", "OPTIONS"}
     }
 
     assert set(RECORDED).isdisjoint(NOT_RECORDED)
     assert routes == set(RECORDED) | set(NOT_RECORDED)
+
+
+class TestAMarketDeleted:
+    def test_deleting_a_market_is_recorded_in_its_organization(self, org, history, monkeypatch):
+        market = SimpleNamespace(organization_id=ORG, name="Winter Fair")
+        monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
+            market=market, organization=None, document={}))
+        monkeypatch.setattr(MarketsApi.Actions, "refusal", lambda *_a: None)
+        monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
+                            lambda _markets, _id: SimpleNamespace(deleted_count=1))
+        monkeypatch.setattr(MarketsApi, "db", {"organizations": SimpleNamespace(
+            update_one=lambda *_a, **_k: None)})
+
+        MarketsApi.delete_market("m-9", ADMIN.email)
+
+        entry = only(history)
+        assert entry["actor"] == ADMIN.email
+        assert entry["action"] == History.DELETE_MARKET
+        assert entry["subject"] == {"market_id": "m-9"}
+        assert entry["detail"] == {"before": {"name": "Winter Fair"}, "after": {"name": None}}
+
+
+class TestReadingTheOrganization:
+    @pytest.mark.parametrize("reader", [OWNER, ADMIN, MEMBER], ids=["owner", "admin", "member"])
+    def test_its_people_read_it(self, org, reader):
+        assert OrgsApi.read_organization(ORG, reader.email)["name"] == "Ember Markets"
+
+    def test_a_person_outside_it_cannot(self, org):
+        with pytest.raises(ForbiddenError):
+            OrgsApi.read_organization(ORG, OUTSIDER.email)
+
+    def test_a_missing_one_is_not_found(self, org):
+        with pytest.raises(NotFoundError):
+            OrgsApi.read_organization("org-gone", OWNER.email)

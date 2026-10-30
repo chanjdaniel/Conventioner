@@ -100,6 +100,13 @@ test('an admin added and the organization renamed each read back with who and wh
   await expect(rename).toContainText('Name');
   await expect(rename).toContainText(org.name);
   await expect(rename).toContainText(renamed);
+
+  // A change made with the History open shows in it, without reopening the dialog.
+  await orgs.addMember(MEMBER.email);
+  await expect(orgs.historySentences.first()).toHaveText(
+    `${me} gave ${MEMBER.email} the Member role`,
+  );
+  await expect(orgs.historySentences).toHaveCount(3);
 });
 
 test('a member opens the organization and reads its History', async ({ browser, request }) => {

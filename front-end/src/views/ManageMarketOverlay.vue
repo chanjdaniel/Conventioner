@@ -43,6 +43,8 @@ const addUserError = ref('');
 const renameError = ref('');
 const deleteConfirming = ref(false);
 const deleteError = ref('');
+/** Counts the changes this dialog has made, so its History reads them as they land. */
+const changesMade = ref(0);
 /** A refused change to one person's access, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
 
@@ -131,6 +133,7 @@ async function handleAddUser() {
     // is named after, and this dialog is the same shape.
     newUserEmail.value = '';
     newUserRole.value = MarketRole.Editor;
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     addUserError.value = getApiErrorMessage(err, 'Failed to add user');
@@ -144,6 +147,7 @@ async function handleRemoveUser(userId: string) {
     await api.delete(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
     );
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     userError.value = { userId, message: getApiErrorMessage(err, 'Failed to remove user') };
@@ -159,6 +163,7 @@ async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSe
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
       { role: select.value as MarketRole },
     );
+    changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
     select.value = held;
@@ -180,6 +185,7 @@ async function handleRename() {
     await api.put(`/markets/${encodeURIComponent(marketData.value.id)}/name`, {
       name: renameValue.value.trim(),
     });
+    changesMade.value++;
     await fetchMarket(false);
     // The open market may be this one: a rename is a write, so the store re-reads it.
     const store = useMarketStore();
@@ -229,6 +235,7 @@ function handleDeleteCancel() {
 /** A change to who may do what answers the table, which this copy of the market then shows. */
 function handleTableChanged(table: PermissionTableRow[]) {
   if (marketData.value) marketData.value = { ...marketData.value, permissionTable: table };
+  changesMade.value++;
 }
 
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
@@ -379,6 +386,7 @@ function closeAddUser() {
           :market-id="marketData.id"
           :row-labels="rowLabels"
           :path="intakeModeOf(marketData)"
+          :changes-made="changesMade"
         />
       </HistorySection>
 

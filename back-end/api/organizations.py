@@ -190,6 +190,29 @@ def _record_role(
     )
 
 
+def _readable(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
+    """The organization, when the person asking is its owner, one of its admins or one of its
+    members: 404 for one nobody has, 403 for one they are not in, as its other routes answer."""
+    org = organizations_collection.find_one({"id": org_id})
+    if not org:
+        raise NotFoundError("Organization not found")
+    requesting_user = UsersApi.get_user(requesting_user_email)
+    if not requesting_user or _role_in(org, requesting_user.id) is None:
+        raise ForbiddenError("User does not belong to this organization")
+    return org
+
+
+def read_organization(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
+    """The organization's document, for its own people only.
+
+    It answered anyone signed in who had its id, its people's ids among it.
+    """
+    org = _readable(org_id, requesting_user_email)
+    if "_id" in org:
+        org["_id"] = str(org["_id"])
+    return org
+
+
 def get_history(
     org_id: str, requesting_user_email: str, before: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -199,12 +222,7 @@ def get_history(
     cursor the last page answered with. The first page also names the table's rows, for a change
     to the organization's default rows (E39/F02/S01), which no other read hands this dialog.
     """
-    org = organizations_collection.find_one({"id": org_id})
-    if not org:
-        raise NotFoundError("Organization not found")
-    requesting_user = UsersApi.get_user(requesting_user_email)
-    if not requesting_user or _role_in(org, requesting_user.id) is None:
-        raise ForbiddenError("Only the organization's people may read its history")
+    _readable(org_id, requesting_user_email)
     if before and History.parse_cursor(before) is None:
         raise BadRequestError("That page of the history could not be read.")
 

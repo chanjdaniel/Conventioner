@@ -491,11 +491,8 @@ def create_organization() -> Response:
 @app.route('/organizations/<org_id>', methods=['GET'])
 @login_required
 def get_organization(org_id: str) -> Response:
-    """Get an organization by id."""
-    org = OrgsApi.get_organization(org_id)
-    if not org:
-        return jsonify({"error": "Organization not found"}), 404
-    return jsonify({"organization": org}), 200
+    """Get an organization by id, for its owner, admins and members only."""
+    return jsonify({"organization": OrgsApi.read_organization(org_id, authenticated_email())}), 200
 
 @app.route('/organizations/<org_id>', methods=['PUT'])
 @login_required

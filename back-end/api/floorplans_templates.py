@@ -19,6 +19,7 @@ import api.users as UsersApi
 from bson import ObjectId
 
 from db_config import get_database
+import history as History
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,30 @@ def _template_field_refusal(data: dict):
     if "aisles" in data and not isinstance(data["aisles"], dict):
         return {"error": "aisles must be an object"}, 400
     return None
+
+
+# The fields a template's change records, before and after: what it is, never its bookkeeping.
+_RECORDED_FIELDS = ("name", "tableTypes", "aisles", "organizationId")
+
+
+def _organization_of(template_doc: dict):
+    """The organization a template is filed under, or None; a stored id that is not a non-empty
+    string reads as none, as ``_check_ownership`` reads it."""
+    org_id = template_doc.get("organizationId")
+    return org_id if isinstance(org_id, str) and org_id else None
+
+
+def _record(template_doc: dict, kind: str, before: dict, after: dict, also_in=None) -> None:
+    """A template's change, in the history of the organization it is filed under (E40/F02/S01),
+    and of the one it was filed under when the change moved it; a template of no organization is
+    its creator's alone and records nothing. Its subject names it as it is after the change, as it
+    was for one removed, so a change that kept its name still reads by it."""
+    for org_id in dict.fromkeys(filter(None, (_organization_of(template_doc), also_in))):
+        History.record_for_organization(
+            org_id, authenticated_email(), History.MANAGE_FLOORPLAN_TEMPLATES, kind=kind,
+            subject={"template_id": template_doc.get("id"), "name": template_doc.get("name")},
+            detail=lambda: History.changes(before, after),
+        )
 
 
 def _check_ownership(template_doc: dict, requesting_user) -> bool:
@@ -168,6 +193,7 @@ def create_template():
 
         result = templates_collection.insert_one(doc)
         doc["_id"] = str(result.inserted_id)
+        _record(doc, History.TEMPLATE_ADDED, {"name": None}, {"name": doc["name"]})
 
         return jsonify({
             "message": "Template created successfully",
@@ -270,6 +296,12 @@ def update_template(template_id: str):
             {"id": template_id},
             {"$set": updates},
         )
+        _record(
+            {**doc, **updates}, History.TEMPLATE_CHANGED,
+            {key: doc.get(key) for key in _RECORDED_FIELDS if key in updates},
+            {key: updates[key] for key in _RECORDED_FIELDS if key in updates},
+            also_in=_organization_of(doc),
+        )
 
         return jsonify({
             "message": "Template updated successfully",
@@ -297,6 +329,8 @@ def delete_template(template_id: str):
             return jsonify({"error": "You do not have permission to delete this template"}), 403
 
         result = templates_collection.delete_one({"id": template_id})
+        if result.deleted_count:
+            _record(doc, History.TEMPLATE_REMOVED, {"name": doc.get("name")}, {"name": None})
 
         return jsonify({
             "message": "Template deleted successfully",

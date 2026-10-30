@@ -2151,7 +2151,15 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
 
     # Its applications, check-ins, sign-in codes and placement trail go with it (bug 47): each
     # names people, and leaving them behind would outlive the thing they describe.
-    return MarketDeletion.delete_market_and_records(markets_collection, market_id)
+    result = MarketDeletion.delete_market_and_records(markets_collection, market_id)
+    # Its own history went with it; its organization's keeps that it went (E40/F02/S01).
+    if market.organization_id:
+        History.record_for_organization(
+            market.organization_id, requesting_user, History.DELETE_MARKET,
+            subject={"market_id": market_id},
+            detail=lambda: History.changes({"name": market.name}, {"name": None}),
+        )
+    return result
 
 
 RENAME_REFUSED_AFTER_DRAFT = (

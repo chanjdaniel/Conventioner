@@ -26,6 +26,9 @@ const props = defineProps<{
   rowLabels?: Readonly<Record<string, string>>;
   /** How the market's vendors arrive, so a phase reads as its other screens name it. */
   path: IntakeMode;
+  /** Counts the changes the dialog holding it has made: each reads the first page again, under
+   * the filters as they are, so the change shows without reopening the dialog. */
+  changesMade?: number;
 }>();
 
 interface HistoryPage {
@@ -185,6 +188,7 @@ async function loadMore(): Promise<void> {
 }
 
 watch(() => props.marketId, load, { immediate: true });
+watch(() => props.changesMade, load);
 watch(() => [JSON.stringify(filters.value), vendorMatchesNobody.value], load);
 
 function clearFilters() {

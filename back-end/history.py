@@ -9,7 +9,7 @@ to placements. What is state stays where it is - an application's verdict, the m
 must outlive what it describes and this history is deleted with its market.
 
 **An organization's own changes are recorded here too** (E40/F02/S01): its people, its name,
-ownership handed on and a market created in it, each an entry keyed by ``organization_id`` in
+ownership handed on, a market created in it or deleted, and its floorplan templates, each an entry keyed by ``organization_id`` in
 place of ``market_id``, read in Manage organization and deleted with the organization. Its kinds
 for the organization's default rows wait for E39/F02/S01 to write them.
 
@@ -460,6 +460,14 @@ MANAGE_ORGANIZATION_MEMBERS = "manage-organization-members"
 TRANSFER_ORGANIZATION = "transfer-organization"
 #: A market created in the organization, which starts its own history empty; no kind.
 CREATE_MARKET = "create-market"
+#: A market of the organization deleted, by the table's own row: its history goes with it, so the
+#: organization's keeps that it went; no kind.
+DELETE_MARKET = "delete-market"
+#: A floorplan template filed under the organization added, changed or removed.
+MANAGE_FLOORPLAN_TEMPLATES = "manage-floorplan-templates"
+TEMPLATE_ADDED = "template_added"
+TEMPLATE_CHANGED = "template_changed"
+TEMPLATE_REMOVED = "template_removed"
 #: A row of the organization's default table set or reset, ``permission_set`` and
 #: ``permission_reset`` with the market's subject and detail (E39/F02/S01 writes it).
 CHANGE_THE_DEFAULT = "change-the-default"

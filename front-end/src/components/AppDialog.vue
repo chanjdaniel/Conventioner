@@ -89,6 +89,16 @@ const FOCUSABLE =
   'input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], button:not(:disabled):not([data-dialog-close])';
 
 /**
+ * The control a dialog opens on: its first, never a destructive one. For the same reason a
+ * destructive dialog opens on Cancel, a dialog listing people never opens on the first person's
+ * Remove, which one stray Enter would take: Manage organization opened on its first admin's.
+ */
+function firstSafeControl(): HTMLElement | null {
+  const controls = windowEl.value?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [];
+  return [...controls].find((control) => !control.classList.contains('btn--destructive')) ?? null;
+}
+
+/**
  * Focus goes back to what opened the dialog when it closes, by any path.
  *
  * Closing unmounts the window, which drops focus to `<body>`, so a keyboard user started again from
@@ -136,7 +146,7 @@ watch(
     const preferred = props.destructive
       ? windowEl.value?.querySelector<HTMLElement>(`[data-testid="${props.testid}-cancel-button"]`)
       : null;
-    const focusable = preferred ?? windowEl.value?.querySelector<HTMLElement>(FOCUSABLE);
+    const focusable = preferred ?? firstSafeControl();
     (focusable ?? windowEl.value)?.focus();
   },
   { immediate: true },

@@ -328,6 +328,14 @@ export function entryParts(
       return [actor, text(`handed the organization to ${str(entry.subject.email)}`)];
     case 'create-market/':
       return [actor, text(`created the market "${str(after.name)}"`)];
+    case 'delete-market/':
+      return [actor, text(`deleted the market "${str(before.name)}"`)];
+    case 'manage-floorplan-templates/template_added':
+      return [actor, text(`added the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_changed':
+      return [actor, text(`changed the floorplan template "${str(entry.subject.name)}"`)];
+    case 'manage-floorplan-templates/template_removed':
+      return [actor, text(`removed the floorplan template "${str(entry.subject.name)}"`)];
     case 'change-the-default/permission_set':
       return [
         actor,

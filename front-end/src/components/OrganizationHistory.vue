@@ -1,16 +1,21 @@
 <script setup lang="ts">
 /**
  * The organization's own changes, newest first: Manage organization's History section
- * (E40/F02/S01). Its people, its name, ownership handed on, the markets created in it and its
- * default rows, worded as the market's history words them and read a page at a time, as
- * `MarketHistory.vue` reads; an organization's changes are few, so it is not filtered.
+ * (E40/F02/S01). Its people, its name, ownership handed on, the markets created in it or deleted
+ * and its floorplan templates, worded as the market's history words them and read a page at a
+ * time, as `MarketHistory.vue` reads; an organization's changes are few, so it is not filtered.
  */
 import { ref, watch } from 'vue';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { MarketHistoryEntry } from '@/utils/marketHistory';
 
-const props = defineProps<{ orgId: string }>();
+const props = defineProps<{
+  orgId: string;
+  /** Counts the changes the dialog holding it has made: each reads the first page again, so the
+   * change shows without reopening the dialog. */
+  changesMade?: number;
+}>();
 
 interface HistoryPage {
   entries: MarketHistoryEntry[];
@@ -34,32 +39,40 @@ async function read(before: string | null): Promise<HistoryPage> {
   return response.data;
 }
 
+/** The first page; one asked for before it, by an earlier change, is dropped. */
+let asking = 0;
 async function load(): Promise<void> {
+  const mine = ++asking;
   loading.value = true;
   loadError.value = '';
   try {
     const page = await read(null);
+    if (mine !== asking) return;
     entries.value = page.entries ?? [];
     next.value = page.next ?? null;
     labels.value = page.rowLabels ?? {};
   } catch (err) {
+    if (mine !== asking) return;
     loadError.value = getApiErrorMessage(err, 'The history could not be loaded.');
     entries.value = [];
     next.value = null;
   } finally {
-    loading.value = false;
+    if (mine === asking) loading.value = false;
   }
 }
 
 async function loadMore(): Promise<void> {
   if (!next.value || loadingMore.value) return;
+  const mine = asking;
   loadingMore.value = true;
   loadError.value = '';
   try {
     const page = await read(next.value);
+    if (mine !== asking) return;
     entries.value = [...entries.value, ...(page.entries ?? [])];
     next.value = page.next ?? null;
   } catch (err) {
+    if (mine !== asking) return;
     loadError.value = getApiErrorMessage(err, 'Older changes could not be loaded.');
   } finally {
     loadingMore.value = false;
@@ -67,6 +80,7 @@ async function loadMore(): Promise<void> {
 }
 
 watch(() => props.orgId, load, { immediate: true });
+watch(() => props.changesMade, load);
 </script>
 
 <template>
