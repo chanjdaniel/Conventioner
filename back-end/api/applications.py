@@ -491,6 +491,24 @@ def mark_arriving(app_id: str, actor: Optional[str], action: str) -> bool:
     return result.matched_count > 0
 
 
+def mark_all_arriving(market_id: str, actor: Optional[str], action: str) -> int:
+    """Mark every open, undealt application of a market as waiting to be dealt as it arrived, by
+    ``action`` of ``actor``; one already waiting keeps the write it first arrived by. Only
+    ``review_team.py`` calls it, and whichever deal next holds the market deals them. The ids are
+    read as a projection of ``id`` alone, never every application's answers."""
+    ensure_application_indexes()
+    ids = applications_collection.find(
+        {MARKET_ID_FIELD: market_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": False}},
+        {"_id": 0, "id": 1},
+    )
+    marked = 0
+    for doc in ids:
+        if mark_arriving(doc["id"], actor, action):
+            marked += 1
+    return marked
+
+
 #: What a deal reads of an application waiting as it arrived: enough to order, deal and record it.
 _ARRIVING_PROJECTION = {"_id": 0, "id": 1, "applicant_email": 1, "submitted_at": 1,
                         ARRIVING_FIELD: 1}

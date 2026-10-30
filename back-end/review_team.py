@@ -233,9 +233,10 @@ def deal_arrivals(
     if not team_of(market).reviewers:
         return 0
     action_id = action if isinstance(action, str) else action.id
-    for doc in ApplicationsApi.undecided_in_arrival_order(market.id):
-        if not doc.get("reviewer") and (only is None or doc["id"] == only):
-            ApplicationsApi.mark_arriving(doc["id"], actor, action_id)
+    if only is not None:
+        ApplicationsApi.mark_arriving(only, actor, action_id)
+    else:
+        ApplicationsApi.mark_all_arriving(market.id, actor, action_id)
     return _settle(market, _organization(market))
 
 

@@ -229,6 +229,20 @@ class TestAnApplicantsSave:
         [entry] = _arrivals(world)
         assert entry["vendors"] == ["v8@vendor.test"]
 
+    def test_does_not_read_the_markets_other_applications(self, world, monkeypatch):
+        _choose([ANA, BEN, CAT])
+
+        import api.applications as ApplicationsApi
+
+        def untouched(*_a, **_k):
+            raise AssertionError("an applicant's save read the market's other applications")
+
+        monkeypatch.setattr(ApplicationsApi, "undecided_in_arrival_order", untouched)
+
+        _submit(world, "v8@vendor.test")
+
+        assert _reviewers(world)["v8"] == BEN
+
 
 def test_a_market_with_no_team_is_not_read_for_a_deal(world, monkeypatch):
     """No reviewers chosen is the state before this feature, and costs it nothing."""
