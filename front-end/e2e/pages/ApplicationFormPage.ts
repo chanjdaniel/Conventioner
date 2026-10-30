@@ -24,6 +24,8 @@ export class ApplicationFormPage {
   readonly builder: Locator;
   readonly builderEmpty: Locator;
   readonly addFieldButton: Locator;
+  /** "Add from your file", on a market started from a Google Form's responses (E38/F02/S02). */
+  readonly addFromFile: Locator;
   readonly lockBanner: Locator;
   readonly loadError: Locator;
 
@@ -63,6 +65,7 @@ export class ApplicationFormPage {
     this.builder = page.getByTestId('form-builder');
     this.builderEmpty = page.getByTestId('form-builder-empty');
     this.addFieldButton = page.getByTestId('form-builder-add-field-button');
+    this.addFromFile = page.getByTestId('form-builder-add-from-file');
     this.lockBanner = page.getByTestId('form-builder-lock-banner');
     this.loadError = page.getByTestId('form-builder-load-error');
 
@@ -146,6 +149,23 @@ export class ApplicationFormPage {
     return this.fieldCard(index).getByTestId('form-field-option-input');
   }
 
+  /** What a question's option inputs hold, top to bottom. */
+  optionValues(index: number): Promise<string[]> {
+    return this.optionInputs(index).evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value),
+    );
+  }
+
+  /** The note that a question's options are its file's answers. */
+  optionsFromFile(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-options-from-file');
+  }
+
+  /** The button that puts a question's file answers back in place of edited options. */
+  useFileOptionsButton(index: number): Locator {
+    return this.fieldCard(index).getByTestId('form-field-use-file-options-button');
+  }
+
   removeFieldButton(index: number): Locator {
     return this.fieldCard(index).getByTestId('form-builder-remove-field-button');
   }
@@ -175,6 +195,11 @@ export class ApplicationFormPage {
   async addOption(index: number, value: string): Promise<void> {
     await this.fieldCard(index).getByTestId('form-field-add-option-button').click();
     await this.optionInputs(index).last().fill(value);
+  }
+
+  /** Add a question from a column of the file the market was started from, by its label. */
+  async addQuestionFromFile(label: string): Promise<void> {
+    await this.addFromFile.selectOption({ label });
   }
 
   async save(): Promise<void> {
