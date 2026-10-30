@@ -257,7 +257,7 @@ function errorFor(key: string): string {
       </p>
       <input
         :id="`${prefix}-essential-full-name-input`"
-        class="essential-text-input"
+        class="field essential-text-input"
         :class="{ error: errorFor(FULL_NAME_KEY) }"
         type="text"
         autocomplete="name"
@@ -288,7 +288,7 @@ function errorFor(key: string): string {
       </p>
       <input
         :id="`${prefix}-essential-preferred-name-input`"
-        class="essential-text-input"
+        class="field essential-text-input"
         type="text"
         autocomplete="nickname"
         :value="preferredName"
@@ -317,7 +317,7 @@ function errorFor(key: string): string {
       </p>
       <input
         :id="`${prefix}-essential-max-dates-input`"
-        class="essential-max-input"
+        class="field essential-max-input"
         :class="{ error: errorFor(MAX_DATES_KEY) }"
         type="number"
         min="1"
@@ -488,7 +488,7 @@ function errorFor(key: string): string {
       </p>
       <input
         :id="`${prefix}-essential-table-share-email-input`"
-        class="essential-text-input"
+        class="field essential-text-input"
         type="email"
         autocomplete="off"
         placeholder="their@example.com"
@@ -551,7 +551,7 @@ function errorFor(key: string): string {
       </p>
       <textarea
         :id="`${prefix}-essential-request-input`"
-        class="essential-text-input essential-request-input"
+        class="field field--textarea essential-request-input"
         rows="3"
         :value="request"
         :disabled="isLocked(REQUEST_KEY)"
@@ -668,38 +668,18 @@ function errorFor(key: string): string {
   cursor: pointer;
 }
 
-.essential-text-input {
-  height: var(--control-height);
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-}
-
+/* The fields are the `.field` primitive, which owns their box and their one disabled state. */
 .essential-text-input.error {
   border-color: var(--mm-red);
 }
 
-/* A few lines of the vendor's own words: as tall as it needs, resized by them, never a field. */
+/* A few lines of the vendor's own words: as tall as they need, resized by them. */
 .essential-request-input {
-  height: auto;
-  min-height: 72px;
-  padding: var(--space-2) var(--space-3);
-  font: inherit;
-  font-size: var(--text-sm);
   line-height: 1.4;
-  resize: vertical;
 }
 
 .essential-max-input {
-  height: var(--control-height);
   width: 120px;
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
 }
 
 .essential-max-input.error {
