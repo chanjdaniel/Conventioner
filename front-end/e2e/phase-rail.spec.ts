@@ -24,7 +24,7 @@ test.describe('The phase rail', () => {
     // a market can only be renamed while it is a draft (E21/F03/S04). Unique per run, because a
     // public address belongs to one market (E21/F03/S03).
     seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
-      name: `Portland Holiday Makers Market December ${Date.now()}`,
+      name: `Example Holiday Makers Fair December ${Date.now()}`,
     });
   });
 
@@ -44,7 +44,7 @@ test.describe('The phase rail', () => {
   test('is below the header on every market screen', async ({ authenticatedPage: page }) => {
     for (const path of [
       marketSetupPath(seed.marketId, 'setup'),
-      marketScreenPath(seed.marketId, 'result'),
+      marketScreenPath(seed.marketId, 'assignments'),
       marketScreenPath(seed.marketId, 'vendors'),
       marketScreenPath(seed.marketId, 'attendance'),
       marketScreenPath(seed.marketId, 'stats'),

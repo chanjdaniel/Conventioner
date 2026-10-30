@@ -104,9 +104,7 @@
 
   /* figures */
   figure{ margin:0 0 16px; }
-  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:8px; background:#fff; }
   figure figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
-  .shot-tight img{ border-radius:6px; }
 
   /* tables */
   .tw{ overflow-x:auto; margin:0 0 16px; border:1px solid var(--grey); border-radius:10px; background:var(--card); }
@@ -155,6 +153,8 @@
 
 <div class="wrap">
 
+  <div class="callout"><strong>The screenshots were removed on 30 Oct 2026.</strong> Each figure keeps its caption, which describes what its screenshot showed.</div>
+
   <div class="verdict">
     <h2>Verdict</h2>
     <p>The individual screens the recent epics built are <strong>good</strong>. The application-form builder, the triage card, the assignment summary and the check-in page at phone width are well-designed work: clear hierarchy, honest information density, and the best interface writing I have read in a codebase this size.</p>
@@ -196,7 +196,6 @@
     <p class="sec-intro">Assignment Results carries both design languages at the same moment. I counted them at runtime: <strong>77 elements</strong> painted with the modern three-layer shadow, and <strong>9</strong> painted with the legacy halo. Nothing tells the organizer which era they are looking at, but the eye registers it as the screen not quite holding together.</p>
 
     <figure>
-      <img src="aes/07-assignment-results.png" alt="Assignment Results tab showing modern stat cards inside a legacy 80%-height card" />
       <figcaption>Assignment Results, 1920&times;1080. The stat cards (6px radius, layered shadow, 12px gaps) are the new language. The card they sit in, its black header bar and its fixed 80% height are the old one. The footer buttons are 21px out of alignment with each other.</figcaption>
     </figure>
 
@@ -245,7 +244,7 @@
         <span class="sev crit">Critical</span>
       </div>
       <div class="fb">
-        <figure class="shot-tight"><img src="aes/crop-archive-confirm.png" alt="Archive confirmation dialog showing only a Cancel button" />
+        <figure>
         <figcaption>The confirmation dialog as it renders at 1920&times;1080. The Archive button is present and clickable at 75&times;36, immediately left of Cancel. Every pixel inside its box measures <code>(255,255,255)</code>.</figcaption></figure>
         <p>The dialog says <em>"Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone."</em> and then appears to offer exactly one option: <strong>Cancel</strong>.</p>
         <div class="tw"><table>
@@ -287,8 +286,7 @@
           </tbody>
         </table></div>
         <p>So the tier column reads <code>Pr&hellip;</code>, <code>St&hellip;</code>, <code>Co&hellip;</code> on every row, forever. The Location select is the same problem one notch less severe: at 89px it truncates "Mezzanine" by 10px.</p>
-        <figure class="shot-tight">
-          <img src="aes/crop-tier-select.png" alt="Section Setup rows with Tier values truncated to two letters" />
+        <figure>
           <figcaption>Section Setup at the 1920&times;1080 design target. Also visible: H10, the column headers styled identically to the editable pills beneath them.</figcaption>
         </figure>
         <p>The cause is the three setup panels being forced to equal thirds. Location Setup needs one column and gets 461px; Section Setup needs four columns plus a delete control and gets 460px.</p>
@@ -319,8 +317,7 @@
         </table></div>
         <p>Three typefaces and five control heights on one screen. The 13.33px size is the browser's own default, which is the tell: those controls have never been styled at all.</p>
         <div class="callout warn"><strong>The one-line fix is wrong on its own.</strong> Adding <code>button, input, select, textarea { font: inherit }</code> would make every control render <strong>Inter</strong>, because that is what <code>body</code> declares - while the 274 Outfit rules around them stay Outfit. The fix is two lines: set <code>body</code> to Outfit (already the product's real UI face, 274 declarations against Inter's 2), then inherit on the controls. See also H16 below.</div>
-        <figure class="shot-tight">
-          <img src="aes/crop-login-controls.png" alt="Login form fields and buttons" />
+        <figure>
           <figcaption>The tab labels, field text and "Show" are Arial; the green submit button is Outfit. The mismatch is subtle individually and is why the screen reads as slightly generic.</figcaption>
         </figure>
       </div>
@@ -364,7 +361,7 @@
         <span class="sev crit">Critical</span>
       </div>
       <div class="fb">
-        <p>A reviewer works this screen once per application - 232 times for the real UBC export. Two of its three verdict buttons put white text on a ground that cannot carry it:</p>
+        <p>A reviewer works this screen once per application - 232 times for the real export. Two of its three verdict buttons put white text on a ground that cannot carry it:</p>
         <div class="tw"><table>
           <thead><tr><th>Control</th><th>Foreground</th><th>Background</th><th>Ratio</th><th>Needs</th></tr></thead>
           <tbody>
@@ -402,7 +399,7 @@
       </div>
       <div class="fb">
         <p>"Do you need access to mains power at your table?" renders its answer as the raw boolean <code>true</code>. Every other answer on the card is rendered for a human - dates are spelled out, tier preference is joined per date, table choice reads "A whole table to myself".</p>
-        <figure><img src="aes/10-triage-queue.png" alt="Triage card showing a raw true value" /><figcaption>The triage card. <code>true</code> on row 4. Note also that the card's headline is an email address while the applicant's name and business are rows 6 and 1 of a 12-row list.</figcaption></figure>
+        <figure><figcaption>The triage card. <code>true</code> on row 4. Note also that the card's headline is an email address while the applicant's name and business are rows 6 and 1 of a 12-row list.</figcaption></figure>
       </div>
     </div>
 
@@ -427,7 +424,7 @@
       </div>
       <div class="fb">
         <p>"Download CSV" sits at y=881, "Send to Discord" at y=902, both 35px tall, both in the same footer row. The gap comes from the Discord hint being stacked above its button while the CSV button has no hint, so nothing holds the row to a shared baseline.</p>
-        <figure class="shot-tight"><img src="aes/crop-footer-buttons.png" alt="Download CSV and Send to Discord buttons at different heights" /><figcaption>The two actions that finish the job, not sharing a line.</figcaption></figure>
+        <figure><figcaption>The two actions that finish the job, not sharing a line.</figcaption></figure>
         <p>The hint also sits <em>above</em> the control it explains and clears the card above it by 3px.</p>
       </div>
     </div>
@@ -461,7 +458,6 @@
         <span class="sev high">High</span>
       </div>
       <div class="fb">
-        <figure class="shot-tight"><img src="aes/crop-dialog-labels.png" alt="Organization label centred, Market name label left aligned, with two differently styled fields" /></figure>
         <div class="tw"><table>
           <thead><tr><th></th><th>ORGANIZATION</th><th>MARKET NAME</th></tr></thead>
           <tbody>
@@ -710,7 +706,7 @@
           </tbody>
         </table></div>
         <p>Market Setup nests <strong>six</strong> scrollers, three of which also scroll horizontally by 4-8px, which is what produces the tiny stub scrollbars inside the setup panels. The outer page cannot scroll at all, so the organizer scrolls inside a box on a screen that is 19% empty at the sides.</p>
-        <figure><img src="aes/06-market-setup.png" alt="Market Setup at 1920x1080 showing the 80% card and nested scrollbars" /><figcaption>Market Setup. Roughly 190px of dead page left and right, content sliced at the card's bottom edge, and the Discord row and Assign button living outside the card entirely.</figcaption></figure>
+        <figure><figcaption>Market Setup. Roughly 190px of dead page left and right, content sliced at the card's bottom edge, and the Discord row and Assign button living outside the card entirely.</figcaption></figure>
         <p style="color:var(--ink-2)">The <code>height: 80%</code> dates to the first commit of this view in Feb 2025 and was never a decision. Ticket 01 already has the authority to delete it; these numbers are offered as evidence for that ticket, not as a competing proposal.</p>
       </div>
     </div>
@@ -723,8 +719,7 @@
         <span class="sev high">High</span>
       </div>
       <div class="fb">
-        <figure class="shot-tight"><img src="aes/crop-markets-row.png" alt="A market row with a wrapped title and vast empty space" /></figure>
-        <p>The name-and-badge cell is hard-capped at <strong>320px</strong> inside an <strong>1840px</strong> row. Two of four market names wrap to two lines as a result, while the last content on the row ("Vancouver Makers Collective") ends at x=718 and nothing occupies the 1,050px between it and the Manage button.</p>
+        <p>The name-and-badge cell is hard-capped at <strong>320px</strong> inside an <strong>1840px</strong> row. Two of four market names wrap to two lines as a result, while the last content on the row ("Example Makers Collective") ends at x=718 and nothing occupies the 1,050px between it and the Manage button.</p>
         <p>Wrapping also makes the rows unequal heights - 92, 92, 87, 87 - so a list of peers has a ragged vertical rhythm for no reason a reader can see.</p>
       </div>
     </div>
@@ -738,8 +733,8 @@
       </div>
       <div class="fb">
         <div class="two">
-          <figure><img src="aes/03-markets.png" alt="Markets list" /><figcaption>Markets: outline, white fill, weight 400, 85px.</figcaption></figure>
-          <figure><img src="aes/04-organizations.png" alt="Organizations list" /><figcaption>Organizations: solid <code>#272323</code>, white text, weight 500, 91px. Badge is a tinted rect, not a solid pill.</figcaption></figure>
+          <figure><figcaption>Markets: outline, white fill, weight 400, 85px.</figcaption></figure>
+          <figure><figcaption>Organizations: solid <code>#272323</code>, white text, weight 500, 91px. Badge is a tinted rect, not a solid pill.</figcaption></figure>
         </div>
         <p>Same component, same label, same role, one screen apart. The Organizations treatment is the stronger of the two - a solid dark button reads as the row's action - but the badge treatment is better on Markets, where the phase deserves the colour. Either is defensible; having both is not.</p>
       </div>
@@ -755,7 +750,6 @@
       <div class="fb">
         <div class="callout warn"><strong>Half of this finding was wrong, corrected 20 Sep while fixing it.</strong> <code>Check in</code> is already the primary button on the row whose date is <em>today</em>, and secondary on every other row - <code>:class="row.date === today ? 'primary-button' : 'secondary-button'"</code>. The walk measured a market whose dates were all in the future, so every row rendered secondary. That design is better than what this finding proposed: making every row primary would make a mis-tap on the wrong day exactly as easy as the right one.</div>
         <p>What survives: <strong>"Look up" stays solid green after it has been used</strong>, so on the result view a spent control wears the only green on a page someone is holding at a door. It now demotes to secondary once a result is showing.</p>
-        <figure><img src="aes/15-checkin-result.png" alt="Check-in result showing outline Check in buttons" /></figure>
         <p style="color:var(--ink-2)">The lesson is about the walk, not the screen: a surface whose behaviour depends on the date cannot be judged from a fixture dated in the future. The <em>Method</em> section's note on what a walk finds applies here too.</p>
       </div>
     </div>
@@ -769,7 +763,6 @@
       </div>
       <div class="fb">
         <p>The only button on a market row opens a dialog containing user permissions, organization access, rename and <strong>delete</strong>. Opening the market - the thing an organizer wants nineteen times out of twenty - is done by clicking the row body, which carries no affordance saying so.</p>
-        <figure><img src="aes/05-manage-market-overlay.png" alt="Manage market dialog" /></figure>
         <p>Inside the dialog, "Add user", "Add organization", "Save" and "Delete market" are all 34px, weight 400, 6px radius. A destructive irreversible action is the exact visual weight of adding a collaborator, and the four sections have dividers on two of their three boundaries.</p>
         <p><strong>Recommendation:</strong> the row's button says "Open"; administration moves behind a quiet secondary control or the existing "More&hellip;" menu.</p>
       </div>
@@ -804,7 +797,6 @@
         <span class="sev med">Medium</span>
       </div>
       <div class="fb">
-        <figure><img src="aes/02-dashboard.png" alt="Dashboard with three controls floating in a large empty page" /></figure>
         <p>"Open a market" navigates to <code>/markets</code>. The "Markets" card directly below it navigates to <code>/markets</code>. Two controls, one destination, 60px apart.</p>
         <p>The hierarchy is also inverted: the two largest, heaviest elements on the page are secondary navigation rendered as near-black filled blocks, while the primary action is a small green button above them. And "Sign out" is a text link floating in the middle of the page rather than in the header where account actions live.</p>
         <p>Content occupies a 313px band of a 1080px viewport - the page is about 90% empty. Whatever this screen is for, it is currently a menu with three items, two of which are the same item.</p>
@@ -820,7 +812,6 @@
       </div>
       <div class="fb">
         <p>On a market with 9 open, 3 approved and 2 rejected applications, the Vendors screen reads "3 of 14 vendors assigned" and lists all 14, badging the eleven non-approved ones "Unassigned" - visually identical to an approved vendor the solver could not place.</p>
-        <figure><img src="aes/12-vendors.png" alt="Vendors list including unreviewed applicants" /></figure>
         <div class="callout"><strong>Already open</strong> as claims-and-room ticket 04, which found it with one rejected applicant. Recorded here because a realistic fixture makes it eleven out of fourteen rather than one out of six, which changes how urgent it looks.</div>
       </div>
     </div>
@@ -847,7 +838,6 @@
         <span class="sev med">Medium</span>
       </div>
       <div class="fb">
-        <figure><img src="aes/17-csv-import.png" alt="CSV import step 1" /></figure>
         <p>The import wizard has no card, no black header, no phase rail and no market name in its chrome - the market is named in body prose. Its page title is 24px at x=32; the Markets title is 28px at x=40.</p>
         <p>"1 Upload &middot; 2 Map columns &middot; 3 Preview &middot; 4 Confirm" is plain text with the current step bolded: no connectors, no markers, no progress. Two inches of product away, the phase rail is a properly drawn stepper. The wizard should borrow it.</p>
         <p>The dropzone is 718px wide and left-aligned in an 1854px page, so the one thing the screen asks for sits alone with 1,130px of nothing beside it.</p>
@@ -876,7 +866,6 @@
     <div class="finding good">
       <div class="fh"><span class="fid">G1</span><div class="ftitle"><h3>The application form builder</h3><div class="sub">Application Form tab</div></div><span class="sev good">Keep</span></div>
       <div class="fb">
-        <figure><img src="aes/09-application-form.png" alt="Form builder and applicant preview side by side" /></figure>
         <p>Builder and applicant preview side by side at equal width, field cards with type chips, helper text under every label, options shown as the applicant will read them. This is the clearest screen in the product and the one a new organizer would understand fastest. Its only defect is the <code>market_days</code> leak (H6).</p>
       </div>
     </div>
@@ -889,7 +878,6 @@
     <div class="finding good">
       <div class="fh"><span class="fid">G3</span><div class="ftitle"><h3>Check-in at 390px</h3><div class="sub">Public check-in</div></div><span class="sev good">Keep</span></div>
       <div class="fb">
-        <figure style="max-width:420px"><img src="aes/16-checkin-390.png" alt="Check-in page at phone width" /></figure>
         <p>Measured at 390&times;844: <strong>no horizontal scroll, no overflowing element, no contrast failure</strong>, and every control at or above 40px. This is the one surface someone holds in their hand at a door and it is the best-executed surface in the product. Only O4's button hierarchy is wrong.</p>
       </div>
     </div>
@@ -940,7 +928,7 @@
   </section>
 
   <footer class="end">
-    <p>Aesthetics and organization review &middot; 20 Sep 2026 &middot; <code>dev @ 68b6aeb6</code> &middot; screenshots in <code>.lavish/aes/</code></p>
+    <p>Aesthetics and organization review &middot; 20 Sep 2026 &middot; <code>dev @ 68b6aeb6</code></p>
     <p>Prior walks: real-market readiness &middot; 15 Sep &middot; 20 Sep (E09-E13)</p>
   </footer>
 

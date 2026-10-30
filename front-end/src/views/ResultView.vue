@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /**
- * The Result page: the assignment, read and changed in one place (E22/F04/S04).
+ * The Assignments page: the assignment, read and changed in one place (E22/F04/S04).
  *
  * It was the Tables screen, reached by a quick link from a results page under the rules. The
  * organizer's "result" is who sits where, which is this grid, so the grid became the page: a
  * summary strip on top (`ResultSummary`), then the tables with their seat editing, then the
- * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
+ * placement history. It stands under the Assignment tab, between Settings and Vendors, and was
+ * called Result until the pages took the names of what they hold (E38/F08/S01).
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -341,6 +342,7 @@ const swapTargets = computed((): SwapTarget[] => {
       targets.push({
         email,
         tableCode: row.tableCode,
+        section: row.section,
         tier: row.tier,
         seat: seatHeldBy(row, email),
       });
@@ -457,7 +459,7 @@ function swapSeats(withEmail: string): void {
   <div class="tables-view">
     <MarketFrame :market="market" @retry="loadTables">
       <div class="tables-body">
-        <!-- The Result page (E22/F04/S04): how the assignment came out, then the tables it sits on,
+        <!-- The Assignments page (E22/F04/S04): how the assignment came out, then the tables it sits on,
              then who changed what. -->
         <ResultSummary v-if="market" :market="market" />
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -656,6 +658,7 @@ function swapSeats(withEmail: string): void {
       :marketCeiling="marketCeiling"
       :swapTargets="swapTargets"
       :vendorNames="vendorNames"
+      :vendorSearch="vendorSearch"
       :busy="placementBusy"
       :errorMessage="placementError"
       :deduction="deduction"

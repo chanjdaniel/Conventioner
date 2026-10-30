@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * What Result and Vendors say before an assignment is stored (E31/F03/S05).
+ * What Assignments and Vendors say before an assignment is stored (E31/F03/S05).
  *
  * They drew the solver's unstored preview as if it were the result, then the plan's empty tables
  * as if an assignment had come out empty. Nothing is assigned until a run is stored, so both pages
@@ -23,7 +23,7 @@ const refusal = computed(() => assignRefusal(props.market.phase));
     <!-- The space is spoken for: a template's trailing whitespace is condensed away, which ran
          "phase." into "Set the rules" (E30/F01/S01). -->
     <template v-if="refusal">{{ `${refusal} ` }}</template>
-    <RouterLink :to="marketPath(market.id, 'assignment')">
+    <RouterLink :to="marketPath(market.id, 'settings')">
       {{ refusal ? 'Set the rules' : 'Set the rules and allocate tables' }}</RouterLink
     >.
     <slot />

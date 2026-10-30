@@ -10,10 +10,13 @@ import { IntakeMode, MarketPhase, type Market, type SetupObject } from '@/assets
 /**
  * A person who may change nothing on a market is told why once, by the frame, on every page of it
  * (T15). Each screen drops its controls on `readOnlyReason`, and only Market Setup said why: a
- * Viewer met a Result page whose seats were plain text and took it for broken.
+ * Viewer met a Result page (now Assignments) whose seats were plain text and took it for broken.
  */
 const route = vi.hoisted(() => ({
-  current: { name: 'market-result', params: { marketId: 'market-1' } as Record<string, unknown> },
+  current: {
+    name: 'market-assignments',
+    params: { marketId: 'market-1' } as Record<string, unknown>,
+  },
 }));
 
 vi.mock('vue-router', () => ({
@@ -47,7 +50,7 @@ const note = (wrapper: ReturnType<typeof mountFrame>) =>
 describe('the frame says why a person may change nothing', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    route.current = { name: 'market-result', params: { marketId: 'market-1' } };
+    route.current = { name: 'market-assignments', params: { marketId: 'market-1' } };
   });
 
   it('says it once, above the page, to a Viewer on a live market', () => {

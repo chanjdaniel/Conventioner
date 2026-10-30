@@ -10,7 +10,7 @@ import { VendorsPage } from './pages/VendorsPage';
 /**
  * The placement history opens from a button (E35/F03/S03).
  *
- * The trail sat at the bottom of the Result page, below every table of every date, and named a
+ * The trail sat at the bottom of the Assignments page, below every table of every date, and named a
  * vendor by name alone. It opens from the results' action row now, before a run and after, for
  * anyone who can read the market, and names each vendor by name and email.
  */

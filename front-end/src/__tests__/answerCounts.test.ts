@@ -10,7 +10,7 @@ const COUNTS: AnswerCounts = {
   questions: [
     {
       key: 'selling',
-      label: 'What will you be selling at the event?',
+      label: 'What will you sell at the fair?',
       type: 'multi_select',
       answers: {
         all: [
@@ -38,7 +38,7 @@ describe('a chart per choice question', () => {
     const [selling] = questionLedgers(COUNTS, 'all');
 
     expect(selling.key).toBe('selling');
-    expect(selling.title).toBe('What will you be selling at the event?');
+    expect(selling.title).toBe('What will you sell at the fair?');
     expect(selling.rows.map((row) => [row.label, row.value, row.count])).toEqual([
       ['Prints', 'option:Prints', 2],
       ['Stickers', 'option:Stickers', 1],

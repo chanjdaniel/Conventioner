@@ -137,7 +137,7 @@ function resultLinkFor(date: string): string | null {
   const id = props.market?.id;
   if (!id || !props.email || !mayTake(props.market, MarketAction.Assign)) return null;
   const query = new URLSearchParams({ date, search: props.email });
-  return `${marketPath(id, 'result')}?${query.toString()}`;
+  return `${marketPath(id, 'assignments')}?${query.toString()}`;
 }
 
 function goToResult(date: string): void {

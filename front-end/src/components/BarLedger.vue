@@ -3,7 +3,7 @@
  * A card of the ledger of bars (E35/F03/S01): a title, and a row per answer with its count, its
  * share of the whole and a bar against the largest in the card (`utils/barLedger.ts`).
  *
- * The Result page's statistics drew these cards themselves; the Stats tab reads with them too
+ * The Assignments page's statistics drew these cards themselves; the Stats tab reads with them too
  * (E45/F01/S01), so the two say a count the same way. A row that leads somewhere is a link to it -
  * the tables filtered to its answer, the applications with its status - and one that leads nowhere
  * is only read.

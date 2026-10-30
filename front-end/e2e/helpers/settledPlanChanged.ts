@@ -6,7 +6,7 @@ import { mongoEval } from './mongo';
  *
  * The setup settles on leaving draft, so no request can shrink a room after the assignment ran.
  * A market that left draft before that rule could, and a pin at a table its plan no longer has -
- * an orphaned pin - is what `NoOrphanedPinGuard` and the marks on Result and Vendors exist for.
+ * an orphaned pin - is what `NoOrphanedPinGuard` and the marks on Assignments and Vendors exist for.
  * Written straight into Mongo, the way such a market's plan already sits there.
  */
 export function changeASettledPlan(marketId: string, setupObject: Record<string, unknown>): void {

@@ -32,6 +32,7 @@ from datatypes import (
     SetupObject,
     UnassignedTableEntry,
     User,
+    VendorAssignmentResult,
     intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
@@ -263,7 +264,7 @@ def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Opti
 
 VERDICTS_SETTLED = (
     "The review is closed: the verdicts settled when this market entered Assignment. To assign "
-    "someone or free a seat, change the assignment on the Result page."
+    "someone or free a seat, change the assignment on the Assignments page."
 )
 
 
@@ -375,14 +376,14 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 ASSIGNMENT_RULES_SETTLED = (
     "The table allocation for this market is settled. A rule only takes effect when tables are "
     "allocated, and this market can no longer allocate them. Change a single assignment on the "
-    "Result page instead."
+    "Assignments page instead."
 )
 
 
 ASSIGNMENT_RULES_PUBLISHED = (
     "Results are published, so the table allocation is settled: a rule only takes effect when "
     "tables are allocated, and they are not allocated again once applicants have been told. Change "
-    "a single assignment on the Result page instead."
+    "a single assignment on the Assignments page instead."
 )
 
 
@@ -865,7 +866,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
-    # Hand placements at a seat the plan no longer has, for Result and the vendor's panel to mark
+    # Hand placements at a seat the plan no longer has, for Assignments and the vendor's panel to mark
     # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
     # deciding for themselves which seats exist.
     market_dict['orphanedPins'] = [
@@ -1335,12 +1336,22 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 
     rows = derive_market_table_rows(assigned_market)
     stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+    placed_rows = assigned_market.assignment_object.vendor_assignments or []
+    # Everyone the run does not read, read once: the vendors added by hand are counted below, and
+    # the applicants the review did not approve are marked where a seat overrides them.
+    outside = outside_solver_vendors(
+        market.id, EssentialFields.effective_essential_options_for_market(market),
+        {vendor.email for vendor in vendors},
+    )
+    count_added_vendors(
+        stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
+        placed_rows,
+    )
 
     payload = convert_keys_to_camel_case(stats.model_dump())
     # Why each vendor holds no table, computed from the plan, the applications and the
     # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
     # unplaced, so the panel listing them can say why without a second request.
-    placed_rows = assigned_market.assignment_object.vendor_assignments or []
     payload["unplacedDates"] = [
         {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
         for entry in unplaced_dates(
@@ -1361,7 +1372,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         }
         for entry in overridden_placements(
             vendors, placed_rows,
-            not_approved_vendors(market, {vendor.email for vendor in vendors}),
+            [vendor for vendor, application in outside if is_not_approved(application)],
         )
     ]
     # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
@@ -1549,6 +1560,35 @@ def is_not_approved(application: Application) -> bool:
     return application.status is not ApplicationStatus.REVIEWER_APPROVED
 
 
+def needs_a_table(outside: Optional[Application]) -> bool:
+    """Whether a vendor needs a table (E38/F08/S02): everyone the run reads (``outside`` None), and
+    an applicant outside it whom nothing left out - a vendor added by hand, approved by the adding.
+
+    Said apart from "in the run", which is only who the run places: an added vendor stays out of
+    the run, whose answers they may not have, and is still unassigned like anyone until seated. A
+    rejected or undecided applicant needs none, seated by hand or not (bug 10)."""
+    return outside is None or not is_not_approved(outside)
+
+
+def count_added_vendors(
+    stats: AssignmentStatistics, added: Iterable[str], placements: Iterable[VendorAssignmentResult],
+) -> None:
+    """Count the vendors added by hand in the statistics' vendors (E38/F08/S02), beside the run's.
+
+    The run counts only the vendors it reads, so a vendor added without a table was missing from
+    "N unassigned" while Vendors' "Unassigned only" listed them, and the link led to a list longer
+    than its number. An added vendor needs a table on every market day, and holds one when seated
+    on any, as the run's vendors do; satisfaction stays the run's, measured against their answers.
+    """
+    seated = {placement.email for placement in placements}
+    for email in sorted(set(added)):
+        stats.total_vendors += 1
+        if email in seated:
+            stats.total_assigned_vendors += 1
+        else:
+            stats.unassigned_vendors.append(email)
+
+
 def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[SolverVendor]:
     """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
     to one by hand is marked "not approved" wherever the other overrides show."""
@@ -1576,6 +1616,9 @@ def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str
         # Said, never inferred (E36/F02/S04): a vendor added by hand is approved and still outside
         # the run, and counting them in it made Vendors and Result disagree again (bug 10).
         "inTheRun": outside is None,
+        # And whether they need a table, said apart (E38/F08/S02): a vendor added by hand is out
+        # of the run and unassigned like anyone until seated.
+        "needsATable": needs_a_table(outside),
         "addedByHand": bool(outside is not None and outside.added_by),
         "email": vendor.email,
         "tableChoice": vendor.table_choice,
@@ -1623,6 +1666,18 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     rows = derive_market_table_rows(assigned_market)
     groups = Pricing.Groups(market)
     answers = Pricing.vendor_answers(groups, market_id)
+    # Who may be put in a seat, and what they asked for. Sent with the grid because the view has
+    # to warn - before the change, not after - when a placement would alter a vendor's table choice
+    # away from their own answer (E11/F03/S01). Every applicant, the ones outside the run with why
+    # (E36/F02/S02): an organizer may seat anyone by hand, warned, and the run's own come first.
+    placeable = [_placeable(vendor, None) for vendor in vendors] + [
+        _placeable(vendor, application)
+        for vendor, application in outside_solver_vendors(
+            market_id,
+            EssentialFields.effective_essential_options_for_market(market),
+            {vendor.email for vendor in vendors},
+        )
+    ]
     return {
         # Each occupant's price and the card's row that set it ride on their row, for the
         # organizer's eyes only: this read is the market's people's, never an applicant's
@@ -1636,25 +1691,16 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
         # the rows rather than fetched separately so the grid and its occupants' names can
         # never be a request apart.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-        # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+        # What the page's search finds each vendor by, beyond their address (E35/F02/S01): every
+        # vendor at a table, and every one the place dialog offers, whose picker searches by the
+        # same terms (E38/F08/S03).
         "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
             market_id,
             market.application_form.fields if market.application_form else [],
-            {email for row in rows for email in row.assignment_slots if email},
+            {email for row in rows for email in row.assignment_slots if email}
+            | {vendor["email"] for vendor in placeable},
         ),
-        # Who may be put in a seat, and what they asked for. Sent with the grid because the
-        # view has to warn - before the change, not after - when a placement would alter a
-        # vendor's table choice away from their own answer (E11/F03/S01).
-        # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
-        # seat anyone by hand, warned, and the run's own vendors come first.
-        "vendors": [_placeable(vendor, None) for vendor in vendors] + [
-            _placeable(vendor, application)
-            for vendor, application in outside_solver_vendors(
-                market_id,
-                EssentialFields.effective_essential_options_for_market(market),
-                {vendor.email for vendor in vendors},
-            )
-        ],
+        "vendors": placeable,
     }, 200
 
 

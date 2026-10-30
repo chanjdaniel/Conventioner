@@ -235,18 +235,18 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     if phase is MarketPhase.ARCHIVED:
         return MarketsApi.ARCHIVED_REFUSAL
     # Past assignment, the answer is settled and the vendors have been told. Changing one
-    # placement is what is wanted here, and the Result page is where that happens (E11/F03,
+    # placement is what is wanted here, and the Assignments page is where that happens (E11/F03,
     # E22/F04/S04).
     return (
-        "The table allocation for this market is settled. Change a single assignment on the Result "
-        "page instead of allocating tables again."
+        "The table allocation for this market is settled. Change a single assignment on the "
+        "Assignments page instead of allocating tables again."
     )
 
 
 RESULTS_PUBLISHED_REFUSAL = (
     "Results are published, so the table allocation is settled: applicants have been told whether "
     "they have a table, and allocating again could move them. Change a single assignment on the "
-    "Result page instead."
+    "Assignments page instead."
 )
 
 

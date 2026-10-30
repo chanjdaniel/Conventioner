@@ -38,4 +38,4 @@ One made before runs recorded their inputs is not known to be out of date and is
 
 - What changed is decided by the server, from the fingerprints each run records: `changed_since_run` in [`back-end/assignment/made_from.py`](../../../back-end/assignment/made_from.py), served on the market as `assignmentOutOfDate` ([what an assignment was made from](../../implementation/modules/made-from.md)).
 - Only a run records its inputs, and a hand edit leaves them alone: [placements](../../implementation/modules/placements.md).
-- [`front-end/src/utils/assignmentOutOfDate.ts`](../../../front-end/src/utils/assignmentOutOfDate.ts) only words the groups, on the Result page's summary.
+- [`front-end/src/utils/assignmentOutOfDate.ts`](../../../front-end/src/utils/assignmentOutOfDate.ts) only words the groups, on the Assignments page's summary.

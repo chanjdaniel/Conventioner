@@ -135,7 +135,7 @@ describe('what an entry says', () => {
         detail: {
           before: { groups: [], everyone_else: [] },
           after: {
-            groups: [{ name: 'UBC student only', conditions: [], prices: [] }],
+            groups: [{ name: 'Example College student only', conditions: [], prices: [] }],
             everyone_else: [{ tier: 'Gold', cents: 3500 }],
           },
         },
@@ -520,8 +520,11 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
   const QUESTIONS: RejectionQuestion[] = [
     {
       key: 'affiliation',
-      label: 'Are you a UBC student or alumni?',
-      answers: ['Current UBC student', 'UBC alumni/staff'].map((a) => ({ value: a, label: a })),
+      label: 'Are you an Example College student or alumni?',
+      answers: ['Current Example College student', 'Example College alumni/staff'].map((a) => ({
+        value: a,
+        label: a,
+      })),
     },
     {
       key: 'agree_terms',
@@ -605,8 +608,8 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
   });
 
   it('opens only to the groups that changed, each its own row, an added and a removed one as such', () => {
-    const kept = group('UBC student only', [
-      { key: 'affiliation', answers: ['Current UBC student'] },
+    const kept = group('Example College student only', [
+      { key: 'affiliation', answers: ['Current Example College student'] },
     ]);
     expect(
       priced({
@@ -708,14 +711,17 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
 
   it("writes a condition on the organizer's own question by its label and answers", () => {
     const [row] = groupRow(
-      group('Students', [{ key: 'affiliation', answers: ['UBC alumni/staff'] }]),
+      group('Students', [{ key: 'affiliation', answers: ['Example College alumni/staff'] }]),
       group('Students', [
-        { key: 'affiliation', answers: ['Current UBC student', 'UBC alumni/staff'] },
+        {
+          key: 'affiliation',
+          answers: ['Current Example College student', 'Example College alumni/staff'],
+        },
       ]),
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen “Are you a UBC student or alumni?” includes “Current UBC student” or “UBC alumni/staff”',
+      'Gold $15\nwhen “Are you an Example College student or alumni?” includes “Current Example College student” or “Example College alumni/staff”',
     );
   });
 
@@ -742,14 +748,14 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
       group('First years', []),
       group('First years', [
         { key: 'year_of_study', answers: ['First'] },
-        { key: 'affiliation', answers: ['Current UBC student', 'Faculty'] },
+        { key: 'affiliation', answers: ['Current Example College student', 'Faculty'] },
       ]),
     );
 
     expect(row.after).toBe(
       'Gold $15\n' +
         'when “year_of_study” (no longer on the form) includes “First”\n' +
-        'and “Are you a UBC student or alumni?” includes “Current UBC student” or “Faculty”',
+        'and “Are you an Example College student or alumni?” includes “Current Example College student” or “Faculty”',
     );
   });
 
@@ -760,7 +766,7 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     );
 
     expect(row.after).toBe(
-      'Gold $15\nwhen “Are you a UBC student or alumni?” has no answer ticked yet, so it prices nobody',
+      'Gold $15\nwhen “Are you an Example College student or alumni?” has no answer ticked yet, so it prices nobody',
     );
   });
 
