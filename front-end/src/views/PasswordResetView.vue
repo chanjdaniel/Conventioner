@@ -219,11 +219,6 @@ h1 {
   background-color: white;
 }
 
-.password-field:focus-within {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .password-field:has(input:disabled) {
   background-color: var(--mm-beige);
   color: var(--mm-text-muted-on-beige);

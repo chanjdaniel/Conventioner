@@ -654,11 +654,6 @@ function deleteType(tt: TableTypeObject) {
   transition: border-color 0.15s ease-in-out;
 }
 
-.tt-input:focus {
-  border-color: var(--mm-green);
-  background: #ffffff;
-}
-
 .tt-input::placeholder {
   color: rgba(39, 35, 35, 0.4);
 }

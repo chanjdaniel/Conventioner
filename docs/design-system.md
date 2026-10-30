@@ -47,6 +47,7 @@ sources:
   - T81
   - T79
   - T82
+  - E38/F01/S01
 ---
 
 # Conventioner's design language
@@ -312,7 +313,11 @@ A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 
-**A focus ring on every primitive**, in `--mm-black` rather than the brand green - it has to be visible against the control's own fill too, and a green ring on the green primary button is invisible. The product has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+**A field shows no focus at all**, by Daniel's decision on the 2026-10-29 walk (E38/F01/S01): no outline, ring, glow, or border or fill change on any `input`, `textarea` or `select`, by click or by Tab, and a text field shows its caret.
+A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.
+`primitives.css` sets `outline: none` on every focused field, so the browser's own outline does not appear either, and no component draws a ring around a field's box (`:focus-within`).
+
+**A focus ring on every control**, in `--mm-black` rather than the brand green - it has to be visible against the control's own fill too, and a green ring on the green primary button is invisible. The product has 65 keyboard-reachable controls and had no consistent focus treatment at all.
 
 They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
 

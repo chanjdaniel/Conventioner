@@ -626,11 +626,10 @@ const submitOTPLogin = async () => {
    `.field`'s metrics rather than the class itself. It used to be 60px tall with a 3px border and
    20px text, which is why the auth screens read as a different product (E16/F05). */
 /*
- * Two stacked fields need room for their focus rings (E17/F02/S02).
+ * Two stacked fields keep room between them (E17/F02/S02).
  *
  * `.login-form` is a flex column with no gap, so the sign-in-code form's email and code inputs sat
- * flush against each other - and the ring is `2px` of outline at `2px` of offset, so focusing the
- * code field painted 4px up into the field above it.
+ * flush against each other, two borders reading as one box.
  *
  * Adjacent-sibling rather than a gap on the form: a gap would also push each field away from its
  * own label, which belongs against it.
@@ -654,13 +653,6 @@ const submitOTPLogin = async () => {
      20px and 15px tall, under the 24px a phone's tap needs (WCAG 2.5.8, T79). */
   align-items: stretch;
   background-color: white;
-}
-
-/* `blue` was not a token, and a focus state has to be visible against the page as well as the
-   field. Matches the primitives' ring. */
-.login-input:focus-within {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .login-input:has(input:disabled) {

@@ -888,12 +888,6 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   color: var(--mm-black);
   background: #ffffff;
-
-  transition: border-color 0.15s ease-in-out;
-}
-
-.sg-field-input:focus {
-  border-color: var(--mm-green);
 }
 
 .sg-field-input::placeholder {

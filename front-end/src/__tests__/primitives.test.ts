@@ -166,13 +166,17 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(declaration('.field--select', 'min-width')).toBe('0');
   });
 
-  it('gives every primitive a focus ring that is not the brand green', () => {
-    // The ring must be visible against the control's own fill too, and a green ring on the green
-    // primary button is invisible.
-    const ring = declaration('.btn:focus-visible', 'outline');
-    expect(ring, 'no focus ring on .btn').toBeTruthy();
-    expect(ring).not.toContain('--mm-green');
-    expect(declaration('.btn:focus-visible', 'outline-offset')).toBeTruthy();
+  it('draws nothing around a focused field, the browser default included', () => {
+    // Daniel's decision on the 2026-10-29 walk (E38/F01): a field shows its caret and nothing else,
+    // by click or by Tab, so an accessibility pass must not put a ring back.
+    for (const field of ['input:focus', 'textarea:focus', 'select:focus']) {
+      expect(declaration(field, 'outline'), field).toBe('none');
+      for (const property of ['box-shadow', 'border', 'border-color', 'background']) {
+        expect(declaration(field, property), `${field} ${property}`).toBeNull();
+      }
+    }
+    expect(blocks('.field:focus-visible')).toEqual([]);
+    expect(blocks('.field:focus')).toEqual([]);
   });
 
   it('owns the add-row control, so five files stop owning a copy of it', () => {

@@ -367,16 +367,6 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  transition:
-    border-color 0.15s ease-in-out,
-    box-shadow 0.15s ease-in-out;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: var(--mm-green);
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .summary-line {

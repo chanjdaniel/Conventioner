@@ -336,6 +336,22 @@
    ============================================================================================ */
 
 /*
+ * A field shows no focus at all: no outline, ring, glow, or border or fill change, by click or by
+ * Tab; a text field shows its caret, and that is its whole focus indicator (E38/F01).
+ *
+ * This is Daniel's decision on the 2026-10-29 walk, made knowing a keyboard user loses the ring
+ * too: a browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed
+ * into, so no rule can keep the ring for the keyboard alone. Do not put a ring back in an
+ * accessibility pass. Every `input`, `textarea` and `select`, checkboxes and radios included, so
+ * the browser's own outline does not appear where the product's ring went.
+ */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/*
  * A visible focus ring on every primitive, in this feature rather than a later one: the product
  * has 65 keyboard-reachable controls and had no consistent focus treatment at all.
  *
@@ -344,7 +360,6 @@
  * The offset is what keeps it clear of the fill.
  */
 .btn:focus-visible,
-.field:focus-visible,
 .add-row:focus-visible,
 .drag-handle:focus-visible,
 .step-button:focus-visible {

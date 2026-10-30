@@ -721,14 +721,7 @@ async function handleSave() {
 
   font-size: var(--text-sm);
   color: var(--mm-black);
-
-  transition: border-color 0.15s ease;
   outline: none;
-}
-
-.save-section-card-input:focus {
-  border-color: var(--mm-green);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mm-green) 25%, transparent);
 }
 
 .save-section-card-input:disabled {
