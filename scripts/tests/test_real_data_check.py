@@ -30,14 +30,21 @@ def at(local, domain):
 GMAIL = at("jordan.vance88", "gmail.com")
 REAL_PHONE = ("604", "382", "7719")
 
+# An invented organizer's question, link and handle, as a form's header holds them.
+QUESTION = "Which winter evenings of the Quillmoor Lantern Walk would your stall join this season?"
+FORM_LINK = "https://docs.quillmoor.test/d/9QxRk2LmPz7v/edit"
+FORM_HANDLE = "@quillmoorwalk"
+
 # A fake export in the shape of a Google Form's: one applicant who looks entirely like a fixture,
-# so only the exact-value check can catch them, and three who share a placeholder name.
-FAKE_EXPORT = """\
-Timestamp,Email Address,Full name,Business name,Phone number
-9/27/2025 9:04:01,wren.okafor@example.com,Wren Okafor,Ember Kiln Pottery,(604) 555-0142
-9/27/2025 9:05:12,a@example.org,Not Applicable,Shop A,
-9/27/2025 9:06:40,b@example.org,Not Applicable,Shop B,
-9/27/2025 9:07:03,c@example.org,Not Applicable,Shop C,
+# so only the exact-value check can catch them, and three who share a placeholder name. Its last
+# question runs over two lines, as a Google Form's header cell may.
+FAKE_EXPORT = f"""\
+Timestamp,Email Address,Full name,Business name,Phone number,"{QUESTION}
+Rules: {FORM_LINK} (questions to {FORM_HANDLE})"
+9/27/2025 9:04:01,wren.okafor@example.com,Wren Okafor,Ember Kiln Pottery,(604) 555-0142,Friday
+9/27/2025 9:05:12,a@example.org,Not Applicable,Shop A,,Friday
+9/27/2025 9:06:40,b@example.org,Not Applicable,Shop B,,Saturday
+9/27/2025 9:07:03,c@example.org,Not Applicable,Shop C,,Friday
 """
 
 
@@ -387,7 +394,7 @@ def test_a_forced_add_of_the_export_itself_fails(repo):
     result = check(repo, "staged")
 
     assert result.returncode == 1
-    assert ".scratch/examples/responses.csv:2:" in result.stdout
+    assert ".scratch/examples/responses.csv:3:" in result.stdout  # the first row, under a two-line header
 
 
 def test_a_worktree_reads_the_primary_checkouts_exports(repo, tmp_path):
@@ -404,7 +411,7 @@ def test_a_worktree_reads_the_primary_checkouts_exports(repo, tmp_path):
 
 def test_nothing_is_written_while_reading_the_exports(repo):
     with_fake_export(repo)
-    stage(repo, "notes.md", "wren.okafor@example.com\n")
+    stage(repo, "notes.md", f"wren.okafor@example.com\n{QUESTION}\n")
     before = sorted(p for p in repo.rglob("*") if ".git" not in p.parts)
 
     check(repo, "staged")
@@ -698,6 +705,178 @@ def test_an_accented_name_is_not_matched_by_a_part_of_it(repo):
     examples.mkdir(parents=True)
     (examples / "responses.csv").write_bytes(FAKE_EXPORT.replace("Wren Okafor", "Hésketty Marlow").encode("cp1252"))
     stage(repo, "notes.md", "sketty Marlow\n")
+
+    assert check(repo, "staged").returncode == 0
+
+
+# --- The copied wording ------------------------------------------------------------------------
+
+COPIED = "words copied from a real export's questions in .scratch/examples/"
+
+
+def says_no_words(result):
+    out = (result.stdout + result.stderr).lower()
+    return all(word not in out for word in ("quillmoor", "lantern", "evenings", "9qxrk2lmpz7v"))
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "label = 'winter evenings of the Quillmoor Lantern Walk would'",
+        "WINTER EVENINGS of the quillmoor-lantern walk, would",
+        f"# {QUESTION}",
+        "Walk would your stall join this season? Rules:",  # the cell's second line continues it
+    ],
+)
+def test_eight_words_of_a_real_exports_question_are_refused_without_being_said(repo, line):
+    with_fake_export(repo)
+    stage(repo, "back-end/tests/test_form.py", f"first\n{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/test_form.py:2: {COPIED}" in result.stdout
+    assert says_no_words(result)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "winter evenings of the Quillmoor Lantern Walk",  # seven words
+        "evenings of the Quillmoor Lantern Walk and would your stall",  # a word between
+        "Walk would your stall join this season",  # seven, from further along
+        "season? Rules: docs quillmoor test",  # a link is no part of a question's words
+    ],
+)
+def test_seven_words_of_a_real_exports_question_pass(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"[the rules]({FORM_LINK})",
+        "see docs.quillmoor.test/d/9QxRk2LmPz7v/edit.",
+        "http://www.docs.quillmoor.test/d/9qxrk2lmpz7v/edit?usp=sharing",
+        "https://docs.quillmoor.test/d/9QxRk2LmPz7v/edit/",
+        f"ask {FORM_HANDLE}",
+        "Instagram: @QuillmoorWalk.",
+        "https://instagram.com/quillmoorwalk",
+    ],
+)
+def test_a_handle_or_link_from_a_real_exports_header_is_refused(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"notes.md:1: {COPIED}" in result.stdout
+    assert says_no_words(result) and "quillmoorwalk" not in result.stdout.lower()
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "https://docs.quillmoor.test/d/9QxRk2LmPz7vX/edit",  # another document
+        "https://docs.quillmoor.test/d/",
+        "@quillmoorwalks",  # another handle
+        "quillmoorwalk",  # the bare word, not a handle
+        at("quillmoorwalk", "quillmoor.test"),  # an address
+    ],
+)
+def test_another_link_or_handle_passes(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_copied_wording_is_refused_in_a_range_its_messages_a_push_and_the_tree(repo):
+    with_fake_export(repo)
+    base = git(repo, "rev-parse", "HEAD").stdout.strip()
+    sha = commit(repo, "notes.md", f"{QUESTION}\n", message=f"test: ask {FORM_HANDLE}")
+
+    ranged = check(repo, "commits", "HEAD", "--not", base)
+    pushed = check(repo, "pre-push", "origin", stdin=f"HEAD {sha} refs/heads/feature {'0' * 40}\n")
+    tree = check(repo, "tree")
+
+    assert ranged.returncode == pushed.returncode == tree.returncode == 1
+    assert f"{sha[:12]} notes.md:1: {COPIED}" in ranged.stdout
+    assert f"{sha[:12]} message:1: {COPIED}" in ranged.stdout
+    assert f"{sha[:12]} notes.md:1: {COPIED}" in pushed.stdout
+    assert f"notes.md:1: {COPIED}" in tree.stdout
+    assert all(says_no_words(result) for result in (ranged, pushed, tree))
+
+
+def test_copied_wording_in_a_spreadsheets_cell_is_refused(repo):
+    with_fake_export(repo)
+    stage_bytes(repo, "back-end/tests/test_data/form.xlsx", xlsx([[QUESTION], ["Friday"]]))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"form.xlsx [sheet 1, row 1, column 1]: {COPIED}" in result.stdout
+
+
+@pytest.mark.parametrize("kind", ["xlsx", "ods", "zip"])
+def test_a_spreadsheet_exports_header_is_read_for_its_wording(repo, kind):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    data = {"xlsx": lambda: xlsx(FAKE_ROWS), "ods": lambda: ods(FAKE_ROWS),
+            "zip": lambda: zipped({"Form (Responses).csv": FAKE_EXPORT})}[kind]()
+    (examples / f"responses.{kind}").write_bytes(data)
+    stage(repo, "notes.md", f"{QUESTION}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"notes.md:1: {COPIED}" in result.stdout
+
+
+@pytest.mark.parametrize("name", ["README.md", "CHANGELOG.md", "docs/records/MVP_BUGS.md"])
+def test_copied_wording_passes_where_the_real_market_may_be_named(repo, name):
+    """A record of a real run may quote the form it ran on, as it may name the market."""
+    with_fake_export(repo)
+    stage(repo, name, f"{QUESTION}\n{FORM_LINK}\n")
+
+    assert check(repo, "staged").returncode == 0
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: a record")
+    assert check(repo, "tree").returncode == 0
+
+
+@pytest.mark.parametrize("name", ["docs/README.md", "records/notes.md"])
+def test_copied_wording_is_refused_in_any_other_readme_or_records_folder(repo, name):
+    with_fake_export(repo)
+    stage(repo, name, f"{QUESTION}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"{name}:1: {COPIED}" in result.stdout
+
+
+def test_an_answer_is_not_a_question(repo):
+    """Only the header row is held: a long answer in a row is an applicant's, and the exact-value
+    rules judge those."""
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    answer = "We bring hand bound journals and small prints of the harbour at dusk"
+    (examples / "responses.csv").write_text(f"Timestamp,Tell us about your stall\n9/27/2025 9:04:01,{answer}\n")
+    stage(repo, "notes.md", f"{answer}\n")
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_without_exports_the_copied_wording_passes(repo):
+    stage(repo, "notes.md", f"{QUESTION}\n{FORM_LINK}\n{FORM_HANDLE}\n")
 
     assert check(repo, "staged").returncode == 0
 

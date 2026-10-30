@@ -15,14 +15,16 @@ every line of every file a revision's tree holds (HEAD by default), so a name li
 was committed is found wherever it still stands (the gate and CI). Each refuses an email address
 outside the fixture domains, a phone number shaped like a real one, a MongoDB Atlas host other than
 a placeholder, and, where `.scratch/examples/` holds real exports, an exact email, phone or
-applicant's name from them. Conventioner is public, so a pushed branch is public the moment it
-lands: this runs before anything leaves the PC.
+applicant's name from them, and words copied from their questions: a run of eight of a header
+cell's words in order, or a link or social handle a header holds. Conventioner is public, so a
+pushed branch is public the moment it lands: this runs before anything leaves the PC.
 
 A line or message may not name a real organization, market, place or group whose name is listed,
 as a SHA-256 hash, in `scripts/real_data_terms.txt`, outside the files where the real market may be
-named (the README, the changelog, `docs/records/` and the list). `add-term` lists a name from
-standard input, one per line, and prints only how many the list holds; it lists none, and exits 1,
-when a line is empty, listed already or longer than the six words a name is matched by.
+named (the README, the changelog, `docs/records/` and the list), which may also quote the exports'
+questions. `add-term` lists a name from standard input, one per line, and prints only how many the
+list holds; it lists none, and exits 1, when a line is empty, listed already or longer than the six
+words a name is matched by.
 
 A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
 cells and shared strings, a CSV or TSV in UTF-8, UTF-16 or Windows-1252 with any common delimiter,
@@ -111,18 +113,28 @@ FIRST_NAME = re.compile(r"(?i)\bfirst\b.*\bname\b")
 LAST_NAME = re.compile(r"(?i)\b(?:last|sur|family)\b.*\bname\b|\bsurname\b")
 # A name that this many applicants gave identifies none of them ("Not Applicable").
 SHARED_BY = 3
+# A run this long of a question's words is copied wording, not a phrase any form might use.
+QUESTION_RUN = 8
+# A link or a social handle in a question's text: the organizer's own pages and accounts.
+LINK = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"'()\[\]{}]+")
+HANDLE = re.compile(r"(?<![\w.@/])@[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?")
 
 
 class RealValues:
-    """The exact emails, phones and applicants' names of the exports, held in memory only."""
+    """The exact emails, phones and applicants' names of the exports, and the word runs, links and
+    handles of their header rows, held in memory only."""
 
     def __init__(self):
         self.emails = set()
         self.phones = set()
         self.names = set()
+        self.question_runs = set()
+        self.links = set()
+        self.handles = set()
+        self.marks = None  # one pattern for every link and handle, once all are read
 
     def __bool__(self):
-        return bool(self.emails or self.phones or self.names)
+        return bool(self.emails or self.phones or self.names or self.question_runs or self.marks)
 
     @classmethod
     def read(cls, folders):
@@ -136,6 +148,7 @@ class RealValues:
                 ):
                     unread.append(path.suffix.lower() or "no extension")
         values.names = {name for name, people in givers.items() if len(people) < SHARED_BY}
+        values.marks = marks_pattern(values.links, values.handles)
         if unread:
             # By kind only: a file's name may be an applicant's.
             print(
@@ -180,6 +193,8 @@ class RealValues:
 
     def _add_export(self, rows, givers):
         header = rows[0]
+        for cell in header:
+            self._add_question(cell)
         name_columns = [
             i for i, h in enumerate(header) if PERSON_NAME.search(h) and not NOT_A_PERSON.search(h)
         ]
@@ -199,6 +214,46 @@ class RealValues:
                 name = tuple(word.lower() for word in WORD.findall(cell))
                 if 2 <= len(name) <= 5 and len(" ".join(name)) >= 5:
                     givers.setdefault(name, set()).add(min(emails))
+
+    def _add_question(self, cell):
+        """A header cell's links and handles, and every run of QUESTION_RUN words of the text
+        between them: a link's words are no part of the question's."""
+        self.links |= {body for body in map(link_body, LINK.findall(cell)) if body}
+        self.handles |= {handle[1:].lower() for handle in HANDLE.findall(cell)}
+        for text in re.split(f"{LINK.pattern}|{HANDLE.pattern}", cell):
+            words = term_words(text)
+            self.question_runs |= {
+                tuple(words[start:start + QUESTION_RUN]) for start in range(len(words) - QUESTION_RUN + 1)
+            }
+
+
+def link_body(link):
+    """A link without its scheme, `www.`, query, fragment, trailing slash or the punctuation of the
+    sentence it ends, lower-cased: what any spelling of the same page holds."""
+    body = re.sub(r"(?i)^(?:https?://)?(?:www\.)?", "", link.rstrip(".,;:!?"))
+    return re.split(r"[?#]", body, maxsplit=1)[0].rstrip("/").lower()
+
+
+def marks_pattern(links, handles):
+    """One pattern for a line holding any of the links, at a link's bounds, or any of the handles,
+    written with its @ or as a link's path; None when there are none."""
+    parts = [rf"(?<![\w.-])(?:www\.)?{re.escape(body)}(?![\w-])" for body in sorted(links)]
+    parts += [rf"(?:(?<![\w.@/])@|\.[a-z]{{2,}}/@?){re.escape(handle)}(?!\w|\.\w)" for handle in sorted(handles)]
+    return re.compile("|".join(parts), re.IGNORECASE) if parts else None
+
+
+def copies_a_question(line, real):
+    """Whether a line holds a link or handle of a real export's header, or QUESTION_RUN words of its
+    questions in their order, however the line cases or punctuates them."""
+    if real.marks and real.marks.search(line):
+        return True
+    if not real.question_runs:
+        return False
+    words = term_words(line)
+    return any(
+        tuple(words[start:start + QUESTION_RUN]) in real.question_runs
+        for start in range(len(words) - QUESTION_RUN + 1)
+    )
 
 
 def phone_numbers(text):
@@ -521,11 +576,14 @@ def masked_email(address):
     return f"{local[0]}***@{domain[0]}***{domain[domain.rfind('.'):]}"
 
 
-def findings(line, real, terms=frozenset()):
-    """What is wrong with one added line, each said without its value."""
+def findings(line, real, terms=frozenset(), names_the_market=False):
+    """What is wrong with one added line, each said without its value. A line of a file where the
+    real market may be named may name it, and quote the real exports' questions."""
     found = []
-    if terms and names_a_term(line, terms):
+    if not names_the_market and terms and names_a_term(line, terms):
         found.append(f"a real organization's, market's, place's or group's name (listed in {TERMS_PATH})")
+    if not names_the_market and copies_a_question(line, real):
+        found.append("words copied from a real export's questions in .scratch/examples/")
     for match in EMAIL.finditer(line):
         address, domain = match.group(0), match.group(1)
         if NOT_A_DOMAIN.search(domain):
@@ -752,7 +810,7 @@ def main(argv=None):
             for path, where, text in lines
             for what in (
                 [text] if isinstance(text, Refusal)
-                else findings(text, real, frozenset() if may_name_the_market(path) else terms)
+                else findings(text, real, terms, may_name_the_market(path))
             )
         ]
     except GitFailed as error:
