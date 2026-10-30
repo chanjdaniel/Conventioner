@@ -387,6 +387,7 @@ watch(formLocked, (locked, wasLocked) => {
               :keyTouched="keyTouched"
               :readonly="!formEditable"
               :forApplicants="forApplicants"
+              :exampleColumns="market?.exampleColumns ?? []"
               @update:applicationForm="(form: ApplicationForm) => (applicationForm = form)"
               @update:keyTouched="(touched: boolean[]) => (keyTouched = touched)"
             />

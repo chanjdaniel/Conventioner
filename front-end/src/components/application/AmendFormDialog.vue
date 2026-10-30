@@ -24,10 +24,12 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  REQUEST_KEY,
+  REQUEST_LABEL,
   UNASKABLE_ESSENTIAL_KEYS,
   askedEssentialAnswers,
 } from '@/utils/essentialFields';
-import { FIELD_KEY_PATTERN } from '@/utils/applicationForm';
+import { fieldKeyError } from '@/utils/applicationForm';
 import type { ApplicationForm, EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 
 const props = defineProps<{
@@ -76,10 +78,11 @@ watch(
   { immediate: true },
 );
 
-/** Only rankings may be turned off, and only the ones this market's plan actually offers. */
+/** Only the rankings and the request may be turned off, and only what this market's plan offers. */
 const UNASKABLE_LABELS: Record<string, string> = {
   [SECTION_RANKING_KEY]: SECTION_RANKING_LABEL,
   [TABLE_TYPE_RANKING_KEY]: TABLE_TYPE_RANKING_LABEL,
+  [REQUEST_KEY]: REQUEST_LABEL,
 };
 
 /** What the essential questions currently ask, ignoring what is already turned off. */
@@ -99,12 +102,10 @@ const existingFields = computed(() => props.applicationForm?.fields ?? []);
 const keyError = computed(() => {
   if (!newFieldLabel.value.trim()) return '';
   const key = newFieldKey.value.trim();
-  if (!FIELD_KEY_PATTERN.test(key)) {
-    return 'Use lowercase letters, numbers and underscores only.';
-  }
-  if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
-    return `Keys beginning "${ESSENTIAL_KEY_PREFIX}" belong to the essential questions.`;
-  }
+  // The builder's own check, so this never offers a key the save refuses:
+  // a column headed "Submitted at" slugs to the import's own `submitted_at` (E38/F02).
+  const refusal = fieldKeyError(key);
+  if (refusal) return refusal;
   if (existingFields.value.some((field) => field.key === key)) {
     return 'This market already asks a question with that key.';
   }
@@ -182,6 +183,7 @@ async function save() {
     title="Fix the form"
     testid="amend-form"
     wide
+    anchored
     confirm-label="Save and carry on"
     :confirm-disabled="cannotSave"
     @close="emit('close')"

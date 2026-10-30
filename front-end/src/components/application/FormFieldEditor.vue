@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { type FormField } from '@/assets/types/datatypes';
+import { type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { FIELD_TYPES } from '@/utils/applicationForm';
+import { fileOptions, optionsForType, sameOptions } from '@/utils/exampleColumns';
 
 const props = withDefaults(
   defineProps<{
@@ -18,8 +19,11 @@ const props = withDefaults(
      * applicants would be shown to no one, and the editor offers none.
      */
     forApplicants?: boolean;
+    /** The column of the example file this question was made from, on a market started from one
+     *  (E38/F02/S02): a Select or Multi-Select takes its options from it. */
+    column?: ExampleColumn | null;
   }>(),
-  { readonly: false, keyTouched: false, forApplicants: true },
+  { readonly: false, keyTouched: false, forApplicants: true, column: null },
 );
 
 const emit = defineEmits<{
@@ -59,6 +63,23 @@ function updateKey(key: string) {
 function keyBlurred() {
   if (props.readonly || local.value.key) return;
   emitUpdate({ key: slugify(local.value.label) });
+}
+
+/** A new type fills a choice's options from the file, unless the organizer edited them. */
+function changeType(type: string) {
+  emitUpdate({ type, options: optionsForType(local.value, type, props.column) });
+}
+
+/** The file's reading for this question's type, when it came from a column that has one. */
+const optionsFromFile = computed(() =>
+  props.column ? fileOptions(props.column, local.value.type) : [],
+);
+const filledFromFile = computed(
+  () => optionsFromFile.value.length > 0 && sameOptions(local.value.options, optionsFromFile.value),
+);
+
+function useFileOptions() {
+  emitUpdate({ options: [...optionsFromFile.value] });
 }
 
 function addOption() {
@@ -115,7 +136,7 @@ function updateOption(idx: number, value: string) {
         :id="`question-${index}-type`"
         class="field-input"
         :value="local.type"
-        @change="emitUpdate({ type: ($event.target as HTMLSelectElement).value })"
+        @change="changeType(($event.target as HTMLSelectElement).value)"
         :disabled="readonly"
         data-testid="form-field-type-select"
       >
@@ -170,6 +191,24 @@ function updateOption(idx: number, value: string) {
         >
           <IconAddRound /> Add option
         </button>
+        <template v-if="!readonly">
+          <p
+            v-if="filledFromFile"
+            class="options-from-file"
+            data-testid="form-field-options-from-file"
+          >
+            Filled from the answers in your file.
+          </p>
+          <button
+            v-else-if="optionsFromFile.length"
+            type="button"
+            class="btn btn--secondary btn--compact use-file-options"
+            @click="useFileOptions"
+            data-testid="form-field-use-file-options-button"
+          >
+            Use the answers in your file
+          </button>
+        </template>
       </div>
     </div>
 
@@ -298,6 +337,19 @@ function updateOption(idx: number, value: string) {
 
 .icon-remove {
   color: var(--mm-red);
+}
+
+/* The note says where the options came from, quietly: it is not a control. The editor is beige,
+   where `--mm-text-muted` falls below AA. */
+.options-from-file {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+}
+
+/* A button in a column of rows: as wide as its words, not the column. */
+.use-file-options {
+  align-self: flex-start;
 }
 
 .add-option-btn {
