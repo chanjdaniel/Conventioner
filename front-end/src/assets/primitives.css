@@ -6,8 +6,9 @@
  * screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button,
  * a 25px `Remove` beside 34px peers, and sixty distinct button-ish class names.
  *
- * So these three own height, padding, radius, type, focus and the disabled state, and a component
- * that needs a control reaches for one of them rather than deciding again.
+ * So these three own height, padding, radius, type and the disabled state, and a component that
+ * needs a control reaches for one of them rather than deciding again. This file also holds the one
+ * focus halo every control wears, and the rule that a field shows none (E38/F01/S01).
  *
  * NOTHING MIGRATES IN THIS FILE'S OWN FEATURE. `E16/F05`-`F08` move one surface at a time, each
  * reviewed and shipped on its own, because a single diff across 71 files is unreviewable and
