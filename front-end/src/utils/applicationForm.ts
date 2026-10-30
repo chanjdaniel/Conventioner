@@ -1,6 +1,16 @@
 import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 
+/**
+ * The import's targets that are not questions, with what the import reads each as
+ * (`RESERVED_TARGETS` in `back-end/csv_import.py`): a question keyed like one would hold that column.
+ */
+const RESERVED_IMPORT_KEYS: Record<string, string> = {
+  applicant_email: 'who applied',
+  submitted_at: 'when they applied',
+  sheet_note: "your sheet's note",
+};
+
 /** The types a question of the organizer's own can be, as the form builder names them. */
 export const FIELD_TYPES = [
   { value: 'text', label: 'Text' },
@@ -14,6 +24,24 @@ export const FIELD_TYPES = [
 
 /** The charset the back-end holds field keys to; they become document keys on every answer. */
 export const FIELD_KEY_PATTERN = /^[a-z0-9_]+$/;
+
+/**
+ * Why a question may not have this key, or null: the save's own refusals of a key alone, for the
+ * builder and the amendment's dialog to ask alike, so neither offers a key the save would refuse.
+ */
+export function fieldKeyError(key: string): string | null {
+  if (!FIELD_KEY_PATTERN.test(key)) {
+    return `Key "${key}" is invalid. Use lowercase letters, numbers, and underscores only.`;
+  }
+  if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
+    return `Key "${key}" uses the reserved "${ESSENTIAL_KEY_PREFIX}" prefix. Those keys belong to the essential questions every form already asks.`;
+  }
+  const meaning = Object.hasOwn(RESERVED_IMPORT_KEYS, key) ? RESERVED_IMPORT_KEYS[key] : null;
+  if (meaning) {
+    return `Key "${key}" is reserved: the import reads that column as ${meaning}. Choose another key.`;
+  }
+  return null;
+}
 
 /**
  * A field the organizer has added but not filled in at all. It is an unfinished start, not a
@@ -60,12 +88,8 @@ export function applicationFormError(form: ApplicationForm | null): string | nul
     const key = (field.key ?? '').trim();
     if (!field.label?.trim()) return `Field "${key}" needs a label.`;
     if (!key) return `Field "${field.label}" needs a key.`;
-    if (!FIELD_KEY_PATTERN.test(key)) {
-      return `Key "${key}" is invalid. Use lowercase letters, numbers, and underscores only.`;
-    }
-    if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
-      return `Key "${key}" uses the reserved "${ESSENTIAL_KEY_PREFIX}" prefix. Those keys belong to the essential questions every form already asks.`;
-    }
+    const keyRefusal = fieldKeyError(key);
+    if (keyRefusal) return keyRefusal;
     if (seen.has(key)) return `Duplicate field key "${key}". Keys must be unique.`;
     seen.add(key);
 

@@ -26,6 +26,7 @@ sources:
   - E33/F01/S01
   - T45
   - T75
+  - E38/F05/S01
 ---
 
 # E2E patterns
@@ -58,6 +59,7 @@ The same fixture hides the Vue DevTools floating panel (`#__vue-devtools-contain
 ## Opening a market, and shelling into Mongo
 
 **A spec opens a market by URL**, the way a bookmark would: `marketSetupPath(id, page)` and `marketScreenPath(id, screen)` in [`helpers/marketScreens.ts`](../../../front-end/e2e/helpers/marketScreens.ts) build the addresses of [every market page](../conventions/every-market-page-has-an-address.md).
+The Applications page opens on the review's All view, so a spec that walks the one-by-one queue opens it by `oneByOnePath(id)` (`?view=one`), or `ApplicationMonitorPage`'s `goto` or `switchTo` after a move lands there.
 Specs no longer plant a market in `localStorage`; nothing about a market is stored in the browser.
 
 **A spec shells into Mongo through `mongoEval`** ([`helpers/mongo.ts`](../../../front-end/e2e/helpers/mongo.ts)), never its own `docker exec`: the container, the address and the flags were once copied into fifteen files.

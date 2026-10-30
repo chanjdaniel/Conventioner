@@ -25,6 +25,7 @@ sources:
   - E42/F01/S01
   - E41/F01/S01
   - E38/F04/S02
+  - E38/F05
   - E38/F06/S01
 ---
 
@@ -69,11 +70,11 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
-| Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers |
+| Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers; on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason` |
 | Change a verdict, or overturn an automatic rejection (`change-verdicts`) | Admin | on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`); and whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import) |
 | Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
 | Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
-| Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results` |
+| Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results`; on screen, the Applications page draws Publish Results by its answer |
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
 | Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase; the essential answers are refused for now |

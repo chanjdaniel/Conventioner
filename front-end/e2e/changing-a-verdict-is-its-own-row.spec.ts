@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -49,7 +49,7 @@ test('an Editor gives a verdict, and is offered no change to one already given',
   browser,
 }) => {
   await withUser(browser, PEOPLE.editor.email, PEOPLE.editor.password, async (page) => {
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const review = new ApplicationMonitorPage(page);
     await review.waitForLoaded();
 
@@ -69,7 +69,7 @@ test('an Editor gives a verdict, and is offered no change to one already given',
 
 test('an Admin changes a verdict already given', async ({ browser }) => {
   await withUser(browser, PEOPLE.admin.email, PEOPLE.admin.password, async (page) => {
-    await page.goto(marketSetupPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const review = new ApplicationMonitorPage(page);
     await review.waitForLoaded();
 

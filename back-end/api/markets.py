@@ -50,6 +50,7 @@ from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_c
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
+import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
@@ -576,6 +577,11 @@ def _normalized_application_form(
                 f"Field key '{key}' uses the reserved "
                 f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
                 "essential questions every form already asks."
+            )
+        if key in CsvImport.RESERVED_TARGETS:
+            raise BadRequestError(
+                f"Field key '{key}' is reserved: the import reads that column as "
+                f"{CsvImport.RESERVED_TARGETS[key]}. Choose another key."
             )
         if key in seen_keys:
             raise BadRequestError(f"Duplicate field key '{key}'. Field keys must be unique.")
@@ -1107,6 +1113,10 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["phase_history"] = [
         PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
     ]
+    # Server-owned too: the import mapping is the import's and the start's to write, and what the
+    # start kept of its file the start's alone (E38/F02), so a new market carries neither.
+    market_dict["import_mapping"] = None
+    market_dict["example_columns"] = None
     # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
     # organization's default is copied in here once it has one (E39/F02/S01).
     market_dict["permissions"] = {}

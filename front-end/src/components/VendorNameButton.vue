@@ -1,8 +1,13 @@
 <script setup lang="ts">
 /**
  * A vendor's name that opens their drawer (E35/F01/S02): on a seat of the Result page and on a row
- * at the door. It reads as the name it is, underlined when pointed at, and does nothing else - the
- * seat's change and the door's check-in stay controls of their own beside it.
+ * at the door. It does nothing else - the seat's change and the door's check-in stay controls of
+ * their own beside it.
+ *
+ * It reads as a link at rest, in the design language's link ink and underlined, as an answer's
+ * link is (E38/F09/S01). Underlined only when pointed at, it read as plain text, and on a phone at
+ * the door nothing is pointed at: the organizer looking for a vendor's details did not see the
+ * name was the way in. Only the name line: the address beneath it stays a quiet second line.
  */
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import type { VendorNames } from '@/utils/vendorIdentity';
@@ -42,8 +47,10 @@ const emit = defineEmits<{ open: [] }>();
   cursor: pointer;
 }
 
-.vendor-name-button:hover :deep(.vendor-identity-name) {
+.vendor-name-button :deep(.vendor-identity-name) {
+  color: var(--mm-text-link);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .vendor-name-button:focus-visible {
