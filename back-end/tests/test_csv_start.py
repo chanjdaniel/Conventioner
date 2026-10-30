@@ -14,8 +14,8 @@ import csv_start as CsvStart
 import essential_fields as EssentialFields
 
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
-YEARS = {"fall-2023": 2023, "four-day-grid": 2024, "no-timestamp": 2025, "five-day-grid": 2025,
-         "team-status-column": 2026}
+YEARS = {"days-as-one-question": 2023, "four-day-grid": 2024, "no-timestamp": 2025,
+         "five-day-grid": 2025, "team-status-column": 2026}
 
 
 def _confirmed_update(*args):
@@ -66,8 +66,8 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 # and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27). Another
 # 15 to 41 per export were skipped for a blank answer to a question the proposal guessed required
 # from how many answered it, until it stopped guessing (E33/F02/S01).
-IMPORTED = {"fall-2023": 277, "four-day-grid": 355, "no-timestamp": 235, "five-day-grid": 236,
-            "team-status-column": 245}
+IMPORTED = {"days-as-one-question": 277, "four-day-grid": 355, "no-timestamp": 235,
+            "five-day-grid": 236, "team-status-column": 245}
 
 
 @pytest.mark.parametrize("name", YEARS)
@@ -123,17 +123,19 @@ def test_the_plan_facts_form_and_ceiling_are_written():
 
 def test_the_form_asks_the_organizers_own_questions_in_file_order():
     doc = _draft()
-    update = _confirmed_update(doc, _csv("fall-2023"), {"year": 2023})
+    update = _confirmed_update(doc, _csv("days-as-one-question"), {"year": 2023})
     fields = update["applicationForm"]["fields"]
     assert [f["label"] for f in fields] == [
-        "Are you a UBC Student?", "If applicable, which clubs are you a member of?",
-        "Do you have any tabling experience as a vendor?",
-        "What will you be selling at the event?",
-        "Please provide a link to your portfolio, art account, or any samples of your work!",
-        "Additional comments",
+        "Are you an Example College student?",
+        "If you belong to any of these clubs, which ones?",
+        "What experience do you have selling at markets or fairs?",
+        "What will you bring to sell?",
+        "Please link to a portfolio or a page of your recent work, so the team can see what you "
+        "make!",
+        "Anything else we should know?",
     ][:len(fields)]
     assert [f["order"] for f in fields] == list(range(len(fields)))
-    selling = next(f for f in fields if f["key"].startswith("what_will_you_be_selling"))
+    selling = next(f for f in fields if f["key"].startswith("what_will_you_bring_to_sell"))
     assert selling["type"] == "multi_select" and "Stickers" in selling["options"]
 
 
@@ -172,7 +174,7 @@ def test_a_plan_that_already_has_tiers_keeps_them_and_settles_the_rest_as_value_
 
 def test_two_columns_cannot_answer_the_same_essential_question():
     with pytest.raises(CsvStart.ConfirmRefused):
-        _confirmed_update(_draft(), _csv("fall-2023"), {"year": 2023, "rows": [
+        _confirmed_update(_draft(), _csv("days-as-one-question"), {"year": 2023, "rows": [
             {"column": 10, "fate": "essential", "essential": EssentialFields.FULL_NAME_KEY}]})
 
 
@@ -181,13 +183,13 @@ def test_a_market_that_left_draft_or_gained_questions_is_refused():
                 _draft(applicationForm={"fields": [{"key": "shop", "label": "Shop",
                                                     "type": "text"}]})):
         with pytest.raises(CsvStart.ConfirmRefused):
-            _confirmed_update(doc, _csv("fall-2023"), {"year": 2023})
+            _confirmed_update(doc, _csv("days-as-one-question"), {"year": 2023})
 
 
 def test_the_import_skips_a_saved_target_whose_question_was_deleted():
     """A question deleted in the builder after confirm leaves its column needing a mapping."""
     doc = _draft()
-    csv_text = _csv("fall-2023")
+    csv_text = _csv("days-as-one-question")
     after = _written(doc, _confirmed_update(doc, csv_text, {"year": 2023}))
     deleted = after["applicationForm"]["fields"].pop()
     _error, headers, _rows = CsvImport.parse_csv(csv_text)

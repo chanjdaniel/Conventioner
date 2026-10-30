@@ -81,7 +81,7 @@ A phone number becomes a fictional one, 555-0100 to 555-0199, in the shape it wa
 answer key they were measured against on those five exports, `test_csv_proposal_plan.py` does the
 same for what the file says about the plan, and `test_csv_proposal_api.py` pins that asking for one
 writes nothing.
-`test_google_forms_corpus.py` pins the five exports that script made (`tests/test_data/google_forms/`):
+`test_google_forms_corpus.py` pins the five synthetic exports in `tests/test_data/google_forms/`:
 each one's row count, header row and table-size answer counts.
 
 A test count is deliberately not quoted here: it goes stale on the next commit, and the suite

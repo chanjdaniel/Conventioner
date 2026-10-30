@@ -16,7 +16,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORPUS = join(HERE, '..', '..', 'back-end', 'tests', 'test_data', 'google_forms');
 const FIXTURES: Record<string, number> = {
-  'fall-2023': 2023,
+  'days-as-one-question': 2023,
   'four-day-grid': 2024,
   'no-timestamp': 2025,
   'five-day-grid': 2025,
@@ -105,7 +105,7 @@ test.describe('Start from your Google Form', () => {
 
   // Three of the five exports never asked how many days an applicant wants (bug 24). They used to
   // stop at the mapping with "Still unmapped: Number of dates you want" and no way through.
-  for (const file of ['fall-2023', 'four-day-grid', 'no-timestamp']) {
+  for (const file of ['days-as-one-question', 'four-day-grid', 'no-timestamp']) {
     test(`${file}: a form that never asked how many days is imported with no personal limit`, async ({
       authenticatedPage: page,
       request,

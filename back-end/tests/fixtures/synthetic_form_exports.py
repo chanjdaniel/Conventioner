@@ -562,7 +562,9 @@ class Form:
     left blank; with ``test_from``, a last row the organizer sent to try the form, "TEST" in
     every column from that one; and the ``typed`` rows, where the organizer filled in the first
     column and nobody answered the form. Each pair in ``repeats`` is one applicant sending the
-    form twice: the second row is the first row's person, with answers of its own."""
+    form twice: the second row is the first row's person, with answers of its own, and with
+    another name in a ``renamed`` row. The ``empty`` rows are the blank lines a sheet keeps,
+    with nothing in any column."""
     file: str
     seed: int
     rows: int
@@ -572,6 +574,8 @@ class Form:
     test_from: Optional[int] = None
     typed: Tuple[int, ...] = ()
     repeats: Tuple[Tuple[int, int], ...] = ()
+    renamed: Tuple[int, ...] = ()
+    empty: Tuple[int, ...] = ()
 
     def people(self, rng: random.Random) -> List[Person]:
         """Distinct applicants: a few share a given name, as people do."""
@@ -588,6 +592,10 @@ class Form:
             people.append(Person(first, last, f"{first}.{last}{row}@example.com".lower(), handle))
         for first, again in self.repeats:
             people[again] = people[first]
+        for row in self.renamed:
+            person = people[row]
+            people[row] = Person(rng.choice(GIVEN_NAMES), rng.choice(FAMILY_NAMES), person.email,
+                                 person.handle)
         return people
 
     def rows_of_cells(self) -> List[List[str]]:
@@ -598,9 +606,10 @@ class Form:
             stopped = set(self.stopped) if self.stopped and index >= self.stopped_at else set()
             tested = {test_row} if self.test_from is not None and index >= self.test_from else set()
             typed = set(self.typed) if index >= 1 else set()
-            context.closed = frozenset(stopped | tested | typed)
+            empty = set(self.empty)
+            context.closed = frozenset(stopped | tested | typed | empty)
             cells = kind.cells(context)
-            for row in stopped | typed:
+            for row in stopped | typed | empty:
                 cells[row] = ""
             for row in tested:
                 cells[row] = "TEST"
@@ -1207,7 +1216,65 @@ FOUR_DAY_GRID = Form(
     ],
 )
 
-FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN, NO_TIMESTAMP, FOUR_DAY_GRID)
+FAIR_DAYS = ("Monday, October 23rd", "Tuesday, October 24th", "Wednesday, October 25th",
+             "Thursday, October 26th", "Friday, October 27th")
+
+
+def _days(counts: Dict[str, int]) -> Dict[str, int]:
+    """Checkbox answers of the fair's days, each written as letters (M, T, W, R, F) for brevity,
+    joined by ", " as Google joins them, so each day's own comma sits inside the answer."""
+    return {", ".join(day for letter, day in zip("MTWRF", FAIR_DAYS) if letter in letters): count
+            for letters, count in counts.items()}
+
+
+DAYS_AS_ONE_QUESTION = Form(
+    file="days-as-one-question.csv",
+    seed=23,
+    rows=294,
+    # Seven blank lines the sheet kept; ten second sends, one of them under another name.
+    empty=(11, 41, 83, 126, 168, 210, 253),
+    repeats=((4, 211), (23, 199), (50, 270), (59, 148), (59, 197), (107, 177), (127, 218),
+             (149, 281), (174, 245), (266, 268)),
+    renamed=(270,),
+    columns=[
+        ("Timestamp", Timestamp(datetime(2023, 8, 22, 9, 0, 0), datetime(2023, 9, 12, 23, 0, 0))),
+        # The team's column, after the form's first.
+        ("Approved",
+         Prose(NOTE_SENTENCES, count=250, shared={"Y": 196, "Y, half table": 3,
+                                                  "N - link broken": 3, "y": 2,
+                                                  "N - not a student": 2,
+                                                  "Y - check the link": 2})),
+        ("Full Name", FullName()),
+        ("Email Address", Email()),
+        ("Are you an Example College student?", Choice({"Yes": 180, "No": 107})),
+        ("If you belong to any of these clubs, which ones?",
+         Choice({"Example College Printmaking Society": 14, "Example College Anime Society": 16,
+                 "Example College Ceramics Society": 15, "ECVAS": 9,
+                 "Example College Printmaking Society, Example College Anime Society": 3,
+                 "Example College Printmaking Society, Example College Ceramics Society": 3})),
+        ("Do you need a half table or full table?",
+         Choice({"Full table": 170, "Half table": 117})),
+        ("Tick every day you can come to the fair.",
+         Choice(_days({"MTWRF": 71, "MWF": 40, "WRF": 19, "RF": 16, "TWR": 12, "MTW": 11,
+                       "MRF": 11, "MTRF": 10, "MWRF": 9, "MTF": 8, "TWRF": 8, "MTWR": 8, "WF": 8,
+                       "F": 7, "MTR": 7, "MF": 7, "M": 5, "TRF": 5, "WR": 4, "MTWF": 3, "TW": 3,
+                       "MW": 3, "TF": 3, "R": 2, "MWR": 2, "W": 1, "TWF": 1, "T": 1, "MT": 1,
+                       "TR": 1}))),
+        ("What experience do you have selling at markets or fairs?",
+         Prose(TABLING_SENTENCES, count=287, most=3, shared={"No": 79, "Not yet": 2})),
+        ("What will you bring to sell?",
+         MultiSelect({"Art prints": 153, "Stickers": 143, "Keychains": 115, "Jewellery": 92,
+                      "Clothing": 52, "Weaving": 23},
+                     rare=(6, 4, 4, 4) + (3,) * 8 + (2,) * 8 + (1,) * 178, only_rare=37)),
+        ("Please link to a portfolio or a page of your recent work, so the team can see what you "
+         "make!",
+         Link("portfolio", count=287)),
+        ("Anything else we should know?",
+         Prose(COMMENT_SENTENCES, count=135, shared={"Thank you!": 3})),
+    ],
+)
+
+FORMS = (FIVE_DAY_GRID, TEAM_STATUS_COLUMN, NO_TIMESTAMP, FOUR_DAY_GRID, DAYS_AS_ONE_QUESTION)
 
 
 def main() -> None:

@@ -16,29 +16,26 @@ sources:
 
 # Test data
 
-The back-end suite's realistic data: Google Form exports, four synthetic and one real one with the people replaced.
+The back-end suite's realistic data: five synthetic Google Form exports.
 How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
 ## [`google_forms/`](google_forms/)
 
 Five Google Form application exports.
-`five-day-grid.csv`, `team-status-column.csv`, `no-timestamp.csv` and `four-day-grid.csv` are synthetic, made by [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py) (below).
-The other is a real market's application export with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
+All five are synthetic, made by [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py) (below).
 They are the realistic responses this suite has, and the form started from a CSV is built and measured against them.
 
 | File | Market days | Applications submitted | Rows | Columns |
 |---|---|---|---|---|
-| `fall-2023.csv` | Mon 20 - Fri 24 November 2023 | 19 September - 10 October 2023 | 294 | 12 |
 | `five-day-grid.csv` | Mon 20 - Fri 24 October 2025 | 18 August - 3 September 2025 | 237 | 30 |
 | `team-status-column.csv` | Mon 20 - Fri 24 April 2026 | 23 February - 9 March 2026 | 250 | 35 |
 | `no-timestamp.csv` | Mon 19 - Fri 23 May 2025 | not recorded: this export has no timestamp column | 237 | 28 |
 | `four-day-grid.csv` | Mon 22 - Thu 25 April 2024 | 25 February - 12 March 2024 | 361 | 30 |
-
-The anonymised file is a real market's application form.
-Its submission dates are read from the anonymised timestamps, which the anonymiser moves by a few hours, so a boundary day may be off by one.
+| `days-as-one-question.csv` | Mon 23 - Fri 27 October 2023 | 22 August - 12 September 2023 | 294 | 12 |
 
 ### What the anonymiser kept and what it invented
 
+[`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) made the corpus's earlier files from real exports; no file in it comes from one now.
 The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
 An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email, and it holds no email address, link, handle or phone number, however many share it.
 That is the rule for what the CSV proposal may treat as shared, so the fixtures keep exactly what the proposal reads; it is decided by the count, never by a list of header words, which is what let a column be missed before.
@@ -63,7 +60,7 @@ Never commit a real export, and never hand-edit a copy: change the anonymiser, s
 
 ### The synthetic files
 
-`five-day-grid.csv`, `team-status-column.csv`, `no-timestamp.csv` and `four-day-grid.csv` are each described, header by header and column by column, in [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py), and written by it.
+`five-day-grid.csv`, `team-status-column.csv`, `no-timestamp.csv`, `four-day-grid.csv` and `days-as-one-question.csv` are each described, header by header and column by column, in [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py), and written by it.
 Nothing in it comes from a real export: every header is written for the file, the people come from the generator's pools of common names, every address and link is at a fixture domain (an upload keeps the Google Drive host, with an invented file id, because the proposal knows an upload by that host), and every other answer is made from the generator's word lists.
 The organization is "Example College", the market "Example Makers Fair", and the clubs "Example College <craft> Society".
 Each column states its counts, so a file keeps its predecessor's rows, columns, column kinds, options and import outcome.
@@ -71,6 +68,7 @@ Each column states its counts, so a file keeps its predecessor's rows, columns, 
 245 of `team-status-column.csv`'s 250 rows import: one has no full name, one gave a timestamp for its email address, two applicants stopped after the first page, and the last row is the organizer's `TEST` submission.
 235 of `no-timestamp.csv`'s 237 rows import, and the two refused gave something other than an address as their email: a name alone, and a name before their address.
 355 of `four-day-grid.csv`'s 361 rows import: one applicant chose None on every day, three rows are an applicant sending the form a second time, and the last two are the team's own, a checkbox column filled in beside no response.
+277 of `days-as-one-question.csv`'s 294 rows import: seven are blank lines the sheet kept, and ten are an applicant sending the form a second or third time.
 
 #### Why the shapes matter
 

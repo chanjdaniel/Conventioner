@@ -39,7 +39,7 @@ export async function finishStartedPlan(
  * exports are past years' only because that is what exists; an organizer's own is this year's.
  */
 export const UPCOMING_YEAR: Record<string, number> = {
-  'fall-2023': 2034,
+  'days-as-one-question': 2034,
   'four-day-grid': 2052,
   'no-timestamp': 2031,
   'five-day-grid': 2031,

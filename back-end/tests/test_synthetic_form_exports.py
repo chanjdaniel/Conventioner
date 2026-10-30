@@ -36,10 +36,11 @@ def test_generating_twice_gives_the_same_bytes(name):
 
 @pytest.mark.parametrize("name", FORMS)
 def test_it_is_written_as_google_sheets_exports_it(name):
-    """UTF-8 with no byte order mark, CRLF between records, LF inside a header cell, a final
-    newline: what the proposal and the import are handed by a real download."""
+    """UTF-8 with no byte order mark, CRLF between records, LF inside a multi-line header cell, a
+    final newline: what the proposal and the import are handed by a real download."""
     data = FORMS[name].bytes()
     assert not data.startswith(b"\xef\xbb\xbf")
     assert data.endswith(b"\r\n")
     header = data[:data.index(b"\r\n")]
-    assert b"\n" in header and b"\r" not in header
+    multi_line = any("\n" in text for text, _kind in FORMS[name].columns)
+    assert (b"\n" in header) == multi_line and b"\r" not in header

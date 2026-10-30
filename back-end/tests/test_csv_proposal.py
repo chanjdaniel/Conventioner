@@ -37,8 +37,6 @@ def upload():
     return {"type": "text", "options": None, "upload": True}
 
 
-ART, PRINT = "AMS Artelier at UBC", "UBC PRINT Arts and Crafts"
-
 # The synthetic files' options, as ``tests/fixtures/synthetic_form_exports.py`` writes them.
 AFFILIATION = ["Yes, I am a current Example College student",
                "Yes, I am Example College alumni or staff"]
@@ -113,18 +111,18 @@ ANSWER_KEY = {
         26: ("I understand that if I do not come", c("checkbox")),
         27: ("Anything else", c("text")),
     },
-    "fall-2023": {
-        0: ("Timestamp", TS), 1: ("Accepted? (Y/N)", ORG), 2: ("Full Name", FULL),
-        3: ("Email Address", EMAIL), 4: ("Are you a UBC Student?", c("select", ["Yes", "No"])),
-        5: ("If applicable, which clubs",
-            c("multi_select", [ART, "UBC Anime Club", PRINT, "VASA"])),
-        6: ("Are you applying for a half table", CHOICE), 7: ("Which days would you prefer", DATES),
-        8: ("Do you have any tabling experience", c("text")),
-        9: ("What will you be selling",
-            c("multi_select", ["Prints", "Stickers", "Keychains", "Jewelry", "Apparel",
-                                     "Woven"])),
-        10: ("Please provide a link to your portfolio", c("text")),
-        11: ("Additional comments", c("text")),
+    "days-as-one-question": {
+        0: ("Timestamp", TS), 1: ("Approved", ORG), 2: ("Full Name", FULL),
+        3: ("Email Address", EMAIL),
+        4: ("Are you an Example College student?", c("select", ["Yes", "No"])),
+        5: ("If you belong to any of these clubs", c("multi_select", CLUBS[:3] + ["ECVAS"])),
+        6: ("Do you need a half table", CHOICE), 7: ("Tick every day you can come", DATES),
+        8: ("What experience do you have selling", c("text")),
+        9: ("What will you bring to sell",
+            c("multi_select", ["Art prints", "Stickers", "Keychains", "Jewellery", "Clothing",
+                               "Weaving"])),
+        10: ("Please link to a portfolio", c("text")),
+        11: ("Anything else", c("text")),
     },
     "team-status-column": {
         0: ("STATUS", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
@@ -330,7 +328,7 @@ class TestWhatAColumnCarries:
         assert label.endswith("UBC Makers Market!")
         assert help_text == "(e.g. Google Drive, website, Instagram)"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "four-day-grid", "no-timestamp",
+    @pytest.mark.parametrize("name", ["days-as-one-question", "four-day-grid", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
         headers, rows = _read(name)
@@ -372,7 +370,7 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
-    @pytest.mark.parametrize("name", ["fall-2023", "four-day-grid", "no-timestamp",
+    @pytest.mark.parametrize("name", ["days-as-one-question", "four-day-grid", "no-timestamp",
                                       "five-day-grid", "team-status-column"])
     def test_no_column_is_answered_by_more_than_responded(self, name):
         """A status-only row an organizer typed is not a response, so its cells are not answers:
@@ -382,7 +380,7 @@ class TestWhatAColumnCarries:
         assert all(c["answered"] <= proposal["responses"] for c in proposal["columns"])
 
     def test_an_essential_no_column_answers_is_not_asked(self):
-        headers, rows = _read("fall-2023")
+        headers, rows = _read("days-as-one-question")
         not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
@@ -399,7 +397,7 @@ class TestWhatAColumnCarries:
 
     def test_no_days_column_is_said_to_mean_no_personal_limit(self):
         """Said where the organizer decides, not discovered at the import (bug 24)."""
-        headers, rows = _read("fall-2023")
+        headers, rows = _read("days-as-one-question")
         why = {e["key"]: e["why"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
         assert "up to your ceiling" in why["essential_max_dates"]
         assert "Online applicants are still asked" in why["essential_max_dates"]

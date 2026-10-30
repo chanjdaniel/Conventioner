@@ -21,8 +21,8 @@ ANSWERS = {
                       "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 3},
     "no-timestamp": {"dates": ["05-19", "05-20", "05-21", "05-22", "05-23"], "year": 2025,
                      "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 2},
-    "fall-2023": {"dates": ["11-20", "11-21", "11-22", "11-23", "11-24"], "year": 2023,
-                  "tiers": [], "ceiling": None},
+    "days-as-one-question": {"dates": ["10-23", "10-24", "10-25", "10-26", "10-27"],
+                             "year": 2023, "tiers": [], "ceiling": None},
     "team-status-column": {"dates": ["04-20", "04-21", "04-22", "04-23", "04-24"], "year": 2026,
                            "tiers": ["Gold", "Silver"], "ceiling": None},
 }

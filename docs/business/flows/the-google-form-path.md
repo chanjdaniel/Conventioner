@@ -68,7 +68,7 @@ On the re-walk the proposal restored all 29 columns, and the first import previe
 The 25 it skipped were a blank row, malformed and test rows, and applicants whose only answers were options left out on the proposal of a required question; G4 warned of those before confirming, and "Keep all" would have kept them.
 Since E33/F02 the proposal marks no question required, so such an applicant is imported without that answer unless the organizer marks the question required, and the proposal then says how many it would cost ([G4](starting-from-a-google-form.md#g4-review-and-adjust-the-proposal)).
 Since E30/F02/S01 the first import says its mapping is the start's: "Mapped when your form was started from this file."
-The other four exports were not re-walked live; their anonymised copies are held to a hand-written answer key in [`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py).
+The other four exports were not re-walked live; synthetic files of their shapes are held to a hand-written answer key in [`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py).
 
 | Step | Flows |
 | --- | --- |
