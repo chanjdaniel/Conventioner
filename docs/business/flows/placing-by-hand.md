@@ -88,9 +88,9 @@ Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
 ## J13. Assignment history
 
 **Status:** Works (walked live; the button and the names read from the code as of E35/F03/S03, `the-placement-history-dialog.spec.ts`).
-"Assignment history" on the Result page opens the market's whole history, and a vendor's drawer has their own on its History tab.
+"Assignment history" on the Result page opens the market's assignment history in full, and a vendor's drawer has their own on its History tab.
 Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)", "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved".
-Anyone who can read the market can read it.
+Anyone who may read the market's history can read it ([what each role may do](../rules/what-each-role-may-do.md)).
 Covered by: `the-placement-history-dialog.spec.ts`.
 
 ## The rules it obeys

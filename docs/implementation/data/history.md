@@ -108,7 +108,7 @@ That was weighed and accepted for the placements when the trail was decided, and
 
 ## Reading it
 
-**Every reader asks the row "Read the market's history"** (`read-history`, Viewer by default, [the market's actions](../modules/market-actions.md)): anyone who may read the market may read who changed it.
+**Every reader asks the row "Read the market's history"** (`read-history`, Viewer by default, [the market's actions](../modules/market-actions.md)): by default, anyone who may read the market may read who changed it.
 
 **The whole history is read a page at a time**: `GET /markets/:id/history` (`get_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `entries_page`, the newest `PAGE_SIZE` (10, so the section stays a short read inside Manage market) entries and `next`, a cursor naming the last one (`<at>|<id>`), which `?before=` hands back for the page after it.
 Entries are ordered by `at`, then `id`, both descending, so a page boundary between two entries of one instant neither loses nor repeats either, and the [lookup index](lookup-indexes.md) on (`market_id`, `at`, `id`) is that order read backwards: the first page of a market with thousands of entries is one query that walks a page of index keys and stops (`TestThousandsOfEntries` in [`back-end/tests/test_reading_the_history.py`](../../../back-end/tests/test_reading_the_history.py) seeds 5,000).
@@ -125,9 +125,9 @@ It asks the same row: the trail is the history narrowed.
 The answer carries the vendors' names against their addresses, so the trail reads as people.
 `market_id` is a [lookup index](lookup-indexes.md).
 
-**Every reader of the history is one of the market's readers**, behind its Read row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
+**Every reader of the history is one of the market's readers**, behind its history's row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
 
-`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, read at VIEWER like the placements.
+`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, read at the Read row, unlike the placements, which ask the history's row.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
 The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
