@@ -75,6 +75,11 @@ IMPORT_APPLICATIONS = action(
 GIVE_VERDICTS = action(
     "give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR,
     "give verdicts and follow-ups on this market")
+#: A reviewer's write on an application already approved or rejected, and a write that returns a
+#: rule's rejection to open (E38/F06/S01). Asked on top of ``GIVE_VERDICTS``: a change is a verdict.
+CHANGE_VERDICTS = action(
+    "change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
+    MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market")
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(
