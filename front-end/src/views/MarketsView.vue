@@ -318,6 +318,11 @@ function handleNewClose() {
   box-shadow: var(--shadow-card);
 }
 
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.new-market-button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
+
 .new-market-button:hover {
   background: var(--mm-green);
   opacity: 0.9;

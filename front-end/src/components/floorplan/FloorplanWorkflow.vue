@@ -101,7 +101,10 @@ function onSaved(payload: { market_id: string }) {
     <div
       class="workflow-progress"
       role="progressbar"
-      aria-valuenow="step"
+      aria-label="Floorplan steps"
+      aria-valuemin="1"
+      aria-valuemax="5"
+      :aria-valuenow="step + 1"
       :aria-valuetext="`Step ${step + 1} of 5`"
     >
       <span :class="{ active: step === 0, done: step > 0 }">1. Upload</span>
@@ -201,9 +204,11 @@ function onSaved(payload: { market_id: string }) {
   flex-shrink: 0;
 }
 
+/* Its ground is beige, so the steps take the inks measured there: a step to come
+   --mm-text-muted-on-beige (5.17), a step done --mm-text-green (5.24). */
 .workflow-progress span {
   font-size: var(--text-xs);
-  color: rgba(39, 35, 35, 0.35);
+  color: var(--mm-text-muted-on-beige);
   padding: 6px 14px;
   border-radius: 20px;
   background: transparent;
@@ -219,7 +224,7 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .workflow-progress span.done {
-  color: var(--mm-green);
+  color: var(--mm-text-green);
   font-weight: 400;
 }
 

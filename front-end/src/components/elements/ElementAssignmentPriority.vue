@@ -535,11 +535,6 @@ const dragOptions = computed(() => ({
   background: var(--mm-beige);
 }
 
-.remove-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .sortable-ghost {
   opacity: 0.7;
 }

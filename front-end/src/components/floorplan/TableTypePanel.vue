@@ -578,7 +578,7 @@ function deleteType(tt: TableTypeObject) {
   padding: 20px 0;
   text-align: center;
   font-size: var(--text-xs);
-  color: rgba(39, 35, 35, 0.4);
+  color: var(--mm-text-muted);
 }
 
 /* ── Add button ──────────────────────────────────────────────── */
@@ -652,11 +652,6 @@ function deleteType(tt: TableTypeObject) {
   color: var(--mm-black);
   outline: none;
   transition: border-color 0.15s ease-in-out;
-}
-
-.tt-input:focus {
-  border-color: var(--mm-green);
-  background: #ffffff;
 }
 
 .tt-input::placeholder {

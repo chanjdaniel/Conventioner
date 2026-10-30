@@ -166,6 +166,21 @@ function linkFor(tab: MarketTab): string {
   color: var(--mm-text-hover-on-dark);
 }
 
+/* The bar is dark, so its tabs take the white halo rather than the green one (E38/F01/S01).
+   Rounded only while focused: at rest a radius would curl the active tab's underline. */
+.market-bar-tab:focus-visible {
+  border-radius: var(--radius-control);
+  box-shadow: var(--focus-halo-on-dark);
+}
+
+/* On a phone the tabs sit on the bar's lower edge in a sideways scroller, which clips anything
+   drawn outside them, so the halo is drawn inside. */
+@media (width <= 640px) {
+  .market-bar-tab:focus-visible {
+    box-shadow: var(--focus-halo-on-dark-inset);
+  }
+}
+
 .market-bar-tab.active {
   color: white;
   border-bottom-color: var(--mm-green);
