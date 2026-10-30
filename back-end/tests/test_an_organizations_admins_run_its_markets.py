@@ -83,7 +83,7 @@ def test_an_admin_of_another_organization_gets_nothing_here():
 def served(who):
     """The table's answers the market read serves this person, from the role it resolves."""
     role = PermissionsApi.get_user_market_role(who, market(), organization())
-    return MarketsApi.role_action_refusals(role, market().phase)
+    return MarketsApi.role_action_refusals(role, market().phase, {})
 
 
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])

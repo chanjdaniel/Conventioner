@@ -479,6 +479,25 @@ class Market(BaseModel):
     # the first entry and `apply_phase_transition` the rest, in the update that moves the phase;
     # no request body can write it. `phase_record` reads it. Empty on a market that predates it.
     phase_history: List["PhaseEntry"] = Field(default_factory=list)
+    # The rows of the table this market differs on (E39/F01/S03), by action id; a row it does not
+    # hold reads its built-in default, so absent is the built-in table and needs no migration.
+    # Server-owned: written only by its owner's one write (`set_permission`, `reset_permission`).
+    permissions: Dict[str, "MarketPermission"] = Field(default_factory=dict)
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def drop_unreadable_permissions(cls, value: Any) -> Dict[str, Any]:
+        """Keep only the stored rows this build can read, so a row of the wrong shape reads as no
+        row held - its built-in default - rather than failing the whole market's parse. A role or
+        source it does not know is kept here and read as the default by ``api.market_actions``."""
+        if not isinstance(value, dict):
+            return {}
+        return {
+            action_id: row for action_id, row in value.items()
+            if isinstance(row, MarketPermission) or (
+                isinstance(row, dict)
+                and isinstance(row.get("role"), str) and isinstance(row.get("source"), str))
+        }
 
     @computed_field
     def is_draft(self) -> bool:
@@ -624,6 +643,21 @@ class FormAmendment(BaseModel):
 
     return_phase: str
     started_at: str
+
+
+class MarketPermission(BaseModel):
+    """One row a market holds of the table (E39/F01/S03): the role it asks, and where it came from.
+
+    Plain strings, not ``MarketRole``, for ``PhaseEntry``'s reason: a stored value this build does
+    not know must not fail the whole market's parse, and ``Market`` drops a stored row of the wrong
+    shape for the same reason (``drop_unreadable_permissions``). ``api.market_actions`` reads a row
+    it cannot understand as the built-in default, as it reads a row the market does not hold.
+    ``source`` is ``market`` (changed on this market by its owner) or ``organization`` (copied from
+    the organization's default when the market was created, E39/F02).
+    """
+
+    role: str
+    source: str
 
 
 class PhaseEntry(BaseModel):
@@ -976,5 +1010,6 @@ class MarketSchemaContract(ContractModel):
     review_highlights: Optional[List[str]] = None
     rejection_rules: Optional[List[RejectionRule]] = None
     roles: Dict[str, str]
+    permissions: Optional[Dict[str, MarketPermission]] = None
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None

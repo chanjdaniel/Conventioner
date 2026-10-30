@@ -190,6 +190,19 @@ export interface RejectionQuestion {
   answers: Array<{ value: string; label: string }>;
 }
 
+/** One row of a market's table, as the market read serves it (E39/F01/S03). */
+export interface PermissionTableRow {
+  id: string;
+  group: string;
+  label: string;
+  /** The lowest role that may take the action on this market: that role and every one above it. */
+  role: MarketRole;
+  default: MarketRole;
+  /** No row held, copied from the organization's default at creation, or changed here. */
+  source: 'built-in' | 'organization' | 'market';
+  fixed: boolean;
+}
+
 export interface Market {
   id: string;
   name: string;
@@ -267,6 +280,12 @@ export interface Market {
    * directly, so a missing answer offers nothing.
    */
   actionRefusals?: Record<string, string | null>;
+  /**
+   * The market's table itself, every row in order (E39/F01/S03): the role it asks, its built-in
+   * default, where the role came from and whether it is fixed. For Manage market to show; a
+   * control asks `actionRefusals`, never this. Undefined on the list.
+   */
+  permissionTable?: PermissionTableRow[];
   /**
    * Why the person reading may change nothing on this market, or null while they may change
    * something (E26/F06/S01, E39/F01/S02): archived, or none of the table's changing actions is
