@@ -582,7 +582,8 @@ def review_application(
     History.record(
         market_id, by.email, _verdict_row([app_doc]), kind=History.VERDICT,
         vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
-        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
+        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored),
+                        **_dealt_to(app_doc)},
     )
     app = Application(**stored)
     return {"application": _application_response_organizer(app)}, 200
@@ -605,6 +606,19 @@ def _with_rules(
         return None
     return {**answers, "rejected_by_rules": bool(verdicts.rejected),
             "returned_by_rules": bool(verdicts.returned)}
+
+
+def _dealt_to(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Whom the application was dealt to, for a verdict's entry beside who gave it (E38/F07/S02):
+    ``dealt_to``, the reviewer's address, when it has one, and nothing otherwise."""
+    reviewer = (doc.get("reviewer") or {}).get("email")
+    return {"dealt_to": reviewer} if reviewer else {}
+
+
+def _each_dealt_to(docs: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    """``_dealt_to`` for a selection's entry: by application id, for those that were dealt."""
+    dealt = {doc["id"]: _dealt_to(doc)["dealt_to"] for doc in docs if _dealt_to(doc)}
+    return {"dealt_to": dealt} if dealt else {}
 
 
 def _verdict_state(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -675,6 +689,7 @@ def review_selection(
                     app_id: _verdict_state(ApplicationsApi.find_application_by_id(app_id))
                     for app_id in written
                 },
+                **_each_dealt_to(was[app_id] for app_id in written),
             },
         )
     return {"written": written, "skipped": skipped}, 200
