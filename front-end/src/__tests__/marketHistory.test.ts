@@ -393,6 +393,34 @@ describe('who reviews which application (E38/F07/S02)', () => {
     ]);
   });
 
+  it('words an applicant’s own arrival as their application dealt, never as their deal', () => {
+    const arrived = {
+      ...dealt([SAM]),
+      action: 'apply',
+      actor: 'ana@ember.test',
+      detail: {
+        cause: 'arrived',
+        before: { 'app-0': { reviewer: null } },
+        after: { 'app-0': { reviewer: SAM } },
+      },
+    };
+
+    expect(said(entryParts(arrived, NAMES))).toBe(
+      `The application of [Ana Rivera] was dealt to ${SAM} as it arrived`,
+    );
+    expect(said(entryParts(arrived, NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
+      `The application was dealt to ${SAM} as it arrived`,
+    );
+  });
+
+  it('words an organizer’s write that dealt what arrived by who made it', () => {
+    const imported = { ...dealt([SAM, KAI]), action: 'import-applications' };
+
+    expect(said(entryParts(imported, NAMES))).toBe(
+      'dana@ember.test dealt 2 open applications among 2 reviewers',
+    );
+  });
+
   it('opens a change of reviewers to the lists before and after', () => {
     expect(entryChanges(reviewers(['a@x.test'], ['a@x.test', 'c@x.test'])).changed).toEqual([
       { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test, c@x.test' },

@@ -214,6 +214,16 @@ export function entryParts(
     const shares = dealtShares(entry);
     const mine = ownShare(entry, own);
     const one = mine ?? (shares.length === 1 ? shares[0] : undefined);
+    // An applicant's own save dealt their application: they arrived, and nobody dealt it by hand.
+    if (entry.action === 'apply' && one?.after) {
+      return mine
+        ? [text(`The application was dealt to ${one.after} as it arrived`)]
+        : [
+            text('The application of '),
+            who(one.vendor),
+            text(` was dealt to ${one.after} as it arrived`),
+          ];
+    }
     if (one) {
       const application = mine
         ? [text('the application')]
