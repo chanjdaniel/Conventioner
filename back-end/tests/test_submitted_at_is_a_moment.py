@@ -86,7 +86,7 @@ class TestWhatNormalisingBuys:
         )]
 
     def test_the_five_day_fixture_orders_chronologically_as_text(self):
-        """The measured failure: 111 of an export's 232 rows were in the wrong position."""
+        """The measured failure: read as text, most of a Google Form export's timestamps sort out of time order, and this file's do too."""
         import csv
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
