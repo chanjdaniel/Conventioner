@@ -292,3 +292,27 @@ describe('the focus halo measures what its comment says', () => {
     expect(haloColour('--focus-halo-on-dark-inset')).toEqual(darkGlow);
   });
 });
+
+/**
+ * The selected row (the Vendors page's open vendor) is the on toggle's ground, `--mm-chip-positive`
+ * inside a `--mm-green` border. A chip's ground is no longer around its ink there, so the row's
+ * inks are held to the tint itself: its own text, its muted figures, and each chip ink, which the
+ * row sets on white (darker still for every ink).
+ */
+describe('the selected row is legible on its tint', () => {
+  const tint = resolve('--mm-chip-positive');
+
+  for (const ink of ['--mm-black', '--mm-text-muted-on-beige']) {
+    it(`${ink} is legible on the selected row`, () => {
+      expect(contrast(inkOn(ink, tint), tint)).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+  }
+
+  it('--mm-text-muted is not, so the row swaps it', () => {
+    expect(contrast(inkOn('--mm-text-muted', tint), tint)).toBe(4.27);
+  });
+
+  it('the green border is 3.75:1 on the tint, past the 3:1 a boundary wants', () => {
+    expect(contrast(resolve('--mm-green'), tint)).toBe(3.75);
+  });
+});

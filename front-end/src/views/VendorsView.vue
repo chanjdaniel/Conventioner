@@ -254,7 +254,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             v-for="vendor in filteredVendors"
             :key="vendor.rowIndex"
             class="vendor-row"
-            :class="{ 'vendor-row--active': vendor.email === drawer.email.value }"
+            :class="{ 'vendor-row--open': vendor.email === drawer.email.value }"
           >
             <button
               type="button"
@@ -480,10 +480,22 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   transform: translateY(1px);
 }
 
-.vendor-row--active .vendor-row-button {
+/* The vendor whose details are open is the selected row: the on toggle's green tint inside a green
+   border (`docs/design-system.md`), where it once drew a 2px black outline beside the focus halo. */
+.vendor-row--open .vendor-row-button {
+  background: var(--mm-chip-positive);
   border-color: var(--mm-green);
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
+}
+
+/* The tint is a chip's own ground, so a chip on it would lose its edge: each keeps its ink on
+   white, where every chip ink reads darker than on its tint. */
+.vendor-row--open :is(.chip, .vendor-badge) {
+  background: white;
+}
+
+/* `--mm-text-muted` is 4.27 on the tint; this is 5.25 (`contrast.test.ts`). */
+.vendor-row--open .vendor-date-count {
+  color: var(--mm-text-muted-on-beige);
 }
 
 .vendor-email {
@@ -511,17 +523,17 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   white-space: nowrap;
 }
 
+/* A badge is a chip's ground and ink in its own type: the opaque `--mm-chip-*` ground, which reads
+   the same whatever it sits on, and the ink `contrast.test.ts` holds to it. */
 .vendor-badge--assigned {
-  background: rgba(54, 130, 111, 0.16);
-  /* Darkened from #1e7a4f, which measured 4.35 on this tint - the rendered-usage sweep in
-     E16/F01/S05 is what found it. A tinted chip is its own ground, and neither the token test nor
-     the eye catches a miss of 0.15. */
-  color: var(--mm-text-green); /* 5.34 on rgba(54,130,111,.16) over white */
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green); /* 5.34 on that ground */
 }
 
 .vendor-badge--unassigned {
-  background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  background: var(--mm-chip-attention);
+  /* `--mm-text-yellow` measured 3.96 on this ground. */
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .vendor-date-count {
