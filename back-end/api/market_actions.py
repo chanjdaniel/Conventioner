@@ -157,6 +157,23 @@ def held_row(row: Action, rows: Mapping[str, Any]) -> Optional[MarketPermission]
 _ROLE_VALUES = frozenset(role.value for role in MarketRole)
 
 
+def row_state(row: Action, held: Optional[MarketPermission]) -> Dict[str, str]:
+    """A row as a history entry's before or after holds it, on a market's table or an
+    organization's default alike: the role it asks, and where that came from."""
+    if held is None:
+        return {"role": row.default.value, "source": BUILT_IN}
+    return {"role": held.role, "source": held.source}
+
+
+#: The words a write to a row refuses with, on a market's table or an organization's default.
+NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
+
+
+def fixed_row_refusal(row: Action) -> str:
+    """Why a fixed row cannot be changed, on a market's table or an organization's default."""
+    return f'Who may take the row "{row.label}" is fixed, so it cannot be changed.'
+
+
 def _minimum_role_of(row: Action, rows: Mapping[str, Any]) -> MarketRole:
     held = held_row(row, rows)
     return MarketRole(held.role) if held else row.default

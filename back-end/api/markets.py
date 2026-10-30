@@ -2028,7 +2028,6 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
 
 
 NO_SUCH_ROW = "This market's table has no such row."
-NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
 
 
 def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tuple[Market, Actions.Action]:
@@ -2043,15 +2042,8 @@ def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tupl
     if row is None:
         raise BadRequestError(NO_SUCH_ROW)
     if row.fixed:
-        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+        raise BadRequestError(Actions.fixed_row_refusal(row))
     return market, row
-
-
-def _permission_state(row: Actions.Action, held: Optional[MarketPermission]) -> Dict[str, str]:
-    """A row as a history entry's before or after: the role it asks, and where that came from."""
-    if held is None:
-        return {"role": row.default.value, "source": Actions.BUILT_IN}
-    return {"role": held.role, "source": held.source}
 
 
 def _record_permission(
@@ -2061,7 +2053,7 @@ def _record_permission(
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=kind,
         subject={"action": row.id},
-        detail={"before": _permission_state(row, before), "after": _permission_state(row, after)},
+        detail={"before": Actions.row_state(row, before), "after": Actions.row_state(row, after)},
     )
 
 
@@ -2077,7 +2069,7 @@ def set_permission(
     """
     market, row = _row_to_change(market_id, action_id, requesting_user)
     if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
-        raise BadRequestError(NOT_A_ROLE)
+        raise BadRequestError(Actions.NOT_A_ROLE)
 
     before = Actions.held_row(row, market.permissions)
     if Actions.minimum_role(row, market).value == role:
@@ -2139,8 +2131,8 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
         detail=lambda: {
-            "before": {row.id: _permission_state(row, held) for row, held in held_rows},
-            "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
+            "before": {row.id: Actions.row_state(row, held) for row, held in held_rows},
+            "after": {row.id: Actions.row_state(row, None) for row, _ in held_rows},
         },
     )
     for row, _ in held_rows:
@@ -2172,7 +2164,7 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
     for row in Actions.ACTIONS.values():
         before = Actions.held_row(row, market.permissions)
         after = copied.get(row.id)
-        if _permission_state(row, before) != _permission_state(row, after):
+        if Actions.row_state(row, before) != Actions.row_state(row, after):
             changed.append((row, before, after))
     if not changed:
         return Actions.table(market)
@@ -2193,8 +2185,8 @@ def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_COPIED,
         detail=lambda: {
-            "before": {row.id: _permission_state(row, before) for row, before, _ in changed},
-            "after": {row.id: _permission_state(row, after) for row, _, after in changed},
+            "before": {row.id: Actions.row_state(row, before) for row, before, _ in changed},
+            "after": {row.id: Actions.row_state(row, after) for row, _, after in changed},
         },
     )
     for row, _, after in changed:

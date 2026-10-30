@@ -257,7 +257,6 @@ NOT_THE_DEFAULTS_TO_CHANGE = (
     "Only the organization's owner or its admins may change its default permissions."
 )
 NO_SUCH_DEFAULT_ROW = "The default table has no such row."
-NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
 
 
 def _default_to_change(org_id: str, requesting_user_email: str) -> Dict[str, Any]:
@@ -278,17 +277,8 @@ def _default_row(action_id: Any) -> Actions.Action:
     if row is None:
         raise BadRequestError(NO_SUCH_DEFAULT_ROW)
     if row.fixed:
-        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+        raise BadRequestError(Actions.fixed_row_refusal(row))
     return row
-
-
-def _default_state(row: Actions.Action, rows: Dict[str, Any]) -> Dict[str, str]:
-    """A row of the default as a history entry's before or after holds it, as a market's: the role
-    it asks, and whether that is the organization's or the built-in one."""
-    held = rows.get(row.id)
-    if held is None:
-        return {"role": row.default.value, "source": Actions.BUILT_IN}
-    return {"role": held.role, "source": held.source}
 
 
 def _record_default(
@@ -311,11 +301,11 @@ def set_default_permission(
     org = _default_to_change(org_id, requesting_user_email)
     row = _default_row(action_id)
     if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
-        raise BadRequestError(NOT_A_ROLE)
+        raise BadRequestError(Actions.NOT_A_ROLE)
 
     stored = org.get(DEFAULT_PERMISSIONS)
     rows = Actions.organization_rows(stored)
-    before = _default_state(row, rows)
+    before = Actions.row_state(row, rows.get(row.id))
     if before["role"] == role:
         return Actions.default_table(stored)
     # Mongo cannot set a key inside a stored null or string, so a field that is not a map, which
@@ -345,7 +335,7 @@ def reset_default_permission(
     organizations_collection.update_one(
         {"id": org_id}, {"$unset": {f"{DEFAULT_PERMISSIONS}.{row.id}": ""}})
     _record_default(org_id, requesting_user_email, History.PERMISSION_RESET, {"action": row.id}, {
-        "before": _default_state(row, rows), "after": _default_state(row, {}),
+        "before": Actions.row_state(row, rows.get(row.id)), "after": Actions.row_state(row, None),
     })
     return Actions.default_table({k: v for k, v in stored.items() if k != row.id})
 
@@ -366,8 +356,8 @@ def reset_default_permissions(org_id: str, requesting_user_email: str) -> List[D
         f"{DEFAULT_PERMISSIONS}.{row.id}": "" for row in held
     }})
     _record_default(org_id, requesting_user_email, History.PERMISSION_TABLE_RESET, {}, {
-        "before": {row.id: _default_state(row, rows) for row in held},
-        "after": {row.id: _default_state(row, {}) for row in held},
+        "before": {row.id: Actions.row_state(row, rows.get(row.id)) for row in held},
+        "after": {row.id: Actions.row_state(row, None) for row in held},
     })
     return Actions.default_table({k: v for k, v in stored.items() if k not in rows})
 
