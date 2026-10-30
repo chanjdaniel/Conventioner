@@ -416,6 +416,32 @@ describe('the answers the assignment reads, in the Update info dialog', () => {
     wrapper.unmount();
   });
 
+  it('adds a day on a market without tiers and keeps the days they gave', async () => {
+    // An imported answer holds the days, and no tiers, as an empty map beside them.
+    const wrapper = dialog(
+      essentialApplication({
+        formData: {
+          ...essentialApplication().formData,
+          [AVAILABLE_DATES_KEY]: [THU],
+          [TIER_PREFERENCE_KEY]: {},
+        },
+      }),
+      { options: { ...OPTIONS, tiers: [] } },
+    );
+    const day = (date: string) => testid(`update-info-essential-date-${date}`);
+    expect((wrapper.get(day(THU)).element as HTMLInputElement).checked).toBe(true);
+
+    await wrapper.get(day(FRI)).setValue(true);
+
+    expect((wrapper.get(day(THU)).element as HTMLInputElement).checked).toBe(true);
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(
+      (sent[0].body as { answers: Record<string, unknown> }).answers[AVAILABLE_DATES_KEY],
+    ).toEqual([THU, FRI]);
+    wrapper.unmount();
+  });
+
   it('asks for a number of dates only where the vendor gave one', () => {
     const required = (app: Application) => {
       const wrapper = dialog(app);

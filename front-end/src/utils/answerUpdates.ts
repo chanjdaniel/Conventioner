@@ -98,6 +98,10 @@ export function theirAnswers(application: Application): Record<string, unknown> 
 /**
  * The dates and the tiers on each as the server stores them, in the market plan's order, so an
  * answer ticked back to what it was reads as unchanged.
+ *
+ * On a market with no tiers the day grid is the dates alone, but a stored answer holds its days
+ * beside an empty tier map, and the form's day toggle rebuilds the days from that map; so the map
+ * is made to name each day the answer gives, or ticking a second day would untick the first.
  */
 export function inPlanOrder(
   answers: Record<string, unknown>,
@@ -105,19 +109,22 @@ export function inPlanOrder(
 ): Record<string, unknown> {
   const ordered = (value: unknown, offered: string[]) =>
     Array.isArray(value) ? offered.filter((item) => value.includes(item)) : value;
+  const dates = ordered(answers[AVAILABLE_DATES_KEY], options.dates);
   const tiers = answers[TIER_PREFERENCE_KEY];
   return {
     ...answers,
-    [AVAILABLE_DATES_KEY]: ordered(answers[AVAILABLE_DATES_KEY], options.dates),
+    [AVAILABLE_DATES_KEY]: dates,
     [TIER_PREFERENCE_KEY]:
-      tiers && typeof tiers === 'object' && !Array.isArray(tiers)
-        ? Object.fromEntries(
-            Object.entries(tiers as Record<string, unknown>).map(([date, names]) => [
-              date,
-              ordered(names, options.tiers),
-            ]),
-          )
-        : tiers,
+      !options.tiers.length && Array.isArray(dates)
+        ? Object.fromEntries(dates.map((date) => [date, []]))
+        : tiers && typeof tiers === 'object' && !Array.isArray(tiers)
+          ? Object.fromEntries(
+              Object.entries(tiers as Record<string, unknown>).map(([date, names]) => [
+                date,
+                ordered(names, options.tiers),
+              ]),
+            )
+          : tiers,
   };
 }
 
