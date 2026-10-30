@@ -1,6 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketScreenPath } from './helpers/marketScreens';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
@@ -148,8 +147,8 @@ test('an organizer updates a vendor’s info, the review reads it, and a re-impo
   await expect(business.updated).toBeVisible();
 
   // The review reads the update in its place, with who, when and what they wrote.
-  await page.goto(marketScreenPath(seed.marketId, 'applications'));
   const review = new ApplicationMonitorPage(page);
+  await review.goto(seed.marketId);
   await review.waitForLoaded();
   await expect(page.getByTestId('app-monitor-answer-business_name')).toContainText(
     'Ember Ceramics',

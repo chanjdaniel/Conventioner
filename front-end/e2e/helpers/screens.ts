@@ -7,7 +7,7 @@ import type {
   TestType,
 } from '@playwright/test';
 import { expect, TEST_USER, NO_ORG_USER, BACKEND_URL } from '../fixtures';
-import { marketScreenPath, marketSetupPath } from './marketScreens';
+import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
 import { seedTheScreens, type TheScreensSeed } from './seedTheScreens';
@@ -84,6 +84,9 @@ function dashboardRemembering(market: keyof TheScreensSeed) {
 
 const setup = (market: keyof TheScreensSeed, page: string) => (seed: TheScreensSeed) =>
   marketSetupPath((seed[market] as { marketId: string }).marketId, page);
+/** The review's One by one view: the Applications tab opens on All (E38/F05/S01). */
+const oneByOne = (market: keyof TheScreensSeed) => (seed: TheScreensSeed) =>
+  oneByOnePath((seed[market] as { marketId: string }).marketId);
 type MarketScreen = Parameters<typeof marketScreenPath>[1];
 const screen = (market: keyof TheScreensSeed, page: MarketScreen) => (seed: TheScreensSeed) =>
   marketScreenPath((seed[market] as { marketId: string }).marketId, page);
@@ -224,14 +227,14 @@ export const SCREENS: Screen[] = [
     name: 'applications open, one by one',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('open', 'applications'), 'app-monitor-card'),
+    open: at(oneByOne('open'), 'app-monitor-card'),
   },
   {
     // A status is a tinted chip, on the card's own beige ground as well as on white (bug 43).
     name: 'a review card, and the verdicts already given',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('open', 'applications'), 'app-monitor-card', [
+    open: at(oneByOne('open'), 'app-monitor-card', [
       'app-monitor-decided-toggle',
       'app-monitor-decided-row',
     ]),
@@ -240,7 +243,7 @@ export const SCREENS: Screen[] = [
     name: 'the follow-up dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('open', 'applications'), 'app-monitor-card', [
+    open: at(oneByOne('open'), 'app-monitor-card', [
       'app-monitor-follow-up-button',
       'follow-up-window',
     ]),
@@ -249,10 +252,7 @@ export const SCREENS: Screen[] = [
     name: 'applications open, all at once',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('open', 'applications'), 'app-monitor-card', [
-      'applications-view-all',
-      'applications-all-tick',
-    ]),
+    open: at(setup('open', 'applications'), 'applications-all-tick'),
   },
   {
     name: 'applications open, the plan settled',
@@ -270,13 +270,13 @@ export const SCREENS: Screen[] = [
     name: 'not taking applications',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('closed', 'applications'), 'app-monitor-card'),
+    open: at(oneByOne('closed'), 'app-monitor-card'),
   },
   {
     name: 'a Google Form market in review',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('review', 'applications'), 'app-monitor-card'),
+    open: at(oneByOne('review'), 'app-monitor-card'),
   },
   {
     name: 'a CSV market, redoing its import',

@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { ensureOrganizationAdmin } from './helpers/seeds';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
@@ -52,7 +52,7 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   );
   expect(noted.ok(), await noted.text()).toBeTruthy();
 
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   const monitor = new ApplicationMonitorPage(page);
   await monitor.waitForLoaded();
   await expect(monitor.email).toHaveText('nadia@ember.test');
@@ -127,7 +127,7 @@ test('an organization admin with no role on the market marks a follow-up and own
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
 
   await withUser(browser, ORG_ADMIN.email, ORG_ADMIN.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await expect(monitor.email).toHaveText('nadia@ember.test');
@@ -187,7 +187,7 @@ test('an editor from outside the organization is offered only the people on the 
   expect(granted.ok(), await granted.text()).toBeTruthy();
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
-    await page.goto(marketScreenPath(marketId, 'applications'));
+    await page.goto(oneByOnePath(marketId));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
     await expect(monitor.email).toHaveText('nadia@ember.test');

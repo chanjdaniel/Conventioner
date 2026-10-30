@@ -45,6 +45,7 @@ test.describe('A late export', () => {
     await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
     await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
+    await monitor.switchTo();
     await monitor.waitForLoaded();
     await monitor.approve('nadia@ember.test');
     await monitor.reject('theo@thistle.test');
@@ -76,6 +77,7 @@ test.describe('A late export', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
     await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
+    await monitor.switchTo();
     await monitor.waitForLoaded();
 
     // The new response waits for a verdict, and so does Nadia's: she was approved on answers the
