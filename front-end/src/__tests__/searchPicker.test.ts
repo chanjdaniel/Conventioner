@@ -183,6 +183,30 @@ describe('the searchable picker', () => {
     wrapper.unmount();
   });
 
+  it('selects the chosen label as it reopens, so typing searches afresh', async () => {
+    const wrapper = picker('ben@example.com');
+    const input = field(wrapper).element as HTMLInputElement;
+    input.focus();
+    await field(wrapper).trigger('click');
+
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    // Typed over the selection, the words are the new ones alone.
+    await field(wrapper).setValue('walk');
+    expect(shown(wrapper)).toEqual(['walk.in@example.com']);
+    wrapper.unmount();
+  });
+
+  it('keeps the choice when reopened and left without typing', async () => {
+    const wrapper = picker('ben@example.com');
+    await field(wrapper).trigger('click');
+    await field(wrapper).trigger('blur');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect((field(wrapper).element as HTMLInputElement).value).toBe('Ben Prints (ben@example.com)');
+    expect(field(wrapper).attributes('aria-expanded')).toBe('false');
+    wrapper.unmount();
+  });
+
   it('empties when the choice is cleared from outside', async () => {
     const wrapper = picker('ben@example.com');
     await wrapper.setProps({ modelValue: '' });

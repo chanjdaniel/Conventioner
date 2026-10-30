@@ -112,11 +112,16 @@ watch(active, async (index) => {
   option?.scrollIntoView?.({ block: 'nearest' });
 });
 
+const field = ref<HTMLInputElement | null>(null);
+
 function show(): void {
   if (open.value) return;
   open.value = true;
   const chosenAt = shownOptions.value.findIndex((option) => option.value === props.modelValue);
   active.value = chosenAt >= 0 ? chosenAt : shownOptions.value.length ? 0 : -1;
+  // Reopened on a choice, its label is selected, so what is typed next replaces it and searches
+  // by itself, rather than running on from the label; left untouched, the choice stays.
+  if (chosenAt >= 0) field.value?.select();
 }
 
 function choose(option: PickerOption): void {
@@ -179,6 +184,7 @@ function onBlur(): void {
     <label class="field-label" :for="inputId">{{ label }}</label>
     <input
       :id="inputId"
+      ref="field"
       v-model="text"
       type="text"
       role="combobox"

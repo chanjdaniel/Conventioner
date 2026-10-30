@@ -72,6 +72,15 @@ test('a swap partner is found by typing, and the swap is made as before', async 
   await expect(field).toHaveValue('Cora Pottery (cora@example.com)');
   await expect(tables.dialog).toBeVisible();
 
+  // Reopened on that choice, typing searches afresh rather than running on from the label.
+  await field.click();
+  await field.pressSequentially('dev');
+  await expect(options).toHaveText([/Dev Prints/]);
+  await field.press('Escape');
+  await field.fill('cora');
+  await field.press('Enter');
+  await expect(field).toHaveValue('Cora Pottery (cora@example.com)');
+
   await tables.dialog.getByTestId('placement-dialog-swap').click();
   await expect(tables.dialog).toBeHidden();
   await expect(tables.seatOf('cora@example.com')).toBeVisible();
