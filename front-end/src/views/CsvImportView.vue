@@ -1194,8 +1194,10 @@ function startOver() {
             >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
               >, {{ unchangedRows }} unchanged</template
             >. </template
-          >Each imported row becomes an application awaiting your review. Nothing has been written
-          yet.
+          >Each imported row becomes an application awaiting your review<template
+            v-if="previewRejected.length"
+            >; the rows your automatic rejections reject arrive rejected</template
+          >. Nothing has been written yet.
         </p>
 
         <!-- An approval the import would invalidate. Said before it happens, because silently
@@ -1781,8 +1783,10 @@ function startOver() {
   margin: 0 0 var(--space-2);
 }
 
+/* `pretty`: a two-line line here left one word alone on its second line at the design width. */
 .preview-rows-why {
   margin: calc(-1 * var(--space-1)) 0 var(--space-3);
+  text-wrap: pretty;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
