@@ -8,13 +8,14 @@ import {
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 
 /**
  * Giving a verdict and changing one are two rows of the table (E38/F06/S01).
  *
  * An Editor gives verdicts on open applications and follow-ups, and is offered no change to one
- * already approved or rejected; an Admin is offered each change, "Approve instead" and "Reject
- * instead", and the server takes it.
+ * already approved or rejected - on One by one, in the All view's ticks and Select all, or in the
+ * vendor drawer; an Admin is offered each change, and the server takes it.
  */
 const PEOPLE = {
   editor: { email: 'e2e-change-editor@example.com', password: 'e2epassword123' },
@@ -35,6 +36,7 @@ test.beforeAll(async ({ request }) => {
   seedApplicationWithStatus(marketId, 'open', 'ana@thistle.test');
   seedApplicationWithStatus(marketId, 'reviewer_approved', 'ben@ember.test');
   seedApplicationWithStatus(marketId, 'reviewer_rejected', 'cleo@fern.test');
+  seedApplicationWithStatus(marketId, 'open', 'dina@moss.test');
   for (const [role, person] of Object.entries(PEOPLE)) {
     const res = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
       data: { user_email: person.email, role },
@@ -64,6 +66,25 @@ test('an Editor gives a verdict, and is offered no change to one already given',
       review.decidedRow('ana@thistle.test').getByTestId('app-monitor-decided-giver'),
     ).toHaveText(new RegExp(`^Approved by ${PEOPLE.editor.email}, `));
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+
+    // The All view: no tick on a decided row, said once; Select all ticks the rest and says why.
+    const all = new ApplicationsAllPage(page);
+    await all.goto(marketId);
+    await expect(all.row('ben@ember.test')).toBeVisible({ timeout: 15000 });
+    await expect(all.changeReason).toHaveText(CHANGE_REFUSED);
+    await expect(all.tickOf('ben@ember.test')).toBeDisabled();
+    await expect(all.tickOf('dina@moss.test')).toBeEnabled();
+    await all.selectAll.click();
+    await expect(all.selection).toContainText('1 application selected');
+    await expect(all.selectAllSkipped).toHaveText(
+      '3 applications not selected: they already have a verdict, which only an Admin or the owner may change.',
+    );
+
+    // The drawer of a decided application says why instead of offering a verdict.
+    await all.open('ben@ember.test');
+    await expect(all.drawerChangeReason).toHaveText(CHANGE_REFUSED);
+    await expect(all.drawerButton('approve')).toHaveCount(0);
+    await expect(all.drawerButton('reject')).toHaveCount(0);
   });
 });
 
@@ -80,5 +101,16 @@ test('an Admin changes a verdict already given', async ({ browser }) => {
     await expect(cleo.getByTestId('app-monitor-decided-giver')).toHaveText(
       new RegExp(`^Approved by ${PEOPLE.admin.email}, `),
     );
+
+    // The All view offers them every tick, and the drawer every verdict.
+    const all = new ApplicationsAllPage(page);
+    await all.goto(marketId);
+    await expect(all.row('ben@ember.test')).toBeVisible({ timeout: 15000 });
+    await expect(all.changeReason).toHaveCount(0);
+    await expect(all.tickOf('ben@ember.test')).toBeEnabled();
+    await all.open('ben@ember.test');
+    await expect(all.drawerChangeReason).toHaveCount(0);
+    await all.drawerButton('reject').click();
+    await expect(all.statusOf('ben@ember.test')).toHaveText('Rejected');
   });
 });
