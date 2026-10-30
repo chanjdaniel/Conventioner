@@ -158,7 +158,7 @@
   --radius-card: 10px; /* cards, panels, dialogs */
   --radius-pill: 999px; /* pills and fully-rounded badges */
 
-  /* One shadow, extracted - it is already used 77 times on the Assignment Results screen alone.
+  /* One shadow, extracted - it is already used 77 times on the Assignments page alone.
      The legacy halo it replaces is `0 0 4px 5px rgba(0,0,0,.25)`: no offset means no light source,
      and a spread larger than its blur is a ring rather than a shadow, which is why the older cards
      read as outlined in grey fog. Its inset twin is what makes the setup fields look pressed. */

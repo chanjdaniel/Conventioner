@@ -305,6 +305,7 @@ The searchable picker is the app's own, and the ADR records why that combobox di
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
 A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
 Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
+A picker with no choices at all never opens its list, and "Nobody matches" shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
 The placement dialog's two vendor pickers are its first use.
 
 | | Variants | Notes |

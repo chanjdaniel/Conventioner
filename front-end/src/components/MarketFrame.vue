@@ -60,9 +60,9 @@ const note = computed(() => {
  * Why the person looking may change nothing here, said once for every page of the market (T15):
  * the server sets `readOnlyReason` when none of the table's changing actions is theirs, or the
  * market is archived. Each screen drops a control on the answer of its own action
- * (`utils/marketActions.ts`, E39/F01/S02), and only Market Setup said why, so a Viewer met a Result
- * page whose seats were plain text and took it for broken. An archived market is said by the rail,
- * and a tab's note in place of its page says the one thing that page says.
+ * (`utils/marketActions.ts`, E39/F01/S02), and only Market Setup said why, so a Viewer met an
+ * Assignments page whose seats were plain text and took it for broken. An archived market is said
+ * by the rail, and a tab's note in place of its page says the one thing that page says.
  */
 const readOnlyNote = computed(() =>
   props.market && props.market.phase !== MarketPhase.Archived && !note.value
