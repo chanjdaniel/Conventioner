@@ -28,7 +28,6 @@ import essential_fields as EssentialFields
 from assignment.csv_output import as_text_cell
 from client_errors import BadRequestError
 from datatypes import Application, ApplicationStatus, FormField, Market
-from placement_reasons import orphaned_pins
 from utils.email_address import normalized_email
 from utils.request_body import string_field
 
@@ -389,19 +388,11 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
 
 def _vendors(market: Market) -> List[Vendor]:
     """Every application of the market, newest first as the Vendors page lists them (a vendor added
-    by hand, never submitted, last), each with the seats the stored placements give them. A pin whose
-    seat the plan no longer has is not a seat for a vendor added by hand, as the page counts them
-    unassigned then (E38/F08/S02)."""
+    by hand, never submitted, last), each with the seats the stored placements give them."""
     seats: Dict[str, Dict[str, Any]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
         for email in set(row.assignment):
             seats.setdefault(email.strip().lower(), {})[row.date] = row
-
-    orphaned = {
-        (getattr(placement, "date", ""), getattr(placement, "table_code", ""))
-        for placement in orphaned_pins(
-            market.setup_object, market.assignment_object.vendor_assignments or [])
-    }
 
     vendors = []
     for doc in ApplicationsApi.list_applications_for_market(market.id):
@@ -412,13 +403,7 @@ def _vendors(market: Market) -> List[Vendor]:
             logger.warning("Export skipped an unreadable application %s", doc.get("id", "?"))
             continue
         vendor = Vendor(application)
-        held = seats.get(vendor.email, {})
-        if application.added_by:
-            held = {
-                date: row for date, row in held.items()
-                if (row.date, row.table_code) not in orphaned
-            }
-        vendor.seats = held
+        vendor.seats = seats.get(vendor.email, {})
         vendors.append(vendor)
     return vendors
 

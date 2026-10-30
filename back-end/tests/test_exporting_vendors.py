@@ -386,9 +386,11 @@ class TestTheFilters:
 
         assert _emails(content) == ["ben@example.com"]
 
-    def test_unassigned_only_includes_an_added_vendor_whose_only_seat_left_the_plan(self, market):
-        """The Vendors page lists them as unassigned, so the file started from that list holds them
-        too - a pin whose seat the plan no longer has is not a seat (E38/F08/S02)."""
+    def test_an_added_vendors_orphaned_pin_is_a_seat_as_anyones(self, market):
+        """A pin whose seat the plan no longer has is still the vendor's seat, as the statistics
+        and the Vendors page count it (E38/F08/S02): the Assignments page marks it "No longer in
+        the plan" and Publish refuses until it is moved or freed, so the file, the count and the
+        list all hold the added vendor as seated, and none of them as unassigned."""
         doc = market()
         doc["assignmentObject"]["vendorAssignments"] = [
             _placed("ana@example.com", "2099-08-01", "Atrium 1", "Atrium", "Gold"),
@@ -397,10 +399,12 @@ class TestTheFilters:
              "handPlaced": True},
         ]
 
-        content, _filename = _file(filters={
+        unplaced, _filename = _file(filters={
             "statuses": ["approved", "added"], "placed": "unplaced"})
+        placed, _filename = _file(filters={"statuses": ["added"], "placed": "placed"})
 
-        assert _emails(content) == ["ben@example.com", "fay@example.com"]
+        assert _emails(unplaced) == ["ben@example.com"]
+        assert _emails(placed) == ["fay@example.com"]
 
     def test_not_placed_on_a_date_is_the_vendors_without_a_seat_that_day(self, market):
         market()
