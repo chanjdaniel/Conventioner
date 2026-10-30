@@ -11,6 +11,7 @@ sources:
   - E39
   - E39/F01/S03
   - T92
+  - E38/F04/S01
 status: accepted
 ---
 
@@ -50,6 +51,7 @@ An archived market is read-only, verdicts settle on entering assignment, a vendo
 - Changing who may take an action on one market is a row on that market, read by the server at the next request and by the screens at the next market read; no code changes.
 - A story that gates a new action adds a row with its built-in default, and every existing market reads that default until its owner changes it.
 - A row that leaves the table leaves its stored copies behind on markets that hold one; they are never read, because only the table's rows are.
+  The form amendment's row (`amend-form`) left so with its chain (E38/F04/S01), and the stop row (`stop-applications`) joined in its place.
 - A market's own rows are its owner's alone, so an organization admin who runs the market cannot loosen or tighten it; that is the point of "modifiable by the owner only".
 - The history holds each change with who made it, so "who let Editors move the phase" has an answer.
 
