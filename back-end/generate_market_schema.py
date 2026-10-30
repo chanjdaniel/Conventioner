@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Generate a TypeScript declaration contract from market object JSON samples.
+Generate a TypeScript declaration contract for the market document.
 
-Usage:
-    python generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts
+``docs/schema.d.ts`` is generated from ``datatypes:MarketSchemaContract``, from the repository root:
+    python back-end/generate_market_schema.py --output docs/schema.d.ts
+
+With ``--input`` it infers a declaration from JSON samples instead, which is not the checked-in file:
+    python back-end/generate_market_schema.py --input docs/market-schema-input.example.json --output <path>
 """
 
 from __future__ import annotations
@@ -16,6 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+
+#: How ``docs/schema.d.ts`` is made: from ``MarketSchemaContract``, with no ``--input`` (which
+#: would infer a declaration from the JSON samples instead).
+MODEL_COMMAND = "python back-end/generate_market_schema.py --output docs/schema.d.ts"
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*$")
 
@@ -338,7 +345,7 @@ def main() -> int:
         declaration = generate_declaration_from_model(
             root_type=root_type,
             root_name=args.root_name,
-            command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+            command_hint=MODEL_COMMAND,
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

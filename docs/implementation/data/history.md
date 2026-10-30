@@ -7,6 +7,7 @@ describes:
   - back-end/api/markets.py#get_history
   - front-end/src/utils/marketHistory.ts
   - back-end/tests/test_reading_the_history.py
+  - back-end/api/markets.py#get_permission_history
   - back-end/migrations/migrate_placement_history.py
   - back-end/tests/test_every_write_records.py
 verified: 2026-10-30
@@ -15,6 +16,7 @@ sources:
   - E40/F01/S01
   - E40/F01/S02
   - E40/F01/S03
+  - E39/F01/S03
 ---
 
 # The market's history
@@ -86,6 +88,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
 | `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here | the vendor | `date` | `checked_in`, and `via: check_in_page` from the public page, whose actor is null |
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
+| `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an amendment, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
@@ -123,6 +126,8 @@ The answer carries the vendors' names against their addresses, so the trail read
 `market_id` is a [lookup index](lookup-indexes.md).
 
 **Every reader of the history is one of the market's readers**, behind its Read row, never a vendor's own: an entry names a vendor in `vendors` whether or not it is one they may see (a verdict before results are published, the organizer's note, a follow-up's owner), so reading by vendor is the organizer's view of that vendor, and no applicant endpoint reads the history.
+
+`GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`, read at VIEWER like the placements.
 
 A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
 The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).

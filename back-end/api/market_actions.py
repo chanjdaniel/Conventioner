@@ -6,6 +6,11 @@ Owner > Admin > Editor > Viewer - and the sentence a refusal answers with, which
 The built-in defaults are the rules each check held before the table existed; a fixed row is one
 nobody may change.
 
+A market keeps the rows it differs on (``Market.permissions``, E39/F01/S03), and every check reads
+the market's row where it holds one, its built-in default where not: ``minimum_role``. Only the
+market's owner changes them (the fixed row ``change-the-table``), each change recorded in the
+market's history (ADR 0019).
+
 The rules of a market's life are not rows: an archived market refuses every change, verdicts
 settle on entering assignment, a vendor is added from Assignment on. Each is asked where it
 always was, and refuses whoever may.
@@ -14,10 +19,10 @@ A story that gates a new action adds its row here with ``action(...)`` and asks 
 ``refusal`` or ``may``; it never compares a role itself.
 """
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 import api.permissions as PermissionsApi
-from datatypes import Market, MarketRole, Organization
+from datatypes import Market, MarketPermission, MarketRole, Organization
 
 
 @dataclass(frozen=True)
@@ -107,6 +112,67 @@ CHANGE_THE_TABLE = action(
     "change who may do what on this market", fixed=True)
 
 
+#: Where a row's role came from, as the market read serves it: no row held, copied from the
+#: organization's default when the market was created, or changed on this market by its owner.
+BUILT_IN = "built-in"
+FROM_ORGANIZATION = "organization"
+ON_THIS_MARKET = "market"
+_STORED_SOURCES = (FROM_ORGANIZATION, ON_THIS_MARKET)
+
+
+def held_row(row: Action, rows: Mapping[str, Any]) -> Optional[MarketPermission]:
+    """The market's own row for this action, or None when it reads the built-in default.
+
+    ``rows`` is a market's ``permissions``, as the model holds it or as a raw document stores it.
+    A fixed row is never the market's, whatever is stored; nor is a row whose role or source this
+    build does not know, which reads as no row held rather than failing the market's read.
+    """
+    if row.fixed or not isinstance(rows, Mapping):
+        return None
+    held = rows.get(row.id)
+    if isinstance(held, dict):
+        try:
+            held = MarketPermission(**held)
+        except Exception:
+            return None
+    if not isinstance(held, MarketPermission):
+        return None
+    if held.role not in _ROLE_VALUES or held.source not in _STORED_SOURCES:
+        return None
+    return held
+
+
+_ROLE_VALUES = frozenset(role.value for role in MarketRole)
+
+
+def _minimum_role_of(row: Action, rows: Mapping[str, Any]) -> MarketRole:
+    held = held_row(row, rows)
+    return MarketRole(held.role) if held else row.default
+
+
+def minimum_role(row: Action, market: Market) -> MarketRole:
+    """The lowest role that may take this action on this market: its own row, else the default."""
+    return _minimum_role_of(row, market.permissions)
+
+
+def table(market: Market) -> List[Dict[str, Any]]:
+    """The market's table for display, every row in order: its label and group, the role it asks,
+    its built-in default, where the role came from, and whether it is fixed."""
+    served = []
+    for row in ACTIONS.values():
+        held = held_row(row, market.permissions)
+        served.append({
+            "id": row.id,
+            "group": row.group,
+            "label": row.label,
+            "role": (MarketRole(held.role) if held else row.default).value,
+            "default": row.default.value,
+            "source": held.source if held else BUILT_IN,
+            "fixed": row.fixed,
+        })
+    return served
+
+
 _WHO_MAY = {
     MarketRole.VIEWER: "someone who holds a role",
     MarketRole.EDITOR: "an Editor, an Admin or the owner",
@@ -115,9 +181,10 @@ _WHO_MAY = {
 }
 
 
-def refusal_sentence(row: Action) -> str:
-    """The client-safe sentence a refusal of this row answers with, naming who may."""
-    return f"Only {_WHO_MAY[row.default]} may {row.may_what}."
+def refusal_sentence(row: Action, required: Optional[MarketRole] = None) -> str:
+    """The client-safe sentence a refusal of this row answers with, naming who may: ``required``,
+    the role the row asks on the market refusing, its built-in default when not given."""
+    return f"Only {_WHO_MAY[required or row.default]} may {row.may_what}."
 
 
 def refusal(
@@ -125,22 +192,28 @@ def refusal(
 ) -> Optional[str]:
     """Why this person may not take this action on this market, or None when they may.
 
-    Their role is the one ``get_user_market_role`` resolves: the market's own and the one its
-    organization gives, the higher counting.
+    The row asks the market's role for it (``minimum_role``). The person's role is the one
+    ``get_user_market_role`` resolves: the market's own and the one its organization gives, the
+    higher counting.
     """
-    if PermissionsApi.user_has_permission(user_email, market, row.default, organization):
+    required = minimum_role(row, market)
+    if PermissionsApi.user_has_permission(user_email, market, required, organization):
         return None
-    return refusal_sentence(row)
+    return refusal_sentence(row, required)
 
 
-def role_refusal(row: Action, role: Optional[MarketRole]) -> Optional[str]:
-    """``refusal`` for a role already resolved: the market read resolves the person's role once and
-    asks every row of it, and the markets list resolves each entry's role from the documents it
-    holds (``_summary_role``); each asks the row of that rather than resolving it again.
+def role_refusal(
+    row: Action, role: Optional[MarketRole], rows: Mapping[str, Any],
+) -> Optional[str]:
+    """``refusal`` for a role already resolved, on a market holding ``rows``: the market read
+    resolves the person's role once and asks every row of it, and the markets list resolves each
+    entry's role from the documents it holds (``_summary_role``) and passes the document's stored
+    rows; each asks the row of that rather than resolving it again.
     """
-    if PermissionsApi.role_reaches(role, row.default):
+    required = _minimum_role_of(row, rows)
+    if PermissionsApi.role_reaches(role, required):
         return None
-    return refusal_sentence(row)
+    return refusal_sentence(row, required)
 
 
 def may(

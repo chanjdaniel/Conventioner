@@ -448,14 +448,14 @@ class TestTheRow:
             "read-history", "Reading", "Read the market's history", MarketRole.VIEWER, False)
 
     def test_a_person_with_no_role_is_told_no_by_the_market_read(self):
-        refusals = MarketsApi.role_action_refusals(None, MarketsApi.MarketPhase.DRAFT)
-        viewer = MarketsApi.role_action_refusals(MarketRole.VIEWER, MarketsApi.MarketPhase.DRAFT)
+        refusals = MarketsApi.role_action_refusals(None, MarketsApi.MarketPhase.DRAFT, {})
+        viewer = MarketsApi.role_action_refusals(MarketRole.VIEWER, MarketsApi.MarketPhase.DRAFT, {})
 
         assert refusals["read-history"] == Actions.refusal_sentence(Actions.READ_HISTORY)
         assert viewer["read-history"] is None
 
     def test_an_archived_market_is_still_read(self):
         refusals = MarketsApi.role_action_refusals(
-            MarketRole.VIEWER, MarketsApi.MarketPhase.ARCHIVED)
+            MarketRole.VIEWER, MarketsApi.MarketPhase.ARCHIVED, {})
 
         assert refusals["read-history"] is None
