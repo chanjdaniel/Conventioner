@@ -32,5 +32,5 @@ One line per node, sorted by file name.
 - [The Google Form path](the-google-form-path.md) - P1 and P2: a market whose vendors' responses are imported, from creation to the end
 - [The mixed path](the-mixed-path.md) - P4: an online form plus imported stragglers, not offered
 - [The online path](the-online-path.md) - P3: a market whose vendors apply on its own page, from creation to the end
-- [The vendor drawer](vendor-drawer.md) - one vendor's notes, application, assignments and history, from wherever they appear
+- [The vendor drawer](vendor-drawer.md) - one vendor's notes, application, assignments, payment and history, from wherever they appear
 - [Vendors](vendors.md) - J11, J12, J15: every applicant by vendor, adding one who never applied, why a date was not given, exporting them to a CSV
