@@ -10,17 +10,14 @@
  * history alone, with no filters: the same entries in the same words, narrowed by the server.
  */
 import { computed, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
 import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
+import HistoryEntries from '@/components/HistoryEntries.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
   dayEnds,
   dayStarts,
-  entryChanges,
-  entryParts,
-  entryWhen,
   type MarketHistoryEntry,
   type MarketHistoryGroup,
 } from '@/utils/marketHistory';
@@ -34,6 +31,9 @@ const props = defineProps<{
   /** The market's choice questions (`rejectionQuestions`), so a price group's conditions read in
    *  the card's words (E43/F01/S02). */
   questions?: readonly RejectionQuestion[];
+  /** Counts the changes the dialog holding it has made: each reads the first page again, under
+   * the filters as they are, so the change shows without reopening the dialog. */
+  changesMade?: number;
   /** Only this vendor's entries, for their drawer: the filters are not drawn, and the vendor is
    * named by name alone, as text rather than a link to the drawer that already shows them. */
   vendor?: string | null;
@@ -57,7 +57,8 @@ const groups = ref<MarketHistoryGroup[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
 const loadError = ref('');
-const opened = ref<Set<string>>(new Set());
+/** Counts the first pages read, so a new one draws its entries closed. */
+const firstPages = ref(0);
 
 const actor = ref('');
 const group = ref('');
@@ -169,7 +170,7 @@ async function load(): Promise<void> {
     if (mine !== asking) return;
     entries.value = page.entries ?? [];
     next.value = page.next ?? null;
-    opened.value = new Set();
+    firstPages.value++;
   } catch (err) {
     if (mine !== asking) return;
     loadError.value = getApiErrorMessage(err, 'The history could not be loaded.');
@@ -201,6 +202,7 @@ async function loadMore(): Promise<void> {
 }
 
 watch(() => props.marketId, load, { immediate: true });
+watch(() => props.changesMade, load);
 watch(() => [JSON.stringify(filters.value), vendorMatchesNobody.value], load);
 
 function clearFilters() {
@@ -209,13 +211,6 @@ function clearFilters() {
   vendorText.value = '';
   from.value = '';
   to.value = '';
-}
-
-function toggle(id: string) {
-  const now = new Set(opened.value);
-  if (now.has(id)) now.delete(id);
-  else now.add(id);
-  opened.value = now;
 }
 
 function vendorLink(email: string) {
@@ -311,114 +306,18 @@ const emptyText = computed(() => {
       {{ emptyText }}
     </p>
 
-    <ol v-if="!loading && entries.length" class="history-list">
-      <li
-        v-for="entry in entries"
-        :key="entry.id"
-        class="history-entry"
-        :data-action="entry.action"
-        data-testid="market-history-entry"
-      >
-        <p class="history-what" data-testid="market-history-sentence">
-          <template
-            v-for="(part, index) in entryParts(entry, vendorNames, labels, path)"
-            :key="index"
-          >
-            <template v-if="part.kind === 'text'">{{ part.text }}</template>
-            <!-- The drawer's head names them with their address, so here the name is enough. -->
-            <span
-              v-else-if="part.email.toLowerCase() === ownVendor"
-              class="history-vendor-self"
-              data-testid="market-history-own-vendor"
-              >{{ part.name || part.email }}</span
-            >
-            <RouterLink
-              v-else
-              :to="vendorLink(part.email)"
-              class="history-vendor"
-              data-testid="market-history-vendor-link"
-              >{{ part.name || part.email
-              }}<template v-if="part.name"
-                >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
-              ></RouterLink
-            >
-          </template>
-        </p>
-        <div class="history-meta">
-          <span class="history-when">{{ entryWhen(entry) }}</span>
-          <button
-            type="button"
-            class="history-toggle"
-            :aria-expanded="opened.has(entry.id)"
-            :aria-controls="`market-history-changes-${entry.id}`"
-            data-testid="market-history-toggle"
-            @click="toggle(entry.id)"
-          >
-            {{ opened.has(entry.id) ? 'Hide before and after' : 'Before and after' }}
-          </button>
-        </div>
-        <div
-          v-if="opened.has(entry.id)"
-          :id="`market-history-changes-${entry.id}`"
-          class="history-changes"
-          data-testid="market-history-changes"
-        >
-          <table
-            v-if="entryChanges(entry, labels, path, questions).changed.length"
-            class="history-table"
-          >
-            <thead>
-              <tr>
-                <th scope="col">Field</th>
-                <th scope="col">Before</th>
-                <th scope="col">After</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in entryChanges(entry, labels, path, questions).changed"
-                :key="row.field"
-              >
-                <th scope="row">{{ row.field }}</th>
-                <td v-for="(side, s) in [row.before, row.after]" :key="s">
-                  <template v-if="row.hanging">
-                    <span
-                      v-for="(line, i) in side.split('\n')"
-                      :key="i"
-                      class="history-line"
-                      data-testid="market-history-line"
-                      >{{ line }}</span
-                    >
-                  </template>
-                  <template v-else>{{ side }}</template>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <dl
-            v-if="entryChanges(entry, labels, path, questions).recorded.length"
-            class="history-recorded"
-          >
-            <template
-              v-for="row in entryChanges(entry, labels, path, questions).recorded"
-              :key="row.field"
-            >
-              <dt>{{ row.field }}</dt>
-              <dd>{{ row.value }}</dd>
-            </template>
-          </dl>
-          <p
-            v-if="
-              !entryChanges(entry, labels, path, questions).changed.length &&
-              !entryChanges(entry, labels, path, questions).recorded.length
-            "
-            class="history-note"
-          >
-            Nothing more was recorded about this change.
-          </p>
-        </div>
-      </li>
-    </ol>
+    <HistoryEntries
+      v-if="!loading && entries.length"
+      :key="firstPages"
+      :entries="entries"
+      testid="market-history"
+      :names="vendorNames"
+      :labels="labels"
+      :path="path"
+      :vendor-link="vendorLink"
+      :own-vendor="ownVendor"
+      :questions="questions"
+    />
 
     <p v-if="loadError && entries.length" class="form-error" data-testid="market-history-error">
       {{ loadError }}
@@ -477,135 +376,6 @@ const emptyText = computed(() => {
   margin: 0;
   color: var(--mm-red);
   font-size: var(--text-xs);
-}
-
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.history-entry {
-  border-left: 3px solid var(--mm-border);
-  padding: var(--space-2) 0 var(--space-2) var(--space-3);
-}
-
-.history-what {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-}
-
-.history-vendor {
-  color: var(--mm-green);
-  text-decoration: underline;
-}
-
-/* The drawer's own vendor, named in their own history: no link to where the reader already is. */
-.history-vendor-self {
-  font-weight: 600;
-}
-
-/* The address beside the name, muted, so the line still reads as a sentence. */
-.history-email {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.history-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  margin-top: var(--space-hairline);
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.history-toggle {
-  min-height: var(--target-min);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--mm-green);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.history-changes {
-  margin-top: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-xs);
-  table-layout: fixed;
-}
-
-.history-table th,
-.history-table td {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--mm-border);
-  text-align: left;
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-
-/* Every value keeps its line breaks: a price group's prices and each of its conditions
-   (`groupText`), and as well a vendor note's lines and an Update info answer's, which ran into one
-   before and now read as the drawer shows them. Runs of spaces still collapse. */
-.history-table td {
-  white-space: pre-line;
-}
-
-/* A row whose lines hang (a price group's prices, then each condition): a line that wraps goes on
-   indented under itself, so its tail never reads as a line of its own. */
-.history-line {
-  display: block;
-  padding-left: var(--space-3);
-  text-indent: calc(-1 * var(--space-3));
-}
-
-/* The field's name is a few words; the values beside it are what is read. */
-.history-table thead th:first-child {
-  width: 22%;
-}
-
-.history-table thead th {
-  color: var(--mm-text-muted);
-  font-weight: 400;
-}
-
-.history-table tbody th {
-  font-weight: 600;
-  color: var(--mm-black);
-}
-
-.history-recorded {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  font-size: var(--text-xs);
-}
-
-.history-recorded dt {
-  color: var(--mm-text-muted);
-}
-
-.history-recorded dd {
-  margin: 0;
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
 }
 
 .history-more {

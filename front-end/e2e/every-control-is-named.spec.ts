@@ -237,6 +237,10 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.goto('/organizations');
   await page.getByTestId('organizations-manage-button').first().click();
   await expect(page.getByTestId('manage-org-window')).toBeVisible();
+  // Its History section, an entry opened to its before and after (E40/F02/S01).
+  await page.getByTestId('manage-org-history-toggle').click();
+  await page.getByTestId('org-history-toggle').first().click();
+  await expect(page.getByTestId('org-history-changes')).toBeVisible();
   await named('Manage organization');
   await page.keyboard.press('Escape');
   await page.getByTestId('organizations-create-button').click();

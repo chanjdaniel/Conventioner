@@ -10,6 +10,8 @@ describes:
   - back-end/api/markets.py#get_permission_history
   - back-end/migrations/migrate_placement_history.py
   - back-end/tests/test_every_write_records.py
+  - back-end/api/organizations.py#get_history
+  - back-end/tests/test_the_organizations_history.py
 verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/08
@@ -21,12 +23,13 @@ sources:
   - E39/F01/S04
   - E41/F01/S01
   - E38/F04/S02
+  - E40/F02/S01
   - E38/F06/S01
 ---
 
 # The market's history
 
-The `history` collection: every change on a market, who made it, and when.
+The `history` collection: every change on a market, who made it, and when, and every change to an organization itself ([what an organization records](#what-an-organization-records)).
 [`back-end/history.py`](../../../back-end/history.py) owns it, and every reader and writer goes through it.
 It began as the placement history, because a placement that differs from what the solver produced is a fact someone will later ask about, and a flag saying "hand-placed" cannot answer it.
 
@@ -40,15 +43,15 @@ The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [
 
 ## An entry
 
-Stored snake_case with the market foreign key `market_id`, like applications and unlike markets:
+Stored snake_case with the market foreign key `market_id` (an organization's own change holds `organization_id` instead), like applications and unlike markets:
 
 | Field | What it is |
 | --- | --- |
 | `id` | a UUID |
-| `market_id` | the market |
+| `market_id` | the market; an organization's own change holds `organization_id` in its place, and no `market_id` |
 | `actor` | the address of the signed-in person who made the change; an applicant's own when they submit or edit their application; null for a check-in made on the vendors' public check-in page, which asks only an address and a date and so proves nobody (its detail says `via: check_in_page`) |
 | `at` | ISO 8601, UTC |
-| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks |
+| `action` | the id of the [E39 action](../modules/market-actions.md) the change was, the verb its check asked: `assign` for a placement; `apply` for an applicant's own change, which no row asks; an organization's own change uses one of the history's own verbs instead, since an organization has no table, except a market deleted from it, which keeps the table's `delete-market` ([below](#what-an-organization-records)) |
 | `kind` | the finer kind where one action covers several changes, else null: a placement's is `placed`, `freed`, `swapped` or `assigned` |
 | `vendors` | the lowercased addresses the entry is about, empty for a run |
 | `subject` | what else the entry is about; a placement's is its table-day, `{date, table_codes}`, and a run's is empty |
@@ -99,9 +102,28 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
+### What an organization records
+
+An organization's own changes are entries keyed by `organization_id` (E40/F02/S01), written by `record_for_organization`, which [`back-end/api/organizations.py`](../../../back-end/api/organizations.py), market creation and [`back-end/api/floorplans_templates.py`](../../../back-end/api/floorplans_templates.py) call once the change has landed, under the same guard as `record`.
+An organization has no table of its own, so its actions are the history's own verbs, constants in `history.py`, but for a market deleted from it, which is the table's own row `delete-market`, the verb its check asked; the kinds and details are a market's where the change is the same.
+None names a vendor.
+
+| Action | Kind | The write | Subject | Detail |
+| --- | --- | --- | --- | --- |
+| `change-organization` | `renamed` | renaming the organization | - | `name` |
+| `manage-organization-admins` | `role_given`, `role_changed`, `role_taken` | an admin added, a member made an admin, an admin removed | `user_id`, `email` | `role`: `admin`, `member`, or null |
+| `manage-organization-members` | `role_given`, `role_taken` | a member added or removed | `user_id`, `email` | `role`: `member`, or null |
+| `transfer-organization` | null | ownership handed on, one entry for the one act | `user_id`, `email` of the new owner | `owner`: the old owner's address and the new one's |
+| `create-market` | null | a market created in the organization | `market_id` | `name`, null before |
+| `delete-market` | null | a market of the organization deleted (Manage market's Delete), only by the deletion that took it; its own history goes with it, so its organization's keeps that it went | `market_id` | `name`, null after |
+| `manage-floorplan-templates` | `template_added`, `template_changed`, `template_removed`; `template_moved_out` and `template_moved_in` | a floorplan template filed under the organization; one filed under another organization, or none, records leaving in the one it left and arriving in the one it is filed under, neither naming the other | `template_id`, `name` as it is after (as it was, for one removed) | `name` added or removed; the changed fields of `name`, `table_types` and `aisles`, never an organization's id; a move that changed nothing else, empty |
+| `change-the-default` | `permission_set`, `permission_reset` | a row of the organization's default table, which E39/F02/S01 will write | `action`: the row | `role`, before and after, as the wording reads it |
+
+[`back-end/tests/test_the_organizations_history.py`](../../../back-end/tests/test_the_organizations_history.py) makes each change and asserts its one entry (a template's in [`back-end/tests/test_floorplan_template_access.py`](../../../back-end/tests/test_floorplan_template_access.py)), and fails on a write route under `/organizations` or `/floorplans/templates` that neither records nor says why not; creating an organization and deleting one record nothing.
+
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
-Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose history starts empty; its deletion, which takes the history with it while the [deletion trail](../modules/market-deletion.md) records it; and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.
@@ -137,7 +159,9 @@ The answer carries the vendors' names against their addresses, so the trail read
 
 `GET /markets/:id/permission-history` (`get_permission_history`) serves `permission_entries`: the history narrowed to the changes to the market's table ([what each role may do](../../business/rules/what-each-role-may-do.md)), newest first, each with `id`, `market_id`, `actor`, `at`, `action`, `kind`, `subject` and `detail`; it asks the same row, the history's, as the placements do, and Manage market's Permissions section words it ([`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)).
 
-A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)).
+An organization's own history is read the same way, a page at a time, newest first, by `organization_entries_page` on the [lookup index](lookup-indexes.md) (`organization_id`, `at`, `id`), served by `GET /organizations/:id/history` to the organization's owner, admins and members ([the organization document](organization-document.md#the-organizations-history)); Manage organization's History section words it with the same `marketHistory.ts`.
+
+A market's history is deleted with the market (`delete_for_market`, called by [`back-end/market_deletion.py`](../../../back-end/market_deletion.py)), and an organization's own with the organization (`delete_for_organization`, called by `delete_organization` after the deletion trail is written and the organization's markets are deleted).
 The organizer reads the placements as [the assignment history](../../business/flows/placing-by-hand.md#j13-assignment-history).
 
 ## The move from `placement_history`

@@ -95,11 +95,6 @@ function handleManageClose() {
 function handleManageChanged() {
   loadOrganizations();
 }
-
-function canManage(org: Organization): boolean {
-  const role = org.userRole;
-  return role === 'owner' || role === 'admin';
-}
 </script>
 
 <template>
@@ -137,8 +132,8 @@ function canManage(org: Organization): boolean {
           </template>
           <template #actions>
             <!-- The same Manage as on Markets: it was solid black here and outlined there (bug 43). -->
+            <!-- Every one of its people opens it: a member to read its History (E40/F02/S01). -->
             <button
-              v-if="canManage(org)"
               type="button"
               class="btn btn--secondary"
               data-testid="organizations-manage-button"

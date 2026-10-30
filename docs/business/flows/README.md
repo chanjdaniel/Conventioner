@@ -21,7 +21,7 @@ One line per node, sorted by file name.
 - [Importing a Google Form's responses](import.md) - H2: the import's four steps and every branch of them
 - [The market lifecycle at a glance](lifecycle.md) - the phases on both paths, the page each opens on, the moves and what refuses them
 - [Publishing, and the door on market day](market-day-door.md) - K1 to K5: publishing, the vendor's check-in page and Attendance
-- [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it
+- [Organizations](organizations.md) - B: creating one, its people, renaming and deleting it, and reading its history
 - [Placing by hand](placing-by-hand.md) - J6 to J10, J13: assigning, swapping and freeing a seat, pins, the assignment history
 - [Planning the market](planning.md) - E: Market Setup's dates, tiers, locations, sections, prices and intake, and the setup settling
 - [Reading the market's history](reading-the-markets-history.md) - L6: Manage market's History section, its filters and its pages
