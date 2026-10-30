@@ -827,6 +827,24 @@ def save_rejection_rules(market_id: str) -> Response:
     return jsonify({"rejectionRules": stored}), 200
 
 
+@app.route('/markets/<market_id>/reviewers', methods=['PUT'])
+@login_required
+def choose_reviewers(market_id: str) -> Response:
+    """Choose who reviews this market's applications, and deal the open ones among them
+    (E38/F07/S02).
+
+    Body: { "reviewers": ["sam@example.com", ...] }, the whole team; an empty list removes every
+    reviewer. Answers { "reviewTeam": {"reviewers": [{"email", "able"}]}, "dealt": <count> }.
+
+    The only writer of the market's reviewers.
+    """
+    data = json_object(required=False)
+    if "reviewers" not in data:
+        return jsonify({"error": "reviewers is required"}), 400
+    return jsonify(MarketsApi.choose_reviewers(
+        market_id, data["reviewers"], authenticated_email())), 200
+
+
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])
 @login_required
 def save_application_form(market_id: str) -> Response:

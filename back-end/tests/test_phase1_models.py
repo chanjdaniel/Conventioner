@@ -111,7 +111,7 @@ class TestApplication:
         assert app.application_type == ApplicationType.MAIN
         assert app.main_application_id is None
         assert app.submitted_at is None
-        assert app.assigned_reviewer_id is None
+        assert app.reviewer is None
 
     def test_waitlist_application(self):
         app = Application(
@@ -125,16 +125,16 @@ class TestApplication:
         assert app.application_type == ApplicationType.WAITLIST
         assert app.main_application_id == "main-app-1"
 
-    def test_assigned_reviewer(self):
+    def test_a_reviewer_it_was_dealt_to(self):
         app = Application(
             market_id="market-1",
             applicant_email="vendor@example.com",
             form_data={},
             status=ApplicationStatus.UNDER_REVIEW,
-            assigned_reviewer_id="reviewer-1",
+            reviewer={"user_id": "reviewer-1", "email": "sam@example.com"},
         )
         assert app.status == ApplicationStatus.UNDER_REVIEW
-        assert app.assigned_reviewer_id == "reviewer-1"
+        assert app.reviewer.email == "sam@example.com"
 
 
 class TestMarketDefaults:
@@ -167,7 +167,7 @@ class TestMarketDefaults:
             assignment_object=AssignmentObject(),
         )
         assert market.application_form is None
-        assert market.review_config is None
+        assert market.review_team is None
 
     def test_market_with_application_form(self):
         form = ApplicationForm(fields=[FormField(key="name", label="Name", type="text")])
@@ -178,11 +178,9 @@ class TestMarketDefaults:
             modification_list=[],
             assignment_object=AssignmentObject(),
             application_form=form,
-            review_config={"reviewer_ids": ["r1"]},
         )
         assert market.application_form is not None
         assert len(market.application_form.fields) == 1
-        assert market.review_config == {"reviewer_ids": ["r1"]}
 
     def test_explicit_phase(self):
         market = Market(

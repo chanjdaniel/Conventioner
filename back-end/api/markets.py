@@ -71,6 +71,7 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import rejection_rules as RejectionRules
+import review_team as ReviewTeam
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
@@ -84,6 +85,7 @@ import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
+from utils.email_address import normalized_email
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -945,6 +947,18 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
     }
     market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
+    # Who reviews which application (E38/F07/S02): the chosen reviewers to every reader, never the
+    # turn, which the stored team is served over, and whom this reader may choose from, served only
+    # to someone who may choose them.
+    market_dict['reviewTeam'] = ReviewTeam.served(
+        ReviewTeam.team_of(market), market, context.organization)
+    may_choose = Actions.role_refusal(
+        Actions.CHOOSE_REVIEWERS, user_role, market.permissions) is None
+    market_dict['reviewerCandidates'] = (
+        sorted(person.email for person in reviewer_candidates(
+            market, context.organization, UsersApi.get_user(user_email)))
+        if may_choose else []
+    )
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
@@ -1120,6 +1134,8 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
     # organization's default is copied in here once it has one (E39/F02/S01).
     market_dict["permissions"] = {}
+    # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
+    market_dict["review_team"] = None
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -2364,6 +2380,62 @@ def follow_up_owner(
             market, organization, requester.user_id):
         raise BadRequestError("You can hand a follow-up only to someone named in this market's roles.")
     raise BadRequestError("A follow-up's owner must have a role on this market.")
+
+
+def reviewer_candidates(
+    market: Market, organization: Optional[Organization], chooser: Any,
+) -> List[MarketPerson]:
+    """Whom this person may choose as a reviewer (E38/F07/S02): everyone they may hand a follow-up
+    to (``follow_up_owners_for``), so someone outside the market's organization is never offered
+    its people."""
+    people = []
+    for user_id in PermissionsApi.follow_up_owners_for(
+            market, organization, chooser.id if chooser else None):
+        user = UsersApi.get_user_by_id(user_id)
+        if user:
+            people.append(MarketPerson(user_id=user.id, email=user.email))
+    return people
+
+
+REVIEWERS_SETTLED = (
+    "The review is closed: the verdicts settled when this market entered Assignment, so its "
+    "reviewers no longer change."
+)
+
+
+def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Dict[str, Any]:
+    """Choose who reviews this market's applications, and deal the open ones among them
+    (E38/F07/S02). Asks ``Actions.CHOOSE_REVIEWERS``.
+
+    ``addresses`` is the whole team, in any case and order; an empty list removes every reviewer.
+    Refused on an archived market, once the review has closed, and for an address the chooser is
+    not offered (``reviewer_candidates``, asked of the same list), which the refusal names; a
+    current reviewer they are not offered may stay. Answers the team as the market read serves it, and how many it dealt.
+    """
+    if not isinstance(addresses, list) or not all(isinstance(a, str) for a in addresses):
+        raise BadRequestError("reviewers is a list of addresses")
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHOOSE_REVIEWERS)
+    if not review_is_open(market.phase):
+        raise BadRequestError(REVIEWERS_SETTLED)
+    organization = _load_organization(market.organization_id)
+    chooser = UsersApi.get_user(requesting_user)
+    offered = set(PermissionsApi.follow_up_owners_for(
+        market, organization, chooser.id if chooser else None))
+    current = {
+        normalized_email(person.email): person for person in ReviewTeam.team_of(market).reviewers}
+    chosen = []
+    for address in addresses:
+        person = current.get(normalized_email(address))
+        if person is None:
+            user = UsersApi.get_user(normalized_email(address))
+            if user is None or user.id not in offered:
+                raise BadRequestError(
+                    f"{address.strip()} is not someone you can choose as a reviewer on this "
+                    "market.")
+            person = MarketPerson(user_id=user.id, email=user.email)
+        chosen.append(person)
+    team, dealt = ReviewTeam.choose(market, chosen, requesting_user)
+    return {"reviewTeam": ReviewTeam.served(team, market, organization), "dealt": dealt}
 
 
 def save_rejection_rules(

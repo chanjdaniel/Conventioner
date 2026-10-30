@@ -425,6 +425,35 @@ def reassign_follow_up_owner(app_id: str, owner: MarketPerson) -> bool:
     return result.matched_count > 0
 
 
+# --- Whose share it is (E38/F07/S02, ADR 0020) -----------------------------------------------------
+
+def undecided_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
+    """A market's open applications, the ones a deal hands out, earliest arrival first."""
+    docs = list_applications_for_market(market_id)
+    return _in_arrival_order([doc for doc in docs if doc.get(STATUS_FIELD) in UNDECIDED_STATUSES])
+
+
+def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, Any]]) -> bool:
+    """Deal an application to ``reviewer``, or back to first come, first served with None.
+
+    Written only while it is still open and still dealt to whom the caller read (``was``), so a
+    verdict landing mid-deal is never touched and no other deal is written over. Only
+    ``review_team.py`` calls it.
+    """
+    ensure_application_indexes()
+    update: Dict[str, Any] = (
+        {"$set": {"reviewer": reviewer.model_dump()}} if reviewer
+        else {"$unset": {"reviewer": ""}}
+    )
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         # Null or absent alike, as a verdict's condition reads them.
+         "reviewer": was if was else {"$in": [None]}},
+        update,
+    )
+    return result.matched_count > 0
+
+
 # --- Who is looking at it (E34/F03/S02) ------------------------------------------------------------
 
 #: How long a claim holds without being renewed.

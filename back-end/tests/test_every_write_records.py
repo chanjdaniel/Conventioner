@@ -36,6 +36,7 @@ import api.users as UsersApi  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
+import review_team as ReviewTeam  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
 from datatypes import MarketPerson, MarketPhase  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
@@ -149,7 +150,7 @@ def _account(email: str) -> SimpleNamespace:
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     markets = LiveMarkets()
-    for module in (MarketsApi, AttendanceApi, FloorplansSave):
+    for module in (MarketsApi, AttendanceApi, FloorplansSave, ReviewTeam):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
@@ -359,6 +360,12 @@ def _follow_up_owner(client, world):
                       json={"ownerEmail": SAM})
 
 
+def _choose_reviewers(client, world):
+    # No application open, so the choice deals nothing and records its one entry.
+    world.market(MarketPhase.APPLICATIONS, roles={"user-owner": "owner"})
+    return client.put(f"/markets/{MARKET}/reviewers", json={"reviewers": [OWNER]})
+
+
 def _update_info(client, world):
     world.market(MarketPhase.APPLICATIONS, applicationForm={"fields": [QUESTION]})
     world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
@@ -526,6 +533,8 @@ WRITES = [
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
+    Write("reviewers chosen", "PUT", f"{M}/reviewers", Actions.CHOOSE_REVIEWERS,
+          History.REVIEWERS, _choose_reviewers),
     Write("a vendor's info updated", "PUT", f"{M}/applications/<application_id>/answers",
           Actions.UPDATE_VENDOR_INFO, None, _update_info, vendors=(VENDOR,),
           subject={"application_id": "app-1"},

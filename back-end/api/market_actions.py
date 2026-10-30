@@ -87,6 +87,11 @@ CHANGE_VERDICTS = action(
     "change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
     MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market",
     on_top_of=GIVE_VERDICTS)
+#: Who reviews which application: choosing the reviewers deals the open applications among them
+#: (E38/F07/S02, ADR 0020).
+CHOOSE_REVIEWERS = action(
+    "choose-reviewers", "Applications", "Choose reviewers", MarketRole.ADMIN,
+    "choose this market's reviewers")
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(

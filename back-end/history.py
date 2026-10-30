@@ -83,6 +83,10 @@ EDITED = "edited"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
+# Who reviews which application (E38/F07, ADR 0020): the reviewers chosen, and applications dealt
+# to them - by a change of reviewers, or as they arrive - each under the action that dealt them.
+REVIEWERS = "reviewers"
+DEALT = "dealt"
 
 
 def _now() -> str:
