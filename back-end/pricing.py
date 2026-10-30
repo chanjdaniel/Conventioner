@@ -193,9 +193,15 @@ def pricing_refusal(plan: SetupObject) -> Optional[str]:
 
 
 def pricing_fields(plan: Optional[SetupObject]) -> Dict[str, Any]:
-    """The card's fields in one comparable shape, all None on a market never priced: what the
-    history's ``pricing`` entry records before and after."""
-    pricing = plan.pricing if plan else None
-    if pricing is None:
-        return {"currency": None, "half_table_percent": None, "groups": None, "everyone_else": None}
+    """The card's fields in one comparable shape: what the history's ``pricing`` entry records
+    before and after. A market never priced is the card as it starts (Canadian dollars, half off,
+    no group, no price), so its first price records the prices typed and nothing the organizer
+    did not touch."""
+    pricing = plan.pricing if plan and plan.pricing else PricingObject()
     return pricing.model_dump()
+
+
+def pricing_subject(plan: Optional[SetupObject]) -> Dict[str, Any]:
+    """What a ``pricing`` entry is about beside its fields: the currency its prices are in, which
+    its detail names only when the currency itself changed."""
+    return {"currency": pricing_fields(plan)["currency"]}

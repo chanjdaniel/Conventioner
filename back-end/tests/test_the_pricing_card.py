@@ -185,16 +185,34 @@ class TestTheHistory:
         # The plan's own entry is the other cards': pricing is not repeated there.
         assert not [doc for doc in market_records.history.documents if doc["kind"] == History.PLAN]
 
-    def test_the_first_prices_are_recorded_from_none(self, market, market_records):
+    def test_the_first_prices_are_recorded_from_the_cards_defaults(self, market, market_records):
+        """An unpriced market is the card as it starts, Canadian dollars and half off: the first
+        price records only the prices typed, not a currency and a share nobody touched."""
         market()
 
         MarketsApi.save_plan("market-123", _with(PRICED), "dana@example.com")
 
         [entry] = [doc for doc in market_records.history.documents
                    if doc["kind"] == History.PRICING]
-        assert entry["detail"]["before"] == {
-            "currency": None, "half_table_percent": None, "groups": None, "everyone_else": None}
-        assert entry["detail"]["after"]["everyone_else"][0] == {"tier": "Gold", "cents": 3500}
+        assert entry["detail"] == {
+            "before": {"everyone_else": []},
+            "after": {"everyone_else": [{"tier": "Gold", "cents": 3500},
+                                        {"tier": "Silver", "cents": 3000}]},
+        }
+
+    def test_a_price_entry_names_the_markets_currency(self, market, market_records):
+        """The entry keeps only what changed, so the currency its prices are in rides as its
+        subject, for the History to write the money in it."""
+        market(pricing={**PRICED, "currency": "USD"})
+        dearer = {**PRICED, "currency": "USD",
+                  "everyoneElse": [{"tier": "Gold", "cents": 4000}, {"tier": "Silver", "cents": 3000}]}
+
+        MarketsApi.save_plan("market-123", _with(dearer), "dana@example.com")
+
+        [entry] = [doc for doc in market_records.history.documents
+                   if doc["kind"] == History.PRICING]
+        assert entry["subject"] == {"currency": "USD"}
+        assert "currency" not in entry["detail"]["after"]
 
     def test_restating_the_prices_records_nothing(self, market, market_records):
         market(pricing=PRICED)

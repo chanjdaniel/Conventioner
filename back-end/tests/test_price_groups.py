@@ -401,14 +401,14 @@ class TestTheHistory:
             "prices": [{"tier": "Gold", "cents": 2500}, {"tier": "Silver", "cents": 2200}],
         }
 
-    def test_a_market_never_priced_records_its_first_groups_from_none(self, market, market_records):
+    def test_a_market_never_priced_records_its_first_groups_from_no_group(self, market, market_records):
         market()
 
         MarketsApi.save_plan("market-123", _with(UBC_TABLE), "dana@example.com")
 
         [entry] = [doc for doc in market_records.history.documents
                    if doc["kind"] == History.PRICING]
-        assert entry["detail"]["before"]["groups"] is None
+        assert entry["detail"]["before"]["groups"] == []
         assert len(entry["detail"]["after"]["groups"]) == 3
 
     def test_a_groups_condition_changing_is_recorded(self, market, market_records):

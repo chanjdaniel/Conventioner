@@ -2249,6 +2249,7 @@ def _record_plan(
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   subject=lambda: Pricing.pricing_subject(plan),
                    detail=lambda: History.changes(
                        Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
