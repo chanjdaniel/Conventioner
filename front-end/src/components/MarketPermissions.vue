@@ -205,10 +205,10 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
           >
             <div class="text">
               <span :id="`manage-market-permission-${row.id}`" class="label">{{ row.label }}</span>
-              <span class="note" data-testid="manage-market-permission-source">
+              <span class="caption" data-testid="manage-market-permission-source">
                 {{ row.fixed ? 'Always' : sourceLine(row, history) }}
               </span>
-              <span v-if="selfPromotionNote(row.id)" class="note">
+              <span v-if="selfPromotionNote(row.id)" class="caption">
                 {{ selfPromotionNote(row.id) }}
               </span>
             </div>
@@ -254,7 +254,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         >
           <span class="label change-title">{{ title }}</span>
           <span v-for="line in rows" :key="line" class="change-line">{{ line }}</span>
-          <span class="note">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
+          <span class="caption">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
         </li>
       </ol>
     </div>
@@ -376,7 +376,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   overflow-wrap: anywhere;
 }
 
-.note {
+.caption {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
