@@ -49,12 +49,9 @@ async function seedAHistory(request: APIRequestContext) {
       }),
     );
   }
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications_open');
-  // As an import leaves it, which review waits for.
+  // As an import leaves it, which a Google Form market's stage waits for.
   const applicationId = seedApplicationWithStatus(seed.marketId, 'open', VENDOR);
-  for (const phase of ['applications_closed', 'review']) {
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, phase);
-  }
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'applications');
   await ok(
     await request.put(
       `${BACKEND_URL}/markets/${seed.marketId}/applications/${applicationId}/review`,
@@ -123,15 +120,15 @@ test('every kind of change reads as a sentence, newest first, and older ones loa
     expect.stringMatching(
       new RegExp(`^${me} assigned ${VENDOR} at Hall A 1 \\(Full Table\\) on May 1, 2099$`),
     ),
-    `${me} moved the market from Review to Assignment`,
+    `${me} moved the market from Applications to Assignment`,
     `${me} set ${VENDOR} to Approved`,
   ]);
   expect(first).not.toContain(`${me} changed Market Setup: sections`);
 
   // Older entries come beneath the newest, in the same open dialog.
   await manage.historyLoadMore.click();
-  // The form, the setup change, the renames, four phase moves, the verdict, the assignment, two roles.
-  await expect(manage.historySentences).toHaveCount(2 + RENAMES + 4 + 1 + 1 + 2);
+  // The form, the setup change, the renames, two phase moves, the verdict, the assignment, two roles.
+  await expect(manage.historySentences).toHaveCount(2 + RENAMES + 2 + 1 + 1 + 2);
   const all = await manage.historySentences.allInnerTexts();
   expect(all.slice(-2)).toEqual([
     `${me} changed Market Setup: sections`,

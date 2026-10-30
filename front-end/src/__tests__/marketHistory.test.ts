@@ -108,9 +108,9 @@ describe('what an entry says', () => {
         action: 'move-phase',
         kind: null,
         vendors: [],
-        detail: { before: { phase: 'review' }, after: { phase: 'assignment' } },
+        detail: { before: { phase: 'applications' }, after: { phase: 'assignment' } },
       }),
-    ).toBe('dana@ember.test moved the market from Review to Assignment');
+    ).toBe('dana@ember.test moved the market from Applications to Assignment');
   });
 
   it('words a check-in made on the public page as the vendor’s own', () => {

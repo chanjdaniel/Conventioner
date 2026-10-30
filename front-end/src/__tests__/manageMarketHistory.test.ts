@@ -258,7 +258,7 @@ describe('in Manage market', () => {
     return {
       id: 'market-1',
       name: 'Riverside',
-      phase: MarketPhase.Review,
+      phase: MarketPhase.Applications,
       roles: {},
       actionRefusals: { 'read-history': readHistory },
     } as unknown as Market;
