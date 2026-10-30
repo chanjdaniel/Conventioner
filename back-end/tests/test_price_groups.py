@@ -54,7 +54,7 @@ def _prices(gold, silver):
 
 
 #: The attached Example College table, as an organizer enters it: three groups and "Everyone else".
-UBC_TABLE = {
+EXAMPLE_TABLE = {
     "currency": "CAD",
     "halfTablePercent": 50,
     "groups": [
@@ -74,7 +74,7 @@ UBC_TABLE = {
 }
 
 
-def _market(pricing=UBC_TABLE, fields=FIELDS, phase=MarketPhase.DRAFT):
+def _market(pricing=EXAMPLE_TABLE, fields=FIELDS, phase=MarketPhase.DRAFT):
     plan = copy.deepcopy(GOLD_AND_SILVER)
     plan["pricing"] = copy.deepcopy(pricing)
     return client_market(
@@ -89,7 +89,7 @@ def _price(answers, tier="Gold", choice="Full Table", market=None):
     return groups.price(answers, tier, choice)
 
 
-class TestTheUbcTable:
+class TestTheExampleTable:
     def test_a_student_club_member_pays_the_student_club_price(self):
         answers = {"affiliation": [STUDENT], "clubs": ["Art Club"]}
 
@@ -126,7 +126,7 @@ class TestTheCheapestGroupWins:
 
     def test_the_cheapest_is_judged_at_the_tables_own_tier(self):
         """One group cheaper at Gold, another at Silver: each table-day pays its tier's cheapest."""
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][1]["prices"] = _prices(1100, 1300)
         answers = {"affiliation": [STUDENT], "clubs": ["Art Club"]}
         market = _market(pricing)
@@ -140,14 +140,14 @@ class TestTheCheapestGroupWins:
 
     def test_a_group_dearer_than_everyone_else_still_prices_its_members(self):
         """"Everyone else" is for who matches no group, not a cap."""
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"] = [{"name": "Corporate", "conditions": [
             {"key": "volunteer", "answers": ["not ticked"]}], "prices": _prices(9000, 8000)}]
 
         assert _price({"volunteer": False}, market=_market(pricing)) == (9000, "Corporate")
 
     def test_a_group_with_no_price_at_a_tier_leaves_its_members_to_everyone_else_there(self):
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"] = [pricing["groups"][1] | {"prices": [{"tier": "Gold", "cents": 1500}]}]
         answers = {"affiliation": [STUDENT]}
         market = _market(pricing)
@@ -156,12 +156,12 @@ class TestTheCheapestGroupWins:
         assert _price(answers, "Silver", market=market) == (3000, "Everyone else")
 
     def test_with_no_groups_the_price_names_no_group(self):
-        pricing = {**UBC_TABLE, "groups": []}
+        pricing = {**EXAMPLE_TABLE, "groups": []}
 
         assert _price({"affiliation": [STUDENT]}, market=_market(pricing)) == (3500, None)
 
     def test_a_tier_nobody_prices_has_no_price(self):
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["everyoneElse"] = [{"tier": "Gold", "cents": 3500}]
 
         assert _price({"affiliation": [ALUMNI]}, "Silver", market=_market(pricing)) is None
@@ -180,7 +180,7 @@ class TestWhatAGroupMatches:
             1500, "Example College student only")
 
     def test_a_checkbox_condition(self):
-        pricing = {**UBC_TABLE, "groups": [{"name": "Volunteers", "conditions": [
+        pricing = {**EXAMPLE_TABLE, "groups": [{"name": "Volunteers", "conditions": [
             {"key": "volunteer", "answers": ["ticked"]}], "prices": _prices(500, 400)}]}
         market = _market(pricing)
 
@@ -188,13 +188,13 @@ class TestWhatAGroupMatches:
         assert _price({"volunteer": False}, market=market) == (3500, "Everyone else")
 
     def test_a_group_with_no_condition_matches_nobody(self):
-        pricing = {**UBC_TABLE, "groups": [
+        pricing = {**EXAMPLE_TABLE, "groups": [
             {"name": "Being written", "conditions": [], "prices": _prices(100, 100)}]}
 
         assert _price({"affiliation": [STUDENT]}, market=_market(pricing))[1] == "Everyone else"
 
     def test_a_condition_with_no_answer_ticked_matches_nobody(self):
-        pricing = {**UBC_TABLE, "groups": [{"name": "Being written", "conditions": [
+        pricing = {**EXAMPLE_TABLE, "groups": [{"name": "Being written", "conditions": [
             {"key": "affiliation", "answers": []}], "prices": _prices(100, 100)}]}
 
         assert _price({"affiliation": [STUDENT]}, market=_market(pricing))[1] == "Everyone else"
@@ -221,12 +221,12 @@ class TestBrokenConditions:
         assert Pricing.Groups(_market(fields=fields)).broken() == ["Example College alumni + club member"]
 
     def test_a_condition_on_a_question_answered_in_words_is_broken(self):
-        pricing = {**UBC_TABLE, "groups": [{"name": "Named", "conditions": [
+        pricing = {**EXAMPLE_TABLE, "groups": [{"name": "Named", "conditions": [
             {"key": "business", "answers": ["Acme"]}], "prices": _prices(100, 100)}]}
 
         assert Pricing.Groups(_market(pricing)).broken() == ["Named"]
 
-    def test_the_ubc_table_on_its_own_form_is_whole(self):
+    def test_the_example_table_on_its_own_form_is_whole(self):
         assert Pricing.Groups(_market()).broken() == []
 
     def test_a_market_never_priced_has_nothing_broken(self):
@@ -240,14 +240,14 @@ class TestTheQuestionsTheGroupsRead:
     def test_only_whole_conditions_keys_are_read(self):
         """A broken condition's key is no question of the form, so it never reaches the answers'
         projection, whatever it says."""
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][0]["conditions"].append({"key": "gone", "answers": ["x"]})
 
         assert Pricing.Groups(_market(pricing)).keys() == ["affiliation", "clubs"]
 
     def test_colliding_paths_are_never_projected_together(self, monkeypatch):
         """``a`` beside ``a.b`` is a projection Mongo refuses; only the form's slugs are read."""
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][0]["conditions"] = [
             {"key": "clubs", "answers": CLUBS}, {"key": "clubs.a", "answers": ["x"]}]
         read = []
@@ -311,14 +311,14 @@ class TestThePlanWrite:
     def test_the_groups_round_trip(self, market):
         collection = market()
 
-        MarketsApi.save_plan("market-123", _with(UBC_TABLE), "user-1")
+        MarketsApi.save_plan("market-123", _with(EXAMPLE_TABLE), "user-1")
 
-        assert collection.last_update["$set"]["setupObject"]["pricing"] == UBC_TABLE
+        assert collection.last_update["$set"]["setupObject"]["pricing"] == EXAMPLE_TABLE
 
     def test_a_group_on_a_question_the_form_no_longer_asks_still_saves(self, market):
         """A form change never makes the plan unsavable: the condition is kept, shown broken."""
         collection = market()
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][0]["conditions"][1]["key"] = "gone"
 
         MarketsApi.save_plan("market-123", _with(pricing), "user-1")
@@ -340,7 +340,7 @@ class TestThePlanWrite:
     ])
     def test_it_refuses(self, market, what, change):
         collection = market()
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         change(pricing["groups"][0])
 
         with pytest.raises(BadRequestError):
@@ -352,7 +352,7 @@ class TestThePlanWrite:
         """A key reaches a Mongo projection: only the form's own slugs may (a request value is a
         string, never a query shape)."""
         collection = market()
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][0]["conditions"][1]["key"] = key
 
         with pytest.raises(BadRequestError, match="question"):
@@ -361,7 +361,7 @@ class TestThePlanWrite:
 
     def test_two_groups_with_one_name_are_refused(self, market):
         collection = market()
-        pricing = copy.deepcopy(UBC_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][1]["name"] = "example college student + club member "
 
         with pytest.raises(BadRequestError, match="two groups"):
@@ -369,8 +369,8 @@ class TestThePlanWrite:
         assert collection.last_update is None
 
     def test_after_draft_a_group_change_is_refused(self, market):
-        collection = market(MarketPhase.APPLICATIONS, pricing=UBC_TABLE)
-        pricing = copy.deepcopy(UBC_TABLE)
+        collection = market(MarketPhase.APPLICATIONS, pricing=EXAMPLE_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"].pop()
 
         with pytest.raises(BadRequestError, match="settled"):
@@ -381,10 +381,10 @@ class TestThePlanWrite:
 class TestTheHistory:
     def test_adding_a_group_is_recorded_with_who_when_and_before_and_after(
             self, market, market_records):
-        before = {**UBC_TABLE, "groups": UBC_TABLE["groups"][:2]}
+        before = {**EXAMPLE_TABLE, "groups": EXAMPLE_TABLE["groups"][:2]}
         market(pricing=before)
 
-        MarketsApi.save_plan("market-123", _with(UBC_TABLE), "dana@example.com")
+        MarketsApi.save_plan("market-123", _with(EXAMPLE_TABLE), "dana@example.com")
 
         [entry] = [doc for doc in market_records.history.documents
                    if doc["kind"] == History.PRICING]
@@ -404,7 +404,7 @@ class TestTheHistory:
     def test_a_market_never_priced_records_its_first_groups_from_no_group(self, market, market_records):
         market()
 
-        MarketsApi.save_plan("market-123", _with(UBC_TABLE), "dana@example.com")
+        MarketsApi.save_plan("market-123", _with(EXAMPLE_TABLE), "dana@example.com")
 
         [entry] = [doc for doc in market_records.history.documents
                    if doc["kind"] == History.PRICING]
@@ -412,8 +412,8 @@ class TestTheHistory:
         assert len(entry["detail"]["after"]["groups"]) == 3
 
     def test_a_groups_condition_changing_is_recorded(self, market, market_records):
-        market(pricing=UBC_TABLE)
-        pricing = copy.deepcopy(UBC_TABLE)
+        market(pricing=EXAMPLE_TABLE)
+        pricing = copy.deepcopy(EXAMPLE_TABLE)
         pricing["groups"][0]["conditions"][1]["answers"] = ["Art Club"]
 
         MarketsApi.save_plan("market-123", _with(pricing), "dana@example.com")
@@ -434,7 +434,7 @@ def _row(table_code, slots, tier, choice):
 class TestTheTablesRead:
     def _tables(self, monkeypatch, rows):
         plan = copy.deepcopy(GOLD_AND_SILVER)
-        plan["pricing"] = copy.deepcopy(UBC_TABLE)
+        plan["pricing"] = copy.deepcopy(EXAMPLE_TABLE)
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(stored_market(
             phase=MarketPhase.ASSIGNMENT, setupObject=plan, applicationForm={"fields": FIELDS})))
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)

@@ -55,7 +55,7 @@ const FORM = {
   ],
 };
 
-const UBC_GROUPS = [
+const EXAMPLE_GROUPS = [
   {
     name: 'Example College student + club member',
     conditions: [
@@ -84,7 +84,7 @@ async function ok(res: Awaited<ReturnType<APIRequestContext['get']>>, what: stri
 }
 
 /** A draft market on the vendors' own page, with Gold and Silver and the Example College form's questions. */
-async function seedUbcMarket(request: APIRequestContext) {
+async function seedExampleMarket(request: APIRequestContext) {
   const userId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
   const name = uniqueMarketName('E2E Price Groups');
@@ -111,7 +111,7 @@ async function seedUbcMarket(request: APIRequestContext) {
 }
 
 /** Add a group on the card, as an organizer does: its name, its conditions, its prices. */
-async function addGroup(card: Locator, index: number, group: (typeof UBC_GROUPS)[number]) {
+async function addGroup(card: Locator, index: number, group: (typeof EXAMPLE_GROUPS)[number]) {
   await card.getByTestId('pricing-add-group').click();
   const name = card.getByTestId(`pricing-group-${index}-name`);
   await expect(name).toBeFocused();
@@ -144,14 +144,14 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const { marketId, name: marketName } = await seedUbcMarket(request);
+    const { marketId, name: marketName } = await seedExampleMarket(request);
 
     await page.goto(marketSetupPath(marketId, 'setup'));
     const card = page.getByTestId('plan-card-pricing');
     await expect(card).toBeVisible({ timeout: 15000 });
     await card.getByRole('textbox', { name: 'Everyone else Gold' }).fill('35');
     await card.getByRole('textbox', { name: 'Everyone else Silver' }).fill('30');
-    for (const [index, group] of UBC_GROUPS.entries()) await addGroup(card, index, group);
+    for (const [index, group] of EXAMPLE_GROUPS.entries()) await addGroup(card, index, group);
     // "Everyone else" stays the last row.
     await expect(card.locator('tbody tr th[scope="row"]').last()).toHaveText('Everyone else');
     await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
@@ -160,7 +160,7 @@ test.describe('price groups', () => {
       (await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json()).market.setupObject
         .pricing;
     await expect.poll(stored).toMatchObject({
-      groups: UBC_GROUPS.map((group) => ({
+      groups: EXAMPLE_GROUPS.map((group) => ({
         name: group.name,
         conditions: group.conditions,
         prices: [
@@ -260,7 +260,7 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const { marketId } = await seedUbcMarket(request);
+    const { marketId } = await seedExampleMarket(request);
     await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
       ...PLAN,
       pricing: {
