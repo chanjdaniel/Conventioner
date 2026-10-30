@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14
@@ -24,6 +24,7 @@ sources:
   - E41/F01/S01
   - E40/F01/S04
   - E38/F06/S01
+  - E38/F07/S02
   - T123
 ---
 
@@ -52,7 +53,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35", or with the vendor's price group where the card has groups, "Gold, full table, Example College student + club member, $12" ([a price follows the table](../rules/a-price-follows-the-table.md)).
      "Change assignment" opens the Assignments page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
-   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, and their info updated.
+   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, and their info updated.
      Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.
