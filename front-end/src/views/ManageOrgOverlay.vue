@@ -114,9 +114,6 @@ async function saved(): Promise<void> {
  * "Add admin" and "Add member" open the row they add, and the row carries its own Cancel, as
  * Manage market's "Add user" does: the opening button used to turn into a Cancel of its own, left
  * above the row it cancelled (bug 43, fixed there first).
- *
- * Cancelling clears what was typed and any error: reopening should not hand back a rejected
- * address as though it were still being considered.
  */
 const addAdminButton = ref<HTMLButtonElement | null>(null);
 const addAdminInput = ref<HTMLInputElement | null>(null);
@@ -133,6 +130,10 @@ async function openAddAdmin() {
   addAdminInput.value?.focus();
 }
 
+/**
+ * Cancelling clears what was typed and any error: reopening should not hand back a rejected
+ * address as though it were still being considered.
+ */
 async function closeAddAdmin() {
   showAddAdminForm.value = false;
   newAdminEmail.value = '';
@@ -147,6 +148,7 @@ async function openAddMember() {
   addMemberInput.value?.focus();
 }
 
+/** As `closeAddAdmin`, for the member row. */
 async function closeAddMember() {
   showAddMemberForm.value = false;
   newMemberEmail.value = '';
