@@ -509,6 +509,11 @@ const emptyText = computed(() =>
   overflow-wrap: anywhere;
 }
 
+/* A value of many lines keeps them: the price groups, a paragraph each (`pricingValue`). */
+.history-table td {
+  white-space: pre-line;
+}
+
 .history-table thead th {
   color: var(--mm-text-muted);
   font-weight: 400;

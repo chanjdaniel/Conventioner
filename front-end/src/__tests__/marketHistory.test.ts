@@ -493,7 +493,12 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
         },
       }),
     ).toEqual([
-      { field: 'Price groups', before: 'none', after: 'UBC student only: Gold $15, Silver $13.50' },
+      {
+        field: 'Price groups',
+        before: 'none',
+        after:
+          'UBC student only: Gold $15, Silver $13.50, when affiliation includes Current UBC student',
+      },
       { field: '"Everyone else"', before: 'Gold $35', after: 'Gold $36, Silver $30' },
       { field: "Half table's share", before: '50%', after: '40%' },
     ]);
@@ -511,6 +516,43 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     ).toEqual([
       { field: '"Everyone else"', before: 'Gold US$35', after: 'Gold €35' },
       { field: 'Currency', before: 'USD', after: 'EUR' },
+    ]);
+  });
+
+  it('writes each group on its own line, so a comma in a name never runs two together', () => {
+    const groups = [
+      { name: 'Students, first year', conditions: [], prices: [{ tier: 'Gold', cents: 1000 }] },
+      { name: 'Alumni', conditions: [], prices: [{ tier: 'Gold', cents: 2500 }] },
+    ];
+
+    expect(priced({ before: { groups: [] }, after: { groups } })[0].after).toBe(
+      'Students, first year: Gold $10\n\nAlumni: Gold $25',
+    );
+  });
+
+  it("opens a change of a group's conditions alone to a before and an after that differ", () => {
+    const group = (answers: string[]) => ({
+      name: 'UBC student + club member',
+      conditions: [
+        { key: 'affiliation', answers: ['Current UBC student'] },
+        { key: 'clubs', answers },
+      ],
+      prices: [{ tier: 'Gold', cents: 1200 }],
+    });
+
+    expect(
+      priced({
+        before: { groups: [group(['Art Club'])] },
+        after: { groups: [group(['Art Club', 'Craft Club'])] },
+      }),
+    ).toEqual([
+      {
+        field: 'Price groups',
+        before:
+          'UBC student + club member: Gold $12, when affiliation includes Current UBC student, and clubs includes Art Club',
+        after:
+          'UBC student + club member: Gold $12, when affiliation includes Current UBC student, and clubs includes Art Club or Craft Club',
+      },
     ]);
   });
 

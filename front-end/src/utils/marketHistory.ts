@@ -115,12 +115,25 @@ function pricingValue(key: string, value: unknown, currency: string): string {
   if (value === null || value === undefined) return 'none';
   if (key === 'everyone_else') return tierPrices(value, currency) || 'none';
   if (key === 'groups') {
+    // A group to itself, as a name may hold a comma; its conditions by question key, since the entry
+    // keeps no label, so a change of its conditions alone still reads as a change.
     const groups = Array.isArray(value) ? value.map(asDetail) : [];
     const words = groups.map((group) => {
-      const prices = tierPrices(group.prices, currency);
-      return prices ? `${str(group.name)}: ${prices}` : str(group.name);
+      const conditions = (Array.isArray(group.conditions) ? group.conditions : [])
+        .map(asDetail)
+        .map((condition) => {
+          const answers = Array.isArray(condition.answers) ? condition.answers.map(str) : [];
+          return `${str(condition.key)} includes ${answers.join(' or ') || 'no answer yet'}`;
+        });
+      const parts = [
+        tierPrices(group.prices, currency),
+        conditions.length ? `when ${conditions.join(', and ')}` : '',
+      ].filter(Boolean);
+      return parts.length ? `${str(group.name)}: ${parts.join(', ')}` : str(group.name);
     });
-    return words.join('; ') || 'none';
+    // A blank line between groups: in the narrow cell a group wraps, and one starting on the next
+    // line alone would read as its neighbour's tail.
+    return words.join('\n\n') || 'none';
   }
   if (key === 'half_table_percent') return `${str(value)}%`;
   return valueText(value);
