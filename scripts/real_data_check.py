@@ -5,11 +5,14 @@ machine.
     python scripts/real_data_check.py staged
     python scripts/real_data_check.py commits REV... [--not REV...]
     python scripts/real_data_check.py pre-push REMOTE [URL] < refs
+    python scripts/real_data_check.py tree [REV]
     python scripts/real_data_check.py add-term < names
 
 `staged` reads what `git commit` would record (the pre-commit hook); `commits` reads each commit a
 rev-list range names, its message too (the gate and CI); `pre-push` reads the commits a push sends,
-from the refs git gives the pre-push hook on its stdin. Only added lines count: an email address
+from the refs git gives the pre-push hook on its stdin; these judge only added lines. `tree` reads
+every line of every file a revision's tree holds (HEAD by default), so a name listed since a file
+was committed is found wherever it still stands (the gate and CI). Each refuses an email address
 outside the fixture domains, a phone number shaped like a real one, a MongoDB Atlas host other than
 a placeholder, and, where `.scratch/examples/` holds real exports, an exact email, phone or
 applicant's name from them. Conventioner is public, so a pushed branch is public the moment it
@@ -69,6 +72,7 @@ OPAQUE_SHEETS = (".xls", ".xlsb", ".numbers", ".et", ".sxc")
 # A zip is read for the spreadsheets inside it; the other archives cannot be, so are refused.
 ARCHIVES = (".zip",)
 OPAQUE_ARCHIVES = (".gz", ".tgz", ".bz2", ".xz", ".zst", ".7z", ".rar", ".tar")
+SHEETS_AND_ARCHIVES = TEXT_SHEETS + ZIPPED_SHEETS + OPAQUE_SHEETS + ARCHIVES + OPAQUE_ARCHIVES
 # A text sheet's first record is split on each; the one that gives the most columns is its own.
 DELIMITERS = (",", ";", "\t", "|")
 # Where a spreadsheet or archive this check cannot read may still be committed: the tests' inputs.
@@ -657,6 +661,45 @@ def commit_lines(revisions):
                 yield path, f"{sha[:12]} {path}:{number}", text
 
 
+def blobs(names):
+    """The bytes of each blob named, read through one `git cat-file --batch`."""
+    result = subprocess.run(["git", "cat-file", "--batch"], input="".join(f"{name}\n" for name in names).encode(),
+                            capture_output=True)
+    if result.returncode != 0:
+        raise GitFailed(f"git cat-file --batch: {result.stderr.decode('utf-8', 'replace').strip()}")
+    out, at = result.stdout, 0
+    for _ in names:
+        end = out.index(b"\n", at)
+        size = int(out[at:end].split()[2])
+        yield out[end + 1:end + 1 + size]
+        at = end + 1 + size + 1
+
+
+# What git reads as binary: a NUL in a file's first 8000 bytes.
+BINARY_SNIFF = 8000
+
+
+def tree_lines(revision):
+    """(path, where, text) of every line of every file a revision's tree holds, a spreadsheet's or
+    zip's text as lines; other binaries, the generated lockfiles and submodules are not read."""
+    tree = git("rev-parse", "--verify", "--end-of-options", f"{revision}^{{tree}}").strip()
+    files = []
+    for entry in git("ls-tree", "-r", "-z", "--full-tree", tree).split("\0"):
+        info, _, path = entry.partition("\t")
+        if path and info.split()[1] == "blob" and not path.endswith(UNREAD_FILES):
+            files.append((path, info.split()[2]))
+    for (path, _), data in zip(files, blobs([name for _, name in files])):
+        if path.lower().endswith(SHEETS_AND_ARCHIVES) or b"\0" in data[:BINARY_SNIFF]:
+            for where, text in spreadsheet_lines(path, data):
+                yield path, where, text
+            continue
+        lines = data.split(b"\n")
+        if lines[-1] == b"":
+            lines.pop()
+        for number, line in enumerate(lines, 1):
+            yield path, f"{path}:{number}", text_of(line)
+
+
 def pushed_revisions(refs):
     """The rev-list arguments for what a push sends: its new tips, less what any remote has."""
     tips, sent = [], []
@@ -692,6 +735,8 @@ def main(argv=None):
             lines = staged_lines()
         elif mode == "commits" and args:
             lines = commit_lines(args)
+        elif mode == "tree" and len(args) <= 1:
+            lines = tree_lines(args[0] if args else "HEAD")
         elif mode == "add-term" and not args:
             return add_terms(sys.stdin.read())
         elif mode == "pre-push" and 1 <= len(args) <= 2:

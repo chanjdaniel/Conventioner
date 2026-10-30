@@ -980,6 +980,162 @@ def test_a_bad_revision_is_an_error_not_a_pass(repo):
     assert result.returncode == 2
 
 
+# --- The whole tree ----------------------------------------------------------------------------
+
+
+def phone(area, exchange, line):
+    return f"({area}) {exchange}-{line}"
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [GMAIL, phone(*REAL_PHONE)],
+    ids=["an address outside the fixture domains", "a real-shaped phone"],
+)
+def test_the_tree_fails_on_a_real_looking_row_inside_a_committed_csv(repo, cell):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", f"Email Address,Phone number\nvendor@example.com,\n{cell},\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "real-data-check: back-end/tests/fixtures/vendors.csv:3:" in result.stdout
+    assert GMAIL not in result.stdout and REAL_PHONE[1] not in result.stdout
+
+
+def test_a_clean_tree_passes(repo):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", "Email Address,Phone number\nvendor@example.com,(604) 555-0123\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_tree_judges_every_line_of_a_file_however_long_ago_it_was_committed(repo):
+    commit(repo, "notes.md", f"first\n{GMAIL}\n")
+    commit(repo, "other.md", "fine\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "notes.md:2:" in result.stdout
+
+
+def test_the_tree_is_what_is_committed_not_what_was(repo):
+    commit(repo, "notes.md", f"{GMAIL}\n")
+    commit(repo, "notes.md", "vendor@example.com\n")
+
+    assert check(repo, "tree").returncode == 0
+
+
+def test_the_tree_is_head_by_default_or_the_revision_given(repo):
+    planted = commit(repo, "notes.md", f"{GMAIL}\n")
+    commit(repo, "notes.md", "vendor@example.com\n")
+    stage(repo, "staged.md", f"{GMAIL}\n")  # not committed: the hooks judge it, not the tree
+
+    assert check(repo, "tree").returncode == 0
+    result = check(repo, "tree", planted)
+    assert result.returncode == 1
+    assert "notes.md:1:" in result.stdout
+
+
+def test_a_name_listed_later_is_found_wherever_it_still_stands(listed):
+    commit(listed, "back-end/tests/test_market.py", "MARKET = 'Old Mill Night Fair'\n")
+    commit(listed, "notes.md", "fine\n")
+    assert own_check(listed, "tree").returncode == 0
+
+    added = own_check(listed, "add-term", stdin="Old Mill Night Fair\n")
+    assert added.returncode == 0, added.stderr
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 1
+    assert f"real-data-check: back-end/tests/test_market.py:1: {NAMED}" in result.stdout
+    assert "mill" not in result.stdout.lower()
+
+
+def test_the_tree_fails_on_a_listed_name_inside_a_committed_csv(listed):
+    commit(listed, "back-end/tests/fixtures/form.csv", f"Timestamp,Which club?\n9/27/2025 9:04:01,{LISTED}\n")
+
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/fixtures/form.csv:2: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+@pytest.mark.parametrize(
+    "name", ["README.md", "CHANGELOG.md", "docs/records/MVP_TEST_RUN_2026-11-01.md", TERMS]
+)
+def test_the_tree_lets_a_listed_name_stand_where_the_real_market_may_be_named(listed, name):
+    path = listed / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as file:
+        file.write(f"{LISTED}\n")
+    git(listed, "add", "-f", name)
+    git(listed, "commit", "-q", "--no-verify", "-m", "docs: name it")
+
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_tree_reads_a_committed_workbook_and_a_zipped_export(repo):
+    stage_bytes(repo, "vendors.xlsx", xlsx([["Email Address"], [GMAIL]]))
+    stage_bytes(repo, "downloads/responses.zip", zipped({"responses.csv": f"Email Address\n{GMAIL}\n"}))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "vendors.xlsx [sheet 1, row 2, column 1]:" in result.stdout
+    assert "downloads/responses.zip > responses.csv:2:" in result.stdout
+
+
+def test_the_tree_reads_a_utf16_csv_as_text(repo):
+    stage_bytes(repo, "export.csv", f"Email Address\n{GMAIL}\n".encode("utf-16"))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: export")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "export.csv:2:" in result.stdout
+
+
+def test_the_tree_refuses_a_spreadsheet_it_cannot_read_outside_the_fixtures(repo):
+    stage_bytes(repo, "vendors.xls", b"\xd0\xcf\x11\xe0 not really")
+    stage_bytes(repo, "back-end/tests/fixtures/legacy.xls", b"\xd0\xcf\x11\xe0 not really")
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "vendors.xls: a spreadsheet this check cannot read (.xls)" in result.stdout
+    assert "legacy.xls" not in result.stdout
+
+
+def test_the_tree_skips_other_binaries_and_the_lockfile(repo):
+    stage_bytes(repo, "front-end/public/logo.png", b"\x89PNG\r\n\x1a\n\x00\x00" + GMAIL.encode())
+    stage(repo, "front-end/package-lock.json", f'{{"author": "{GMAIL}"}}\n')
+    git(repo, "commit", "-q", "--no-verify", "-m", "chore: assets")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_tree_fails_on_an_exact_value_from_a_real_export(repo):
+    with_fake_export(repo)
+    commit(repo, "back-end/tests/test_vendors.py", "first\nNAME = 'Wren Okafor'\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "back-end/tests/test_vendors.py:2: an applicant's name from a real export" in result.stdout
+
+
+def test_the_tree_of_a_bad_revision_is_an_error_not_a_pass(repo):
+    assert check(repo, "tree", "no-such-revision").returncode == 2
+
+
 # --- The hooks and the setup step --------------------------------------------------------------
 
 
@@ -1150,3 +1306,23 @@ def test_the_ci_jobs_command_fails_a_pr_adding_a_listed_name(listed):
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert f"{head[:12]} message:1: {NAMED}" in result.stdout
+
+
+@pytest.mark.parametrize("address, code", [(GMAIL, 1), ("vendor@example.com", 0)])
+def test_the_ci_jobs_tree_step_fails_on_real_data_already_on_the_base_branch(repo, address, code):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", f"Email Address\n{address}\n")
+    git(repo, "update-ref", "refs/remotes/origin/dev", "HEAD")
+    head = commit(repo, "notes.md", "fine\n")  # the PR adds nothing real: its commits pass
+    command = ci_step("No real data anywhere in the tree")
+    assert command.startswith("python scripts/real_data_check.py ")
+    command = command.replace("python scripts/real_data_check.py", f"{sys.executable} {CHECKER}", 1)
+
+    result = subprocess.run(
+        [BASH, "-c", command],
+        cwd=repo,
+        env={"PATH": "/usr/bin:/bin", "BASE_REF": "dev", "HEAD_SHA": head},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == code, result.stdout + result.stderr
