@@ -160,7 +160,8 @@ def minimum_role(row: Action, market: Market) -> MarketRole:
 
 def table(market: Market) -> List[Dict[str, Any]]:
     """The market's table for display, every row in order: its label and group, the role it asks,
-    its built-in default, where the role came from, and whether it is fixed."""
+    its built-in default, where the role came from, whether it is fixed, and what the action is
+    after "may", for Manage market's confirmation of a change (E39/F01/S04)."""
     served = []
     for row in ACTIONS.values():
         held = held_row(row, market.permissions)
@@ -172,6 +173,7 @@ def table(market: Market) -> List[Dict[str, Any]]:
             "default": row.default.value,
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
+            "mayWhat": row.may_what,
         })
     return served
 

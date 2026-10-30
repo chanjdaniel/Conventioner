@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { IntakeMode, type Market, MarketPhase, MarketRole } from '@/assets/types/datatypes';
+import {
+  IntakeMode,
+  type Market,
+  MarketPhase,
+  MarketRole,
+  type PermissionTableRow,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import MarketPermissions from '@/components/MarketPermissions.vue';
 import MarketHistory from '@/components/MarketHistory.vue';
 import IconExpandDown from '@/components/icons/IconExpandDown.vue';
 import IconExpandUp from '@/components/icons/IconExpandUp.vue';
@@ -232,6 +239,11 @@ function handleDeleteCancel() {
   deleteError.value = '';
 }
 
+/** A change to who may do what answers the table, which this copy of the market then shows. */
+function handleTableChanged(table: PermissionTableRow[]) {
+  if (marketData.value) marketData.value = { ...marketData.value, permissionTable: table };
+}
+
 /** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
 function closeAddUser() {
   showAddUserForm.value = false;
@@ -274,6 +286,7 @@ function closeAddUser() {
               <select
                 v-else
                 :value="role"
+                :name="`role-${userId}`"
                 :aria-label="`${email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
@@ -324,6 +337,8 @@ function closeAddUser() {
             <input
               v-model="newUserEmail"
               type="email"
+              name="email"
+              autocomplete="off"
               placeholder="User email"
               aria-label="Email of the person to add"
               class="field"
@@ -331,6 +346,7 @@ function closeAddUser() {
             />
             <select
               v-model="newUserRole"
+              name="role"
               aria-label="Their role"
               class="field field--select"
               data-testid="manage-market-add-user-select"
@@ -362,8 +378,15 @@ function closeAddUser() {
         </form>
       </section>
 
+      <!-- Who may do what on this market (E39/F01/S04): closed until opened, since the table and
+           its changes would double the dialog's length for everyone who came to add a person. -->
+      <MarketPermissions
+        v-if="marketData.permissionTable?.length"
+        :market="marketData"
+        @changed="handleTableChanged"
+      />
       <!-- Every change on the market, newest first, a page at a time (E40/F01/S03): after the
-           people, where Permissions will stand beside it (E39/F01/S04). -->
+           people and who may do what (E39/F01/S04). -->
       <section v-if="canReadHistory" class="section" data-testid="manage-market-history">
         <h3 :class="{ 'section-heading--closed': !historyOpen }">
           <button
@@ -412,6 +435,8 @@ function closeAddUser() {
         <form v-else class="rename-row" @submit.prevent="handleRename">
           <input
             v-model="renameValue"
+            name="name"
+            autocomplete="off"
             class="field"
             aria-label="Market name"
             data-testid="manage-market-rename-input"

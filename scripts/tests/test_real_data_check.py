@@ -3,6 +3,7 @@ test's own, on fake data only. The "real export" here is a CSV the test writes i
 repository's ignored .scratch/examples/."""
 
 import csv
+import importlib.util
 import io
 import re
 import shutil
@@ -700,29 +701,31 @@ def test_an_accented_name_is_not_matched_by_a_part_of_it(repo):
     assert check(repo, "staged").returncode == 0
 
 
-# --- The anonymiser's output -------------------------------------------------------------------
+# --- The generator's output --------------------------------------------------------------------
 
 
-def test_the_anonymisers_output_passes_the_check(repo, tmp_path):
-    phone = "({}) {}-{}".format(*REAL_PHONE)
-    source = tmp_path / "export.csv"
-    source.write_text(
-        "Timestamp,Email Address,Full name,Phone number,Comments\n"
-        + "".join(
-            f"9/27/2025 9:0{i}:01,{at(f'vendor.{i}', 'gmail.com')},Wren Okafor{i},{phone[:-1]}{i},Call {phone}\n"
-            for i in range(4)
-        )
-    )
-    anonymiser = REPO / "back-end" / "tests" / "fixtures" / "anonymise_form_export.py"
-    made = subprocess.run(
-        [sys.executable, str(anonymiser), str(source), str(repo / "fixture.csv")], capture_output=True, text=True
-    )
-    assert made.returncode == 0, made.stderr
-    git(repo, "add", "fixture.csv")
+def test_the_synthetic_corpus_passes_the_check(repo):
+    """Every file the corpus generator writes is staged as it is committed, and passes."""
+    script = REPO / "back-end" / "tests" / "fixtures" / "synthetic_form_exports.py"
+    spec = importlib.util.spec_from_file_location("synthetic_form_exports", script)
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    for form in generator.FORMS:
+        stage_bytes(repo, form.file, form.bytes())
 
     result = check(repo, "staged")
 
     assert result.returncode == 0, result.stdout
+
+
+def test_a_refusal_sends_a_fixture_to_the_generator_never_to_a_real_export(repo):
+    stage(repo, "fixture.csv", f"Email Address\n{GMAIL}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert "A real export never becomes test data in any form" in result.stdout
+    assert "back-end/tests/fixtures/synthetic_form_exports.py" in result.stdout
 
 
 # --- Commits -----------------------------------------------------------------------------------

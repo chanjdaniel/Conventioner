@@ -12,6 +12,7 @@ describes:
   - back-end/tests/test_every_screen_asks_the_table.py
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
+  - back-end/api/markets.py#reset_permissions
   - back-end/api/markets.py#get_permission_history
   - back-end/tests/test_the_market_keeps_its_own_rows.py
 verified: 2026-10-30
@@ -20,6 +21,7 @@ sources:
   - E39/F01/S01
   - E39/F01/S02
   - E39/F01/S03
+  - E39/F01/S04
   - E42/F01/S01
   - E40/F01/S03
   - E41/F01/S01
@@ -79,7 +81,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
-| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`) |
+| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
@@ -92,16 +94,17 @@ A row the market does not hold reads its default, so a market without the field 
 Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
 `create_market` writes `permissions: {}` whatever the create body carried.
 
-**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`) and whether it is `fixed`.
-A control asks `actionRefusals`, never this.
+**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words.
+Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
-**One write, the owner's only**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), and `DELETE` on the same path returns it to its built-in default (`reset_permission`); each answers the market's table.
-Both load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.
+**The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), and `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04); each answers the market's table.
+All three load through `_load_market_to_change` with the fixed row `change-the-table`, so anyone but the market's one owner is refused with "Only the market's owner may change who may do what on this market." (an organization's owner and admins hold Admin, never Owner), and so is an archived market, in the archived rule's words.
 Then the row: one the table does not have is "This market's table has no such row.", a fixed one "Who may take the row "<label>" is fixed, so it cannot be changed.", and a role other than the four stored values is "A row's role is one of viewer, editor, admin or owner."; every refusal is a 400 or 403 with its sentence, and stores and records nothing.
-Setting the role a row already asks, or resetting a row the market does not hold, stores and records nothing.
-Setting writes `permissions.<action>` to `{role, source: market}`, and resetting unsets it, whether it was changed here or copied from the organization.
+Setting the role a row already asks, resetting a row the market does not hold, or resetting a market that holds no row it can read, stores and records nothing.
+Setting writes `permissions.<action>` to `{role, source: market}`, and resetting unsets it, whether it was changed here or copied from the organization; resetting every row unsets exactly the rows it returns, in one write, so a stored row this build cannot read stays as the per-row reset leaves it, and is not in the entry.
+Mongo cannot set a key inside a stored null or string, so setting a row on a market whose stored `permissions` is not a map, which the read takes as no rows held, writes the whole map holding that row.
 
-**Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`.
+**Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`; a reset of every row is one entry of kind `permission_table_reset`, no subject, and detail `{before, after}`, each a map from every row it returned to its `{role, source}`.
 `GET /markets/:id/permission-history` (`get_permission_history`, at the history's row, `read-history`) answers `{entries}`, the market's history narrowed to them, newest first.
 [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
 
@@ -111,7 +114,7 @@ Setting writes `permissions.<action>` to `{role, source: market}`, and resetting
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
-The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage on the row that gives roles.
+The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04).
 
 **`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 

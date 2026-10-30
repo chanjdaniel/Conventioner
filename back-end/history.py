@@ -59,6 +59,7 @@ APPLY = "apply"
 # with its subject and detail.
 RENAMED = "renamed"
 PLAN = "plan"
+PRICING = "pricing"
 FLOORPLAN = "floorplan"
 FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
 FORM = "form"
@@ -82,6 +83,7 @@ SUBMITTED = "submitted"
 EDITED = "edited"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
+PERMISSION_TABLE_RESET = "permission_table_reset"
 
 
 def _now() -> str:

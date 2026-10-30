@@ -794,6 +794,15 @@ def reset_market_permission(market_id: str, action_id: str) -> Response:
     return jsonify({"permissionTable": table}), 200
 
 
+@app.route('/markets/<market_id>/permissions', methods=['DELETE'])
+@login_required
+def reset_market_permissions(market_id: str) -> Response:
+    """Return every row of the market's table to its built-in default, as its owner (E39/F01/S04).
+    Asks ``Actions.CHANGE_THE_TABLE``; one entry in the market's history. Answers the table."""
+    table = MarketsApi.reset_permissions(market_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
 @app.route('/markets/<market_id>/permission-history', methods=['GET'])
 @login_required
 def get_market_permission_history(market_id: str) -> Response:

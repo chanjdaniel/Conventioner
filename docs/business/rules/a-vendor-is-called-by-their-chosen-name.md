@@ -33,7 +33,7 @@ At a door someone is reading it off a phone.
 Names arrived after markets had applications, so a market whose applications carry none must look no worse than it did; the fallback to the address is that floor.
 
 **The name is one field, a person's.**
-The names organizers already collect arrive whole (the Fall 2025 export's "Full Legal Name" and "Preferred Name" both hold whole names), so a first-and-last split would guess, and get every "van der Berg" wrong.
+The names organizers already collect arrive whole (a Google Form's "Full Legal Name" question holds a whole name in one answer), so a first-and-last split would guess, and get every "van der Berg" wrong.
 A trading name is not an essential question; an organizer who wants one asks it as their own question, and the search on the results finds a short text answer too.
 
 **The name is essential because identity is, not because the solver reads it.**
