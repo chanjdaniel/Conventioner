@@ -50,6 +50,11 @@ const props = withDefaults(
      * sizes is a decision, and a percentage per dialog is what the product had.
      */
     wide?: boolean;
+    /**
+     * A dialog whose body grows as it is used (a field's error appearing as a key is typed) holds
+     * its top where it opened, rather than its centre, so nothing under the pointer moves.
+     */
+    anchored?: boolean;
     /** An error about the submission as a whole. Field errors belong beneath their field. */
     error?: string;
   }>(),
@@ -142,6 +147,7 @@ watch(
   <div
     ref="modalRoot"
     class="dialog-container"
+    :class="{ 'dialog-container--anchored': anchored }"
     :style="{ visibility: open ? 'visible' : 'hidden' }"
   >
     <div
@@ -223,6 +229,15 @@ watch(
   justify-content: center;
   align-items: center;
   z-index: 100;
+}
+
+.dialog-container--anchored {
+  align-items: flex-start;
+  padding-top: var(--space-12);
+}
+
+.dialog-container--anchored .dialog-window {
+  max-height: calc(100vh - var(--space-12) - var(--space-6));
 }
 
 .dialog-scrim {

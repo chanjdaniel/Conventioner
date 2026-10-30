@@ -9,7 +9,11 @@ update of the market document, everything the ledger holds:
   text, key, type, required flag and the options kept, and the rankings no column answers declared
   not asked;
 - **the import mapping**, in the import's own format (``csv_import.mapping_payload``), so the first
-  import of a later export opens with every column restored and every value matched.
+  import of a later export opens with every column restored and every value matched;
+- **the example file's columns** (E38/F02/S01): for each column that became a question of the
+  organizer's own or was left out, its label, help text, key and both readings of its answers as
+  choices, privacy-filtered (``csv_proposal.kept_readings``), so the Questions tab can fill a
+  question's options, or add one from a left-out column, without the file.
 
 It writes through the same judgements as the plan's and the form's own writes
 (``prepared_plan``, ``prepared_application_form``) - the form lock above all - and then as one
@@ -17,8 +21,8 @@ It writes through the same judgements as the plan's and the form's own writes
 confirm either writes all of it or none of it.
 
 The file is sent again rather than kept between the proposal and the confirm: the server never
-stores it, and re-reading it is how confirm knows the columns without trusting the browser's copy
-of them. The organizer's choices are the only thing the request adds.
+stores it, only the readings above, and re-reading it is how confirm knows the columns without
+trusting the browser's copy of them. The organizer's choices are the only thing the request adds.
 """
 import copy
 from datetime import date
@@ -128,6 +132,33 @@ def _form(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]]) -> Dict[
     return {"fields": fields, "unasked_essentials": unasked}
 
 
+def _example_columns(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]],
+                     form: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """What the start keeps of each column that became a question or was left out, in file order.
+
+    Never who applied, when, or an essential question: none is a question to add or retype. A
+    question's type is the one written, a left-out column's the one the organizer last chose.
+    """
+    by_row = {c["index"]: c for c in proposal["columns"]}
+    ledger = _ledger_rows(proposal["columns"])
+    written = {f["key"]: f["type"] for f in form["fields"]}
+    kept = []
+    for first, choice in sorted(choices.items()):
+        field = by_row[first]["field"]
+        if not field or choice["fate"] not in (CsvProposal.FATE_CUSTOM, CsvProposal.FATE_LEFT_OUT):
+            continue
+        kept.append({
+            "headers": [str(by_row[index]["header"]).strip() for index in ledger[first]],
+            "key": field["key"], "label": field["label"], "helpText": field["helpText"],
+            "type": written.get(field["key"], choice["type"]
+                                if choice["type"] in MarketsApi.VALID_FORM_FIELD_TYPES
+                                else field["type"]),
+            "question": choice["fate"] == CsvProposal.FATE_CUSTOM,
+            "options": CsvProposal.kept_readings(field),
+        })
+    return kept
+
+
 def _date_in_year(found: Dict[str, Any], year: int) -> Optional[str]:
     try:
         return date(year, found["month"], found["day"]).isoformat()
@@ -230,8 +261,8 @@ class Confirmed(NamedTuple):
 
 def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
                      body: Dict[str, Any]) -> Confirmed:
-    """The one ``$set`` confirm writes: plan, form and mapping, judged but not yet written, with the
-    file's row and column counts and the questions the form asks.
+    """The one ``$set`` confirm writes: plan, form, mapping and the example file's columns, judged
+    but not yet written, with the file's row and column counts and the questions the form asks.
 
     Raises ``ConfirmRefused`` for a request that cannot be written, and lets the plan's and the
     form's own writers raise for what they refuse (``BadRequestError``, ``ApplicationFormLockedError``).
@@ -280,11 +311,19 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     settled = {kind: values for kind, values in (body.get("settled") or {}).items()
                if isinstance(values, dict)}
     resolutions = _resolutions(would_be, csv_content, mapping, proposal, year, settled)
+    # A left-out column is saved under the key a question made from it would have: the import
+    # restores only the targets the form has, so it waits there until the organizer adds that
+    # question from the Questions tab (E38/F02/S02), and the first import then restores it too.
+    for first, choice in choices.items():
+        field = by_row[first]["field"]
+        if field and choice["fate"] == CsvProposal.FATE_LEFT_OUT and field["key"] not in mapping:
+            mapping[field["key"]] = ledger[first]
     return Confirmed(
         update={
             **plan_update,
             market_doc_key("application_form"): form,
             market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by=MappingAuthor.START),
+            market_doc_key("example_columns"): _example_columns(proposal, choices, form),
         },
         counts={
             "row_count": len(rows),
