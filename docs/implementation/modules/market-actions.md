@@ -98,7 +98,7 @@ A row the market does not hold reads its default, so a market without the field 
 Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
 `create_market` writes `permissions: {}` whatever the create body carried.
 
-**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words.
+**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), which a screen that says who may reads through `whoMayTake` (E38/F06/S01).
 Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
 **The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), and `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04); each answers the market's table.
