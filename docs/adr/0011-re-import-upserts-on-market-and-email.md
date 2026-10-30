@@ -5,7 +5,7 @@ describes:
   - back-end/csv_import.py#_would_return_to_review
   - back-end/csv_import.py#_merge_shape
   - back-end/essential_fields.py#solver_relevant_change
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/05
   - E01/F03
