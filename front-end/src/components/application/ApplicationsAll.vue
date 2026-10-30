@@ -23,7 +23,9 @@ import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  heldElsewhere as heldBySomeoneElse,
   reviewAnswers,
+  selectAll,
 } from '@/utils/reviewQueue';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
@@ -35,6 +37,7 @@ import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import ListFreshness from '@/components/application/ListFreshness.vue';
 
 const props = defineProps<{ market: Market | null }>();
 
@@ -47,13 +50,25 @@ const marketId = computed(() => props.market?.id ?? '');
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
+/** When the list was last read from the server, by any of the reads below (E38/F05/S03). */
+const readAt = ref<number | null>(null);
+const refreshing = ref(false);
+const refreshError = ref('');
+
+/** The one read: the list, and when. A list read is no longer one that failed to load. */
+async function read() {
+  applications.value = await fetchMarketApplications(marketId.value);
+  readAt.value = Date.now();
+  errorMessage.value = '';
+  refreshError.value = '';
+}
 
 async function load() {
   if (!marketId.value) return;
   loading.value = true;
   errorMessage.value = '';
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -65,16 +80,36 @@ watch(marketId, () => void load(), { immediate: true });
 /**
  * Read again every half minute while the tab is in view, so who holds what and what others decided
  * show without a reload (E34/F03/S02) - a tick is refused rather than written over someone's card,
- * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list.
+ * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list,
+ * and the time it was last read goes on ageing on screen.
  */
 const REREAD_MS = 30_000;
 let rereading: ReturnType<typeof setInterval> | null = null;
 async function reread() {
   if (!marketId.value || document.visibilityState !== 'visible' || saving.value) return;
   try {
-    applications.value = await fetchMarketApplications(marketId.value);
+    await read();
   } catch {
     // The list on screen stands; the next re-read tries again.
+  }
+}
+
+/**
+ * Refresh, at once (E38/F05/S03): a re-read, not a reset - the ticks of rows still shown stay, as
+ * on every re-read - and a failed one says so beside the button and keeps the list.
+ */
+async function refresh() {
+  // Not while a verdict is being written, as the background re-read waits too.
+  if (!marketId.value || refreshing.value || saving.value) return;
+  refreshing.value = true;
+  try {
+    await read();
+    // The rail counts what is left as well: it should agree with the list just read.
+    void marketStore.refresh();
+  } catch {
+    refreshError.value = 'Could not refresh. The list is as it was last read.';
+  } finally {
+    refreshing.value = false;
   }
 }
 onMounted(() => (rereading = setInterval(() => void reread(), REREAD_MS)));
@@ -208,25 +243,42 @@ watch(
 // --- A verdict on a selection (E34/F04/S02) ---------------------------------------------------
 
 /**
- * The ticked applications. Only ever what the reviewer ticked: there is no action on "everything
- * matching the filter", so no verdict reaches an application nobody looked at the row of.
+ * The ticked applications. Only ever rows ticked on screen, one by one or by Select all, which
+ * ticks the rows shown (E38/F05/S02): there is no action on "everything matching" beyond them, so
+ * no verdict reaches an application whose row was not in front of the reviewer, counted.
  */
 const selected = ref<Set<string>>(new Set());
 /** One another reviewer has open cannot be ticked; it says who. */
 function heldElsewhere(app: Application): string | null {
-  const holder = app.heldBy?.email;
-  return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+  return heldBySomeoneElse(app, me.value);
 }
+/** How many rows Select all left unticked because someone else has them open, to say so. */
+const skippedHeld = ref(0);
 function toggle(app: Application, ticked: boolean) {
   const next = new Set(selected.value);
   if (ticked) next.add(app.id);
   else next.delete(app.id);
   selected.value = next;
+  skippedHeld.value = 0;
 }
+function tickAllShown() {
+  const { ids, skipped } = selectAll(shown.value, me.value);
+  selected.value = new Set(ids);
+  skippedHeld.value = skipped;
+}
+function clearSelection() {
+  selected.value = new Set();
+  skippedHeld.value = 0;
+}
+// Another filter is another set of rows: what Select all skipped was said of the last one.
+watch([filter, mine], () => (skippedHeld.value = 0));
 // A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
 watch(shown, (rows) => {
   const visible = new Set(rows.map((a) => a.id));
   selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+  // What Select all left out is said only while it is still held: a re-read that shows a row let
+  // go, or gone, says fewer (E38/F05/S02).
+  skippedHeld.value = Math.min(skippedHeld.value, rows.filter((a) => heldElsewhere(a)).length);
 });
 
 const VERDICT_WORDS: Partial<Record<ApplicationStatus, { verb: string; done: string }>> = {
@@ -254,7 +306,7 @@ async function decideSelection() {
     const answer = await reviewSelection(props.market.id, picked, status);
     result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
     asking.value = null;
-    selected.value = new Set();
+    clearSelection();
     await load();
     void details.load();
     void marketStore.refresh();
@@ -266,45 +318,83 @@ async function decideSelection() {
 
 <template>
   <div class="all-view" data-testid="applications-all">
-    <div class="all-filters">
-      <div class="all-status" role="group" aria-label="Show applications">
-        <button
-          v-for="option in ALL_VIEW_FILTERS"
-          :key="option.id"
-          type="button"
-          class="btn btn--compact"
-          :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
-          :aria-pressed="option.id === filter"
-          :data-testid="`applications-all-filter-${option.id}`"
-          @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+    <ListFreshness
+      :readAt="readAt"
+      :refreshing="refreshing || saving"
+      :failed="refreshError"
+      @refresh="refresh"
+    />
+    <!-- Named by the words over it, with what the statuses that are not plain mean (E38/F05/S01). -->
+    <div class="all-filter-group">
+      <span id="applications-all-filter-label" class="field-label">Filter</span>
+      <div class="all-filters">
+        <div
+          class="all-status"
+          role="group"
+          aria-labelledby="applications-all-filter-label"
+          aria-describedby="applications-all-filter-hint"
         >
-          {{ option.label }}
+          <button
+            v-for="option in ALL_VIEW_FILTERS"
+            :key="option.id"
+            type="button"
+            class="btn btn--compact"
+            :class="option.id === filter ? 'btn--primary' : 'btn--secondary'"
+            :aria-pressed="option.id === filter"
+            :data-testid="`applications-all-filter-${option.id}`"
+            @click="setQuery({ status: option.id === 'all' ? null : option.id })"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <label class="all-mine">
+          <input
+            type="checkbox"
+            :checked="mine"
+            data-testid="applications-all-mine"
+            @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
+          />
+          Mine: the follow-ups I own
+        </label>
+        <span class="all-count" data-testid="applications-all-count">
+          {{ shown.length }} of {{ applications.length }}
+        </span>
+        <button
+          v-if="mayExport"
+          type="button"
+          class="btn btn--secondary btn--compact"
+          data-testid="applications-all-export-button"
+          @click="openExport"
+        >
+          Export
         </button>
       </div>
-      <label class="all-mine">
-        <input
-          type="checkbox"
-          :checked="mine"
-          data-testid="applications-all-mine"
-          @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
-        />
-        Mine: the follow-ups I own
-      </label>
-      <span class="all-count" data-testid="applications-all-count">
-        {{ shown.length }} of {{ applications.length }}
-      </span>
-      <button
-        v-if="mayExport"
-        type="button"
-        class="btn btn--secondary btn--compact"
-        data-testid="applications-all-export-button"
-        @click="openExport"
-      >
-        Export
-      </button>
+      <p id="applications-all-filter-hint" class="all-filter-hint">
+        Open is not decided yet. Needs follow-up waits on someone reaching out to the applicant.
+      </p>
     </div>
 
-    <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
+    <!-- The rows shown, ticked at once (E38/F05/S02); a reviewer's, as the ticks are. -->
+    <div v-if="decides && shown.length && !errorMessage" class="all-select-all">
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-select-all"
+        @click="tickAllShown"
+      >
+        Select all
+      </button>
+      <span
+        v-if="skippedHeld"
+        class="all-meta"
+        role="status"
+        data-testid="applications-all-select-all-skipped"
+        >{{ plural(skippedHeld) }} not selected: another reviewer has
+        {{ skippedHeld === 1 ? 'it' : 'them' }} open.</span
+      >
+    </div>
+
+    <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
     <div
       v-if="decides && selected.size"
       class="all-selection"
@@ -339,7 +429,7 @@ async function decideSelection() {
         type="button"
         class="btn btn--secondary btn--compact"
         data-testid="applications-all-selection-clear"
-        @click="selected = new Set()"
+        @click="clearSelection"
       >
         Clear
       </button>
@@ -360,6 +450,10 @@ async function decideSelection() {
 
     <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
+    <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
+    <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
+      No applications received yet.
+    </p>
     <p v-else-if="!shown.length" class="all-empty" data-testid="applications-all-empty">
       No application matches.
     </p>
@@ -516,6 +610,22 @@ async function decideSelection() {
   gap: var(--space-3);
 }
 
+.all-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.all-filter-group .field-label {
+  margin-bottom: 0;
+}
+
+.all-filter-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .all-filters {
   display: flex;
   flex-wrap: wrap;
@@ -590,6 +700,13 @@ async function decideSelection() {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+.all-select-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .all-list {

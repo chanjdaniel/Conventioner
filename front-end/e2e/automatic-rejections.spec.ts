@@ -180,6 +180,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
     await page.getByTestId('import-finish-button').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     const monitor = new ApplicationMonitorPage(page);
+    await monitor.switchTo();
     await monitor.waitForLoaded();
     // Nadia and Ines wait: Theo arrived already rejected, the rule his giver and his answer the
     // reason.

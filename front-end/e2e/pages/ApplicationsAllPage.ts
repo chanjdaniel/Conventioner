@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
 
-type AllViewFilter = 'all' | 'open' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
+type AllViewFilter =
+  'all' | 'undecided' | 'needs_follow_up' | 'reviewer_approved' | 'reviewer_rejected';
 type Verdict = 'approve' | 'reject' | 'follow-up';
 
 /**
@@ -14,6 +15,8 @@ export class ApplicationsAllPage {
   readonly rows: Locator;
   readonly mine: Locator;
   readonly selection: Locator;
+  readonly selectAll: Locator;
+  readonly selectAllSkipped: Locator;
   readonly confirmWindow: Locator;
   readonly confirmButton: Locator;
   readonly result: Locator;
@@ -28,6 +31,8 @@ export class ApplicationsAllPage {
     this.rows = page.getByTestId('applications-all-row');
     this.mine = page.getByTestId('applications-all-mine');
     this.selection = page.getByTestId('applications-all-selection');
+    this.selectAll = page.getByTestId('applications-all-select-all');
+    this.selectAllSkipped = page.getByTestId('applications-all-select-all-skipped');
     this.confirmWindow = page.getByTestId('applications-all-confirm-window');
     this.confirmButton = page.getByTestId('applications-all-confirm-submit-button');
     this.result = page.getByTestId('applications-all-result');
@@ -38,12 +43,12 @@ export class ApplicationsAllPage {
     this.exportButton = page.getByTestId('applications-all-export-button');
   }
 
-  /** Straight to the All view by its address, as a bookmark would. */
+  /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */
   async goto(marketId: string): Promise<void> {
     await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
   }
 
-  /** From the one-by-one review, by its switch. */
+  /** Back from the one-by-one review, by its switch. */
   async switchTo(): Promise<void> {
     await this.page.getByTestId('applications-view-all').click();
   }

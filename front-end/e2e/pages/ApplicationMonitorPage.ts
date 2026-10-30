@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { oneByOnePath } from '../helpers/marketScreens';
 
 /**
  * Page object for the application monitor: the Applications tab of Market Setup, where an
@@ -9,8 +10,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * assignment, however complete its answers are.
  *
  * It is a **triage queue** (E08/F04): one application at a time, every answer shown, Approve /
- * Reject / Skip by keyboard or click. There is no list of every applicant to click into, so
- * acting on a named applicant means skipping the queue around until their card is up.
+ * Reject / Skip by keyboard or click. The list of every applicant is the All view
+ * (`ApplicationsAllPage`); here, acting on a named applicant means moving the queue on until their
+ * card is up.
  */
 export class ApplicationMonitorPage {
   readonly page: Page;
@@ -51,6 +53,16 @@ export class ApplicationMonitorPage {
     this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
+  }
+
+  /** Straight to One by one by its address: the Applications tab opens on All (E38/F05/S01). */
+  async goto(marketId: string): Promise<void> {
+    await this.page.goto(oneByOnePath(marketId));
+  }
+
+  /** From the All view, where the tab opens, by its switch. */
+  async switchTo(): Promise<void> {
+    await this.page.getByTestId('applications-view-one').click();
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */
