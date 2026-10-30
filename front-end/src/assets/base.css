@@ -20,9 +20,10 @@
   /* The disabled control's ink, measured on `--mm-beige` - which is the ground a disabled control
      actually has, since `.btn:disabled` swaps its fill for beige. `--mm-text-muted` is 4.63 on
      white and only 4.23 on beige, and a disabled label nobody can read is not a quieter label.
-     Result's muted text inside a table row uses it too: an empty table's yellow ground (the yellow
-     at 0.18 over white) takes `--mm-text-muted` to 4.38 and this to 5.42, and a hovered seat's
-     beige to 4.23 and 5.19; on white it is 5.78. Measure those grounds when either changes. */
+     The Assignments page's muted text inside a table row uses it too: an empty table's yellow
+     ground (the yellow at 0.18 over white) takes `--mm-text-muted` to 4.38 and this to 5.42, and a
+     hovered seat's beige to 4.23 and 5.19; on white it is 5.78. Measure those grounds when either
+     changes. */
   --mm-text-muted-on-beige: rgba(39, 35, 35, 0.7);
   --mm-text-yellow: #996f1b; /* 4.52 on white */
   /* The attention chip's ink, measured on the attention chip's own GROUND rather than on white.
@@ -157,7 +158,7 @@
   --radius-card: 10px; /* cards, panels, dialogs */
   --radius-pill: 999px; /* pills and fully-rounded badges */
 
-  /* One shadow, extracted - it is already used 77 times on the Assignment Results screen alone.
+  /* One shadow, extracted - it is already used 77 times on the Assignments page alone.
      The legacy halo it replaces is `0 0 4px 5px rgba(0,0,0,.25)`: no offset means no light source,
      and a spread larger than its blur is a ring rather than a shadow, which is why the older cards
      read as outlined in grey fog. Its inset twin is what makes the setup fields look pressed. */

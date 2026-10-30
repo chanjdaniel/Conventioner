@@ -61,7 +61,7 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-menu-button')).toHaveCount(0);
 
-    await page.goto(marketScreenPath(marketId, 'result'));
+    await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator('button.seat-button')).toHaveCount(0);
     // And says why, on the page whose seats are plain text: a Viewer took it for broken (T15).
@@ -89,7 +89,7 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-menu-button')).toHaveCount(0);
 
-    await page.goto(marketScreenPath(marketId, 'result'));
+    await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.locator('button.seat-button').first()).toBeVisible({ timeout: 15000 });
 
     await page.goto(oneByOnePath(marketId));

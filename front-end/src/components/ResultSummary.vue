@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The top of the Result page: what the assignment came to, in one strip (E22/F04/S04).
+ * The top of the Assignments page: what the assignment came to, in one strip (E22/F04/S04).
  *
  * It replaced the old results page, which was a second screen's worth of cards under the rules -
  * a summary, quick links to three other screens, per-date/section/tier counts and lists of the
@@ -131,7 +131,7 @@ async function downloadCsv(): Promise<void> {
     <!-- A fact, not an error: no dismiss, and running again is what clears it (E22/F03/S02). -->
     <p v-if="outOfDate" class="note" data-testid="assignment-out-of-date">
       {{ outOfDate }}
-      <RouterLink :to="marketPath(market.id, 'assignment')">Allocate tables again</RouterLink>
+      <RouterLink :to="marketPath(market.id, 'settings')">Allocate tables again</RouterLink>
       to bring the result up to date.
     </p>
 

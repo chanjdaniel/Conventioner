@@ -1,8 +1,12 @@
 import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
+/** The placement dialog's two pickers, by the test id each is drawn with (E38/F08/S03). */
+type Picker = 'vendor' | 'swap-target';
+
 /**
- * Page object for the table browsing view (/markets/:marketId/tables).
+ * Page object for the tables of the Assignments page (/markets/:marketId/assignments), where
+ * Tables became Result and Result became Assignments.
  */
 export class TablesPage {
   readonly page: Page;
@@ -53,12 +57,12 @@ export class TablesPage {
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(marketScreenPath(marketId, 'result'));
+    await this.page.goto(marketScreenPath(marketId, 'assignments'));
   }
 
   async gotoWithFilters(marketId: string, query: Record<string, string>): Promise<void> {
     const params = new URLSearchParams(query).toString();
-    await this.page.goto(`${marketScreenPath(marketId, 'result')}?${params}`);
+    await this.page.goto(`${marketScreenPath(marketId, 'assignments')}?${params}`);
   }
 
   async clearAllFilters(): Promise<void> {
@@ -129,13 +133,59 @@ export class TablesPage {
     await this.page.getByTestId(`tables-filter-${name}`).selectOption(value);
   }
 
+  /**
+   * One of the placement dialog's two pickers (E38/F08/S03): "Who sits here" to place someone,
+   * "Swap them with" to trade seats. Each is a field that narrows its list as it is typed in.
+   */
+  picker(which: Picker): Locator {
+    return this.dialog.getByTestId(`placement-dialog-${which}`);
+  }
+
+  /** The field a picker is typed into. */
+  pickerField(which: Picker): Locator {
+    return this.dialog.getByTestId(`placement-dialog-${which}-input`);
+  }
+
+  /** Its list, drawn only while open. */
+  pickerList(which: Picker): Locator {
+    return this.dialog.getByTestId(`placement-dialog-${which}-list`);
+  }
+
+  /** The vendors a picker shows, or those of one of its groups (`placement-dialog-fits`, ...). */
+  pickerOptions(which: Picker, group?: string): Locator {
+    const within = group ? this.dialog.getByTestId(group) : this.pickerList(which);
+    return within.getByTestId(`placement-dialog-${which}-option`);
+  }
+
+  /** One vendor in a picker's list, by the address it names. */
+  pickerOption(which: Picker, email: string): Locator {
+    return this.pickerOptions(which).filter({ hasText: `(${email})` });
+  }
+
+  /** Open a picker's list, as a click on its field does. */
+  async openPicker(which: Picker): Promise<void> {
+    await this.pickerField(which).click();
+    await this.pickerList(which).waitFor();
+  }
+
+  /** Choose a vendor in a picker by typing part of what finds them, then clicking them. */
+  async pick(which: Picker, email: string, words = email): Promise<void> {
+    await this.pickerField(which).fill(words);
+    await this.pickerOption(which, email).click();
+  }
+
+  /** The seat a vendor holds, on the date shown. */
+  seatOf(email: string): Locator {
+    return this.page.locator(`[data-testid="tables-seat-occupied"][data-vendor-email="${email}"]`);
+  }
+
   async placeVendor(email: string): Promise<void> {
-    await this.dialog.getByTestId('placement-dialog-vendor').selectOption(email);
+    await this.pick('vendor', email);
     await this.dialog.getByTestId('placement-dialog-confirm').click();
   }
 
   async swapWith(email: string): Promise<void> {
-    await this.dialog.getByTestId('placement-dialog-swap-target').selectOption(email);
+    await this.pick('swap-target', email);
     await this.dialog.getByTestId('placement-dialog-swap').click();
   }
 

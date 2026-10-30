@@ -60,9 +60,9 @@ const note = computed(() => {
  * Why the person looking may change nothing here, said once for every page of the market (T15):
  * the server sets `readOnlyReason` when none of the table's changing actions is theirs, or the
  * market is archived. Each screen drops a control on the answer of its own action
- * (`utils/marketActions.ts`, E39/F01/S02), and only Market Setup said why, so a Viewer met a Result
- * page whose seats were plain text and took it for broken. An archived market is said by the rail,
- * and a tab's note in place of its page says the one thing that page says.
+ * (`utils/marketActions.ts`, E39/F01/S02), and only Market Setup said why, so a Viewer met an
+ * Assignments page whose seats were plain text and took it for broken. An archived market is said
+ * by the rail, and a tab's note in place of its page says the one thing that page says.
  */
 const readOnlyNote = computed(() =>
   props.market && props.market.phase !== MarketPhase.Archived && !note.value
@@ -102,7 +102,7 @@ onBeforeUnmount(() => observer?.disconnect());
         <MarketBar v-if="market || status === 'loading' || status === 'idle'" :market="market" />
         <template v-if="market">
           <PhaseRail :market="market" :beforeTransition="beforeTransition" />
-          <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors
+          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors
                (E22/F04/S03). -->
           <MarketPages :market="market" />
           <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned

@@ -23,7 +23,7 @@ class TestTheRunAfterPublishing:
         refusal = PlacementsApi.assign_refusal(published())
 
         assert "published" in refusal
-        assert "Result page" in refusal
+        assert "Assignments page" in refusal
 
     def test_before_publishing_it_runs_as_ever(self):
         assert PlacementsApi.assign_refusal(client_market(phase=MarketPhase.ASSIGNMENT)) is None

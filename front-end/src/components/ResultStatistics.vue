@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The counts behind the Result page's strip, in an inline panel under it (E22/F04/S05).
+ * The counts behind the Assignments page's strip, in an inline panel under it (E22/F04/S05).
  *
  * A ledger of bars (E35/F03/S01): a card per question - date, section, tier, table size - and in
  * each a row per answer with its count, its share of all placements, and a bar against the largest

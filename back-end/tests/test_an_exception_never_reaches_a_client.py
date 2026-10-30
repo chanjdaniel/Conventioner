@@ -837,7 +837,7 @@ class TestTheAssignmentAndPlacementRoutes:
         assert response.status_code == 409
         assert response.get_json() == {"error": (
             "ana@example.com already has an application in this market. "
-            "Assign them on the Result page."
+            "Assign them on the Assignments page."
         )}
 
     def test_a_placement_for_someone_who_never_applied(self, client):

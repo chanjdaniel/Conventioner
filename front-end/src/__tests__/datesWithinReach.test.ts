@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { datesWithinReach } from '@/utils/datesWithinReach';
+import { datesTheyNeed, datesWithinReach } from '@/utils/datesWithinReach';
 
 const DATES = ['2026-11-18', '2026-11-19', '2026-11-20'];
 
@@ -36,5 +36,20 @@ describe('datesWithinReach', () => {
 
   it('is zero for answers that name no date', () => {
     expect(datesWithinReach({}, DATES, null)).toBe(0);
+  });
+});
+
+/**
+ * A vendor added by hand answered nothing, and needs a table on every market day (E38/F08/S02):
+ * their count reads "0 of 3 dates" until seated, never "0 of 0".
+ */
+describe('datesTheyNeed', () => {
+  it('is every market day for a vendor added by hand, whatever the ceiling', () => {
+    expect(datesTheyNeed({ answers: {}, added: true }, DATES, 1)).toBe(3);
+  });
+
+  it('is the dates within reach for anyone who applied', () => {
+    const answers = { essential_available_dates: DATES, essential_max_dates: 1 };
+    expect(datesTheyNeed({ answers, added: false }, DATES, null)).toBe(1);
   });
 });

@@ -590,7 +590,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
     @pytest.mark.parametrize("phase, names", [
         (MarketPhase.DRAFT, "draft"),
         (MarketPhase.APPLICATIONS, "Decide every one"),
-        (MarketPhase.MARKET_DAYS, "Result page"),
+        (MarketPhase.MARKET_DAYS, "Assignments page"),
         (MarketPhase.ARCHIVED, "archived"),
     ])
     def test_the_refusal_names_an_action_available_from_that_phase(self, phase, names):
@@ -600,7 +600,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         # The walk (E30/F01/S02): closed applications were told to close them, and an archived
         # market was sent to change a placement where nothing can be changed.
         (MarketPhase.APPLICATIONS, "still coming in"),
-        (MarketPhase.ARCHIVED, "Result page"),
+        (MarketPhase.ARCHIVED, "Assignments page"),
     ])
     def test_the_refusal_says_nothing_untrue_of_that_phase(self, phase, untrue):
         assert untrue not in PlacementsApi.assign_phase_refusal(phase)

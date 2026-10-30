@@ -37,7 +37,7 @@ test.describe("The rail's addresses", () => {
     }
 
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'archived');
-    await page.goto(marketScreenPath(seed.marketId, 'result'));
+    await page.goto(marketScreenPath(seed.marketId, 'assignments'));
     await expect(checkIn.locator('a')).toHaveAttribute('href', /\/check-in$/);
     await expect(apply).toHaveCount(0);
   });

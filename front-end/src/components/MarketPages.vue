@@ -2,11 +2,11 @@
 /**
  * The pages of the open tab, when it has more than one (E22/F04/S03).
  *
- * Only the Assignment tab does: Assignment (the rules and the run), Result (the assignment by table)
- * and Vendors (the assignment by vendor). The row sits under the rail and is pinned with the frame,
- * and it is what makes the tab and its first page - both called Assignment, the organizers' word -
- * read as "the tab, and its first page" rather than as a stutter. The dot marks the page the market
- * is worked on in its phase, as the bar's does for tabs.
+ * Only the Assignment tab does: Settings (the rules and the run), Assignments (the assignment by
+ * table) and Vendors (the assignment by vendor), named for what they hold (E38/F08/S01): the first
+ * two read "Assignment" and "Result" until the 2026-10-29 walk. The row sits under the rail and is
+ * pinned with the frame. The dot marks the page the market is worked on in its phase, as the bar's
+ * does for tabs.
  */
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
@@ -31,10 +31,10 @@ const pages = computed(() => (here.value ? TAB_PAGES[tabOf(here.value)] : []));
 const current = computed(() => currentPage(props.market?.phase, hasAssignment(props.market)));
 
 /** The two pages that read the assignment through the same filters (E28/F02/S02). */
-const FILTERED_PAGES: readonly MarketPage[] = ['result', 'vendors'];
+const FILTERED_PAGES: readonly MarketPage[] = ['assignments', 'vendors'];
 
 /**
- * Where a page link goes. Between Result and Vendors it keeps the day, section, tier and table
+ * Where a page link goes. Between Assignments and Vendors it keeps the day, section, tier and table
  * size in view, so moving from who-is-at-which-table to who-is-where does not lose the question.
  */
 function linkTo(marketId: string, page: MarketPage) {

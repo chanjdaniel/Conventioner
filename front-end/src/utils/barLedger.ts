@@ -1,7 +1,7 @@
 /**
  * A ledger of bars (E35/F03/S01): counts read as a card of rows, each with its share of the whole
  * and a bar against the largest in its card, so the biggest reads before the numbers do. The
- * Result page's statistics drew it first; the Stats tab reads with it too (E45/F01/S01), rather
+ * Assignments page's statistics drew it first; the Stats tab reads with it too (E45/F01/S01), rather
  * than a chart library.
  */
 import type { RouteLocationRaw } from 'vue-router';

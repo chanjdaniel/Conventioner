@@ -70,7 +70,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
-    await page.goto(marketScreenPath(marketId, 'result'));
+    await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
@@ -117,7 +117,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
     // A published market: its rules are settled and there is no run button (E22/F02/S02).
-    await page.goto(marketSetupPath(marketId, 'assignment'));
+    await page.goto(marketSetupPath(marketId, 'settings'));
     await expect(page.getByTestId('assignment-rules-settled')).toBeVisible({ timeout: 15000 });
     expect(
       (await measure()).boxed,
@@ -155,7 +155,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
         return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
       });
 
-    for (const tab of ['applications', 'setup', 'form', 'assignment']) {
+    for (const tab of ['applications', 'setup', 'form', 'settings']) {
       await page.goto(marketSetupPath(draft.marketId, tab));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
