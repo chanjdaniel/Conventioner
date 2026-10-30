@@ -5,6 +5,7 @@ describes:
   - back-end/api/market_actions.py
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
+  - back-end/api/markets.py#reset_permissions
   - back-end/datatypes.py#MarketPermission
 verified: 2026-10-30
 sources:
@@ -36,7 +37,7 @@ Every check asks `minimum_role(row, market)`, the market's row or the default, a
 **Where a row came from is one of three**: the built-in default (no row held), copied from the organization's default when the market was created (E39/F02 writes these), or changed on this market.
 An organization's default is a copy, not a live link: a market created from it holds its rows from then on, and a later change to the organization's default reaches only the markets created after it.
 
-**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default (`set_permission` and `reset_permission` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
+**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default, and another returns every row the market holds at once (`set_permission`, `reset_permission` and `reset_permissions` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
 The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is, E39/F02).
 An archived market's table is part of its record, and is not changed.
 

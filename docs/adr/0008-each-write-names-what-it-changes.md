@@ -40,6 +40,7 @@ Every write names the part of the market it changes, through an endpoint that ac
 | A phase move, publishing results | `POST /markets/:id/transition`, `POST /markets/:id/publish-results` |
 | Roles | `POST`/`PUT`/`DELETE /markets/:id/roles` |
 | A row of the market's permission table, its owner's only ([ADR 0019](0019-a-markets-permissions-are-a-table.md)) | `PUT`/`DELETE /markets/:id/permissions/<action>` |
+| Every row of the market's permission table back to its built-in default, its owner's only | `DELETE /markets/:id/permissions` |
 
 A market's organization is fixed at creation: it is the market's container and an access grant at once, and Manage Market names it in one read-only line rather than offering to change it.
 No two markets share a slug, the public address: creating or renaming a market is refused when its slug is taken, not only its exact name, since "Café Market" and "Cafe Market" are one address, and the unique `market_slug` index holds it ([the market document](../implementation/data/market-document.md)).

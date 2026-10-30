@@ -103,6 +103,19 @@ export interface AssignmentOptionObject {
   maxHalfTableProportionPerSection: number | null;
 }
 
+/** One tier's price for a full table on one market day, in cents (E43/F01/S01). */
+export interface TierPrice {
+  tier: string;
+  cents: number;
+}
+
+/** The Pricing card: the market's one currency, the half table's share, and a price per tier. */
+export interface PricingObject {
+  currency: string;
+  halfTablePercent: number;
+  everyoneElse: TierPrice[];
+}
+
 export interface SetupObject {
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
@@ -111,6 +124,8 @@ export interface SetupObject {
   sections: SectionObject[];
   assignmentOptions: AssignmentOptionObject;
   floorplans?: FloorplanObject[];
+  /** Null or absent on a market never priced, which shows no price anywhere. */
+  pricing?: PricingObject | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -190,7 +205,7 @@ export interface RejectionQuestion {
   answers: Array<{ value: string; label: string }>;
 }
 
-/** One row of a market's table, as the market read serves it (E39/F01/S03). */
+/** One row of a market's table, as the market read serves it (E39/F01/S03, S04). */
 export interface PermissionTableRow {
   id: string;
   group: string;
@@ -201,6 +216,8 @@ export interface PermissionTableRow {
   /** No row held, copied from the organization's default at creation, or changed here. */
   source: 'built-in' | 'organization' | 'market';
   fixed: boolean;
+  /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
+  mayWhat: string;
 }
 
 export interface Market {
@@ -440,6 +457,19 @@ export interface TableShareNotice {
   address?: string;
 }
 
+/** An organizer's update of one of a vendor's answers (E41/F01/S01). */
+export interface AnswerUpdate {
+  value: unknown;
+  by: { userId?: string | null; email: string };
+  at: string;
+  /** What the vendor had written when the update was made. */
+  over: unknown;
+  /** What the vendor's answer is now: a re-import or their own edit may have changed it. */
+  theyWrote: unknown;
+  /** Whether what they wrote has changed since the update was made over it. */
+  changedSince: boolean;
+}
+
 export interface Application {
   id: string;
   marketId: string;
@@ -471,6 +501,11 @@ export interface Application {
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
+  /**
+   * Organizer's only (E41/F01/S01): the answers an organizer updated, by question. `formData`
+   * already reads each update in its place; this says who made it, when, and what the vendor wrote.
+   */
+  answerUpdates?: Record<string, AnswerUpdate>;
 }
 
 /** One seat an applicant holds, as their page lists it once results are published (E36/F05/S02). */

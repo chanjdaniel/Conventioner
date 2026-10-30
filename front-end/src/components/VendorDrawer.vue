@@ -14,7 +14,7 @@
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Market } from '@/assets/types/datatypes';
+import type { Application, Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
 import { TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import { dateLabel, type VendorDetails } from '@/utils/vendorDetails';
@@ -23,9 +23,11 @@ import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
+import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
+import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 
@@ -48,6 +50,8 @@ const emit = defineEmits<{
   'update:tab': [tab: VendorTab];
   /** Their notes were written: a screen that shows notes reads them again. */
   notesChanged: [];
+  /** Their answers were updated (E41/F01/S01): a screen that shows answers reads them again. */
+  infoUpdated: [];
 }>();
 
 const router = useRouter();
@@ -78,6 +82,27 @@ watch(
 function notesChanged() {
   void loadNotes();
   emit('notesChanged');
+}
+
+/**
+ * Updating their info (E41/F01/S01): one button, offered on the table's row, opening a dialog of
+ * their answers. The drawer's answers are read again once it saves, and the screen is told.
+ */
+const updatesInfo = computed(() => mayTake(props.market, MarketAction.UpdateVendorInfo));
+const updating = ref(false);
+const application = computed<Application | null>(
+  () =>
+    props.details.applications.value.find((app) => app.id === vendor.value?.applicationId) ?? null,
+);
+watch(
+  () => props.email,
+  () => (updating.value = false),
+);
+
+async function infoSaved(): Promise<void> {
+  updating.value = false;
+  await props.details.load();
+  emit('infoUpdated');
 }
 
 /** The notes as the drawer holds them, for a screen that writes one from beside it (E34/F02/S01). */
@@ -111,8 +136,9 @@ function onTabKey(event: KeyboardEvent) {
   void nextTick(() => tabButtons.value[TABS.indexOf(next)]?.focus());
 }
 
+// While "Update info" is open, Escape is the dialog's: one press closes one thing.
 useEscapeToClose(
-  () => open.value,
+  () => open.value && !updating.value,
   () => emit('close'),
 );
 
@@ -232,12 +258,29 @@ useInertBehind(
             />
           </div>
           <div class="detail-section">
-            <h3 class="detail-section-title">Submission</h3>
+            <div class="detail-section-head">
+              <h3 class="detail-section-title">Submission</h3>
+              <button
+                v-if="updatesInfo && application"
+                type="button"
+                class="btn btn--secondary btn--compact"
+                data-testid="vendors-detail-update-info"
+                @click="updating = true"
+              >
+                Update info
+              </button>
+            </div>
             <dl v-if="submission.length" class="detail-grid">
-              <template v-for="field in submission" :key="field.label">
+              <template v-for="field in submission" :key="field.key">
                 <dt>{{ field.label }}</dt>
                 <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
-                <dd><AnswerValue :value="field.value" /></dd>
+                <dd :data-testid="`vendors-detail-answer-${field.key}`">
+                  <AnswerValue :value="field.value" />
+                  <AnswerUpdateNote
+                    :update="field.update"
+                    :testid="`vendors-detail-answer-${field.key}`"
+                  />
+                </dd>
               </template>
             </dl>
             <p v-else class="detail-empty">This market asks no questions of its own.</p>
@@ -255,6 +298,7 @@ useInertBehind(
               :data-date="date.date"
               :label="dateLabel(date.date)"
               :placement="details.placementOn(vendor, date.date)"
+              :price="details.priceOn(vendor, date.date)"
               :reason="details.reasonFor(email, date.date)"
               :overrides="details.overridesFor(email, date.date)"
               :placeHref="resultLinkFor(date.date)"
@@ -272,6 +316,15 @@ useInertBehind(
       </section>
     </div>
   </aside>
+
+  <UpdateInfoDialog
+    :open="updating"
+    :marketId="marketId"
+    :application="application"
+    :form="market?.applicationForm"
+    @close="updating = false"
+    @saved="infoSaved"
+  />
 </template>
 
 <style scoped>
@@ -425,6 +478,24 @@ useInertBehind(
   border-bottom-color: var(--mm-green);
   color: var(--mm-black);
   font-weight: 600;
+}
+
+/* The submission's title, with "Update info" at its end. */
+.detail-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 2px solid var(--mm-border);
+}
+
+.detail-section-head .detail-section-title {
+  flex: 1;
+  border-bottom: none;
+}
+
+.detail-section-head .btn {
+  margin-bottom: var(--space-2);
 }
 
 .detail-section-title {

@@ -269,7 +269,7 @@ export const ESSENTIAL_KEYS: readonly string[] = ESSENTIAL_ORDER.map(([key]) => 
  * own, so `join(', ')` ran two dates together into "Saturday, November 21, 2026, Sunday, November
  * 22, 2026" - a string with no readable boundary between the entries (E14/F01/S01).
  */
-function answerText(value: unknown): string {
+export function answerText(value: unknown): string {
   if (Array.isArray(value)) return value.join(' · ');
   if (value && typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)

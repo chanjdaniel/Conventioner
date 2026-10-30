@@ -1,7 +1,7 @@
 # Conventioner
 
 Conventioner runs a vendor market from applications to the door.
-An organizer plans the market (its dates, sections, tiers and tables), collects applications through its own form or imports a Google Form's responses, reviews them, assigns every approved vendor a table by the market's own rules, publishes the result, and checks vendors in on the day.
+An organizer plans the market (its dates, sections, tiers, tables and prices), collects applications through its own form or imports a Google Form's responses, reviews them, assigns every approved vendor a table by the market's own rules, publishes the result, and checks vendors in on the day.
 
 It runs in production at [conventioner.io](https://conventioner.io), first for the UBC Makers Market of November 2026.
 

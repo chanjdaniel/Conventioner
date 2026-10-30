@@ -24,12 +24,13 @@ sources:
   - E39/F01/S01
   - E39/F01/S02
   - E39/F01/S03
+  - E39/F01/S04
   - E42/F01/S01
 ---
 
 # What each role may do
 
-A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
+A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, updates a vendor's info, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
 **A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
@@ -50,7 +51,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | Role | May |
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance and the assignment history |
-| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
+| Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), check-ins at the door |
 | Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
@@ -83,14 +84,15 @@ See [the organization document](../../implementation/data/organization-document.
   `noScreenComparesARole.test.ts` fails on a source file that compares or ranks a market role, or reads the role the person holds.
   [The market frame](../../implementation/modules/market-frame.md) says `readOnlyReason` once, under the rail, on every page of the market, so a page whose controls are gone is never taken for broken; a page says only its own lock (T15).
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move to someone the Move the phase row refuses, and still says where the market stands.
-- **A market keeps the rows it differs on**, in its `permissions`, and every check and the market read ask the market's row where it holds one (`minimum_role`); its owner sets or resets a row through `PUT` and `DELETE /markets/:id/permissions/<action>`, each change an entry in [the market's history](../../implementation/data/history.md) with its role before and after.
+- **A market keeps the rows it differs on**, in its `permissions`, and every check and the market read ask the market's row where it holds one (`minimum_role`); its owner sets or resets a row through `PUT` and `DELETE /markets/:id/permissions/<action>`, or resets every row through `DELETE /markets/:id/permissions`, each change an entry in [the market's history](../../implementation/data/history.md) with its role before and after.
   [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins that a market without rows reads every default, that an Editor's check-in is refused where "Check vendors in" asks for an Admin and allowed on another market, and each refusal of the write: anyone but the owner (an organization admin included), a fixed row, an unknown row, a role not one of the four, an archived market.
+- **Everyone who may read the market reads its table and every change to it** in Manage market's Permissions section, and only the owner changes it there ([setting who may do what](../flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what), E39/F01/S04).
 - **Who is asking is the session's answer, never the request's.**
   An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
   [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
 - **Adding a person never changes a role.**
   `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
-- [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications, the Assignment tab and Attendance.
+- [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
 - A follow-up's owner is anyone with a role on the market by this rule, explicit or through its organization, members included ([needs follow-up](needs-follow-up.md)).
 

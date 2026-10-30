@@ -207,7 +207,14 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.getByTestId('market-card-manage-button').click();
   await page.getByTestId('manage-market-add-user-button').click();
   await expect(page.getByTestId('manage-market-add-user-input')).toBeVisible();
+  // Its Permissions section, open, and a row's confirmation (E39/F01/S04).
+  await page.getByTestId('manage-market-permissions-toggle').click();
+  await expect(page.getByTestId('manage-market-permission-select').first()).toBeVisible();
   await named('Manage market');
+  await page.getByTestId('manage-market-permission-select').first().selectOption('owner');
+  await expect(page.getByTestId('manage-market-permission-confirm-window')).toBeVisible();
+  await named("a change to Manage market's permissions");
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 
   await page.goto('/organizations');

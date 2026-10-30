@@ -39,6 +39,7 @@ import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
+import api.vendor_info as VendorInfoApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
@@ -602,6 +603,7 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
     ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
     ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
+    ("delete", "/markets/market-123/permissions", None, "reset_permissions"),
     ("get", "/markets/market-123/permission-history", None, "get_permission_history"),
     ("delete", "/markets/market-123", None, "delete_market"),
 ]
@@ -1081,6 +1083,8 @@ APPLICANT_REVIEW_IMPORT_AND_DOOR_ROUTES = [
      MarketsApi, "verdict_refusal", "market-123"),
     ("put", "/markets/market-123/applications/app-1/follow-up-owner",
      {"ownerEmail": "ana@example.com"}, MarketsApi, "verdict_refusal", "market-123"),
+    ("put", "/markets/market-123/applications/app-1/answers", {"answers": {"shop": "Ember"}},
+     VendorInfoApi, "update_vendor_info", "market-123"),
     ("post", "/markets/market-123/publish-results", None,
      ApplicantsApi, "publish_results", "market-123"),
     ("post", "/markets/market-123/csv-proposal", {"csvContent": CSV},
@@ -1393,6 +1397,7 @@ REQUIRED_BODIES = [
     ("put", "/markets/<market_id>/placements", None),
     ("put", "/public/markets/<market_slug>/applicant/application", None),
     ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.REVIEW),
+    ("put", "/markets/<market_id>/applications/<application_id>/answers", None),
     ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
     ("post", "/markets/<market_id>/vendor-export", None),
     ("post", "/markets/<market_id>/vendor-export/preview", None),
@@ -1432,6 +1437,7 @@ READS_NO_BODY = [
     ("delete", "/markets/<market_id>/roles/<user_id>", [(MarketsApi, "remove_market_role", True)]),
     ("delete", "/markets/<market_id>/permissions/<action_id>",
      [(MarketsApi, "reset_permission", [])]),
+    ("delete", "/markets/<market_id>/permissions", [(MarketsApi, "reset_permissions", [])]),
     ("post", "/markets/<market_id>/application-form/amendment/resume",
      [(FormAmendmentApi, "resume_amendment", {"resumed": True})]),
     ("delete", "/markets/<market_id>", [(MarketsApi, "delete_market", DELETED)]),

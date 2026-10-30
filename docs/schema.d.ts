@@ -136,6 +136,14 @@ export interface MarketSchema {
     marketDates: {
       date: string;
     }[];
+    pricing?: {
+      currency: string;
+      everyoneElse: {
+        cents: number;
+        tier: string;
+      }[];
+      halfTablePercent: number;
+    };
     priority: {
       direction?: string;
       id: number;

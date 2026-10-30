@@ -9,12 +9,10 @@ users.json
 /back-end/docker-compose.yml
 /back-end/error.log
 /back-end/logs
-# Generated dev artifacts live here, but the anonymised Google Forms exports, the invented
-# example_columns.csv and their README are fixtures the suite asserts against -
-# tests/test_real_export_shapes.py, tests/test_google_forms_corpus.py and tests/test_csv_start.py
-# cannot run without them.
+# Generated dev artifacts live here, but the Google Forms exports, the invented example_columns.csv
+# and their README are fixtures the suite asserts against - tests/test_form_export_shapes.py,
+# tests/test_google_forms_corpus.py and tests/test_csv_start.py cannot run without them.
 /back-end/tests/test_data/*
-!/back-end/tests/test_data/google_forms_export.csv
 !/back-end/tests/test_data/google_forms/
 !/back-end/tests/test_data/README.md
 !/back-end/tests/test_data/example_columns.csv

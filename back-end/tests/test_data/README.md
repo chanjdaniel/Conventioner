@@ -3,10 +3,9 @@ layer: implementation
 kind: testing
 describes:
   - back-end/tests/test_data/google_forms/
-  - back-end/tests/test_data/google_forms_export.csv
   - back-end/tests/test_data/example_columns.csv
-  - back-end/tests/fixtures/anonymise_form_export.py
-verified: 2026-10-24
+  - back-end/tests/fixtures/synthetic_form_exports.py
+verified: 2026-10-30
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/the-form-started-from-a-csv/01
@@ -14,92 +13,71 @@ sources:
   - E06/F04
   - E24/F01/S01
   - E38/F02/S01
+  - T109
 ---
 
 # Test data
 
-The back-end suite's realistic data: real Google Form exports with the people replaced.
+The back-end suite's realistic data: five synthetic Google Form exports.
 How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
 ## [`google_forms/`](google_forms/)
 
-Five real Google Form application exports, one per market, with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
-They are the only realistic responses this suite has, and the form started from a CSV is built and measured against them.
+Five Google Form application exports, every one made by [`tests/fixtures/synthetic_form_exports.py`](../fixtures/synthetic_form_exports.py).
+No file comes from a real export, and a real export never becomes test data in any form, however it is changed first.
+They are the realistic responses this suite has, and the form started from a CSV is built and measured against them.
 
-| File | Market days | Applications submitted | Rows | Columns |
-|---|---|---|---|---|
-| `fall-2023.csv` | Mon 20 - Fri 24 November 2023 | 19 September - 10 October 2023 | 294 | 12 |
-| `spring-2024.csv` | Mon 25 - Thu 28 March 2024 | 28 January - 13 February 2024 | 361 | 30 |
-| `spring-2025.csv` | Mon 17 - Fri 21 March 2025 | not recorded: this export has no timestamp column | 237 | 28 |
-| `fall-2025.csv` | Mon 17 - Fri 21 November 2025 | 12 - 28 September 2025 | 237 | 30 |
-| `spring-2026.csv` | Mon 23 - Fri 27 March 2026 | 26 January - 9 February 2026 | 250 | 35 |
+| File | Market days | Applications submitted | Rows | Columns | The shape it keeps |
+|---|---|---|---|---|---|
+| `five-day-grid.csv` | Mon 20 - Fri 24 October 2025 | 18 August - 3 September 2025 | 237 | 30 | A five-day tier grid with a multi-line stem, a duplicate email column, organizer columns first and last |
+| `team-status-column.csv` | Mon 20 - Fri 24 April 2026 | 23 February - 9 March 2026 | 250 | 35 | A team status column, four upload questions, a declined-affiliation option, a `TEST` row, a two-tier grid, a clubs question the proposal reads as one choice |
+| `no-timestamp.csv` | Mon 19 - Fri 23 May 2025 | not recorded: this export has no timestamp column | 237 | 28 | No timestamp column, two organizer columns first, a ceiling of 2 days, multi-select answers that join a size with "Either" |
+| `four-day-grid.csv` | Mon 22 - Thu 25 April 2024 | 25 February - 12 March 2024 | 361 | 30 | A four-day grid, separate social columns, a ceiling of 3 days, a clubs question the proposal reads as one choice, trailing empty columns, rows only the team filled in |
+| `days-as-one-question.csv` | Mon 23 - Fri 27 October 2023 | 22 August - 12 September 2023 | 294 | 12 | No tier grid, the days as one comma-joined question, an organizer column after the timestamp |
 
-All five are UBC Makers Market application forms.
-Submission dates are read from the anonymised timestamps, which the anonymiser moves by a few hours, so a boundary day may be off by one.
+### What the generator writes
 
-### What was kept and what was invented
+Each file is described, header by header and column by column, in the generator, and written by it.
+Every header is written for the file, the people come from the generator's pools of common names, every address is at a fixture domain, every link is at `example.com` but an upload's, and every other answer is made from the generator's word lists.
+An upload keeps the Google Drive host, with an invented file id, because the proposal knows an upload by that host.
+The organization is "Example College", the market "Example Makers Fair", the venue "Example Hall" with its "North Wing" and "South Wing", and the clubs "Example College <craft> Society"; `four-day-grid.csv` and `days-as-one-question.csv` also offer the invented abbreviation "ECVAS" as a club.
+Each column states its counts exactly, never as weights, so a file's column kinds, options and import outcome are fixed by its description, whatever its seed draws.
+236 of `five-day-grid.csv`'s 237 rows import, and the one refused has no full name.
+245 of `team-status-column.csv`'s 250 rows import: one has no full name, one gave a timestamp for its email address, two applicants stopped after the first page, and the last row is the organizer's `TEST` submission.
+235 of `no-timestamp.csv`'s 237 rows import, and the two refused gave something other than an address as their email: a name alone, and a name before their address.
+355 of `four-day-grid.csv`'s 361 rows import: one applicant chose None on every day, three rows are an applicant sending the form a second time, and the last two are the team's own, a checkbox column filled in beside no response.
+277 of `days-as-one-question.csv`'s 294 rows import: seven are blank lines the sheet kept, and ten are an applicant sending the form a second or third time.
+`tests/test_google_forms_corpus.py` pins each file's row count, header row and table-size answer counts, and that the folder holds exactly the generator's files.
 
-The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
-An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email, and it holds no email address, link, handle or phone number, however many share it.
-That is the rule for what the CSV proposal may treat as shared, so the fixtures keep exactly what the proposal reads; it is decided by the count, never by a list of header words, which is what let a column be missed before.
-Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email, a link for a link, and a fictional 555-0100 to 555-0199 number for a phone number, so the output passes the git hooks' real-data check.
-A link keeps its scheme and each part at least 3 applicants' links share, so a Drive upload still reads `https://drive.google.com/open?id=` and an Instagram link still names Instagram, while the file id, the handle and anyone's own site are invented.
-One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
-Blanks, row order, the `TEST` row, organizer columns, duplicate columns and trailing empty columns are as the export had them.
-Every timestamp moves by one offset.
-
-The anonymiser refuses to write a file in which any source value of 4 or more characters that fewer than 3 applicants wrote appears, down to a single word inside a comment.
-`tests/test_google_forms_corpus.py` pins each file's row count, header row and table-size answer counts.
-
-### Regenerating them
-
-```
-python tests/fixtures/anonymise_form_export.py <real-export.csv> tests/test_data/google_forms/<name>.csv
-```
-
-The real exports live only on the maintainer's machine.
-The output is deterministic, so regenerating from the same export produces an identical file.
-Never commit a real export, and never hand-edit a copy: change the anonymiser, so the next person can tell what was done to the data.
-
-## [`google_forms_export.csv`](google_forms_export.csv)
-
-A real Google Forms response export with the people replaced.
-232 applications to a five-day market, 31 columns, produced by an earlier version of `tests/fixtures/anonymise_form_export.py`.
-
-### Why it exists
+### Why the shapes matter
 
 Three MVP blockers found on 2026-09-14 came from the **shape** of a real export rather than from logic.
 Every CSV test in this suite wrote its own headers, and every one of them used a short single-line stem like `"Which days can you attend?"`.
 That is why grid detection failing on a multi-line header survived to production: a fixture invented by the people who wrote the parser only tests what they already thought of.
-So a real export, anonymised, is the acceptance fixture for taking an organizer's file through to an assignment; it is used because synthetic data hid real blockers, not to serve the one organizer whose form it was.
-
-The source file is 232 real applicants' names and email addresses, so it cannot be committed as it stands.
-The anonymiser is committed beside the fixture so the transformation is auditable and re-runnable.
-
-### What must survive anonymisation
-
-These are the properties that actually caught bugs.
-A regenerated fixture missing any of them is not doing its job, and `tests/test_real_export_shapes.py` asserts every one of them before it asserts anything else.
+So the generator writes what a Google Form writes, and `tests/test_form_export_shapes.py` asserts these properties before it asserts anything else, but for the duplicate and organizer columns, which the answer key in `tests/test_csv_proposal.py` holds:
 
 - **Grid question stems spanning several lines**, with the bracketed option last.
   This alone is the grid-detection blocker.
 - **Timestamps in `M/D/YYYY H:MM:SS` with unpadded months and hours.**
-  `datetime.fromisoformat` cannot read this, and text ordering puts `9/27/2025 9:04:01` after `9/27/2025 23:49:25`.
+  `datetime.fromisoformat` cannot read this, and text ordering puts `8/27/2025 9:04:01` after `8/27/2025 23:49:25`.
 - **Grid cells holding a set of values, plus a `None` cell meaning "not available".**
   One cell carrying two facts is what the per-day tier question looks like.
 - **Free-text answers that do not match the contract's vocabulary**: `Full table`, `Half table`, `Either` against `full` / `half` / `either`.
-- **Duplicate column headers**, and a trailing empty column.
-- **Roughly 232 rows**, so scale behaviour is exercised.
+- **Duplicate column headers**, and organizer columns first and last.
+- **A market's number of rows**, so scale behaviour is exercised.
 
-The header row is copied **verbatim**, newlines included.
-Only identifying cells were rewritten, chosen by header words (`email`, `name`, `discord` and so on).
+### Regenerating them
 
-### Why it is not regenerated
+From `back-end/`:
 
-The anonymiser has since changed what it keeps: a value stays only when at least 3 distinct applicants gave it, whatever its column is called (E24/F01/S01).
-This file's source export is not among the ones that version was run on, so the file stays as the earlier version produced it.
-Do not hand-edit it: a change it needs is a reason to replace it with one of the exports made by the current anonymiser.
-Do not commit a real export.
+```
+python tests/fixtures/synthetic_form_exports.py
+```
+
+The output is the same bytes every time, written as Google Sheets exports: UTF-8 without a byte order mark, CRLF between records, LF inside a header cell, and a final newline.
+`tests/test_synthetic_form_exports.py` fails when a committed file is not exactly what the generator makes.
+Never hand-edit a file: change its description in the generator and run it again.
+After a regeneration, run `python3 scripts/real_data_check.py staged` on the machine that holds the real exports: a random draw can pair a given and a family name into a real applicant's, and only that machine can tell.
 
 ## [`example_columns.csv`](example_columns.csv)
 
@@ -109,4 +87,4 @@ Every address is at `example.com` and the one phone number is in the reserved `5
 
 ## Superseded
 
-- One anonymiser regenerating this fixture as well as the five (wayfinding/the-form-started-from-a-csv/07): its source export is not among the five, so it stays as the earlier version made it (above).
+- The corpus was first made from real exports by a script that invented the people but kept each form's question text and every answer three applicants shared (wayfinding/the-form-started-from-a-csv/01); the script is retired, and every file is generated, so the question text and the answers are invented too (T109).

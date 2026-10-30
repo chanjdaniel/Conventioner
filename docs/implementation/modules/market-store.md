@@ -15,6 +15,7 @@ sources:
   - E21/F02
   - E21/F02/S04
   - E39/F01/S02
+  - E41/F01/S01
 ---
 
 # The market store
@@ -55,10 +56,12 @@ Each control asks the row of the action it takes:
 | Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
+| The drawer | Update info | Update a vendor's info |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
+| Manage market | the Permissions section's Show, its rows and its changes | Read the market; each row's select and Reset to built-in defaults, Change this table |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
-| The markets list | Manage | Give and take Editor and Viewer roles |
+| The markets list | Manage | Read the market |
 | Vendors, Applications' All view, and Result | Export; Download CSV | Export CSV |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).

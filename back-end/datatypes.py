@@ -311,6 +311,42 @@ class AssignmentOptionObject(BaseModel):
     max_half_table_proportion_per_section: Optional[int] = None
 
 
+#: The currencies the Pricing card offers, as ISO 4217 codes; ``front-end/src/utils/pricing.ts``
+#: lists the same. One per market, Canadian dollars unless the organizer picks another.
+PRICING_CURRENCIES = ("CAD", "USD", "EUR", "GBP", "AUD", "NZD")
+
+
+class TierPrice(BaseModel):
+    """One tier's price for a full table on one market day, in the currency's minor unit (cents).
+
+    A list of these rather than a map keyed by tier name: every market write camel-cases its keys,
+    and a tier's name is the organizer's text, not a key to rewrite.
+    """
+
+    tier: str
+    cents: int = Field(ge=0, le=10_000_000, strict=True)
+
+
+class PricingObject(BaseModel):
+    """The Pricing card on Market Setup (E43/F01/S01): what one table costs for one market day.
+
+    ``everyone_else`` is the card's one row in this story, a price per tier; a tier it does not
+    name has no price, and a market with no prices shows none anywhere. A half table costs
+    ``half_table_percent`` of the full price, rounded half up to the cent (``pricing.half_price``).
+    """
+
+    currency: str = "CAD"
+    half_table_percent: int = Field(default=50, ge=0, le=100, strict=True)
+    everyone_else: List[TierPrice] = Field(default_factory=list)
+
+    @field_validator("currency")
+    @classmethod
+    def _offered_currency(cls, value: str) -> str:
+        if value not in PRICING_CURRENCIES:
+            raise ValueError(f"must be one of {', '.join(PRICING_CURRENCIES)}")
+        return value
+
+
 class SetupObject(BaseModel):
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
@@ -319,6 +355,8 @@ class SetupObject(BaseModel):
     sections: List[SectionObject]
     assignment_options: AssignmentOptionObject
     floorplans: Optional[List["FloorplanObject"]] = None
+    #: Null on a market that was never priced, which shows no price anywhere.
+    pricing: Optional[PricingObject] = None
 
 
 class ModificationObject(BaseModel):
@@ -743,6 +781,16 @@ class MarketPerson(BaseModel):
         return {"userId": self.user_id, "email": self.email}
 
 
+class AnswerUpdate(BaseModel):
+    """An organizer's update of one of a vendor's answers (E41/F01/S01), kept beside the answer the
+    vendor gave, which is never written over: the value, who made it, when, and the vendor's answer
+    it was made over, so a reader can tell when what they wrote has changed since."""
+    value: Any = None
+    by: MarketPerson
+    at: str
+    over: Any = None
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -770,6 +818,9 @@ class Application(BaseModel):
     # never an input to the run.
     added_by: Optional[MarketPerson] = None
     added_at: Optional[str] = None
+    # The organizer's updates of the vendor's answers, by question (E41/F01/S01): read in the place
+    # of the answer in ``form_data``, which stays as the vendor gave it.
+    answer_updates: Dict[str, AnswerUpdate] = Field(default_factory=dict)
 
 
 def to_camel(string: str) -> str:
@@ -839,6 +890,16 @@ class UnassignedTableEntryContract(ContractModel):
     table_code: str
 
 
+class TierPriceContract(TierPrice, ContractModel):
+    pass
+
+
+class PricingContract(ContractModel):
+    currency: str
+    half_table_percent: int
+    everyone_else: List[TierPriceContract]
+
+
 class SetupObjectContract(ContractModel):
     assignment_options: AssignmentOptionContract
     locations: List[LocationContract]
@@ -847,6 +908,7 @@ class SetupObjectContract(ContractModel):
     sections: List[SectionContract]
     tiers: List[TierContract]
     floorplans: Optional[List["FloorplanObjectContract"]] = None
+    pricing: Optional[PricingContract] = None
 
 
 class AssignmentStatisticsContract(ContractModel):
