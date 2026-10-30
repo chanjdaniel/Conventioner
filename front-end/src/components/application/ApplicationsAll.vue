@@ -41,7 +41,11 @@ import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 
-const props = defineProps<{ market: Market | null }>();
+const props = defineProps<{
+  market: Market | null;
+  /** Counts the changes of reviewers: each one dealt applications anew, so the list is read again. */
+  dealt?: number;
+}>();
 
 const route = useRoute();
 const router = useRouter();
@@ -114,6 +118,10 @@ async function refresh() {
     refreshing.value = false;
   }
 }
+watch(
+  () => props.dealt,
+  () => void refresh(),
+);
 onMounted(() => (rereading = setInterval(() => void reread(), REREAD_MS)));
 onUnmounted(() => {
   if (rereading) clearInterval(rereading);

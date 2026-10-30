@@ -142,18 +142,55 @@ function placementParts(
   ];
 }
 
+/** One application a deal moved: its vendor, and whom it was dealt to before and after. */
+interface DealtShare {
+  vendor: string;
+  before: string | null;
+  after: string | null;
+}
+
+/**
+ * The applications a deal moved (E38/F07/S02). The entry names their vendors and their ids in the
+ * same order, and its detail holds each one's reviewer before and after, by id.
+ */
+function dealtShares(entry: MarketHistoryEntry): DealtShare[] {
+  const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+  const detail = asDetail(entry.detail);
+  const reviewer = (side: unknown, id: unknown) =>
+    str(asDetail(asDetail(side)[str(id)]).reviewer) || null;
+  return ids.map((id, index) => ({
+    vendor: str(entry.vendors[index]),
+    before: reviewer(detail.before, id),
+    after: reviewer(detail.after, id),
+  }));
+}
+
+/** The share of the vendor whose own history this is, when the deal moved theirs. */
+function ownShare(entry: MarketHistoryEntry, own: string): DealtShare | undefined {
+  const vendor = own.trim().toLowerCase();
+  return vendor
+    ? dealtShares(entry).find((share) => share.vendor.toLowerCase() === vendor)
+    : undefined;
+}
+
+function addresses(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(str) : [];
+}
+
 /**
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
  * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
  * a change this file has no words for yet; `path` is how the market's vendors arrive, so a phase
  * reads as that market's other screens name it ("Review" on a Google Form market), and absent is a
- * Google Form market's, as `intakeModeOf` reads a market with none.
+ * Google Form market's, as `intakeModeOf` reads a market with none. `own` is the vendor whose own
+ * history this is, if it is one: an entry about many vendors reads as that vendor's line.
  */
 export function entryParts(
   entry: MarketHistoryEntry,
   names: VendorNames,
   labels: Readonly<Record<string, string>> = {},
   path: IntakeMode = IntakeMode.Csv,
+  own = '',
 ): MarketHistoryPart[] {
   const text = (words: string): MarketHistoryPart => ({ kind: 'text', text: words });
   const who = (email: unknown): MarketHistoryPart => ({
@@ -170,6 +207,26 @@ export function entryParts(
 
   if (entry.action === 'assign' && isPlacementKind(entry.kind)) {
     return [actor, ...placementParts(entry, entry.kind, names)];
+  }
+
+  // A deal is worded by its kind whatever action dealt it: a change of reviewers, or an arrival.
+  if (entry.kind === 'dealt') {
+    const shares = dealtShares(entry);
+    const mine = ownShare(entry, own);
+    const one = mine ?? (shares.length === 1 ? shares[0] : undefined);
+    if (one) {
+      const application = mine
+        ? [text('the application')]
+        : [text('the application of '), who(one.vendor)];
+      return one.after
+        ? [actor, text('dealt '), ...application, text(` to ${one.after}`)]
+        : [actor, text('returned '), ...application, text(' to first come, first served')];
+    }
+    const among = new Set(shares.map((share) => share.after).filter(Boolean)).size;
+    const many = plural(shares.length, 'open application', 'open applications');
+    return among
+      ? [actor, text(`dealt ${many} among ${plural(among, 'reviewer', 'reviewers')}`)]
+      : [actor, text(`returned ${many} to first come, first served`)];
   }
 
   switch (`${entry.action}/${entry.kind ?? ''}`) {
@@ -240,6 +297,19 @@ export function entryParts(
         vendor,
         text(` to ${str(after.follow_up_owner)}`),
       ];
+    case 'choose-reviewers/reviewers': {
+      const was = addresses(before.reviewers);
+      const now = addresses(after.reviewers);
+      if (!now.length) return [actor, text('removed every reviewer')];
+      if (!was.length) return [actor, text(`chose the reviewers: ${listed(now)}`)];
+      const added = now.filter((address) => !was.includes(address));
+      const removed = was.filter((address) => !now.includes(address));
+      const changes = [
+        ...(added.length ? [`added ${listed(added)}`] : []),
+        ...(removed.length ? [`removed ${listed(removed)}`] : []),
+      ];
+      return [actor, text(`changed the reviewers: ${changes.join(', ')}`)];
+    }
     case 'move-phase/': {
       const swept = Number(detail.swept ?? 0);
       return [
@@ -421,17 +491,40 @@ function permissionState(value: unknown): string {
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
  * it, and the table taken. A reset of the whole table is each row it returned, by its label in
- * `labels`, and a phase reads as the market's `path` names it.
+ * `labels`, and a phase reads as the market's `path` names it. A deal is each vendor's reviewer,
+ * or the `own` vendor's alone in their own history.
  */
 export function entryChanges(
   entry: MarketHistoryEntry,
   labels: Readonly<Record<string, string>> = {},
   path: IntakeMode = IntakeMode.Csv,
+  own = '',
 ): {
   changed: ChangedField[];
   recorded: RecordedField[];
 } {
   const detail = asDetail(entry.detail);
+  if (entry.kind === 'dealt') {
+    const mine = ownShare(entry, own);
+    const reviewer = (share: DealtShare, field: string) => ({
+      field,
+      before: valueText(share.before),
+      after: valueText(share.after),
+    });
+    return {
+      changed: mine
+        ? [reviewer(mine, 'Reviewer')]
+        : dealtShares(entry).map((share) => reviewer(share, share.vendor)),
+      recorded: [],
+    };
+  }
+  if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
+    const team = (side: unknown) => valueText(addresses(asDetail(side).reviewers).join(', '));
+    return {
+      changed: [{ field: 'Reviewers', before: team(detail.before), after: team(detail.after) }],
+      recorded: [],
+    };
+  }
   if (entry.action === 'change-the-table' && entry.kind === 'permission_table_reset') {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);

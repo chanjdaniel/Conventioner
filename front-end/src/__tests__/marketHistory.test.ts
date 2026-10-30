@@ -294,6 +294,115 @@ describe('what an entry says', () => {
   });
 });
 
+describe('who reviews which application (E38/F07/S02)', () => {
+  const SAM = 'sam@example.com';
+  const KAI = 'kai@example.com';
+
+  function reviewers(before: string[], after: string[]): MarketHistoryEntry {
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'reviewers',
+      vendors: [],
+      detail: { before: { reviewers: before }, after: { reviewers: after } },
+    });
+  }
+
+  function dealt(to: Array<string | null>, from: Array<string | null> = []): MarketHistoryEntry {
+    const vendors = ['ana@ember.test', 'ben@ember.test', 'cy@ember.test'].slice(0, to.length);
+    const ids = vendors.map((_vendor, index) => `app-${index}`);
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'dealt',
+      vendors,
+      subject: { application_ids: ids },
+      detail: {
+        cause: 'reviewers_changed',
+        before: Object.fromEntries(ids.map((id, i) => [id, { reviewer: from[i] ?? null }])),
+        after: Object.fromEntries(ids.map((id, i) => [id, { reviewer: to[i] }])),
+      },
+    });
+  }
+
+  it('words a first choice of reviewers by who was chosen', () => {
+    expect(said(entryParts(reviewers([], ['a@x.test', 'b@x.test', 'c@x.test']), NAMES))).toBe(
+      'dana@ember.test chose the reviewers: a@x.test, b@x.test and c@x.test',
+    );
+  });
+
+  it('words a change of reviewers by who was added and who was removed', () => {
+    expect(
+      said(entryParts(reviewers(['a@x.test', 'b@x.test'], ['b@x.test', 'c@x.test']), NAMES)),
+    ).toBe('dana@ember.test changed the reviewers: added c@x.test, removed a@x.test');
+    expect(said(entryParts(reviewers(['a@x.test'], ['a@x.test', 'c@x.test']), NAMES))).toBe(
+      'dana@ember.test changed the reviewers: added c@x.test',
+    );
+  });
+
+  it('words taking every reviewer away as such', () => {
+    expect(said(entryParts(reviewers(['a@x.test'], []), NAMES))).toBe(
+      'dana@ember.test removed every reviewer',
+    );
+  });
+
+  it('words a deal of one application by the vendor and whom it went to', () => {
+    expect(said(entryParts(dealt([SAM]), NAMES))).toBe(
+      `dana@ember.test dealt the application of [Ana Rivera] to ${SAM}`,
+    );
+  });
+
+  it('words a deal of many by how many and among how many reviewers', () => {
+    expect(said(entryParts(dealt([SAM, KAI, SAM]), NAMES))).toBe(
+      'dana@ember.test dealt 3 open applications among 2 reviewers',
+    );
+  });
+
+  it('words a deal back to first come, first served as such', () => {
+    expect(said(entryParts(dealt([null, null], [SAM, KAI]), NAMES))).toBe(
+      'dana@ember.test returned 2 open applications to first come, first served',
+    );
+    expect(said(entryParts(dealt([null], [SAM]), NAMES))).toBe(
+      'dana@ember.test returned the application of [Ana Rivera] to first come, first served',
+    );
+  });
+
+  it('words a deal of many as the vendor’s own line in their own history', () => {
+    const many = dealt([SAM, KAI, SAM]);
+
+    expect(said(entryParts(many, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      `dana@ember.test dealt the application to ${KAI}`,
+    );
+    expect(
+      said(
+        entryParts(dealt([null, null], [SAM, KAI]), NAMES, {}, IntakeMode.Csv, 'BEN@ember.test'),
+      ),
+    ).toBe('dana@ember.test returned the application to first come, first served');
+  });
+
+  it('opens a deal to each vendor’s reviewer before and after, and the vendor’s own alone', () => {
+    const many = dealt([SAM, KAI], [null, SAM]);
+
+    expect(entryChanges(many)).toEqual({
+      changed: [
+        { field: 'ana@ember.test', before: 'none', after: SAM },
+        { field: 'ben@ember.test', before: SAM, after: KAI },
+      ],
+      recorded: [],
+    });
+    expect(entryChanges(many, {}, IntakeMode.Csv, 'ben@ember.test').changed).toEqual([
+      { field: 'Reviewer', before: SAM, after: KAI },
+    ]);
+  });
+
+  it('opens a change of reviewers to the lists before and after', () => {
+    expect(entryChanges(reviewers(['a@x.test'], ['a@x.test', 'c@x.test'])).changed).toEqual([
+      { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test, c@x.test' },
+    ]);
+    expect(entryChanges(reviewers(['a@x.test'], [])).changed).toEqual([
+      { field: 'Reviewers', before: 'a@x.test', after: 'none' },
+    ]);
+  });
+});
+
 describe('a placement, in the whole history and in the drawer', () => {
   /** One placement change as both read it: stored, as the whole history serves it, and recased,
    * as the placement trail serves it to the drawer. */

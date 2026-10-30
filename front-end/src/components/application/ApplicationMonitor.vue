@@ -53,6 +53,8 @@ const props = defineProps<{
    * one it names (bug 42), so the organizer lands on that application rather than hunting for it.
    */
   named?: string;
+  /** Counts the changes of reviewers: each one dealt applications anew, so the list is read again. */
+  dealt?: number;
 }>();
 
 const applications = ref<Application[]>([]);
@@ -486,6 +488,10 @@ function active() {
   claims.touch();
 }
 
+watch(
+  () => props.dealt,
+  () => void refresh(),
+);
 onMounted(() => {
   window.addEventListener('keydown', onKey);
   window.addEventListener('keydown', active);

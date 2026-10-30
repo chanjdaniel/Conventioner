@@ -9,11 +9,12 @@
  * State arrives as props rather than being reached for, so a later story can mount this under a
  * different parent without rewriting it.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
 import PublishResults from '@/components/application/PublishResults.vue';
+import ReviewersPanel from '@/components/market/ReviewersPanel.vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { intakeModeOf } from '@/utils/marketGuide';
@@ -40,6 +41,12 @@ function showView(next: ReviewView) {
   const query = withoutQueryKey(withoutQueryKey(route.query, 'view'), 'application');
   void router.replace({ query: next === 'one' ? { ...route.query, view: 'one' } : query });
 }
+
+/**
+ * Bumped by every change of reviewers (E38/F07/S02): the deal moved applications between them, so
+ * the open view reads its list again to show whom each went to.
+ */
+const dealt = ref(0);
 
 /** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
 const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
@@ -89,6 +96,8 @@ const condition = computed(() => {
     >
       {{ condition }}
     </p>
+    <!-- Who reviews which application, while the review is open (E38/F07/S02). -->
+    <ReviewersPanel :market="market" @saved="dealt++" />
     <!-- A step for the market, over whichever view is open (E38/F05/S01). -->
     <PublishResults :market="market" />
     <!-- Which view, said over the switch and named by those words (E38/F05/S01). -->
@@ -126,8 +135,14 @@ const condition = computed(() => {
         application at a time, with every answer.
       </p>
     </div>
-    <ApplicationsAll v-if="view === 'all'" :market="market" />
-    <ApplicationMonitor v-else :market="market" :visible="visible" :named="namedApplication" />
+    <ApplicationsAll v-if="view === 'all'" :market="market" :dealt="dealt" />
+    <ApplicationMonitor
+      v-else
+      :market="market"
+      :visible="visible"
+      :named="namedApplication"
+      :dealt="dealt"
+    />
   </div>
 </template>
 
