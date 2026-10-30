@@ -36,9 +36,9 @@ They are the realistic responses this suite has, and the form started from a CSV
 ### What the generator writes
 
 Each file is described, header by header and column by column, in the generator, and written by it.
-Every header is written for the file, the people come from the generator's pools of common names, every address is at a fixture domain, every link is invented, and every other answer is made from the generator's word lists.
+Every header is written for the file, the people come from the generator's pools of common names, every address is at a fixture domain, every link is at `example.com` but an upload's, and every other answer is made from the generator's word lists.
 An upload keeps the Google Drive host, with an invented file id, because the proposal knows an upload by that host.
-The organization is "Example College", the market "Example Makers Fair", the venue "Example Hall" with its "North Wing" and "South Wing", and the clubs "Example College <craft> Society", with one form spelling one of them "ECVAS".
+The organization is "Example College", the market "Example Makers Fair", the venue "Example Hall" with its "North Wing" and "South Wing", and the clubs "Example College <craft> Society"; `four-day-grid.csv` and `days-as-one-question.csv` also offer the invented abbreviation "ECVAS" as a club.
 Each column states its counts exactly, never as weights, so a file's column kinds, options and import outcome are fixed by its description, whatever its seed draws.
 236 of `five-day-grid.csv`'s 237 rows import, and the one refused has no full name.
 245 of `team-status-column.csv`'s 250 rows import: one has no full name, one gave a timestamp for its email address, two applicants stopped after the first page, and the last row is the organizer's `TEST` submission.
