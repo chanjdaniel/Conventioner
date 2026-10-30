@@ -187,7 +187,7 @@ It is one written rule rather than a rearrangement per screen: the design langua
 - **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
   The plan never reaches it on an organizer's screen: at the app's 1000px floor it has 920px of room and keeps two tracks.
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
-- **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
+- **A column divider inside a card is one 1px `--mm-border` line**, on the plan's Tier, Location and Section Setup and its Pricing card, and on the Assignment tab's options and rules alike, so the two screens draw their tables the same way.
 
 On the plan, Market Dates, Section Setup and Pricing are wide (Section Setup's columns need 654px, and at half width its tier select truncated; Pricing's columns are the tiers); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
