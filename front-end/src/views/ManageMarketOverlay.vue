@@ -262,6 +262,7 @@ function closeAddUser() {
               <select
                 v-else
                 :value="role"
+                :name="`role-${userId}`"
                 :aria-label="`${email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
@@ -312,6 +313,8 @@ function closeAddUser() {
             <input
               v-model="newUserEmail"
               type="email"
+              name="email"
+              autocomplete="off"
               placeholder="User email"
               aria-label="Email of the person to add"
               class="field"
@@ -319,6 +322,7 @@ function closeAddUser() {
             />
             <select
               v-model="newUserRole"
+              name="role"
               aria-label="Their role"
               class="field field--select"
               data-testid="manage-market-add-user-select"
@@ -386,6 +390,8 @@ function closeAddUser() {
         <form v-else class="rename-row" @submit.prevent="handleRename">
           <input
             v-model="renameValue"
+            name="name"
+            autocomplete="off"
             class="field"
             aria-label="Market name"
             data-testid="manage-market-rename-input"

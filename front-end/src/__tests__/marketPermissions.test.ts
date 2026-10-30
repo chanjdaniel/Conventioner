@@ -170,3 +170,19 @@ describe("a row's select", () => {
     }
   });
 });
+
+describe('the selects', () => {
+  it('each carry an id and a name, so the browser reports no unnamed form field', async () => {
+    const section = await openSection(BUILT_IN);
+    const selects = section.findAll<HTMLSelectElement>(
+      '[data-testid="manage-market-permission-select"]',
+    );
+
+    expect(selects).toHaveLength(2);
+    for (const select of selects) {
+      expect(select.element.id).not.toBe('');
+      expect(select.element.name).not.toBe('');
+    }
+    expect(new Set(selects.map((s) => s.element.id)).size).toBe(2);
+  });
+});

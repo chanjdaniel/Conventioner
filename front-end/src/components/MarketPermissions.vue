@@ -239,7 +239,9 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
             <!-- Named by the row's own words, which a voice user reads off the screen. -->
             <select
               v-if="mayChange && !row.fixed"
+              :id="`manage-market-permission-select-${row.id}`"
               :value="row.role"
+              :name="row.id"
               :aria-labelledby="`manage-market-permission-${row.id}`"
               class="field field--select select"
               data-testid="manage-market-permission-select"
