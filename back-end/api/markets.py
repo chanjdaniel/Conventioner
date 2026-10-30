@@ -1335,7 +1335,10 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
     )
     count_added_vendors(
         stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
-        placed_rows,
+        [
+            placement for placement in placed_rows
+            if placement not in orphaned_pins(assigned_market.setup_object, placed_rows)
+        ],
     )
 
     payload = convert_keys_to_camel_case(stats.model_dump())

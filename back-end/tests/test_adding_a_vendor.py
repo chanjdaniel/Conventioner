@@ -238,6 +238,17 @@ def test_seating_an_added_vendor_on_any_day_takes_them_off_the_count(statistics_
     assert (statistics["totalAssignedVendors"], statistics["totalVendors"]) == (2, 2)
 
 
+def test_an_added_vendor_whose_only_seat_left_the_plan_counts_unassigned(statistics_of):
+    statistics = statistics_of(
+        [_seat("ana@example.com", DAY_ONE, "A 1"),
+         _seat("walk.in@example.com", DAY_ONE, "A 5", hand_placed=True)],
+        added=["walk.in@example.com"],
+    )
+
+    assert statistics["unassignedVendors"] == ["walk.in@example.com"]
+    assert (statistics["totalAssignedVendors"], statistics["totalVendors"]) == (1, 2)
+
+
 def test_a_rejected_applicant_is_never_counted_unassigned(statistics_of):
     statistics = statistics_of([_seat("ana@example.com", DAY_ONE, "A 1")])
 
