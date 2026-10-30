@@ -25,6 +25,7 @@ sources:
   - T15
   - E45/F01/S01
   - E38/F01/S01
+  - E38/F08/S01
   - E46/F01/S02
 ---
 
@@ -42,7 +43,7 @@ A screen hands it the market from [the market store](market-store.md) and render
   The underline is the tab being looked at, and the dot the tab the market is worked on in its phase; a tab opens the page carrying the dot when it holds it, else its first page.
   A CSV market's form tab is called "Questions".
 - **The rail**, under the bar, once the market is in hand.
-- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Assignment, Result and Vendors.
+- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments and Vendors.
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
@@ -58,7 +59,7 @@ Stats, last, has no phase of its own and no note: it reads the market from its f
 Tools, just left of it, has none either: it holds the manual tools an organizer runs whenever they choose, each a card of a `.card-grid` on the page's inset, the [Discord card](discord.md) first ([`ToolsView.vue`](../../../front-end/src/views/ToolsView.vue)).
 
 [`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, floorplan and start-from-CSV under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
-`hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Result page.
+`hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Assignments page.
 
 ## Sharp edges
 
@@ -76,7 +77,7 @@ The pinned block's height is measured (a `ResizeObserver`) and published as `--m
 The card is at least the height of the window under the banner, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
-The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Assignment page why its rules settled; each disables a control on the table's answer for the action it takes (`mayTake`, [the market store](market-store.md#where-a-screens-permission-comes-from)), but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
+The plan says why its setup settled (`setupLockReason`), the form's steps why the form locked, and the Settings page why its rules settled; each disables a control on the table's answer for the action it takes (`mayTake`, [the market store](market-store.md#where-a-screens-permission-comes-from)), but none repeats `readOnlyReason`, or a Viewer reads the same sentence twice on one page.
 The floorplan flow stands in for its wizard on either reason and says only the setup's.
 
 **Every market screen is `--workspace-max` wide, and the frame sets it.**
@@ -96,7 +97,7 @@ Four tabs, with the Assignment tab's pages in a row under the rail, won over two
 The bar holds seven tabs since Attendance stayed on it for the market's whole life (E31/F03/S02), Stats joined it (E45/F01/S01) and Tools joined it (E46/F01/S02), while Vendors stays a page of the Assignment tab; Stats is a tab rather than a page under Applications because the figures planned for it, seats and money among them, would sit oddly under the applications (Daniel's choice in T92's planning).
 Seven tabs still fit beside a long name at 1280 because the name, never the tabs, gives way.
 Tools is a tab of its own, immediately left of Stats, by Daniel's hand walk of E46/F01/S02: a tool runs in any phase, while the plan it used to stand beneath settles on leaving draft.
-The page row is what makes the tab's name, repeated as its first page's, read as "the tab, and its first page"; Result and Vendors beside each other are the assignment by table and by vendor.
+The page row names each page for what it holds: Settings the rules and the run, headed "Assignment settings" so it is not taken for the market's own settings on Market Setup, and Assignments and Vendors beside each other the assignment by table and by vendor.
 
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
 Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).
@@ -105,7 +106,9 @@ The glossary concept it serves: [Market](../../business/concepts/market.md).
 
 ## Superseded
 
-- Only Market Setup said why a person could change nothing, so a Viewer met Result's seats as plain text and took the page for broken; the frame says it on every page, and Market Setup's plan says only its own lock (T15).
+- The Assignment tab's first page shared the tab's name, and the page row was what made it read as "the tab, and its first page"; its second was Result.
+  They read Settings and Assignments, named for what they hold (E38/F08/S01).
+- Only Market Setup said why a person could change nothing, so a Viewer met the Assignments page's seats as plain text and took the page for broken; the frame says it on every page, and Market Setup's plan says only its own lock (T15).
 
 - Attendance was to join the bar once the market was published, so the bar grew with the market (wayfinding/the-assignment-tab/02); every tab stays on the bar for the market's whole life, and a tab out of its phase says when it matters (E31/F03/S02).
 - The market's page was "the market workspace" and its white container "the settings panel" (wayfinding/the-order-of-the-work/map); the page is the market frame's card, which every market screen shares (E21/F04).

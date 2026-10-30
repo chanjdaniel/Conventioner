@@ -225,23 +225,23 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     page: 'applications',
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
   }),
-  // Worked on the rules until there is a result, and on the result after.
+  // Worked on the rules until there are assignments, and on the assignments after.
   [MarketPhase.Assignment]: ({ assigned, published }) =>
     published
       ? {
-          page: 'result',
+          page: 'assignments',
           statement:
-            'Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone.',
+            'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
         }
       : assigned
         ? {
-            page: 'result',
+            page: 'assignments',
             statement:
-              'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
+              'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
-        : { page: 'assignment', statement: 'Set the rules and allocate tables.' },
+        : { page: 'settings', statement: 'Set the rules and allocate tables.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
-    page: assigned ? 'result' : 'assignment',
+    page: assigned ? 'assignments' : 'settings',
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
   }),
   [MarketPhase.MarketDays]: ({ ended }) => ({
@@ -252,7 +252,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   }),
   // One that never ran has nothing to show but its plan.
   [MarketPhase.Archived]: ({ assigned, ran }) => ({
-    page: assigned ? 'result' : 'setup',
+    page: assigned ? 'assignments' : 'setup',
     statement: ran
       ? 'Archived: the record of what happened stays on its check-in page.'
       : 'Archived: this market is the record of what happened.',

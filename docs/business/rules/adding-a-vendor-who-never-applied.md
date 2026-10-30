@@ -4,17 +4,20 @@ kind: rule
 describes:
   - back-end/api/added_vendors.py
   - back-end/api/markets.py#adding_refusal
+  - back-end/api/markets.py#needs_a_table
+  - back-end/api/markets.py#count_added_vendors
   - back-end/assignment/vendor_input.py#approved_solver_vendors
 verified: 2026-10-30
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01
+  - E38/F08/S02
 ---
 
 # Adding a vendor who never applied
 
 From Assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never assigned when tables are allocated, and is assigned by hand.
-An address the market already holds an application for is refused: that vendor is assigned on the Result page instead.
+An address the market already holds an application for is refused: that vendor is assigned on the Assignments page instead.
 
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
@@ -26,6 +29,10 @@ A seat now goes only to an applicant ([a seat only for an applicant](a-seat-only
 **Added by hand, so never in the run.**
 Their answers may be missing, and an approved application missing a required answer refuses the run for everyone; so the run skips them, and they are held in their seat like any pin.
 They are approved by the act of adding, and the organizer who added them is recorded as giving that verdict.
+
+**Out of the run, but needing a table like anyone.**
+"In the run" says only who the run places; a vendor added by hand needs a table on every market day, so one without a table is unassigned: listed under the Vendors page's "Unassigned only" (and on each date they hold none, with a date chosen), "Unassigned" beside "Added" on their row, and counted in the Assignments page's "N unassigned" and "N of M approved applicants assigned", so the link and the list agree (bug 10).
+The server says it of each vendor apart from "in the run" (`needs_a_table` and `count_added_vendors` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)); seated on any day, they count as assigned, as the run's vendors do.
 
 ## Who may
 

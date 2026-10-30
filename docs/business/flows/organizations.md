@@ -41,7 +41,7 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 1. On an organization card, "Manage".
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
 3. Expect the person listed and the dialog still open (closing is not saving).
-4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Result), and a member sees every one as a Viewer.
+4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer.
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
 Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market").

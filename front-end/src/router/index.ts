@@ -1,4 +1,9 @@
-import { createRouter, createWebHistory, type NavigationGuard } from 'vue-router';
+import {
+  createRouter,
+  createWebHistory,
+  type NavigationGuard,
+  type RouteLocation,
+} from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
 import InitView from '@/views/InitView.vue';
@@ -85,9 +90,10 @@ const router = createRouter({
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
       // The pages were a `?tab=` on `setup` until E22/F04/S02, and a bookmark or an emailed link may
-      // still say so; it lands on the page it named.
+      // still say so; it lands on the page it named, by the name it has now.
       beforeEnter: (to) => {
-        const tab = String(to.query.tab ?? '');
+        const named = String(to.query.tab ?? '');
+        const tab = named === 'assignment' ? 'settings' : named;
         if (
           to.params.page !== 'setup' ||
           tab === 'setup' ||
@@ -101,18 +107,27 @@ const router = createRouter({
       },
     },
     {
-      path: '/markets/:marketId/result',
-      name: 'market-result',
+      path: '/markets/:marketId/assignments',
+      name: 'market-assignments',
       component: () => import('@/views/ResultView.vue'),
     },
-    // Tables became the Result page (E22/F04/S02); its filters travel with it.
-    {
-      path: '/markets/:marketId/tables',
-      redirect: (to) => ({
-        path: marketPath(String(to.params.marketId), 'result'),
+    // The Assignment tab's pages took the names of what they hold (E38/F08/S01): Assignment became
+    // Settings and Result became Assignments. A saved link or a bookmark lands on the page it named,
+    // and so does Tables, which became Result (E22/F04/S02); their filters travel with them.
+    ...(
+      [
+        ['assignment', 'settings'],
+        ['result', 'assignments'],
+        ['tables', 'assignments'],
+      ] as const
+    ).map(([old, page]) => ({
+      path: `/markets/:marketId/${old}`,
+      redirect: (to: RouteLocation) => ({
+        path: marketPath(String(to.params.marketId), page),
         query: to.query,
+        hash: to.hash,
       }),
-    },
+    })),
     {
       path: '/markets/:marketId/vendors',
       name: 'vendors',

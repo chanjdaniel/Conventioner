@@ -108,7 +108,7 @@ const SETUP_CONTENT = [
   { tab: 'setup', testid: 'plan-card-dates', wide: true },
   { tab: 'form', testid: 'form-steps', wide: true },
   { tab: 'applications', testid: 'market-setup-applications-condition', wide: false },
-  { tab: 'assignment', testid: 'assignment-card-priority', wide: false },
+  { tab: 'settings', testid: 'assignment-card-priority', wide: false },
 ] as const;
 
 for (const width of [1440, 1100]) {
@@ -116,7 +116,7 @@ for (const width of [1440, 1100]) {
     authenticatedPage: page,
     request,
   }) => {
-    // Each tab padded itself 40px while the rail, Result, Vendors and the frame's own note sit
+    // Each tab padded itself 40px while the rail, Assignments, Vendors and the frame's own note sit
     // 24px in, so a Viewer's note and the page under it started 16px apart (T15, ticket 03).
     await page.setViewportSize({ width, height: 900 });
     const draft = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);

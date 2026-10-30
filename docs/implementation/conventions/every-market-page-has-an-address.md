@@ -19,6 +19,7 @@ sources:
   - E21/F02
   - E21/F02/S04
   - E45/F01/S01
+  - E38/F08/S01
   - E46/F01/S02
 ---
 
@@ -33,8 +34,8 @@ The glossary concept: [Market](../../business/concepts/market.md).
 
 The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts):
 
-- `/markets/:marketId/{setup,form,applications,assignment}` are the pages of one view, `MarketSetupView` (`SETUP_VIEW_PAGES`).
-- `/markets/:marketId/result`, `/vendors`, `/attendance`, `/tools` and `/stats` are views of their own.
+- `/markets/:marketId/{setup,form,applications,settings}` are the pages of one view, `MarketSetupView` (`SETUP_VIEW_PAGES`); `settings` is the Assignment tab's Settings page, apart from `setup`, Market Setup's plan.
+- `/markets/:marketId/assignments`, `/vendors`, `/attendance`, `/tools` and `/stats` are views of their own.
 - `/markets/:marketId/import`, `/floorplan` and `/start-from-csv` are flows, entered from a tab rather than places to go; each stands under one tab, the import under Applications and the other two under Market Setup (see [the market frame](../modules/market-frame.md)).
 - `/discord/connected` is not a market page: it is where Discord's approval screen sends the organizer back, its market named by the state it carries, in the tab Connect Discord opened; it says the outcome and links to that market's Tools ([the Discord connection](../modules/discord.md)).
 - `/markets/:marketId` alone is [`MarketLanding`](../../../front-end/src/views/MarketLanding.vue), which opens the market, shows the frame's arrival, and then replaces itself with the page the market is worked on in its phase: `currentPage` in [the market guide](../modules/market-guide.md), a reading of the guide's table.
@@ -44,8 +45,8 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 
 ## Old addresses
 
-- `setup?tab=<page>` lands on the page it named, keeping the rest of its query.
-- `/markets/:marketId/tables` redirects to `result`, with its filters: the Tables screen became the Result page ([the assignment and its result](../../business/flows/assignment-and-result.md)).
+- `setup?tab=<page>` lands on the page it named, keeping the rest of its query; `setup?tab=assignment` lands on `settings`.
+- `/markets/:marketId/assignment` redirects to `settings`, and `/markets/:marketId/result` and `/markets/:marketId/tables` to `assignments`, each with its query: the Tables screen became the Result page, and the Assignment and Result pages became Settings and Assignments ([the assignment and its result](../../business/flows/assignment-and-result.md)).
 - `/floorplan-editor?marketId=` opens that market's floorplan flow: unlike the other old paths it carried the market's id, so an old link still opens the market it named.
 - The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
 

@@ -103,7 +103,7 @@ describe('before a run', () => {
     id: 'assignment_computed',
     passed: false,
     message: 'No tables have been allocated for this market. Allocate tables first.',
-    resolutionLink: 'assignment',
+    resolutionLink: 'settings',
     resolutionLabel: 'Allocate tables',
   };
 
@@ -119,7 +119,7 @@ describe('before a run', () => {
 
     const button = rail.get(fix);
     expect(button.text()).toBe('Allocate tables');
-    expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/assignment');
+    expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/settings');
     expect(
       rail.get('[data-testid="phase-transition-market_days"]').attributes('disabled'),
     ).toBeDefined();

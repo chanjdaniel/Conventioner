@@ -22,3 +22,15 @@ export function datesWithinReach(
   if (ceiling != null && ceiling > 0) reach = Math.min(reach, ceiling);
   return reach;
 }
+
+/**
+ * How many of the market's dates a vendor needs a table on (E38/F08/S02): a vendor added by hand
+ * answered nothing and needs one on every market day; anyone who applied, the dates within reach.
+ */
+export function datesTheyNeed(
+  vendor: { answers: Record<string, unknown>; added: boolean },
+  marketDates: readonly string[],
+  ceiling: number | null | undefined,
+): number {
+  return vendor.added ? marketDates.length : datesWithinReach(vendor.answers, marketDates, ceiling);
+}

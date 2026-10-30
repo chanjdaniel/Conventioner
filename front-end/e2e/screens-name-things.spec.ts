@@ -70,7 +70,7 @@ test.describe('Screens say what they mean', () => {
 
     for (const [screen, url, ready] of [
       ['form builder', marketSetupPath(marketId, 'form'), 'form-builder-lock-banner'],
-      ['tables', marketScreenPath(marketId, 'result'), 'tables-count-assigned'],
+      ['tables', marketScreenPath(marketId, 'assignments'), 'tables-count-assigned'],
       ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
     ] as const) {
       await page.goto(url);
@@ -111,7 +111,7 @@ test.describe('Screens say what they mean', () => {
 
     // One bar, rendered by the frame, names the market on every page (E22/F04/S02).
     for (const url of [
-      marketScreenPath(marketId, 'result'),
+      marketScreenPath(marketId, 'assignments'),
       marketScreenPath(marketId, 'attendance'),
       marketScreenPath(marketId, 'vendors'),
     ]) {

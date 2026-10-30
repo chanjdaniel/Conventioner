@@ -72,7 +72,7 @@ function serve(
             },
           ],
           vendorNames,
-          vendors: [{ email: 'bob@example.com', inTheRun: true }],
+          vendors: [{ email: 'bob@example.com', inTheRun: true, needsATable: true }],
         },
       };
     }

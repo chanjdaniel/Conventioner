@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for a market's Result page (E22/F04/S04): the summary strip over the tables grid.
+ * Page object for a market's Assignments page (E22/F04/S04, named Result until E38/F08/S01): the
+ * summary strip over the tables grid.
  *
  * It replaced the Assignment tab's results, whose Vendors modal listed one row per applicant; the
  * grid itself is where a placement is read now, and `placementsFor` reads it there.
@@ -20,7 +21,7 @@ export class ResultPage {
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/markets/${encodeURIComponent(marketId)}/result`);
+    await this.page.goto(`/markets/${encodeURIComponent(marketId)}/assignments`);
   }
 
   /**

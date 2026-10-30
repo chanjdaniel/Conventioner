@@ -33,7 +33,7 @@ Before E36 results could be published on a market with nothing reviewed and noth
 Publishing results stays its own act, never part of going live; the decision and what it costs are [ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
 
 **Publishing settles the allocation.**
-After it the run is refused (`assign_refusal`, served as `assignRefusalReason`) and [the assignment rules](the-assignment-rules-close-with-the-assignment.md) lock; a single seat is still changed by hand on the Result page.
+After it the run is refused (`assign_refusal`, served as `assignRefusalReason`) and [the assignment rules](the-assignment-rules-close-with-the-assignment.md) lock; a single seat is still changed by hand on the Assignments page.
 There is no unpublish: nothing writes `resultsPublished` back to false.
 
 **The market does not go live first.**
