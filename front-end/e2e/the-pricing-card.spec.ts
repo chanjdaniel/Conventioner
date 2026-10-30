@@ -189,6 +189,53 @@ test.describe('the Pricing card', () => {
     expect((await stored()).halfTablePercent).toBe(50);
   });
 
+  test('text that is no amount keeps no price nobody chose, and follows its tier', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { dates: [SEED_MARKET_DATE, SECOND_DATE] },
+    );
+    await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, PLAN);
+    const stored = async () =>
+      (await (await request.get(`${BACKEND_URL}/markets/${seed.marketId}`)).json()).market
+        .setupObject;
+
+    await page.goto(marketSetupPath(seed.marketId, 'setup'));
+    const card = page.getByTestId('plan-card-pricing');
+    await expect(card).toBeVisible({ timeout: 15000 });
+
+    // A blank cell on its way to no amount: "3" is never kept as a price behind the error.
+    await card.getByRole('textbox', { name: 'Everyone else Silver' }).pressSequentially('3x');
+    await expect(card.getByTestId('pricing-error')).toBeVisible();
+
+    // Tier Setup renames Silver: the text moves with it, still to fix, and fixing it saves both.
+    await page.getByTestId('setup-tier-name-input-1').fill('Silvery');
+    const silvery = card.getByRole('textbox', { name: 'Everyone else Silvery' });
+    await expect(silvery).toHaveValue('3x');
+    await expect(silvery).toHaveAttribute('aria-invalid', 'true');
+    await silvery.fill('31');
+    await expect(card.getByTestId('pricing-error')).toHaveCount(0);
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    await expect.poll(stored).toMatchObject({
+      tiers: [GOLD, { ...SILVER, name: 'Silvery' }],
+      pricing: { everyoneElse: [{ tier: 'Silvery', cents: 3100 }] },
+    });
+
+    // Leaving the page with a blank cell still on its way writes no price for it.
+    await card.getByRole('textbox', { name: 'Everyone else Gold' }).pressSequentially('3x');
+    await expect(card.getByTestId('pricing-error')).toBeVisible();
+    await page.getByTestId('market-bar-tab-applications').click();
+    await expect(card).toHaveCount(0);
+    await expect
+      .poll(async () => (await stored()).pricing.everyoneElse)
+      .toEqual([{ tier: 'Silvery', cents: 3100 }]);
+  });
+
   test('a market with no prices shows no price on any card', async ({
     authenticatedPage: page,
     request,
