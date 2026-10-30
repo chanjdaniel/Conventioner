@@ -18,6 +18,7 @@ sources:
   - bug/1
   - E08/F03
   - T15
+  - E38/F09/S01
 ---
 
 # Publishing, and the door on market day
@@ -80,7 +81,7 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `th
 1. Attendance opens on today when it is a market date, else the next one, else the last; each date is a button with "checked in / expected".
 2. "N of M checked in", and "All M", "Not yet N" (or "Did not come N" once the day is over or the market archived) and "Checked in N" to show one or the other.
 3. "Find a vendor" ("Name, email or table") narrows the list.
-4. Each vendor placed that day, by table: their name, which opens the [vendor drawer](vendor-drawer.md) and never checks them in; the time they checked in and by whom ("by you", or the organizer's address; a vendor's own check-in names nobody), or "Not yet"; and their notes under the row when they have some.
+4. Each vendor placed that day, by table: their name, a link at rest (link ink, underlined, a 44px target on a phone), which opens the [vendor drawer](vendor-drawer.md) and never checks them in; the time they checked in and by whom ("by you", or the organizer's address; a vendor's own check-in names nobody), or "Not yet"; and their notes under the row when they have some.
 5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door.
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
