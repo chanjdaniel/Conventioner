@@ -578,7 +578,7 @@ function deleteType(tt: TableTypeObject) {
   padding: 20px 0;
   text-align: center;
   font-size: var(--text-xs);
-  color: rgba(39, 35, 35, 0.4);
+  color: var(--mm-text-muted);
 }
 
 /* ── Add button ──────────────────────────────────────────────── */

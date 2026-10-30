@@ -664,6 +664,13 @@ onUnmounted(() => {
   opacity: 1;
 }
 
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself (E38/F01/S01). */
+.sg-toolbar-btn--sections:focus-visible {
+  box-shadow:
+    var(--focus-halo),
+    0 2px 12px rgba(39, 35, 35, 0.12);
+}
+
 /* ── Hint bar ───────────────────────────────────────────────────── */
 .sg-hint {
   position: absolute;
