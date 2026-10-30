@@ -13,6 +13,7 @@ sources:
   - E20/F04/S01
   - bug/47
   - E40/F01/S01
+  - E40/F02/S01
 ---
 
 # Market deletion, and the deletion trail
@@ -45,6 +46,7 @@ Deleting the market document alone once left every vendor's name, email and answ
 **The records go first and the market last**, so a failure part-way leaves the market there to delete again, rather than records that nothing reaches.
 
 **The deletion trail stays apart from the market's history** ([ADR 0017](../../adr/0017-one-history-for-every-change.md)): the history is deleted with its market, and the trail must outlive what it describes.
+A market deleted on its own, from Manage market, writes no trail; its organization's history records that it went, who deleted it and its name (`delete-market`, [what an organization records](../data/history.md#what-an-organization-records)).
 
 **The trail is written BEFORE anything is destroyed, and is allowed to fail the whole operation**: an organization deleted with no record of what went with it is the thing the trail exists for.
 Each entry names the organization, the person and the time, and describes each market as it stood (its name, phase, whether it ran, its placements and the public address it kept), never by id alone, since an id that points at nothing records nothing.

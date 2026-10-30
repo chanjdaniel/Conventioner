@@ -582,7 +582,7 @@ WRITES = [
 #: The write routes that change nothing on a market's record, and why.
 NOT_A_CHANGE = {
     ("POST", "/markets"): "creates the market, whose history starts empty; its owner is its role",
-    ("DELETE", M): "deletes the history with the market; the deletion trail records it",
+    ("DELETE", M): "deletes the history with the market; its organization's history records it",
     ("POST", f"{M}/review/next"): "deals a card: a review claim (ADR 0014) is not a change",
     ("PUT", f"{M}/applications/<application_id>/claim"): "a review claim is not a change",
     ("DELETE", f"{M}/applications/<application_id>/claim"): "a review claim is not a change",
@@ -608,13 +608,15 @@ NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
     Actions.READ_HISTORY.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
-    Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
+    Actions.DELETE_MARKET.id:
+        "the history goes with the market; its organization's history records it",
 }
 
 
 def _market_write_routes():
-    """Every route that writes, on a market or one of its floorplans; an organization's own
-    floorplan templates are the organization's history's (E40/F02)."""
+    """Every route that writes, on a market or one of its floorplans; an organization's floorplan
+    templates are no market's, but its own, and they and its other changes are guarded by
+    ``test_the_organizations_history.py``."""
     for rule in app_module.app.url_map.iter_rules():
         path = rule.rule
         if not path.startswith(("/markets", "/public/markets/", "/floorplans/")) \

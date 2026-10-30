@@ -491,11 +491,8 @@ def create_organization() -> Response:
 @app.route('/organizations/<org_id>', methods=['GET'])
 @login_required
 def get_organization(org_id: str) -> Response:
-    """Get an organization by id."""
-    org = OrgsApi.get_organization(org_id)
-    if not org:
-        return jsonify({"error": "Organization not found"}), 404
-    return jsonify({"organization": org}), 200
+    """Get an organization by id, for its owner, admins and members only."""
+    return jsonify({"organization": OrgsApi.read_organization(org_id, authenticated_email())}), 200
 
 @app.route('/organizations/<org_id>', methods=['PUT'])
 @login_required
@@ -512,6 +509,15 @@ def update_organization(org_id: str) -> Response:
         "message": "Organization updated successfully",
         "modified_count": result.modified_count
     }), 200
+
+@app.route('/organizations/<org_id>/history', methods=['GET'])
+@login_required
+def get_organization_history(org_id: str) -> Response:
+    """One page of the organization's own changes, newest first, for Manage organization's History.
+
+    Its owner, admins and members read it. ``?before=`` is the cursor the last page answered with.
+    """
+    return jsonify(OrgsApi.get_history(org_id, authenticated_email(), request.args.get("before"))), 200
 
 @app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
 @login_required

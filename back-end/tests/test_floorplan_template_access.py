@@ -330,3 +330,104 @@ class TestListingAnOrganizationsTemplates:
         )
 
         assert response.status_code == 404
+
+
+class TestAnOrganizationsTemplateIsInItsHistory:
+    """A template filed under an organization is the organization's: adding, changing and removing
+    it record into its history (E40/F02/S01); a template of no organization records nothing."""
+
+    @pytest.fixture
+    def history(self, market_records):
+        import history as History
+
+        def entries():
+            return [doc for doc in market_records.history.documents
+                    if doc.get(History.ORGANIZATION_ID_FIELD) == ORG_ID]
+
+        return entries
+
+    def test_adding_one_is_recorded(self, sign_in, templates, organizations, history):
+        import history as History
+
+        _create(sign_in("org-member@example.com"), organizationId=ORG_ID)
+
+        [entry] = history()
+        [stored] = templates.docs
+        assert entry["actor"] == "org-member@example.com"
+        assert entry["action"] == History.MANAGE_FLOORPLAN_TEMPLATES
+        assert entry["kind"] == History.TEMPLATE_ADDED
+        assert entry["subject"] == {"template_id": stored["id"], "name": "Main hall"}
+        assert entry["detail"] == {"before": {"name": None}, "after": {"name": "Main hall"}}
+
+    def test_changing_one_records_the_fields_it_changed(
+        self, sign_in, templates, organizations, history,
+    ):
+        import history as History
+
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        _update(sign_in("creator@example.com"), aisles={"wallBufferMm": 900.0},
+                tableTypes=[{"name": "Full"}], organizationId=ORG_ID)
+
+        [entry] = history()
+        assert entry["kind"] == History.TEMPLATE_CHANGED
+        assert entry["subject"] == {"template_id": TEMPLATE_ID, "name": "Renamed"}
+        # By the names the history words them with, and never the organization's id.
+        assert entry["detail"] == {
+            "before": {"name": "Main hall", "aisles": {}, "table_types": []},
+            "after": {"name": "Renamed", "aisles": {"wallBufferMm": 900.0},
+                      "table_types": [{"name": "Full"}]},
+        }
+
+    def test_moving_one_out_reads_as_leaving_and_into_another_as_arriving(
+        self, sign_in, templates, organizations, market_records,
+    ):
+        import history as History
+
+        other = {**ORGANIZATION, "id": "org-456", "name": "Pier Collective"}
+        organizations.docs.append(other)
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        _update(sign_in("creator@example.com"), name="Main hall", organizationId="org-456")
+
+        left, arrived = market_records.history.documents
+        assert (left["organization_id"], left["kind"]) == (ORG_ID, History.TEMPLATE_MOVED_OUT)
+        assert (arrived["organization_id"], arrived["kind"]) == (
+            "org-456", History.TEMPLATE_MOVED_IN)
+        # Its name is its subject; no organization's id is in either, nor the other's name.
+        assert left["detail"] == arrived["detail"] == {}
+        assert left["subject"] == {"template_id": TEMPLATE_ID, "name": "Main hall"}
+
+    def test_moving_one_out_to_no_organization_reads_as_leaving(
+        self, sign_in, templates, organizations, market_records,
+    ):
+        import history as History
+
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        _update(sign_in("creator@example.com"), name="Main hall", organizationId=None)
+
+        [left] = market_records.history.documents
+        assert (left["organization_id"], left["kind"]) == (ORG_ID, History.TEMPLATE_MOVED_OUT)
+
+    def test_removing_one_is_recorded(self, sign_in, templates, organizations, history):
+        import history as History
+
+        templates.docs.append(_stored_template(organizationId=ORG_ID))
+
+        sign_in("org-owner@example.com").delete(f"/floorplans/templates/{TEMPLATE_ID}")
+
+        [entry] = history()
+        assert entry["actor"] == "org-owner@example.com"
+        assert entry["kind"] == History.TEMPLATE_REMOVED
+        assert entry["subject"] == {"template_id": TEMPLATE_ID, "name": "Main hall"}
+        assert entry["detail"] == {"before": {"name": "Main hall"}, "after": {"name": None}}
+
+    def test_one_of_no_organization_records_nothing(
+        self, sign_in, templates, organizations, market_records,
+    ):
+        _create(sign_in("creator@example.com"))
+        _update(sign_in("creator@example.com"))
+        sign_in("creator@example.com").delete(f"/floorplans/templates/{TEMPLATE_ID}")
+
+        assert market_records.history.documents == []
