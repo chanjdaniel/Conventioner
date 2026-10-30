@@ -14,7 +14,7 @@ export function outcomeHeadline(application: Pick<Application, 'outcome'>): stri
   return null;
 }
 
-/** One seat in words: "Saturday, November 21, 2026: A 3, a whole table, Upper Atrium". */
+/** One seat in words: "Saturday, November 21, 2026: A 3, a whole table, North Wing". */
 export function seatLine(seat: ApplicantSeat): string {
   const where = [tableInWords(seat.tableCode, seat.tableChoice), seat.location]
     .filter(Boolean)

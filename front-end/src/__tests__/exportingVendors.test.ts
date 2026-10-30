@@ -83,7 +83,13 @@ describe('the seed the Vendors page gives the export', () => {
   it('turns where they are placed into the placed vendors there', () => {
     const seed = vendorsPageSeed({
       shown: null,
-      filters: { ...NOTHING, date: '2026-11-18', section: 'Atrium', tier: 'Gold', choice: 'half' },
+      filters: {
+        ...NOTHING,
+        date: '2026-11-18',
+        section: 'North Wing',
+        tier: 'Gold',
+        choice: 'half',
+      },
       search: '',
     });
 
@@ -91,7 +97,7 @@ describe('the seed the Vendors page gives the export', () => {
       ...NO_FILTERS,
       placed: 'placed',
       date: '2026-11-18',
-      section: 'Atrium',
+      section: 'North Wing',
       tier: 'Gold',
       size: 'half',
     });
@@ -240,7 +246,7 @@ const OFFERED: ExportPreview['offered'] = {
     { id: 'added', label: 'Added by hand' },
   ],
   dates: ['2099-08-01', '2099-08-02'],
-  sections: ['Atrium', 'Hall'],
+  sections: ['North Wing', 'South Wing'],
   tiers: ['Gold', 'Silver'],
   questions: [{ key: 'category', label: 'Category', options: ['Crafts', 'Food'] }],
 };

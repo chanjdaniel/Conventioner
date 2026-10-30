@@ -30,7 +30,7 @@ const props = defineProps<{
   after: string;
   /** Said under a condition with no answer ticked yet. */
   unticked: string;
-  /** Who the conditions are for, read after a control's own words: "from UBC student only". */
+  /** Who the conditions are for, read after a control's own words: "from Example College student only". */
   owner?: string;
   /** A ticked answer rejects, drawn red; otherwise it meets the condition, drawn green. */
   rejects?: boolean;

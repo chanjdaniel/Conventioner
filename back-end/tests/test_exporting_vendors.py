@@ -25,11 +25,11 @@ PLAN = {
     "priority": [],
     "marketDates": [{"date": "2099-08-01"}, {"date": "2099-08-02"}],
     "tiers": [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}],
-    "locations": [{"name": "Nest"}],
+    "locations": [{"name": "Example Hall"}],
     "sections": [
-        {"name": "Atrium", "count": 4, "location": {"name": "Nest"},
+        {"name": "North Wing", "count": 4, "location": {"name": "Example Hall"},
          "tier": {"id": 0, "name": "Gold"}},
-        {"name": "Hall", "count": 4, "location": {"name": "Nest"},
+        {"name": "South Wing", "count": 4, "location": {"name": "Example Hall"},
          "tier": {"id": 1, "name": "Silver"}},
     ],
     "assignmentOptions": {},
@@ -43,7 +43,7 @@ FORM = {
          "options": ["Crafts", "Food"], "order": 2},
         {"key": "tags", "label": "Tags", "type": "multi_select",
          "options": ["Vegan", "Local", "Handmade"], "order": 3},
-        {"key": "student", "label": "UBC student", "type": "checkbox", "order": 4},
+        {"key": "student", "label": "Example College student", "type": "checkbox", "order": 4},
     ],
 }
 
@@ -51,7 +51,7 @@ FORM = {
 def _placed(email, date, table_code, section, tier, choice="Full Table"):
     return {
         "email": email, "date": date, "tableCode": table_code, "tableChoice": choice,
-        "section": section, "tier": tier, "location": "Nest", "handPlaced": False,
+        "section": section, "tier": tier, "location": "Example Hall", "handPlaced": False,
     }
 
 
@@ -85,9 +85,9 @@ APPLICATIONS = [
 ]
 
 PLACEMENTS = [
-    _placed("ana@example.com", "2099-08-01", "Atrium 1", "Atrium", "Gold"),
-    _placed("ana@example.com", "2099-08-02", "Hall 2", "Hall", "Silver"),
-    _placed("fay@example.com", "2099-08-02", "Hall 1", "Hall", "Silver"),
+    _placed("ana@example.com", "2099-08-01", "North Wing 1", "North Wing", "Gold"),
+    _placed("ana@example.com", "2099-08-02", "South Wing 2", "South Wing", "Silver"),
+    _placed("fay@example.com", "2099-08-02", "South Wing 1", "South Wing", "Silver"),
 ]
 
 
@@ -159,12 +159,12 @@ class TestTheFile:
         assert ["Benoît Éclair", "ben@example.com", "Approved"] in _rows(content)
 
     def test_it_is_named_for_the_market_and_the_day(self, market, monkeypatch):
-        market(name="Fall Market: Nest/2026")
+        market(name="Fall Market: Example Hall/2026")
         monkeypatch.setattr(VendorExport, "_today", lambda: "2026-10-29")
 
         _content, filename = _file()
 
-        assert filename == "Fall_Market_Nest_2026_vendors_2026-10-29.csv"
+        assert filename == "Fall_Market_Example_Hall_2026_vendors_2026-10-29.csv"
 
     def test_it_is_named_for_the_organizers_day_when_the_dialog_sends_it(self, market):
         """Their evening is the server's tomorrow."""
@@ -287,8 +287,8 @@ class TestTheAssignmentColumns:
              "Mon 3 Aug - half or full",
              "Dates assigned"],
             ["ana@example.com",
-             "Atrium 1", "Atrium", "Gold", "Full table",
-             "Hall 2", "Hall", "Silver", "Full table",
+             "North Wing 1", "North Wing", "Gold", "Full table",
+             "South Wing 2", "South Wing", "Silver", "Full table",
              "", "", "", "",
              "2"],
         ]
@@ -305,14 +305,14 @@ class TestTheAssignmentColumns:
         doc = market()
         doc["assignmentObject"]["vendorAssignments"] = [
             *PLACEMENTS,
-            _placed("ben@example.com", "2099-08-01", "Atrium 2", "Atrium", "Gold",
+            _placed("ben@example.com", "2099-08-01", "North Wing 2", "North Wing", "Gold",
                     choice="Half Table (Left)"),
         ]
 
         content, _filename = _file(
             filters={"search": "ben@"}, columns=_date_columns("2099-08-01"))
 
-        assert _rows(content)[1] == ["Atrium 2", "Atrium", "Gold", "Half table"]
+        assert _rows(content)[1] == ["North Wing 2", "North Wing", "Gold", "Half table"]
 
     def test_a_vendor_added_by_hand_exports_their_seats_like_anyone(self, market):
         market()
@@ -320,7 +320,8 @@ class TestTheAssignmentColumns:
         content, _filename = _file(filters={"search": "fay@"}, columns=[
             "status", *_date_columns("2099-08-02"), "datesPlaced"])
 
-        assert _rows(content)[1] == ["Added by hand", "Hall 1", "Hall", "Silver", "Full table", "1"]
+        assert _rows(content)[1] == [
+            "Added by hand", "South Wing 1", "South Wing", "Silver", "Full table", "1"]
 
     def test_a_pin_and_a_seat_moved_by_hand_export_where_the_assignments_page_shows_them(
             self, market):
@@ -329,11 +330,11 @@ class TestTheAssignmentColumns:
         stored row flagged as placed by hand (ADR 0002)."""
         doc = market()
         doc["assignmentObject"]["vendorAssignments"] = [
-            {**_placed("ana@example.com", "2099-08-01", "Atrium 3", "Atrium", "Gold"),
+            {**_placed("ana@example.com", "2099-08-01", "North Wing 3", "North Wing", "Gold"),
              "handPlaced": True},
-            {**_placed("ana@example.com", "2099-08-02", "Hall 1", "Hall", "Silver"),
+            {**_placed("ana@example.com", "2099-08-02", "South Wing 1", "South Wing", "Silver"),
              "handPlaced": True},
-            {**_placed("fay@example.com", "2099-08-02", "Hall 2", "Hall", "Silver"),
+            {**_placed("fay@example.com", "2099-08-02", "South Wing 2", "South Wing", "Silver"),
              "handPlaced": True},
         ]
 
@@ -341,19 +342,20 @@ class TestTheAssignmentColumns:
             "email", "date:2099-08-01:table", "date:2099-08-02:table"])
 
         rows = {row[0]: row[1:] for row in _rows(content)[1:]}
-        assert rows["ana@example.com"] == ["Atrium 3", "Hall 1"]
-        assert rows["fay@example.com"] == ["", "Hall 2"]
+        assert rows["ana@example.com"] == ["North Wing 3", "South Wing 1"]
+        assert rows["fay@example.com"] == ["", "South Wing 2"]
 
     def test_a_date_that_is_not_a_calendar_day_heads_its_columns_as_written(self, market):
         doc = market()
         doc["setupObject"] = {**PLAN, "marketDates": [{"date": "Opening night"}]}
         doc["assignmentObject"]["vendorAssignments"] = [
-            _placed("ana@example.com", "Opening night", "Atrium 1", "Atrium", "Gold")]
+            _placed("ana@example.com", "Opening night", "North Wing 1", "North Wing", "Gold")]
 
         content, _filename = _file(
             filters={"search": "ana@"}, columns=["date:Opening night:table", "datesPlaced"])
 
-        assert _rows(content) == [["Opening night - table", "Dates assigned"], ["Atrium 1", "1"]]
+        assert _rows(content) == [
+            ["Opening night - table", "Dates assigned"], ["North Wing 1", "1"]]
 
     def test_a_seat_on_a_date_the_plan_no_longer_holds_is_not_counted(self, market):
         """The count is the date groups filled, so it never says more than the row shows."""
@@ -429,15 +431,16 @@ class TestTheFilters:
         assert _emails(_file(filters={
             "placed": "placed", "date": "2099-08-02", "tier": "Silver"})[0]) == [
             "ana@example.com", "fay@example.com"]
-        assert _emails(_file(filters={"placed": "placed", "section": "Atrium"})[0]) == [
+        assert _emails(_file(filters={"placed": "placed", "section": "North Wing"})[0]) == [
             "ana@example.com"]
 
     def test_a_section_and_tier_hold_of_the_same_seat(self, market):
-        """Ana sits in Atrium (Gold) one day and Hall (Silver) the other: never Atrium in Silver."""
+        """Ana sits in North Wing (Gold) one day and South Wing (Silver) the other: never North
+        Wing in Silver."""
         market()
 
         content, _filename = _file(filters={
-            "placed": "placed", "section": "Atrium", "tier": "Silver"})
+            "placed": "placed", "section": "North Wing", "tier": "Silver"})
 
         assert _emails(content) == []
 
@@ -550,7 +553,7 @@ class TestThePreview:
             {"id": "answer:business_name", "label": "Business name", "group": "answers"},
             {"id": "answer:category", "label": "Category", "group": "answers"},
             {"id": "answer:tags", "label": "Tags", "group": "answers"},
-            {"id": "answer:student", "label": "UBC student", "group": "answers"},
+            {"id": "answer:student", "label": "Example College student", "group": "answers"},
             *(
                 {"id": f"date:{date}:{part}", "label": f"{day} - {words}", "group": "assignment"}
                 for date, day in (("2099-08-01", "Sat 1 Aug"), ("2099-08-02", "Sun 2 Aug"))
@@ -574,11 +577,11 @@ class TestThePreview:
         ]
         assert offered["dates"] == ["2099-08-01", "2099-08-02"]
         assert offered["tiers"] == ["Gold", "Silver"]
-        assert offered["sections"] == ["Atrium", "Hall"]
+        assert offered["sections"] == ["North Wing", "South Wing"]
         assert offered["questions"] == [
             {"key": "category", "label": "Category", "options": ["Crafts", "Food"]},
             {"key": "tags", "label": "Tags", "options": ["Vegan", "Local", "Handmade"]},
-            {"key": "student", "label": "UBC student", "options": ["Yes", "No"]},
+            {"key": "student", "label": "Example College student", "options": ["Yes", "No"]},
         ]
 
     def test_with_no_columns_named_it_shows_the_default_ones(self, market):

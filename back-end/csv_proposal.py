@@ -303,7 +303,7 @@ def label_and_help(header: str) -> Tuple[str, Optional[str]]:
     over LABEL_MAX characters keeps its first sentence as the label and gives the rest away.
 
     Never mid-sentence: a long line with no sentence end in it stays whole. Cutting it at the last
-    word that fit put "...at UBC Makers" on the form and "Market! (e.g. Google Drive...)" under it
+    word that fit put "...at Example Makers" on the form and "Fair! (e.g. Google Drive...)" under it
     (bug 41) - a long label reads fine, a broken one does not.
     """
     text = str(header).replace("\r\n", "\n").replace("\r", "\n").strip()

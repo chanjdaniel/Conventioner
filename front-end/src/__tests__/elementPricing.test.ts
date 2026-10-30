@@ -319,8 +319,11 @@ describe('a plan with no tiers', () => {
 const QUESTIONS: RejectionQuestion[] = [
   {
     key: 'affiliation',
-    label: 'Are you a UBC student or alumni?',
-    answers: ['Current UBC student', 'UBC alumni/staff'].map((a) => ({ value: a, label: a })),
+    label: 'Are you an Example College student or alumni?',
+    answers: ['Current Example College student', 'Example College alumni/staff'].map((a) => ({
+      value: a,
+      label: a,
+    })),
   },
   {
     key: 'clubs',
@@ -330,9 +333,9 @@ const QUESTIONS: RejectionQuestion[] = [
 ];
 
 const STUDENT_CLUB: PriceGroup = {
-  name: 'UBC student + club member',
+  name: 'Example College student + club member',
   conditions: [
-    { key: 'affiliation', answers: ['Current UBC student'] },
+    { key: 'affiliation', answers: ['Current Example College student'] },
     { key: 'clubs', answers: ['Art Club', 'Craft Club'] },
   ],
   prices: [
@@ -392,7 +395,7 @@ describe('price groups (E43/F01/S02)', () => {
     ]);
     expect(
       (wrapper.get('[data-testid="pricing-group-0-name"]').element as HTMLInputElement).value,
-    ).toBe('UBC student + club member');
+    ).toBe('Example College student + club member');
     expect(
       (wrapper.get('[data-testid="pricing-group-0-price-0"]').element as HTMLInputElement).value,
     ).toBe('12');
@@ -407,7 +410,7 @@ describe('price groups (E43/F01/S02)', () => {
       .attributes('aria-labelledby')!
       .split(' ');
     expect(ids.map((id) => document.getElementById(id)?.textContent?.trim())).toEqual([
-      'UBC student + club member',
+      'Example College student + club member',
       'Silver',
     ]);
   });
@@ -426,12 +429,18 @@ describe('price groups (E43/F01/S02)', () => {
       'Name this group.',
     );
 
-    await wrapper.get('[data-testid="pricing-group-0-name"]').setValue('UBC student only');
+    await wrapper
+      .get('[data-testid="pricing-group-0-name"]')
+      .setValue('Example College student only');
     await wrapper.get('[data-testid="pricing-group-0-price-0"]').setValue('15');
 
     expect(wrapper.held.at(-1)).toBe(false);
     expect(wrapper.kept()?.groups).toEqual([
-      { name: 'UBC student only', conditions: [], prices: [{ tier: 'Gold', cents: 1500 }] },
+      {
+        name: 'Example College student only',
+        conditions: [],
+        prices: [{ tier: 'Gold', cents: 1500 }],
+      },
     ]);
   });
 
@@ -439,7 +448,9 @@ describe('price groups (E43/F01/S02)', () => {
     const wrapper = groupCard(grouped([STUDENT_CLUB]));
 
     await wrapper.get('[data-testid="pricing-add-group"]').trigger('click');
-    await wrapper.get('[data-testid="pricing-group-1-name"]').setValue('ubc student + club member');
+    await wrapper
+      .get('[data-testid="pricing-group-1-name"]')
+      .setValue('example college student + club member');
 
     expect(wrapper.get('[data-testid="pricing-group-1-name-error"]').text()).toBe(
       'Another group is called this.',
@@ -453,11 +464,13 @@ describe('price groups (E43/F01/S02)', () => {
     await wrapper.get('[data-testid="pricing-group-0-rule-question"]').setValue('affiliation');
     await wrapper.get('[data-testid="pricing-group-0-rule-add"]').trigger('click');
     await wrapper
-      .get('[data-testid="pricing-group-0-answer-affiliation-Current UBC student"] input')
+      .get(
+        '[data-testid="pricing-group-0-answer-affiliation-Current Example College student"] input',
+      )
       .setValue(true);
 
     expect(wrapper.kept()?.groups?.[0].conditions).toEqual([
-      { key: 'affiliation', answers: ['Current UBC student'] },
+      { key: 'affiliation', answers: ['Current Example College student'] },
     ]);
     expect(wrapper.get('[data-testid="pricing-group-0-rule-affiliation"]').text()).toContain(
       'includes any of',
@@ -480,12 +493,14 @@ describe('price groups (E43/F01/S02)', () => {
   });
 
   it('removing a group takes its row away', async () => {
-    const second = { ...STUDENT_CLUB, name: 'UBC student only' };
+    const second = { ...STUDENT_CLUB, name: 'Example College student only' };
     const wrapper = groupCard(grouped([STUDENT_CLUB, second]));
 
     await wrapper.get('[data-testid="pricing-group-0-remove"]').trigger('click');
 
-    expect(wrapper.kept()?.groups?.map((group) => group.name)).toEqual(['UBC student only']);
+    expect(wrapper.kept()?.groups?.map((group) => group.name)).toEqual([
+      'Example College student only',
+    ]);
   });
 
   it('settled, a group is shown and cannot be added to or removed', () => {
