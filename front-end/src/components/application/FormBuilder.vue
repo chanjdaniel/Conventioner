@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import draggable from 'vuedraggable';
 import { type ApplicationForm, type ExampleColumn, type FormField } from '@/assets/types/datatypes';
 import { columnOf, columnsToAdd, questionFrom } from '@/utils/exampleColumns';
+import { asksForDiscord, discordUsernameQuestion } from '@/utils/discordQuestion';
 import FormFieldEditor from './FormFieldEditor.vue';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconClickDrag from '@/components/icons/IconClickDrag.vue';
@@ -63,6 +64,19 @@ function addField() {
   };
   emit('update:keyTouched', [...props.keyTouched, false]);
   fields.value = [...fields.value, newField];
+}
+
+/**
+ * A ready-made question for each vendor's Discord username (E46/F01/S02): optional, since not every
+ * market uses Discord, and labelled so the Discord card picks it up on connecting, as it does any
+ * text question labelled for Discord. Not offered once the form has one.
+ */
+const discordOffered = computed(() => !fields.value.some(asksForDiscord));
+
+function addDiscordUsername() {
+  if (props.readonly || !discordOffered.value) return;
+  emit('update:keyTouched', [...props.keyTouched, false]);
+  fields.value = [...fields.value, discordUsernameQuestion(fields.value)];
 }
 
 /** The columns of the file no question is made from yet, for "Add from your file". */
@@ -135,6 +149,15 @@ const fieldCount = computed(() => fields.value.length);
             </option>
           </select>
         </div>
+        <button
+          v-if="discordOffered"
+          type="button"
+          class="btn btn--secondary"
+          data-testid="form-builder-add-discord-button"
+          @click="addDiscordUsername"
+        >
+          Add Discord username
+        </button>
         <button class="add-field-btn" @click="addField" data-testid="form-builder-add-field-button">
           <IconAddRound /> Add Field
         </button>

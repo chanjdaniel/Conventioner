@@ -66,21 +66,32 @@ const PAGES: { name: string; open: (page: Page) => Promise<Locator> }[] = [
   },
 ];
 
+/** The page settled, with its card inside the window and nothing scrolling sideways. */
+async function expectItFits(page: Page, ready: Locator): Promise<void> {
+  await expect(ready).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow, 'the page scrolls sideways on a phone').toBeLessThanOrEqual(0);
+
+  const card = await page.getByTestId('auth-card').boundingBox();
+  expect(card, 'the card is drawn').not.toBeNull();
+  expect(card!.x, 'the card starts inside the window').toBeGreaterThanOrEqual(0);
+  expect(card!.x + card!.width, 'the card ends inside the window').toBeLessThanOrEqual(PHONE.width);
+}
+
 for (const { name, open } of PAGES) {
   test(`${name} fits a phone`, async ({ page }) => {
     await page.setViewportSize(PHONE);
-    await expect(await open(page)).toBeVisible();
-
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow, 'the page scrolls sideways on a phone').toBeLessThanOrEqual(0);
-
-    const card = await page.getByTestId('auth-card').boundingBox();
-    expect(card, 'the card is drawn').not.toBeNull();
-    expect(card!.x, 'the card starts inside the window').toBeGreaterThanOrEqual(0);
-    expect(card!.x + card!.width, 'the card ends inside the window').toBeLessThanOrEqual(
-      PHONE.width,
-    );
+    await expectItFits(page, await open(page));
   });
 }
+
+// The same card, met signed in: Discord sends the organizer back to it, in the tab Connect Discord
+// opened (E46/F01/S02). Cancelled on Discord, so it settles with no request.
+test('the page Discord returns to fits a phone', async ({ authenticatedPage: page }) => {
+  await page.setViewportSize(PHONE);
+  await page.goto('/discord/connected?error=access_denied&state=a-market.a-nonce');
+  await expectItFits(page, page.getByTestId('discord-connected-error'));
+});

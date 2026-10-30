@@ -92,6 +92,9 @@ PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
 #: A market's table replaced by its organization's default as it is now (E39/F02/S01).
 PERMISSION_TABLE_COPIED = "permission_table_copied"
+DISCORD_CONNECTED = "discord_connected"
+DISCORD_SETTINGS = "discord"
+DISCORD_DISCONNECTED = "discord_disconnected"
 
 
 def _now() -> str:
