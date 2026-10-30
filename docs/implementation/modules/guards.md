@@ -57,7 +57,7 @@ An entry invariant is what makes a rule hold of every market in the phase rather
 `test_no_guard_reads_the_phase` ([`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py)) pins it, so a judgement made before a write, as the first import's below, means what it says.
 
 **One stage, two ways in** ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
-`draft -> applications` carries the setup's three, `FormHasFieldsGuard` and `ResponsesImportedGuard`, the last two its phase's entry invariants.
+`draft -> applications` carries the setup's three, `PriceGroupsStandGuard`, `FormHasFieldsGuard` and `ResponsesImportedGuard`, the last two its phase's entry invariants.
 `ResponsesImportedGuard` passes a form market and refuses a Google Form market with nothing imported, its fix "Import responses" leading to the import ([review needs an import](../../business/rules/review-needs-an-import.md)).
 That market's first import judges the edge less that guard (`first_import_blockers` in [the CSV import](csv-import.md)) before it reads a row, and takes the move through `take_move` once the rows are written, so nothing moves unjudged and a market left mid-import stays a draft.
 Every move is one edge of the table; [the phase rail](phase-rail.md) draws the moves as the keys of `transitionBlockers`, so the browser keeps no copy of them.
@@ -94,6 +94,7 @@ Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must
 The guards are where the product's rules about moving a market are kept:
 
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the three guards on `draft -> applications`.
+- [A price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups): `PriceGroupsStandGuard` keeps a price group with a broken condition in draft.
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): `route_between` decides when the review can no longer be reached.
 - [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.

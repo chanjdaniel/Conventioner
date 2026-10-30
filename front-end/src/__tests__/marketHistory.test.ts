@@ -3,7 +3,7 @@
  * structured entry, which opens to show before and after.
  */
 import { describe, expect, it } from 'vitest';
-import { IntakeMode } from '@/assets/types/datatypes';
+import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
 import {
   dayEnds,
   dayStarts,
@@ -124,6 +124,39 @@ describe('what an entry says', () => {
         },
       }),
     ).toBe('dana@ember.test changed Market Setup: tiers and market dates');
+  });
+
+  it('words a change of the prices by what on the Pricing card changed (E43/F01/S02)', () => {
+    expect(
+      sentence({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        detail: {
+          before: { groups: [], everyone_else: [] },
+          after: {
+            groups: [{ name: 'UBC student only', conditions: [], prices: [] }],
+            everyone_else: [{ tier: 'Gold', cents: 3500 }],
+          },
+        },
+      }),
+    ).toBe('dana@ember.test changed the prices: price groups and "Everyone else"');
+  });
+
+  it("lists the prices' fields in the card's order, whatever order they are stored in", () => {
+    expect(
+      sentence({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        detail: {
+          before: { currency: 'CAD', half_table_percent: 50, groups: [], everyone_else: [] },
+          after: { currency: 'USD', half_table_percent: 40, groups: [{}], everyone_else: [{}] },
+        },
+      }),
+    ).toBe(
+      'dana@ember.test changed the prices: price groups, "Everyone else", half table\'s share and currency',
+    );
   });
 
   it('words a role change by the person and both roles', () => {
@@ -388,7 +421,7 @@ describe('who reviews which application (E38/F07/S02)', () => {
       ],
       recorded: [],
     });
-    expect(entryChanges(many, {}, IntakeMode.Csv, 'ben@ember.test').changed).toEqual([
+    expect(entryChanges(many, {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
       { field: 'Reviewer', before: SAM, after: KAI },
     ]);
   });
@@ -616,6 +649,262 @@ describe('what an entry opens to', () => {
     expect(valueText(true)).toBe('yes');
     expect(valueText({ a: 1 })).toBe('{"a":1}');
     expect(valueText('x'.repeat(300))).toHaveLength(241);
+  });
+});
+
+describe("a change of the prices opens to the card's words and money (E43/F01/S02)", () => {
+  /** The market's choice questions, as the market read serves them for a condition. */
+  const QUESTIONS: RejectionQuestion[] = [
+    {
+      key: 'affiliation',
+      label: 'Are you a UBC student or alumni?',
+      answers: ['Current UBC student', 'UBC alumni/staff'].map((a) => ({ value: a, label: a })),
+    },
+    {
+      key: 'agree_terms',
+      label: 'I agree to the terms',
+      answers: [
+        { value: 'ticked', label: 'Ticked' },
+        { value: 'not ticked', label: 'Not ticked' },
+      ],
+    },
+    {
+      key: 'essential_table_choice',
+      label: 'Table choice',
+      answers: [
+        { value: 'full', label: 'A full table' },
+        { value: 'half', label: 'Half a table, shared' },
+        { value: 'either', label: 'Either is fine' },
+      ],
+    },
+    {
+      key: 'essential_available_dates',
+      label: 'Available dates',
+      answers: [{ value: '2099-05-07', label: 'Thursday, May 7, 2099' }],
+    },
+  ];
+
+  const priced = (detail: Record<string, unknown>, currency = 'CAD') =>
+    entryChanges(
+      entry({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        subject: { currency },
+        detail,
+      }),
+      {},
+      IntakeMode.Csv,
+      QUESTIONS,
+    ).changed;
+
+  const group = (name: string, conditions: unknown[], gold = 1500) => ({
+    name,
+    conditions,
+    prices: [{ tier: 'Gold', cents: gold }],
+  });
+
+  /** One group, before and after, opened to its one row. */
+  const groupRow = (before: unknown, after: unknown) =>
+    priced({ before: { groups: [before] }, after: { groups: [after] } });
+
+  it('names each field as the card does and writes its prices in the currency', () => {
+    expect(
+      priced({
+        before: { everyone_else: [{ tier: 'Gold', cents: 3500 }], half_table_percent: 50 },
+        after: {
+          everyone_else: [
+            { tier: 'Gold', cents: 3600 },
+            { tier: 'Silver', cents: 3000 },
+          ],
+          half_table_percent: 40,
+        },
+      }),
+    ).toEqual([
+      { field: '"Everyone else"', before: 'Gold $35', after: 'Gold $36, Silver $30' },
+      { field: "Half table's share", before: '50%', after: '40%' },
+    ]);
+  });
+
+  it('writes the money in the currency the entry names, and a new currency in its own', () => {
+    expect(
+      priced(
+        {
+          before: { currency: 'USD', everyone_else: [{ tier: 'Gold', cents: 3500 }] },
+          after: { currency: 'EUR', everyone_else: [{ tier: 'Gold', cents: 3500 }] },
+        },
+        'EUR',
+      ),
+    ).toEqual([
+      { field: '"Everyone else"', before: 'Gold US$35', after: 'Gold €35' },
+      { field: 'Currency', before: 'USD', after: 'EUR' },
+    ]);
+  });
+
+  it('opens only to the groups that changed, each its own row, an added and a removed one as such', () => {
+    const kept = group('UBC student only', [
+      { key: 'affiliation', answers: ['Current UBC student'] },
+    ]);
+    expect(
+      priced({
+        before: {
+          groups: [kept, group('Alumni', [], 2500), group('Students, first year', [], 1000)],
+        },
+        after: {
+          groups: [kept, group('Alumni', [], 2200), group('Volunteers', [], 500)],
+        },
+      }),
+    ).toEqual([
+      {
+        field: 'Group “Alumni”',
+        before: 'Gold $25\nno condition yet, so it prices nobody',
+        after: 'Gold $22\nno condition yet, so it prices nobody',
+        hanging: true,
+      },
+      {
+        field: 'Group “Volunteers”',
+        before: 'not on the card',
+        after: 'Gold $5\nno condition yet, so it prices nobody',
+        hanging: true,
+      },
+      {
+        field: 'Group “Students, first year”',
+        before: 'Gold $10\nno condition yet, so it prices nobody',
+        after: 'removed',
+        hanging: true,
+      },
+    ]);
+  });
+
+  it('says so when the groups only moved', () => {
+    const [a, b] = [group('A', []), group('B', [])];
+
+    expect(priced({ before: { groups: [a, b] }, after: { groups: [b, a] } })).toEqual([
+      { field: 'Order of the groups', before: 'A\nB', after: 'B\nA' },
+    ]);
+  });
+
+  it('keeps a move beside a change made in the same write', () => {
+    // The card's order decides which group a price names when two price a vendor alike.
+    const [a, b] = [group('A', [], 1000), group('B', [], 1000)];
+
+    expect(
+      priced({ before: { groups: [a, b] }, after: { groups: [group('B', [], 900), a] } }),
+    ).toEqual([
+      {
+        field: 'Group “B”',
+        before: 'Gold $10\nno condition yet, so it prices nobody',
+        after: 'Gold $9\nno condition yet, so it prices nobody',
+        hanging: true,
+      },
+      { field: 'Order of the groups', before: 'A\nB', after: 'B\nA' },
+    ]);
+  });
+
+  it('adds no order row where a group was only taken away or added last', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+    const fields = (before: unknown[], after: unknown[]) =>
+      priced({ before: { groups: before }, after: { groups: after } }).map((row) => row.field);
+
+    expect(fields([a, b], [b])).toEqual(['Group “A”']);
+    expect(fields([a, b], [a, b, c])).toEqual(['Group “C”']);
+  });
+
+  it('reads a group renamed in place as no move, wherever it stands', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+    const fields = (before: unknown[], after: unknown[]) =>
+      priced({ before: { groups: before }, after: { groups: after } }).map((row) => row.field);
+
+    // B renamed X in the middle: removed and added, but standing where B stood.
+    expect(fields([a, b, c], [a, group('X', []), c])).toEqual(['Group “X”', 'Group “B”']);
+    // A taken away and X added last: no move either.
+    expect(fields([a, b, c], [b, c, group('X', [])])).toEqual(['Group “X”', 'Group “A”']);
+  });
+
+  it('still says where a renamed group went when it moved too', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+
+    expect(
+      priced({ before: { groups: [a, b, c] }, after: { groups: [group('X', []), a, c] } }).at(-1),
+    ).toEqual({ field: 'Order of the groups', before: 'A\nB\nC', after: 'X\nA\nC' });
+  });
+
+  it('says where a group added between others went', () => {
+    // Its place decides which group a price names when two price a vendor alike, as a move's does.
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+
+    expect(
+      priced({ before: { groups: [a, b] }, after: { groups: [a, c, b] } }).map(
+        ({ field, before, after }) => [field, before, after],
+      ),
+    ).toEqual([
+      ['Group “C”', 'not on the card', 'Gold $15\nno condition yet, so it prices nobody'],
+      ['Order of the groups', 'A\nB', 'A\nC\nB'],
+    ]);
+  });
+
+  it("writes a condition on the organizer's own question by its label and answers", () => {
+    const [row] = groupRow(
+      group('Students', [{ key: 'affiliation', answers: ['UBC alumni/staff'] }]),
+      group('Students', [
+        { key: 'affiliation', answers: ['Current UBC student', 'UBC alumni/staff'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\nwhen “Are you a UBC student or alumni?” includes “Current UBC student” or “UBC alumni/staff”',
+    );
+  });
+
+  it('writes a checkbox, Table choice and Available dates as the card offers them', () => {
+    const [row] = groupRow(
+      group('Shared tables', []),
+      group('Shared tables', [
+        { key: 'agree_terms', answers: ['ticked'] },
+        { key: 'essential_table_choice', answers: ['half', 'either'] },
+        { key: 'essential_available_dates', answers: ['2099-05-07'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\n' +
+        'when “I agree to the terms” includes “Ticked”\n' +
+        'and “Table choice” includes “Half a table, shared” or “Either is fine”\n' +
+        'and “Available dates” includes “Thursday, May 7, 2099”',
+    );
+  });
+
+  it('falls back to the stored key and value only for what the form no longer has', () => {
+    const [row] = groupRow(
+      group('First years', []),
+      group('First years', [
+        { key: 'year_of_study', answers: ['First'] },
+        { key: 'affiliation', answers: ['Current UBC student', 'Faculty'] },
+      ]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\n' +
+        'when “year_of_study” (no longer on the form) includes “First”\n' +
+        'and “Are you a UBC student or alumni?” includes “Current UBC student” or “Faculty”',
+    );
+  });
+
+  it('says a condition with nothing ticked prices nobody, as the card does', () => {
+    const [row] = groupRow(
+      group('Students', []),
+      group('Students', [{ key: 'affiliation', answers: [] }]),
+    );
+
+    expect(row.after).toBe(
+      'Gold $15\nwhen “Are you a UBC student or alumni?” has no answer ticked yet, so it prices nobody',
+    );
+  });
+
+  it('says none for a field an older entry recorded as null', () => {
+    expect(priced({ before: { everyone_else: null }, after: { everyone_else: [] } })).toEqual([
+      { field: '"Everyone else"', before: 'none', after: 'none' },
+    ]);
   });
 });
 

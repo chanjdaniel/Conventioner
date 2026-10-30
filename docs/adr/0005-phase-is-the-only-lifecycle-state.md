@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/guards.py#VALID_TRANSITIONS
   - back-end/migrations/migrate_publishing_to_market_days.py
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/05
@@ -16,6 +16,7 @@ sources:
   - E26/F07/S02
   - E38/F04/S01
   - E38/F04/S02
+  - E43/F01/S02
 status: accepted
 ---
 
@@ -38,7 +39,7 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - `isDraft` is a computed field, true iff `phase == draft`, never writable; it stays persisted only as the fallback for a document whose `phase` is missing or unrecognized ([the market document](../implementation/data/market-document.md#the-phase-and-isdraft)).
 - **Publishing is `assignment -> market_days`**: one row in [`VALID_TRANSITIONS`](../../back-end/guards.py), with an entry invariant on `market_days` that an assignment is stored, so no later route can publish an unassigned market.
 - **`archived` means one thing: finished.** Every edge into it means "this market is over"; `draft -> archived` is abandoning a draft, never publishing it, and nothing leaves `archived`, nor changes inside it ([an archived market is read-only](../business/rules/an-archived-market-is-read-only.md)).
-- A market leaves `draft` for its lifecycle by `draft -> applications`, the one stage where applications arrive and are reviewed ([ADR 0016](0016-one-stage-for-applications-and-review.md)), guarded by `FormHasFieldsGuard`, the setup's three and, on a Google Form market, an import.
+- A market leaves `draft` for its lifecycle by `draft -> applications`, the one stage where applications arrive and are reviewed ([ADR 0016](0016-one-stage-for-applications-and-review.md)), guarded by `FormHasFieldsGuard`, the setup's three, `PriceGroupsStandGuard` and, on a Google Form market, an import.
 - The organizer navigates the phase, not a wizard: the plan is one editable page, Assign is an operation inside `assignment` rather than a move, and the moves are on [the phase rail](../implementation/modules/phase-rail.md).
 - **Assign is an operation inside `assignment`, not a move.**
   Entering `assignment` is the gate (its entry invariant `_ALL_REVIEWED`), and entering `market_days` asks that a run is stored (`_ASSIGNMENT_COMPUTED`), so between the two the run is a button the organizer may press again ([Assign runs only in assignment](../business/rules/assign-runs-only-in-assignment.md)).

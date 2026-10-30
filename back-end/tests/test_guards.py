@@ -415,10 +415,10 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
-        # The three parts of a complete setup (E31/F01/S01), the form and a Google Form market's
-        # import (E38/F04/S01): five list entries.
+        # The three parts of a complete setup (E31/F01/S01), the price groups (E43/F01/S02), the
+        # form and a Google Form market's import (E38/F04/S01): six list entries.
         guards = TRANSITION_GUARDS[("draft", "applications")]
-        assert len(guards) == 5
+        assert len(guards) == 6
 
 
 class TestAllApplicationsReviewedGuard:
