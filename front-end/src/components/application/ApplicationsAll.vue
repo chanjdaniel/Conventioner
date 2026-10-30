@@ -746,11 +746,6 @@ async function decideSelection() {
   border-color: var(--mm-green);
 }
 
-.all-row-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .all-who {
   display: flex;
   flex-direction: column;

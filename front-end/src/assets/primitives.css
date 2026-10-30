@@ -6,8 +6,9 @@
  * screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button,
  * a 25px `Remove` beside 34px peers, and sixty distinct button-ish class names.
  *
- * So these three own height, padding, radius, type, focus and the disabled state, and a component
- * that needs a control reaches for one of them rather than deciding again.
+ * So these three own height, padding, radius, type and the disabled state, and a component that
+ * needs a control reaches for one of them rather than deciding again. This file also holds the one
+ * focus halo every control wears, and the rule that a field shows none (E38/F01/S01).
  *
  * NOTHING MIGRATES IN THIS FILE'S OWN FEATURE. `E16/F05`-`F08` move one surface at a time, each
  * reviewed and shipped on its own, because a single diff across 71 files is unreviewable and
@@ -336,20 +337,48 @@
    ============================================================================================ */
 
 /*
- * A visible focus ring on every primitive, in this feature rather than a later one: the product
- * has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+ * A field shows no focus at all: no outline, ring, glow, or border or fill change, by click or by
+ * Tab; a text field shows its caret, and that is its whole focus indicator (E38/F01).
  *
- * `--mm-black` rather than the brand green, because the ring has to be visible against BOTH the
- * page and the control's own fill - and a green ring on the green primary button is invisible.
- * The offset is what keeps it clear of the fill.
+ * This is Daniel's decision on the 2026-10-29 walk, made knowing a keyboard user loses the ring
+ * too: a browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed
+ * into, so no rule can keep the ring for the keyboard alone. Do not put a ring back in an
+ * accessibility pass. Every `input`, `textarea` and `select`, checkboxes and radios included, so
+ * the browser's own outline does not appear where the product's ring went.
+ */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/*
+ * Every control shows the soft halo on `:focus-visible` (E38/F01/S01): the primitives, and every
+ * link, button and other keyboard stop, so the browser's own ring is drawn nowhere. It replaced a
+ * 2px `--mm-black` ring at 2px of offset, which Daniel found thick and bulky.
+ *
+ * The halo's white gap is what keeps it visible on the green primary button, whose fill a green
+ * glow would otherwise meet. A control on a dark ground takes `--focus-halo-on-dark` in its own
+ * rule, and a component rule that gives a control a resting `box-shadow` outranks this one, so it
+ * says its own focus too.
  */
 .btn:focus-visible,
-.field:focus-visible,
 .add-row:focus-visible,
 .drag-handle:focus-visible,
-.step-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
+.step-button:focus-visible,
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[tabindex='0']:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-halo);
+}
+
+/* A text link has no corners of its own, so its halo would be a hard rectangle around the words.
+   `:where` keeps this below any link that sets a radius, so a styled link keeps its shape. */
+:where(a):focus-visible {
+  border-radius: var(--radius-control);
 }
 
 /* ============================================================================================

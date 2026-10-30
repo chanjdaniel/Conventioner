@@ -768,11 +768,6 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   color: var(--mm-black);
   outline: none;
-  transition: border-color 0.15s ease-in-out;
-}
-
-.cal-input:focus {
-  border-color: var(--mm-green);
 }
 
 .cal-input::placeholder {

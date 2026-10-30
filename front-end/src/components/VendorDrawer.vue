@@ -433,6 +433,11 @@ useInertBehind(
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* The panel head is dark, so the white halo rather than the green one (E38/F01/S01). */
+.detail-close:focus-visible {
+  box-shadow: var(--focus-halo-on-dark);
+}
+
 .detail-section {
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
@@ -469,9 +474,12 @@ useInertBehind(
   color: var(--mm-black);
 }
 
+/* Above the section beneath, which would otherwise paint over the halo's lower edge; rounded only
+   while focused, since at rest a radius would curl the current tab's underline. */
 .detail-tab:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-control);
 }
 
 .detail-tab--current {

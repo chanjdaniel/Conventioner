@@ -443,10 +443,4 @@ h3 {
   padding-left: var(--space-1);
   padding-right: var(--space-1);
 }
-/* The field inside is unstyled (`all: unset`), which takes its focus ring with it; the ring is
-   drawn here, so a keyboard user can see which name they are typing into (bug 44). */
-.input-container:focus-within {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
 </style>

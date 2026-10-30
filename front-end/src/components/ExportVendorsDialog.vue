@@ -583,11 +583,6 @@ async function download(): Promise<void> {
   color: var(--mm-black);
 }
 
-.export-move:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .export-move:disabled {
   color: var(--mm-border);
   cursor: not-allowed;
