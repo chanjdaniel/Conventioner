@@ -381,8 +381,8 @@ class AnswerCondition(BaseModel):
 class PriceGroup(BaseModel):
     """A row of the Pricing card above "Everyone else" (E43/F01/S02): a group the organizer names,
     the conditions on a vendor's answers that must all hold for them to be in it, and its price per
-    tier, as ``everyone_else`` holds them. A tier it does not price leaves its members to "Everyone
-    else" there (``pricing.Groups``)."""
+    tier, as ``everyone_else`` holds them. A tier it does not price is priced for its members by
+    another group they are in, or by "Everyone else" (``pricing.Groups``)."""
 
     name: str
     conditions: List[AnswerCondition] = Field(default_factory=list)

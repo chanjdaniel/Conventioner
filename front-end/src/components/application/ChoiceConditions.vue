@@ -8,8 +8,9 @@
  * `back-end/rejection_rules.py`, which judges both). The whole list is emitted on every change.
  *
  * A condition on a question the form no longer asks, or on an answer it no longer offers, is drawn
- * broken, with what is missing, so it can be changed or removed: the server leaves such a rule out,
- * and keeps such a price group's condition, which then holds the market in draft.
+ * broken, with what is missing, so it can be changed or removed: the server leaves what a rule names
+ * that the form no longer has out of it, and keeps such a price group's condition, which then holds
+ * the market in draft.
  */
 import { computed, ref } from 'vue';
 import type { AnswerCondition, RejectionQuestion } from '@/assets/types/datatypes';

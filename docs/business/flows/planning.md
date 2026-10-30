@@ -148,7 +148,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    "Add a group" adds a row above it, its name field focused: name it ("UBC student + club member"), add a condition on one of the form's questions with answers to choose ("Which clubs are you a member of? includes any of", then tick the answers that meet it), as many as must all hold, and price it per tier.
    A group with no name or another group's says "Name this group." or "Another group is called this.", and the plan waits to save until it is fixed; "Remove group" takes the row away.
    A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
-   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, and until it is fixed the rail's Open Applications waits on "Fix the price groups".
+   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, and until it is fixed Open Applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
    A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.

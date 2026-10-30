@@ -159,8 +159,9 @@ class Rulebook:
 
     def broken(self, condition: AnswerCondition) -> bool:
         """Whether ``condition`` names a question the form no longer asks as a choice, or an answer
-        the question no longer offers. A rule like that is left out of ``rules``; a price group's
-        condition is kept and shown, since it decides what a vendor pays (E43/F01/S02)."""
+        the question no longer offers. The rules simply leave out what the form no longer has (see
+        ``__init__``); a price group's condition is kept and shown, since it decides what a vendor
+        pays (E43/F01/S02)."""
         question = self.by_key.get(condition.key)
         if question is None:
             return True
