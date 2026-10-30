@@ -77,7 +77,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
-| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`) |
+| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
