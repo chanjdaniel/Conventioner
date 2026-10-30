@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/application/ApplicationsAll.vue
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -71,6 +71,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
 2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
+   An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
 4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and "Their notes: what is needed (optional)"; "Mark for follow-up".
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
@@ -97,6 +98,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs.
+   Its "Update info" updates the vendor's answers, and the list is read again once it saves.
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
    "Select all" ticks every row the filter and Mine show, and none they hide; it leaves the rows another reviewer has open, and says so ("N applications not selected: another reviewer has them open.").
    A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
@@ -154,6 +156,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 - [Vendor notes](../rules/vendor-notes.md): the card shows the vendor's request among their answers and the notes below them.
+- [An update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md): the card and the All view read an updated answer in its place.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 

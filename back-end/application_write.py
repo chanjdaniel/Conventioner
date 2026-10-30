@@ -168,6 +168,14 @@ def validated_form_data(
     return None, stored
 
 
+def validated_answer(field_def: Dict[str, Any], value: Any) -> Tuple[Optional[str], Any]:
+    """One custom question's answer as the form stores it, or the form's reason for refusing it:
+    for an organizer's update of one answer (E41/F01/S01), held to what the vendor was held to."""
+    stored: Dict[str, Any] = {}
+    error = _field_answer(field_def, {field_def.get("key"): value}, stored)
+    return error, stored.get(field_def.get("key"))
+
+
 def form_data_errors(incoming: Dict[str, Any], fields: List[Dict[str, Any]]) -> List[str]:
     """Every custom question these answers would be refused on - for the import's report of a
     skipped row, which named one problem at a time (bug 40)."""

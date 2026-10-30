@@ -420,6 +420,19 @@ export interface TableShareNotice {
   address?: string;
 }
 
+/** An organizer's update of one of a vendor's answers (E41/F01/S01). */
+export interface AnswerUpdate {
+  value: unknown;
+  by: { userId?: string | null; email: string };
+  at: string;
+  /** What the vendor had written when the update was made. */
+  over: unknown;
+  /** What the vendor's answer is now: a re-import or their own edit may have changed it. */
+  theyWrote: unknown;
+  /** Whether what they wrote has changed since the update was made over it. */
+  changedSince: boolean;
+}
+
 export interface Application {
   id: string;
   marketId: string;
@@ -451,6 +464,11 @@ export interface Application {
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
+  /**
+   * Organizer's only (E41/F01/S01): the answers an organizer updated, by question. `formData`
+   * already reads each update in its place; this says who made it, when, and what the vendor wrote.
+   */
+  answerUpdates?: Record<string, AnswerUpdate>;
 }
 
 /** One seat an applicant holds, as their page lists it once results are published (E36/F05/S02). */
