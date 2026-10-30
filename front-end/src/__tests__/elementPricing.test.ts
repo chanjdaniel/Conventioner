@@ -232,21 +232,18 @@ describe('text that ends as no value keeps the value from before (review note 2)
     expect(wrapper.held.at(-1)).toBe(false);
   });
 
-  it('a price that turns into no amount keeps the price from before', async () => {
-    const wrapper = heldCard(
-      plan({
-        currency: 'CAD',
-        halfTablePercent: 50,
-        everyoneElse: [{ tier: 'Gold', cents: 3500 }],
-      }),
-    );
+  it.each([
+    ['a priced cell', [{ tier: 'Gold', cents: 3500 }]],
+    ['a blank cell (rereview finding 8)', []],
+  ])('a price that turns into no amount in %s keeps the price from before', async (_, before) => {
+    const wrapper = heldCard(plan({ currency: 'CAD', halfTablePercent: 50, everyoneElse: before }));
     const cell = wrapper.get('[data-testid="pricing-price-0"]');
 
     await cell.trigger('focus');
     await typeKeys(cell, '3');
     await typeKeys(cell, '3x');
 
-    expect(wrapper.kept()?.everyoneElse).toEqual([{ tier: 'Gold', cents: 3500 }]);
+    expect(wrapper.kept()?.everyoneElse).toEqual(before);
     expect(wrapper.held.at(-1)).toBe(true);
     await cell.trigger('blur');
     expect((cell.element as HTMLInputElement).value).toBe('3x');

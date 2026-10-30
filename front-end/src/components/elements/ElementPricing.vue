@@ -79,7 +79,8 @@ function cellText(tier: string): string {
 }
 
 function onPrice(tier: string, text: string) {
-  const before = cells.value[tier]?.before ?? storedCents(tier);
+  // `tier in`, not `??`: a blank cell's price before is null, which is a value, not "no entry yet".
+  const before = tier in cells.value ? cells.value[tier].before : storedCents(tier);
   cells.value = { ...cells.value, [tier]: { text, before } };
   const cents = centsFromText(text);
   const kept = cents === undefined ? before : cents;
