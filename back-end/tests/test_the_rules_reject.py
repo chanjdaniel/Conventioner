@@ -304,6 +304,23 @@ class TestThePreviewSaysWhoTheyWillReject:
                     if doc["status"] == ApplicationStatus.REVIEWER_REJECTED.value}
         assert body["rejectedByRules"] == len(listed) and rejected == listed
 
+    def test_reimporting_an_unchanged_rejected_row_is_not_newly_rejected(self, applications):
+        """A row a rule already rejected is not listed, and not a sample, when the same file is
+        imported again: the import's judging rejects nothing new for it."""
+        import csv_import as CsvImport
+        from test_csv_import import GOOD_ROW, MAPPING, _csv
+        markets = self._markets(self.HALF)
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        body = self._preview(markets, GOOD_ROW)
+
+        assert body["rejected"] == []
+        assert [s["row"] for s in body["samples"]] == []
+
+        again, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        assert again["rejectedByRules"] == 0
+        assert again["rejectedByRules"] == len(body["rejected"])
+
     def test_no_rule_lists_nothing(self, applications):
         body = self._preview(self._markets([]), *self._rows())
 

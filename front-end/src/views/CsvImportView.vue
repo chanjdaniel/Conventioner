@@ -25,6 +25,7 @@ import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
+import { previewHeadline as previewHeadlineText } from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
 import {
@@ -218,31 +219,19 @@ const writingRows = computed(() =>
 /**
  * The preview's headline: what the import will write. It counted every readable row, so importing
  * the same file again read "212 of 212 rows will be imported" beside "0 new, 0 updated, 212
- * unchanged" (2026-10-18 dry run).
+ * unchanged" (2026-10-18 dry run). The wording lives in `previewHeadline` (utils/importPreview),
+ * so the sentences are tested apart from the view.
  */
-const previewHeadline = computed(() => {
-  const rows = `${rowCount.value} row${rowCount.value === 1 ? '' : 's'}`;
-  if (unchangedRows.value === 0)
-    return `${writingRows.value} of ${rows} will be imported${rejectedClause(true)}`;
-  if (writingRows.value > 0)
-    return `${writingRows.value} of ${rows} will be imported${rejectedClause(false)}`;
-  const verb = unchangedRows.value === 1 ? 'is' : 'are';
-  return (
-    `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged` +
-    rejectedClause(true, 'are')
-  );
-});
-
-/**
- * The headline's count of the rows the automatic rejections reject (E38/F03/S02). "Of them" only
- * where the headline counts every row it could be: an unchanged row a rule rejects is listed too,
- * and is not among the rows a re-import writes.
- */
-function rejectedClause(ofThem: boolean, verb = 'will be'): string {
-  const count = previewRejected.value.length;
-  if (!count) return '';
-  return `; ${count}${ofThem ? ' of them' : ''} ${verb} rejected by your automatic rejections`;
-}
+const previewHeadline = computed(() =>
+  previewHeadlineText({
+    rowCount: rowCount.value,
+    validRows: validRows.value,
+    newRows: newRows.value,
+    updatedRows: updatedRows.value,
+    unchangedRows: unchangedRows.value,
+    rejected: previewRejected.value.length,
+  }),
+);
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
