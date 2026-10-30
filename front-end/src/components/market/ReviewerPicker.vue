@@ -68,13 +68,15 @@ function toggle(address: string, on: boolean) {
   border: 0;
 }
 
-/* A market's organization can name dozens of people: the list scrolls inside the dialog. */
+/* A market's organization can name dozens of people: the list scrolls inside the dialog. Ruled
+   above and below, so a row cut off at its foot reads as more to scroll, not as the last one. */
 .reviewer-picker-list {
   max-height: 16rem;
   margin: var(--space-1) 0 0;
   padding: var(--space-1) 0;
   overflow-y: auto;
   list-style: none;
+  border-block: 1px solid var(--mm-border);
 }
 
 .reviewer-picker-choice {

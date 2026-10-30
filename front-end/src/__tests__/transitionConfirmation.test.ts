@@ -13,6 +13,7 @@ import { mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { VALID_TRANSITIONS, transitionNeedsConfirmation } from '@/utils/phase';
+import { MarketAction } from '@/utils/marketActions';
 import { movesServedFrom } from './support/servedMoves';
 import { answersRefusing } from './support/servedAnswers';
 
@@ -28,7 +29,9 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return { ...actual, api };
 });
 
-// A market whose vendors apply on its own page stops in every phase, so every edge is a move.
+// A market whose vendors apply on its own page stops in every phase, so every edge is a move. Read
+// by someone who may not choose reviewers: for anyone who may, Open Applications offers them first
+// (`openApplicationsOffersTheReviewers.test.ts`).
 function marketIn(phase: MarketPhase): Market {
   return {
     id: 'market-1',
@@ -36,7 +39,7 @@ function marketIn(phase: MarketPhase): Market {
     phase,
     intakeMode: IntakeMode.Form,
     transitionBlockers: movesServedFrom(phase),
-    actionRefusals: answersRefusing(),
+    actionRefusals: answersRefusing(MarketAction.ChooseReviewers),
   } as Market;
 }
 

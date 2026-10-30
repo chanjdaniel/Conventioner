@@ -289,6 +289,16 @@ export const SCREENS: Screen[] = [
     open: at(setup('draft', 'applications'), 'market-tab-note'),
   },
   {
+    // Opening applications offers the reviewers in the same step (E38/F07/S02).
+    name: 'opening applications, choosing reviewers',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('draft', 'setup'), 'setup-dates-date-display-0', [
+      'phase-transition-applications',
+      'open-applications-window',
+    ]),
+  },
+  {
     name: 'a CSV draft, starting from a Google Form',
     who: 'organizer',
     sizes: ORGANIZER,
