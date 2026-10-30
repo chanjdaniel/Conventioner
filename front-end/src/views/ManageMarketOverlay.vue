@@ -541,11 +541,6 @@ function closeAddUser() {
   cursor: pointer;
 }
 
-.section-toggle:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
 .section-toggle-icon {
   width: var(--space-4);
   height: var(--space-4);
