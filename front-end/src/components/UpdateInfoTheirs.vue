@@ -2,10 +2,13 @@
 /**
  * Under one question in Update info (E41/F01/S01): what the vendor wrote, while the answer differs
  * from it, with "Use their answer"; that Save takes an update away, when the answer is back to
- * theirs; and who updated it, while the dialog leaves that update standing.
+ * theirs; and who updated it, while the dialog leaves that update standing. A question the person
+ * may not update (`locked`, E41/F01/S02) still says what they wrote and who updated it, and offers
+ * no way to put it back.
  */
 defineProps<{
   question: string;
+  locked?: boolean;
   differs: boolean;
   theyWrote: string;
   goesBack: boolean;
@@ -18,6 +21,7 @@ const emit = defineEmits<{ useTheirs: [] }>();
   <div v-if="differs" class="update-info-theirs" :data-testid="`update-info-theirs-${question}`">
     <span>They wrote: {{ theyWrote }}</span>
     <button
+      v-if="!locked"
       type="button"
       class="btn btn--secondary btn--compact"
       :data-testid="`update-info-use-theirs-${question}`"

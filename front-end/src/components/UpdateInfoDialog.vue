@@ -280,6 +280,7 @@ async function save(): Promise<void> {
         :options="options"
         :modelValue="draft"
         :locked="locked"
+        :maxDatesOptional="application?.formData?.[MAX_DATES_KEY] == null"
         prefix="update-info"
         @update:modelValue="answeredEssentials"
         @field-change="essentialChanged"
@@ -287,6 +288,7 @@ async function save(): Promise<void> {
         <template #after="{ question }">
           <UpdateInfoTheirs
             :question="question"
+            :locked="locked.includes(question)"
             :differs="differsFromTheirs(question)"
             :theyWrote="theyWroteText(question)"
             :goesBack="goesBack(question)"

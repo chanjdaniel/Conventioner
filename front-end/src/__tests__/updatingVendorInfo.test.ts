@@ -357,6 +357,53 @@ describe('the answers the assignment reads, in the Update info dialog', () => {
     );
     wrapper.unmount();
   });
+
+  it('offers whoever the row refuses no way to put a locked answer back', () => {
+    const wrapper = dialog(
+      essentialApplication({
+        formData: {
+          ...essentialApplication().formData,
+          [TIER_PREFERENCE_KEY]: { [THU]: ['Silver'], [FRI]: ['Gold', 'Silver'] },
+        },
+        answerUpdates: {
+          [TIER_PREFERENCE_KEY]: {
+            ...UPDATE,
+            value: { [THU]: ['Silver'], [FRI]: ['Gold', 'Silver'] },
+            over: { [THU]: ['Gold'], [FRI]: ['Gold', 'Silver'] },
+            theyWrote: { [THU]: ['Gold'], [FRI]: ['Gold', 'Silver'] },
+          },
+        },
+      }),
+      { assignmentRefusal: ONLY_AN_ADMIN },
+    );
+
+    // What they wrote, and who updated it, still show; putting it back is the row's.
+    expect(wrapper.get(testid(`update-info-theirs-${TIER_PREFERENCE_KEY}`)).text()).toContain(
+      'They wrote:',
+    );
+    expect(wrapper.find(testid(`update-info-updated-${TIER_PREFERENCE_KEY}`)).exists()).toBe(true);
+    expect(wrapper.find(testid(`update-info-use-theirs-${TIER_PREFERENCE_KEY}`)).exists()).toBe(
+      false,
+    );
+    wrapper.unmount();
+  });
+
+  it('asks for a number of dates only where the vendor gave one', () => {
+    const required = (app: Application) => {
+      const wrapper = dialog(app);
+      const asked = wrapper
+        .get(testid('update-info-essential-max-dates'))
+        .find('.essential-required')
+        .exists();
+      wrapper.unmount();
+      return asked;
+    };
+    const noLimit = essentialApplication();
+    noLimit.formData = { ...noLimit.formData, [MAX_DATES_KEY]: null };
+
+    expect(required(essentialApplication())).toBe(true);
+    expect(required(noLimit)).toBe(false);
+  });
 });
 
 describe('the words beside an updated answer', () => {

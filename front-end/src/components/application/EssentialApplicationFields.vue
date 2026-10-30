@@ -56,8 +56,20 @@ const props = withDefaults(
     disabled?: boolean;
     /** The questions shown read-only, by key; the tier grid is `TIER_PREFERENCE_KEY`'s. */
     locked?: readonly string[];
+    /**
+     * "Number of dates you want" may stay empty: an imported vendor's answer that holds no limit,
+     * which an update leaves as it is (`validated_essential_update`). The form always asks it.
+     */
+    maxDatesOptional?: boolean;
   }>(),
-  { errors: () => ({}), prefix: 'apply', email: null, disabled: false, locked: () => [] },
+  {
+    errors: () => ({}),
+    prefix: 'apply',
+    email: null,
+    disabled: false,
+    locked: () => [],
+    maxDatesOptional: false,
+  },
 );
 
 defineSlots<{
@@ -307,7 +319,7 @@ function errorFor(key: string): string {
     >
       <label class="essential-label" :for="`${prefix}-essential-max-dates-input`">
         {{ MAX_DATES_LABEL }}
-        <span class="essential-required">*</span>
+        <span v-if="!maxDatesOptional" class="essential-required">*</span>
       </label>
       <!-- The days are answered below, in the tier grid's "Not available": this pointed "above",
            at a question the form no longer asks on its own. -->
