@@ -1564,7 +1564,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
 @login_required
 def update_vendor_info(market_id: str, application_id: str) -> Response:
     """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
-    ``Actions.UPDATE_VENDOR_INFO``.
+    ``Actions.UPDATE_VENDOR_INFO``, and ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` for an answer
+    the assignment reads.
 
     Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
     vendor wrote takes its update away.
