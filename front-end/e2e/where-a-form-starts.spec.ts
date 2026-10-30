@@ -169,8 +169,8 @@ test.describe("Start from a draft's Market Setup", () => {
     await page.goto(marketSetupPath(marketId));
     await page.getByTestId('plan-start-from-csv-link').click();
     const flow = new StartFromCsvPage(page);
-    await flow.chooseFile(join(CORPUS, 'fall-2023.csv'));
-    await flow.answerYear(UPCOMING_YEAR['fall-2023']);
+    await flow.chooseFile(join(CORPUS, 'days-as-one-question.csv'));
+    await flow.answerYear(UPCOMING_YEAR['days-as-one-question']);
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
@@ -188,6 +188,6 @@ test.describe("Start from a draft's Market Setup", () => {
     const served = await form.json();
     expect(served.is_open).toBe(true);
     const labels = (served.application_form?.fields ?? []).map((f: { label: string }) => f.label);
-    expect(labels).toContain('Are you a UBC Student?');
+    expect(labels).toContain('Are you an Example College student?');
   });
 });

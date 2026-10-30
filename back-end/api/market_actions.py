@@ -89,6 +89,9 @@ ADD_VENDOR = action(
 WRITE_VENDOR_NOTES = action(
     "write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR,
     "write notes on this market's vendors")
+UPDATE_VENDOR_INFO = action(
+    "update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR,
+    "update this market's vendors' info")
 ASSIGN = action(
     "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
     MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")
@@ -154,7 +157,8 @@ def minimum_role(row: Action, market: Market) -> MarketRole:
 
 def table(market: Market) -> List[Dict[str, Any]]:
     """The market's table for display, every row in order: its label and group, the role it asks,
-    its built-in default, where the role came from, and whether it is fixed."""
+    its built-in default, where the role came from, whether it is fixed, and what the action is
+    after "may", for Manage market's confirmation of a change (E39/F01/S04)."""
     served = []
     for row in ACTIONS.values():
         held = held_row(row, market.permissions)
@@ -166,6 +170,7 @@ def table(market: Market) -> List[Dict[str, Any]]:
             "default": row.default.value,
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
+            "mayWhat": row.may_what,
         })
     return served
 

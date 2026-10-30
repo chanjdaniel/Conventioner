@@ -129,6 +129,8 @@ ROW_WRITES = {
                    {"name": "Ana", "email": "ana@example.com"}),
     "write-vendor-notes": ("put", "/markets/market-123/vendor-notes/ana@example.com",
                            {"note": "Extra chair"}),
+    "update-vendor-info": ("put", "/markets/market-123/applications/app-1/answers",
+                           {"answers": {"business_name": "Ember Ceramics"}}),
     "assign": ("post", "/markets/market-123/assignment", None),
     "check-in": ("post", "/markets/market-123/attendance",
                  {"vendorEmail": "ana@example.com", "date": "2026-05-01"}),
@@ -140,19 +142,26 @@ ROW_WRITES = {
     "change-the-table": ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}),
 }
 
+#: A row's other writes, met the same way: resetting one row, or the whole table, is the table's row
+#: as setting one is (E39/F01/S04).
+MORE_ROW_WRITES = [
+    ("change-the-table", ("delete", "/markets/market-123/permissions/check-in", None)),
+    ("change-the-table", ("delete", "/markets/market-123/permissions", None)),
+]
+
 
 class TestEveryRowOfTheTable:
     def test_every_row_has_a_write_here(self):
         assert set(ROW_WRITES) == set(Actions.ACTIONS)
 
-    @pytest.mark.parametrize("action_id", ROW_WRITES)
+    @pytest.mark.parametrize("action_id,write", [*ROW_WRITES.items(), *MORE_ROW_WRITES])
     def test_an_archived_market_refuses_exactly_the_rows_it_does_not_still_take(
-        self, client, monkeypatch, action_id,
+        self, client, monkeypatch, action_id, write,
     ):
         # Deleting would reach the market's other collections; only the refusal matters here.
         monkeypatch.setattr(MarketsApi.MarketDeletion, "delete_market_and_records",
                             lambda *_a, **_k: SimpleNamespace(deleted_count=1))
-        method, path, body = ROW_WRITES[action_id]
+        method, path, body = write
 
         response = getattr(client, method)(path, json=body)
         answer = (response.get_json(silent=True) or {}).get("error")

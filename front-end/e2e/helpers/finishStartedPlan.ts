@@ -34,13 +34,13 @@ export async function finishStartedPlan(
 }
 
 /**
- * A year still to come in which each anonymised export's dates fall on the same weekdays, so the
+ * A year still to come in which each corpus export's dates fall on the same weekdays, so the
  * year asked after upload matches the file and the market may leave draft (E31/F01/S01). The
  * exports are past years' only because that is what exists; an organizer's own is this year's.
  */
 export const UPCOMING_YEAR: Record<string, number> = {
-  'fall-2023': 2034,
-  'spring-2024': 2052,
-  'spring-2025': 2031,
-  'fall-2025': 2031,
+  'days-as-one-question': 2034,
+  'four-day-grid': 2052,
+  'no-timestamp': 2031,
+  'five-day-grid': 2031,
 };

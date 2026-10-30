@@ -11,6 +11,7 @@ sources:
   - E35/F02/S01
   - T47
   - T74
+  - E41/F01/S01
 ---
 
 # Testing Conventioner
@@ -73,15 +74,13 @@ form of only the essential questions is still a form, so such a market can actua
 applications its phase lets it open.
 `test_assignment_behaviour.py` is the solver's behavioural suite; change placement against it
 rather than beside it.
-`test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
-committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
-it, and the leak check refuses output that holds a rarer one.
-A phone number becomes a fictional one, 555-0100 to 555-0199, in the shape it was typed, so the output passes the git hooks' real-data check.
+`test_synthetic_form_exports.py` holds every file of the Google Form corpus to the bytes
+`tests/fixtures/synthetic_form_exports.py` makes, so a pasted or hand-edited fixture fails.
 `test_csv_proposal.py` holds the rules that read a Google Form's responses into a proposal to the
 answer key they were measured against on those five exports, `test_csv_proposal_plan.py` does the
 same for what the file says about the plan, and `test_csv_proposal_api.py` pins that asking for one
 writes nothing.
-`test_google_forms_corpus.py` pins the five exports that script made (`tests/test_data/google_forms/`):
+`test_google_forms_corpus.py` pins the five synthetic exports in `tests/test_data/google_forms/`:
 each one's row count, header row and table-size answer counts.
 
 A test count is deliberately not quoted here: it goes stale on the next commit, and the suite
@@ -286,8 +285,8 @@ The page objects in `front-end/e2e/pages/` are `LoginPage`, `NewMarketPage`, `Ma
 `OrganizationsPage`, `ManageMarketPage`, `PasswordResetPage`, `ApplicationFormPage`,
 `FloorplanWorkflowPage`, `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`,
 `CsvImportPage`, `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage`,
-`ApplicationMonitorPage`, `StatsPage` and `VendorExportDialog` (the export dialog,
-wherever it opens).
+`ApplicationMonitorPage`, `StatsPage`, `VendorExportDialog` (the export dialog, wherever it
+opens) and `UpdateInfoDialog` (the vendor drawer's Update info dialog).
 
 ### Bypassing CAPTCHA and email in tests
 
@@ -360,15 +359,16 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   helpers authenticate properly by logging in.
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
-- **The Google Forms fixture**: `back-end/tests/test_data/google_forms_export.csv` is a real
-  response export with the people replaced, built by an earlier version of
-  `back-end/tests/fixtures/anonymise_form_export.py`.
+- **The Google Forms fixture**: `back-end/tests/test_data/google_forms/five-day-grid.csv` is a
+  synthetic response export in a Google Form's shape, written by
+  `back-end/tests/fixtures/synthetic_form_exports.py`.
   It exists because three MVP blockers came from the *shape* of a real export and every CSV test
   before it wrote its own short single-line headers.
-  `back-end/tests/test_data/README.md` lists the six properties it must preserve, and
-  `test_real_export_shapes.py` asserts those before it asserts anything else.
-- **A real export is never committed, anonymised or not, except through `back-end/tests/fixtures/anonymise_form_export.py`.**
-  A fixture's addresses are at `example.com` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
+  `back-end/tests/test_data/README.md` lists the six properties it must preserve;
+  `test_form_export_shapes.py` asserts them, but for the duplicate and organizer columns, which the
+  answer key in `test_csv_proposal.py` holds.
+- **A real export never becomes test data in any form**: the Google Form corpus changes only through `back-end/tests/fixtures/synthetic_form_exports.py`.
+  A fixture's addresses are at `example.com`, `example.org` or a `.test` domain, and its phone numbers are from 555-0100 to 555-0199, the fictional range (the rest of the 555 exchange can be assigned).
   The git hooks refuse anything else before it is committed or pushed, and the gate and CI refuse it again; install the hooks once per clone with `git config core.hooksPath .githooks` (a treehouse worktree gets them from `scripts/treehouse-setup.sh`).
   See [real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc).
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the

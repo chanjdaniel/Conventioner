@@ -23,6 +23,7 @@ export const MarketAction = {
   PublishResults: 'publish-results',
   AddVendor: 'add-vendor',
   WriteVendorNotes: 'write-vendor-notes',
+  UpdateVendorInfo: 'update-vendor-info',
   Assign: 'assign',
   CheckIn: 'check-in',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',

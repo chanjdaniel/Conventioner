@@ -12,6 +12,7 @@ Then `## Why`; `## Who may` when roles matter; `## Where it is kept`, linking th
 One line per node, sorted by file name.
 
 - [A gated market answers as absent](a-gated-market-answers-as-absent.md) - a CSV market or a draft answers applicants exactly as no market at all; never a "not accepting" message
+- [A price follows the table](a-price-follows-the-table.md) - an assignment costs its table's tier price for the day, a half table a share of it rounded half up; set on Market Setup, optional, settled with the setup
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
 - [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
@@ -22,6 +23,7 @@ One line per node, sorted by file name.
 - [An assignment knows when it is out of date](an-assignment-knows-when-it-is-out-of-date.md) - the result says which of the rules, the plan and the approved applications changed since it ran
 - [An imported email is asserted](an-imported-email-is-asserted.md) - an imported applicant's address is the organizer's word, an online one's proven by a code; settled before any other mail
 - [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the assignment, naming the applicants
+- [An update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md) - an organizer's update reads in the answer's place, says who, when and what they wrote, and outlasts a re-import
 - [Assign runs only in assignment](assign-runs-only-in-assignment.md) - the run is refused in every other phase, and once results are published
 - [Automatic rejections](automatic-rejections.md) - answers the organizer names reject an undecided application, with the reason; a person's verdict is never touched
 - [Dates fill one at a time, in the plan's order](dates-fill-in-calendar-order.md) - the solver fills each date before the next, in the plan's order; kept on purpose

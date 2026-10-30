@@ -350,6 +350,13 @@ def _follow_up_owner(client, world):
                       json={"ownerEmail": SAM})
 
 
+def _update_info(client, world):
+    world.market(MarketPhase.REVIEW, applicationForm={"fields": [QUESTION]})
+    world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
+    return client.put(f"/markets/{MARKET}/applications/app-1/answers",
+                      json={"answers": {"shop": "Ember Ceramics"}})
+
+
 # --- The market's life ------------------------------------------------------------------------------
 
 def _move_phase(client, world):
@@ -457,6 +464,12 @@ def _reset_permission(client, world):
     return client.delete(f"/markets/{MARKET}/permissions/check-in")
 
 
+def _reset_permissions(client, world):
+    world.market(MarketPhase.REVIEW,
+                 permissions={"check-in": {"role": "admin", "source": "market"}})
+    return client.delete(f"/markets/{MARKET}/permissions")
+
+
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
 PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
@@ -468,6 +481,9 @@ WRITES = [
           _plan({"marketDates": [{"date": "2099-08-02"}]})),
     Write("the intake mode", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PLAN,
           _plan({}, intake="form")),
+    Write("the prices", "PUT", f"{M}/plan", Actions.CHANGE_SETUP, History.PRICING,
+          _plan({"pricing": {"currency": "CAD", "halfTablePercent": 50,
+                             "everyoneElse": [{"tier": "Gold", "cents": 3500}]}})),
     Write("the assignment rules", "PUT", f"{M}/plan", Actions.ASSIGN, History.RULES,
           _plan({"assignmentOptions": {"maxAssignmentsPerVendor": 1}})),
     Write("a floorplan", "POST", "/floorplans/save-to-market", Actions.CHANGE_SETUP,
@@ -498,6 +514,10 @@ WRITES = [
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
+    Write("a vendor's info updated", "PUT", f"{M}/applications/<application_id>/answers",
+          Actions.UPDATE_VENDOR_INFO, None, _update_info, vendors=(VENDOR,),
+          subject={"application_id": "app-1"},
+          detail_keys=("rejected_by_rules", "returned_by_rules")),
     Write("a phase move", "POST", f"{M}/transition", Actions.MOVE_PHASE, None, _move_phase),
     Write("applications stopped", "POST", f"{M}/applications-stopped", Actions.STOP_APPLICATIONS,
           None, _stop_applications),
@@ -543,6 +563,8 @@ WRITES = [
     Write("a row of the table reset", "DELETE", f"{M}/permissions/<action_id>",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_RESET, _reset_permission,
           subject={"action": "check-in"}),
+    Write("the table reset", "DELETE", f"{M}/permissions",
+          Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
 ]
 
 #: The write routes that change nothing on a market's record, and why.

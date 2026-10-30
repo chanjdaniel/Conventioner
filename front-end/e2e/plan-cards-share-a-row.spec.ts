@@ -9,11 +9,11 @@ import type { Page } from '@playwright/test';
  *
  * A screen of cards is a two-track grid: a card is half width unless it declares itself wide, a
  * card ends at its own content, below 900px of room it is one track, and every card has the same
- * inner gutter. On the plan, Market Dates and Section Setup are wide; Tier Setup sits beside
- * Location Setup, and How vendors apply beside Application form.
+ * inner gutter. On the plan, Market Dates, Section Setup and Pricing are wide; Tier Setup sits
+ * beside Location Setup, and How vendors apply beside Application form.
  */
 
-const CARDS = ['dates', 'tiers', 'locations', 'sections', 'intake', 'form'] as const;
+const CARDS = ['dates', 'tiers', 'locations', 'sections', 'pricing', 'intake', 'form'] as const;
 type Card = (typeof CARDS)[number];
 
 const TIERS = [
@@ -128,6 +128,7 @@ test.describe('Plan cards share a row', () => {
       const row = b.locations.x + b.locations.w - b.tiers.x;
       expect(Math.abs(b.dates.w - row)).toBeLessThanOrEqual(1);
       expect(Math.abs(b.sections.w - row)).toBeLessThanOrEqual(1);
+      expect(Math.abs(b.pricing.w - row)).toBeLessThanOrEqual(1);
       expect(b.tiers.w).toBe(b.locations.w);
 
       // A card ends at its own content: three tiers beside nine locations do not stretch to match.

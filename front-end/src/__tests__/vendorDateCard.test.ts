@@ -149,3 +149,19 @@ describe('placementReasonText', () => {
     );
   });
 });
+
+describe('an assigned date says what it costs (E43/F01/S01)', () => {
+  it('shows its price where the market prices it', () => {
+    const wrapper = card({ placement: 'Atrium 1 (Full Table)', price: 'Gold, full table, $35' });
+
+    expect(wrapper.get('[data-testid="vendor-date-card-price"]').text()).toBe(
+      'Gold, full table, $35',
+    );
+  });
+
+  it('shows no price where the market has none', () => {
+    const wrapper = card({ placement: 'Atrium 1 (Full Table)', price: null });
+
+    expect(wrapper.find('[data-testid="vendor-date-card-price"]').exists()).toBe(false);
+  });
+});

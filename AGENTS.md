@@ -97,6 +97,7 @@ Vendors coming in:
 - Before changing intake mode or the applicant surface, read [intake mode decides how vendors arrive](docs/business/rules/intake-mode-decides-how-vendors-arrive.md), [a gated market answers as absent](docs/business/rules/a-gated-market-answers-as-absent.md) and [ADR 0006](docs/adr/0006-intake-mode-fails-closed.md).
 - Before changing applicant sign-in, read [a vendor signs in before they have applied](docs/business/rules/a-vendor-signs-in-before-applying.md).
 - Before changing the CSV import, read [the CSV import](docs/implementation/modules/csv-import.md) and [the form amendment](docs/implementation/modules/form-amendment.md).
+- Before changing how an organizer updates a vendor's answers, or adding a reader of an application's answers, read [an update is kept beside the vendor's answer](docs/business/rules/an-update-is-kept-beside-the-vendors-answer.md) and [the application document](docs/implementation/data/application-document.md#an-organizers-update-of-an-answer).
 - Before changing the start from a CSV or what reaches TypeSafe, read [the CSV proposal and start](docs/implementation/modules/csv-proposal-and-start.md) and [ADR 0007](docs/adr/0007-what-may-be-sent-to-hosted-typesafe.md).
 
 The assignment:
@@ -106,6 +107,7 @@ The assignment:
 - Before changing what an assignment remembers of its inputs, read [what an assignment was made from](docs/implementation/modules/made-from.md).
 - Before changing check-in or the attendance page, read [attendance and the door](docs/implementation/modules/attendance-and-door.md).
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
+- Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
 
 The data and the back end:
 

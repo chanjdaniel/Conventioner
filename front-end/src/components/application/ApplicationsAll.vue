@@ -421,6 +421,7 @@ async function decideSelection() {
       :tab="drawer.tab.value"
       @close="drawer.close()"
       @update:tab="drawer.setTab"
+      @infoUpdated="load"
     >
       <template v-if="opened" #actions>
         <div class="drawer-verdict" data-testid="applications-all-drawer-verdict">

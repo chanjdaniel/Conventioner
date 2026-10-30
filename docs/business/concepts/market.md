@@ -22,7 +22,7 @@ verified: 2026-10-22
 - [The Google Form path](../flows/the-google-form-path.md), [the online path](../flows/the-online-path.md) and [the mixed path](../flows/the-mixed-path.md): one market from creation to the end, by how its vendors arrive.
 - [Creating a market](../flows/creating-a-market.md): the create-market dialog, its organization and its name.
 - [Finding and opening markets](../flows/finding-a-market.md): the dashboard, the Markets list and a market's addresses.
-- [Planning the market](../flows/planning.md): Market Setup's dates, tiers, locations and sections.
+- [Planning the market](../flows/planning.md): Market Setup's dates, tiers, locations, sections and prices.
 - [Ending and managing a market](../flows/ending-and-managing-a-market.md): archiving, access, renaming and deleting it.
 
 ## Implementation

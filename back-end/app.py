@@ -11,6 +11,7 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
+import api.vendor_info as VendorInfoApi
 import api.vendor_export as VendorExportApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -792,6 +793,15 @@ def reset_market_permission(market_id: str, action_id: str) -> Response:
     return jsonify({"permissionTable": table}), 200
 
 
+@app.route('/markets/<market_id>/permissions', methods=['DELETE'])
+@login_required
+def reset_market_permissions(market_id: str) -> Response:
+    """Return every row of the market's table to its built-in default, as its owner (E39/F01/S04).
+    Asks ``Actions.CHANGE_THE_TABLE``; one entry in the market's history. Answers the table."""
+    table = MarketsApi.reset_permissions(market_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
 @app.route('/markets/<market_id>/permission-history', methods=['GET'])
 @login_required
 def get_market_permission_history(market_id: str) -> Response:
@@ -1429,6 +1439,24 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
         context.market, context.organization, person, data.get('ownerEmail'))
     result, status_code = ApplicantsApi.reassign_follow_up(
         market_id, application_id, owner, person.email)
+    return jsonify(result), status_code
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/answers', methods=['PUT'])
+@login_required
+def update_vendor_info(market_id: str, application_id: str) -> Response:
+    """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
+    ``Actions.UPDATE_VENDOR_INFO``.
+
+    Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
+    vendor wrote takes its update away.
+    """
+    data = json_object(required=True)
+    requesting_user = authenticated_email()
+    user = UsersApi.get_user(requesting_user)
+    updater = MarketPerson(user_id=user.id if user else None, email=requesting_user)
+    result, status_code = VendorInfoApi.update_vendor_info(
+        market_id, application_id, data.get("answers"), updater)
     return jsonify(result), status_code
 
 
