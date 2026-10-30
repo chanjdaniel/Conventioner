@@ -9,7 +9,7 @@ describes:
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerPicker.vue
   - front-end/src/utils/reviewTeam.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E38/F07
   - E38/F07/S01
@@ -35,7 +35,7 @@ Seven open applications among three reviewers deal three, two and two, the extra
 
 **Each application that arrives open is dealt to the next reviewer in turn**: an applicant's submission, every import ([the CSV import](../../implementation/modules/csv-import.md)), and an application the [automatic rejections](automatic-rejections.md) return to open when the rules are saved, the form is saved or a vendor's info is updated.
 An application a rule rejects as it arrives is decided, so it is not dealt until the rules return it to open.
-The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer; two applications arriving at once take the next two turns, and no reviewer is skipped.
+The turn carries on from the last deal, so after seven applications among three reviewers the eighth goes to the second reviewer; however a change of reviewers and arrivals interleave, each is dealt in turn and no reviewer is skipped, since every deal holds the market while it reads and writes the turn.
 An applicant's own save deals their application and nobody else's, so the history never names a vendor as dealing another's.
 
 **Any change of reviewers deals every open application again**, so a newcomer gets an even share and nothing is stranded with someone removed.
