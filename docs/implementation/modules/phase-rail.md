@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -25,6 +25,7 @@ sources:
   - bug/44
   - T82
   - E38/F04
+  - E38/F01/S01
 ---
 
 # The phase rail
@@ -82,6 +83,7 @@ Which addresses show, and when, is [a gated market answers as absent](../../busi
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
 While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
+Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
 
 **Crowding is measured between labels, never by overflow.**
 The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.

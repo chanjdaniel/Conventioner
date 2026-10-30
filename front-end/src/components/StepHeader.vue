@@ -5,7 +5,7 @@
  * A list of buttons in a named navigation landmark, the current one marked `aria-current="step"`,
  * so assistive technology hears which step is open as well as where the others are. It decides
  * nothing: the screen holds the current step and moves it on `select`, as it does with its own
- * Back and Next. Its focus ring is the primitives' (`.step-button` in primitives.css).
+ * Back and Next. Its focus halo is the primitives' (`.step-button` in primitives.css).
  */
 import { computed } from 'vue';
 
