@@ -136,12 +136,13 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
         }
         const dark = 0.2126 * ground[0] + 0.7152 * ground[1] + 0.0722 * ground[2] < 96;
         const wanted = dark ? haloOnDark : halo;
-        // A control inside a card that opens on it (a market card's name) has the card wear it.
+        // A control with no shadow of its own may have a box up to four levels around it wear the halo,
+        // as a market card does for its name.
         const wears = (node: Element) => getComputedStyle(node).boxShadow.includes(wanted);
         let worn = wears(el);
         for (
           let node = el.parentElement, up = 1;
-          !worn && s.boxShadow === 'none' && node && up < 4;
+          !worn && s.boxShadow === 'none' && node && up <= 4;
           node = node.parentElement, up++
         ) {
           worn = wears(node);

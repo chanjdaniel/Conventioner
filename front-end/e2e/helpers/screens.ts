@@ -15,9 +15,9 @@ import { settle } from './settle';
 
 /**
  * Every screen and deliberate state of the app, walked by every sweep: contrast
- * (`contrast-sweep.spec.ts`), what axe can see (`accessibility-sweep.spec.ts`) and layout
- * (`layout-sweep.spec.ts`). Each sweep passes its own `check` and nothing else, so a state added
- * here is walked by all three.
+ * (`contrast-sweep.spec.ts`), what axe can see (`accessibility-sweep.spec.ts`), layout
+ * (`layout-sweep.spec.ts`) and focus (`focus-sweep.spec.ts`). Each sweep passes its own `check` and
+ * nothing else, so a state added here is walked by all four.
  *
  * **A sweep is only worth the states it walks.** A twenty-screen pass missed the invisible
  * archive-confirmation button, because nobody opened that dialog; a layout trial missed the

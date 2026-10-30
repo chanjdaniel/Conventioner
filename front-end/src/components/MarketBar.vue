@@ -172,6 +172,14 @@ function linkFor(tab: MarketTab): string {
   box-shadow: var(--focus-halo-on-dark);
 }
 
+/* On a phone the tabs sit on the bar's lower edge in a sideways scroller, which clips anything
+   drawn outside them, so the halo is drawn inside. */
+@media (width <= 640px) {
+  .market-bar-tab:focus-visible {
+    box-shadow: var(--focus-halo-on-dark-inset);
+  }
+}
+
 .market-bar-tab.active {
   color: white;
   border-bottom-color: var(--mm-green);

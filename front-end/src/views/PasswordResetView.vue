@@ -233,7 +233,7 @@ h1 {
   font-size: var(--text-sm);
 }
 
-/* Its focus ring is the primitives' own: this set `outline: none`, so a keyboard user could not
+/* Its focus halo is the primitives' own: this set `outline: none`, so a keyboard user could not
    see they were on it. */
 .show-button {
   min-width: var(--target-min);
@@ -260,7 +260,7 @@ h1 {
   color: var(--mm-text-green);
 }
 
-/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state. */
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus halo and disabled state. */
 .submit-button {
   width: 100%;
   margin-top: var(--space-6);
