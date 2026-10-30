@@ -129,7 +129,7 @@ test("a Viewer the history's row is raised above has no History tab and no Permi
     // A link to the History tab opens on the Application tab rather than on a refusal.
     await page.goto(drawerPath(marketId, VENDOR.email));
     const tabs = page.getByRole('tablist', { name: 'Vendor detail' });
-    await expect(tabs.getByRole('tab')).toHaveText(['Application', 'Assignments']);
+    await expect(tabs.getByRole('tab')).toHaveText(['Application', 'Assignments', 'Payment']);
     await expect(tabs.getByRole('tab', { name: 'Application' })).toHaveAttribute(
       'aria-selected',
       'true',
