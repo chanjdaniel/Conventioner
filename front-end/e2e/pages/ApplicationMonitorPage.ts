@@ -31,6 +31,8 @@ export class ApplicationMonitorPage {
   readonly decidedToggle: Locator;
   readonly decidedRows: Locator;
   readonly decidedEmails: Locator;
+  /** Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
+  readonly decidedReason: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -51,6 +53,12 @@ export class ApplicationMonitorPage {
     this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
+    this.decidedReason = page.getByTestId('app-monitor-decided-reason');
+  }
+
+  /** A row of the reviewed list, by its applicant. */
+  decidedRow(applicantEmail: string): Locator {
+    return this.decidedRows.filter({ hasText: applicantEmail });
   }
 
   /** Wait for the queue to settle, so a count is a count and not a race with the fetch. */
