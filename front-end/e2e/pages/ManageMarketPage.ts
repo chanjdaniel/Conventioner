@@ -121,8 +121,9 @@ export class ManageMarketPage {
     return this.permissionRow(actionId).getByTestId('manage-market-permission-source');
   }
 
-  /** Chooses a role for a row, which opens its confirmation. */
+  /** Chooses a role for a row, from the focused select as a person does, which opens its confirmation. */
   async choosePermission(actionId: string, role: string): Promise<void> {
+    await this.permissionSelect(actionId).focus();
     await this.permissionSelect(actionId).selectOption(role);
   }
 

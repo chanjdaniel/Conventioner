@@ -65,6 +65,15 @@ test('the owner raises check-in to Admin, and an Editor is offered it nowhere', 
   await expect(manage.permissionSelect('check-in')).toHaveAccessibleName('Check vendors in');
   await expect(manage.permissionSelect('check-in')).toHaveValue('editor');
 
+  // Escape closes the confirmation alone, and gives focus back to the row's select.
+  await manage.choosePermission('check-in', 'admin');
+  await expect(manage.permissionConfirm).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(manage.permissionConfirm).toHaveCount(0);
+  await expect(manage.window).toBeVisible();
+  await expect(manage.permissionSelect('check-in')).toBeFocused();
+  await expect(manage.permissionSelect('check-in')).toHaveValue('editor');
+
   // Cancelling the confirmation leaves the row as it was.
   await manage.choosePermission('check-in', 'admin');
   await expect(manage.permissionConfirm).toContainText(
