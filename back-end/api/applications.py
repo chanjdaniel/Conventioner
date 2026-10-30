@@ -458,8 +458,9 @@ def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, 
     ``review_team.py`` calls it.
     """
     ensure_application_indexes()
+    # Dealt, it is no longer an arrival waiting for a deal (``mark_arriving``).
     update: Dict[str, Any] = (
-        {"$set": {"reviewer": reviewer.model_dump()}} if reviewer
+        {"$set": {"reviewer": reviewer.model_dump()}, "$unset": {ARRIVING_FIELD: ""}} if reviewer
         else {"$unset": {"reviewer": ""}}
     )
     result = applications_collection.update_one(
@@ -471,55 +472,44 @@ def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, 
     return result.matched_count > 0
 
 
-#: How long a deal holds an arriving application it is dealing (E38/F07/S03): long enough to take
-#: a turn and write the reviewer, so one left by a deal that stopped half way is dealt by the next.
-DEALING_LEASE = timedelta(minutes=1)
-_DEALING_UNSET = {"dealing_by": "", "dealing_until": ""}
+#: An application waiting to be dealt as it arrived (E38/F07/S03): ``{actor, action}``, the write it
+#: arrived by, for the deal's history entry. Set by ``mark_arriving``, cleared as it is dealt.
+ARRIVING_FIELD = "arriving"
 
 
-def begin_dealing(app_id: str, deal: str, now: Optional[datetime] = None) -> bool:
-    """Win an arriving application for one deal before it takes a turn, so a turn is only ever
-    taken for an application that deal will write: still open, with no reviewer, and not being
-    dealt by another deal whose lease stands. ``deal`` names the deal; only ``review_team.py``
-    calls it."""
+def mark_arriving(app_id: str, actor: Optional[str], action: str) -> bool:
+    """Mark an open, undealt application as waiting to be dealt as it arrived, by ``action`` of
+    ``actor``; one already waiting keeps the write it first arrived by. Only ``review_team.py``
+    calls it, and whichever deal next holds the market deals it."""
     ensure_application_indexes()
-    now = _now(now)
     result = applications_collection.update_one(
         {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
-         "reviewer": {"$in": [None]},
-         "$nor": [{"dealing_until": {"$gt": now.isoformat()}}]},
-        {"$set": {"dealing_by": deal, "dealing_until": (now + DEALING_LEASE).isoformat()}},
+         "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": False}},
+        {"$set": {ARRIVING_FIELD: {"actor": actor, "action": action}}},
     )
     return result.matched_count > 0
 
 
-def let_go_of_arrivals(market_id: str) -> int:
-    """Let go of every application of the market an arrival's deal holds, so none of those deals
-    writes its reviewer: a change of reviewers deals them itself, from the new team, or leaves them
-    first come, first served. Answers how many it let go."""
-    released = 0
-    for doc in applications_collection.find(
-            {MARKET_ID_FIELD: market_id, "dealing_by": {"$exists": True}}, {"id": 1, "dealing_by": 1}):
-        result = applications_collection.update_one(
-            {"id": doc["id"], "dealing_by": doc["dealing_by"]}, {"$unset": dict(_DEALING_UNSET)})
-        released += result.matched_count
-    return released
+def arriving_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
+    """The market's applications waiting to be dealt as they arrived, earliest arrival first."""
+    return _in_arrival_order([doc for doc in list_applications_for_market(market_id)
+                              if doc.get(ARRIVING_FIELD)])
 
 
-def finish_dealing(app_id: str, deal: str, reviewer: Optional[MarketPerson]) -> bool:
-    """Write the reviewer ``deal`` took a turn for, and let go of the application; with None, let
-    go without dealing it. The reviewer is written only while that deal still holds it and nothing
-    else has dealt it since (a change of reviewers deals every open application it reads, held or
-    not): answers False when it was not written, and lets go of it either way."""
-    release = {"$unset": dict(_DEALING_UNSET)}
+def deal_arrival(app_id: str, reviewer: Optional[MarketPerson]) -> bool:
+    """Deal an application waiting as it arrived to ``reviewer``, or with None let it go undealt:
+    either way it waits no longer. The reviewer is written only while it is still open and undealt,
+    so one decided meanwhile is let go with its verdict alone."""
+    ensure_application_indexes()
     if reviewer is not None:
-        written = applications_collection.update_one(
-            {"id": app_id, "dealing_by": deal, "reviewer": {"$in": [None]}},
-            {"$set": {"reviewer": reviewer.model_dump()}, **release},
+        result = applications_collection.update_one(
+            {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+             "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": True}},
+            {"$set": {"reviewer": reviewer.model_dump()}, "$unset": {ARRIVING_FIELD: ""}},
         )
-        if written.matched_count > 0:
+        if result.matched_count > 0:
             return True
-    applications_collection.update_one({"id": app_id, "dealing_by": deal}, release)
+    applications_collection.update_one({"id": app_id}, {"$unset": {ARRIVING_FIELD: ""}})
     return False
 
 

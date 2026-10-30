@@ -62,16 +62,28 @@ def _set(doc, path, value):
     doc[leaf] = value
 
 
+_MISSING = object()
+
+
+def _at(doc, path):
+    for part in path.split("."):
+        if not isinstance(doc, dict) or part not in doc:
+            return _MISSING
+        doc = doc[part]
+    return doc
+
+
 def _matches(doc, query):
-    """``mongo_matches``, with a dotted key compared by its path as Mongo reads one."""
-    for key, value in query.items():
-        if "." in key:
-            target = doc
-            for part in key.split("."):
-                target = target.get(part) if isinstance(target, dict) else None
-            if target != value:
+    """``mongo_matches``, with a dotted key read by its path as Mongo reads one, ``$nor`` included."""
+    for key, condition in query.items():
+        if key == "$nor":
+            if any(_matches(doc, clause) for clause in condition):
                 return False
-    return mongo_matches(doc, {key: value for key, value in query.items() if "." not in key})
+            continue
+        value = _at(doc, key)
+        if not mongo_matches({} if value is _MISSING else {"v": value}, {"v": condition}):
+            return False
+    return True
 
 
 class Markets:
@@ -105,7 +117,12 @@ class Markets:
         for path, value in (update.get("$set") or {}).items():
             _set(self.doc, path, copy.deepcopy(value))
         for path in update.get("$unset") or {}:
-            self.doc.pop(path, None)
+            *parents, leaf = path.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.get(part) if isinstance(target, dict) else None
+            if isinstance(target, dict):
+                target.pop(leaf, None)
         for path, by in (update.get("$inc") or {}).items():
             *parents, leaf = path.split(".")
             target = self.doc

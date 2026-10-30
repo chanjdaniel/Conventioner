@@ -11,12 +11,22 @@ The reviewer is whose share it is; who is looking at it now is the claim of ADR 
 never moves.
 
 With no reviewers chosen, everything is first come, first served, as before this existed.
+
+**Every deal holds the market** (``reviewTeam.dealing``, a short lease, ``_hold``): a change of
+reviewers from writing its team to writing its turn, and a deal of arrivals from reading the turn
+to writing it. So the turn is only ever read and written by the one deal holding the market, and no
+interleaving of a change and an arrival can deal an application twice or skip a reviewer. An
+arrival never waits for the market: it marks its application as arriving
+(``ApplicationsApi.mark_arriving``) and deals every application so marked if it can hold the
+market; if it cannot, the deal holding it deals them when it lets go (``_settle``), since an
+application is marked before its arrival tries to hold, and every holder looks for marked ones
+after letting go.
 """
 import logging
+import time
 import uuid
-from typing import Any, Dict, List, NamedTuple, Optional, Union
-
-from pymongo import ReturnDocument
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
@@ -24,9 +34,10 @@ import api.organizations as OrgsApi
 import api.permissions as PermissionsApi
 import history as History
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
+from client_errors import ConflictError
 from datatypes import ApplicationStatus, Market, MarketPerson, Organization, ReviewTeam
 from db_config import get_database
-from market_documents import market_doc_field, market_doc_key, market_doc_set
+from market_documents import market_doc_field, market_doc_key, market_from_document
 from utils.email_address import normalized_email
 
 logger = logging.getLogger(__name__)
@@ -39,6 +50,23 @@ REVIEWERS_CHANGED = "reviewers_changed"
 ARRIVED = "arrived"
 
 _TURN = f"{market_doc_key('review_team')}.turn"
+_REVIEWERS = f"{market_doc_key('review_team')}.reviewers"
+_DEALING = f"{market_doc_key('review_team')}.dealing"
+_DEALING_BY = f"{_DEALING}.by"
+_DEALING_UNTIL = f"{_DEALING}.until"
+
+#: How long a deal holds the market at most: far longer than any deal takes, so a deal that stopped
+#: half way (a crashed worker) lets the next one in.
+DEALING_LEASE = timedelta(seconds=30)
+#: A change of reviewers waits this many short pauses for another deal to let go of the market.
+CHOICE_WAITS = 100
+HOLD_PAUSE_SECONDS = 0.05
+#: How many times a settle looks again for arrivals that came in while it held the market.
+_SETTLE_ROUNDS = 5
+
+DEALING_BUSY = (
+    "The reviewers are being dealt applications right now. Try again in a moment."
+)
 
 
 class Chosen(NamedTuple):
@@ -85,38 +113,57 @@ def choose(
 ) -> Chosen:
     """Make ``reviewers`` the market's review team and deal every open application among them.
 
-    The team is written first, with its turn reset, then the pool is read and dealt round robin
-    from the first able reviewer (``eligible``) in arrival order, and the turn moves on by the
-    pool's size, so the next arrival goes to the reviewer after the last one dealt. The pool is
-    every open application, and each follow-up whose owner was a reviewer and is not one now: it
-    keeps its status and is handed to the reviewer it is dealt to, as its owner and its reviewer, so
-    someone still reaches out. A follow-up owned by a reviewer still chosen, or by someone who
-    never was one, and every decided application, are never written.
+    Holding the market, the team is written with its turn reset, then the pool is read and dealt
+    round robin from the first able reviewer (``eligible``) in arrival order, and the turn is
+    written as the pool's size, so the next arrival goes to the reviewer after the last one dealt.
+    The pool is every open application, those waiting as they arrived included, and each
+    follow-up whose owner was a reviewer and is not one now: it keeps its status and is handed to
+    the reviewer it is dealt to, as its owner and its reviewer, so someone still reaches out. A
+    follow-up owned by a reviewer still chosen, or by someone who never was one, and every decided
+    application, are never written. Once it lets go of the market, it deals the arrivals that came
+    in while it held it.
 
     Each write is conditioned on the application still being as the pool read it (open and dealt
     as it was, or the follow-up still owned by the removed reviewer), so a verdict or a hand-on
-    landing mid-deal is never written over. Every application an arrival's deal holds is let go
-    first, so no arrival writes a reviewer from the team this replaces. An unchanged set writes and
-    records nothing. With none chosen, every open application goes back to first come, first
-    served, and every follow-up stays with its owner.
+    landing mid-deal is never written over. An unchanged set writes and records nothing. With none
+    chosen, every open application goes back to first come, first served, and every follow-up stays
+    with its owner. Refused with ``ConflictError`` when another deal holds the market for longer
+    than a choice waits.
     """
-    before = team_of(market)
+    if _addresses(in_deal_order(reviewers)) == _addresses(team_of(market).reviewers):
+        return Chosen(team_of(market), 0)
+    deal = str(uuid.uuid4())
+    if not _hold(market.id, deal, waits=CHOICE_WAITS):
+        raise ConflictError(DEALING_BUSY)
+    try:
+        chosen_team = _choose_holding(market, organization, reviewers, by, deal)
+    finally:
+        _let_go(market.id, deal)
+    _settle(market, organization)
+    return chosen_team
+
+
+def _choose_holding(
+    market: Market, organization: Optional[Organization], reviewers: List[MarketPerson], by: str,
+    deal: str,
+) -> Chosen:
+    """``choose``'s writes, made while it holds the market: the team as it stands now is read
+    again, since another choice may have landed between the request's read and the hold."""
+    before = _stored_team(market.id)
     chosen = in_deal_order(reviewers)
     if _addresses(chosen) == _addresses(before.reviewers):
         return Chosen(before, 0)
 
-    team = ReviewTeam(reviewers=chosen, turn=0)
-    markets_collection.update_one(
-        {"id": market.id},
-        market_doc_set("review_team", convert_keys_to_camel_case(team.model_dump())))
+    markets_collection.update_one({"id": market.id, _DEALING_BY: deal}, {"$set": {
+        _REVIEWERS: [convert_keys_to_camel_case(person.model_dump()) for person in chosen],
+        _TURN: 0,
+    }})
     History.record(
         market.id, by, Actions.CHOOSE_REVIEWERS, kind=History.REVIEWERS,
         detail=lambda: History.changes(
             {"reviewers": _addresses(before.reviewers)}, {"reviewers": _addresses(chosen)}))
 
-    # An arrival dealing an application now took its turn from the team just replaced: let go of
-    # it, so its write finds it no longer held, and this change deals it from the new team.
-    ApplicationsApi.let_go_of_arrivals(market.id)
+    team = ReviewTeam(reviewers=chosen, turn=0)
     able = eligible(market.model_copy(update={"review_team": team}), organization)
     removed = set(_addresses(before.reviewers)) - set(_addresses(chosen)) if chosen else set()
     pool = ApplicationsApi.undecided_in_arrival_order(market.id, follow_ups_of=removed)
@@ -138,7 +185,8 @@ def choose(
         if ApplicationsApi.deal(doc["id"], to, was):
             moved.append((doc, was, to, None))
     if able and pool:
-        markets_collection.update_one({"id": market.id}, {"$inc": {_TURN: len(pool)}})
+        markets_collection.update_one(
+            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: len(pool)}})
         team = team.model_copy(update={"turn": len(pool)})
 
     if moved:
@@ -171,75 +219,113 @@ def deal_arrivals(
     only: Optional[str] = None,
 ) -> int:
     """Deal every open application that has no reviewer to the next reviewer in turn, in the
-    order they arrived (E38/F07/S03), and record one ``dealt`` entry under ``action`` and ``actor``
-    when it dealt any. ``only`` narrows it to one application: an applicant's save deals theirs and
-    no one else's, so the record never names a vendor as dealing another's. Answers how many it
-    dealt.
+    order they arrived (E38/F07/S03), and record the deal under ``action`` and ``actor``. ``only``
+    narrows it to one application: an applicant's save deals theirs and no one else's, so the
+    record never names a vendor as dealing another's. Answers how many it dealt.
 
     Called after every write that can leave an application open and undealt - an applicant's save,
     an import, and the writes whose automatic rejections can return one to open - once that
     write's rules have judged, so an application a rule rejected on arrival is not dealt. With no
     reviewers chosen it reads and writes nothing.
 
-    Each application is first won for this deal (``begin_dealing``: still open, with no reviewer,
-    and no other deal holding it), and only then takes its turn, in one atomic update of the market
-    (``$inc`` on the turn, answering the market after), from the team as it stands at that instant.
-    So a turn is taken only for an application this deal will write, and two deals at once take
-    consecutive turns and skip no reviewer. The reviewer is written unless a change of reviewers
-    dealt the application, or let go of it, meanwhile, when the turn goes back while the team is
-    the one it was taken from; it is written whatever verdict was given since the deal won it,
-    since a reviewer is whose share it was, beside any verdict.
+    Each application is marked as arriving, by this write, and then dealt by whichever deal next
+    holds the market: this one, or the one holding it now, once it lets go (``_settle``).
     """
     if not team_of(market).reviewers:
         return 0
-    pool = [doc for doc in ApplicationsApi.undecided_in_arrival_order(market.id)
-            if not doc.get("reviewer") and (only is None or doc["id"] == only)]
-    if not pool:
-        return 0
-    holding = set(PermissionsApi.people_with_market_role(market, _organization(market)))
-    deal = str(uuid.uuid4())
-    dealt = []
-    for doc in pool:
-        if not ApplicationsApi.begin_dealing(doc["id"], deal):
-            continue
-        stored = markets_collection.find_one_and_update(
-            {"id": market.id}, {"$inc": {_TURN: 1}}, return_document=ReturnDocument.AFTER)
-        team = ReviewTeam(**convert_keys_to_snake_case(
-            market_doc_field(stored or {}, "review_team") or {}))
-        able = [person for person in team.reviewers if person.user_id in holding]
-        if not able:
-            # Nobody may review here: the turn is not one anybody had, so it goes back.
-            _give_back(market.id, stored)
-            ApplicationsApi.finish_dealing(doc["id"], deal, None)
-            break
-        to = able[(team.turn - 1) % len(able)]
-        if ApplicationsApi.finish_dealing(doc["id"], deal, to):
+    action_id = action if isinstance(action, str) else action.id
+    for doc in ApplicationsApi.undecided_in_arrival_order(market.id):
+        if not doc.get("reviewer") and (only is None or doc["id"] == only):
+            ApplicationsApi.mark_arriving(doc["id"], actor, action_id)
+    return _settle(market, _organization(market))
+
+
+def _settle(market: Market, organization: Optional[Organization]) -> int:
+    """Deal every application waiting as it arrived, holding the market, and look again once it
+    lets go: an arrival that found the market held marked its application before it tried, so a
+    holder that looks after letting go finds it. Gives up only while another deal holds the
+    market, which looks again itself when it lets go. Answers how many it dealt."""
+    dealt = 0
+    for _round in range(_SETTLE_ROUNDS):
+        deal = str(uuid.uuid4())
+        if not _hold(market.id, deal):
+            return dealt
+        try:
+            dealt += _deal_arriving(market, organization, deal)
+        finally:
+            _let_go(market.id, deal)
+        if not ApplicationsApi.arriving_in_arrival_order(market.id):
+            return dealt
+    return dealt
+
+
+def _deal_arriving(market: Market, organization: Optional[Organization], deal: str) -> int:
+    """Deal the applications waiting as they arrived, holding the market: each to the able
+    reviewer the turn names, the turn moving on by one for each dealt, written once at the end.
+    One decided meanwhile is let go with its verdict; with nobody able, every one is let go
+    undealt. Records one entry per write they arrived by, under its action and actor."""
+    stored = markets_collection.find_one({"id": market.id}) or {}
+    team = _team_of_document(stored)
+    # The roles as they stand now, read with the turn: someone whose role was taken is skipped.
+    holding = set(PermissionsApi.people_with_market_role(
+        market_from_document(stored) if stored else market, organization))
+    able = [person for person in team.reviewers if person.user_id in holding]
+    turn = team.turn
+    dealt: List[Tuple[Dict[str, Any], MarketPerson]] = []
+    for doc in ApplicationsApi.arriving_in_arrival_order(market.id):
+        to = able[turn % len(able)] if able else None
+        if ApplicationsApi.deal_arrival(doc["id"], to):
             dealt.append((doc, to))
-        else:
-            # A change of reviewers dealt it, or let go of it, meanwhile: the turn is nobody's.
-            _give_back(market.id, stored)
+            turn += 1
     if dealt:
+        markets_collection.update_one(
+            {"id": market.id, _DEALING_BY: deal}, {"$set": {_TURN: turn}})
+    by_write: Dict[Tuple[Optional[str], str], List[Tuple[Dict[str, Any], MarketPerson]]] = {}
+    for doc, to in dealt:
+        arrived = doc.get(ApplicationsApi.ARRIVING_FIELD) or {}
+        by_write.setdefault((arrived.get("actor"), arrived.get("action")), []).append((doc, to))
+    for (actor, action), deals in by_write.items():
         History.record(
-            market.id, actor, action, kind=History.DEALT,
-            vendors=[doc.get("applicant_email") for doc, _to in dealt],
-            subject={"application_ids": [doc["id"] for doc, _to in dealt]},
-            detail=lambda: {
+            market.id, actor, action or History.APPLY, kind=History.DEALT,
+            vendors=[doc.get("applicant_email") for doc, _to in deals],
+            subject={"application_ids": [doc["id"] for doc, _to in deals]},
+            detail=lambda deals=deals: {
                 "cause": ARRIVED,
-                "before": {doc["id"]: {"reviewer": None} for doc, _to in dealt},
-                "after": {doc["id"]: {"reviewer": to.email} for doc, to in dealt},
+                "before": {doc["id"]: {"reviewer": None} for doc, _to in deals},
+                "after": {doc["id"]: {"reviewer": to.email} for doc, to in deals},
             })
     return len(dealt)
 
 
-def _give_back(market_id: str, stored: Optional[Dict[str, Any]]) -> None:
-    """Give back the turn a deal took and did not use: only while the market's turn is still the
-    one it took and its team still the one it took it from, since a change of reviewers resets the
-    turn itself and a turn of the new team's is not this deal's to give."""
-    team = market_doc_field(stored or {}, "review_team") or {}
+def _team_of_document(stored: Dict[str, Any]) -> ReviewTeam:
+    return ReviewTeam(**convert_keys_to_snake_case(market_doc_field(stored, "review_team") or {}))
+
+
+def _stored_team(market_id: str) -> ReviewTeam:
+    return _team_of_document(markets_collection.find_one({"id": market_id}) or {})
+
+
+def _hold(market_id: str, deal: str, waits: int = 0) -> bool:
+    """Hold the market for one deal: a lease on ``reviewTeam.dealing``, taken only while no other
+    deal's stands, trying again ``waits`` times a short pause apart. A market that never had a team
+    is given an empty one first, so the lease has somewhere to stand."""
     markets_collection.update_one(
-        {"id": market_id, _TURN: team.get("turn"),
-         f"{market_doc_key('review_team')}.reviewers": team.get("reviewers")},
-        {"$inc": {_TURN: -1}})
+        {"id": market_id, market_doc_key("review_team"): {"$in": [None]}},
+        {"$set": {market_doc_key("review_team"): {"reviewers": [], "turn": 0}}})
+    for attempt in range(waits + 1):
+        now = datetime.now(timezone.utc)
+        held = markets_collection.update_one(
+            {"id": market_id, "$nor": [{_DEALING_UNTIL: {"$gt": now.isoformat()}}]},
+            {"$set": {_DEALING: {"by": deal, "until": (now + DEALING_LEASE).isoformat()}}})
+        if held.matched_count > 0:
+            return True
+        if attempt < waits:
+            time.sleep(HOLD_PAUSE_SECONDS)
+    return False
+
+
+def _let_go(market_id: str, deal: str) -> None:
+    markets_collection.update_one({"id": market_id, _DEALING_BY: deal}, {"$unset": {_DEALING: ""}})
 
 
 def _organization(market: Market) -> Optional[Organization]:

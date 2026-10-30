@@ -122,7 +122,12 @@ class LiveMarkets:
                 target = target.setdefault(part, {})
             target[last] = value
         for key in update.get("$unset") or {}:
-            self.doc.pop(key, None)
+            *parents, last = key.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.get(part) if isinstance(target, dict) else None
+            if isinstance(target, dict):
+                target.pop(last, None)
         for key, value in (update.get("$push") or {}).items():
             added = value["$each"] if isinstance(value, dict) and "$each" in value else [value]
             self.doc.setdefault(key, []).extend(added)
