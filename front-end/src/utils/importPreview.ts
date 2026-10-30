@@ -48,3 +48,14 @@ export function previewHeadline(counts: ImportPreviewCounts): string {
     return `; ${rejected}${ofThem ? ' of them' : ''} will be rejected by your automatic rejections`;
   }
 }
+
+/**
+ * What the preview says over the rows the automatic rejections will reject: a check of the rules,
+ * and who may overturn one - whoever the market's table lets change a verdict (`whoMayTake`), so
+ * a row its owner moved is named as it stands (E38/F06/S01). Null names nobody.
+ */
+export function rejectedRowsWhy(overturnedBy: string | null): string {
+  const lead =
+    'A check that your rules reject who they should. These are imported as rejected, each with its reason';
+  return overturnedBy ? `${lead}; ${overturnedBy} can overturn one.` : `${lead}.`;
+}

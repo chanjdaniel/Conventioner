@@ -26,7 +26,11 @@ import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
-import { previewHeadline as previewHeadlineText, writingRowCount } from '@/utils/importPreview';
+import {
+  previewHeadline as previewHeadlineText,
+  rejectedRowsWhy,
+  writingRowCount,
+} from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
 import {
@@ -1292,9 +1296,8 @@ function startOver() {
               rejectedApplications.length
             }}</span>
           </h3>
-          <p class="preview-rows-why">
-            A check that your rules reject who they should. These are imported as rejected, each
-            with its reason; an Admin or the owner can overturn one.
+          <p class="preview-rows-why" data-testid="import-rejected-why">
+            {{ rejectedRowsWhy(overturnedBy) }}
           </p>
           <ImportRowList :rows="rejectedApplications" row-testid="import-rejected-row" />
         </section>
