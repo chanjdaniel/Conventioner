@@ -64,10 +64,12 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
         ("market_id", "vendor_email"),
     ],
     # A market's history, read by its placement trail and deleted with the market; and read a
-    # page at a time, newest first, in Manage market (`history.entries_page`).
+    # page at a time, newest first, in Manage market (`history.entries_page`). An organization's
+    # own history is read the same way in Manage organization, and deleted with it by its prefix.
     HISTORY_COLLECTION: [
         ("market_id",),
         ("market_id", "at", "id"),
+        ("organization_id", "at", "id"),
     ],
     # A market's notes, read whole by each page that shows its vendors, and one vendor's written.
     VENDOR_NOTES_COLLECTION: [

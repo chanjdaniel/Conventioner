@@ -17,13 +17,18 @@
  *
  * Three closes are correct and stay: deleting the organization, the explicit close control, and
  * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
+ *
+ * A member opens it too, to read the organization's History (E40/F02/S01); the people and the
+ * controls an owner or an admin manages are theirs alone.
  */
-import { ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
+import HistorySection from '@/components/HistorySection.vue';
+import OrganizationHistory from '@/components/OrganizationHistory.vue';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -47,6 +52,8 @@ const newMemberEmail = ref('');
 const addAdminError = ref('');
 const addMemberError = ref('');
 const deleteConfirming = ref(false);
+/** Counts the changes this dialog has made, so its History reads them as they land. */
+const changesMade = ref(0);
 
 watch(
   () => [props.manageOpen, props.org] as const,
@@ -98,31 +105,56 @@ async function refreshOrg(): Promise<void> {
 
 /** Saved: show it here, and tell the list behind. Neither of those is closing. */
 async function saved(): Promise<void> {
+  changesMade.value++;
   await refreshOrg();
   emit('changed');
 }
 
 /**
- * The same control opens the form and cancels it, so it must not stay green once it says Cancel -
- * a primary fill is the product's word for "the thing to do here", and cancelling is not.
- *
+ * "Add admin" and "Add member" open the row they add, and the row carries its own Cancel, as
+ * Manage market's "Add user" does: the opening button used to turn into a Cancel of its own, left
+ * above the row it cancelled (bug 43, fixed there first).
+ */
+const addAdminButton = ref<HTMLButtonElement | null>(null);
+const addAdminInput = ref<HTMLInputElement | null>(null);
+const addMemberButton = ref<HTMLButtonElement | null>(null);
+const addMemberInput = ref<HTMLInputElement | null>(null);
+
+/**
+ * Opening a row takes away the button that opened it, and closing one its Cancel, so focus goes
+ * where the person is next: the field, and then the button again. Left alone it fell to `<body>`.
+ */
+async function openAddAdmin() {
+  showAddAdminForm.value = true;
+  await nextTick();
+  addAdminInput.value?.focus();
+}
+
+/**
  * Cancelling clears what was typed and any error: reopening should not hand back a rejected
  * address as though it were still being considered.
  */
-function toggleAddAdmin() {
-  showAddAdminForm.value = !showAddAdminForm.value;
-  if (!showAddAdminForm.value) {
-    newAdminEmail.value = '';
-    addAdminError.value = '';
-  }
+async function closeAddAdmin() {
+  showAddAdminForm.value = false;
+  newAdminEmail.value = '';
+  addAdminError.value = '';
+  await nextTick();
+  addAdminButton.value?.focus();
 }
 
-function toggleAddMember() {
-  showAddMemberForm.value = !showAddMemberForm.value;
-  if (!showAddMemberForm.value) {
-    newMemberEmail.value = '';
-    addMemberError.value = '';
-  }
+async function openAddMember() {
+  showAddMemberForm.value = true;
+  await nextTick();
+  addMemberInput.value?.focus();
+}
+
+/** As `closeAddAdmin`, for the member row. */
+async function closeAddMember() {
+  showAddMemberForm.value = false;
+  newMemberEmail.value = '';
+  addMemberError.value = '';
+  await nextTick();
+  addMemberButton.value?.focus();
 }
 
 async function handleRename() {
@@ -133,6 +165,7 @@ async function handleRename() {
       name: renameValue.value.trim(),
     });
     orgData.value = { ...orgData.value, name: renameValue.value.trim() };
+    changesMade.value++;
     emit('changed');
   } catch (err) {
     renameError.value = getApiErrorMessage(err, 'Failed to rename');
@@ -236,7 +269,7 @@ function handleDeleted() {
               <button
                 v-if="isOwner() && canRemoveUser(orgData.admins![idx], 'admin')"
                 type="button"
-                class="btn btn--compact btn--destructive"
+                class="btn btn--destructive"
                 title="Remove admin"
                 data-testid="manage-org-remove-user-button"
                 @click="handleRemoveUser(orgData.admins![idx])"
@@ -248,20 +281,22 @@ function handleDeleted() {
               No admins
             </p>
           </div>
+          <!-- Opens the row it adds, which carries its own Cancel, as Manage market's "Add user". -->
           <button
-            v-if="isOwner()"
+            v-if="isOwner() && !showAddAdminForm"
             type="button"
-            class="btn btn--compact"
-            :class="showAddAdminForm ? 'btn--secondary' : 'btn--primary'"
+            class="btn btn--secondary"
+            ref="addAdminButton"
             data-testid="manage-org-add-admin-button"
-            @click="toggleAddAdmin()"
+            @click="openAddAdmin"
           >
-            {{ showAddAdminForm ? 'Cancel' : 'Add admin' }}
+            Add admin
           </button>
           <!-- Its own form, so Enter in the field adds the admin through the very same handler. -->
           <form v-if="showAddAdminForm" class="add-user-form" @submit.prevent="handleAddAdmin">
             <div class="add-org-row">
               <input
+                ref="addAdminInput"
                 v-model="newAdminEmail"
                 type="email"
                 placeholder="User email"
@@ -271,11 +306,19 @@ function handleDeleted() {
               />
               <button
                 type="submit"
-                class="btn btn--compact btn--primary"
+                class="btn btn--primary"
                 :disabled="!newAdminEmail.trim()"
                 data-testid="manage-org-add-admin-submit"
               >
                 Add
+              </button>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                data-testid="manage-org-add-admin-cancel"
+                @click="closeAddAdmin"
+              >
+                Cancel
               </button>
             </div>
             <p v-if="addAdminError" class="form-error" data-testid="manage-org-add-admin-error">
@@ -297,7 +340,7 @@ function handleDeleted() {
               <button
                 v-if="canRemoveUser(orgData.members![idx], 'member')"
                 type="button"
-                class="btn btn--compact btn--destructive"
+                class="btn btn--destructive"
                 title="Remove member"
                 data-testid="manage-org-remove-member-button"
                 @click="handleRemoveUser(orgData.members![idx])"
@@ -310,17 +353,19 @@ function handleDeleted() {
             </p>
           </div>
           <button
+            v-if="!showAddMemberForm"
             type="button"
-            class="btn btn--compact"
-            :class="showAddMemberForm ? 'btn--secondary' : 'btn--primary'"
+            class="btn btn--secondary"
+            ref="addMemberButton"
             data-testid="manage-org-add-member-button"
-            @click="toggleAddMember()"
+            @click="openAddMember"
           >
-            {{ showAddMemberForm ? 'Cancel' : 'Add member' }}
+            Add member
           </button>
           <form v-if="showAddMemberForm" class="add-user-form" @submit.prevent="handleAddMember">
             <div class="add-org-row">
               <input
+                ref="addMemberInput"
                 v-model="newMemberEmail"
                 type="email"
                 placeholder="User email"
@@ -330,11 +375,19 @@ function handleDeleted() {
               />
               <button
                 type="submit"
-                class="btn btn--compact btn--primary"
+                class="btn btn--primary"
                 :disabled="!newMemberEmail.trim()"
                 data-testid="manage-org-add-member-submit"
               >
                 Add
+              </button>
+              <button
+                type="button"
+                class="btn btn--secondary"
+                data-testid="manage-org-add-member-cancel"
+                @click="closeAddMember"
+              >
+                Cancel
               </button>
             </div>
             <p v-if="addMemberError" class="form-error" data-testid="manage-org-add-member-error">
@@ -343,7 +396,14 @@ function handleDeleted() {
           </form>
         </section>
 
-        <section v-if="canManage()" class="section">
+        <!-- The organization's own changes, newest first (E40/F02/S01), opened as Manage market's
+             History opens; its owner, its admins and its members read it. -->
+        <HistorySection :key="orgData.id" testid="manage-org-history">
+          <OrganizationHistory :org-id="orgData.id" :changes-made="changesMade" />
+        </HistorySection>
+
+        <!-- Renaming is the owner's alone, as the server holds it. -->
+        <section v-if="isOwner()" class="section">
           <h3>Rename organization</h3>
           <form class="rename-row" @submit.prevent="handleRename">
             <input
@@ -354,7 +414,7 @@ function handleDeleted() {
             />
             <button
               type="submit"
-              class="btn btn--compact btn--primary"
+              class="btn btn--primary"
               :disabled="!renameValue.trim() || renameValue.trim() === orgData.name"
               data-testid="manage-org-rename-save-button"
             >
@@ -368,7 +428,7 @@ function handleDeleted() {
           <h3>Delete organization</h3>
           <button
             type="button"
-            class="btn btn--compact btn--destructive"
+            class="btn btn--destructive"
             data-testid="manage-org-delete-button"
             @click="deleteConfirming = true"
           >
