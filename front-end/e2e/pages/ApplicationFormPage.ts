@@ -26,6 +26,8 @@ export class ApplicationFormPage {
   readonly addFieldButton: Locator;
   /** "Add from your file", on a market started from a Google Form's responses (E38/F02/S02). */
   readonly addFromFile: Locator;
+  /** The one-click "Discord username" question (E46/F01/S02). */
+  readonly addDiscordButton: Locator;
   readonly lockBanner: Locator;
   readonly loadError: Locator;
 
@@ -66,6 +68,7 @@ export class ApplicationFormPage {
     this.builderEmpty = page.getByTestId('form-builder-empty');
     this.addFieldButton = page.getByTestId('form-builder-add-field-button');
     this.addFromFile = page.getByTestId('form-builder-add-from-file');
+    this.addDiscordButton = page.getByTestId('form-builder-add-discord-button');
     this.lockBanner = page.getByTestId('form-builder-lock-banner');
     this.loadError = page.getByTestId('form-builder-load-error');
 

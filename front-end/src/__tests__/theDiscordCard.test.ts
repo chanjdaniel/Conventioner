@@ -1,5 +1,5 @@
 /**
- * The Discord card on Market Setup (E46/F01/S02).
+ * The Discord card on the Tools tab (E46/F01/S02).
  *
  * An Admin connects the market to a server through Discord's approval screen, then picks the role
  * to give and the form's question that holds each vendor's username. Anyone the table's "Connect
@@ -12,6 +12,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import MarketDiscordCard from '@/components/market/MarketDiscordCard.vue';
 import type { DiscordConnection, Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
+import { announceDiscordConnected } from '@/utils/discordConnected';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
@@ -83,18 +84,74 @@ describe('a Conventioner without Discord', () => {
 });
 
 describe('a market not connected', () => {
-  it('offers Connect Discord, which opens Discord`s approval screen', async () => {
-    const assign = vi.fn();
-    vi.stubGlobal('location', { ...window.location, assign });
+  /** A tab `window.open` hands back, before it is sent anywhere. */
+  function blankTab() {
+    return { opener: {} as unknown, location: { href: 'about:blank' }, close: vi.fn() };
+  }
+
+  it('offers Connect Discord, which opens Discord`s approval screen in a new tab', async () => {
+    const tab = blankTab();
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
     api.post.mockResolvedValue({ data: { url: 'https://discord.com/oauth2/authorize?state=s' } });
     const wrapper = card(market());
 
     await find(wrapper, 'discord-connect-button').trigger('click');
     await flushPromises();
 
+    // Opened in the click itself, so the browser does not take it for a pop-up, and cut from this
+    // tab before it goes to Discord.
+    expect(open).toHaveBeenCalledWith('', '_blank');
+    expect(tab.opener).toBeNull();
     expect(api.post).toHaveBeenCalledWith('/markets/market-123/discord/authorization');
-    expect(assign).toHaveBeenCalledWith('https://discord.com/oauth2/authorize?state=s');
-    vi.unstubAllGlobals();
+    expect(tab.location.href).toBe('https://discord.com/oauth2/authorize?state=s');
+    expect(find(wrapper, 'discord-connect-waiting').text()).toBe(
+      'Discord opened in a new tab. Choose a server there, and this card shows it.',
+    );
+    open.mockRestore();
+  });
+
+  it('closes the new tab and says so when connecting cannot start', async () => {
+    const tab = blankTab();
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    api.post.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 503, data: { error: 'Discord is not set up on this Conventioner.' } },
+    });
+    const wrapper = card(market());
+
+    await find(wrapper, 'discord-connect-button').trigger('click');
+    await flushPromises();
+
+    expect(tab.close).toHaveBeenCalled();
+    expect(find(wrapper, 'discord-connect-error').text()).toBe(
+      'Discord is not set up on this Conventioner.',
+    );
+    expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(false);
+    open.mockRestore();
+  });
+
+  it('starts nothing when the browser blocks the new tab, and says how to allow it', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const wrapper = card(market());
+
+    await find(wrapper, 'discord-connect-button').trigger('click');
+    await flushPromises();
+
+    expect(api.post).not.toHaveBeenCalled();
+    expect(find(wrapper, 'discord-connect-error').text()).toBe(
+      'Your browser blocked the tab for Discord. Allow pop-ups for Conventioner, then connect again.',
+    );
+    open.mockRestore();
+  });
+
+  it('re-reads the market when the tab Discord returned to connects it', async () => {
+    const wrapper = card(market());
+
+    announceDiscordConnected('another-market');
+    announceDiscordConnected('market-123');
+
+    await vi.waitFor(() => expect(wrapper.emitted('changed')).toHaveLength(1));
+    wrapper.unmount();
   });
 
   it('says why to someone the row refuses, and offers no Connect', async () => {
@@ -108,11 +165,23 @@ describe('a market not connected', () => {
 });
 
 describe('a market connected, for an Admin', () => {
+  it('reads the server`s roles once the market it shows becomes connected', async () => {
+    const wrapper = card(market());
+    await flushPromises();
+    expect(api.get).not.toHaveBeenCalled();
+
+    await wrapper.setProps({ market: market({ discord: CONNECTED }) });
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledWith('/markets/market-123/discord/roles');
+    expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(false);
+  });
+
   it('names the server and offers the server`s roles', async () => {
     const wrapper = card(market({ discord: CONNECTED }));
     await flushPromises();
 
-    expect(find(wrapper, 'discord-server').text()).toContain('Market Vendors');
+    expect(find(wrapper, 'discord-server-name').text()).toBe('Market Vendors');
     expect(api.get).toHaveBeenCalledWith('/markets/market-123/discord/roles');
     const options = find(wrapper, 'discord-role-select').findAll('option');
     expect(options.map((option) => option.attributes('value'))).toEqual(['', 'r-mod', 'r-vendor']);
@@ -127,8 +196,43 @@ describe('a market connected, for an Admin', () => {
     expect(find(wrapper, 'discord-role-select').find('option[value="r-mod"]').text()).toContain(
       'above Conventioner',
     );
-    expect(find(wrapper, 'discord-role-hint').text()).toBe(
-      "Move the Conventioner role above this one in your server's settings.",
+    const warning = find(wrapper, 'discord-role-warning');
+    expect(warning.attributes('role')).toBe('alert');
+    expect(warning.find('strong').text()).toBe('Conventioner cannot give Moderator yet');
+    expect(warning.findAll('li').map((step) => step.text())).toEqual([
+      'In Discord, open Server Settings, then Roles.',
+      'Drag the Conventioner role above Moderator, and save.',
+      'Check again here.',
+    ]);
+  });
+
+  it('checks the roles again once moved, and drops the warning when the bot is above', async () => {
+    const wrapper = card(
+      market({ discord: { ...CONNECTED, roleId: 'r-mod', roleName: 'Moderator' } }),
+    );
+    await flushPromises();
+    api.get.mockResolvedValue({
+      data: { roles: ROLES.map((role) => ({ ...role, belowBot: true })) },
+    });
+
+    await find(wrapper, 'discord-role-check-again').trigger('click');
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(find(wrapper, 'discord-role-warning').exists()).toBe(false);
+  });
+
+  it('says so when the role is still above the bot`s after checking again', async () => {
+    const wrapper = card(
+      market({ discord: { ...CONNECTED, roleId: 'r-mod', roleName: 'Moderator' } }),
+    );
+    await flushPromises();
+
+    await find(wrapper, 'discord-role-check-again').trigger('click');
+    await flushPromises();
+
+    expect(find(wrapper, 'discord-role-still').text()).toBe(
+      'Checked: the Conventioner role is still below Moderator.',
     );
   });
 
@@ -138,7 +242,7 @@ describe('a market connected, for an Admin', () => {
     );
     await flushPromises();
 
-    expect(find(wrapper, 'discord-role-hint').exists()).toBe(false);
+    expect(find(wrapper, 'discord-role-warning').exists()).toBe(false);
   });
 
   it('saves a role chosen, and tells the page to re-read the market', async () => {
@@ -243,7 +347,7 @@ describe('a market connected, for someone the row refuses', () => {
     );
     await flushPromises();
 
-    expect(find(wrapper, 'discord-server').text()).toContain('Market Vendors');
+    expect(find(wrapper, 'discord-server-name').text()).toBe('Market Vendors');
     expect(find(wrapper, 'discord-role-value').text()).toBe('Vendor Test');
     expect(find(wrapper, 'discord-question-value').text()).toBe('Discord Username');
     expect(find(wrapper, 'discord-invite-value').text()).toBe('https://discord.gg/abc123');

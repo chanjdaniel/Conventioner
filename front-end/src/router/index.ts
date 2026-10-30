@@ -126,6 +126,12 @@ const router = createRouter({
       // The door on market day is sometimes a phone (E29/F01).
       meta: { fitsAPhone: true },
     },
+    // The manual tools an organizer runs in any phase, Discord first (E46/F01/S02).
+    {
+      path: '/markets/:marketId/tools',
+      name: 'market-tools',
+      component: () => import('@/views/ToolsView.vue'),
+    },
     // The market's figures, in every phase (E45/F01/S01).
     {
       path: '/markets/:marketId/stats',
@@ -133,7 +139,8 @@ const router = createRouter({
       component: () => import('@/views/StatsView.vue'),
     },
     // Where Discord's approval screen sends the organizer back (E46/F01/S02), registered as a
-    // redirect in Discord's Developer Portal; it finishes connecting and goes on to Market Setup.
+    // redirect in Discord's Developer Portal. It opens in a tab of its own: it finishes connecting,
+    // tells the market's tab, and says the outcome.
     {
       path: '/discord/connected',
       name: 'discord-connected',

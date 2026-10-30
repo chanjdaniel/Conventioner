@@ -187,7 +187,7 @@ test.describe('The frame stays put', () => {
       ...['setup', 'form', 'applications', 'assignment'].map((tab) =>
         marketSetupPath(marketId, tab),
       ),
-      ...(['result', 'attendance', 'vendors', 'stats'] as const).map((s) =>
+      ...(['result', 'attendance', 'vendors', 'tools', 'stats'] as const).map((s) =>
         marketScreenPath(marketId, s),
       ),
     ];
@@ -230,7 +230,7 @@ test.describe('The frame stays put', () => {
     const screens = [
       marketSetupPath(marketId, 'setup'),
       marketSetupPath(marketId, 'assignment'),
-      ...(['result', 'attendance', 'vendors', 'stats'] as const).map((s) =>
+      ...(['result', 'attendance', 'vendors', 'tools', 'stats'] as const).map((s) =>
         marketScreenPath(marketId, s),
       ),
     ];

@@ -14,8 +14,8 @@ import { MarketPhase } from '@/assets/types/datatypes';
 /**
  * How a market's pages are reached (E22/F04/S02, from the-assignment-tab ticket 02).
  *
- * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance and Stats in
- * every phase. The Assignment tab holds three pages - Assignment, Result, Vendors - and a tab opens
+ * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance, Tools and
+ * Stats in every phase. The Assignment tab holds three pages - Assignment, Result, Vendors - and a tab opens
  * the page the market is worked on in its phase: the one carrying the dot.
  */
 describe('the page a market is worked on in its phase', () => {
@@ -52,16 +52,18 @@ describe('the page a market is worked on in its phase', () => {
 });
 
 describe('the tabs', () => {
-  it('are the same six in every phase, Attendance and Stats included', () => {
+  it('are the same seven in every phase, Attendance, Tools and Stats included', () => {
     // Attendance included from draft, so the bar keeps one shape for the market's whole life
     // (E31/F03/S02); a tab out of its phase says when it matters instead of disappearing. Stats
-    // reads the market from its first application to its archive (E45/F01/S01).
+    // reads the market from its first application to its archive (E45/F01/S01), and Tools, just
+    // left of it, holds the manual tools an organizer runs in any phase (E46/F01/S02).
     expect(tabsFor()).toEqual([
       'setup',
       'form',
       'applications',
       'assignment',
       'attendance',
+      'tools',
       'stats',
     ]);
   });
@@ -78,6 +80,7 @@ describe('the tabs', () => {
     expect(tabOf('import')).toBe('applications');
     expect(tabOf('floorplan')).toBe('setup');
     expect(tabOf('stats')).toBe('stats');
+    expect(tabOf('tools')).toBe('tools');
   });
 });
 
@@ -92,6 +95,7 @@ describe('the page a tab opens', () => {
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
     expect(pageForTab('stats', MarketPhase.Applications, false)).toBe('stats');
+    expect(pageForTab('tools', MarketPhase.MarketDays, true)).toBe('tools');
   });
 });
 
@@ -107,6 +111,7 @@ describe('the page a route is', () => {
     expect(pageOfRoute('vendors', {})).toBe('vendors');
     expect(pageOfRoute('attendance-status', {})).toBe('attendance');
     expect(pageOfRoute('market-stats', {})).toBe('stats');
+    expect(pageOfRoute('market-tools', {})).toBe('tools');
     expect(pageOfRoute('import-applications', {})).toBe('import');
     expect(pageOfRoute('floorplan-editor', {})).toBe('floorplan');
   });

@@ -31,6 +31,7 @@ export function marketScreenPath(
     | 'result'
     | 'vendors'
     | 'attendance'
+    | 'tools'
     | 'stats'
     | 'import'
     | 'floorplan',

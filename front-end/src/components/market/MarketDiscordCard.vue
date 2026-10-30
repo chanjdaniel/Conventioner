@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The Discord card on Market Setup (E46/F01/S02).
+ * The Discord card, on the market's Tools tab (E46/F01/S02).
  *
  * An Admin connects the market to a Discord server through Discord's own approval screen, which
  * adds Conventioner's bot to a server they manage, then picks the role to give each vendor, the
@@ -8,16 +8,20 @@
  * organizer's choice (Daniel, T92 Q11), so a role the bot sits below is still offered, marked, with
  * what to change in the server's settings.
  *
- * A manual tool, not part of the plan (Q10, Q19): it is drawn outside the plan's fieldset, so the
- * setup settling on leaving draft leaves it editable, and it stays so until the market is archived.
- * Whether this person may change it is the table's "Connect Discord and give roles" row; anyone it
- * refuses reads the card. Each choice saves as it is made, and the page re-reads the market after
- * (`changed`), never patching it.
+ * Discord's screen opens in a new tab, so the market stays open here; the page Discord returns to
+ * says when the market is connected (`utils/discordConnected.ts`), and the card re-reads it.
+ *
+ * A manual tool, not part of the plan (Q10, Q19): it stands on the Tools tab, so the setup settling
+ * on leaving draft leaves it editable, and it stays so until the market is archived. Whether this
+ * person may change it is the table's "Connect Discord and give roles" row; anyone it refuses reads
+ * the card. Each choice saves as it is made, and the page re-reads the market after (`changed`),
+ * never patching it.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
+import { whenDiscordConnected } from '@/utils/discordConnected';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
 
@@ -66,27 +70,68 @@ async function loadRoles(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  if (editable.value && connected.value) void loadRoles();
-});
+/** The chosen role sits at or above the bot's own, so giving it would fail until it is moved. */
+const roleAboveBot = computed(() => (chosenRole.value ? !chosenRole.value.belowBot : false));
+const checking = ref(false);
+/** The organizer checked again after moving the role, and the bot is still below it. */
+const stillAbove = ref(false);
+
+/** Read the server's roles again, once the organizer has moved Conventioner's role in Discord. */
+async function checkAgain(): Promise<void> {
+  checking.value = true;
+  stillAbove.value = false;
+  await loadRoles();
+  checking.value = false;
+  stillAbove.value = !rolesError.value && roleAboveBot.value;
+}
+
+/** On opening connected, and once the tab Discord returned to has connected the market. */
+watch(
+  () => editable.value && connected.value,
+  (readable) => {
+    if (readable) void loadRoles();
+  },
+  { immediate: true },
+);
 
 const connecting = ref(false);
+/** Discord's screen is open in its own tab, and the market is not connected yet. */
+const waiting = ref(false);
 const connectError = ref<string | null>(null);
 
 async function connect(): Promise<void> {
-  connecting.value = true;
   connectError.value = null;
+  // Opened in the click itself, before the request: a tab opened after it is taken for a pop-up.
+  const tab = window.open('', '_blank');
+  if (!tab) {
+    connectError.value =
+      'Your browser blocked the tab for Discord. Allow pop-ups for Conventioner, then connect again.';
+    return;
+  }
+  // Discord's page gets no hold on this one: the effect of `noopener`, which `window.open` cannot be
+  // given here, since a tab opened with it hands back nothing to send on.
+  tab.opener = null;
+  connecting.value = true;
   try {
     const { data } = await api.post(`${base.value}/authorization`);
-    window.location.assign(data.url);
+    tab.location.href = data.url;
+    waiting.value = true;
   } catch (err) {
+    tab.close();
     connectError.value = getApiErrorMessage(
       err,
       'Conventioner could not start connecting Discord.',
     );
+  } finally {
     connecting.value = false;
   }
 }
+
+const stopListening = whenDiscordConnected(
+  () => props.market.id,
+  () => emit('changed'),
+);
+onUnmounted(stopListening);
 
 const saveError = ref<string | null>(null);
 
@@ -101,6 +146,7 @@ async function save(choice: Record<string, string | null>): Promise<void> {
 }
 
 function onRole(event: Event): void {
+  stillAbove.value = false;
   void save({ roleId: (event.target as HTMLSelectElement).value || null });
 }
 
@@ -144,13 +190,13 @@ async function disconnect(): Promise<void> {
         </p>
 
         <template v-if="connected">
-          <p class="discord-server" data-testid="discord-server">
-            <span>
-              Connected to
-              <strong class="discord-server-name">{{
+          <div class="discord-server" data-testid="discord-server">
+            <p class="discord-server-label">
+              <span class="field-label">Connected to</span>
+              <strong class="discord-server-name" data-testid="discord-server-name">{{
                 connection?.guildName || 'a Discord server'
               }}</strong>
-            </span>
+            </p>
             <button
               v-if="editable"
               type="button"
@@ -160,7 +206,7 @@ async function disconnect(): Promise<void> {
             >
               Disconnect
             </button>
-          </p>
+          </div>
 
           <div v-if="editable" class="discord-choices">
             <div class="discord-choice">
@@ -179,13 +225,6 @@ async function disconnect(): Promise<void> {
               </select>
               <p v-if="rolesError" class="discord-error" data-testid="discord-roles-error">
                 {{ rolesError }}
-              </p>
-              <p
-                v-else-if="chosenRole && !chosenRole.belowBot"
-                class="discord-hint"
-                data-testid="discord-role-hint"
-              >
-                Move the Conventioner role above this one in your server's settings.
               </p>
             </div>
 
@@ -219,6 +258,45 @@ async function disconnect(): Promise<void> {
                 data-testid="discord-invite-input"
                 @change="onInvite"
               />
+            </div>
+
+            <!-- A warning, not a hint (Daniel's walk): until it is moved, giving the role fails. -->
+            <div
+              v-if="roleAboveBot && chosenRole"
+              class="discord-warning"
+              role="alert"
+              data-testid="discord-role-warning"
+            >
+              <p class="discord-warning-title">
+                <strong>Conventioner cannot give {{ chosenRole.name }} yet</strong>
+              </p>
+              <p class="discord-warning-text">
+                Its role in your server is below {{ chosenRole.name }}, and Discord lets a bot give
+                only roles below its own.
+              </p>
+              <ol class="discord-warning-steps">
+                <li>In Discord, open Server Settings, then Roles.</li>
+                <li>Drag the Conventioner role above {{ chosenRole.name }}, and save.</li>
+                <li>Check again here.</li>
+              </ol>
+              <div class="discord-warning-check">
+                <button
+                  type="button"
+                  class="btn btn--secondary btn--compact"
+                  :disabled="checking"
+                  data-testid="discord-role-check-again"
+                  @click="checkAgain"
+                >
+                  {{ checking ? 'Checking…' : 'Check again' }}
+                </button>
+                <span
+                  v-if="stillAbove"
+                  class="discord-warning-text"
+                  data-testid="discord-role-still"
+                >
+                  Checked: the Conventioner role is still below {{ chosenRole.name }}.
+                </span>
+              </div>
             </div>
 
             <p v-if="saveError" class="discord-error" data-testid="discord-save-error">
@@ -257,8 +335,17 @@ async function disconnect(): Promise<void> {
             >
               Connect Discord
             </button>
-            <p class="discord-hint">
-              Discord asks you to choose a server you manage and adds Conventioner's bot to it.
+            <p
+              v-if="waiting"
+              class="discord-hint"
+              role="status"
+              data-testid="discord-connect-waiting"
+            >
+              Discord opened in a new tab. Choose a server there, and this card shows it.
+            </p>
+            <p v-else class="discord-hint">
+              Discord asks you to choose a server you manage, in a new tab, and adds Conventioner's
+              bot to it.
             </p>
             <p v-if="connectError" class="discord-error" data-testid="discord-connect-error">
               {{ connectError }}
@@ -294,7 +381,7 @@ async function disconnect(): Promise<void> {
 }
 
 .discord-lead,
-.discord-server,
+.discord-server-label,
 .discord-confirm {
   margin: 0;
   font-size: var(--text-sm);
@@ -302,15 +389,64 @@ async function disconnect(): Promise<void> {
   line-height: 1.5;
 }
 
+/* The server's name on a line of its own under its label, so it reads as the answer rather than
+   the end of a sentence (Daniel's walk: "Connected to <server>" read cramped). Disconnect stands
+   level with the name; on a narrow card it wraps under it. */
 .discord-server {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.discord-server-label {
+  min-width: 0;
 }
 
 /* Weight does not inherit here (the design language, Weight). */
 .discord-server-name {
+  display: block;
+  font-size: var(--text-md);
   font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The attention tone of the chips (`--mm-chip-attention` inside `--mm-yellow`), as a block: a step
+   the organizer must take in Discord before the role can be given. */
+.discord-warning {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  color: var(--mm-black);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.discord-warning p,
+.discord-warning-steps {
+  margin: 0;
+}
+
+.discord-warning-title strong {
+  font-weight: 600;
+  color: var(--mm-text-yellow-on-tint);
+}
+
+.discord-warning-steps {
+  padding-left: var(--space-6);
+}
+
+.discord-warning-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .discord-choices {

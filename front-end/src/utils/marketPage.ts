@@ -3,7 +3,7 @@
  *
  * Every market page has its own address, and the market's bar - rendered once, by `MarketFrame` -
  * reaches every one of them the same way. The bar carries Market Setup, Application Form,
- * Applications, Assignment, Attendance and Stats in every phase. The Assignment tab holds three
+ * Applications, Assignment, Attendance, Tools and Stats in every phase. The Assignment tab holds three
  * pages: Assignment (the rules and the run), Result (the assignment by table, read and changed) and
  * Vendors (the assignment by vendor). Import and Floorplan are flows entered from a tab rather than
  * places to go, so they stand under that tab.
@@ -15,12 +15,21 @@
 import { type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
-  'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance' | 'stats';
+  | 'setup'
+  | 'form'
+  | 'applications'
+  | 'assignment'
+  | 'result'
+  | 'vendors'
+  | 'attendance'
+  | 'tools'
+  | 'stats';
 
 /** A flow entered from a tab, rather than a page of one. */
 export type MarketFlow = 'import' | 'floorplan' | 'start-from-csv';
 
-export type MarketTab = 'setup' | 'form' | 'applications' | 'assignment' | 'attendance' | 'stats';
+export type MarketTab =
+  'setup' | 'form' | 'applications' | 'assignment' | 'attendance' | 'tools' | 'stats';
 
 export const MARKET_PAGES: MarketPage[] = [
   'setup',
@@ -30,6 +39,7 @@ export const MARKET_PAGES: MarketPage[] = [
   'result',
   'vendors',
   'attendance',
+  'tools',
   'stats',
 ];
 
@@ -57,6 +67,7 @@ export const TAB_PAGES: Record<MarketTab, MarketPage[]> = {
   applications: ['applications'],
   assignment: ['assignment', 'result', 'vendors'],
   attendance: ['attendance'],
+  tools: ['tools'],
   stats: ['stats'],
 };
 
@@ -66,6 +77,7 @@ export const TAB_LABELS: Record<MarketTab, string> = {
   applications: 'Applications',
   assignment: 'Assignment',
   attendance: 'Attendance',
+  tools: 'Tools',
   stats: 'Stats',
 };
 
@@ -77,6 +89,7 @@ export const PAGE_LABELS: Record<MarketPage, string> = {
   result: 'Result',
   vendors: 'Vendors',
   attendance: 'Attendance',
+  tools: 'Tools',
   stats: 'Stats',
 };
 
@@ -87,16 +100,17 @@ const FLOW_TAB: Record<MarketFlow, MarketTab> = {
 };
 
 /**
- * The tabs a market shows: all six, for its whole life (E31/F03/S02).
+ * The tabs a market shows: all seven, for its whole life (E31/F03/S02).
  *
  * Attendance used to appear only once the check-in page went on the air, so the bar changed shape
  * as the market moved. A tab out of its phase now stays, read-only, and says when it matters
  * (`tabNote` in `utils/marketGuide.ts`) - an archived market that never ran says it has no
  * attendance (bug 30) rather than hiding the tab. Stats, last, is open in every phase: it reads the
- * market from its first application to its archive (E45/F01/S01).
+ * market from its first application to its archive (E45/F01/S01). Tools, just left of it, holds the
+ * manual tools an organizer runs whenever they choose, Discord first (E46/F01/S02).
  */
 export function tabsFor(): MarketTab[] {
-  return ['setup', 'form', 'applications', 'assignment', 'attendance', 'stats'];
+  return ['setup', 'form', 'applications', 'assignment', 'attendance', 'tools', 'stats'];
 }
 
 /** The tab a page or a flow stands under. */
@@ -127,6 +141,8 @@ export function pageOfRoute(
       return 'vendors';
     case 'attendance-status':
       return 'attendance';
+    case 'market-tools':
+      return 'tools';
     case 'market-stats':
       return 'stats';
     case 'import-applications':

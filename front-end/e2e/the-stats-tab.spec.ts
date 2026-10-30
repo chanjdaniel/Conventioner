@@ -11,7 +11,7 @@ import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 import { StatsPage } from './pages/StatsPage';
 
 /**
- * The Stats tab (E45/F01/S01): a sixth tab on the market bar, open in every phase and to anyone who
+ * The Stats tab (E45/F01/S01): the last tab on the market bar, open in every phase and to anyone who
  * reads the market, starting with who applied - by status and by the day each applied - counted as
  * the Applications tab counts them; then a chart per choice question of the form, narrowed to the
  * approved or the assigned (E45/F01/S02).
@@ -147,7 +147,7 @@ test('a market nobody has applied to says so, in draft', async ({
   await expect(stats.none).toHaveText('Nobody has applied yet.', { timeout: 15000 });
 });
 
-test('the bar holds six tabs beside a 60-character name at 1280, and scrolls them on a phone', async ({
+test('the bar holds seven tabs beside a 60-character name at 1280, and scrolls them on a phone', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -172,7 +172,7 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
   const title = page.getByTestId('market-bar-title');
   await expect(title).toHaveAttribute('title', name, { timeout: 15000 });
   const tabs = page.locator('[data-testid^="market-bar-tab-"]');
-  await expect(tabs).toHaveCount(6);
+  await expect(tabs).toHaveCount(7);
   await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
 
   const bar = await page.evaluate(() => {
@@ -195,7 +195,7 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
   });
   expect(bar.fits, 'the name pushed the tabs out of the bar').toBe(true);
   expect(bar.tops, 'the tabs broke onto two rows').toBe(1);
-  expect(bar.lines, 'a tab label wrapped').toEqual([1, 1, 1, 1, 1, 1]);
+  expect(bar.lines, 'a tab label wrapped').toEqual([1, 1, 1, 1, 1, 1, 1]);
   expect(bar.nameEllipsed, 'the name, not the tabs, gives way').toBe(true);
   await expect(page.getByTestId('market-bar-tab-stats')).toBeInViewport({ ratio: 1 });
 
@@ -211,7 +211,7 @@ test('the bar holds six tabs beside a 60-character name at 1280, and scrolls the
       pageScrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
-  expect(phone.navScrolls, 'six tabs fit a phone, so nothing here was measured').toBe(true);
+  expect(phone.navScrolls, 'seven tabs fit a phone, so nothing here was measured').toBe(true);
   expect(phone.pageScrolls, 'the page scrolls sideways on a phone').toBe(false);
   await stats.scrollIntoViewIfNeeded();
   await expect(stats).toBeInViewport({ ratio: 1 });

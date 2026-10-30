@@ -1,4 +1,4 @@
-"""A market connected to a Discord server: the Discord card on Market Setup (E46/F01/S02).
+"""A market connected to a Discord server: the Discord card on the market's Tools tab (E46/F01/S02).
 
 An Admin connects the market through Discord's own approval screen, which adds Conventioner's bot
 to a server they manage, then picks the role a later run gives each vendor (Daniel, T92 Q11: "the
@@ -13,7 +13,7 @@ this session never started, one another person started, one for another market o
 long is refused, so nobody can connect a market by sending someone a link.
 
 **The card is a manual tool, not part of the plan** (Daniel, Q10, Q19): no phase gates it, and it
-stays editable in every phase until the market is archived, unlike the rest of Market Setup. Every
+stays editable in every phase until the market is archived, unlike Market Setup's plan. Every
 write asks the table's "Connect Discord and give roles" row (Admin by default, Q19: "admins only"),
 loads through ``_load_market_to_change`` so an archived market refuses it, and records its change
 in the market's history, the fields before and after.
@@ -46,7 +46,7 @@ STATE_LIFETIME_SECONDS = 15 * 60
 
 NOT_STARTED_HERE = (
     "This Discord connection was not started here, or took too long. "
-    "Connect Discord again from Market Setup."
+    "Connect Discord again from the market's Tools tab."
 )
 NOT_CONNECTED = "This market is not connected to Discord. Connect Discord first."
 NOT_A_ROLE = "That role is not one Conventioner can give in this server. Choose another."

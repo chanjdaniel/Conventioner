@@ -50,7 +50,7 @@ USER_AGENT = "DiscordBot (https://conventioner.io, 1.0)"
 
 NOT_SET_UP = "Discord is not set up on this Conventioner."
 CONNECT_AGAIN = (
-    "Discord did not accept this connection. Connect Discord again from Market Setup."
+    "Discord did not accept this connection. Connect Discord again from the market's Tools tab."
 )
 BOT_NOT_IN_SERVER = (
     "Conventioner's bot can no longer reach this server: it may have been removed. "
