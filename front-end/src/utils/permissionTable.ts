@@ -69,6 +69,19 @@ const ROLE_WORDS: Record<MarketRole, { choice: string; whoMay: string; plural: s
   [MarketRole.Owner]: { choice: 'Owner only', whoMay: 'only the owner', plural: 'the owner' },
 };
 
+/**
+ * Who this market lets take an action, in the words its refusal names them: "an Admin or the
+ * owner" (E38/F06/S01). The server words it on the market's own table, so a line saying who may
+ * overturn an automatic rejection follows a row its owner changed; null when the market in hand
+ * carries no such row.
+ */
+export function whoMayTake(
+  table: PermissionTableRow[] | undefined,
+  action: MarketAction,
+): string | null {
+  return table?.find((r) => r.id === action)?.whoMay ?? null;
+}
+
 /** A role as a choice of who may: "Admin and above". */
 export function whoMayLabel(role: MarketRole): string {
   return ROLE_WORDS[role].choice;

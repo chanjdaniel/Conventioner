@@ -235,6 +235,8 @@ export interface PermissionTableRow {
   fixed: boolean;
   /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
   mayWhat: string;
+  /** Who may take it here, in the words a refusal names them: "an Admin or the owner" (E38/F06/S01). */
+  whoMay?: string;
 }
 
 export interface Market {

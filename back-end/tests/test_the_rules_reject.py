@@ -241,6 +241,8 @@ class TestTheyApplyWhen:
         monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
         monkeypatch.setattr(MarketsApi, "load_market_context",
                             lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
+        # The owner, who may overturn an automatic rejection (E38/F06/S01).
+        monkeypatch.setattr(MarketsApi, "may_overturn", lambda *_a: True)
 
         MarketsApi.save_application_form("market-123", {"fields": []}, "owner@x.test")
 
