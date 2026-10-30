@@ -259,6 +259,9 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /** What the start from a Google Form's responses kept of the example file (E38/F02/S01), for
+   *  the Questions tab to fill options from. Server-owned; absent on any market not started so. */
+  exampleColumns?: ExampleColumn[];
   /** Which answers reject an application automatically (E33/F03/S01). On the market, beside the
    *  highlights: they outlast the form's lock, until the market reaches Assignment. */
   rejectionRules?: RejectionRule[];
@@ -396,6 +399,23 @@ export interface FormField {
   options: string[];
   helpText?: string;
   order: number;
+}
+
+/**
+ * One column of the file a market was started from (E38/F02/S01): a question the start made, or a
+ * column it left out. Its options are only the answers at least 3 applicants gave that name nobody.
+ */
+export interface ExampleColumn {
+  headers: string[];
+  /** The key a question made from it has, or would have: how a question finds its column. */
+  key: string;
+  label: string;
+  helpText?: string | null;
+  type: string;
+  /** Whether the start made it a question, rather than left it out. */
+  question: boolean;
+  /** Its answers read as one choice (whole answers), and as several (the options inside them). */
+  options: { select: string[]; multiSelect: string[] };
 }
 
 /**

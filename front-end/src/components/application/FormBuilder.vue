@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import draggable from 'vuedraggable';
-import { type FormField, type ApplicationForm } from '@/assets/types/datatypes';
+import { type ApplicationForm, type ExampleColumn, type FormField } from '@/assets/types/datatypes';
+import { columnOf, columnsToAdd, questionFrom } from '@/utils/exampleColumns';
 import FormFieldEditor from './FormFieldEditor.vue';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconClickDrag from '@/components/icons/IconClickDrag.vue';
@@ -19,8 +20,10 @@ const props = withDefaults(
     readonly?: boolean;
     /** False on a Google Form market, whose form nobody fills in (E33/F01/S02). */
     forApplicants?: boolean;
+    /** What the market's start from a Google Form's responses kept of its file (E38/F02/S02). */
+    exampleColumns?: ExampleColumn[];
   }>(),
-  { readonly: false, keyTouched: () => [], forApplicants: true },
+  { readonly: false, keyTouched: () => [], forApplicants: true, exampleColumns: () => [] },
 );
 
 const emit = defineEmits<{
@@ -62,6 +65,22 @@ function addField() {
   fields.value = [...fields.value, newField];
 }
 
+/** The columns of the file no question is made from yet, for "Add from your file". */
+const columnsOffered = computed(() => columnsToAdd(props.exampleColumns, fields.value));
+
+/**
+ * A question made from a column of the file, its key held as the organizer's own: it is the key
+ * the saved import mapping names the column under, so relabelling the question must not move it.
+ */
+function addFromFile(event: Event) {
+  const select = event.target as HTMLSelectElement;
+  const column = columnsOffered.value.find((c) => c.key === select.value);
+  select.value = '';
+  if (props.readonly || !column) return;
+  emit('update:keyTouched', [...props.keyTouched, true]);
+  fields.value = [...fields.value, questionFrom(column, fields.value.length)];
+}
+
 function removeField(index: number) {
   if (props.readonly) return;
   emit(
@@ -98,14 +117,28 @@ const fieldCount = computed(() => fields.value.length);
   <div class="form-builder" data-testid="form-builder">
     <div class="builder-header">
       <span class="field-count"> {{ fieldCount }} field{{ fieldCount !== 1 ? 's' : '' }} </span>
-      <button
-        v-if="!readonly"
-        class="add-field-btn"
-        @click="addField"
-        data-testid="form-builder-add-field-button"
-      >
-        <IconAddRound /> Add Field
-      </button>
+      <div v-if="!readonly" class="builder-actions">
+        <div v-if="columnsOffered.length" class="add-from-file">
+          <label class="add-from-file__label" for="form-builder-add-from-file">
+            Add from your file
+          </label>
+          <select
+            id="form-builder-add-from-file"
+            class="field field--select add-from-file__select"
+            value=""
+            @change="addFromFile"
+            data-testid="form-builder-add-from-file"
+          >
+            <option value="" disabled>Choose a column</option>
+            <option v-for="column in columnsOffered" :key="column.key" :value="column.key">
+              {{ column.label }}
+            </option>
+          </select>
+        </div>
+        <button class="add-field-btn" @click="addField" data-testid="form-builder-add-field-button">
+          <IconAddRound /> Add Field
+        </button>
+      </div>
     </div>
 
     <div v-if="fields.length === 0" class="empty-state" data-testid="form-builder-empty">
@@ -149,6 +182,7 @@ const fieldCount = computed(() => fields.value.length);
               :readonly="readonly"
               :forApplicants="forApplicants"
               :keyTouched="keyTouched[index] ?? false"
+              :column="columnOf(element, exampleColumns)"
               @update:field="(f: FormField) => updateField(index, f)"
               @update:keyTouched="(touched: boolean) => updateKeyTouched(index, touched)"
             />
@@ -173,14 +207,42 @@ const fieldCount = computed(() => fields.value.length);
   align-items: center;
 }
 
+/* Wraps rather than squeezing the select to nothing when the row runs short of room. */
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.add-from-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.add-from-file__label {
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+  white-space: nowrap;
+}
+
+.add-from-file__select {
+  width: auto;
+  max-width: 16rem;
+}
+
 .field-count {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
+/* The control height, so it stands level with the "Add from your file" select beside it. */
 .add-field-btn {
   display: flex;
   align-items: center;
+  min-height: var(--control-height);
   gap: var(--space-1);
   background: var(--mm-green);
   color: white;

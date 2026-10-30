@@ -3,14 +3,18 @@ import { defineComponent, h, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import FormBuilder from '@/components/application/FormBuilder.vue';
-import type { ApplicationForm } from '@/assets/types/datatypes';
+import type { ApplicationForm, ExampleColumn, FormField } from '@/assets/types/datatypes';
 
 /**
  * Mirrors how MarketSetupView owns the form and the hand-edited-key flags: child emits, parent
  * re-feeds them as props. `mounted` mirrors the `v-if` on the Application Form tab, so a test can
  * tab away and back and see whether state that must outlive the builder actually does.
  */
-function mountWithParent(initial: ApplicationForm | null, readonly = false) {
+function mountWithParent(
+  initial: ApplicationForm | null,
+  readonly = false,
+  exampleColumns?: ExampleColumn[],
+) {
   const form = ref<ApplicationForm | null>(initial);
   const keyTouched = ref<boolean[]>((initial?.fields ?? []).map(() => true));
   const mounted = ref(true);
@@ -23,6 +27,7 @@ function mountWithParent(initial: ApplicationForm | null, readonly = false) {
               applicationForm: form.value,
               keyTouched: keyTouched.value,
               readonly,
+              exampleColumns,
               'onUpdate:applicationForm': (next: ApplicationForm) => {
                 form.value = next;
               },
@@ -236,5 +241,141 @@ describe('FormBuilder', () => {
     await label.setValue('Tampered');
 
     expect(form.value!.fields[0].label).toBe('Shop');
+  });
+});
+
+const BOOTH: ExampleColumn = {
+  headers: ['Booth size'],
+  key: 'booth_size',
+  label: 'Booth size',
+  helpText: null,
+  type: 'checkbox',
+  question: true,
+  options: { select: ['Small', 'Large', 'Medium'], multiSelect: ['Small', 'Large', 'Medium'] },
+};
+const SELLS: ExampleColumn = {
+  headers: ['What do you sell?'],
+  key: 'what_do_you_sell',
+  label: 'What do you sell?',
+  helpText: null,
+  type: 'multi_select',
+  question: true,
+  options: {
+    select: ['Prints', 'Prints, Stickers', 'Stickers'],
+    multiSelect: ['Prints', 'Stickers'],
+  },
+};
+const STATUS: ExampleColumn = {
+  headers: ['Status'],
+  key: 'status',
+  label: 'Status',
+  helpText: null,
+  type: 'select',
+  question: false,
+  options: {
+    select: ['Accepted', 'Waitlist', 'Rejected'],
+    multiSelect: ['Accepted', 'Waitlist', 'Rejected'],
+  },
+};
+
+function question(patch: Partial<FormField>): FormField {
+  return { key: '', label: '', type: 'text', required: false, options: [], order: 0, ...patch };
+}
+
+function optionValues(wrapper: ReturnType<typeof mount>): string[] {
+  return wrapper
+    .findAll('[data-testid="form-field-option-input"]')
+    .map((input) => (input.element as HTMLInputElement).value);
+}
+
+describe('FormBuilder, on a market started from a file (E38/F02/S02)', () => {
+  it('fills a question’s options from the file when it becomes a Select', async () => {
+    const booth = question({ key: 'booth_size', label: 'Booth size', type: 'checkbox' });
+    const { wrapper, form } = mountWithParent({ fields: [booth] }, false, [BOOTH]);
+
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('select');
+
+    expect(form.value!.fields[0]).toMatchObject({
+      type: 'select',
+      options: ['Small', 'Large', 'Medium'],
+    });
+    expect(optionValues(wrapper)).toEqual(['Small', 'Large', 'Medium']);
+    expect(wrapper.get('[data-testid="form-field-options-from-file"]').text()).toContain(
+      'answers in your file',
+    );
+  });
+
+  it('fills a Multi-Select with the options inside the answers', async () => {
+    const sells = question({ key: 'what_do_you_sell', label: 'What do you sell?' });
+    const { wrapper, form } = mountWithParent({ fields: [sells] }, false, [SELLS]);
+
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('select');
+    expect(form.value!.fields[0].options).toEqual(['Prints', 'Prints, Stickers', 'Stickers']);
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('multi_select');
+    expect(form.value!.fields[0].options).toEqual(['Prints', 'Stickers']);
+  });
+
+  it('keeps an edited option through a change of type, and replaces it only when asked', async () => {
+    const sells = question({
+      key: 'what_do_you_sell',
+      label: 'What do you sell?',
+      type: 'select',
+      options: ['Prints', 'Prints, Stickers', 'Stickers'],
+    });
+    const { wrapper, form } = mountWithParent({ fields: [sells] }, false, [SELLS]);
+
+    await wrapper.findAll('[data-testid="form-field-option-input"]')[0].setValue('Art prints');
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('multi_select');
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('select');
+    expect(form.value!.fields[0].options).toEqual(['Art prints', 'Prints, Stickers', 'Stickers']);
+
+    await wrapper.get('[data-testid="form-field-use-file-options-button"]').trigger('click');
+    expect(form.value!.fields[0].options).toEqual(['Prints', 'Prints, Stickers', 'Stickers']);
+    expect(wrapper.find('[data-testid="form-field-use-file-options-button"]').exists()).toBe(false);
+  });
+
+  it('adds a question from a column the start left out, and offers it no more', async () => {
+    const booth = question({ key: 'booth_size', label: 'Booth size', type: 'checkbox' });
+    const { wrapper, form, keyTouched } = mountWithParent({ fields: [booth] }, false, [
+      BOOTH,
+      STATUS,
+    ]);
+    const add = wrapper.get('[data-testid="form-builder-add-from-file"]');
+    expect(add.findAll('option').map((o) => o.text())).toEqual(['Choose a column', 'Status']);
+    expect(wrapper.get('label[for="form-builder-add-from-file"]').text()).toBe(
+      'Add from your file',
+    );
+
+    await add.setValue('status');
+
+    expect(form.value!.fields[1]).toMatchObject({
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: ['Accepted', 'Waitlist', 'Rejected'],
+      order: 1,
+    });
+    // Its key is the one the saved import mapping names: relabelling it must not move it.
+    expect(keyTouched.value).toEqual([true, true]);
+    expect(wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+  });
+
+  it('leaves a question of no column as it always was', async () => {
+    const { wrapper, form } = mountWithParent({ fields: [question({ key: 'shop' })] }, false, [
+      STATUS,
+    ]);
+
+    await wrapper.get('[data-testid="form-field-type-select"]').setValue('select');
+
+    expect(form.value!.fields[0].options).toEqual([]);
+    expect(wrapper.find('[data-testid="form-field-options-from-file"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="form-field-use-file-options-button"]').exists()).toBe(false);
+  });
+
+  it('offers nothing from the file on a market not started from one, or a locked form', () => {
+    const plain = mountWithParent({ fields: [] });
+    expect(plain.wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
+    const locked = mountWithParent({ fields: [] }, true, [STATUS]);
+    expect(locked.wrapper.find('[data-testid="form-builder-add-from-file"]').exists()).toBe(false);
   });
 });

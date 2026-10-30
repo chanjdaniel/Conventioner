@@ -85,7 +85,8 @@ The applicant's form reads its front-end mirror, `planDerivedAskedKeys`, so a ma
 ## The reserved prefix
 
 **A custom field's key may not start with `essential_`**: the essential answers live beside the custom ones in `form_data`, and a custom field that shadowed one would corrupt what the solver reads.
-The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)).
+The server refuses it in `_normalized_application_form` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)), and the form builder says so first in `applicationFormError` ([`front-end/src/utils/applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), through `fieldKeyError`, which the amendment's dialog asks too.
+The same check refuses the import's own targets as keys (`applicant_email`, `submitted_at`, `sheet_note`), each named with what the import reads it as ([the market document](../data/market-document.md#the-fields-that-matter)).
 
 ## The generated schema
 
