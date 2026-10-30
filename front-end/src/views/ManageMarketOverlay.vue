@@ -940,6 +940,11 @@ function closeAddUser() {
   border-bottom: 1px solid var(--mm-border);
 }
 
+/* The row an entry is about leads it, so a list of entries does not read as one run of lines. */
+.permission-change > .permission-label {
+  font-weight: 600;
+}
+
 .permission-change-line {
   font-size: var(--text-sm);
   color: var(--mm-black);
