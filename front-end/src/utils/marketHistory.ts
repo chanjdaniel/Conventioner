@@ -155,9 +155,9 @@ function groupText(value: unknown, currency: string, questions: readonly Rejecti
  * "not on the card" before it, one taken away "removed" after it, and the groups that stood as they
  * were are left out, so the one change is not buried among them. A row's lines hang, so a wrapped
  * condition does not read as a line of its own. Where the groups stand in another order than they
- * did, an added one put last, a row of their names in each order follows, so a move or a group
- * added between others says where it went: the card's order decides which group a price names when
- * two price a vendor alike (`back-end/pricing.py`).
+ * did, a row of their names in each order follows, so a move or a group added between others says
+ * where it went: the card's order decides which group a price names when two price a vendor alike
+ * (`back-end/pricing.py`). A group added last, or in a removed one's place (a rename), has not moved.
  */
 function groupChanges(
   before: unknown,
@@ -189,14 +189,23 @@ function groupChanges(
     const name = str(group.name);
     if (!named(now, name)) rows.push(row(name, read(group, currencies.before), 'removed'));
   }
-  // Where the groups stand other than where they were with any added put last: moved, or a group
-  // added between others. A group only taken away, or added last, says its place by its own row.
+  // Where the groups stand other than where they were: moved, or a group added between others.
+  // Groups are matched by name, so a group renamed is one taken away and one added; an added group
+  // standing in a removed one's place, or added last, has not moved, and needs no order row.
   const names = (groups: Detail[]) => groups.map((g) => str(g.name));
-  const expected = [
-    ...names(was).filter((name) => named(now, name)),
-    ...names(now).filter((name) => !named(was, name)),
-  ];
-  if (expected.join('\n') !== names(now).join('\n')) {
+  const added = names(now).filter((name) => !named(was, name));
+  const kept = names(was).filter((name) => named(now, name));
+  const inPlace = (() => {
+    const waiting = [...added];
+    const placed = names(was).flatMap((name) =>
+      named(now, name) ? [name] : waiting.length ? [waiting.shift() as string] : [],
+    );
+    return [...placed, ...waiting];
+  })();
+  const unmoved = [[...kept, ...added], inPlace].some(
+    (expected) => expected.join('\n') === names(now).join('\n'),
+  );
+  if (!unmoved) {
     rows.push({
       field: 'Order of the groups',
       before: names(was).join('\n'),

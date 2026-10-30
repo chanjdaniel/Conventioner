@@ -673,6 +673,25 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     expect(fields([a, b], [a, b, c])).toEqual(['Group “C”']);
   });
 
+  it('reads a group renamed in place as no move, wherever it stands', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+    const fields = (before: unknown[], after: unknown[]) =>
+      priced({ before: { groups: before }, after: { groups: after } }).map((row) => row.field);
+
+    // B renamed X in the middle: removed and added, but standing where B stood.
+    expect(fields([a, b, c], [a, group('X', []), c])).toEqual(['Group “X”', 'Group “B”']);
+    // A taken away and X added last: no move either.
+    expect(fields([a, b, c], [b, c, group('X', [])])).toEqual(['Group “X”', 'Group “A”']);
+  });
+
+  it('still says where a renamed group went when it moved too', () => {
+    const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
+
+    expect(
+      priced({ before: { groups: [a, b, c] }, after: { groups: [group('X', []), a, c] } }).at(-1),
+    ).toEqual({ field: 'Order of the groups', before: 'A\nB\nC', after: 'X\nA\nC' });
+  });
+
   it('says where a group added between others went', () => {
     // Its place decides which group a price names when two price a vendor alike, as a move's does.
     const [a, b, c] = [group('A', []), group('B', []), group('C', [])];
