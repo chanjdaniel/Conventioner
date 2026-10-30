@@ -13,6 +13,8 @@ export class VendorsPage {
   readonly detailPanel: Locator;
   readonly detailOverlay: Locator;
   readonly detailAssignmentItems: Locator;
+  /** The drawer's History tab: each entry's sentence, newest first (E40/F01/S04). */
+  readonly detailHistorySentences: Locator;
   /** The Result pages' shared filter bar (E28/F02/S02). */
   readonly dateFilter: Locator;
   readonly choiceFilter: Locator;
@@ -32,6 +34,9 @@ export class VendorsPage {
     /** The scrim. Clicking it dismisses the drawer, and it is what holds the mouse out. */
     this.detailOverlay = page.getByTestId('vendors-detail-overlay');
     this.detailAssignmentItems = page.getByTestId('vendors-detail-assignment-item');
+    this.detailHistorySentences = page
+      .getByTestId('vendor-drawer-panel-history')
+      .getByTestId('market-history-sentence');
     this.dateFilter = page.getByTestId('vendors-filter-date');
     this.choiceFilter = page.getByTestId('vendors-filter-choice');
     this.dateFilterChip = page.getByTestId('vendors-filter-chip-date');

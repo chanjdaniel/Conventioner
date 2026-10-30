@@ -133,24 +133,6 @@ class TestReadingTheTrail:
 
         assert len(entries) == 2
 
-    def test_a_vendors_panel_shows_only_theirs(self, collection, history):
-        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
-        PlacementsApi.write_placement(
-            "market-123", placement(email="ben@example.com", table_code="Hall A 2"),
-            "organizer@x.test",
-        )
-
-        entries = History.placement_entries("market-123", "ben@example.com")
-
-        assert [entry["vendors"] for entry in entries] == [["ben@example.com"]]
-
-    def test_an_address_is_matched_whatever_its_case(self, collection, history):
-        PlacementsApi.write_placement(
-            "market-123", placement(email="Ana@Example.com"), "organizer@x.test"
-        )
-
-        assert History.placement_entries("market-123", "ANA@EXAMPLE.COM")
-
     def test_the_newest_entry_comes_first(self, history):
         History.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 1")
         History.record_freed("m", "a@x.test", "v@x.test", "2026-08-01", "A 2")
@@ -170,7 +152,7 @@ class TestReadingTheTrail:
 
 class TestTheEndpoint:
     def test_it_answers_the_placements_as_it_always_did(self, collection, history):
-        """Served from the market's history, narrowed to placements, in the shape the drawer reads."""
+        """Served from the market's history, narrowed to placements, in the shape the trail reads."""
         PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
         History.record("market-123", "organizer@x.test", Actions.CHECK_IN,
                        vendors=["ana@example.com"], detail={})
@@ -187,19 +169,6 @@ class TestTheEndpoint:
             "before": None,
         }
         assert "vendorNames" in body
-
-    def test_a_vendors_panel_reads_only_theirs(self, collection, history):
-        PlacementsApi.write_placement("market-123", placement(), "organizer@x.test")
-        PlacementsApi.write_placement(
-            "market-123", placement(email="ben@example.com", table_code="Hall A 2"),
-            "organizer@x.test",
-        )
-
-        body, _status = MarketsApi.get_placement_history(
-            "market-123", "organizer@x.test", "ben@example.com",
-        )
-
-        assert [entry["vendors"] for entry in body["entries"]] == [["ben@example.com"]]
 
 
 class TestTheTrailIsKeptWithTheMarket:

@@ -168,7 +168,7 @@ Production was started that way on 2026-10-18, so no script in `back-end/migrati
 The first that is: the release carrying E32 refuses to boot until every account address is stored lowercased, so run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_user_emails.py --dry-run`, then without `--dry-run`, before promoting it.
 If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
 The release carrying E40/F01/S01 moves the placement history into the market's history: once it is deployed, whenever is convenient, run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_placement_history.py --dry-run` ([`migrate_placement_history.py`](../back-end/migrations/migrate_placement_history.py)), which counts the entries it would move, then without `--dry-run`.
-Until it runs, that release reads the old `placement_history` collection beside the new one, so the drawer's History tab answers as before, and nothing refuses to boot; a later release removes that fallback ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
+Until it runs, that release reads the old `placement_history` collection beside the new one, so the older placements still show in the Assignment history and a vendor's History tab, and nothing refuses to boot; a later release removes that fallback ([the market's history](implementation/data/history.md#the-move-from-placement_history)).
 
 ### When the back end refuses to boot
 
