@@ -1,7 +1,7 @@
 """What a Google Form's responses say about the market plan (E24/F02/S02).
 
 The dates, the tiers best first and the ceiling on days per vendor, held to the answers written by
-hand for the form-started-from-a-CSV map (ticket 03) on the five anonymised exports, and the year
+hand for the form-started-from-a-CSV map (ticket 03) on the five Google Form exports, and the year
 the stated weekdays fit. Where the plan already has dates or tiers, the file's are matched against
 them and a difference comes back to settle: the organizer's plan wins and is never added to.
 """
@@ -15,16 +15,16 @@ import csv_proposal as CsvProposal
 CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
 
 ANSWERS = {
-    "fall-2025": {"dates": ["11-17", "11-18", "11-19", "11-20", "11-21"], "year": 2025,
-                  "tiers": ["Gold", "Silver", "Bronze"], "ceiling": None},
-    "spring-2024": {"dates": ["03-25", "03-26", "03-27", "03-28"], "year": 2024,
-                    "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 3},
-    "spring-2025": {"dates": ["03-17", "03-18", "03-19", "03-20", "03-21"], "year": 2025,
-                    "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 2},
-    "fall-2023": {"dates": ["11-20", "11-21", "11-22", "11-23", "11-24"], "year": 2023,
-                  "tiers": [], "ceiling": None},
-    "spring-2026": {"dates": ["03-23", "03-24", "03-25", "03-26", "03-27"], "year": 2026,
-                    "tiers": ["Gold", "Silver"], "ceiling": None},
+    "five-day-grid": {"dates": ["10-20", "10-21", "10-22", "10-23", "10-24"], "year": 2025,
+                      "tiers": ["Gold", "Silver", "Bronze"], "ceiling": None},
+    "four-day-grid": {"dates": ["04-22", "04-23", "04-24", "04-25"], "year": 2024,
+                      "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 3},
+    "no-timestamp": {"dates": ["05-19", "05-20", "05-21", "05-22", "05-23"], "year": 2025,
+                     "tiers": ["Gold", "Silver", "Bronze"], "ceiling": 2},
+    "days-as-one-question": {"dates": ["10-23", "10-24", "10-25", "10-26", "10-27"],
+                             "year": 2023, "tiers": [], "ceiling": None},
+    "team-status-column": {"dates": ["04-20", "04-21", "04-22", "04-23", "04-24"], "year": 2026,
+                           "tiers": ["Gold", "Silver"], "ceiling": None},
 }
 
 
