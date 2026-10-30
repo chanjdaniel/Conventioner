@@ -17,18 +17,22 @@ import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/g
  * The organizer sets the automatic rejections (E33/F03/S01).
  *
  * The real market rejects every applicant who does not agree to the no-show terms, or who is not a
- * UBC student, alumnus or another accepted affiliation. On the form's last step, Review setup, a
- * rule names one choice question and the answers that reject. It stays editable after the form
- * locks, and closes when the market reaches Assignment, saying why.
+ * student, alumnus or another accepted affiliation of its school. On the form's last step, Review
+ * setup, a rule names one choice question and the answers that reject. It stays editable after the
+ * form locks, and closes when the market reaches Assignment, saying why.
  */
-const NOT_UBC = 'No, I am not a UBC student/alumni/staff';
+const OUTSIDER = 'No, I am not an Example College student/alumni/staff';
 const FIELDS = [
   {
     key: 'affiliation',
-    label: 'Are you a UBC student or alumni?',
+    label: 'Are you an Example College student or alumni?',
     type: 'select',
     required: true,
-    options: ['Yes, I am a CURRENT UBC student', 'Yes, I am an UBC alumni/staff', NOT_UBC],
+    options: [
+      'Yes, I am a CURRENT Example College student',
+      'Yes, I am Example College alumni/staff',
+      OUTSIDER,
+    ],
     order: 0,
   },
   {
@@ -88,7 +92,7 @@ test.describe('Automatic rejections', () => {
     await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     await openReviewSetup(page, marketId);
     await expect(page.getByTestId('rejection-rules-locked')).toHaveCount(0);
-    await addRule(page, 'affiliation', NOT_UBC);
+    await addRule(page, 'affiliation', OUTSIDER);
 
     await page.reload();
     await page.getByTestId('form-step-review').click();
@@ -96,7 +100,7 @@ test.describe('Automatic rejections', () => {
       page.getByTestId('rejection-answer-no_shows-not ticked').locator('input'),
     ).toBeChecked();
     await expect(
-      page.getByTestId(`rejection-answer-affiliation-${NOT_UBC}`).locator('input'),
+      page.getByTestId(`rejection-answer-affiliation-${OUTSIDER}`).locator('input'),
     ).toBeChecked();
   });
 

@@ -21,7 +21,7 @@ def application(status=ApplicationStatus.REVIEWER_APPROVED, email="ana@example.c
 def seat(email, date="2026-11-18", table="A 1"):
     return VendorAssignmentResult(
         email=email, date=date, table_code=table, table_choice="Full Table",
-        section="A", tier="Gold", location="Upper Atrium",
+        section="A", tier="Gold", location="North Wing",
     )
 
 
@@ -43,9 +43,9 @@ def test_a_seated_applicant_has_a_table_with_each_seat():
     assert served["outcome"] == ResultOutcome.HAS_A_TABLE
     assert served["seats"] == [
         {"date": "2026-11-18", "tableCode": "A 1", "tableChoice": "Full Table",
-         "section": "A", "location": "Upper Atrium"},
+         "section": "A", "location": "North Wing"},
         {"date": "2026-11-19", "tableCode": "A 2", "tableChoice": "Full Table",
-         "section": "A", "location": "Upper Atrium"},
+         "section": "A", "location": "North Wing"},
     ]
 
 

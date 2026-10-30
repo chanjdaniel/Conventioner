@@ -383,8 +383,8 @@ function errorFor(key: string): string {
         ONE question, not two (E19/F01/S02).
 
         It used to ask availability first and then tiers per ticked date. An organizer's own form
-        has always asked it as a single grid - "choose all tiers you would be considered for;
-        choose None if you are not available" - so availability is implicit in the tier answer.
+        has always asked it as a single grid - for each day, every tier the applicant would take, or
+        None on a day they cannot come - so availability is implicit in the tier answer.
         Asking twice made an applicant discover an order, and made two answers that could disagree.
 
         The stored shape has not changed: availability is DERIVED here through the same rule the

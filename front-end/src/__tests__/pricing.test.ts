@@ -65,11 +65,11 @@ describe('the date card says what the assignment costs', () => {
           tier: 'Gold',
           tableChoice: 'Full Table',
           priceCents: 1200,
-          priceGroup: 'UBC student + club member',
+          priceGroup: 'Example College student + club member',
         },
         'CAD',
       ),
-    ).toBe('Gold, full table, UBC student + club member, $12');
+    ).toBe('Gold, full table, Example College student + club member, $12');
     expect(
       priceLine(
         {
@@ -193,7 +193,7 @@ describe("a group's prices follow the tiers too", () => {
 });
 
 describe("a group's name", () => {
-  const names = ['UBC student only', 'Alumni'];
+  const names = ['Example College student only', 'Alumni'];
 
   it('is needed', () => {
     expect(groupNameProblem('  ', names, 0)).toBe('Name this group.');

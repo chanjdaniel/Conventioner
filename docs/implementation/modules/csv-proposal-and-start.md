@@ -9,7 +9,7 @@ describes:
   - back-end/app.py#confirm_csv_proposal
   - back-end/tests/test_csv_proposal.py
   - front-end/src/utils/exampleColumns.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/05

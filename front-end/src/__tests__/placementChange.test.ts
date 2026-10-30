@@ -267,7 +267,7 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
       status: 'reviewer_rejected',
       verdictBy: { kind: 'rule', userId: null, email: null, rule: 'Affiliation' },
       verdictAt: '2026-10-19T10:00:00',
-      verdictReason: 'Not a UBC student, staff or alumnus',
+      verdictReason: 'Not an Example College student, staff or alumnus',
     },
   });
 
@@ -279,7 +279,7 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
 
   it("gives an automatic rejection's reason", () => {
     expect(placementWarnings(byRule, at())[0]).toBe(
-      'Not approved: Rejected automatically: Not a UBC student, staff or alumnus.',
+      'Not approved: Rejected automatically: Not an Example College student, staff or alumnus.',
     );
   });
 
