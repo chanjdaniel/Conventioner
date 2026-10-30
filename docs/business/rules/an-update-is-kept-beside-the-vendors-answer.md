@@ -5,6 +5,7 @@ describes:
   - back-end/api/vendor_info.py
   - front-end/src/components/UpdateInfoDialog.vue
   - front-end/src/components/AnswerUpdateNote.vue
+  - front-end/src/utils/answerUpdates.ts
 verified: 2026-10-30
 sources:
   - E41/F01/S01
@@ -40,7 +41,7 @@ The answers the assignment reads (the [essential questions](../concepts/essentia
 
 ## Where it is kept
 
-The write is [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).
+The write is [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py), sent by the drawer through `updateVendorInfo` in [`answerUpdates.ts`](../../../front-end/src/utils/answerUpdates.ts), which also holds the words above.
 How an update is stored and the one reader of the answers: [the application document](../../implementation/data/application-document.md#an-organizers-update-of-an-answer).
 What it records: [the market's history](../../implementation/data/history.md#what-each-write-records).
 `back-end/tests/test_updating_vendor_info.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts` and `front-end/e2e/updating-vendor-info.spec.ts` pin it.
