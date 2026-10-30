@@ -67,9 +67,10 @@ function valueColumns(entry: MarketHistoryEntry): string[] {
 }
 
 /**
- * One Field width for the whole list, so the value columns line up down it: as wide as the widest
- * name of any table open, but never more than 12rem nor a third of the table, so in the narrow
- * drawer a long name wraps rather than squeezing every value beside it. A name past that wraps.
+ * One Field width for the whole list, so the value columns line up down it: the column as wide as
+ * the widest name of any table open, a name counted at 12rem at most, and the column itself, its
+ * padding and border included, never wider than a third of the table, so in the narrow drawer a
+ * long name wraps rather than squeezing every value beside it.
  */
 const FIELD_MOST_REM = 12;
 const FIELD_MOST_SHARE = 1 / 3;
@@ -85,7 +86,7 @@ function measureFields() {
   }
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   const table = cell.closest('table')?.getBoundingClientRect().width ?? 0;
-  const most = Math.min(FIELD_MOST_REM * rem, table ? table * FIELD_MOST_SHARE : Infinity);
+  const most = FIELD_MOST_REM * rem;
   let widest = 0;
   for (const name of names) widest = Math.max(widest, Math.min(naturalWidth(name), most));
   const style = getComputedStyle(cell);
@@ -94,7 +95,8 @@ function measureFields() {
     parseFloat(style.paddingRight) +
     parseFloat(style.borderLeftWidth) +
     parseFloat(style.borderRightWidth);
-  const next = widest ? `${Math.ceil(widest + (chrome || 0))}px` : '';
+  const column = Math.min(widest + (chrome || 0), table ? table * FIELD_MOST_SHARE : Infinity);
+  const next = widest ? `${Math.floor(column)}px` : '';
   if (fieldWidth.value !== next) fieldWidth.value = next;
 }
 /** A name's width on one line, whatever the column it sits in has wrapped it to: from its text in
@@ -303,8 +305,8 @@ onUpdated(measureFields);
 }
 
 /* One Field width for the whole list (`--history-field-width`, the widest name of any open table,
-   at most 12rem and a third of the table), so Before and After, halves of the rest, line up down
-   it. An entry whose every Before is "none" draws its one value across the rest. */
+   the column at most a third of the table, its padding and border included), so Before and After,
+   halves of the rest, line up down it. An entry whose every Before is "none" draws its one value across the rest. */
 .history-table {
   width: 100%;
   border-collapse: collapse;
