@@ -932,7 +932,8 @@ function eachDealtTo(entry: MarketHistoryEntry, dealt: Detail): string {
 /**
  * The one value column an entry's before and after needs, when every Before is "none" - an
  * application arriving, a vendor added - so the value reads across the width a second column of
- * "none" took: "Answer" for an applicant's own answers, "After" for anything else. Null when any
+ * "none" took: "Answer" for an applicant's own answers (their submission or edit), "After" for
+ * anything else, an arrival's deal under the applicant's action included. Null when any
  * Before carries a value, or nothing changed.
  */
 export function soleColumn(
@@ -940,7 +941,9 @@ export function soleColumn(
   changed: readonly ChangedField[],
 ): string | null {
   if (!changed.length || changed.some((row) => row.before !== 'none')) return null;
-  return entry.action === 'apply' ? 'Answer' : 'After';
+  return entry.action === 'apply' && (entry.kind === 'submitted' || entry.kind === 'edited')
+    ? 'Answer'
+    : 'After';
 }
 
 /** A piece of a value as drawn: words, or an address split at its "@". */

@@ -597,6 +597,8 @@ describe('how a before and after is drawn', () => {
       'Answer',
     );
     expect(soleColumn(entry({ action: 'add-vendor', kind: null }), rows('none'))).toBe('After');
+    // An arrival's deal is recorded under the applicant's action, but a reviewer is no answer.
+    expect(soleColumn(entry({ action: 'apply', kind: 'dealt' }), rows('none'))).toBe('After');
     expect(soleColumn(entry({ action: 'apply', kind: 'edited' }), rows('none', 'Gold'))).toBeNull();
     expect(soleColumn(entry({}), [])).toBeNull();
   });
