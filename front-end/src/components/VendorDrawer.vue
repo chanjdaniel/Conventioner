@@ -433,6 +433,11 @@ useInertBehind(
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* The panel head is dark, so the white halo rather than the green one (E38/F01/S01). */
+.detail-close:focus-visible {
+  box-shadow: var(--focus-halo-on-dark);
+}
+
 .detail-section {
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
@@ -459,6 +464,7 @@ useInertBehind(
   border-bottom: 2px solid transparent;
   /* stylelint-disable-next-line declaration-property-value-allowed-list -- a border's width, not spacing: the underline lies over the strip's rule */
   margin-bottom: -1px;
+  border-radius: var(--radius-control);
   background: none;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
@@ -469,9 +475,10 @@ useInertBehind(
   color: var(--mm-black);
 }
 
+/* Above the section beneath, which would otherwise paint over the halo's lower edge. */
 .detail-tab:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
 }
 
 .detail-tab--current {

@@ -784,11 +784,6 @@ function cancelPending() {
     scrollbar-width: none;
   }
 
-  .phase-spine:focus-visible {
-    outline: 2px solid var(--mm-black);
-    outline-offset: 2px;
-  }
-
   .phase-step {
     flex-shrink: 0;
   }

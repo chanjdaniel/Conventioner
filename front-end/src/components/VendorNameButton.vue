@@ -45,9 +45,4 @@ const emit = defineEmits<{ open: [] }>();
 .vendor-name-button:hover :deep(.vendor-identity-name) {
   text-decoration: underline;
 }
-
-.vendor-name-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
 </style>

@@ -471,6 +471,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   box-shadow: var(--shadow-card);
 }
 
+/* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */
+.vendor-row-button:focus-visible {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
+
 .vendor-row-button:active {
   transform: translateY(1px);
 }

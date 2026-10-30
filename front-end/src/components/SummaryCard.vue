@@ -114,6 +114,12 @@ defineEmits<{ select: [] }>();
   transform: translateY(-2px);
 }
 
+/* The card is what the keyboard opens, so the card wears the halo (E38/F01/S01): on the name's
+   own button the name's box clipped it away. */
+.summary-card--selectable:has(.summary-card-name :focus-visible) {
+  box-shadow: var(--focus-halo), var(--shadow-card);
+}
+
 /* The badge sits at the column's right edge rather than after the name, so badges share an edge
    down the list however long the names are - the same reason the facts are a grid. */
 .summary-card-name {
@@ -137,8 +143,8 @@ defineEmits<{ select: [] }>();
   text-overflow: ellipsis;
 }
 
-/* The name's own button looks like the name: the card's lift is its focus ring, as it was the
-   row's. */
+/* The name's own button looks like the name: the card's lift and halo are its focus, as they
+   were the row's. */
 .summary-card-name :slotted(.summary-card-open) {
   display: block;
   max-width: 100%;
@@ -153,6 +159,10 @@ defineEmits<{ select: [] }>();
   text-overflow: ellipsis;
   cursor: pointer;
   outline: none;
+}
+
+.summary-card-name :slotted(.summary-card-open:focus-visible) {
+  box-shadow: none;
 }
 
 /* A fixed label column, so the labels line up across every row of the list and not merely

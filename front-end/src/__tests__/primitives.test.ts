@@ -179,6 +179,31 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(blocks('.field:focus')).toEqual([]);
   });
 
+  it('gives every control the soft halo rather than a ring', () => {
+    // Daniel's choice C on the 2026-10-29 walk: a white gap then a translucent green glow, the gap
+    // keeping it clear of the green primary button's own fill. The dark bar's halo is white.
+    expect(valueIn(BASE_ROOT, ':root', '--focus-halo')).toBe(
+      '0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35)',
+    );
+    expect(valueIn(BASE_ROOT, ':root', '--focus-halo-on-dark')).toBe(
+      '0 0 0 3px rgba(255, 255, 255, 0.35)',
+    );
+    const controls = [
+      '.btn:focus-visible',
+      '.add-row:focus-visible',
+      '.drag-handle:focus-visible',
+      '.step-button:focus-visible',
+      'a:focus-visible',
+      'button:focus-visible',
+      'summary:focus-visible',
+      "[role='button']:focus-visible",
+    ];
+    for (const control of controls) {
+      expect(declaration(control, 'box-shadow'), control).toBe('var(--focus-halo)');
+      expect(declaration(control, 'outline'), control).toBe('none');
+    }
+  });
+
   it('owns the add-row control, so five files stop owning a copy of it', () => {
     // `.add-container` was used by four plan cards and styled in none of them - where the plus
     // looked centred, it was centred by accident of a parent flex column. Beside it,

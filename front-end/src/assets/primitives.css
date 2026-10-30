@@ -352,19 +352,32 @@ select:focus {
 }
 
 /*
- * A visible focus ring on every primitive, in this feature rather than a later one: the product
- * has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+ * Every control shows the soft halo on `:focus-visible` (E38/F01/S01): the primitives, and every
+ * link, button and other keyboard stop, so the browser's own ring is drawn nowhere. It replaced a
+ * 2px `--mm-black` ring at 2px of offset, which Daniel found thick and bulky.
  *
- * `--mm-black` rather than the brand green, because the ring has to be visible against BOTH the
- * page and the control's own fill - and a green ring on the green primary button is invisible.
- * The offset is what keeps it clear of the fill.
+ * The halo's white gap is what keeps it visible on the green primary button, whose fill a green
+ * glow would otherwise meet. A control on a dark ground takes `--focus-halo-on-dark` in its own
+ * rule, and a component rule that gives a control a resting `box-shadow` outranks this one, so it
+ * says its own focus too.
  */
 .btn:focus-visible,
 .add-row:focus-visible,
 .drag-handle:focus-visible,
-.step-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
+.step-button:focus-visible,
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[tabindex='0']:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-halo);
+}
+
+/* A text link has no corners of its own, so its halo would be a hard rectangle around the words.
+   `:where` keeps this below any link that sets a radius, so a styled link keeps its shape. */
+:where(a):focus-visible {
+  border-radius: var(--radius-control);
 }
 
 /* ============================================================================================
