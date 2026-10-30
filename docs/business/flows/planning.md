@@ -157,7 +157,7 @@ The card sits after Section Setup because its columns are the tiers the sections
 ## Superseded
 
 - Market Setup was to stay editable past Draft, its cards simply no longer gated (wayfinding/the-order-of-the-work/02); the setup settles on leaving Draft ([E7](#e7-edit-the-plan-after-draft), E31/F01).
-- Each card was to take the page's full width; the cards share rows in a grid, and only the dates and sections cards are wide (E23/F01/S01).
+- Each card was to take the page's full width; the cards share rows in a grid, and only the dates, sections and pricing cards are wide (E23/F01/S01).
 - The application form was to be built in a gated card on this page, and opening applications to be the page's last section (wayfinding/the-order-of-the-work/02); the form is built on its own tab, in steps (E33/F01), the plan's card only says whether it can be built ([E8](#e8-application-form-readiness)), and the move out of Draft is the rail's main button (E31/F02).
 - The chosen days were to be chips, one line per month (wayfinding/the-plan-uses-its-space/02); each day is a row under its month, the months flowing in columns beside the calendar (E28/F01/S01).
 - Within Draft the market was to open at its earliest incomplete stage, the plan and then the form (wayfinding/the-order-of-the-work/03); a draft opens on Market Setup, whose form card says when the form can be built.
