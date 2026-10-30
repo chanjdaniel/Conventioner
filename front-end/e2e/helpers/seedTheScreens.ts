@@ -141,7 +141,7 @@ const FIELDS = [
 const BUSINESSES = [
   'Alexandria Montgomery-Featherstonehaugh Ceramics and Handmade Stoneware Studio',
   'Bob Prints',
-  'The Very Small Zine Press of East Vancouver Collective',
+  'The Very Small Zine Press of East Example Collective',
   'Kiln & Co.',
   'Wildflower Apothecary: Small-batch Soaps, Salves and Botanical Candles',
 ];
