@@ -114,15 +114,15 @@ test('an Admin updates a day’s tiers, and the next run seats the vendor by the
     page.getByTestId('vendor-drawer-panel-history').getByTestId('market-history-sentence').first(),
   ).toHaveText(`${TEST_USER.email} updated the info of Nadia Okonkwo`);
 
-  // The result says what changed, until tables are allocated again.
-  await page.goto(marketScreenPath(marketId, 'result'));
+  // The Assignments page says what changed, until tables are allocated again.
+  await page.goto(marketScreenPath(marketId, 'assignments'));
   const line = page.getByTestId('assignment-out-of-date');
   await expect(line).toContainText('approved applications changed since tables were allocated', {
     timeout: 10000,
   });
   await line.getByRole('link', { name: 'Allocate tables again' }).click();
   await page.getByTestId('market-setup-assign-button').click();
-  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignments$`), { timeout: 15000 });
   await expect(line).toHaveCount(0);
 
   await all.goto(marketId);
