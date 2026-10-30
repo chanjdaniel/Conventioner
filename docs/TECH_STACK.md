@@ -282,7 +282,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Backend
 - `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
-- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://127.0.0.1:5173`). Has no say in CORS
+- `FRONTEND_URL` - The address organizers sign in at: email links, and Discord's OAuth2 redirect (this plus `/discord/connected`) (e.g., `http://127.0.0.1:5173`). Has no say in CORS
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
 - `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused

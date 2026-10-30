@@ -63,7 +63,7 @@ Values are never committed, and the app refuses to boot on a blank, a placeholde
 | `SESSION_TYPE` | back end | `null` (the session lives in the signed cookie) |
 | `CORS_ALLOWED_ORIGINS` | back end | `https://conventioner.io` |
 | `TRUSTED_PROXY_HOPS` | back end | `1` |
-| `FRONTEND_URL` | back end | `https://conventioner.io` (the links in outgoing mail) |
+| `FRONTEND_URL` | back end | `https://conventioner.io` (the address organizers sign in at: the links in outgoing mail, and Discord's OAuth2 redirect, this + `/discord/connected`) |
 | `FROM_EMAIL` | back end | `registration@conventioner.io` |
 | `RESEND_API_KEY` | back end | Resend dashboard, API keys |
 | `RECAPTCHA_SECRET_KEY` | back end | reCAPTCHA admin console, the property's secret |
