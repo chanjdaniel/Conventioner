@@ -239,6 +239,19 @@ class TestWhoMay:
         )
         assert not _stored(applications).get("answer_updates")
 
+    def test_the_markets_own_row_governs_it(self, market):
+        """A market that keeps its own row for it (E39/F01/S03) is asked that row, not the
+        built-in default: an Editor is refused where the market asks for an Admin."""
+        applications = market(role=MarketRole.EDITOR, permissions={
+            "update-vendor-info": {"role": "admin", "source": "market"}})
+
+        with pytest.raises(ForbiddenError) as refused:
+            _update({"shop": "Ember Ceramics"})
+
+        assert str(refused.value) == (
+            "Only an Admin or the owner may update this market's vendors' info.")
+        assert not _stored(applications).get("answer_updates")
+
     def test_an_editor_may(self, market):
         market(role=MarketRole.EDITOR)
 
