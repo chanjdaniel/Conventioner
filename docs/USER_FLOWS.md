@@ -43,7 +43,7 @@ A bug the status once named is cited where its fix changed what a step says.
 ### The flows, by group
 
 - [A. Accounts](business/flows/accounts.md) - A1, A1a, A2 to A5
-- [B. Organizations](business/flows/organizations.md) - B1 to B6, with B5a to B5c
+- [B. Organizations](business/flows/organizations.md) - B1 to B7, with B5a to B5c
 - [C. Finding and opening markets](business/flows/finding-a-market.md) - C1 to C5
 - [D. Creating a market](business/flows/creating-a-market.md) - D1 to D5
 - [E. Planning the market](business/flows/planning.md) - E1 to E8

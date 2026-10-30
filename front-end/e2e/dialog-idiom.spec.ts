@@ -293,6 +293,36 @@ test.describe('Manage organization stays open', () => {
     await expect(orgs.addAdminInput).toHaveValue(notAUser);
   });
 
+  test('its controls are the product size, adding is one row with its own Cancel, and it opens on no Remove', async ({
+    authenticatedPage: page,
+  }) => {
+    const { orgs, card } = await openAFreshOrg(page);
+    const height = (button: import('@playwright/test').Locator) =>
+      button.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+
+    // Manage market's "Add user": the product's height, secondary.
+    for (const button of [orgs.addAdminButton, orgs.addMemberButton, orgs.deleteButton]) {
+      expect(await height(button)).toBe(36);
+    }
+
+    await orgs.addAdmin(SECOND.email);
+    await expect(orgs.adminEmails.filter({ hasText: SECOND.email })).toBeVisible();
+    await expect(orgs.addAdminButton).toHaveCount(0);
+    const cancel = page.getByTestId('manage-org-add-admin-cancel');
+    const add = await orgs.addAdminSubmit.boundingBox();
+    const cancelBox = await cancel.boundingBox();
+    expect(Math.abs((add?.y ?? 0) - (cancelBox?.y ?? -100))).toBeLessThan(2);
+    await cancel.click();
+    await expect(orgs.addAdminInput).toHaveCount(0);
+    await expect(orgs.addAdminButton).toBeVisible();
+
+    // Opened again with an admin listed, it starts on "Add admin", never on their Remove.
+    await orgs.manageCloseButton.click();
+    await card.getByTestId('organizations-manage-button').click();
+    await orgs.waitForManageOverlay();
+    await expect(orgs.addAdminButton).toBeFocused();
+  });
+
   test('the explicit close and the backdrop both still close it', async ({
     authenticatedPage: page,
   }) => {
