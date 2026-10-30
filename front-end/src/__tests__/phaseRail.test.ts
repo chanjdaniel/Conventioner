@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
-import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
+import { movesServedFrom } from './support/servedMoves';
 import { answersRefusing } from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 
@@ -35,19 +35,11 @@ describe('the spine', () => {
       .findAll('.phase-step')
       .map((step) => step.attributes('data-phase'));
 
-    expect(labels).toEqual([
-      'draft',
-      'applications_open',
-      'applications_closed',
-      'review',
-      'assignment',
-      'market_days',
-      'archived',
-    ]);
+    expect(labels).toEqual(['draft', 'applications', 'assignment', 'market_days', 'archived']);
   });
 
   it('marks where the market is, and fills what it has passed', () => {
-    const steps = railFor(MarketPhase.Review, { intakeMode: IntakeMode.Form }).findAll(
+    const steps = railFor(MarketPhase.Assignment, { intakeMode: IntakeMode.Form }).findAll(
       '.phase-step',
     );
     const states = Object.fromEntries(
@@ -55,54 +47,38 @@ describe('the spine', () => {
     );
 
     expect(states.draft).toBe('done');
-    expect(states.applications_closed).toBe('done');
-    expect(states.review).toBe('current');
-    expect(states.assignment).toBe('todo');
+    expect(states.applications).toBe('done');
+    expect(states.assignment).toBe('current');
+    expect(states.market_days).toBe('todo');
   });
 
   it('labels every stage in words a person reads', () => {
     const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Form });
 
-    expect(rail.text()).toContain('Applications Open');
+    expect(rail.get('[data-phase="applications"]').text()).toBe('Applications');
     expect(rail.text()).toContain('Market Days');
   });
 
-  it("names a CSV market's stages Plan, Import, Review (E31/F03/S03, E32/F02/S01)", () => {
-    const rail = railFor(MarketPhase.Draft, {
-      intakeMode: IntakeMode.Csv,
-      phasesPassedThrough: IMPORTING_SERVED.phasesPassedThrough,
-    });
+  it("names a Google Form market's stage Review (E38/F04/S01)", () => {
+    const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Csv });
 
-    expect(rail.text()).toContain('Import');
-    expect(rail.text()).not.toContain('Applications Open');
-    expect(rail.text()).not.toContain('Form Closed');
-    expect(rail.get('[data-testid="phase-transition-applications_open"]').text()).toBe(
-      'Import responses',
-    );
-  });
-
-  it('moves a CSV market on from importing to review, the closed phase stepped through', () => {
-    const rail = railFor(MarketPhase.ApplicationsOpen, {
-      intakeMode: IntakeMode.Csv,
-      ...IMPORTING_SERVED,
-    });
-
-    expect(rail.get('[data-testid="phase-transition-review"]').text()).toBe('Begin Review');
-    expect(rail.find('[data-testid="phase-transition-applications_closed"]').exists()).toBe(false);
+    expect(rail.get('[data-phase="applications"]').text()).toBe('Review');
+    expect(rail.text()).not.toContain('Applications');
+    expect(rail.get('[data-testid="phase-transition-applications"]').text()).toBe('Begin Review');
   });
 });
 
 describe('the actions', () => {
   it('puts the one step onward on the rail itself', () => {
-    const rail = railFor(MarketPhase.Review);
+    const rail = railFor(MarketPhase.Applications);
 
     expect(rail.get('[data-testid="phase-transition-assignment"]').text()).toBe('Begin Assignment');
   });
 
   it('does not present reopening for editing as an advance', async () => {
-    // The hole in the special cases this replaces: `applications_open -> draft` fell through to
+    // The hole in the special cases this replaces: the move back to draft fell through to
     // `advance` and was drawn as the way onward.
-    const rail = railFor(MarketPhase.ApplicationsOpen);
+    const rail = railFor(MarketPhase.Applications);
 
     expect(rail.find('[data-testid="phase-transition-draft"]').exists()).toBe(false);
 
@@ -112,8 +88,20 @@ describe('the actions', () => {
     expect(reopen.text()).toBe('Reopen for Editing');
   });
 
+  it('ends the menu with archiving, after the moves back', async () => {
+    const rail = railFor(MarketPhase.Applications);
+
+    await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    const items = rail.findAll('[role="menuitem"]').map((item) => item.attributes('data-testid'));
+    expect(items).toEqual([
+      'phase-rail-action-redo-import',
+      'phase-transition-draft',
+      'phase-transition-archived',
+    ]);
+  });
+
   it('keeps archiving out of the forward action, in every phase', async () => {
-    for (const phase of [MarketPhase.Draft, MarketPhase.Review, MarketPhase.Assignment]) {
+    for (const phase of [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.Assignment]) {
       const rail = railFor(phase);
       expect(rail.find('[data-testid="phase-transition-archived"]').exists()).toBe(false);
 
@@ -168,8 +156,13 @@ describe('the actions', () => {
   it('offers no phase move to someone the table does not let move it (bug 37, E39/F01/S02)', () => {
     // Moving the phase is the table's row; an Editor or a Viewer was offered every move, and each
     // failed with a 403 in small red text under the rail.
-    const rail = railFor(MarketPhase.Review, {
-      actionRefusals: answersRefusing(MarketAction.MovePhase),
+    const rail = railFor(MarketPhase.Applications, {
+      intakeMode: IntakeMode.Csv,
+      actionRefusals: answersRefusing(
+        MarketAction.MovePhase,
+        MarketAction.ImportApplications,
+        MarketAction.StopApplications,
+      ),
     });
 
     expect(rail.find('.rail-button--forward').exists()).toBe(false);
@@ -203,7 +196,7 @@ describe('a market that left the spine', () => {
   }
 
   it('freezes at the furthest stage its record reached, and says what became of it', () => {
-    const assigned = archivedHaving(['draft', 'applications_open', 'assignment', 'archived']);
+    const assigned = archivedHaving(['draft', 'applications', 'assignment', 'archived']);
 
     expect(assigned.get('[data-testid="phase-rail-frozen"]').text()).toContain('never published');
     const states = statesOf(assigned);
@@ -221,7 +214,7 @@ describe('a market that left the spine', () => {
   });
 
   it('says a market opened applications though it went back to draft after', () => {
-    const reopened = archivedHaving(['draft', 'applications_open', 'archived']);
+    const reopened = archivedHaving(['draft', 'applications', 'archived']);
 
     expect(reopened.text()).toContain('It opened applications but never allocated tables.');
   });
@@ -268,7 +261,7 @@ describe('the check-in URL', () => {
   });
 
   it('is absent before publishing, because it would be a link to a 404', () => {
-    for (const phase of [MarketPhase.Draft, MarketPhase.Review, MarketPhase.Assignment]) {
+    for (const phase of [MarketPhase.Draft, MarketPhase.Applications, MarketPhase.Assignment]) {
       expect(
         railFor(phase, { slug: 'riverside-market' })
           .find('[data-testid="phase-rail-checkin"]')

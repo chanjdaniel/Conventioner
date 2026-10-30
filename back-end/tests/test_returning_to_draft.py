@@ -2,14 +2,14 @@
 
 E03/F04, decided by wayfinder ticket 05.
 
-The trap this opens: the application form is editable only in ``draft``, importing is permitted only
-in ``applications_open``, and no transition returned to ``draft``. So an organizer had to name every
+The trap this opened: the application form is editable only in ``draft``, importing was permitted only
+once applications were open, and no transition returned to ``draft``. So an organizer had to name every
 custom field they would ever want *before* they had seen the import screen or their own columns, and
 one click froze the form for good - which is why a reviewer is shown an email address and nothing
 else.
 
 The guard is what makes this safe rather than a hole in D9. Applicant submission is gated to
-``applications_open`` (``api/applicants.py``), so a count of zero is only *stable* in ``draft``;
+``applications`` (``api/applicants.py``), so a count of zero is only *stable* in ``draft``;
 while applications are open it is a read-then-write race. Returning is therefore permitted only
 while no application exists, and once one does the form is frozen for good exactly as before.
 """
@@ -26,7 +26,7 @@ from datatypes import Market, MarketPhase, MarketRole  # noqa: E402
 from guards import NoApplicationsYetGuard, VALID_TRANSITIONS, evaluate_transition  # noqa: E402
 
 
-def _market(phase=MarketPhase.APPLICATIONS_OPEN):
+def _market(phase=MarketPhase.APPLICATIONS):
     return Market(
         id="market-1",
         name="Test Market",
@@ -48,18 +48,17 @@ def application_count(monkeypatch):
 
 
 class TestTheEdgeExists:
-    def test_applications_open_can_return_to_draft(self):
-        assert ("applications_open", "draft") in VALID_TRANSITIONS
+    def test_the_stage_can_return_to_draft(self):
+        assert ("applications", "draft") in VALID_TRANSITIONS
 
     def test_no_other_phase_may_return_to_draft(self):
         """Only the phase immediately after draft, and only while nothing has been submitted.
 
-        A market that has closed applications, begun review, or assigned has moved past the point
-        where its form is a draft of anything.
+        A market that has assigned has moved past the point where its form is a draft of anything.
         """
         into_draft = {frm for frm, to in VALID_TRANSITIONS if to == "draft"}
 
-        assert into_draft == {"applications_open"}
+        assert into_draft == {"applications"}
 
 
 class TestTheGuard:
@@ -109,7 +108,7 @@ class TestTheEdgeIsGuarded:
         assert evaluate_transition(_market(), MarketPhase.DRAFT, None) == []
 
     def test_the_guard_is_registered_on_the_edge(self):
-        assert ("applications_open", "draft") in guards.TRANSITION_GUARDS
+        assert ("applications", "draft") in guards.TRANSITION_GUARDS
 
 
 class TestWhatItDoesNotChange:
@@ -121,4 +120,4 @@ class TestWhatItDoesNotChange:
         assert evaluate_transition(_market(), MarketPhase.DRAFT, None) != []
 
     def test_opening_applications_again_is_still_possible(self):
-        assert ("draft", "applications_open") in VALID_TRANSITIONS
+        assert ("draft", "applications") in VALID_TRANSITIONS

@@ -58,9 +58,11 @@ async function createMarket(
   name: string,
   dates: string[],
 ): Promise<string> {
+  // Vendors apply on its page, so opening applications is its way into the stage (E38/F04/S01).
   const { marketId } = await seedDraftMarket(request, BACKEND_URL, USER.email, USER.password, {
     name,
     organizationId,
+    intakeMode: 'form',
   });
   await savePlan(request, BACKEND_URL, USER.email, marketId, plan(dates));
   return marketId;
@@ -86,7 +88,7 @@ test.describe('Finding a market', () => {
 
     // Applications open needs a form that asks something; the plan's dates are essential
     // questions, so that alone is a form.
-    await transitionMarket(request, BACKEND_URL, USER.email, cafe, 'applications_open');
+    await transitionMarket(request, BACKEND_URL, USER.email, cafe, 'applications');
     await transitionMarket(request, BACKEND_URL, USER.email, winter, 'archived');
   });
 
@@ -137,7 +139,7 @@ test.describe('Finding a market', () => {
     await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'true');
     await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'false');
     await markets.expectNames([TEST_FAIR, ATTIC]);
-    await markets.phaseToggle('applications_open').click();
+    await markets.phaseToggle('applications').click();
     await markets.expectNames([TEST_FAIR, CAFE, ATTIC]);
     await markets.sortSelect.selectOption('name');
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);

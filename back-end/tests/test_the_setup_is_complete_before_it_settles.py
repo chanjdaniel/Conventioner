@@ -12,7 +12,8 @@ import pytest
 
 import guards
 from datatypes import (
-    AssignmentObject, AssignmentOptionObject, FormField, ApplicationForm, LocationObject, Market,
+    AssignmentObject, AssignmentOptionObject, FormField, ApplicationForm, IntakeMode, LocationObject,
+    Market,
     MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
 )
 
@@ -31,6 +32,8 @@ def _market(dates=(SOON,), tiers=(GOLD,), locations=(HALL,), sections=None):
     return Market(
         name="Test Market", creation_date="2026-01-01", roles={"owner-1": MarketRole.OWNER},
         modification_list=[], assignment_object=AssignmentObject(), phase=MarketPhase.DRAFT,
+        # Vendors apply on its page: the setup is all that stands between it and opening.
+        intake_mode=IntakeMode.FORM,
         application_form=ApplicationForm(fields=[FormField(
             key="what", label="What do you sell?", type="text", required=False, options=[],
             order=0)]),
@@ -43,7 +46,7 @@ def _market(dates=(SOON,), tiers=(GOLD,), locations=(HALL,), sections=None):
 
 
 def _blockers(market):
-    return guards.evaluate_transition(market, "applications_open", None)
+    return guards.evaluate_transition(market, "applications", None)
 
 
 def test_a_complete_setup_leaves_draft():
@@ -114,4 +117,4 @@ def test_only_leaving_draft_asks_it():
     for edge, guard_list in guards.TRANSITION_GUARDS.items():
         ids = {guard.id for guard in guard_list}
         complete = {"setup_has_dates", "setup_has_a_location", "every_tier_has_tables"}
-        assert (complete <= ids) == (edge == ("draft", "applications_open")), edge
+        assert (complete <= ids) == (edge == ("draft", "applications")), edge

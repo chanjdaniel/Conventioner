@@ -10,7 +10,6 @@ import pytest
 
 from conftest import FakeMarketsCollection, sessions_load_through_get_user, stored_market
 import app as app_module
-import api.form_amendment as Amend
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -37,8 +36,6 @@ WRITES = {
     "plan": lambda: MarketsApi.save_plan("market-123", {"setupObject": {}}, "user-1"),
     "review highlights": lambda: MarketsApi.save_review_highlights("market-123", [], "user-1"),
     "form": lambda: MarketsApi.save_application_form("market-123", FORM, "user-1"),
-    "form amendment": lambda: Amend.amend_application_form("market-123", FORM, "user-1"),
-    "resume amendment": lambda: Amend.resume_amendment("market-123", "user-1"),
     "assignment run": lambda: PlacementsApi.run_assignment("market-123", "user-1"),
     "place": lambda: PlacementsApi.write_placement(
         "market-123",
@@ -122,13 +119,12 @@ ROW_WRITES = {
     "export-csv": ("get", "/markets/market-123/assignment-csv", None),
     "change-setup": ("put", "/markets/market-123/name", {"name": "Another Market"}),
     "change-form": ("put", "/markets/market-123/review-highlights", {"keys": []}),
-    "amend-form": ("post", "/markets/market-123/application-form/amendment",
-                   {"applicationForm": FORM}),
     "import-applications": ("post", "/markets/market-123/applications/import",
                             {"csvContent": "a,b\n1,2"}),
     "give-verdicts": ("put", "/markets/market-123/applications/app-1/review",
                       {"status": "reviewer_rejected"}),
     "move-phase": ("post", "/markets/market-123/transition", {"toPhase": "draft"}),
+    "stop-applications": ("post", "/markets/market-123/applications-stopped", {"stopped": True}),
     "publish-results": ("post", "/markets/market-123/publish-results", {}),
     "add-vendor": ("post", "/markets/market-123/vendors",
                    {"name": "Ana", "email": "ana@example.com"}),

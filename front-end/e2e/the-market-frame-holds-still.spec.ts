@@ -44,7 +44,7 @@ test('the rail holds the application page and the next step on one row at 1440',
 
   const spine = await box(page.getByTestId('phase-rail-spine'));
   const chip = page.getByTestId('phase-rail-apply');
-  const next = page.getByTestId('phase-transition-applications_closed');
+  const next = page.getByTestId('phase-transition-assignment');
   expect(Math.abs(middle(await box(chip)) - middle(spine))).toBeLessThan(4);
   expect(Math.abs(middle(await box(next)) - middle(spine))).toBeLessThan(4);
 
@@ -70,7 +70,7 @@ test('where the rail cannot hold one row, the address and the next step share th
 
   const spine = await box(page.getByTestId('phase-rail-spine'));
   const chip = await box(page.getByTestId('phase-rail-apply'));
-  const next = await box(page.getByTestId('phase-transition-applications_closed'));
+  const next = await box(page.getByTestId('phase-transition-assignment'));
   // Never a lone button on a row of its own beside an empty band: the second row is designed.
   expect(chip.y).toBeGreaterThan(spine.y + spine.height);
   expect(Math.abs(middle(next) - middle(chip))).toBeLessThan(4);

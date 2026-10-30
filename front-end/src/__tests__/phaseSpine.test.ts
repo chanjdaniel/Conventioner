@@ -11,9 +11,7 @@ describe('the spine', () => {
   it('is the lifecycle in order, ending at archived', () => {
     expect(phaseSpine()).toEqual([
       'draft',
-      'applications_open',
-      'applications_closed',
-      'review',
+      'applications',
       'assignment',
       'market_days',
       'archived',
@@ -28,19 +26,14 @@ describe('the spine', () => {
 
   it('follows the table rather than a copy of it', () => {
     const shortened = VALID_TRANSITIONS.filter(
-      ([from, to]) => !(from === 'applications_closed' && to === 'review'),
+      ([from, to]) => !(from === 'applications' && to === 'assignment'),
     );
 
-    expect(phaseSpine(shortened)).toEqual([
-      'draft',
-      'applications_open',
-      'applications_closed',
-      'archived',
-    ]);
+    expect(phaseSpine(shortened)).toEqual(['draft', 'applications', 'archived']);
   });
 
   it('stops rather than guessing when the table forks', () => {
-    const forked: Array<[string, string]> = [...VALID_TRANSITIONS, ['draft', 'review']];
+    const forked: Array<[string, string]> = [...VALID_TRANSITIONS, ['draft', 'assignment']];
 
     expect(phaseSpine(forked)).toEqual(['draft', 'archived']);
   });
@@ -48,16 +41,14 @@ describe('the spine', () => {
 
 describe('which way a transition goes', () => {
   it('calls the next stage forward', () => {
-    expect(transitionDirection('review', 'assignment')).toBe('forward');
+    expect(transitionDirection('applications', 'assignment')).toBe('forward');
     expect(transitionDirection('assignment', 'market_days')).toBe('forward');
   });
 
   it('calls reopening for editing backwards, which the old special cases did not', () => {
-    // `applications_open -> draft` is the one unambiguously backwards edge in the machine, and
-    // it fell through to `advance` - drawn as the way onward.
-    expect(transitionDirection('applications_open', 'draft')).toBe('back');
-    expect(transitionDirection('applications_closed', 'applications_open')).toBe('back');
-    expect(transitionDirection('review', 'applications_closed')).toBe('back');
+    // `applications -> draft` is the one backwards edge in the machine, and it fell through to
+    // `advance` - drawn as the way onward.
+    expect(transitionDirection('applications', 'draft')).toBe('back');
   });
 
   it('calls archiving the end, from every phase', () => {

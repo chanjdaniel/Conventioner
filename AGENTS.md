@@ -84,7 +84,7 @@ The market on screen:
 
 The market's lifecycle:
 
-- Before changing a phase move or a precondition, read [the guards and the phase move](docs/implementation/modules/guards.md) and [ADR 0005](docs/adr/0005-phase-is-the-only-lifecycle-state.md).
+- Before changing a phase move or a precondition, read [the guards and the phase move](docs/implementation/modules/guards.md), [ADR 0005](docs/adr/0005-phase-is-the-only-lifecycle-state.md) and [ADR 0016](docs/adr/0016-one-stage-for-applications-and-review.md).
 - Before changing the phase history or "did this market run", read [the phase record](docs/implementation/modules/phase-record.md).
 - Before changing what Market Setup may change after draft, read [the setup settles on leaving draft](docs/business/rules/the-setup-settles-on-leaving-draft.md).
 - Before changing who may do what on a market, or adding a check, read [what each role may do](docs/business/rules/what-each-role-may-do.md), [the market's actions](docs/implementation/modules/market-actions.md) and [an archived market is read-only](docs/business/rules/an-archived-market-is-read-only.md).

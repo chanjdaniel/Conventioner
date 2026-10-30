@@ -36,9 +36,7 @@ describes:
   - back-end/app.py#save_review_highlights
   - back-end/app.py#save_rejection_rules
   - back-end/app.py#delete_market
-  - back-end/app.py#application_form_amendment_availability
-  - back-end/app.py#amend_application_form
-  - back-end/app.py#resume_application_form_amendment
+  - back-end/app.py#set_applications_stopped
   - back-end/app.py#save_application_form
   - back-end/app.py#get_application_form
   - back-end/app.py#_named_phase
@@ -114,7 +112,7 @@ A domain exception of ours may carry client copy, because we wrote it where we r
 A parse that fails says what was wrong in our words, with the status it always had, and logs what the copy left out at warning level, never the input.
 
 - A body a model refuses answers 400 with `field_named_copy(heading, error)`: `Invalid plan: sections.0.count: Input should be a valid integer, ...`.
-  The plan is parsed in `prepared_plan`, the application form in `parsed_application_form` and a new market's body in `create_owned_market` (`Invalid market: ...`), all in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write and the [form amendment](../modules/form-amendment.md) share the form's parse.
+  The plan is parsed in `prepared_plan`, the application form in `parsed_application_form` and a new market's body in `create_owned_market` (`Invalid market: ...`), all in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the form write is the one parse of a form, the [form amendment](../modules/form-amendment.md)'s included.
   It names each failing field by its dotted location and pydantic's short `msg`, and never the error's `input`, `ctx`, `url` or `type`.
   Its log line is `parse_failure_detail(error)`: each location and pydantic's error type.
   The value is parsed with `model_validate`, so a value that is not an object is refused the same way rather than raising a `TypeError`.
@@ -150,7 +148,6 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
 - Updating a vendor's info refuses with `BadRequestError` (an answer the form refuses, a question it does not ask, an essential answer) and `NotFoundError` (an application not on the market), in [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).
-- The [form amendment](../modules/form-amendment.md)'s `AmendmentUnavailable`, `AmendmentRefused` and `AmendmentStalled` are `ConflictError`s; the last two answer their blockers and their resume offer from `body()`.
 - `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
 - `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
 
@@ -178,10 +175,9 @@ None catches anything, and each keeps its literal answers (`note is required`, `
 Creating a market answers a body the model refuses with its field-named 400, a refusal the markets API decides (no organization, an address another market holds) with that refusal's status, and anything else, its one-owner invariant included, with the generic 500.
 Deleting a market that does not exist answers 404.
 
-So do the application form, amendment and phase routes: reading and saving the form, the amendment's availability, the amendment and its resume, the phase move and the pending-offers count.
-None catches anything, and each keeps its literal answers (`applicationForm is required`, `to_phase is required`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
-A form saved in a phase that has fixed it answers its lock reason, 409; the amendment answers its blockers and a stall its resume offer from `body()`; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`.
-A stall is the one refusal logged: `_walk` in [`back-end/api/form_amendment.py`](../../../back-end/api/form_amendment.py) logs the market's id and where it stopped before it raises, because a market left between phases is worth a line for whoever is on call, and the handler logs no client error.
+So do the application form and phase routes: reading and saving the form, the phase move, stopping and taking applications, and the pending-offers count.
+None catches anything, and each keeps its literal answers (`to_phase is required`, `stopped must be true or false`, `Unknown phase: '<phase>'. Valid phases: ...`, `Market not found`, `Invalid market data`, and the permission 403s the routes ask themselves).
+A form saved in a phase that has fixed it answers its lock reason, 409; the phase move answers its own guards' 409 and a market moved under it with `PhaseChangedUnderRequest.body()`; a stop asked of a market that takes none answers why, 409.
 
 So do the assignment and placement routes: running the assignment, adding a vendor who never applied, writing, swapping and freeing a placement, and reading the placement history and the market's history.
 None catches anything.
@@ -216,7 +212,7 @@ The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back
   A vendor-note write that fails logs neither the vendor's address, the path nor the body.
   Each organization and market role route answers a refusal with its status and copy, an organization or market that does not exist with 404, and an injected exception with exactly the generic 500, logged with the organization or market id and no address.
   So does each market setup route, and creating a market answers its one-owner invariant with the generic 500 too, logged with its traceback.
-  So does each application form, amendment and phase route; a resume on a market that cannot be read answers `Invalid market data`, 400, a stall is logged with its market id and answered with its resume offer, and a phase that is not a name is unknown.
+  So does each application form and phase route, and a phase that is not a name is unknown.
   So does each assignment and placement route; a run over incomplete answers names them, and a body that is not an object is refused in words.
   So does each applicant, review, import and door route; on a public route the failure is logged with the market's slug and never the vendor's address in the path, an applicant whose session expired is asked to sign in again, and an application that cannot be parsed is logged without its answers.
   A stored market that cannot be read refuses the vendor notes, whose route catches no `ValueError`, with `Invalid market data`, 400.

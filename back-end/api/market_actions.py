@@ -72,9 +72,6 @@ CHANGE_FORM = action(
     "change-form", "Market Setup",
     "Change the form, the automatic rejections and the review highlights",
     MarketRole.EDITOR, "change this market's form, automatic rejections or review highlights")
-AMEND_FORM = action(
-    "amend-form", "Market Setup", "Amend a locked form", MarketRole.ADMIN,
-    "amend this market's locked form")
 IMPORT_APPLICATIONS = action(
     "import-applications", "Applications", "Import applications, and start a market from a CSV",
     MarketRole.ADMIN, "import applications or start this market from a CSV")
@@ -83,6 +80,9 @@ GIVE_VERDICTS = action(
     "give verdicts and follow-ups on this market")
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
+STOP_APPLICATIONS = action(
+    "stop-applications", "Lifecycle", "Stop taking applications, and take them again",
+    MarketRole.ADMIN, "stop or resume taking applications on this market")
 PUBLISH_RESULTS = action(
     "publish-results", "Lifecycle", "Publish results", MarketRole.ADMIN,
     "publish this market's results")

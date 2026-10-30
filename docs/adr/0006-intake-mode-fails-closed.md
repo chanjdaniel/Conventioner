@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/datatypes.py#IntakeMode
   - back-end/datatypes.py#intake_mode_from_market_document
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07
@@ -25,7 +25,7 @@ The glossary concept: [Intake mode](../business/concepts/intake-mode.md).
 
 A market's vendors reach it one of two ways: the organizer imports the responses their own Google Form collected, or vendors apply on the market's own page.
 The phase cannot tell the two apart.
-Applying is already gated to `applications_open`, but a CSV market passes through that phase too, because that is where the import happens, so during that window its public application form would be live and taking applications from strangers the organizer has no way to answer.
+Applying is already gated to a phase, but a CSV market passed through that phase too, because that was where the import happened (today it is the stage where its imported responses are reviewed, [ADR 0016](0016-one-stage-for-applications-and-review.md)), so its public application form would be live and taking applications from strangers the organizer has no way to answer.
 So a market needs a field of its own saying which way it takes vendors, and every market already stored had no such field.
 
 Whatever a missing value means, one mistake is possible for every existing market.
