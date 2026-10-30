@@ -267,13 +267,7 @@ test.describe('Tier 2 - Publish market', () => {
     // Publishing is `assignment -> market_days`, so the market has to BE in assignment. The seed
     // is shared across this file's tests, so walk only the steps still ahead of it. Its vendors
     // are already approved, so the review guard passes.
-    const PATH_TO_ASSIGNMENT = [
-      'draft',
-      'applications_open',
-      'applications_closed',
-      'review',
-      'assignment',
-    ];
+    const PATH_TO_ASSIGNMENT = ['draft', 'applications', 'assignment'];
     const marketRes = await page.request.get(
       `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
       { headers: { 'X-Owner-Email': TEST_USER.email } },

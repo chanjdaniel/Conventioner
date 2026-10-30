@@ -15,6 +15,7 @@ sources:
   - E39/F01/S03
   - E39/F01/S04
   - E41/F01/S01
+  - E38/F04/S02
 ---
 
 # The market's history
@@ -71,14 +72,13 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-form` | `form` | the form builder | - | - | the changed questions by key, null on the side where a question is absent, and `order` and `unasked_essentials` when they changed; and `rejected`, `returned`: what the rules decided as the form landed |
 | `change-form` | `review_highlights` | the [review highlights](../../business/rules/review-highlights.md) | - | - | `review_highlights` |
 | `change-form` | `rejection_rules` | the [automatic rejections](../../business/rules/automatic-rejections.md) | - | - | `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved |
-| `amend-form` | null | an amendment of a locked form | - | `return_phase` | the form's changes, `rejected` and `returned` as for `form`, and `hops`: the phase moves the chain took, recorded here rather than as moves |
-| `amend-form` | `resumed` | finishing a stalled amendment | - | `return_phase` | `phase`, and `hops` |
-| `import-applications` | `imported` | an import, one entry however many rows | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
+| `import-applications` | `imported` | an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
 | `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
 | `give-verdicts` | `verdict` | one verdict, or a follow-up | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
 | `give-verdicts` | `verdicts` | a selection's verdict, one entry | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
+| `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
 | `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name` and `status`, null before |
 | `update-vendor-info` | null | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, as the organizer read them before and after; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
@@ -92,7 +92,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
-No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an amendment, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
+No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
 Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose history starts empty; its deletion, which takes the history with it while the [deletion trail](../modules/market-deletion.md) records it; and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.

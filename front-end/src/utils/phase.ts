@@ -9,9 +9,8 @@ import { MarketPhase } from '@/assets/types/datatypes';
  */
 export const PHASE_LABELS: Record<string, string> = {
   [MarketPhase.Draft]: 'Draft',
-  [MarketPhase.ApplicationsOpen]: 'Applications Open',
-  [MarketPhase.ApplicationsClosed]: 'Applications Closed',
-  [MarketPhase.Review]: 'Review',
+  // A Google Form market calls it Review (`CSV_PHASE_LABELS` in `marketGuide.ts`).
+  [MarketPhase.Applications]: 'Applications',
   [MarketPhase.Assignment]: 'Assignment',
   [MarketPhase.Offers]: 'Offers',
   [MarketPhase.MarketDays]: 'Market Days',
@@ -34,21 +33,16 @@ export function phaseLabel(phase: string | undefined | null): string {
 
 /** Frontend mirror of guards.py VALID_TRANSITIONS -- single source of truth for UI routing. */
 export const VALID_TRANSITIONS: Array<[string, string]> = [
-  ['draft', 'applications_open'],
+  // Into the stage where applications arrive and are reviewed (E38/F04/S01).
+  ['draft', 'applications'],
   ['draft', 'archived'],
   // The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded
   // server-side on no application existing; the button is offered and the guard decides.
-  ['applications_open', 'draft'],
-  ['applications_open', 'applications_closed'],
-  ['applications_open', 'archived'],
-  ['applications_closed', 'applications_open'],
-  ['applications_closed', 'review'],
-  ['applications_closed', 'archived'],
-  ['review', 'applications_closed'],
-  ['review', 'assignment'],
+  ['applications', 'draft'],
+  ['applications', 'assignment'],
+  ['applications', 'archived'],
   // Publishing (E03/F03): market_days means the market is running.
   ['assignment', 'market_days'],
-  ['review', 'archived'],
   ['assignment', 'offers'],
   ['assignment', 'archived'],
   ['offers', 'market_days'],
@@ -130,7 +124,7 @@ export type TransitionDirection = 'forward' | 'back' | 'end' | 'aside';
  * Forward, backward, or out of the lifecycle entirely.
  *
  * Read off the spine rather than special-cased per phase. The special cases had a hole in them:
- * `applications_open -> draft` - the one unambiguously backwards edge in the machine, offered so
+ * `applications -> draft` - the one unambiguously backwards edge in the machine, offered so
  * a form can be corrected before anyone has answered it - fell through to `advance` and was drawn
  * as the way onward.
  */

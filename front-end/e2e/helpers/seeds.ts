@@ -222,7 +222,7 @@ const MINIMAL_APPLICATION_FORM = {
  * The market is created in draft phase with a finalized application form and
  * source data uploaded so the assignment engine can compute assignments.
  *
- * The market stays in draft - callers that need applications_open or archived
+ * The market stays in draft - callers that need applications or archived
  * must transition themselves. This keeps seedAssignedMarket callers compatible.
  *
  * The D9 lock ordering is enforced: the application form is finalized BEFORE
@@ -406,7 +406,7 @@ export async function seedPublishedMarketWithAssignments(
     }
   };
 
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const toPhase of ['applications', 'assignment']) {
     await transitionTo(toPhase);
   }
 

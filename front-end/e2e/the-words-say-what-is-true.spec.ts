@@ -3,7 +3,11 @@ import { test, expect, TEST_USER, NO_ORG_USER, BACKEND_URL, LoginPage } from './
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
-import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
 import { seedMarketWithVendors } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 
@@ -68,8 +72,8 @@ test('an open market says where its applications come from', async ({
   request,
 }) => {
   for (const [intakeMode, says] of [
-    ['form', 'New ones will keep arriving here.'],
-    ['csv', 'The responses you import from your Google Form arrive here'],
+    ['form', 'New ones keep arriving here.'],
+    ['csv', 'Every response you imported from your Google Form is here.'],
   ] as const) {
     const { marketId } = await seedApplicantMarket(
       request,
@@ -78,6 +82,11 @@ test('an open market says where its applications come from', async ({
       TEST_USER.password,
       { intakeMode },
     );
+    // A Google Form market enters Review holding its imported responses (E38/F04/S01).
+    if (intakeMode === 'csv') {
+      seedApplicationWithStatus(marketId, 'open', 'imported@example.com');
+      await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+    }
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(says);
   }
@@ -118,17 +127,16 @@ test('a market past review is not sent back to a phase it cannot reach to import
     TEST_USER.password,
   );
   // The seed's plan is complete, so it may leave draft (E31/F01/S01).
-  for (const phase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+  for (const phase of ['applications', 'assignment']) {
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
   }
-  // The Applications tab offers no import past importing (E32/F02/S03); the import's own address
-  // still says why, in words that name no phase it cannot reach.
+  // The Applications tab offers no import (E38/F04/S03); the import's own address still says why,
+  // in words that name no phase it cannot reach.
   await page.goto(marketSetupPath(marketId, 'applications'));
   await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
   await page.goto(marketScreenPath(marketId, 'import'));
   const reason = page.getByTestId('import-wrong-phase');
   await expect(reason).toContainText('past review, so it takes no more applications');
-  await expect(reason).not.toContainText('Applications Closed');
 });
 
 test('a proposal does not call the dates unasked beside the tier grid that answers them', async ({

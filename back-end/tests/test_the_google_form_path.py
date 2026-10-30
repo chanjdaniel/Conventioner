@@ -1,10 +1,9 @@
-"""The Google Form path reads Plan, Import, Review (E32/F02/S01).
+"""The Google Form path enters Review by its first import (E38/F04/S01).
 
-An organizer on this path already holds their Google Form's responses when they leave draft, so
-"Start Collecting" and "Done Collecting" asked them to say things that were not so. The server's
-phases do not change: the path steps through ``applications_closed`` rather than stopping in it,
-so Begin Review takes a market from importing to review in one move, every hop's guards judged
-before the first step - and refused while nothing has been imported.
+An organizer on this path already holds their Google Form's responses when they leave draft, so the
+import is the collection: the market enters the stage, shown as Review, only once its responses are
+imported. The move from draft waits on an import (``ResponsesImportedGuard``), whose fix is the
+import itself, and the import takes the move once its rows are written.
 """
 import os
 import sys
@@ -14,13 +13,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.applications as ApplicationsApi  # noqa: E402
-from datatypes import IntakeMode, Market, MarketPhase, MarketRole  # noqa: E402
-from guards import (  # noqa: E402
-    VALID_TRANSITIONS,
-    evaluate_transition,
-    path_moves,
-    transition_verdicts,
-)
+from conftest import complete_setup  # noqa: E402
+from datatypes import IntakeMode, Market, MarketPhase, MarketRole, phase_label  # noqa: E402
+from guards import evaluate_transition, transition_verdicts  # noqa: E402
 
 
 def _market(phase: MarketPhase, intake: IntakeMode = IntakeMode.CSV) -> Market:
@@ -31,6 +26,8 @@ def _market(phase: MarketPhase, intake: IntakeMode = IntakeMode.CSV) -> Market:
         roles={"user-1": MarketRole.OWNER},
         modification_list=[],
         assignment_object={},
+        setup_object=complete_setup(),
+        application_form={"fields": [{"key": "name", "label": "Name", "type": "text"}]},
         phase=phase,
         intake_mode=intake,
     )
@@ -48,46 +45,25 @@ def applications(monkeypatch):
 
 
 class TestTheMovesOnThePath:
-    def test_importing_moves_on_to_review_through_the_closed_phase(self):
-        moves = path_moves(_market(MarketPhase.APPLICATIONS_OPEN))
+    def test_a_draft_moves_on_into_the_stage_and_nowhere_else(self, applications):
+        verdicts = transition_verdicts(_market(MarketPhase.DRAFT), None)
 
-        assert moves == {
-            "draft": ["draft"],
-            "review": ["applications_closed", "review"],
-            "archived": ["archived"],
-        }
+        assert set(verdicts) == {"applications", "archived"}
 
-    def test_review_goes_back_to_importing_through_it_too(self):
-        moves = path_moves(_market(MarketPhase.REVIEW))
+    def test_the_stage_goes_back_to_draft_or_on_to_assignment(self, applications):
+        verdicts = transition_verdicts(_market(MarketPhase.APPLICATIONS), None)
 
-        assert moves["applications_open"] == ["applications_closed", "applications_open"]
-        assert "applications_closed" not in moves
-        assert moves["assignment"] == ["assignment"]
+        assert set(verdicts) == {"draft", "assignment", "archived"}
 
-    def test_a_form_market_stops_in_every_phase(self):
-        for phase in MarketPhase:
-            moves = path_moves(_market(phase, IntakeMode.FORM))
-
-            assert moves == {
-                to: [to] for frm, to in VALID_TRANSITIONS if frm == phase.value
-            }
-
-    def test_a_google_form_market_already_in_the_closed_phase_still_has_its_ways_out(self):
-        """A market moved there before the path stepped through it is not stranded."""
-        moves = path_moves(_market(MarketPhase.APPLICATIONS_CLOSED))
-
-        assert moves["review"] == ["review"]
-        assert moves["applications_open"] == ["applications_open"]
-
-    def test_the_market_read_offers_the_paths_moves_and_no_others(self, applications):
-        verdicts = transition_verdicts(_market(MarketPhase.APPLICATIONS_OPEN), None)
-
-        assert set(verdicts) == {"draft", "review", "archived"}
+    def test_the_stage_is_called_review_on_this_path_and_applications_on_the_other(self):
+        assert phase_label(MarketPhase.APPLICATIONS, IntakeMode.CSV) == "Review"
+        assert phase_label(MarketPhase.APPLICATIONS, IntakeMode.FORM) == "Applications"
+        assert phase_label(MarketPhase.APPLICATIONS) == "Applications"
 
 
 class TestReviewWaitsOnAnImport:
-    def test_begin_review_is_refused_while_nothing_has_been_imported(self, applications):
-        [blocker] = evaluate_transition(_market(MarketPhase.APPLICATIONS_OPEN), "review", None)
+    def test_entering_review_is_refused_while_nothing_has_been_imported(self, applications):
+        [blocker] = evaluate_transition(_market(MarketPhase.DRAFT), "applications", None)
 
         assert blocker.id == "responses_imported"
         assert "Import your Google Form's responses" in blocker.message
@@ -97,17 +73,27 @@ class TestReviewWaitsOnAnImport:
     def test_one_import_is_enough(self, applications):
         applications(3)
 
-        assert evaluate_transition(_market(MarketPhase.APPLICATIONS_OPEN), "review", None) == []
+        assert evaluate_transition(_market(MarketPhase.DRAFT), "applications", None) == []
 
-    def test_it_holds_on_the_last_step_alone_too(self, applications):
-        """A market already in the closed phase meets the same rule on the edge it takes."""
-        blockers = evaluate_transition(_market(MarketPhase.APPLICATIONS_CLOSED), "review", None)
+    def test_the_setup_is_asked_for_first(self, applications):
+        """The rail's fix is the move's first blocker, so Market Setup is offered before the import."""
+        market = _market(MarketPhase.DRAFT).model_copy(update={"setup_object": None})
 
-        assert [b.id for b in blockers] == ["responses_imported"]
+        blockers = evaluate_transition(market, "applications", None)
+
+        assert blockers[0].id == "setup_has_dates"
+        assert blockers[-1].id == "responses_imported"
+
+    def test_the_first_import_judges_the_move_less_what_it_writes(self, applications):
+        blockers = evaluate_transition(
+            _market(MarketPhase.DRAFT), "applications", None, leaving_out=("responses_imported",),
+        )
+
+        assert blockers == []
 
     def test_a_form_market_is_not_asked_to_import(self, applications):
         blockers = evaluate_transition(
-            _market(MarketPhase.APPLICATIONS_CLOSED, IntakeMode.FORM), "review", None,
+            _market(MarketPhase.DRAFT, IntakeMode.FORM), "applications", None,
         )
 
         assert blockers == []

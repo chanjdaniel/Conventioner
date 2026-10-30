@@ -70,11 +70,11 @@ def test_mixed_markets_are_partitioned():
 def test_migration_is_idempotent_and_skips_existing_phase():
     db = FakeDatabase([
         {"_id": 1, "id": "m1", "isDraft": False},
-        {"_id": 2, "id": "m2", "isDraft": False, "phase": "review"},
+        {"_id": 2, "id": "m2", "isDraft": False, "phase": "applications"},
     ])
     migrate(db)
     migrate(db)
-    assert phases(db) == {"m1": "archived", "m2": "review"}
+    assert phases(db) == {"m1": "archived", "m2": "applications"}
 
 
 def test_dry_run_writes_nothing():

@@ -12,7 +12,7 @@ import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
  * A vendor can read their application, and its outcome, after applications close (bug 20,
  * E26/F07/S02), which is one of two since E36/F05/S02: a table, or none.
  *
- * Every applicant endpoint served a market in Applications Open only, so once the organizer
+ * Every applicant endpoint served a market whose applications were open only, so once the organizer
  * published results and closed applications - the order most organizers do it in - the sign-in
  * page showed the raw slug, no code could be requested, and the verdict could not be reached.
  * The ruling the module itself records says an applicant may sign in during any phase and always
@@ -49,8 +49,8 @@ test('after results are published and applications close, a vendor still reads t
   });
   const TURNED_AWAY = 'turned-away@example.com';
   seedApplicationWithStatus(market.marketId, 'reviewer_rejected', TURNED_AWAY);
-  // Results wait for the allocation (E36/F04/S01): closed, reviewed, assigned, then published.
-  for (const toPhase of ['applications_closed', 'review', 'assignment']) {
+  // Results wait for the allocation (E36/F04/S01): reviewed, assigned, then published.
+  for (const toPhase of ['assignment']) {
     await post(request, `/markets/${market.marketId}/transition`, { toPhase });
   }
   await post(request, `/markets/${market.marketId}/assignment`);
