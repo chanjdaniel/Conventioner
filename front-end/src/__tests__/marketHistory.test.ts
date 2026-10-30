@@ -241,6 +241,17 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test made a change: Record a payment, about [Ben Okafor]');
   });
 
+  it('words an update of a vendor’s info by who updated whose', () => {
+    expect(
+      sentence({
+        action: 'update-vendor-info',
+        kind: null,
+        vendors: ['ana@ember.test'],
+        detail: { before: { category: 'Crafts' }, after: { category: 'Food' } },
+      }),
+    ).toBe('dana@ember.test updated [Ana Rivera]’s info');
+  });
+
   it('says a change it has no words and no row label for is a change, never its id', () => {
     expect(sentence({ action: 'record-payment', kind: null, vendors: ['ben@ember.test'] })).toBe(
       'dana@ember.test made a change, about [Ben Okafor]',

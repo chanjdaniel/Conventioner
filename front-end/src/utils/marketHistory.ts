@@ -247,6 +247,8 @@ export function entryParts(
       return [actor, text('published the results')];
     case 'add-vendor/':
       return [actor, text('added '), vendor, text(' as a vendor')];
+    case 'update-vendor-info/':
+      return [actor, text('updated '), vendor, text('’s info')];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':
