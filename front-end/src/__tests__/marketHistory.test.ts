@@ -531,21 +531,41 @@ describe('an applicant’s answers, before and after', () => {
   it('names each question as the form asks it, and reads each answer as a person would', () => {
     const { changed } = entryChanges(applied(), {}, IntakeMode.Form, [], '', FIELDS);
 
+    // As the form asks them: the essential questions first, then the organizer's own.
     expect(changed.map((row) => row.field)).toEqual([
-      'Business name',
       'Available dates',
       'Tier preference',
       'Table choice',
       'Other table-share partners',
+      'Business name',
     ]);
     expect(changed.map((row) => row.after)).toEqual([
-      'Ember Ceramics',
       'Saturday, August 1, 2099',
       'Saturday, August 1, 2099: Gold, Silver',
       expect.stringMatching(/half/i),
       'kai@example.com',
+      'Ember Ceramics',
     ]);
     expect(changed.every((row) => row.before === 'none')).toBe(true);
+  });
+
+  it('puts the organizer’s own questions in the form’s order, and anything else after', () => {
+    const fields = [
+      { key: 'shop', label: 'Shop', type: 'text', order: 1 },
+      { key: 'wares', label: 'What do you sell?', type: 'text', order: 0 },
+    ] as unknown as FormField[];
+    const answers = entry({
+      action: 'apply',
+      kind: 'submitted',
+      detail: {
+        before: {},
+        after: { gone: 'x', shop: 'Ember', wares: 'Pots', essential_full_name: 'Ana Rivera' },
+      },
+    });
+
+    expect(
+      entryChanges(answers, {}, IntakeMode.Form, [], '', fields).changed.map((row) => row.field),
+    ).toEqual(['Full name', 'What do you sell?', 'Shop', 'Gone']);
   });
 
   it('reads an organizer’s update of a vendor’s info the same way', () => {
@@ -558,7 +578,11 @@ describe('an applicant’s answers, before and after', () => {
       FIELDS,
     );
 
-    expect(changed[0]).toEqual({ field: 'Business name', before: 'none', after: 'Ember Ceramics' });
+    expect(changed.at(-1)).toEqual({
+      field: 'Business name',
+      before: 'none',
+      after: 'Ember Ceramics',
+    });
   });
 });
 

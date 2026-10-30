@@ -294,6 +294,23 @@ export function answerLabel(key: string, fields: readonly FormField[] = []): str
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/**
+ * Stored answer keys in the order the form asks them, as the Application tab lists them: the
+ * essential questions first (a table-share answer's parts beside the partner's address), then the
+ * organizer's own by the form's order, then anything the form no longer asks.
+ */
+export function inFormOrder(keys: readonly string[], fields: readonly FormField[] = []): string[] {
+  const essential = ESSENTIAL_KEYS.flatMap((key) =>
+    key === TABLE_SHARE_EMAIL_KEY ? [key, TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_ALSO_KEY] : [key],
+  );
+  const custom = [...fields].sort((a, b) => a.order - b.order).map((field) => field.key);
+  const rank = (key: string) => {
+    const at = [...essential, ...custom].indexOf(key);
+    return at < 0 ? Number.MAX_SAFE_INTEGER : at;
+  };
+  return [...keys].sort((a, b) => rank(a) - rank(b));
+}
+
 /** One stored answer as a person reads it, the way the review card shows it: dates and table
  * choices in words, rankings numbered, a map of tiers by date. */
 export function answerReading(key: string, value: unknown): string {

@@ -11,7 +11,7 @@
  * The detail and the subject are served as stored, snake_case, since their keys are data.
  */
 import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
-import { answerLabel, answerReading } from '@/utils/essentialFields';
+import { answerLabel, answerReading, inFormOrder } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
@@ -829,7 +829,7 @@ export function entryChanges(
     const after = asDetail(detail.after);
     const reading = (key: string, value: unknown) => answerReading(key, value) || 'none';
     return {
-      changed: [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      changed: inFormOrder([...new Set([...Object.keys(before), ...Object.keys(after)])], fields)
         .map((key) => ({
           field: answerLabel(key, fields),
           before: reading(key, before[key]),
