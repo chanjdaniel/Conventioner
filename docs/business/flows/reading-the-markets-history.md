@@ -12,6 +12,7 @@ sources:
   - E40/F01/S04
   - T92
   - E38/F06/S01
+  - E38/F07/S02
 ---
 
 # Reading the market's history
@@ -45,6 +46,7 @@ An archived market's history is still read: reading it is not a change ([an arch
 ## One vendor's history
 
 A vendor's drawer reads the same history narrowed to that vendor on its History tab: the same component given the vendor, so the same sentences, "Before and after" and "Load more", with no filters, and the vendor named by name alone ([the vendor drawer](vendor-drawer.md)).
+A deal of many applications ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)) reads there as that vendor's own line, "dealt the application to <address>", and opens to their reviewer alone, before and after; in the market's History it reads "chose the reviewers: …", "changed the reviewers: added …, removed …" or "removed every reviewer", and "dealt N open applications among M reviewers", or "dealt the application of <vendor> to <address>" when it moved one.
 The server narrows it to the changes that name the vendor, so a run of the assignment, which names nobody, is in no vendor's list.
 Someone below the row is shown no History tab, as no History section.
 

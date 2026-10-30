@@ -33,6 +33,7 @@ sources:
   - E38/F02/S01
   - E39/F01/S03
   - E43/F01/S01
+  - E38/F07/S02
 ---
 
 # The market document
@@ -77,7 +78,8 @@ The other collections differ: applications and the placement trail are stored sn
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
 | `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
-| `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
+| `reviewTeam` | the reviewers chosen for the review, `{reviewers: [{userId, email}], turn}`, in the order they are dealt to (by address), and how many applications were dealt since they last changed; absent is none chosen, so no migration; written only by [`back-end/review_team.py`](../../../back-end/review_team.py), null at creation, and never by a market update body ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); the read serves every reader `{reviewers: [{email, able}]}`, never the turn |
+| `creationDate`, `modificationList`, `theme` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
 

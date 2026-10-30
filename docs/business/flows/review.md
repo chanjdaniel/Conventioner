@@ -6,6 +6,7 @@ describes:
   - front-end/src/components/application/ApplicationsAll.vue
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
+  - front-end/src/components/market/ReviewersPanel.vue
 verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
@@ -45,6 +46,7 @@ sources:
   - E38/F04/S01
   - E38/F06/S01
   - E38/F07/S04
+  - E38/F07/S02
 ---
 
 # Reviewing applications
@@ -122,6 +124,17 @@ A selection is only ever the rows ticked, one by one or by Select all, which tic
 The list is not paged, so the rows shown are every match today; if it ever is paged, Select all still means the rows shown.
 The list is read again every 30 seconds while the tab is in view, quietly, which moves its "Updated" time too; every verdict given from it, and every Refresh, re-reads the market, so the rail's count moves.
 
+## Dividing the review
+
+**Status:** Works (read from the code as of E38/F07/S02: `choosing-reviewers-deals-the-open-applications.spec.ts`).
+The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
+
+1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
+   It lists the chosen reviewers' addresses, "(you)" beside the reader's own, or says "No reviewers chosen. Everyone reviews first come, first served."
+2. Someone who may choose reviewers (an Admin or the owner, by default) is offered "Choose reviewers", or "Change reviewers" once some are chosen; anyone else reads the panel without it.
+3. It opens a dialog: "Saving deals every open application again among the reviewers you choose. Decided applications stay where they are, and so do follow-ups, unless their owner is no longer a reviewer.", then a checkbox for each person the reader may choose, their own marked "(you)", the current reviewers ticked and no one else, and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([`ReviewerPicker.vue`](../../../front-end/src/components/market/ReviewerPicker.vue)).
+4. "Save reviewers" deals every open application among the ticked people, re-reads the market and the open view's list, and closes; a refused save keeps the dialog open with its error.
+
 ## I3. Choose what leads the card
 
 **Status:** Works (walked live).
@@ -159,6 +172,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
 - [Needs follow-up](../rules/needs-follow-up.md): the third verdict, with an owner.
+- [The review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md): each open application in one reviewer's share, once reviewers are chosen.
 - [Automatic rejections](../rules/automatic-rejections.md): the applications a rule rejected arrive decided, with the reason.
 - [Review needs an import](../rules/review-needs-an-import.md): on the Google Form path, the first import and Redo import.
 - [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.

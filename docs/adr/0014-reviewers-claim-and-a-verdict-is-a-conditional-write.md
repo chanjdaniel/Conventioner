@@ -17,6 +17,7 @@ sources:
   - E34/F04/S02
   - E38/F06/S01
   - E38/F07/S04
+  - E38/F07/S02
 status: accepted
 ---
 
@@ -59,6 +60,7 @@ A verdict on a selection (`review_selection` in [`back-end/api/applicants.py`](.
 - The claim is advisory: a reviewer can still be refused a verdict, so the review must always be able to show the application as it now stands.
 - A card left idle for five minutes can be handed to another reviewer; the first reviewer's verdict on it is still taken, unless the other has changed it since, when it is refused like any other.
 - The organizer's view serves `heldBy` while a claim stands, so the All view names the holder on the row, refuses to tick it, and reads the list again every 30 seconds while the tab is in view.
+- The hold is who is looking at a card now, never whose share it is: an application dealt to a chosen reviewer carries that as `reviewer` beside the hold, and a deal never moves a hold ([ADR 0020](0020-an-application-is-dealt-to-one-reviewer.md), [the review is dealt among chosen reviewers](../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 - A claim is not a change, so [the market's history](../implementation/data/history.md) records none; the verdict it leads to, and a selection's as one entry, are recorded.
 - What a reviewer saw is three fields that already exist, so no version counter was added to the application document ([the application document](../implementation/data/application-document.md)).
 - Who may review, and until when, is the verdicts' own rule ([verdicts settle on entering assignment](../business/rules/verdicts-settle-on-entering-assignment.md)); the review screens are [reviewing applications](../business/flows/review.md), and a follow-up's owner is [needs follow-up](../business/rules/needs-follow-up.md).

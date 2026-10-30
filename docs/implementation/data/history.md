@@ -22,6 +22,7 @@ sources:
   - E41/F01/S01
   - E38/F04/S02
   - E38/F06/S01
+  - E38/F07/S02
 ---
 
 # The market's history
@@ -84,6 +85,8 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
 | `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
+| `choose-reviewers` | `reviewers` | [choosing or changing the reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md), only when the set changed | - | - | `reviewers`: their addresses, in the order they are dealt to |
+| `choose-reviewers` | `dealt` | the deal a change of reviewers made, one entry, only when it moved any application | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: reviewers_changed`; by application id, its `reviewer` (an address, null when undealt), before and after |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
 | `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
@@ -98,6 +101,8 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
+
+A `dealt` entry is worded by its kind, whichever action dealt it, and its vendors and application ids are in the same order, so one vendor's History tab reads that vendor's own line of a deal of many.
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
