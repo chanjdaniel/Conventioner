@@ -8,13 +8,20 @@ count, the header row exactly as the form wrote it, and how often the table-size
 """
 import csv
 import hashlib
+import importlib.util
 import json
 import os
 from collections import Counter
 
 import pytest
 
-CORPUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "google_forms")
+HERE = os.path.dirname(os.path.abspath(__file__))
+CORPUS = os.path.join(HERE, "test_data", "google_forms")
+
+_spec = importlib.util.spec_from_file_location(
+    "synthetic_form_exports", os.path.join(HERE, "fixtures", "synthetic_form_exports.py"))
+generator = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(generator)
 
 # name: (rows, columns, sha256 of the header row as JSON, table-size column, its answer counts)
 # The header is pinned by hash because it is long and multi-line, and must survive byte for byte.
@@ -37,8 +44,11 @@ def _read(name):
         return list(csv.reader(handle))
 
 
-def test_the_corpus_is_exactly_these_five_files():
-    assert sorted(os.listdir(CORPUS)) == sorted(f"{name}.csv" for name in SHAPES)
+def test_the_corpus_is_exactly_the_generators_files():
+    """A file the generator does not write was put there by hand, so it is refused."""
+    made = sorted(form.file for form in generator.FORMS)
+    assert sorted(os.listdir(CORPUS)) == made
+    assert sorted(f"{name}.csv" for name in SHAPES) == made
 
 
 @pytest.mark.parametrize("name", SHAPES)
