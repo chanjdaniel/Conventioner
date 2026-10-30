@@ -529,8 +529,10 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 }
 
 .vendor-badge--unassigned {
-  background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  background: var(--mm-chip-attention); /* rgba(228, 166, 41, 0.18) over white */
+  /* `--mm-text-yellow` measured 3.96 on this tint: the Vendors page sweep never had an unassigned
+     vendor on screen until one added by hand counted as one (E38/F08/S02). */
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .vendor-date-count {
