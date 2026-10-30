@@ -163,6 +163,31 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test set Check vendors in back to its default, Editor');
   });
 
+  it('words a reset of the whole table by the rows it returned', () => {
+    const labels = { 'check-in': 'Check vendors in', 'move-phase': 'Move the phase' };
+    const reset = (rows: string[]) =>
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_table_reset',
+          vendors: [],
+          detail: {
+            before: Object.fromEntries(rows.map((id) => [id, { role: 'admin', source: 'market' }])),
+            after: Object.fromEntries(
+              rows.map((id) => [id, { role: 'editor', source: 'built-in' }]),
+            ),
+          },
+        },
+        labels,
+      );
+    expect(reset(['check-in'])).toBe(
+      'dana@ember.test reset Check vendors in to its built-in default',
+    );
+    expect(reset(['check-in', 'move-phase'])).toBe(
+      'dana@ember.test reset Check vendors in and Move the phase to their built-in defaults',
+    );
+  });
+
   it('words an applicant’s own application as theirs', () => {
     expect(sentence({ actor: 'ana@ember.test', action: 'apply', kind: 'submitted' })).toBe(
       '[Ana Rivera] applied',
@@ -303,6 +328,39 @@ describe('what an entry opens to', () => {
       { field: 'Role', before: 'Editor', after: 'Admin' },
       { field: 'Source', before: 'The organization’s default', after: 'This market' },
     ]);
+  });
+
+  it('opens a reset of the whole table to each row it returned, by its label, role and source', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-the-table',
+          kind: 'permission_table_reset',
+          vendors: [],
+          detail: {
+            before: {
+              'check-in': { role: 'admin', source: 'market' },
+              'no-such-row': { role: 'owner', source: 'organization' },
+            },
+            after: {
+              'check-in': { role: 'editor', source: 'built-in' },
+              'no-such-row': { role: 'viewer', source: 'built-in' },
+            },
+          },
+        }),
+        { 'check-in': 'Check vendors in' },
+      ),
+    ).toEqual({
+      changed: [
+        { field: 'Check vendors in', before: 'Admin, This market', after: 'Editor, Built in' },
+        {
+          field: 'no-such-row',
+          before: 'Owner, The organization’s default',
+          after: 'Viewer, Built in',
+        },
+      ],
+      recorded: [],
+    });
   });
 
   it('shows a detail with no before and after as what it recorded', () => {

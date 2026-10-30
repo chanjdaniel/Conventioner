@@ -333,7 +333,7 @@ const emptyText = computed(() =>
           class="history-changes"
           data-testid="market-history-changes"
         >
-          <table v-if="entryChanges(entry).changed.length" class="history-table">
+          <table v-if="entryChanges(entry, labels).changed.length" class="history-table">
             <thead>
               <tr>
                 <th scope="col">Field</th>
@@ -342,21 +342,24 @@ const emptyText = computed(() =>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in entryChanges(entry).changed" :key="row.field">
+              <tr v-for="row in entryChanges(entry, labels).changed" :key="row.field">
                 <th scope="row">{{ row.field }}</th>
                 <td>{{ row.before }}</td>
                 <td>{{ row.after }}</td>
               </tr>
             </tbody>
           </table>
-          <dl v-if="entryChanges(entry).recorded.length" class="history-recorded">
-            <template v-for="row in entryChanges(entry).recorded" :key="row.field">
+          <dl v-if="entryChanges(entry, labels).recorded.length" class="history-recorded">
+            <template v-for="row in entryChanges(entry, labels).recorded" :key="row.field">
               <dt>{{ row.field }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
           <p
-            v-if="!entryChanges(entry).changed.length && !entryChanges(entry).recorded.length"
+            v-if="
+              !entryChanges(entry, labels).changed.length &&
+              !entryChanges(entry, labels).recorded.length
+            "
             class="history-note"
           >
             Nothing more was recorded about this change.

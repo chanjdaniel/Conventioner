@@ -291,6 +291,17 @@ export function entryParts(
           `set ${rowLabel(entry, labels)} back to its default, ${getRoleDisplayName(str(after.role))}`,
         ),
       ];
+    case 'change-the-table/permission_table_reset': {
+      const rows = Object.keys(after).map((id) => labels[id] ?? id);
+      return [
+        actor,
+        text(
+          rows.length === 1
+            ? `reset ${rows[0]} to its built-in default`
+            : `reset ${listed(rows)} to their built-in defaults`,
+        ),
+      ];
+    }
     case 'apply/submitted':
       return [vendor, text(' applied')];
     case 'apply/edited':
@@ -368,16 +379,38 @@ export interface RecordedField {
   value: string;
 }
 
+/** A row of the permission table as it stood: its role and where that came from, in words. */
+function permissionState(value: unknown): string {
+  const state = asDetail(value);
+  return `${fieldValue('role', state.role)}, ${fieldValue('source', state.source)}`;
+}
+
 /**
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
- * it, and the table taken.
+ * it, and the table taken. A reset of the whole table is each row it returned, by its label in
+ * `labels`.
  */
-export function entryChanges(entry: MarketHistoryEntry): {
+export function entryChanges(
+  entry: MarketHistoryEntry,
+  labels: Readonly<Record<string, string>> = {},
+): {
   changed: ChangedField[];
   recorded: RecordedField[];
 } {
   const detail = asDetail(entry.detail);
+  if (entry.action === 'change-the-table' && entry.kind === 'permission_table_reset') {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    return {
+      changed: Object.keys(after).map((id) => ({
+        field: labels[id] ?? id,
+        before: permissionState(before[id]),
+        after: permissionState(after[id]),
+      })),
+      recorded: [],
+    };
+  }
   if (entry.action === 'assign' && entry.kind === 'placed') {
     const left = 'before' in detail ? (detail.before ? table(detail.before) : 'none') : 'unknown';
     return {
