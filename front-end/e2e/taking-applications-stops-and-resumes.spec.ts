@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
 import type { Browser, Page } from '@playwright/test';
 import { ApplyPage } from './pages/ApplyPage';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -96,7 +96,7 @@ test('an organizer stops taking applications, a vendor is refused, and taking th
   await expect(vendor.page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
   await vendor.context.close();
 
-  // And it is reviewed where the market stands, which never moved.
-  await page.reload();
+  // And it is reviewed where the market stands, which never moved: One by one, its card up.
+  await page.goto(oneByOnePath(market.marketId));
   await expect(page.getByTestId('app-monitor-email')).toHaveText(VENDOR, { timeout: 15000 });
 });

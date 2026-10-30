@@ -5,7 +5,7 @@ import {
   seedPhaseMarket,
   transitionMarket,
 } from './helpers/seedPhaseMarket';
-import { marketScreenPath } from './helpers/marketScreens';
+import { oneByOnePath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
@@ -42,13 +42,13 @@ test('two reviewers walk different cards, and a lapsed claim is offered again', 
   expect(granted.ok(), await granted.text()).toBeTruthy();
 
   const first = new ApplicationMonitorPage(page);
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   await first.waitForLoaded();
   const firstCard = ((await first.email.textContent()) ?? '').trim();
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const second = new ApplicationMonitorPage(other);
-    await other.goto(marketScreenPath(marketId, 'applications'));
+    await other.goto(oneByOnePath(marketId));
     await second.waitForLoaded();
     // Not the card the first reviewer has open.
     await expect(second.email).not.toHaveText(firstCard);
@@ -101,13 +101,13 @@ test('a reader walks the queue, holding nothing, and sees who has a card open', 
 
   // The organizer opens the review, which holds the first card.
   const reviewer = new ApplicationMonitorPage(page);
-  await page.goto(marketScreenPath(marketId, 'applications'));
+  await page.goto(oneByOnePath(marketId));
   await reviewer.waitForLoaded();
   await expect(reviewer.email).toHaveText('nadia@ember.test');
 
   await withUser(browser, READER.email, READER.password, async (other) => {
     const reader = new ApplicationMonitorPage(other);
-    await other.goto(marketScreenPath(marketId, 'applications'));
+    await other.goto(oneByOnePath(marketId));
     await reader.waitForLoaded();
     await expect(reader.email).toHaveText('nadia@ember.test');
     await expect(other.getByTestId('app-monitor-held-by')).toHaveText(

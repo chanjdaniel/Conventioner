@@ -60,7 +60,7 @@ describe('who applied', () => {
 
   it("counts each status as the Applications tab's All view filters it", () => {
     expect(stats.byStatus.map((r) => [r.label, r.count])).toEqual([
-      ['To review', 2],
+      ['Open', 2],
       ['Needs follow-up', 1],
       ['Approved', 3],
       ['Rejected', 1],
@@ -77,7 +77,7 @@ describe('who applied', () => {
       path: '/markets/m1/applications',
       query: { view: 'all', status: 'needs_follow_up' },
     });
-    expect(row('To review').to).toEqual({
+    expect(row('Open').to).toEqual({
       path: '/markets/m1/applications',
       query: { view: 'all', status: 'undecided' },
     });
@@ -86,7 +86,7 @@ describe('who applied', () => {
   it('gives each status its share of all applications, and a bar against the largest', () => {
     expect(row('Approved').share).toBe(43);
     expect(row('Approved').bar).toBe(100);
-    expect(row('To review').bar).toBeCloseTo(66.67, 1);
+    expect(row('Open').bar).toBeCloseTo(66.67, 1);
   });
 
   it('still counts a status the All view has no filter for, so the rows add up', () => {
