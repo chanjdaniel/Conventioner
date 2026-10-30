@@ -61,8 +61,6 @@ DEALING_LEASE = timedelta(seconds=30)
 #: A change of reviewers waits this many short pauses for another deal to let go of the market.
 CHOICE_WAITS = 100
 HOLD_PAUSE_SECONDS = 0.05
-#: How many times a settle looks again for arrivals that came in while it held the market.
-_SETTLE_ROUNDS = 5
 
 DEALING_BUSY = (
     "The reviewers are being dealt applications right now. Try again in a moment."
@@ -136,11 +134,12 @@ def choose(
     if not _hold(market.id, deal, waits=CHOICE_WAITS):
         raise ConflictError(DEALING_BUSY)
     try:
-        chosen_team = _choose_holding(market, organization, reviewers, by, deal)
+        return _choose_holding(market, organization, reviewers, by, deal)
     finally:
+        # Every let-go looks again, a failed change's too: an arrival that found the market held
+        # left its application to whoever held it.
         _let_go(market.id, deal)
-    _settle(market, organization)
-    return chosen_team
+        _settle(market, organization)
 
 
 def _choose_holding(
@@ -240,22 +239,27 @@ def deal_arrivals(
     return _settle(market, _organization(market))
 
 
-def _settle(market: Market, organization: Optional[Organization]) -> int:
-    """Deal every application waiting as it arrived, holding the market, and look again once it
-    lets go: an arrival that found the market held marked its application before it tried, so a
-    holder that looks after letting go finds it. Gives up only while another deal holds the
-    market, which looks again itself when it lets go. Answers how many it dealt."""
+def _settle(market: Market, organization: Optional[Organization], again: bool = True) -> int:
+    """Deal every application waiting as it arrived, holding the market, and look again each time
+    it lets go, for as long as any waits and it can hold the market: an arrival that found the
+    market held marked its application before it tried, so the holder that looks after letting go
+    finds it, however long a burst of arrivals runs. Stops only when none waits, or another deal
+    holds the market, which looks again itself when it lets go. A round that fails lets go and
+    looks again once before its error goes on, so an arrival that came in meanwhile is not left.
+    Answers how many it dealt."""
     dealt = 0
-    for _round in range(_SETTLE_ROUNDS):
+    while ApplicationsApi.any_arriving(market.id):
         deal = str(uuid.uuid4())
         if not _hold(market.id, deal):
             return dealt
         try:
             dealt += _deal_arriving(market, organization, deal)
-        finally:
+        except Exception:
             _let_go(market.id, deal)
-        if not ApplicationsApi.arriving_in_arrival_order(market.id):
-            return dealt
+            if again:
+                _settle(market, organization, again=False)
+            raise
+        _let_go(market.id, deal)
     return dealt
 
 

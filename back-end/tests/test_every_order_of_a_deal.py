@@ -10,6 +10,8 @@ nothing is left waiting or held.
 import threading
 from contextlib import contextmanager
 
+import pytest
+
 from test_choosing_reviewers_deals_the_open_applications import (  # noqa: F401  (the fixture)
     ANA, BEN, CAT, OPEN, _application, _choose, world,
 )
@@ -170,7 +172,8 @@ class TestAChangeAtEveryStepOfAnArrival:
     after. The change waits for the arrival to let go of the market, so it runs on a thread of its
     own, as a second request would."""
 
-    def test_the_change_deals_after_the_arrival_and_skips_no_one(self, world, monkeypatch):
+    @pytest.mark.parametrize("team", [[BEN, CAT], []], ids=["a new team", "no team"])
+    def test_the_change_deals_after_the_arrival_and_skips_no_one(self, world, monkeypatch, team):
         monkeypatch.setattr(ReviewTeam, "HOLD_PAUSE_SECONDS", 0.001)
         arrival = lambda: _arrive(world, "x", 21)  # noqa: E731
         steps = _steps_of(world, arrival)
@@ -178,13 +181,16 @@ class TestAChangeAtEveryStepOfAnArrival:
         for land_at in range(1, steps + 1):
             _dealt_seven(world)
             answers = []
-            change = threading.Thread(target=lambda: answers.append(_choose([BEN, CAT])))
+            change = threading.Thread(target=lambda: answers.append(_choose(team)))
             with _counting(world, Clock(land_at, change.start)):
                 arrival()
                 change.join(timeout=10)
             assert [a.status_code for a in answers] == [200], land_at
             _nothing_left_waiting_or_held(world)
-            _assert_even_and_next(world, [*OPEN, "x"], [BEN, CAT], turn=8)
+            if team:
+                _assert_even_and_next(world, [*OPEN, "x"], team, turn=8)
+            else:
+                assert set(_reviewer_of(world).values()) == {None}, land_at
 
 
 class TestTwoArrivalsAtOnce:
@@ -234,6 +240,75 @@ class TestTheMarketsHold:
         del world.markets.doc["reviewTeam"]["dealing"]
         _arrive(world, "y", 22)
 
+        dealt = _reviewer_of(world)
+        assert (dealt["x"], dealt["y"]) == (BEN, CAT)
+        _nothing_left_waiting_or_held(world)
+
+
+class TestEveryLetGoLooksAgain:
+    """An arrival that finds the market held leaves its application to the holder, so whoever lets
+    go of the market looks again: however long a burst runs, and when the holding deal fails."""
+
+    def test_a_burst_of_arrivals_each_landing_while_the_last_is_dealt_is_all_dealt(
+            self, world, monkeypatch):
+        _dealt_seven(world)
+        real = ApplicationsApi.deal_arrival
+        burst = [f"b{n}" for n in range(12)]
+        landed = []
+
+        def another_lands_as_each_is_dealt(app_id, reviewer):
+            if len(landed) < len(burst):
+                landed.append(burst[len(landed)])
+                _arrive(world, landed[-1], 22 + len(landed))
+            return real(app_id, reviewer)
+
+        monkeypatch.setattr(ApplicationsApi, "deal_arrival", another_lands_as_each_is_dealt)
+        _arrive(world, "x", 21)
+        monkeypatch.setattr(ApplicationsApi, "deal_arrival", real)
+
+        assert landed == burst
+        _nothing_left_waiting_or_held(world)
+        _assert_even_and_next(world, [*OPEN, "x", *burst], [ANA, BEN, CAT], turn=20)
+
+    def test_a_change_that_fails_holding_the_market_still_deals_what_arrived_meanwhile(
+            self, world, monkeypatch):
+        _dealt_seven(world)
+        real = ApplicationsApi.deal
+
+        def an_arrival_lands_then_the_change_fails(app_id, reviewer, was):
+            _arrive(world, "x", 21)
+            raise RuntimeError("the database went away")
+
+        monkeypatch.setattr(ApplicationsApi, "deal", an_arrival_lands_then_the_change_fails)
+        with pytest.raises(RuntimeError):
+            ReviewTeam.choose(MarketsApi.market_from_document(world.markets.doc), None,
+                              [person for person in ReviewTeam.team_of(
+                                  MarketsApi.market_from_document(world.markets.doc)).reviewers
+                               if person.email != ANA], ANA)
+        monkeypatch.setattr(ApplicationsApi, "deal", real)
+
+        _nothing_left_waiting_or_held(world)
+        assert _reviewer_of(world)["x"] is not None
+
+    def test_a_deal_of_arrivals_that_fails_looks_again_before_its_error_goes_on(
+            self, world, monkeypatch):
+        _dealt_seven(world)
+        real = ApplicationsApi.deal_arrival
+        failed = []
+
+        def y_lands_then_the_deal_of_x_fails(app_id, reviewer):
+            if app_id == "app-x" and not failed:
+                failed.append(True)
+                _arrive(world, "y", 22)
+                raise RuntimeError("the database went away")
+            return real(app_id, reviewer)
+
+        monkeypatch.setattr(ApplicationsApi, "deal_arrival", y_lands_then_the_deal_of_x_fails)
+        with pytest.raises(RuntimeError):
+            _arrive(world, "x", 21)
+        monkeypatch.setattr(ApplicationsApi, "deal_arrival", real)
+
+        # Looking again dealt both: x, still waiting, then y.
         dealt = _reviewer_of(world)
         assert (dealt["x"], dealt["y"]) == (BEN, CAT)
         _nothing_left_waiting_or_held(world)
