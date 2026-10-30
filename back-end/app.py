@@ -1324,7 +1324,7 @@ def _reviewer_on(market_id: str):
     return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
 
 
-def _change_refused(context) -> Optional[str]:
+def _change_refused(context: MarketsApi.MarketContext) -> Optional[str]:
     """Why the signed-in reviewer may not change a verdict already given, or None while they may:
     the table's change row (E38/F06/S01), asked on top of ``_reviewer_on``'s. Asked of each
     application at its write, since only its status says whether the write is a change."""

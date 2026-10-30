@@ -24,7 +24,7 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row and E38/F06's change row, and without the form
+#: The epic's table (E39), with E38/F04's stop row and E38/F06/S01's change row, and without the form
 #: amendment's, which E38/F04 removed (the amendment's walk is gone): (id, group, label, default,
 #: fixed).
 THE_TABLE = [

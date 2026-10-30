@@ -1705,7 +1705,7 @@ def import_applications(
     judged_market = market_from_document(market_doc)
     verdicts = RejectionRules.judge(
         RejectionRules.Rulebook(judged_market), market_id,
-        returns=by is None or MarketsApi.may_overturn(by, judged_market))
+        overturns=by is not None and MarketsApi.may_overturn(by, judged_market))
 
     # Only now, the rows written: a draft's first import is its way into Review (E38/F04/S01).
     phase = phase_from_market_document(market_doc).value

@@ -958,10 +958,15 @@ function submittedOn(app: Application): string {
   color: inherit;
 }
 
-/* Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01): over the reviewed
+   list, on white, and on the card, on beige. */
 .change-reason {
   margin: var(--space-3) 0 0;
   font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.review-card .change-reason {
   color: var(--mm-text-muted-on-beige);
 }
 

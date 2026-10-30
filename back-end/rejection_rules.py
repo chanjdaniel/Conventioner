@@ -171,7 +171,7 @@ class Judged:
 
 
 def judge(
-    book: Rulebook, market_id: str, application_id: Optional[str] = None, returns: bool = True,
+    book: Rulebook, market_id: str, application_id: Optional[str] = None, overturns: bool = True,
 ) -> Judged:
     """Apply the rules to the market's undecided applications and to those a rule rejected; or to
     ``application_id`` alone, as it arrives. Returns how many it rejected and returned.
@@ -179,7 +179,7 @@ def judge(
     An undecided application a rule meets is stored rejected, the rule its giver and the answer its
     reason. One a rule rejected that no rule meets any longer returns to undecided - unless the
     results are published, when its applicant has seen the rejection and it stands, or unless
-    ``returns`` is false: returning it overturns an automatic rejection, which a person's write
+    ``overturns`` is false: returning it overturns an automatic rejection, which a person's write
     does only when the table's change row is theirs (E38/F06/S01). Every write is
     conditioned on the application being as it was read, so a person's verdict that lands in
     between is never overwritten.
@@ -190,7 +190,7 @@ def judge(
         # What the organizer reads, an update of an answer in its place (E41/F01/S01).
         met = book.rejecting(ApplicationsApi.effective_answers(doc))
         if met is None:
-            if by_rule and returns and not book.results_published \
+            if by_rule and overturns and not book.results_published \
                     and ApplicationsApi.update_application_status(
                         doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc):
                 returned += 1

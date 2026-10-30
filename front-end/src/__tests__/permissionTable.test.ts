@@ -263,24 +263,17 @@ describe('changeLines', () => {
 });
 
 describe('whoMayTake', () => {
-  const table = (role: MarketRole) => [
-    row(),
-    row({ id: 'change-verdicts', role, default: MarketRole.Admin }),
-  ];
+  it('names who the market lets take a row, in the words the server served for it', () => {
+    const table = [
+      row({ whoMay: 'an Editor, an Admin or the owner' }),
+      row({
+        id: 'change-verdicts',
+        role: MarketRole.Editor,
+        whoMay: 'an Editor, an Admin or the owner',
+      }),
+    ];
 
-  it('names who the market lets take a row, in the words a refusal names them', () => {
-    expect(whoMayTake(table(MarketRole.Admin), MarketAction.ChangeVerdicts)).toBe(
-      'an Admin or the owner',
-    );
-    expect(whoMayTake(table(MarketRole.Editor), MarketAction.ChangeVerdicts)).toBe(
-      'an Editor, an Admin or the owner',
-    );
-    expect(whoMayTake(table(MarketRole.Owner), MarketAction.ChangeVerdicts)).toBe(
-      "the market's owner",
-    );
-    expect(whoMayTake(table(MarketRole.Viewer), MarketAction.ChangeVerdicts)).toBe(
-      'someone who holds a role',
-    );
+    expect(whoMayTake(table, MarketAction.ChangeVerdicts)).toBe('an Editor, an Admin or the owner');
   });
 
   it('says nobody is named when the market in hand carries no such row', () => {

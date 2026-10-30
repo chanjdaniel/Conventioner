@@ -2295,7 +2295,7 @@ def save_rejection_rules(
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
     verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
-                                    returns=may_overturn(requesting_user, market))
+                                    overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
@@ -2320,7 +2320,7 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     form_dict, verdicts = write_application_form(
-        market, application_form_data, returns=may_overturn(requesting_user, market))
+        market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
     return form_dict
@@ -2335,11 +2335,11 @@ def _with_counts(
 
 
 def write_application_form(
-    market: Market, application_form_data: dict, returns: bool = True,
+    market: Market, application_form_data: dict, overturns: bool = True,
 ) -> Tuple[dict, RejectionRules.Judged]:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
     stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment. ``returns`` is whether the writer may overturn an automatic
+    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
     rejection, as ``RejectionRules.judge`` takes it."""
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
@@ -2351,7 +2351,7 @@ def write_application_form(
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
         return form_dict, RejectionRules.judge(
-            RejectionRules.Rulebook(rewritten.market), market.id, returns=returns)
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
     return form_dict, RejectionRules.Judged()
 
 

@@ -81,7 +81,7 @@ def update_vendor_info(
     judging = (updates or cleared) and MarketsApi.review_is_open(market.phase)
     verdicts = (RejectionRules.judge(
         RejectionRules.Rulebook(market), market_id, application_id,
-        returns=MarketsApi.may_overturn(updater.email, market))
+        overturns=MarketsApi.may_overturn(updater.email, market))
         if judging else RejectionRules.Judged())
     History.record(
         market_id, updater.email, Actions.UPDATE_VENDOR_INFO,

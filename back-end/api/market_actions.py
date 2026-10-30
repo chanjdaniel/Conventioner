@@ -163,19 +163,22 @@ def minimum_role(row: Action, market: Market) -> MarketRole:
 def table(market: Market) -> List[Dict[str, Any]]:
     """The market's table for display, every row in order: its label and group, the role it asks,
     its built-in default, where the role came from, whether it is fixed, and what the action is
-    after "may", for Manage market's confirmation of a change (E39/F01/S04)."""
+    after "may", for Manage market's confirmation of a change (E39/F01/S04); and who may take it
+    here, in the words a refusal names them, for a screen that says who may (E38/F06/S01)."""
     served = []
     for row in ACTIONS.values():
         held = held_row(row, market.permissions)
+        role = MarketRole(held.role) if held else row.default
         served.append({
             "id": row.id,
             "group": row.group,
             "label": row.label,
-            "role": (MarketRole(held.role) if held else row.default).value,
+            "role": role.value,
             "default": row.default.value,
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
             "mayWhat": row.may_what,
+            "whoMay": _WHO_MAY[role],
         })
     return served
 

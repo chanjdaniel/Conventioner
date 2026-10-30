@@ -132,6 +132,14 @@ class TestTheRow:
             MarketRole.ADMIN, False)
         assert Actions.refusal_sentence(row) == CHANGE_REFUSED
 
+    def test_the_table_says_who_may_take_it_as_the_market_holds_it(self):
+        def who(market):
+            return next(r["whoMay"] for r in Actions.table(market) if r["id"] == "change-verdicts")
+
+        assert who(client_market()) == "an Admin or the owner"
+        moved = client_market(permissions={"change-verdicts": {"role": "editor", "source": "market"}})
+        assert who(moved) == "an Editor, an Admin or the owner"
+
     def test_the_market_read_answers_it_for_each_role(self):
         rows = {}
         for role in MarketRole:
@@ -332,7 +340,7 @@ class TestJudgingAgain:
         assert ruled_out["status"] == OPEN.value
 
     def test_leaves_it_standing_when_it_may_not(self, ruled_out):
-        verdicts = Rules.judge(Rules.Rulebook(_rules_market()), "market-1", returns=False)
+        verdicts = Rules.judge(Rules.Rulebook(_rules_market()), "market-1", overturns=False)
 
         assert ruled_out["status"] == REJECTED.value
         assert ruled_out["verdict_by"] == RULE
@@ -341,7 +349,7 @@ class TestJudgingAgain:
     def test_still_rejects_an_undecided_one_when_it_may_not_return(self, applications):
         applications.documents = [_application("open", OPEN, no_shows=False)]
 
-        Rules.judge(Rules.Rulebook(_rules_market(NO_SHOW_RULE)), "market-1", returns=False)
+        Rules.judge(Rules.Rulebook(_rules_market(NO_SHOW_RULE)), "market-1", overturns=False)
 
         assert applications.documents[0]["status"] == REJECTED.value
 
