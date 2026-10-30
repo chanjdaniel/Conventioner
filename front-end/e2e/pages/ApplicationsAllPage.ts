@@ -25,6 +25,10 @@ export class ApplicationsAllPage {
   readonly drawerVerdict: Locator;
   readonly drawerHolder: Locator;
   readonly exportButton: Locator;
+  /** Why a decided row has no tick, said once over the list (E38/F06/S01). */
+  readonly changeReason: Locator;
+  /** Why the drawer of a decided application offers no verdict (E38/F06/S01). */
+  readonly drawerChangeReason: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -41,6 +45,8 @@ export class ApplicationsAllPage {
     this.drawerVerdict = page.getByTestId('applications-all-drawer-verdict');
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
     this.exportButton = page.getByTestId('applications-all-export-button');
+    this.changeReason = page.getByTestId('applications-all-change-reason');
+    this.drawerChangeReason = page.getByTestId('applications-all-drawer-change-reason');
   }
 
   /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */

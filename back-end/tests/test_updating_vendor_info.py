@@ -224,7 +224,9 @@ class TestWhoMay:
 
         _update({"shop": "Ember Ceramics"})
 
-        assert asked == [Actions.UPDATE_VENDOR_INFO]
+        # The rules judge the update again, and the change row, which asks the giving row under it,
+        # says whether a rule's rejection the update no longer meets returns to open (E38/F06/S01).
+        assert asked == [Actions.UPDATE_VENDOR_INFO, Actions.CHANGE_VERDICTS, Actions.GIVE_VERDICTS]
         assert Actions.UPDATE_VENDOR_INFO.default is MarketRole.EDITOR
         assert Actions.UPDATE_VENDOR_INFO.label == "Update a vendor's info"
 

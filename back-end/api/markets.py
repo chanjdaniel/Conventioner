@@ -299,6 +299,14 @@ def verdict_refusal(
     return None
 
 
+def may_overturn(user_email: str, market: Market) -> bool:
+    """Whether this person may overturn an automatic rejection here: the table's change row
+    (E38/F06/S01). A write of theirs that judges the rules again returns a rule's rejection no rule
+    meets any longer to open only when they may; for anyone else it stands."""
+    return Actions.may(
+        Actions.CHANGE_VERDICTS, user_email, market, _load_organization(market.organization_id))
+
+
 #: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
 #: seats are being given.
 ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
@@ -2366,7 +2374,9 @@ def save_rejection_rules(
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
     rules are worth most once applications arrive, which is when the form freezes. Refused once the
-    market can no longer return to review (``rejection_rules_lock_reason``).
+    market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
+    taken away returns what it rejected to open only for someone who may overturn an automatic
+    rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     settled = rejection_rules_lock_reason(market.phase)
@@ -2376,7 +2386,8 @@ def save_rejection_rules(
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
-    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
+                                    overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
@@ -2400,7 +2411,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    form_dict, verdicts = write_application_form(market, application_form_data)
+    form_dict, verdicts = write_application_form(
+        market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
     return form_dict
@@ -2415,11 +2427,12 @@ def _with_counts(
 
 
 def write_application_form(
-    market: Market, application_form_data: dict,
+    market: Market, application_form_data: dict, overturns: bool = True,
 ) -> Tuple[dict, RejectionRules.Judged]:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
     stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment."""
+    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
+    rejection, as ``RejectionRules.judge`` takes it."""
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
         {"id": market.id},
@@ -2429,7 +2442,8 @@ def write_application_form(
     # nobody, and what it rejected is judged again.
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        return form_dict, RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market.id)
+        return form_dict, RejectionRules.judge(
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
     return form_dict, RejectionRules.Judged()
 
 

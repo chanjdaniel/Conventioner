@@ -123,6 +123,8 @@ ROW_WRITES = {
                             {"csvContent": "a,b\n1,2"}),
     "give-verdicts": ("put", "/markets/market-123/applications/app-1/review",
                       {"status": "reviewer_rejected"}),
+    "change-verdicts": ("put", "/markets/market-123/applications/app-1/review",
+                        {"status": "reviewer_approved"}),
     "move-phase": ("post", "/markets/market-123/transition", {"toPhase": "draft"}),
     "stop-applications": ("post", "/markets/market-123/applications-stopped", {"stopped": True}),
     "publish-results": ("post", "/markets/market-123/publish-results", {}),

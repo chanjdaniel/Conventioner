@@ -11,6 +11,7 @@ sources:
   - E40/F01/S03
   - E40/F01/S04
   - T92
+  - E38/F06/S01
 ---
 
 # Reading the market's history
@@ -27,7 +28,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
 
 1. "Manage" on the market's row opens "Manage market", where "History" is a heading with a chevron, closed, so the sections after it stay in reach (Daniel, on T110's review).
    Opening it reads the newest 10 changes, newest first, inside the dialog's own scrolling; closing it and opening it again keeps what it read and its filters, until the dialog closes.
-2. Each change is one sentence and its time: "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Market Setup: sections", "e2e@example.com moved the market from Review to Assignment" (a phase named as that market's other screens name it: its one stage is "Review" on a Google Form market and "Applications" on one whose vendors apply on its page), "e2e@example.com stopped taking applications" and "e2e@example.com took applications again", "e2e@example.com changed Check vendors in from Editor to Admin" (a row of the market's own permission table, named by its label), "e2e@example.com set Check vendors in back to its default, Editor", "e2e@example.com reset Check vendors in and Move the phase to their built-in defaults" (the whole table reset, naming each row it returned), "Ana Rivera applied".
+2. Each change is one sentence and its time: "e2e@example.com assigned Ana Rivera at B7 (Full Table) on Nov 19, 2026", "e2e@example.com changed priya@example.com from Viewer to Editor", "e2e@example.com set Ana Rivera to Approved", "e2e@example.com changed Ana Rivera from Approved to Rejected" (a verdict already given, changed, E38/F06/S01), "e2e@example.com changed Market Setup: sections", "e2e@example.com moved the market from Review to Assignment" (a phase named as that market's other screens name it: its one stage is "Review" on a Google Form market and "Applications" on one whose vendors apply on its page), "e2e@example.com stopped taking applications" and "e2e@example.com took applications again", "e2e@example.com changed Check vendors in from Editor to Admin" (a row of the market's own permission table, named by its label), "e2e@example.com set Check vendors in back to its default, Editor", "e2e@example.com reset Check vendors in and Move the phase to their built-in defaults" (the whole table reset, naming each row it returned), "Ana Rivera applied".
    A placement reads as [the assignment history](placing-by-hand.md#j13-assignment-history) says it, after who made it and before the day it is for, so the two never differ: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
    An organizer's update of a vendor's answers reads "e2e@example.com updated the info of Ana Rivera".
    A change the screen has no sentence for yet reads through the deliberate fallback "made a change: <row label>, about <vendor>"; one whose action no row of the table names reads "made a change", never the action's id.

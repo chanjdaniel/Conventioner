@@ -56,7 +56,7 @@ Each control asks the row of the action it takes:
 | Market Setup, the Assignment page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
-| Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null |
+| Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too |
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
 | Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |

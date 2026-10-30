@@ -122,6 +122,14 @@ def read_table(who=OWNER, market_id="market-123"):
 
 
 class TestAMarketWithoutRows:
+    #: Who each role and those above it are, in the words a refusal names them (E38/F06/S01).
+    WHO_MAY = {
+        MarketRole.VIEWER: "someone who holds a role",
+        MarketRole.EDITOR: "an Editor, an Admin or the owner",
+        MarketRole.ADMIN: "an Admin or the owner",
+        MarketRole.OWNER: "the market's owner",
+    }
+
     def test_every_row_reads_its_built_in_default(self, world):
         assert "permissions" not in world.markets.doc()
 
@@ -134,6 +142,7 @@ class TestAMarketWithoutRows:
                 "id": action.id, "group": action.group, "label": action.label,
                 "role": action.default.value, "default": action.default.value,
                 "source": "built-in", "fixed": action.fixed, "mayWhat": action.may_what,
+                "whoMay": self.WHO_MAY[action.default],
             }
 
     def test_its_checks_ask_the_built_in_defaults(self, world):
