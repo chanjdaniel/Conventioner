@@ -923,6 +923,7 @@ async function decideSelection() {
   background: var(--mm-chip-attention);
   font-size: var(--text-sm);
   color: var(--mm-text-yellow-on-tint);
+  overflow-wrap: anywhere;
 }
 
 .drawer-buttons {
