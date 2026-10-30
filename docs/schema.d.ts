@@ -38,6 +38,18 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
+  exampleColumns?: {
+    headers?: string[];
+    helpText?: string;
+    key: string;
+    label: string;
+    options?: {
+      multiSelect?: string[];
+      select?: string[];
+    };
+    question?: boolean;
+    type: string;
+  }[];
   id: string;
   importMapping?: {
     headers?: string[];

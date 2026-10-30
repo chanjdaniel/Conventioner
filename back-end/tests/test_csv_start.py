@@ -5,6 +5,8 @@ it closes: the import of the same file afterwards restores every column and matc
 Run on the Google Form exports in ``tests/test_data/google_forms/``.
 """
 import copy
+import csv
+import io
 import os
 
 import pytest
@@ -342,3 +344,138 @@ def test_no_row_is_skipped_for_a_blank_answer_to_a_question_of_the_organizers_ow
     refused = [failure for failure in preview["failures"]
                if any(f"'{label}' is required" in failure["error"] for label in custom)]
     assert refused == []
+
+
+# --- What the start keeps of the example file (E38/F02/S01) ---------------------------------------
+
+EXAMPLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data",
+                       "example_columns.csv")
+SELLS, BOOTH = 3, 4
+
+
+def _example():
+    with open(EXAMPLE, encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _kept(update):
+    return {column["key"]: column for column in update["exampleColumns"]}
+
+
+def test_the_start_keeps_both_readings_of_each_question_it_made():
+    kept = _kept(_confirmed_update(_draft(), _example(), {}))
+    sells = kept["what_do_you_sell"]
+    assert sells["headers"] == ["What do you sell?"]
+    assert (sells["label"], sells["type"], sells["question"]) == (
+        "What do you sell?", "multi_select", True)
+    assert sells["options"]["multiSelect"] == ["Prints", "Stickers", "Jewellery"]
+    assert sells["options"]["select"] == ["Prints", "Prints, Stickers", "Stickers", "Jewellery"]
+    assert kept["booth_size"]["options"]["select"] == ["Small", "Large", "Medium"]
+
+
+def test_what_the_start_keeps_passes_the_privacy_filter():
+    """An answer at least 3 applicants gave that holds a link or a phone number is shown on the
+    Review step but never kept; nor is one fewer than 3 gave, nor a free-text answer."""
+    kept = _kept(_confirmed_update(_draft(), _example(), {}))
+    stored = repr(kept)
+    for value in ("www.example.com", "555-0101", "Candles", "Pins", "Late fee", "@shop",
+                  "vendor01@example.com", "Vendor Amber"):
+        assert value not in stored
+    assert kept["instagram"]["options"] == {"select": [], "multiSelect": []}
+
+
+def test_a_column_the_start_left_out_is_kept_with_its_readings_and_mapped_under_its_key():
+    update = _confirmed_update(_draft(), _example(), {})
+    status = _kept(update)["status"]
+    assert (status["label"], status["type"], status["question"]) == ("Status", "select", False)
+    assert status["options"]["select"] == ["Accepted", "Waitlist", "Rejected"]
+    assert "status" not in {f["key"] for f in update["applicationForm"]["fields"]}
+    # So a question added from it later is restored by the first import, like the start's own.
+    assert update["importMapping"]["targets"]["status"] == ["Status"]
+    # Only the organizer's own questions and left-out columns: never who applied, when, or an
+    # essential question, which are not questions to add.
+    assert set(_kept(update)) == {"what_do_you_sell", "booth_size", "instagram", "status", "notes"}
+
+
+def test_the_organizers_choice_on_the_review_step_is_what_is_kept():
+    update = _confirmed_update(_draft(), _example(), {"rows": [
+        {"column": BOOTH, "type": "checkbox"}, {"column": SELLS, "fate": "left_out"}]})
+    kept = _kept(update)
+    assert (kept["booth_size"]["type"], kept["booth_size"]["question"]) == ("checkbox", True)
+    assert kept["booth_size"]["options"]["select"] == ["Small", "Large", "Medium"]
+    assert kept["what_do_you_sell"]["question"] is False
+
+
+def _first_import(after, csv_text):
+    _error, headers, _rows = CsvImport.parse_csv(csv_text)
+    saved = CsvImport.stored_mapping(after)
+    restored, missing, new = CsvImport.restore_mapping(
+        headers, saved, CsvImport.import_targets(after))
+    preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
+    return restored, missing, new, preview
+
+
+def test_a_type_changed_by_hand_to_the_files_reading_has_nothing_to_ask_at_the_first_import():
+    doc, csv_text = _draft(), _example()
+    after = _written(doc, _confirmed_update(doc, csv_text, {"rows": [
+        {"column": BOOTH, "type": "checkbox"}]}))
+    booth = next(f for f in after["applicationForm"]["fields"] if f["key"] == "booth_size")
+    booth.update(type="select",
+                 options=_kept({"exampleColumns": after["exampleColumns"]})["booth_size"]
+                 ["options"]["select"])
+
+    restored, missing, new, preview = _first_import(after, csv_text)
+    assert restored["booth_size"] == [BOOTH] and missing == [] and new == []
+    assert [u for u in preview["unmatched"] if u["target"] == "booth_size"] == []
+
+
+def test_a_question_added_from_a_left_out_column_is_restored_by_the_first_import():
+    doc, csv_text = _draft(), _example()
+    after = _written(doc, _confirmed_update(doc, csv_text, {}))
+    status = _kept({"exampleColumns": after["exampleColumns"]})["status"]
+    after["applicationForm"]["fields"].append({
+        "key": status["key"], "label": status["label"], "type": status["type"],
+        "options": status["options"]["select"], "required": False})
+
+    restored, missing, _new, preview = _first_import(after, csv_text)
+    assert restored["status"] == [6] and missing == []
+    assert [u for u in preview["unmatched"] if u["target"] == "status"] == []
+
+
+def test_a_create_body_cannot_set_what_the_start_writes(monkeypatch):
+    """The example file's columns and the import mapping are written by the start and the import
+    alone: a forged option planted at creation would be offered by "Add from your file"."""
+    from conftest import FakeMarketsCollection, client_market
+    import api.markets as MarketsApi
+
+    fake = FakeMarketsCollection(None)
+    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    forged = [{"headers": ["X"], "key": "forged", "label": "Forged", "type": "select",
+               "question": False, "options": {"select": ["FORGED"], "multi_select": []}}]
+    MarketsApi.create_market(client_market(
+        example_columns=forged,
+        import_mapping={"targets": {"forged": ["X"]}, "headers": ["X"], "made_by": "start"},
+    ), "user-1")
+
+    assert fake.inserted.get("exampleColumns") is None
+    assert fake.inserted.get("importMapping") is None
+
+
+def test_a_left_out_column_never_takes_a_target_the_import_reads():
+    """A second email column headed "Applicant email" is left out as a repeat; its key must not
+    be the identity target's, or the first import reads who applied from the wrong column."""
+    _error, headers, rows = CsvImport.parse_csv(_example())
+    extended = [headers + ["Applicant email", "Sheet note"]] + [
+        row + [row[1], "Paid"] for row in rows]
+    buffer = io.StringIO()
+    csv.writer(buffer, lineterminator="\n").writerows(extended)
+    update = _confirmed_update(_draft(), buffer.getvalue(), {"rows": [
+        {"column": len(headers) + 1, "fate": "left_out"}]})
+
+    targets = update["importMapping"]["targets"]
+    assert targets[CsvImport.APPLICANT_EMAIL_TARGET] == ["Email Address"]
+    assert CsvImport.SHEET_NOTE_TARGET not in targets
+    kept = {c["label"]: c["key"] for c in update["exampleColumns"]}
+    assert kept["Applicant email"] not in CsvImport.RESERVED_TARGETS
+    assert kept["Sheet note"] not in CsvImport.RESERVED_TARGETS
+    assert targets[kept["Applicant email"]] == ["Applicant email"]

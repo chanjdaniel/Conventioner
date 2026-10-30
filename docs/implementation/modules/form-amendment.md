@@ -14,6 +14,7 @@ sources:
   - E20/F03/S01
   - E20
   - E38/F04/S01
+  - E38/F02/S01
 ---
 
 # The form amendment
@@ -28,6 +29,8 @@ A Google Form market's first import runs while it is a draft ([ADR 0016](../../a
 Once anything is imported the market is in Review and its questions are fixed; the import reads the lock the market read serves (`applicationFormLockReason`, `amendAvailability` in [`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)) and says it where the offer would have been, rather than offering and failing.
 
 **It mirrors the one refusal an organizer can cause**: turning every question off while adding none leaves a form that asks nothing, which could not enter Review (`FormHasFieldsGuard`), so the dialog says so before Save.
+
+**It offers no key the save refuses**: it asks the builder's own key check (`fieldKeyError` in [`applicationForm.ts`](../../../front-end/src/utils/applicationForm.ts)), so a column headed "Submitted at" is told that `submitted_at` is the import's, before anything is sent (E38/F02).
 
 **It answers both of the import's dead ends**: a column with nowhere to go, which adds a question for it, and a preference the Google Form never asked, which switches that question off.
 After the save the import inspects the file again, so a new question is offered as a target and a switched-off one leaves the required list, and the organizer's own column choices and value decisions are put back.
