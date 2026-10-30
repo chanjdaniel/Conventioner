@@ -48,7 +48,7 @@ Their own answer is named when it is the lower of the two limits, since it is th
 **The reason is a value, and the words are the screen's**, so a sentence changes without a migration or a back-end release.
 
 **Only "free" is something to do.**
-It offers "Assign them", which opens the Result page on that date searched for the vendor; every other reason is a report whose answer is in the plan or in the vendor's own answers.
+It offers "Assign them", which opens the Assignments page on that date searched for the vendor; every other reason is a report whose answer is in the plan or in the vendor's own answers.
 
 **One card says what happened to a vendor on a date**, in one of three states: placed, placed against their own answer (a hand placement at a tier, date or table size they did not ask for, or for someone not approved), or not placed and why.
 The mark on a placement that overrides an answer is that card's second state, not a feature of its own; it is in [placements](../../implementation/modules/placements.md#pins).

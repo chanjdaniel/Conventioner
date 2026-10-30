@@ -44,10 +44,30 @@ function dialog(props: Record<string, unknown> = {}) {
       marketCeiling: null,
       swapTargets: [],
       vendorNames: { 'nadia@ember.test': 'Nadia Ember' },
+      vendorSearch: { 'nadia@ember.test': ['Nadia Ember', 'Ember Candles'] },
       ...props,
     },
+    attachTo: document.body,
   });
 }
+
+type Dialog = ReturnType<typeof dialog>;
+
+/** Type into a picker and take the first match with Enter, as the keyboard does (E38/F08/S03). */
+async function choose(wrapper: Dialog, picker: string, words: string): Promise<void> {
+  const field = wrapper.get(`[data-testid="${picker}-input"]`);
+  await field.setValue(words);
+  await field.trigger('keydown', { key: 'Enter' });
+}
+
+/** Open a picker's list, as a click on its field does. */
+async function openPicker(wrapper: Dialog, picker: string) {
+  await wrapper.get(`[data-testid="${picker}-input"]`).trigger('click');
+  return wrapper.get(`[data-testid="${picker}-list"]`);
+}
+
+const offered = (list: ReturnType<Dialog['get']>) =>
+  list.findAll('[role="option"]').map((option) => option.attributes('data-value'));
 
 describe('filling a seat', () => {
   it('offers the seat as a choice when the whole table is free', () => {
@@ -69,7 +89,7 @@ describe('filling a seat', () => {
   it('warns before the change when it would alter what the vendor asked for', async () => {
     const wrapper = dialog({ seat: HALF_TABLE_RIGHT });
 
-    await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
+    await choose(wrapper, 'placement-dialog-vendor', 'nadia@ember.test');
 
     expect(wrapper.get('[data-testid="placement-dialog-warning"]').text()).toContain('whole table');
   });
@@ -80,13 +100,13 @@ describe('filling a seat', () => {
 
     expect(confirm.attributes('disabled')).toBeDefined();
 
-    await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
+    await choose(wrapper, 'placement-dialog-vendor', 'nadia@ember.test');
     expect(confirm.attributes('disabled')).toBeUndefined();
   });
 
   it('emits the vendor and the seat', async () => {
     const wrapper = dialog({ seat: HALF_TABLE_RIGHT });
-    await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
+    await choose(wrapper, 'placement-dialog-vendor', 'nadia@ember.test');
 
     // The confirm is `type="submit"` in the dialog's form now (E20/F01/S03), which is what gives
     // Enter its meaning. jsdom does not turn a click on a submit button into a form submission the
@@ -98,21 +118,22 @@ describe('filling a seat', () => {
     ]);
   });
 
-  it('names the vendor and their address, because two traders may share a name', () => {
+  it('names the vendor and their address, because two traders may share a name', async () => {
     const wrapper = dialog();
 
-    expect(wrapper.get('[data-testid="placement-dialog-vendor"]').text()).toContain(
+    expect((await openPicker(wrapper, 'placement-dialog-vendor')).text()).toContain(
       'Nadia Ember (nadia@ember.test)',
     );
   });
 
-  it('offers who the seat fits apart from who it would override, and hides neither', () => {
+  it('offers who the seat fits apart from who it would override, and hides neither', async () => {
     const wrapper = dialog({
       vendors: [
         applicant('nadia@ember.test'),
         applicant('lee@ember.test', { acceptedTiersByDate: { [DATE]: ['Silver'] } }),
       ],
     });
+    await openPicker(wrapper, 'placement-dialog-vendor');
 
     expect(wrapper.get('[data-testid="placement-dialog-fits"]').text()).toContain('Nadia Ember');
     expect(wrapper.get('[data-testid="placement-dialog-overrides"]').text()).toContain(
@@ -120,10 +141,33 @@ describe('filling a seat', () => {
     );
   });
 
-  it('does not offer a vendor who already has a table on this date', () => {
+  it('is searched by name, business or address, every group kept (E38/F08/S03)', async () => {
+    const wrapper = dialog({
+      vendors: [
+        applicant('nadia@ember.test'),
+        applicant('lee@ember.test', { acceptedTiersByDate: { [DATE]: ['Silver'] } }),
+      ],
+    });
+    const field = wrapper.get('[data-testid="placement-dialog-vendor-input"]');
+
+    // A business is found by the answers the pages' search reads.
+    await field.setValue('candles');
+    const list = wrapper.get('[data-testid="placement-dialog-vendor-list"]');
+    expect(offered(list)).toEqual(['nadia@ember.test']);
+    expect(wrapper.get('[data-testid="placement-dialog-overrides"]').text()).toContain(
+      'None match "candles".',
+    );
+
+    await field.setValue('lee@');
+    expect(offered(list)).toEqual(['lee@ember.test']);
+    expect(wrapper.get('[data-testid="placement-dialog-fits"]').text()).toContain('None match');
+  });
+
+  it('does not offer a vendor who already has a table on this date', async () => {
     const wrapper = dialog({ datesHeld: { 'nadia@ember.test': [DATE] } });
 
-    expect(wrapper.get('[data-testid="placement-dialog-vendor"]').text()).not.toContain('Nadia');
+    await wrapper.get('[data-testid="placement-dialog-vendor-input"]').trigger('click');
+    expect(wrapper.find('[data-testid="placement-dialog-vendor-list"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('already has a table on this date');
   });
 
@@ -134,7 +178,7 @@ describe('filling a seat', () => {
       marketCeiling: 1,
     });
 
-    await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
+    await choose(wrapper, 'placement-dialog-vendor', 'nadia@ember.test');
 
     const warning = wrapper.get('[data-testid="placement-dialog-warning"]').text();
     expect(warning).toContain('they asked for at most 1');
@@ -152,7 +196,13 @@ describe('a seat somebody holds', () => {
     occupantEmail: 'nadia@ember.test',
     vendors: [applicant('nadia@ember.test'), applicant('lee@ember.test')],
     swapTargets: [
-      { email: 'lee@ember.test', tableCode: 'Front 2', tier: 'Gold', seat: FULL_TABLE },
+      {
+        email: 'lee@ember.test',
+        tableCode: 'Front 2',
+        section: 'Front',
+        tier: 'Gold',
+        seat: FULL_TABLE,
+      },
     ],
   };
 
@@ -171,14 +221,53 @@ describe('a seat somebody holds', () => {
 
     expect(swap.attributes('disabled')).toBeDefined();
 
-    await wrapper.get('[data-testid="placement-dialog-swap-target"]').setValue('lee@ember.test');
+    await choose(wrapper, 'placement-dialog-swap-target', 'lee@ember.test');
     expect(swap.attributes('disabled')).toBeUndefined();
   });
 
-  it('says where a swap partner currently sits', () => {
+  it('says where a swap partner currently sits', async () => {
     const wrapper = dialog(occupied);
 
-    expect(wrapper.get('[data-testid="placement-dialog-swap-target"]').text()).toContain('Front 2');
+    expect((await openPicker(wrapper, 'placement-dialog-swap-target')).text()).toContain('Front 2');
+  });
+
+  it('finds a partner by their table, its code or its section (E38/F08/S03)', async () => {
+    const wrapper = dialog({
+      ...occupied,
+      vendors: [
+        applicant('nadia@ember.test'),
+        applicant('lee@ember.test'),
+        applicant('sam@ember.test'),
+      ],
+      swapTargets: [
+        {
+          email: 'lee@ember.test',
+          tableCode: 'Front 2',
+          section: 'Front',
+          tier: 'Gold',
+          seat: FULL_TABLE,
+        },
+        {
+          email: 'sam@ember.test',
+          tableCode: 'Back 1',
+          section: 'Back',
+          tier: 'Gold',
+          seat: FULL_TABLE,
+        },
+      ],
+    });
+    const field = wrapper.get('[data-testid="placement-dialog-swap-target-input"]');
+
+    await field.setValue('back 1');
+    const list = wrapper.get('[data-testid="placement-dialog-swap-target-list"]');
+    expect(offered(list)).toEqual(['sam@ember.test']);
+    await field.setValue('front');
+    expect(offered(list)).toEqual(['lee@ember.test']);
+
+    await field.trigger('keydown', { key: 'Enter' });
+    expect(
+      wrapper.get('[data-testid="placement-dialog-swap"]').attributes('disabled'),
+    ).toBeUndefined();
   });
 
   it('says so when there is nobody to trade with', () => {
@@ -195,11 +284,17 @@ describe('a seat somebody holds', () => {
         applicant('lee@ember.test', { tableChoice: 'half' }),
       ],
       swapTargets: [
-        { email: 'lee@ember.test', tableCode: 'Back 2', tier: 'Bronze', seat: HALF_TABLE_LEFT },
+        {
+          email: 'lee@ember.test',
+          tableCode: 'Back 2',
+          section: 'Back',
+          tier: 'Bronze',
+          seat: HALF_TABLE_LEFT,
+        },
       ],
     });
 
-    await wrapper.get('[data-testid="placement-dialog-swap-target"]').setValue('lee@ember.test');
+    await choose(wrapper, 'placement-dialog-swap-target', 'lee@ember.test');
 
     const warning = wrapper.get('[data-testid="placement-dialog-swap-warning"]');
     const nadia = warning.get('[data-vendor-email="nadia@ember.test"]').text();
@@ -217,7 +312,7 @@ describe('a seat somebody holds', () => {
   it('says nothing about a trade that overrides nobody', async () => {
     const wrapper = dialog(occupied);
 
-    await wrapper.get('[data-testid="placement-dialog-swap-target"]').setValue('lee@ember.test');
+    await choose(wrapper, 'placement-dialog-swap-target', 'lee@ember.test');
 
     expect(wrapper.find('[data-testid="placement-dialog-swap-warning"]').exists()).toBe(false);
   });

@@ -22,7 +22,7 @@ After that the plan write refuses a change to them, and restating them as stored
 ## Why
 
 A rule only takes effect when tables are allocated, and they are allocated in `assignment` alone ([assign runs only in assignment](assign-runs-only-in-assignment.md)).
-A rule changed after the market can no longer allocate tables would read as in force while deciding nothing; a single assignment is changed by hand on the Result page instead.
+A rule changed after the market can no longer allocate tables would read as in force while deciding nothing; a single assignment is changed by hand on the Assignments page instead.
 Publishing results settles the rules too, since tables are not allocated again once applicants have been told.
 
 **Derived, never listed.**

@@ -11,6 +11,7 @@ import {
   rowStatus,
   statusCounts,
   tablesMatching,
+  vendorFound,
   type MarketTableRow,
 } from '@/utils/resultFilters';
 
@@ -324,5 +325,34 @@ describe('the search on the results', () => {
 
   it('is not a where-filter, so it does not travel to the vendors', () => {
     expect(hasPlaceFilter(readResultFilters({ search: 'nadia' }))).toBe(false);
+  });
+});
+
+/**
+ * One vendor found by words (E38/F08/S03): the terms the pages' search finds a vendor by, which the
+ * placement dialog's pickers search by too, so a search finds the same vendors everywhere.
+ */
+describe('vendorFound', () => {
+  const SEARCH = { 'ana@example.com': ['Ana Ruiz', 'Ana Ceramics'] };
+
+  it('finds a vendor by part of their address, a name or a short answer', () => {
+    expect(vendorFound('ANA@', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('ruiz', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('ceramics', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('prints', 'ana@example.com', SEARCH)).toBe(false);
+  });
+
+  it('finds them by where they are too, when that is given', () => {
+    expect(vendorFound('hall a 3', 'ana@example.com', SEARCH, ['Hall A 3', 'Hall A'])).toBe(true);
+    expect(vendorFound('hall b', 'ana@example.com', SEARCH, ['Hall A 3', 'Hall A'])).toBe(false);
+  });
+
+  it('finds by a whole address that vendor alone', () => {
+    expect(vendorFound('ana@example.com', 'ana@example.com', SEARCH)).toBe(true);
+    expect(vendorFound('na@example.com', 'ana@example.com', SEARCH)).toBe(false);
+  });
+
+  it('finds everyone with no words', () => {
+    expect(vendorFound('  ', 'ana@example.com', SEARCH)).toBe(true);
   });
 });

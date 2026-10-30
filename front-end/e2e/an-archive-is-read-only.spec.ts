@@ -9,7 +9,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  * E26/F06/S01).
  *
  * On the usage run, an archived market's Market Setup offered every control and saved a date
- * clicked on it; its Result page still showed hundreds of "Change" and "Assign someone" buttons,
+ * clicked on it; its Assignments page still showed hundreds of "Change" and "Assign someone" buttons,
  * and "Free this seat" took a vendor out of a market that had already run. An archived market that
  * never ran showed an Attendance tab.
  */
@@ -45,8 +45,8 @@ test('an archived market that ran is shown as a record, with nothing to change',
   });
   expect(plan.status()).toBe(403);
 
-  // Result shows who sat where, and offers no seat to change.
-  await page.goto(marketScreenPath(marketId, 'result'));
+  // Assignments shows who sat where, and offers no seat to change.
+  await page.goto(marketScreenPath(marketId, 'assignments'));
   await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({ timeout: 15000 });
   await expect(page.locator('button.seat-button')).toHaveCount(0);
   await expect(page.getByText('Assign someone')).toHaveCount(0);

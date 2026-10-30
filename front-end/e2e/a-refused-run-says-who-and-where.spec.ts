@@ -38,7 +38,7 @@ test('the refusal names each applicant, and each name opens their application', 
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
   }
 
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   await page.getByTestId('market-setup-assign-button').click();
 
   const banner = page.getByTestId('market-setup-assign-error');

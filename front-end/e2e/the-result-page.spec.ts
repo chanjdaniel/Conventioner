@@ -4,7 +4,7 @@ import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 
 /**
- * The Result page is the assignment, read and changed (E22/F04/S04, from the-assignment-tab 01).
+ * The Assignments page is the assignment, read and changed (E22/F04/S04, from the-assignment-tab 01).
  *
  * Top to bottom: a summary strip (approved applicants assigned, tables used, unassigned, satisfaction, Download
  * CSV), the tables grid with its seat editing - the Tables screen, moved in - and the placement
@@ -13,7 +13,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  */
 const at = (marketId: string, page: string) => `/markets/${marketId}/${page}`;
 
-test.describe('The Result page', () => {
+test.describe('The Assignments page', () => {
   test.beforeEach(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   });
@@ -28,7 +28,7 @@ test.describe('The Result page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(at(marketId, 'result'));
+    await page.goto(at(marketId, 'assignments'));
 
     const assigned = page.getByTestId('result-approved-assigned');
     await expect(assigned).toHaveText(/^\d+ of \d+ approved applicants assigned\s*$/, {
@@ -73,7 +73,7 @@ test.describe('The Result page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(at(marketId, 'result'));
+    await page.goto(at(marketId, 'assignments'));
     const panel = page.getByTestId('result-statistics');
     await expect(page.getByTestId('result-strip')).toBeVisible({ timeout: 15000 });
     await expect(panel).toHaveCount(0);
@@ -109,7 +109,7 @@ test.describe('The Result page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(at(marketId, 'result'));
+    await page.goto(at(marketId, 'assignments'));
     const download = page.waitForEvent('download');
     await page.getByTestId('result-download-csv-button').click();
     const file = await download;
@@ -131,7 +131,7 @@ test.describe('The Result page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(at(marketId, 'result'));
+    await page.goto(at(marketId, 'assignments'));
     await page.getByTestId('result-unassigned-link').click();
 
     await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/vendors\\?show=unassigned$`));
@@ -152,7 +152,7 @@ test.describe('The Result page', () => {
       TEST_USER.password,
       { run: false },
     );
-    await page.goto(at(unrun.marketId, 'result'));
+    await page.goto(at(unrun.marketId, 'assignments'));
     const empty = page.getByTestId('result-empty');
     await expect(empty).toContainText('Nothing assigned yet', { timeout: 15000 });
     await expect(
@@ -165,7 +165,7 @@ test.describe('The Result page', () => {
     );
     await expect(page.getByTestId('tables-count-empty')).toBeVisible();
     await empty.getByRole('link').click();
-    await expect(page).toHaveURL(new RegExp(`/markets/${unrun.marketId}/assignment$`));
+    await expect(page).toHaveURL(new RegExp(`/markets/${unrun.marketId}/settings$`));
 
     const draft = await seedMarketWithVendors(
       request,
@@ -173,7 +173,7 @@ test.describe('The Result page', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(at(draft.marketId, 'result'));
+    await page.goto(at(draft.marketId, 'assignments'));
     await expect(page.getByTestId('result-empty')).toContainText('still a draft', {
       timeout: 15000,
     });

@@ -36,7 +36,7 @@ Neither is one field with two authors, and the vendor never sees the organizer's
 
 ## Where they show
 
-The review card, the vendor drawer (opened from Vendors, Result, Attendance and the review's All view) and the door's roster show both kinds, each under its own label: "Request" (or "Request handled"), "Your note" and "From your sheet".
+The review card, the vendor drawer (opened from Vendors, Assignments, Attendance and the review's All view) and the door's roster show both kinds, each under its own label: "Request" (or "Request handled"), "Your note" and "From your sheet".
 A compact marker says when anything is there, and the roster draws the notes only under a vendor who has some, with the request as outstanding or handled.
 The organizer's note is written wherever it is shown ([reviewing applications](../flows/review.md), [the vendor drawer](../flows/vendor-drawer.md), [the door on market day](../flows/market-day-door.md)).
 

@@ -49,6 +49,7 @@ sources:
   - T79
   - T82
   - E38/F01/S01
+  - E38/F08/S03
   - E38/F05/S01
   - T123
 ---
@@ -259,7 +260,7 @@ The contract says which values are text and holds those to AA; it does not raise
 
 **Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
 Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
-It also serves Result's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
+It also serves the Assignments page's muted text inside a table row, which can sit on an empty table's yellow ground (`--mm-yellow` at 0.18 over white, `.table-row--empty`) or a hovered seat's beige: there `--mm-text-muted` reads 4.38 and 4.23, and `--mm-text-muted-on-beige` 5.42 and 5.19, so a change to the yellow, the beige or the token is measured on those grounds too.
 
 **Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
 That check is what made the brand green darker rather than leaving each button to a judgement call.
@@ -300,7 +301,12 @@ Tokens alone cannot fix what is actually wrong. A `--radius-control` does not st
 Three primitives own height, padding, radius, type and the disabled state, and `primitives.css` holds the one focus halo every control wears. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 Reach for a primitive rather than deciding again.
 They and `AppDialog` are the app's components: it installs no component library, and a widget too hard to own starts from a headless one styled with these tokens ([ADR 0015](adr/0015-the-app-owns-its-components.md)).
+The searchable picker is the app's own, and the ADR records why that combobox did not take a headless one.
 Two smaller controls had no owner either, each re-decided per file, and are primitives of their own: `.add-row`, the button that adds a row to a plan card (it was an icon with a click handler, unreachable from a keyboard), and `.drag-handle`, the control that reorders a row (E17/F01).
+A choice among many, found by typing, is [`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue) (E38/F08/S03): a field over a grouped list that it narrows as it is typed in, worked by the arrow keys, Enter and Escape, its list opening in the flow under the field so a dialog's scroller cannot clip it; it narrows a group and never hides one, and the caller says what the words find.
+Reopened on a choice, it selects that choice's label, so typing replaces it and searches afresh rather than running on from the label; left untouched, the choice stays.
+A picker with no choices at all never opens its list, and "Nobody matches" shows only once words are typed, so the note the caller puts beside it says why there is nothing to choose.
+The placement dialog's two vendor pickers are its first use.
 
 | | Variants | Notes |
 | --- | --- | --- |

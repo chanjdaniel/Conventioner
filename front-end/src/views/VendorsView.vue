@@ -62,8 +62,9 @@ watch(marketId, () => void loadVendors(), { immediate: true });
 
 /**
  * Every applicant (E36/F02/S04): anyone may be seated by hand, so anyone may need finding. The
- * counts stay the run's - a vendor is an applicant being placed (CONTEXT.md) - because a rejected
- * applicant counted as an unassigned vendor made this page disagree with Result (bug 10).
+ * counts are of the vendors who need a table - the run's own and those added by hand (E38/F08/S02)
+ * - as the Assignments page's are, because a rejected applicant counted as an unassigned vendor
+ * made this page disagree with it (bug 10).
  */
 const vendors = computed(() => details.rows.value);
 /**
@@ -72,13 +73,13 @@ const vendors = computed(() => details.rows.value);
  * no date count, no "Unassigned only", no filter by where they sit, no "N of M assigned".
  */
 const placementsRefused = computed(() => details.loaded.value && !details.placementsRead.value);
-const runVendors = computed(() => vendors.value.filter((v) => v.inTheRun));
+const tableVendors = computed(() => vendors.value.filter((v) => v.needsATable));
 const isRejected = (v: { status: string }) => v.status === ApplicationStatus.ReviewerRejected;
 const anyRejected = computed(() => vendors.value.some(isRejected));
 
 /**
  * One kind of applicant, in the address so a link is a link: "Unassigned only", where "N
- * unassigned" on the Result page leads (E22/F04/S04), and "Rejected only" beside it.
+ * unassigned" on the Assignments page leads (E22/F04/S04), and "Rejected only" beside it.
  */
 const shown = computed<VendorsShown>(() => {
   const asked = vendorsShownFrom(route.query.show);
@@ -94,7 +95,7 @@ function show(choice: VendorsShown): void {
 }
 
 /**
- * The Result page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
+ * The Assignments page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
  * the same address keys as the tables, so a filter set there is still set here.
  */
 const { filters: addressFilters } = useResultFilters();
@@ -111,7 +112,7 @@ const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 const filteredVendors = computed(() => {
   const listed = vendors.value.filter(
     (v) =>
-      inVendorsShown({ inTheRun: v.inTheRun, rejected: isRejected(v) }, shown.value) &&
+      inVendorsShown({ needsATable: v.needsATable, rejected: isRejected(v) }, shown.value) &&
       vendorShown(v.assignmentsByDate, filters.value, {
         onlyUnassigned: onlyUnassigned.value,
         isAssigned: v.isAssigned,
@@ -155,8 +156,8 @@ function openExport(): void {
 }
 
 const totalVendorCount = computed(() => vendors.value.length);
-const runVendorCount = computed(() => runVendors.value.length);
-const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAssigned).length);
+const tableVendorCount = computed(() => tableVendors.value.length);
+const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.isAssigned).length);
 </script>
 
 <template>
@@ -235,13 +236,13 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
             </template>
             <template v-else-if="!assigned">
-              <span class="summary-strong">{{ runVendorCount }}</span>
-              {{ runVendorCount === 1 ? 'vendor' : 'vendors' }}
+              <span class="summary-strong">{{ tableVendorCount }}</span>
+              {{ tableVendorCount === 1 ? 'vendor' : 'vendors' }}
             </template>
             <template v-else>
               <span class="summary-strong">{{ assignedVendorCount }}</span>
               of
-              <span class="summary-strong">{{ runVendorCount }}</span>
+              <span class="summary-strong">{{ tableVendorCount }}</span>
               vendors assigned
             </template>
           </div>
@@ -292,25 +293,32 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
                 :names="vendorNames"
               />
               <span v-if="assigned" class="vendor-meta">
-                <!-- Outside the run, the verdict is what to know first (E36/F02/S04). -->
+                <!-- "Added" leads, so what follows holds one column down the list: whoever needs
+                     a table says whether they have one, a vendor added by hand included
+                     (E38/F08/S02); for anyone else the verdict stands there (E36/F02/S04). -->
                 <span
                   v-if="vendor.added"
                   class="chip chip--informational"
                   data-testid="vendors-list-status"
                   >Added</span
                 >
-                <span
-                  v-else-if="!vendor.inTheRun"
-                  :class="statusChip(vendor.status)"
-                  data-testid="vendors-list-status"
-                  >{{ statusLabel(vendor.status) }}</span
-                >
-                <span
-                  v-else
-                  class="vendor-badge"
-                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
-                >
-                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                <span class="vendor-standing">
+                  <span
+                    v-if="vendor.needsATable"
+                    class="vendor-badge"
+                    :class="
+                      vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
+                    "
+                    data-testid="vendors-list-badge"
+                  >
+                    {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                  </span>
+                  <span
+                    v-else
+                    :class="statusChip(vendor.status)"
+                    data-testid="vendors-list-status"
+                    >{{ statusLabel(vendor.status) }}</span
+                  >
                 </span>
                 <span
                   v-if="!placementsRefused"
@@ -542,6 +550,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   flex-shrink: 0;
 }
 
+/* One column for the badge or the verdict, whatever its word, right before the date count. As wide
+   as "Unassigned", the longest; centred, so "Assigned" sits in the middle of the same slot. */
+.vendor-standing {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 92px;
+}
+
 .vendor-badge {
   display: inline-flex;
   align-items: center;
@@ -561,8 +577,9 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 }
 
 .vendor-badge--unassigned {
-  background: var(--mm-chip-attention);
-  /* `--mm-text-yellow` measured 3.96 on this ground. */
+  background: var(--mm-chip-attention); /* rgba(228, 166, 41, 0.18) over white */
+  /* `--mm-text-yellow` measured 3.96 on this tint: the Vendors page sweep never had an unassigned
+     vendor on screen until one added by hand counted as one (E38/F08/S02). */
   color: var(--mm-text-yellow-on-tint);
 }
 
@@ -587,9 +604,19 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
     gap: var(--space-2);
   }
 
+  /* Under the name, the badge or verdict leads, so it keeps one column down the list whether or
+     not "Added" follows it, and the date count holds the right. */
   .vendor-meta {
     width: 100%;
-    justify-content: space-between;
+  }
+
+  .vendor-standing {
+    order: -1;
+    justify-content: flex-start;
+  }
+
+  .vendor-date-count {
+    margin-left: auto;
   }
 
   .summary-line {

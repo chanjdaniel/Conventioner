@@ -121,23 +121,23 @@ describe('the next step', () => {
     });
     expect(nextStep(unrun, TODAY)).toMatchObject({
       text: 'Set the rules and allocate tables.',
-      page: 'assignment',
+      page: 'settings',
     });
     const run = market(MarketPhase.Assignment, {
       assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
     } as Partial<Market>);
-    expect(nextStep(run, TODAY)).toMatchObject({ page: 'result' });
+    expect(nextStep(run, TODAY)).toMatchObject({ page: 'assignments' });
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
   });
 
-  it('once the results are published, says the result is settled (E36/F04/S02)', () => {
+  it('once the results are published, says the assignments are settled (E36/F04/S02)', () => {
     const told = market(MarketPhase.Assignment, {
       assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] },
       resultsPublished: true,
     } as Partial<Market>);
 
     expect(nextStep(told, TODAY).text).toBe(
-      'Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone.',
+      'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
     );
   });
 
