@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: concept
-verified: 2026-10-22
+verified: 2026-10-29
 ---
 
 # Intake mode
@@ -29,5 +29,5 @@ verified: 2026-10-22
 - [ADR 0006: Intake mode fails closed](../../adr/0006-intake-mode-fails-closed.md): absence means `csv`.
 - [The market document](../../implementation/data/market-document.md#the-fields-that-matter): `intakeMode`, and `market_from_document` withholding it.
 - [The market guide](../../implementation/modules/market-guide.md): what each screen says per path.
-- [The CSV import](../../implementation/modules/csv-import.md): the CSV path's in every phase.
+- [The CSV import](../../implementation/modules/csv-import.md): the CSV path's, in Draft and Review.
 - [The CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md): a CSV market's form proposed from its file.

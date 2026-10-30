@@ -105,7 +105,7 @@ test.describe('the Pricing card', () => {
       ],
     });
 
-    for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+    for (const toPhase of ['applications', 'assignment']) {
       await call(request, 'post', `/markets/${marketId}/transition`, { toPhase });
     }
     // Alice on a Gold full table on the first day and a Silver half table on the second: a tier she

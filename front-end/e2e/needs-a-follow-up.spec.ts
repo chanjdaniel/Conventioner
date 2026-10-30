@@ -38,11 +38,9 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: EDITOR.email, role: 'editor' },
   });
@@ -125,10 +123,8 @@ test('an organization admin with no role on the market marks a follow-up and own
     { intakeMode: 'form' },
   );
   await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
 
   await withUser(browser, ORG_ADMIN.email, ORG_ADMIN.password, async (page) => {
     await page.goto(marketScreenPath(marketId, 'applications'));
@@ -177,7 +173,7 @@ test('an editor from outside the organization is offered only the people on the 
     { intakeMode: 'form' },
   );
   await ensureOrganizationAdmin(request, BACKEND_URL, orgId, ORG_ADMIN.email);
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   const theo = seedApplicationWithStatus(marketId, 'needs_follow_up', 'theo@thistle.test');
   mongoEval(
@@ -185,8 +181,6 @@ test('an editor from outside the organization is offered only the people on the 
       `db.applications.updateOne({ id: ${JSON.stringify(theo)} }, ` +
       `{ $set: { follow_up_owner: { user_id: admin.id, email: admin.email } } })`,
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: EDITOR.email, role: 'editor' },
   });

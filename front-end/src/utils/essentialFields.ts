@@ -160,6 +160,22 @@ export function askedEssentialAnswers(
     .map(([key, label]) => ({ key, label }));
 }
 
+/**
+ * The asked essential questions that depend on the plan offering something: what an applicant
+ * applies FOR. The mirror of `plan_derived_asked_keys` in `back-end/essential_fields.py`, which
+ * leaves out identity and the free request: a form asking only those asks nothing.
+ */
+export function planDerivedAskedKeys(options: EssentialFormOptions): string[] {
+  const asked: string[] = [];
+  if (options.dates.length > 0) {
+    asked.push(AVAILABLE_DATES_KEY, MAX_DATES_KEY, TABLE_CHOICE_KEY, TABLE_SHARE_EMAIL_KEY);
+  }
+  if (options.tiers.length > 0) asked.push(TIER_PREFERENCE_KEY);
+  if (options.sections.length >= 2) asked.push(SECTION_RANKING_KEY);
+  if (options.tableTypes.length >= 2) asked.push(TABLE_TYPE_RANKING_KEY);
+  return asked.filter((key) => isEssentialAsked(key, options));
+}
+
 /** Is this essential question one this market actually asks? */
 export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
   return !(options.unasked ?? []).includes(key);

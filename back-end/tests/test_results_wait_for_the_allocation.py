@@ -44,7 +44,7 @@ class TestWhenResultsMayBePublished:
         assert ApplicantsApi.publish_results_refusal(market()) is None
 
     @pytest.mark.parametrize("phase", [
-        MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW,
+        MarketPhase.APPLICATIONS,
     ])
     def test_not_before_the_assignment(self, phase):
         assert "once tables have been allocated" in ApplicantsApi.publish_results_refusal(market(phase=phase))

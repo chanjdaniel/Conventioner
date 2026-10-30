@@ -588,7 +588,7 @@ def _applicant_market_doc(**overrides):
     from datatypes import MarketPhase
 
     return stored_market(
-        phase=MarketPhase.APPLICATIONS_OPEN,
+        phase=MarketPhase.APPLICATIONS,
         intakeMode="form",
         setupObject=SETUP_CAMEL,
         applicationForm={"fields": [
@@ -675,7 +675,7 @@ class TestAfterApplicationsClose:
     @pytest.fixture
     def closed(self, monkeypatch):
         doc = _applicant_market_doc()
-        doc["phase"] = "applications_closed"
+        doc["phase"] = "assignment"
         markets = FakeSlugMarketsCollection(doc)
 
         class _Db(dict):

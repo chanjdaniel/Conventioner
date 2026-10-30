@@ -182,7 +182,7 @@ class FakeDatabase:
 # ── Test data ────────────────────────────────────────────────────────
 
 def _published_market_doc(market_id="test-market-1", name="Test Market",
-                          phase="applications_open", intake_mode="form"):
+                          phase="applications", intake_mode="form"):
     """A minimal market document the slug lookup can resolve.
 
     Applicant login is an applicant-intake surface, so it serves form-intake markets only. A

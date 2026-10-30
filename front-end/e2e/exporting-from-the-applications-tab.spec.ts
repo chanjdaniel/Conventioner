@@ -32,15 +32,13 @@ test('Export from the All view opens on its filter and Mine, and downloads exact
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   seedApplicationWithStatus(marketId, 'reviewer_approved', 'ana@ember.test');
   seedApplicationWithStatus(marketId, 'reviewer_approved', 'ben@ember.test');
   seedApplicationWithStatus(marketId, 'reviewer_rejected', 'cy@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'eve@ember.test');
   const dee = seedApplicationWithStatus(marketId, 'open', 'dee@ember.test');
   seedApplicationWithStatus(marketId, 'needs_follow_up', 'fay@ember.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const followUp = await request.put(
     `${BACKEND_URL}/markets/${marketId}/applications/${dee}/review`,
     { data: { status: 'needs_follow_up' } },

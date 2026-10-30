@@ -104,11 +104,12 @@ test('an Editor changes the seats, but neither decides nor moves a phase once as
   });
 });
 
-test('an Editor of a market importing is shown the import, and told only an admin imports', async ({
+test('an Editor of a Google Form market is offered no import, and told only an admin imports', async ({
   browser,
   request,
 }) => {
-  // Importing is offered only while the market imports (E32/F02/S03), and is an admin's (bug 37).
+  // Importing is an admin's (bug 37): the rail offers an Editor no Import responses, and the
+  // import itself says why. A draft, so its first import is still to come (E38/F04/S01).
   const importing = await seedApplicantMarket(
     request,
     BACKEND_URL,
@@ -124,8 +125,13 @@ test('an Editor of a market importing is shown the import, and told only an admi
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
-    await expect(page.getByTestId('market-setup-import-button')).toBeDisabled({ timeout: 15000 });
-    await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 15000 });
+    await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+    await page.goto(marketScreenPath(importing.marketId, 'import'));
+    await expect(page.getByTestId('import-wrong-phase')).toContainText('not yours to do', {
+      timeout: 15000,
+    });
+    await expect(page.getByTestId('import-upload')).toHaveCount(0);
   });
 });
 

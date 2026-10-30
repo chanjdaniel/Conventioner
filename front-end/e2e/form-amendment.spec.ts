@@ -7,13 +7,10 @@ import { seedApplication } from './helpers/seedApplication';
 /**
  * Fixing the form without leaving the import (E20/F03/S01).
  *
- * The wizard printed four manual steps and two phase transitions - "reopen the market for
- * editing, turn it off in the form builder, then open applications and import again" - and the
- * organizer lost their upload on the way.
- *
- * Two things are worth proving here and neither is "it works": that the chain returns the market
- * to the phase it STARTED in, from both phases the wizard runs in; and that a form edited so that
- * it asks nothing is refused BEFORE the market moves, so there is nothing stranded to recover.
+ * The wizard printed manual steps - "turn it off in the form builder, then import again" - and the
+ * organizer lost their upload on the way. A Google Form market's first import runs while it is a
+ * draft (E38/F04/S01), where its form is writable, so the dialog saves the form there and the file
+ * and the mapping stay; once anything is imported the questions are fixed, and the ledger says so.
  */
 
 const HEADERS = [
@@ -41,18 +38,6 @@ async function seedPlannedMarket(request: APIRequestContext) {
     // Importing is the CSV path's (E31/F03/S04).
     intakeMode: 'csv',
   });
-}
-
-async function transition(
-  request: APIRequestContext,
-  marketId: string,
-  toPhase: string,
-): Promise<void> {
-  const res = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase },
-  });
-  expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
 }
 
 async function phaseOf(request: APIRequestContext, marketId: string): Promise<string> {
@@ -88,12 +73,12 @@ test.describe('Fixing the form from inside the import', () => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   });
 
-  test('from applications open, it returns the market to applications open', async ({
+  test('on a first import, it adds a question and the market stays a draft', async ({
     authenticatedPage: page,
     request,
   }) => {
     const seed = await seedPlannedMarket(request);
-    expect(await phaseOf(request, seed.marketId)).toBe('applications_open');
+    expect(await phaseOf(request, seed.marketId)).toBe('draft');
 
     const importPage = await reachTheLedger(page, request, seed.marketId);
 
@@ -109,25 +94,22 @@ test.describe('Fixing the form from inside the import', () => {
     await expect(page.getByTestId('amend-form-label-input')).toHaveValue('Our secret handshake');
     await expect(page.getByTestId('amend-form-key-input')).toHaveValue('our_secret_handshake');
 
-    // Both notes are STATED, not discovered.
-    await expect(page.getByTestId('amend-form-redate-note')).toBeVisible();
-
     await page.getByTestId('amend-form-submit-button').click();
     await expect(dialog).toBeHidden({ timeout: 20000 });
 
-    // Back where it started, and the new question is a target the ledger offers.
-    expect(await phaseOf(request, seed.marketId)).toBe('applications_open');
+    // Still a draft - only an import, written, takes it into Review - and the new question is a
+    // target the ledger offers.
+    expect(await phaseOf(request, seed.marketId)).toBe('draft');
     await expect(importPage.map).toBeVisible();
     await expect(
       importPage.targetSelectAt(HEADERS.length - 1).locator('option[value="our_secret_handshake"]'),
     ).toHaveCount(1);
 
-    // And Market Setup, reached without a reload, shows the market as the chain left it: the
-    // phase it returned to, and the question it added (E21/F02/S04). The import used to read and
-    // never write a stored copy of the market, so the way back showed the market as it had been.
+    // And Market Setup, reached without a reload, shows the market as the dialog left it: the
+    // question it added (E21/F02/S04). The import used to read and never write a stored copy of
+    // the market, so the way back showed the market as it had been.
     await page.getByTestId('import-leave-button').click();
-    // A CSV market's name for it (E31/F03/S03, E32/F02/S01).
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Import', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', {
       timeout: 10000,
     });
     await page.getByTestId('market-bar-tab-form').click();
@@ -138,15 +120,11 @@ test.describe('Fixing the form from inside the import', () => {
     );
   });
 
-  test('from applications closed, it returns the market to applications closed', async ({
+  test('on a first import, it stops asking a ranking the file never answered', async ({
     authenticatedPage: page,
     request,
   }) => {
-    // Four hops, not two: there is no edge from this phase back to draft and none is added, so
-    // the way down goes through applications_open and so does the way back.
     const seed = await seedPlannedMarket(request);
-    await transition(request, seed.marketId, 'applications_closed');
-    expect(await phaseOf(request, seed.marketId)).toBe('applications_closed');
 
     const importPage = await reachTheLedger(page, request, seed.marketId);
 
@@ -164,7 +142,7 @@ test.describe('Fixing the form from inside the import', () => {
     await page.getByTestId('amend-form-submit-button').click();
     await expect(dialog).toBeHidden({ timeout: 20000 });
 
-    expect(await phaseOf(request, seed.marketId)).toBe('applications_closed');
+    expect(await phaseOf(request, seed.marketId)).toBe('draft');
     // And the question is gone from the ledger's required list, which is why it was asked for.
     await expect(importPage.map).toBeVisible();
   });
@@ -190,25 +168,22 @@ test.describe('Fixing the form from inside the import', () => {
     await expect(importPage.targetSelectAt(2)).toHaveValue('essential_full_name');
   });
 
-  test('once somebody has applied the chain is unavailable, and says why', async ({
+  test('once something is imported the questions are fixed, and a Redo import says why', async ({
     authenticatedPage: page,
     request,
   }) => {
     const seed = await seedPlannedMarket(request);
     seedApplication(seed.marketId, 'already@applied.test', { essential_full_name: 'Alva Reidy' });
+    const moved = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'applications' },
+    });
+    expect(moved.ok(), await moved.text()).toBeTruthy();
 
-    const availability = await request.get(
-      `${BACKEND_URL}/markets/${seed.marketId}/application-form/amendment`,
-      { headers: { 'X-Owner-Email': TEST_USER.email } },
-    );
-    const body = (await availability.json()) as { available: boolean; reason: string };
-    expect(body.available).toBe(false);
-    expect(body.reason).toContain('frozen');
-
-    // And the wizard says so where the offer would have been, rather than offering and failing.
+    // The wizard says so where the offer would have been, rather than offering and failing.
     const importPage = await reachTheLedger(page, request, seed.marketId);
     await importPage.targetSelectAt(HEADERS.length - 1).selectOption('__needs_a_field__');
-    await expect(page.getByTestId('import-needs-a-field')).toContainText('frozen');
+    await expect(page.getByTestId('import-needs-a-field')).toContainText('The questions are fixed');
     await expect(page.getByTestId('import-add-a-field-button')).toHaveCount(0);
   });
 });

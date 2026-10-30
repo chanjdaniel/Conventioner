@@ -32,11 +32,11 @@ export interface SeededMarket {
 export interface TheScreensSeed {
   /** A draft with a 70-character name, a four-date, three-section plan and a long form. */
   draft: SeededMarket;
-  /** Applications open: 40 applications in every review state. */
+  /** Taking applications on its own page: 40 applications in every review state. */
   open: SeededMarket;
-  /** Applications closed, the same applications. */
+  /** Its own page no longer taking applications (E38/F04/S02), the same applications. */
   closed: SeededMarket;
-  /** In review, the same applications. */
+  /** A Google Form market in Review, the same applications. */
   review: SeededMarket;
   /** In Assignment, with open priority rules and no run yet. */
   assignment: SeededMarket;
@@ -208,7 +208,7 @@ async function walk(
   for (const phase of phases) await transitionMarket(api, backend, email, marketId, phase);
 }
 
-const UP_TO_ASSIGNMENT = ['applications_open', 'applications_closed', 'review', 'assignment'];
+const UP_TO_ASSIGNMENT = ['applications', 'assignment'];
 
 /** 40 applications, in every review state, with a verdict's giver where a reviewer gave one. */
 function applicationsInEveryState(marketId: string, reviewer: string, dates: string[]) {
@@ -292,22 +292,28 @@ export async function seedTheScreens(
     plan(),
   );
 
-  const withApplications = async (prefix: string, phases: string[]) => {
-    const market = await createMarket(api, backend, email, uniqueMarketName(prefix), plan(two));
-    await walk(api, backend, email, market.marketId, phases);
+  // In the stage where applications arrive and are reviewed (E38/F04/S01). A Google Form market
+  // enters it holding its responses, so they go in first.
+  const withApplications = async (prefix: string, intakeMode: 'csv' | 'form') => {
+    const market = await createMarket(
+      api,
+      backend,
+      email,
+      uniqueMarketName(prefix),
+      plan(two),
+      intakeMode,
+    );
     insertApplications(applicationsInEveryState(market.marketId, email, two));
+    await walk(api, backend, email, market.marketId, ['applications']);
     return market;
   };
-  const open = await withApplications('Harbour Night Market', ['applications_open']);
-  const closed = await withApplications('Harbour Closed Market', [
-    'applications_open',
-    'applications_closed',
-  ]);
-  const review = await withApplications('Harbour Review Market', [
-    'applications_open',
-    'applications_closed',
-    'review',
-  ]);
+  const open = await withApplications('Harbour Night Market', 'form');
+  const closed = await withApplications('Harbour Closed Market', 'form');
+  const stop = await api.post(`${backend}/markets/${closed.marketId}/applications-stopped`, {
+    data: { stopped: true },
+  });
+  if (!stop.ok()) throw new Error(`Stopping failed: ${stop.status()} ${await stop.text()}`);
+  const review = await withApplications('Harbour Review Market', 'csv');
 
   const assignment = await createMarket(api, backend, email, uniqueMarketName('Winter Lantern'), {
     ...plan(two),
@@ -346,7 +352,8 @@ export async function seedTheScreens(
     plan(two),
     'csv',
   );
-  await walk(api, backend, email, csv.marketId, ['applications_open']);
+  insertApplications(manyVendors(csv.marketId, 'imported', 4, two));
+  await walk(api, backend, email, csv.marketId, ['applications']);
   const { marketId, marketName } = await seedDraftMarket(api, backend, email, password, {
     intakeMode: 'csv',
   });

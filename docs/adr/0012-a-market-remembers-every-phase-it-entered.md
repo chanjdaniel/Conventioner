@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/phase_record.py#push_entries
   - back-end/phase_record.py#phases_reached
-verified: 2026-10-22
+verified: 2026-10-29
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03
@@ -27,7 +27,7 @@ Two things needed "did this market run?" straight away: an archived market's Att
 ## Decision
 
 Every market carries a log of the phases it entered, `phaseHistory` on the market document, each entry `{phase, enteredAt, by}`.
-The one phase writer, `apply_phase_transition`, pushes the entry in the same atomic update that moves the phase, and `create_market` writes the dated `draft` entry every market starts with, so the transition endpoint and the form amendment's chain cannot record differently.
+The one phase writer, `apply_phase_transition`, pushes the entry in the same atomic update that moves the phase, and `create_market` writes the dated `draft` entry every market starts with, so no mover can record differently (the form amendment's chain, which also moved phases, is gone since ADR 0016).
 [`back-end/phase_record.py`](../../back-end/phase_record.py) is the one answer to how far a market got and whether it ran, served on the market as `phasesReached` and `phaseRecordComplete` ([the phase record](../implementation/modules/phase-record.md)).
 A market older than the record is read from what it can prove (a check-in proves it ran, a stored assignment that it was assigned, a published form that it opened applications), and its answer is marked incomplete; only a complete record may say a market never reached a phase.
 

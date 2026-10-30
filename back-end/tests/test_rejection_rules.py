@@ -29,7 +29,7 @@ FIELDS = [
 ]
 
 
-def _market(phase=MarketPhase.REVIEW, **overrides):
+def _market(phase=MarketPhase.APPLICATIONS, **overrides):
     return client_market(phase=phase, application_form=ApplicationForm(fields=FIELDS),
                          setup_object=complete_setup(), **overrides)
 
@@ -92,8 +92,7 @@ class TestWhatARuleMaySay:
 
 
 class TestWhenTheRulesClose:
-    @pytest.mark.parametrize("phase", [MarketPhase.DRAFT, MarketPhase.APPLICATIONS_OPEN,
-                                       MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW])
+    @pytest.mark.parametrize("phase", [MarketPhase.DRAFT, MarketPhase.APPLICATIONS])
     def test_open_while_the_market_can_still_review(self, phase):
         assert MarketsApi.rejection_rules_lock_reason(phase) is None
 
@@ -118,7 +117,7 @@ class TestTheWrite:
 
     def test_it_writes_the_rules_on_a_locked_form(self, saved):
         # The form locked at the first application; the rules did not (decision 24).
-        self.market = _market(phase=MarketPhase.APPLICATIONS_OPEN)
+        self.market = _market(phase=MarketPhase.APPLICATIONS)
 
         rules = MarketsApi.save_rejection_rules(
             "market-123", [{"key": "no_shows", "answers": [Rules.NOT_TICKED]}], "owner@x.test")
@@ -134,7 +133,7 @@ class TestTheWrite:
         assert saved == []
 
     def test_the_market_read_says_what_a_rule_may_name_and_whether_it_may(self):
-        document = stored_market(MarketPhase.REVIEW,
+        document = stored_market(MarketPhase.APPLICATIONS,
                                  applicationForm={"fields": FIELDS},
                                  rejectionRules=[{"key": "no_shows", "answers": ["not ticked"]}])
         market = MarketsApi.market_from_document(document)

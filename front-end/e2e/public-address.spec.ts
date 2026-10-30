@@ -62,13 +62,14 @@ test.describe('A public address belongs to one market', () => {
         assignmentObject: {},
         // Complete, so it may leave draft (E31/F01/S01).
         setupObject: completePlan(),
+        intakeMode: 'form',
       },
     });
     expect(created.ok(), await created.text()).toBe(true);
     const { market_id: marketId } = (await created.json()) as { market_id: string };
     const opened = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { toPhase: 'applications_open' },
+      data: { toPhase: 'applications' },
     });
     expect(opened.ok(), await opened.text()).toBe(true);
 
