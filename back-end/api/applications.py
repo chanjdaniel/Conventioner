@@ -495,12 +495,19 @@ def begin_dealing(app_id: str, deal: str, now: Optional[datetime] = None) -> boo
 
 def finish_dealing(app_id: str, deal: str, reviewer: Optional[MarketPerson]) -> bool:
     """Write the reviewer ``deal`` took a turn for, and let go of the application; with None, let
-    go without dealing it. Written only while that deal still holds it."""
-    update: Dict[str, Any] = {"$unset": dict(_DEALING_UNSET)}
+    go without dealing it. The reviewer is written only while that deal still holds it and nothing
+    else has dealt it since (a change of reviewers deals every open application it reads, held or
+    not): answers False when it was not written, and lets go of it either way."""
+    release = {"$unset": dict(_DEALING_UNSET)}
     if reviewer is not None:
-        update["$set"] = {"reviewer": reviewer.model_dump()}
-    result = applications_collection.update_one({"id": app_id, "dealing_by": deal}, update)
-    return result.matched_count > 0
+        written = applications_collection.update_one(
+            {"id": app_id, "dealing_by": deal, "reviewer": {"$in": [None]}},
+            {"$set": {"reviewer": reviewer.model_dump()}, **release},
+        )
+        if written.matched_count > 0:
+            return True
+    applications_collection.update_one({"id": app_id, "dealing_by": deal}, release)
+    return False
 
 
 def deal_follow_up(app_id: str, reviewer: MarketPerson, owner_was: Dict[str, Any]) -> bool:

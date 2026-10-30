@@ -245,6 +245,35 @@ class TestTwoAtOnce:
         assert world.markets.doc["reviewTeam"]["turn"] == 9
         assert len(_arrivals(world)) == 2
 
+    def test_a_change_of_reviewers_landing_as_an_arrival_takes_its_turn_deals_it_once(
+            self, world, monkeypatch):
+        _choose([ANA, BEN, CAT])
+        world.applications.documents.append(_application("x", 21))
+        market = MarketsApi.market_from_document(world.markets.doc)
+        real = world.markets.find_one_and_update
+        changed = []
+
+        def ana_is_removed_as_the_arrival_takes_its_turn(*args, **kwargs):
+            if not changed:
+                changed.append(True)
+                assert _choose([BEN, CAT]).status_code == 200
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(world.markets, "find_one_and_update",
+                            ana_is_removed_as_the_arrival_takes_its_turn)
+
+        ReviewTeam.deal_arrivals(market, ADMIN, "import-applications")
+
+        deals_of_x = [e for e in world.history.documents if e["kind"] == History.DEALT
+                      and "app-x" in e["subject"]["application_ids"]]
+        assert [e["detail"]["cause"] for e in deals_of_x] == ["reviewers_changed"]
+        # The change dealt the seven and x, Ben and Cat in turn: x, the eighth, is Cat's.
+        assert _reviewers(world)["x"] == CAT
+        # The turn the arrival took for x is given back: the next arrival is Ben's, none skipped.
+        assert world.markets.doc["reviewTeam"]["turn"] == 8
+        assert "dealing_by" not in next(
+            d for d in world.applications.documents if d["id"] == "app-x")
+
     def test_one_left_half_dealt_by_a_deal_that_stopped_is_dealt_by_the_next(self, world):
         _choose([ANA, BEN, CAT])
         world.applications.documents.append(_application(

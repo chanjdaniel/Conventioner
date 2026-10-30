@@ -181,8 +181,9 @@ def deal_arrivals(
     and no other deal holding it), and only then takes its turn, in one atomic update of the market
     (``$inc`` on the turn, answering the market after), from the team as it stands at that instant.
     So a turn is taken only for an application this deal will write, and two deals at once take
-    consecutive turns and skip no reviewer. A reviewer is written whatever happened to the
-    application since it was won: its reviewer is whose share it was, beside any verdict.
+    consecutive turns and skip no reviewer. The reviewer is written unless a change of reviewers
+    dealt the application meanwhile, when the turn goes back; it is written whatever verdict was
+    given since the deal won it, since a reviewer is whose share it was, beside any verdict.
     """
     if not team_of(market).reviewers:
         return 0
@@ -210,6 +211,11 @@ def deal_arrivals(
         to = able[(team.turn - 1) % len(able)]
         if ApplicationsApi.finish_dealing(doc["id"], deal, to):
             dealt.append((doc, to))
+        else:
+            # A change of reviewers dealt it meanwhile: the turn this took is nobody's, so it goes
+            # back unless another deal has taken one since.
+            markets_collection.update_one(
+                {"id": market.id, _TURN: team.turn}, {"$inc": {_TURN: -1}})
     if dealt:
         History.record(
             market.id, actor, action, kind=History.DEALT,
