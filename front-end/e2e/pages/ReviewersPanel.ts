@@ -10,6 +10,8 @@ export class ReviewersPanel {
   readonly panel: Locator;
   readonly people: Locator;
   readonly none: Locator;
+  /** The mark beside a reviewer who no longer holds a role on the market. */
+  readonly unable: Locator;
   /** "Choose reviewers", or "Change reviewers" once some are chosen. */
   readonly change: Locator;
   readonly dialog: Locator;
@@ -21,6 +23,7 @@ export class ReviewersPanel {
     this.panel = page.getByTestId('reviewers');
     this.people = page.getByTestId('reviewers-person');
     this.none = page.getByTestId('reviewers-none');
+    this.unable = page.getByTestId('reviewers-unable');
     this.change = page.getByTestId('reviewers-change');
     this.dialog = page.getByTestId('reviewers-dialog-window');
     this.save = page.getByTestId('reviewers-dialog-submit-button');
@@ -37,6 +40,13 @@ export class ReviewersPanel {
     await this.change.click();
     await this.dialog.waitFor();
     for (const email of emails) await this.choice(email).check();
+  }
+
+  /** Open the dialog and untick these addresses, leaving whoever else is ticked. */
+  async untick(...emails: string[]): Promise<void> {
+    await this.change.click();
+    await this.dialog.waitFor();
+    for (const email of emails) await this.choice(email).uncheck();
   }
 
   /** Save the dialog's choice, and wait for it to close on the save landing. */
