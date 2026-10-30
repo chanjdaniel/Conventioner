@@ -115,6 +115,7 @@ class TestTheRoutesThatLoadTheirOwnMarket:
 #: inside it, so the set the screens are served from says what the routes do.
 ROW_WRITES = {
     "read": ("get", "/markets/market-123", None),
+    "read-history": ("get", "/markets/market-123/history", None),
     "export-csv": ("get", "/markets/market-123/assignment-csv", None),
     "change-setup": ("put", "/markets/market-123/name", {"name": "Another Market"}),
     "change-form": ("put", "/markets/market-123/review-highlights", {"keys": []}),
@@ -122,6 +123,8 @@ ROW_WRITES = {
                             {"csvContent": "a,b\n1,2"}),
     "give-verdicts": ("put", "/markets/market-123/applications/app-1/review",
                       {"status": "reviewer_rejected"}),
+    "change-verdicts": ("put", "/markets/market-123/applications/app-1/review",
+                        {"status": "reviewer_approved"}),
     "move-phase": ("post", "/markets/market-123/transition", {"toPhase": "draft"}),
     "stop-applications": ("post", "/markets/market-123/applications-stopped", {"stopped": True}),
     "publish-results": ("post", "/markets/market-123/publish-results", {}),

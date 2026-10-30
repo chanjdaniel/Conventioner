@@ -6,6 +6,7 @@ import {
   CURRENCIES,
   centsFromText,
   formatPrice,
+  groupNameProblem,
   priceLine,
   priceText,
   pricingAfterTierChange,
@@ -55,6 +56,31 @@ describe('the date card says what the assignment costs', () => {
       null,
     );
     expect(priceLine({ tier: 'Gold', tableChoice: 'Full Table' }, 'CAD')).toBe(null);
+  });
+
+  it('names the price group that set it (E43/F01/S02)', () => {
+    expect(
+      priceLine(
+        {
+          tier: 'Gold',
+          tableChoice: 'Full Table',
+          priceCents: 1200,
+          priceGroup: 'UBC student + club member',
+        },
+        'CAD',
+      ),
+    ).toBe('Gold, full table, UBC student + club member, $12');
+    expect(
+      priceLine(
+        {
+          tier: 'Silver',
+          tableChoice: 'Full Table',
+          priceCents: 3000,
+          priceGroup: 'Everyone else',
+        },
+        'CAD',
+      ),
+    ).toBe('Silver, full table, Everyone else, $30');
   });
 
   it('leaves the tier out where the table has none', () => {
@@ -127,5 +153,58 @@ describe('the prices follow the tiers they price', () => {
     const after = pricingAfterTierChange(PRICED, ['Gold', 'Silver'], ['Gold', 'Gold']);
 
     expect(after?.everyoneElse).toEqual([{ tier: 'Gold', cents: 3500 }]);
+  });
+});
+
+describe("a group's prices follow the tiers too", () => {
+  const GROUPED: PricingObject = {
+    ...PRICED,
+    groups: [
+      {
+        name: 'Students',
+        conditions: [{ key: 'affiliation', answers: ['Student'] }],
+        prices: [
+          { tier: 'Gold', cents: 1500 },
+          { tier: 'Silver', cents: 1300 },
+        ],
+      },
+    ],
+  };
+
+  it('a renamed tier keeps each group its price', () => {
+    const after = pricingAfterTierChange(GROUPED, ['Gold', 'Silver'], ['Golden', 'Silver']);
+
+    expect(after?.groups?.[0].prices).toEqual([
+      { tier: 'Golden', cents: 1500 },
+      { tier: 'Silver', cents: 1300 },
+    ]);
+    expect(after?.groups?.[0].conditions).toEqual(GROUPED.groups?.[0].conditions);
+  });
+
+  it("a removed tier takes each group's price with it", () => {
+    const after = pricingAfterTierChange(GROUPED, ['Gold', 'Silver'], ['Silver']);
+
+    expect(after?.groups?.[0].prices).toEqual([{ tier: 'Silver', cents: 1300 }]);
+  });
+
+  it('reordering the tiers changes nothing', () => {
+    expect(pricingAfterTierChange(GROUPED, ['Gold', 'Silver'], ['Silver', 'Gold'])).toBe(GROUPED);
+  });
+});
+
+describe("a group's name", () => {
+  const names = ['UBC student only', 'Alumni'];
+
+  it('is needed', () => {
+    expect(groupNameProblem('  ', names, 0)).toBe('Name this group.');
+  });
+
+  it('is its own, whatever its case', () => {
+    expect(groupNameProblem('alumni ', names, 0)).toBe('Another group is called this.');
+    expect(groupNameProblem('Alumni', names, 1)).toBe(null);
+  });
+
+  it("is never the last row's", () => {
+    expect(groupNameProblem('Everyone Else', names, 0)).toBe('"Everyone else" is the last row.');
   });
 });

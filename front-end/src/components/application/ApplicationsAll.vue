@@ -8,7 +8,8 @@
  * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
  * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
  */
-import { MarketAction, mayTake } from '@/utils/marketActions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
+import { whoMayTake } from '@/utils/permissionTable';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
@@ -18,12 +19,13 @@ import {
   type SelectionResult,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
-import { FULL_NAME_KEY, PREFERRED_NAME_KEY } from '@/utils/essentialFields';
+import { applicantName } from '@/utils/essentialFields';
 import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
   heldElsewhere as heldBySomeoneElse,
+  notSelectedLine,
   reviewAnswers,
   selectAll,
 } from '@/utils/reviewQueue';
@@ -32,7 +34,7 @@ import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVerdictActions } from '@/utils/verdictActions';
 import { applicationsAllSeed, NO_FILTERS, type ExportFilters } from '@/utils/vendorExport';
-import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
@@ -142,8 +144,7 @@ const shown = computed(() =>
 );
 
 function nameOf(app: Application): string {
-  const answers = app.formData ?? {};
-  return String(answers[PREFERRED_NAME_KEY] || answers[FULL_NAME_KEY] || '').trim();
+  return applicantName(app.formData);
 }
 
 /** The answers a reviewer reads first (E19/F03), as one line per row. */
@@ -189,6 +190,23 @@ const opened = computed(() =>
 /** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
 const decides = computed(
   () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
+/**
+ * Whether this person may also change a verdict already given, an automatic rejection included:
+ * the table's change row, on top of giving one (E38/F06/S01). A reviewer it refuses gets no tick on
+ * a decided row and no verdict in its drawer, and is told why once.
+ */
+const changes = computed(() => decides.value && mayTake(props.market, MarketAction.ChangeVerdicts));
+const changeRefusal = computed(() =>
+  decides.value && !changes.value ? actionRefusal(props.market, MarketAction.ChangeVerdicts) : null,
+);
+/** Who the market's table lets change a verdict, for what Select all says it left out. */
+const whoChanges = computed(() =>
+  whoMayTake(props.market?.permissionTable, MarketAction.ChangeVerdicts),
+);
+/** Whether this person may give the opened application a verdict: a decided one is a change. */
+const decidesOpened = computed(
+  () => decides.value && (changes.value || !opened.value || !isDecided(opened.value)),
 );
 
 const saving = ref(false);
@@ -253,33 +271,60 @@ const selected = ref<Set<string>>(new Set());
 function heldElsewhere(app: Application): string | null {
   return heldBySomeoneElse(app, me.value);
 }
-/** How many rows Select all left unticked because someone else has them open, to say so. */
+/** One already decided cannot be ticked by someone who may not change it (E38/F06/S01). */
+function decidedForMe(app: Application): boolean {
+  return !changes.value && isDecided(app);
+}
+/** Why a row cannot be ticked, or null when it can. */
+function untickable(app: Application): string | null {
+  const holder = heldElsewhere(app);
+  if (holder) return `${holder} has it open`;
+  return decidedForMe(app) ? changeRefusal.value : null;
+}
+/** Said once over the list while it shows a row this person may not change (E38/F06/S01). */
+const showsUnchangeable = computed(() => shown.value.some((a) => decidedForMe(a)));
+/** How many rows Select all left unticked, by why, to say so. */
 const skippedHeld = ref(0);
+const skippedDecided = ref(0);
+const notSelected = computed(() =>
+  notSelectedLine(skippedHeld.value, skippedDecided.value, whoChanges.value),
+);
 function toggle(app: Application, ticked: boolean) {
   const next = new Set(selected.value);
   if (ticked) next.add(app.id);
   else next.delete(app.id);
   selected.value = next;
+  forgetSkipped();
+}
+function forgetSkipped() {
   skippedHeld.value = 0;
+  skippedDecided.value = 0;
 }
 function tickAllShown() {
-  const { ids, skipped } = selectAll(shown.value, me.value);
+  const { ids, held, decided } = selectAll(shown.value, me.value, changes.value);
   selected.value = new Set(ids);
-  skippedHeld.value = skipped;
+  skippedHeld.value = held;
+  skippedDecided.value = decided;
 }
 function clearSelection() {
   selected.value = new Set();
-  skippedHeld.value = 0;
+  forgetSkipped();
 }
 // Another filter is another set of rows: what Select all skipped was said of the last one.
-watch([filter, mine], () => (skippedHeld.value = 0));
+watch([filter, mine], forgetSkipped);
 // A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
+// A row decided since it was ticked is a change now, which leaves the selection as it leaves the
+// ticks for someone who may not change a verdict (E38/F06/S01).
 watch(shown, (rows) => {
-  const visible = new Set(rows.map((a) => a.id));
-  selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+  const tickable = new Set(rows.filter((a) => !decidedForMe(a)).map((a) => a.id));
+  selected.value = new Set([...selected.value].filter((id) => tickable.has(id)));
   // What Select all left out is said only while it is still held: a re-read that shows a row let
   // go, or gone, says fewer (E38/F05/S02).
   skippedHeld.value = Math.min(skippedHeld.value, rows.filter((a) => heldElsewhere(a)).length);
+  skippedDecided.value = Math.min(
+    skippedDecided.value,
+    rows.filter((a) => !heldElsewhere(a) && decidedForMe(a)).length,
+  );
 });
 
 const VERDICT_WORDS: Partial<Record<ApplicationStatus, { verb: string; done: string }>> = {
@@ -386,14 +431,22 @@ async function decideSelection() {
         Select all
       </button>
       <span
-        v-if="skippedHeld"
+        v-if="notSelected"
         class="all-meta"
         role="status"
         data-testid="applications-all-select-all-skipped"
-        >{{ plural(skippedHeld) }} not selected: another reviewer has
-        {{ skippedHeld === 1 ? 'it' : 'them' }} open.</span
+        >{{ notSelected }}</span
       >
     </div>
+    <!-- Why a decided row has no tick, said once rather than on every row (E38/F06/S01), unless
+         what Select all left out says it already. -->
+    <p
+      v-if="showsUnchangeable && changeRefusal && !skippedDecided && !errorMessage"
+      class="all-meta change-reason"
+      data-testid="applications-all-change-reason"
+    >
+      {{ changeRefusal }}
+    </p>
 
     <!-- The selection's verdicts, on the rows ticked (E34/F04/S02, E38/F05/S02). -->
     <div
@@ -466,10 +519,10 @@ async function decideSelection() {
           type="checkbox"
           class="all-tick"
           :checked="selected.has(app.id)"
-          :disabled="!!heldElsewhere(app)"
+          :disabled="!!untickable(app)"
           :aria-label="
-            heldElsewhere(app)
-              ? `${app.applicantEmail}: ${heldElsewhere(app)} has it open`
+            untickable(app)
+              ? `${app.applicantEmail}: ${untickable(app)}`
               : `Select ${app.applicantEmail}`
           "
           data-testid="applications-all-tick"
@@ -532,7 +585,14 @@ async function decideSelection() {
             >
           </p>
           <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
-          <div v-if="decides" class="drawer-buttons">
+          <p
+            v-if="decides && !decidesOpened"
+            class="all-meta change-reason"
+            data-testid="applications-all-drawer-change-reason"
+          >
+            {{ changeRefusal }}
+          </p>
+          <div v-if="decidesOpened" class="drawer-buttons">
             <button
               type="button"
               class="btn btn--destructive btn--compact"
@@ -794,6 +854,11 @@ async function decideSelection() {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  margin: 0;
+}
+
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01), as a meta line. */
+.change-reason {
   margin: 0;
 }
 

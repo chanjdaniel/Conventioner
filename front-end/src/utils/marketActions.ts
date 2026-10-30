@@ -13,11 +13,13 @@ import type { Market } from '@/assets/types/datatypes';
 /** Every row of the server's table, by its id, in the table's order. */
 export const MarketAction = {
   Read: 'read',
+  ReadHistory: 'read-history',
   ExportCsv: 'export-csv',
   ChangeSetup: 'change-setup',
   ChangeForm: 'change-form',
   ImportApplications: 'import-applications',
   GiveVerdicts: 'give-verdicts',
+  ChangeVerdicts: 'change-verdicts',
   MovePhase: 'move-phase',
   StopApplications: 'stop-applications',
   PublishResults: 'publish-results',

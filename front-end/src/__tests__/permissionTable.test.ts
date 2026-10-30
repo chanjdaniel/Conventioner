@@ -19,8 +19,10 @@ import {
   sourceLine,
   WHO_MAY_CHOICES,
   whoMayLabel,
+  whoMayTake,
   type PermissionHistoryEntry,
 } from '@/utils/permissionTable';
+import { MarketAction } from '@/utils/marketActions';
 
 function row(overrides: Partial<PermissionTableRow> = {}): PermissionTableRow {
   return {
@@ -257,5 +259,25 @@ describe('changeLines', () => {
 
   it('names a row the table no longer has by its id rather than dropping it', () => {
     expect(changeLines(entry({ subject: { action: 'gone-row' } }), table).title).toBe('gone-row');
+  });
+});
+
+describe('whoMayTake', () => {
+  it('names who the market lets take a row, in the words the server served for it', () => {
+    const table = [
+      row({ whoMay: 'an Editor, an Admin or the owner' }),
+      row({
+        id: 'change-verdicts',
+        role: MarketRole.Editor,
+        whoMay: 'an Editor, an Admin or the owner',
+      }),
+    ];
+
+    expect(whoMayTake(table, MarketAction.ChangeVerdicts)).toBe('an Editor, an Admin or the owner');
+  });
+
+  it('says nobody is named when the market in hand carries no such row', () => {
+    expect(whoMayTake(undefined, MarketAction.ChangeVerdicts)).toBeNull();
+    expect(whoMayTake([row()], MarketAction.ChangeVerdicts)).toBeNull();
   });
 });

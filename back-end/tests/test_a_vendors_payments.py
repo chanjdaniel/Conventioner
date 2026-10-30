@@ -101,6 +101,7 @@ class TestTheAmountOwed:
         assert owed(got["lines"]) == [(SAT, "Atrium 1", 3500, False), (SUN, "Atrium 1", 3500, False)]
         assert got["lines"][0]["tier"] == "Gold"
         assert got["lines"][0]["tableChoice"] == "Full Table"
+        assert got["lines"][0]["group"] is None
         assert (got["owedCents"], got["paidCents"], got["currency"]) == (7000, 0, "CAD")
 
     def test_a_half_table_owes_the_half_share(self, market):
@@ -127,6 +128,24 @@ class TestTheAmountOwed:
         line = account()["lines"][0]
         assert (line["tableCode"], line["owedCents"]) == ("Landing 2", 2000)
         assert line["owedSetBy"] == "admin@example.com"
+
+    def test_a_vendor_in_a_price_group_owes_the_groups_price_and_the_line_names_it(
+        self, market, applications,
+    ):
+        """E43/F01/S02: the line is priced as the date card is, by the groups their answers put
+        them in."""
+        from test_price_groups import FIELDS, STUDENT, UBC_TABLE
+
+        market.doc["applicationForm"] = {"fields": FIELDS}
+        market.doc["setupObject"]["pricing"] = copy.deepcopy(UBC_TABLE)
+        applications.documents[0]["form_data"] = {"affiliation": [STUDENT], "clubs": ["Art Club"]}
+
+        got = account()
+
+        assert [(line["owedCents"], line["group"]) for line in got["lines"]] == [
+            (1200, "UBC student + club member"), (1200, "UBC student + club member")]
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
+        assert account()["lines"][1]["group"] == "UBC student + club member"
 
     def test_a_market_with_no_prices_owes_nothing_and_says_so(self, market):
         market.doc["setupObject"]["pricing"] = None
@@ -268,7 +287,7 @@ class TestTheHistory:
         [entry] = stores.history.documents
         assert (entry["actor"], entry["action"], entry["kind"]) == (EDITOR, "record-payment", None)
         assert entry["vendors"] == [ANA]
-        assert entry["subject"]["payment_id"] == account()["payments"][0]["id"]
+        assert entry["subject"] == {"payment_id": account()["payments"][0]["id"], "currency": "CAD"}
         assert entry["detail"] == {
             "before": {"cents": None, "method": None, "paid_on": None, "note": None},
             "after": {"cents": 3500, "method": "cash", "paid_on": "2099-04-01",

@@ -34,14 +34,19 @@ NO_ENTRY = "This market has no such payment standing."
 
 
 def seats_by_vendor(market: Market) -> Dict[str, Dict[str, Payments.Seat]]:
-    """Every seat held on the market, by vendor and date, each with its price that day."""
-    pricing = market.setup_object.pricing if market.setup_object else None
+    """Every seat held on the market, by vendor and date, each with its price that day and the
+    card's row that set it: the price groups the vendor's answers put them in (E43/F01/S02), as
+    the tables read prices the date cards (``Pricing.row_prices``)."""
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market.id)
     seats: Dict[str, Dict[str, Payments.Seat]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
-        cents = Pricing.assignment_price(pricing, row.tier, row.table_choice)
-        for email in dict.fromkeys(email for email in row.assignment if email):
-            seats.setdefault(normalized_email(email), {})[row.date] = Payments.Seat(
-                row.table_code, row.tier, row.table_choice, cents)
+        priced = {normalized_email(price["email"]): price
+                  for price in Pricing.row_prices(groups, row, answers)}
+        for email in dict.fromkeys(normalized_email(email) for email in row.assignment if email):
+            price = priced.get(email) or {}
+            seats.setdefault(email, {})[row.date] = Payments.Seat(
+                row.table_code, row.tier, row.table_choice, price.get("cents"), price.get("group"))
     return seats
 
 
@@ -96,7 +101,7 @@ def _record_entry(
     History.record(
         market_id, requesting_user, row,
         kind=None if kind == Payments.PAYMENT else History.REFUND_RECORDED, vendors=[address],
-        subject={"payment_id": stored["id"]},
+        subject={"payment_id": stored["id"], **_currency(market)},
         detail=lambda: History.changes(_fields(None), _fields(stored)),
     )
     return _account(market, address)
@@ -140,7 +145,8 @@ def _change_entry(
         raise NotFoundError(NO_ENTRY)
     History.record(
         market_id, requesting_user, Actions.ADJUST_PAID, kind=kind,
-        vendors=[before.get("vendor_email")], subject={"payment_id": before["id"]},
+        vendors=[before.get("vendor_email")],
+        subject={"payment_id": before["id"], **_currency(market)},
         detail=lambda: History.changes(_fields(before), _fields(recorded_after)),
     )
     return _account(market, before.get("vendor_email") or "")
@@ -173,13 +179,18 @@ def _owed_cents(body: Any) -> int:
     return cents
 
 
+def _currency(market: Market) -> Dict[str, Any]:
+    """The market's currency, in a payment entry's subject, so its money reads in it."""
+    return Pricing.pricing_subject(market.setup_object)
+
+
 def _record_owed(
-    market_id: str, requesting_user: str, address: str, date: str, kind: str,
+    market: Market, requesting_user: str, address: str, date: str, kind: str,
     before: Dict[str, Any], after: Optional[Dict[str, Any]],
 ) -> None:
     History.record(
-        market_id, requesting_user, Actions.CHANGE_OWED, kind=kind, vendors=[address],
-        subject={"date": date},
+        market.id, requesting_user, Actions.CHANGE_OWED, kind=kind, vendors=[address],
+        subject={"date": date, **_currency(market)},
         detail=lambda: History.changes({"owed_cents": before["owedCents"]},
                                        {"owed_cents": (after or {}).get("owedCents")}),
     )
@@ -198,7 +209,7 @@ def set_amount_owed(
         raise NotFoundError(NO_LINE)
     Payments.set_amount_owed(market_id, address, date, cents, requesting_user)
     account = _account(market, address)
-    _record_owed(market_id, requesting_user, address, date, History.OWED_SET, before,
+    _record_owed(market, requesting_user, address, date, History.OWED_SET, before,
                  _line(market, address, date))
     return account
 
@@ -217,7 +228,7 @@ def use_calculated_price(
         return _account(market, address)
     Payments.use_calculated_price(market_id, address, date)
     account = _account(market, address)
-    _record_owed(market_id, requesting_user, address, date, History.OWED_CALCULATED, before,
+    _record_owed(market, requesting_user, address, date, History.OWED_CALCULATED, before,
                  _line(market, address, date))
     return account
 
@@ -239,5 +250,5 @@ def deduct_freed_line(market: Market, vendor_email: str, date: str, by: str) -> 
     if before is None:
         return
     Payments.set_amount_owed(market.id, address, date, 0, by)
-    _record_owed(market.id, by, address, date, History.OWED_SET, before,
+    _record_owed(market, by, address, date, History.OWED_SET, before,
                  _line(market, address, date))

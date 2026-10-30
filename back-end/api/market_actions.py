@@ -37,6 +37,9 @@ class Action:
     #: What the action is, after "may", in the refusal's sentence: "move this market's phase".
     may_what: str
     fixed: bool = False
+    #: The row this action is asked on top of, if any: taking it takes both, so ``refusal`` and
+    #: ``role_refusal`` ask that row first, and ``who_may`` names the stricter of the two.
+    on_top_of: Optional["Action"] = None
 
 
 #: Every row, by id, in the order the table lists them.
@@ -45,21 +48,24 @@ ACTIONS: Dict[str, Action] = {}
 
 def action(
     action_id: str, group: str, label: str, default: MarketRole, may_what: str, *,
-    fixed: bool = False,
+    fixed: bool = False, on_top_of: Optional[Action] = None,
 ) -> Action:
     """Add a row to the table and return it. An id names one row, once."""
     if action_id in ACTIONS:
         raise ValueError(f"The table already has a row {action_id!r}.")
-    row = Action(action_id, group, label, default, may_what, fixed)
+    row = Action(action_id, group, label, default, may_what, fixed, on_top_of)
     ACTIONS[action_id] = row
     return row
 
 
 READ = action(
     "read", "Reading",
-    "Read the market: its applications, assignments, statistics, attendance, history and "
-    "floorplan export",
+    "Read the market: its applications, assignments, statistics, attendance and floorplan "
+    "export",
     MarketRole.VIEWER, "see this market", fixed=True)
+READ_HISTORY = action(
+    "read-history", "Reading", "Read the market's history", MarketRole.VIEWER,
+    "read this market's history")
 EXPORT_CSV = action(
     "export-csv", "Reading", "Export CSV", MarketRole.VIEWER, "export this market's CSV")
 CHANGE_SETUP = action(
@@ -75,6 +81,12 @@ IMPORT_APPLICATIONS = action(
 GIVE_VERDICTS = action(
     "give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR,
     "give verdicts and follow-ups on this market")
+#: A reviewer's write on an application already approved or rejected, and a write that returns a
+#: rule's rejection to open (E38/F06/S01). Asked on top of ``GIVE_VERDICTS``: a change is a verdict.
+CHANGE_VERDICTS = action(
+    "change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
+    MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market",
+    on_top_of=GIVE_VERDICTS)
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(
@@ -167,21 +179,35 @@ def minimum_role(row: Action, market: Market) -> MarketRole:
 def table(market: Market) -> List[Dict[str, Any]]:
     """The market's table for display, every row in order: its label and group, the role it asks,
     its built-in default, where the role came from, whether it is fixed, and what the action is
-    after "may", for Manage market's confirmation of a change (E39/F01/S04)."""
+    after "may", for Manage market's confirmation of a change (E39/F01/S04); and who may take it
+    here, in the words a refusal names them, for a screen that says who may (E38/F06/S01)."""
     served = []
     for row in ACTIONS.values():
         held = held_row(row, market.permissions)
+        role = MarketRole(held.role) if held else row.default
         served.append({
             "id": row.id,
             "group": row.group,
             "label": row.label,
-            "role": (MarketRole(held.role) if held else row.default).value,
+            "role": role.value,
             "default": row.default.value,
             "source": held.source if held else BUILT_IN,
             "fixed": row.fixed,
             "mayWhat": row.may_what,
+            "whoMay": _WHO_MAY[who_may(row, market.permissions)],
         })
     return served
+
+
+def who_may(row: Action, rows: Mapping[str, Any]) -> MarketRole:
+    """The lowest role that may take this action on a market holding ``rows``, counting the row it
+    is asked on top of: a change of verdict takes the giving row too, so with the change row set
+    below it a Viewer still changes nothing (E38/F06/S01)."""
+    role = _minimum_role_of(row, rows)
+    if row.on_top_of is None:
+        return role
+    under = who_may(row.on_top_of, rows)
+    return under if PermissionsApi.role_reaches(under, role) else role
 
 
 _WHO_MAY = {
@@ -205,8 +231,12 @@ def refusal(
 
     The row asks the market's role for it (``minimum_role``). The person's role is the one
     ``get_user_market_role`` resolves: the market's own and the one its organization gives, the
-    higher counting.
+    higher counting. A row asked on top of another asks that one first, in its own words.
     """
+    if row.on_top_of is not None:
+        under = refusal(row.on_top_of, user_email, market, organization)
+        if under:
+            return under
     required = minimum_role(row, market)
     if PermissionsApi.user_has_permission(user_email, market, required, organization):
         return None
@@ -219,8 +249,13 @@ def role_refusal(
     """``refusal`` for a role already resolved, on a market holding ``rows``: the market read
     resolves the person's role once and asks every row of it, and the markets list resolves each
     entry's role from the documents it holds (``_summary_role``) and passes the document's stored
-    rows; each asks the row of that rather than resolving it again.
+    rows; each asks the row of that rather than resolving it again. A row asked on top of another
+    asks that one first, as ``refusal`` does.
     """
+    if row.on_top_of is not None:
+        under = role_refusal(row.on_top_of, role, rows)
+        if under:
+            return under
     required = _minimum_role_of(row, rows)
     if PermissionsApi.role_reaches(role, required):
         return None

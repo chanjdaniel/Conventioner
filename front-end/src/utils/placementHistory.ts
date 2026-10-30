@@ -15,6 +15,18 @@ import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 /** Mirrors the placement kinds in `back-end/history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
 
+const PLACEMENT_KINDS: ReadonlySet<string> = new Set<PlacementHistoryKind>([
+  'placed',
+  'freed',
+  'swapped',
+  'assigned',
+]);
+
+/** Whether a history entry's kind is a placement's, so it reads in this file's words. */
+export function isPlacementKind(kind: string | null): kind is PlacementHistoryKind {
+  return kind !== null && PLACEMENT_KINDS.has(kind);
+}
+
 export interface PlacementHistoryEntry {
   id: string;
   actor: string;
@@ -25,6 +37,9 @@ export interface PlacementHistoryEntry {
     date?: string;
     tableCode?: string;
     tableChoice?: string;
+    /** The table the vendor left on that date, for a placement: null when they had none. An
+     * entry from before the table left was kept has no such key. */
+    before?: { tableCode: string; tableChoice?: string | null } | null;
     seats?: Array<{ email: string; tableCode: string }>;
     placementsWritten?: number;
     pinsPreserved?: number;
@@ -59,10 +74,21 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
 
   switch (entry.kind) {
     case 'placed':
+      // A vendor who had a table that day was moved, and the table left says from where.
+      if (detail.before?.tableCode) {
+        return [
+          text('Moved '),
+          who(entry.vendors[0]),
+          text(
+            ` from ${detail.before.tableCode} to ${detail.tableCode}` +
+              (detail.tableChoice ? ` (${detail.tableChoice})` : ''),
+          ),
+        ];
+      }
       return [
         text('Assigned '),
         who(entry.vendors[0]),
-        text(` at ${detail.tableCode} (${detail.tableChoice})`),
+        text(` at ${detail.tableCode}${detail.tableChoice ? ` (${detail.tableChoice})` : ''}`),
       ];
     case 'freed':
       return [

@@ -4,6 +4,7 @@ import {
   type ApplicationForm,
 } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import { isDecided } from '@/utils/verdicts';
 
 /**
  * Everything an application says, as a reviewer reads it.
@@ -25,7 +26,7 @@ import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
  * and the applicant's own dashboard reads the same answers back.
  */
 export function reviewAnswers(
-  application: Application,
+  application: Pick<Application, 'formData'>,
   form?: ApplicationForm | null,
   highlights: string[] = [],
 ): { leading: AnswerRow[]; rest: AnswerRow[] } {
@@ -184,9 +185,45 @@ export function heldElsewhere(application: Application, me: string): string | nu
 
 /**
  * What Select all ticks (E38/F05/S02): every row shown - the filter and Mine already applied - but
- * those another reviewer has open, which cannot be ticked one by one either; and how many it left.
+ * those another reviewer has open, and, for someone who may not change a verdict (`changes`), those
+ * already approved or rejected (E38/F06/S01); neither can be ticked one by one either. With how
+ * many it left for each reason, a row held elsewhere counted as held whatever its verdict.
  */
-export function selectAll(shown: Application[], me: string): { ids: string[]; skipped: number } {
+export function selectAll(
+  shown: Application[],
+  me: string,
+  changes = true,
+): { ids: string[]; held: number; decided: number } {
   const free = shown.filter((a) => !heldElsewhere(a, me));
-  return { ids: free.map((a) => a.id), skipped: shown.length - free.length };
+  const ticked = changes ? free : free.filter((a) => !isDecided(a));
+  return {
+    ids: ticked.map((a) => a.id),
+    held: shown.length - free.length,
+    decided: free.length - ticked.length,
+  };
+}
+
+const applicationsWord = (n: number) => `${n} application${n === 1 ? '' : 's'}`;
+
+/**
+ * What Select all left out, in one line, or null when it left nothing (E38/F05/S02): the rows
+ * another reviewer has open, and the rows already decided for someone who may not change a verdict,
+ * each in its own clause, naming who may change one (`whoMay`, from the market's table) where it is
+ * known (E38/F06/S01).
+ */
+export function notSelectedLine(
+  held: number,
+  decided: number,
+  whoMay: string | null,
+): string | null {
+  if (!held && !decided) return null;
+  const mayChange = whoMay ? `which only ${whoMay} may change` : 'which you may not change';
+  const lead = `${applicationsWord(held + decided)} not selected`;
+  if (!decided) return `${lead}: another reviewer has ${held === 1 ? 'it' : 'them'} open.`;
+  if (!held) {
+    const have = decided === 1 ? 'it already has' : 'they already have';
+    return `${lead}: ${have} a verdict, ${mayChange}.`;
+  }
+  const have = decided === 1 ? 'already has' : 'already have';
+  return `${lead}: another reviewer has ${held} open, and ${decided} ${have} a verdict, ${mayChange}.`;
 }

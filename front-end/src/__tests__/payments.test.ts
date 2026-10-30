@@ -72,6 +72,12 @@ describe('a line’s seat', () => {
     ).toBe('Landing 2, Silver, half table');
   });
 
+  it('names the price group that set its price, as the date card does', () => {
+    expect(seatText({ ...LINE, group: 'UBC student + club member' })).toBe(
+      'Atrium 1, Gold, full table, UBC student + club member',
+    );
+  });
+
   it('leaves out a tier the table has none of', () => {
     expect(seatText({ ...LINE, tier: '' })).toBe('Atrium 1, full table');
   });

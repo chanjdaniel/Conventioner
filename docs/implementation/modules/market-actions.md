@@ -23,9 +23,11 @@ sources:
   - E39/F01/S03
   - E39/F01/S04
   - E42/F01/S01
+  - E40/F01/S03
   - E41/F01/S01
   - E38/F04/S02
   - E38/F05
+  - E38/F06/S01
   - E44/F01/S01
   - E44/F01/S02
 ---
@@ -39,7 +41,8 @@ A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, 
 
 ## The interface
 
-**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal) and `fixed` (a row nobody may change).
+**A row is an `Action`**: a stable `id`, its `group` and `label` (the epic's table), its `default` (a `MarketRole`, meaning that role and every one above it, Owner > Admin > Editor > Viewer), `may_what` (the words after "may" in its refusal), `fixed` (a row nobody may change) and `on_top_of` (the row it is asked on top of: the change row rides on the giving row, E38/F06/S01).
+**A row on top of another takes both**: `refusal` and `role_refusal` ask the row under it first and answer in its words, so every check of the change row (the verdict writes, `may_overturn` for each write that judges the rules again, and `actionRefusals` on the market read) refuses whoever the giving row refuses, wherever its owner set the change row, and `who_may` names the stricter of the two for `whoMay`.
 `action(...)` adds a row to `ACTIONS` and returns it, and refuses an id the table already has; each row is a module constant (`MOVE_PHASE`, `ASSIGN`, ...).
 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
@@ -66,12 +69,14 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 | Row (`id`) | Default | Asked by |
 | --- | --- | --- |
-| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, placement history, attendance, pending offers count, the application form and vendor notes reads, a vendor's payments (`GET /markets/:id/payments/<email>`), `POST /floorplans/export` |
+| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, a vendor's payments (`GET /markets/:id/payments/<email>`), `POST /floorplans/export` |
+| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
 | Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers; on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason` |
+| Change a verdict, or overturn an automatic rejection (`change-verdicts`) | Admin | on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`); and whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import); on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer; the form tab's and the import's lines name who may by the row's role (`whoMayTake`) |
 | Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
 | Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results`; on screen, the Applications page draws Publish Results by its answer |
@@ -88,6 +93,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
 | Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
 
+**A verdict on an application already approved or rejected asks two rows**: the giving row at `_reviewer_on`, and the change row of each application it writes (E38/F06/S01); the write itself carries `unless_decided`, so a verdict landing between the reviewer's look and the write is the 409 it always was ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
+
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
 
 ## A market's own rows
@@ -99,7 +106,7 @@ A row the market does not hold reads its default, so a market without the field 
 Only the owner's write stores a row, so neither happens unless a document was changed by hand or by a later build.
 `create_market` writes `permissions: {}` whatever the create body carried.
 
-**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words.
+**`table(market)` is the table for display**, served on the market read as `permissionTable`: every row in order with its `id`, `group`, `label`, the `role` it asks here, its `default`, its `source` (`built-in`, `organization` or `market`), whether it is `fixed`, and `mayWhat`, the action after "may", which Manage market's confirmation of a change words; and `whoMay`, who may take it here in the words a refusal names them ("an Admin or the owner"), the stricter of its own role and that of the row it rides on (`who_may`), so with the change row set to Viewer it still names "an Editor, an Admin or the owner"; a screen that says who may reads it through `whoMayTake` (E38/F06/S01).
 Manage market's Permissions section shows it ([setting who may do what](../../business/flows/ending-and-managing-a-market.md#l3a-set-who-may-do-what)); a control asks `actionRefusals`, never this.
 
 **The owner's writes alone**: `PUT /markets/:id/permissions/<action>` with `{"role": "admin"}` sets the row (`set_permission`), `DELETE` on the same path returns it to its built-in default (`reset_permission`), and `DELETE /markets/:id/permissions` returns every row the market holds to its default in one write (`reset_permissions`, E39/F01/S04); each answers the market's table.
@@ -110,18 +117,18 @@ Setting writes `permissions.<action>` to `{role, source: market}`, and resetting
 Mongo cannot set a key inside a stored null or string, so setting a row on a market whose stored `permissions` is not a map, which the read takes as no rows held, writes the whole map holding that row.
 
 **Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`; a reset of every row is one entry of kind `permission_table_reset`, no subject, and detail `{before, after}`, each a map from every row it returned to its `{role, source}`.
-`GET /markets/:id/permission-history` (`get_permission_history`, at Read) answers `{entries}`, the market's history narrowed to them, newest first.
+`GET /markets/:id/permission-history` (`get_permission_history`, at the history's row, `read-history`) answers `{entries}`, the market's history narrowed to them, newest first.
 [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
 
 ## What the screens read
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
-`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
 The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04).
 
-**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
+**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
 The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".

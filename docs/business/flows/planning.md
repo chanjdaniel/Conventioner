@@ -26,6 +26,7 @@ sources:
   - E23/F02/S01
   - T15
   - E43/F01/S01
+  - E43/F01/S02
 ---
 
 # Planning the market
@@ -140,10 +141,15 @@ Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the applic
 
 ## E9. Pricing
 
-**Status:** Works (E43/F01/S01; `the-pricing-card.spec.ts`).
+**Status:** Works (E43/F01/S01, S02; `the-pricing-card.spec.ts`, `price-groups.spec.ts`).
 Optional: a market with no prices shows no price anywhere ([a price follows the table](../rules/a-price-follows-the-table.md)).
 
-1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the one row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+1. In "Pricing" ([`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue)), the columns are the plan's tiers and the last row is "Everyone else"; type a full table's price for one market day in each tier's cell ("35" or "35.50"), or leave it blank for no price.
+   "Add a group" adds a row above it, its name field focused, with a column "In the group when" beside its prices: name it ("UBC student + club member"), add a condition on one of the form's questions with answers to choose ("Which clubs are you a member of? includes any of", then tick the answers that meet it), as many as must all hold, and price it per tier.
+   A group with another group's name says "Another group is called this.", and one left with no name "Name this group."; either way the plan waits to save until it is fixed; "Remove group", under the name, takes the row away.
+   A vendor pays the cheapest group they are in at their table's tier, and "Everyone else" when they are in none ([a price follows the table](../rules/a-price-follows-the-table.md#price-groups)).
+   A condition on a question the form no longer asks, or an answer it no longer offers, is drawn red with what is missing, headed "A question no longer on the form" where the question is gone, and until it is fixed Open Applications waits, the rail naming the group, and from another page of the market the rail offers "Fix the price groups".
+   A form that asks no question with answers to choose offers no group: the card says every vendor pays "Everyone else".
 2. "Half table costs [50] % of a full table" sets a half table's share, a whole number from 0 to 100.
 3. "Currency" is the market's one currency, "CAD - Canadian dollars" until another is picked.
 4. Expect "Plan saved"; a cell shows what is typed until it is left, then the price as kept ("35.5" becomes "35.50").
@@ -151,7 +157,7 @@ Optional: a market with no prices shows no price anywhere ([a price follows the 
    Either keeps the value it had before the typing - a blank cell keeps no price, never the prefix before the error ("3" then "3x" keeps nothing) - and the plan waits to save until it is fixed, so "Plan saved" never stands beside text that was not kept.
 
 A tier renamed in Tier Setup keeps its price, and a removed tier's price goes with it; a plan with no tiers says "Prices are set by tier. Add a tier in Tier Setup to price its tables." and offers neither the share nor the currency until it has one.
-Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35"; [the vendor drawer](vendor-drawer.md)).
+Each assignment then shows its price on its date card in the vendor drawer ("Gold, full table, $35", naming the vendor's group where the card has groups; [the vendor drawer](vendor-drawer.md)).
 The card sits after Section Setup because its columns are the tiers the sections give tables, and it settles with the rest of the setup (E7).
 
 ## Superseded

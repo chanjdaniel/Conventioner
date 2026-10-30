@@ -78,7 +78,7 @@ class TestChangingTheAmountOwed:
 
         set_, back = entries(stores, "change-owed")
         assert (set_["kind"], set_["actor"], set_["vendors"], set_["subject"]) == (
-            History.OWED_SET, ADMIN, [ANA], {"date": SUN})
+            History.OWED_SET, ADMIN, [ANA], {"date": SUN, "currency": "CAD"})
         assert set_["detail"] == {"before": {"owed_cents": 3500}, "after": {"owed_cents": 0}}
         assert back["kind"] == History.OWED_CALCULATED
         assert back["detail"] == {"before": {"owed_cents": 0}, "after": {"owed_cents": 3500}}
@@ -160,7 +160,7 @@ class TestAdjustingTheAmountPaid:
         assert (kept["by"], kept["what"], kept["before"]["cents"]) == (ADMIN, "edited", 3000)
         [recorded] = entries(stores, "adjust-paid")
         assert recorded["kind"] == History.PAYMENT_EDITED
-        assert recorded["subject"] == {"payment_id": paid["id"]}
+        assert recorded["subject"] == {"payment_id": paid["id"], "currency": "CAD"}
         assert recorded["detail"] == {"before": {"cents": 3000, "note": None},
                                       "after": {"cents": 3500, "note": "Miscounted"}}
 
@@ -229,3 +229,31 @@ class TestAnEditorChangesNeither:
 
         assert refusals["change-owed"] and refusals["adjust-paid"]
         assert refusals["record-payment"] is None
+
+
+class TestTheVendorsDrawerHistory:
+    def test_each_change_is_in_the_vendors_history_with_who_and_when(self, admin, monkeypatch):
+        """The drawer's History tab reads the market's history narrowed to the vendor
+        (E40/F01/S04), so every payment change names them."""
+        from test_reading_the_history import PagedHistory
+
+        monkeypatch.setattr(History, "history_collection", PagedHistory())
+        monkeypatch.setattr(History, "legacy_placement_collection", PagedHistory())
+        paid = pay(7000)["payments"][0]
+        PlacementsApi.remove_placement(MARKET, ANA, SUN, ADMIN, deduct_owed=True)
+        PaymentsApi.record_refund(
+            MARKET, ANA, {"cents": 3500, "method": "cash", "paidOn": "2099-04-10"}, ADMIN)
+        PaymentsApi.edit_payment(
+            MARKET, paid["id"], {"cents": 7000, "method": "cash", "paidOn": "2099-04-02"}, ADMIN)
+
+        entries, _ = History.entries_page(MARKET, vendor=ANA)
+
+        said = {(entry["action"], entry["kind"]) for entry in entries}
+        assert {("record-payment", None), ("change-owed", History.OWED_SET),
+                ("adjust-paid", History.REFUND_RECORDED),
+                ("adjust-paid", History.PAYMENT_EDITED)} <= said
+        for entry in entries:
+            assert entry["actor"] and entry["at"]
+
+        others, _ = History.entries_page(MARKET, vendor="ben@example.com")
+        assert others == []

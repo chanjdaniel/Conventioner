@@ -4,7 +4,8 @@ Conventioner tracks what is expected and what came in, not accounting (Daniel, T
 outside the app, by e-transfer or cash (Q7), and an organizer records each payment here.
 
 - **The amount owed is kept per table-day** (Q26): by default the price of the seat the vendor holds
-  that day (``pricing.assignment_price``), so it follows the seat while nobody has set it by hand.
+  that day, priced as the drawer's date cards price it (``pricing.Groups``), so it follows the seat
+  while nobody has set it by hand.
   An amount set by hand (``set_amount_owed``, an Admin's by default) holds whatever the seat does,
   until ``use_calculated_price`` takes it back; setting $0 is how a fee is waived.
 - **Freeing a table never changes either amount by itself** (Q26: after the cancellation deadline
@@ -52,6 +53,9 @@ class Seat:
     tier: str
     table_choice: str
     cents: Optional[int]
+    #: The card's row that set the price: a price group's name, "Everyone else" on a card with
+    #: groups, or None on a card without (E43/F01/S02).
+    group: Optional[str] = None
 
 
 def _now() -> str:
@@ -196,13 +200,14 @@ def lines(
         held = seats.get(date)
         freed = None if held else kept[date]["freed"]
         seat = held or Seat(**{key: freed.get(key)
-                               for key in ("table_code", "tier", "table_choice", "cents")})
+                               for key in ("table_code", "tier", "table_choice", "cents", "group")})
         by_hand = (kept.get(date) or {}).get("set_by_hand")
         found.append({
             "date": date,
             "tableCode": seat.table_code,
             "tier": seat.tier,
             "tableChoice": seat.table_choice,
+            "group": seat.group,
             "priceCents": seat.cents,
             "owedCents": by_hand["cents"] if by_hand else seat.cents,
             "owedSetBy": by_hand["by"] if by_hand else None,

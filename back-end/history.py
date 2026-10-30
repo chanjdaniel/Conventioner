@@ -12,8 +12,9 @@ must outlive what it describes and this history is deleted with its market.
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
 kind where one action covers several changes, the vendors it is about, whatever else it is about,
 and a structured detail. The wording belongs to whichever surface shows it
-(``front-end/src/utils/placementHistory.ts`` for the placements) and must be changeable without a
-migration - the same rule ``placement_reasons`` follows.
+(``front-end/src/utils/marketHistory.ts`` for the history and a vendor's own, ``placementHistory.ts``
+for the placements, which both read) and must be changeable without a migration - the same rule
+``placement_reasons`` follows.
 
 **A run is one entry**, not none and not one per placement. Omitting runs would leave the history
 lying by omission, because a placement that changed between two hand edits would have no
@@ -31,7 +32,7 @@ writer goes through this module. A market's history is deleted with the market.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from api.market_actions import ASSIGN, CHANGE_THE_TABLE, Action
 from db_config import get_database
@@ -198,7 +199,7 @@ def _newest_first(entries: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(entries, key=lambda entry: entry.get("at") or "", reverse=True)
 
 
-# --- Placements: the ``assign`` action's seat changes, and the trail the drawer reads ---------
+# --- Placements: the ``assign`` action's seat changes, and the trail the results read --------
 
 # What happened to a seat. Kinds rather than a message, so a surface can word it, group it or
 # filter by it without parsing prose.
@@ -209,7 +210,7 @@ ASSIGNED = "assigned"
 PLACEMENT_KINDS = (PLACED, FREED, SWAPPED, ASSIGNED)
 
 # The fields a placement entry carried before the history widened, and all the placement endpoint
-# answers with, so the drawer's History tab reads exactly what it always did.
+# answers with, so the Assignment history reads exactly what it always did.
 _PLACEMENT_FIELDS = ("id", MARKET_ID_FIELD, "actor", "at", "kind", "vendors", "detail")
 
 
@@ -276,20 +277,18 @@ def record_assignment_run(
     })
 
 
-def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict[str, Any]]:
+def placement_entries(market_id: str) -> List[Dict[str, Any]]:
     """The placement trail: this market's history narrowed to placements, newest first, each entry
     in the shape it had before the history widened.
 
     Until a database has run ``migrations/migrate_placement_history.py``, its older entries are
     still in ``placement_history``, so they are read from there too: without them, between the
-    deploy and the migration, a vendor's History tab would say nobody changed a placement someone
+    deploy and the migration, the Assignment history would say nobody changed a placement someone
     did. An entry can be in both for a moment - the migration writes each one to ``history``
     before it deletes it from the old collection, and a run can stop between the two - so an old
     entry whose id ``history`` already holds is left out.
     """
-    query = _vendor_query(
-        {MARKET_ID_FIELD: market_id, "kind": {"$in": list(PLACEMENT_KINDS)}}, vendor,
-    )
+    query = {MARKET_ID_FIELD: market_id, "kind": {"$in": list(PLACEMENT_KINDS)}}
     projection = {"_id": 0, **{field: 1 for field in _PLACEMENT_FIELDS}}
     moved = list(history_collection.find({**query, "action": ASSIGN.id}, projection))
     moved_ids = {entry.get("id") for entry in moved}
@@ -298,6 +297,126 @@ def placement_entries(market_id: str, vendor: Optional[str] = None) -> List[Dict
         *(entry for entry in legacy_placement_collection.find(query, projection)
           if entry.get("id") not in moved_ids),
     ])
+
+
+# --- Reading the whole history, a page at a time (E40/F01/S03) -------------------------------
+
+#: How many entries one page holds: the newest, then as many again each time more are asked for.
+#: Ten, so the History section stays a short read inside Manage market (Daniel, on T110's review).
+PAGE_SIZE = 10
+
+# Everything an entry holds but its storage keys: the market is the one asked for.
+_ENTRY_PROJECTION = {"_id": 0, MARKET_ID_FIELD: 0}
+
+# Newest first, and by id within one instant, so a page boundary between two entries written in
+# the same instant neither loses nor repeats either. The lookup index on (market_id, at, id) is
+# this order read backwards, so Mongo walks one page of index keys and stops.
+_NEWEST_FIRST = [("at", -1), ("id", -1)]
+
+_CURSOR_SEPARATOR = "|"
+
+
+def _cursor(entry: Dict[str, Any]) -> str:
+    return f"{entry.get('at') or ''}{_CURSOR_SEPARATOR}{entry.get('id') or ''}"
+
+
+def parse_cursor(cursor: str) -> Optional[Tuple[str, str]]:
+    """The entry a page starts after, as ``entries_page`` handed it out, or None when the text is
+    not a cursor."""
+    at, separator, entry_id = (cursor or "").rpartition(_CURSOR_SEPARATOR)
+    if not separator or not at or not entry_id:
+        return None
+    return at, entry_id
+
+
+def _sort_key(entry: Dict[str, Any]) -> Tuple[str, str]:
+    return entry.get("at") or "", entry.get("id") or ""
+
+
+def _page_query(
+    market_id: str, before: Optional[Tuple[str, str]], actor: Optional[str],
+    vendor: Optional[str], since: Optional[str], until: Optional[str],
+) -> Dict[str, Any]:
+    clauses: List[Dict[str, Any]] = [_vendor_query({MARKET_ID_FIELD: market_id}, vendor)]
+    if actor:
+        clauses.append({"actor": actor})
+    if since:
+        clauses.append({"at": {"$gte": since}})
+    if until:
+        clauses.append({"at": {"$lt": until}})
+    if before:
+        at, entry_id = before
+        clauses.append({"$or": [{"at": {"$lt": at}}, {"at": at, "id": {"$lt": entry_id}}]})
+    return clauses[0] if len(clauses) == 1 else {"$and": clauses}
+
+
+def entries_page(
+    market_id: str, *, before: Optional[Union[str, Tuple[str, str]]] = None,
+    limit: int = PAGE_SIZE, actor: Optional[str] = None, actions: Optional[List[str]] = None,
+    vendor: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """One page of the market's history, newest first, and the cursor to the page after it, or
+    None when it is the last.
+
+    Narrowed to one ``actor``, to entries whose action is one of ``actions`` (a group of the
+    table), to the entries naming one ``vendor``, and to ``since <= at < until`` (instants in this
+    module's ``at`` format). Never more than ``PAGE_SIZE`` entries: a market's history has no
+    limit, and its reader asks again for more.
+
+    Until a database has run the move from ``placement_history``, its older placements are read
+    beside the history, as the placement trail reads them, so the history does not seem to start
+    where the migration has not run yet.
+    """
+    if isinstance(before, str):
+        before = parse_cursor(before)
+    limit = max(1, min(limit, PAGE_SIZE))
+    query = _page_query(market_id, before, actor, vendor, since, until)
+    wanted = limit + 1
+
+    def page_of(collection, narrowed):
+        return list(collection.find(narrowed, _ENTRY_PROJECTION).sort(_NEWEST_FIRST).limit(wanted))
+
+    entries = page_of(
+        history_collection, {"$and": [query, {"action": {"$in": actions}}]} if actions else query)
+    if actions is None or ASSIGN.id in actions:
+        moved_ids = {entry.get("id") for entry in entries}
+        for old in page_of(legacy_placement_collection, query):
+            if old.get("id") in moved_ids:
+                continue
+            old["action"] = ASSIGN.id
+            old["subject"] = placement_subject(old.get("kind"), old.get("detail") or {})
+            entries.append(old)
+        entries.sort(key=_sort_key, reverse=True)
+        entries = _once_each(entries)[:wanted]
+
+    if len(entries) > limit:
+        return entries[:limit], _cursor(entries[limit - 1])
+    return entries, None
+
+
+def _once_each(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """An entry in both collections at once, as the migration can leave one, read once."""
+    seen = set()
+    once = []
+    for entry in entries:
+        if entry.get("id") in seen:
+            continue
+        seen.add(entry.get("id"))
+        once.append(entry)
+    return once
+
+
+def actors(market_id: str) -> List[str]:
+    """Who has changed something on this market, as an organizer: the people the history can be
+    narrowed to. An applicant's own change is found by the vendor it names, and a check-in from
+    the public page names nobody. The placements not yet moved out of ``placement_history`` are
+    read too, as the pages read them, or their organizers could be read but not chosen."""
+    found = {
+        *history_collection.distinct(
+            "actor", {MARKET_ID_FIELD: market_id, "action": {"$ne": APPLY}}),
+        *legacy_placement_collection.distinct("actor", {MARKET_ID_FIELD: market_id}),
+    }
+    return sorted(actor for actor in found if actor)
 
 
 # --- The table: a market owner's changes to who may do what (E39/F01/S03) -------------------

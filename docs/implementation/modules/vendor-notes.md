@@ -8,7 +8,7 @@ describes:
   - back-end/app.py#mark_vendor_request_handled
   - front-end/src/utils/vendorNotes.ts
   - front-end/src/components/VendorNotes.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/what-to-show-and-when/03
   - E31/F04

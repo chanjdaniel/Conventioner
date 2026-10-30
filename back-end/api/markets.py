@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import re
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, NamedTuple, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
@@ -14,6 +13,7 @@ from client_errors import (
     parse_failure_detail,
 )
 from datatypes import (
+    FORM_FIELD_KEY_PATTERN,
     Application,
     ApplicationForm,
     ApplicationStatus,
@@ -93,10 +93,6 @@ markets_collection = db["markets"]
 
 VALID_FORM_FIELD_TYPES = {"text", "number", "select", "multi_select", "checkbox", "date", "email"}
 
-# Field keys become document keys inside ``Application.form_data``, where a dot or a leading
-# ``$`` cannot be addressed by Mongo update operators. Keys are held to the slug charset the
-# builder produces so no key can ever be unaddressable.
-FORM_FIELD_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 class MarketNotFoundError(NotFoundError):
@@ -194,12 +190,12 @@ VIEWER_REFUSAL = (
 #: may see it and whether to keep it - which are not changes to it (bug 30). Every other row is
 #: refused on an archived market whoever may, a row added later included.
 ARCHIVED_STILL_TAKES = frozenset({
-    Actions.READ, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS,
-    Actions.DELETE_MARKET,
+    Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV, Actions.MANAGE_EDITORS_AND_VIEWERS,
+    Actions.MANAGE_ADMINS, Actions.DELETE_MARKET,
 })
 
 #: The rows that read the market rather than change it.
-READING_ROWS = frozenset({Actions.READ, Actions.EXPORT_CSV})
+READING_ROWS = frozenset({Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV})
 
 
 def _answers(
@@ -297,6 +293,14 @@ def verdict_refusal(
     if not review_is_open(market.phase):
         return VERDICTS_SETTLED
     return None
+
+
+def may_overturn(user_email: str, market: Market) -> bool:
+    """Whether this person may overturn an automatic rejection here: the table's change row
+    (E38/F06/S01). A write of theirs that judges the rules again returns a rule's rejection no rule
+    meets any longer to open only when they may; for anyone else it stands."""
+    return Actions.may(
+        Actions.CHANGE_VERDICTS, user_email, market, _load_organization(market.organization_id))
 
 
 #: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
@@ -1360,14 +1364,12 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
     return payload, 200
 
 
-def get_placement_history(
-    market_id: str, requesting_user: str, vendor: Optional[str] = None
-) -> tuple[Dict[str, Any], int]:
+def get_placement_history(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
     """This market's placement trail - its history narrowed to placements - newest first. Asks
-    ``Actions.READ``.
+    ``Actions.READ_HISTORY``.
 
-    Read on the Read row, written on the Assignment row: the trail describes the market, and anyone
-    who may look at where vendors are sitting may look at how they came to be sitting there.
+    Read on the history's row, written on the Assignment row: the trail is the market's history
+    narrowed, and anyone who may read that history may read how vendors came to sit where they do.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -1375,17 +1377,111 @@ def get_placement_history(
     if context.market is None:
         return {"error": "Invalid market data"}, 400
 
-    refused = Actions.refusal(Actions.READ, requesting_user, context.market, context.organization)
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
     if refused:
         return {"error": refused}, 403
 
-    entries = History.placement_entries(market_id, vendor)
+    entries = History.placement_entries(market_id)
     return {
         "entries": [convert_keys_to_camel_case(entry) for entry in entries],
         # Names against addresses, as every other vendor surface gets them, so the log reads as
         # people rather than as a column of email.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
     }, 200
+
+
+#: The table's groups that change something, in its order: the kinds of change the history is
+#: narrowed by. An applicant's own change (``History.APPLY``), which no row asks, is an
+#: application's.
+_HISTORY_GROUPS_LEFT_OUT = frozenset({"Reading"})
+
+
+def history_groups() -> List[Dict[str, Any]]:
+    """The groups of the table the history may be narrowed to, each with its actions' ids and
+    labels, for the screen's kind filter."""
+    groups: Dict[str, List[Dict[str, str]]] = {}
+    for row in Actions.ACTIONS.values():
+        if row.group not in _HISTORY_GROUPS_LEFT_OUT:
+            groups.setdefault(row.group, []).append({"id": row.id, "label": row.label})
+    groups.setdefault("Applications", []).append(
+        {"id": History.APPLY, "label": "Apply, or change one's own application"})
+    return [{"group": group, "actions": actions} for group, actions in groups.items()]
+
+
+def _history_instant(value: Optional[str]) -> Tuple[Optional[str], bool]:
+    """A filter's instant, in the format the history stores ``at`` in, and whether it read: an
+    absent one reads as None; one without its offset does not read, since it names no instant."""
+    if not value:
+        return None, True
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None, False
+    if instant.tzinfo is None:
+        return None, False
+    return instant.astimezone(timezone.utc).isoformat(), True
+
+
+def get_history(
+    market_id: str, requesting_user: str, args: Dict[str, str],
+) -> tuple[Dict[str, Any], int]:
+    """One page of this market's history, newest first, for Manage market (E40/F01/S03). Asks
+    ``Actions.READ_HISTORY``.
+
+    ``args`` are the request's: ``before`` (the cursor the last page answered with), ``actor``,
+    ``group`` (a group of the table), ``vendor``, and ``since`` and ``until`` (ISO instants, the
+    first kept and the second not). The first page also answers what the filters may offer: the
+    people who changed something, and the groups.
+    """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    refused = Actions.refusal(
+        Actions.READ_HISTORY, requesting_user, context.market, context.organization)
+    if refused:
+        return {"error": refused}, 403
+
+    groups = history_groups()
+    actions = None
+    group = args.get("group")
+    if group:
+        actions = next(
+            ([row["id"] for row in g["actions"]] for g in groups if g["group"] == group), None)
+        if actions is None:
+            return {"error": "The history has no such kind of change."}, 400
+    since, since_read = _history_instant(args.get("since"))
+    until, until_read = _history_instant(args.get("until"))
+    if not (since_read and until_read):
+        return {"error": "The history's dates could not be read."}, 400
+    before = args.get("before")
+    if before and History.parse_cursor(before) is None:
+        return {"error": "That page of the history could not be read."}, 400
+
+    entries, after = History.entries_page(
+        market_id, before=before or None, actor=args.get("actor") or None, actions=actions,
+        vendor=args.get("vendor") or None, since=since, until=until,
+    )
+    body: Dict[str, Any] = {
+        # Only the entry's own fields are recased: its subject and detail are served as stored,
+        # since their keys are data (a question's key, an application's id).
+        "entries": [
+            {**convert_keys_to_camel_case({k: v for k, v in entry.items()
+                                           if k not in ("subject", "detail")}),
+             "subject": entry.get("subject") or {}, "detail": entry.get("detail")}
+            for entry in entries
+        ],
+        "next": after,
+        # Names against addresses, so an entry reads as people.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+    }
+    if not before:
+        body["actors"] = History.actors(market_id)
+        body["groups"] = groups
+    return body, 200
 
 
 def _market_csv_filename(
@@ -1519,13 +1615,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
-    pricing = market.setup_object.pricing if market.setup_object else None
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market_id)
     return {
-        # Each occupant's price rides on their row, for the organizer's eyes only: this read is
-        # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
+        # Each occupant's price and the card's row that set it ride on their row, for the
+        # organizer's eyes only: this read is the market's people's, never an applicant's
+        # (E43/F01/S01, S02; Q20.2).
         "rows": [
             {**convert_keys_to_camel_case(row.model_dump()),
-             "prices": Pricing.row_prices(pricing, row)}
+             "prices": Pricing.row_prices(groups, row, answers)}
             for row in rows
         ],
         # Name against address, for the surfaces that only ever knew the address. Sent with
@@ -1999,9 +2097,9 @@ def _stored_rows_are_a_map(market_id: str) -> bool:
 
 def get_permission_history(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
     """Every change to this market's table, newest first: who, when, the row, and its role and
-    source before and after (E39/F01/S03). Asks ``Actions.READ``: anyone who may see the market may
-    see who changed what they may do on it."""
-    _load_market_for(market_id, requesting_user, Actions.READ)
+    source before and after (E39/F01/S03). Asks ``Actions.READ_HISTORY``: these changes are the
+    market's history narrowed, so they are read on the history's row, as the whole history is."""
+    _load_market_for(market_id, requesting_user, Actions.READ_HISTORY)
     return [convert_keys_to_camel_case(entry) for entry in History.permission_entries(market_id)]
 
 
@@ -2157,6 +2255,7 @@ def _record_plan(
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PLAN,
                    detail=setup)
     History.record(market.id, requesting_user, Actions.CHANGE_SETUP, kind=History.PRICING,
+                   subject=lambda: Pricing.pricing_subject(plan),
                    detail=lambda: History.changes(
                        Pricing.pricing_fields(market.setup_object), Pricing.pricing_fields(plan)))
     History.record(market.id, requesting_user, Actions.ASSIGN, kind=History.RULES,
@@ -2274,7 +2373,9 @@ def save_rejection_rules(
 
     The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
     rules are worth most once applications arrive, which is when the form freezes. Refused once the
-    market can no longer return to review (``rejection_rules_lock_reason``).
+    market can no longer return to review (``rejection_rules_lock_reason``). A rule narrowed or
+    taken away returns what it rejected to open only for someone who may overturn an automatic
+    rejection (``may_overturn``, E38/F06/S01); for anyone else those rejections stand.
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
     settled = rejection_rules_lock_reason(market.phase)
@@ -2284,7 +2385,8 @@ def save_rejection_rules(
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
     judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
-    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
+    verdicts = RejectionRules.judge(RejectionRules.Rulebook(judged), market_id,
+                                    overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.REJECTION_RULES,
                    detail=lambda: _with_counts(History.changes(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
@@ -2308,7 +2410,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_FORM)
-    form_dict, verdicts = write_application_form(market, application_form_data)
+    form_dict, verdicts = write_application_form(
+        market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
     return form_dict
@@ -2323,11 +2426,12 @@ def _with_counts(
 
 
 def write_application_form(
-    market: Market, application_form_data: dict,
+    market: Market, application_form_data: dict, overturns: bool = True,
 ) -> Tuple[dict, RejectionRules.Judged]:
     """Judge and store the form on ``market``, loaded and asked by the caller, and return it as
     stored with what the rules decided against it; the caller records it, as the action it was -
-    the form write, or an amendment."""
+    the form write, or an amendment. ``overturns`` is whether the writer may overturn an automatic
+    rejection, as ``RejectionRules.judge`` takes it."""
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
         {"id": market.id},
@@ -2337,7 +2441,8 @@ def write_application_form(
     # nobody, and what it rejected is judged again.
     rewritten = load_market_context(market.id)
     if rewritten is not None and rewritten.market is not None:
-        return form_dict, RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market.id)
+        return form_dict, RejectionRules.judge(
+            RejectionRules.Rulebook(rewritten.market), market.id, overturns=overturns)
     return form_dict, RejectionRules.Judged()
 
 

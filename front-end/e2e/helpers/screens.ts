@@ -209,6 +209,19 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
+    name: "the manage-market dialog's history, an entry open",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['market-card-manage-button', 'manage-market-history-toggle'],
+      ['manage-market-history-toggle', 'market-history-entry'],
+      ['market-history-toggle', 'market-history-changes'],
+    ),
+  },
+  {
     // The app's own menu, behind the banner's button on every organizer screen.
     name: 'the navigation drawer',
     who: 'organizer',
@@ -436,6 +449,18 @@ export const SCREENS: Screen[] = [
       'vendors-list-item',
       'vendors-detail-email',
     ]),
+  },
+  {
+    // Its History tab, the market's history narrowed to the vendor (E40/F01/S04).
+    name: "the vendor drawer's history",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-history', 'market-history'],
+    ),
   },
   {
     // What the vendor owes and paid (E44/F01/S01).

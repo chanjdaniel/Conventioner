@@ -122,6 +122,14 @@ def read_table(who=OWNER, market_id="market-123"):
 
 
 class TestAMarketWithoutRows:
+    #: Who each role and those above it are, in the words a refusal names them (E38/F06/S01).
+    WHO_MAY = {
+        MarketRole.VIEWER: "someone who holds a role",
+        MarketRole.EDITOR: "an Editor, an Admin or the owner",
+        MarketRole.ADMIN: "an Admin or the owner",
+        MarketRole.OWNER: "the market's owner",
+    }
+
     def test_every_row_reads_its_built_in_default(self, world):
         assert "permissions" not in world.markets.doc()
 
@@ -134,6 +142,7 @@ class TestAMarketWithoutRows:
                 "id": action.id, "group": action.group, "label": action.label,
                 "role": action.default.value, "default": action.default.value,
                 "source": "built-in", "fixed": action.fixed, "mayWhat": action.may_what,
+                "whoMay": self.WHO_MAY[action.default],
             }
 
     def test_its_checks_ask_the_built_in_defaults(self, world):
@@ -541,6 +550,20 @@ class TestTheRoutes:
         assert response.get_json() == {
             "error": "Only the market's owner may change who may do what on this market."}
         assert world.markets.updates == []
+
+    def test_the_permission_history_asks_the_historys_row(self, client, world):
+        raised = client(OWNER).put(
+            "/markets/market-123/permissions/read-history", json={"role": "editor"})
+        assert raised.status_code == 200
+
+        refused = client(VIEWER).get("/markets/market-123/permission-history")
+        assert refused.status_code == 403
+        assert "entries" not in refused.get_json()
+        assert client(VIEWER).get("/markets/market-123/history").status_code == 403
+
+        history = client(EDITOR).get("/markets/market-123/permission-history")
+        assert history.status_code == 200
+        assert [e["subject"]["action"] for e in history.get_json()["entries"]] == ["read-history"]
 
     @pytest.mark.parametrize("who,path,body,status,error", [
         (ORG_ADMIN, "check-in", {"role": "admin"}, 403,

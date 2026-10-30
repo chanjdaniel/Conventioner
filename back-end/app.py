@@ -1098,16 +1098,28 @@ def write_placement(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
+@app.route('/markets/<market_id>/history', methods=['GET'])
+@login_required
+def get_history(market_id: str) -> Response:
+    """One page of every change on the market, newest first, for Manage market's History.
+    Asks ``Actions.READ_HISTORY``.
+
+    ``?before=`` is the cursor the last page answered with; ``?actor=``, ``?group=``, ``?vendor=``,
+    ``?since=`` and ``?until=`` narrow it.
+    """
+    args = {key: request.args.get(key, "")
+            for key in ("before", "actor", "group", "vendor", "since", "until")}
+    result, status_code = MarketsApi.get_history(market_id, authenticated_email(), args)
+    return jsonify(result), status_code
+
+
 @app.route('/markets/<market_id>/placement-history', methods=['GET'])
 @login_required
 def get_placement_history(market_id: str) -> Response:
-    """Who changed a placement, to what, and when. Asks ``Actions.READ``.
-
-    ``?vendor=`` narrows it to the entries about one person, for their detail panel.
+    """Who changed a placement, to what, and when, across the market. Asks
+    ``Actions.READ_HISTORY``. One vendor's changes are the history's, narrowed (``/history``).
     """
-    result, status_code = MarketsApi.get_placement_history(
-        market_id, authenticated_email(), request.args.get("vendor"),
-    )
+    result, status_code = MarketsApi.get_placement_history(market_id, authenticated_email())
     return jsonify(result), status_code
 
 
@@ -1382,7 +1394,8 @@ def _reviewer_on(market_id: str):
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
     card - asked through ``verdict_refusal``, the same rules the market read serves as the
     verdicts row's answer and ``verdictsSettledReason``: the table's verdicts row, while the review
-    is open (E36/F01/S01).
+    is open (E36/F01/S01). A verdict and a selection's then ask the change row too, of each
+    application they write (``_change_refused``, E38/F06/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)
@@ -1393,6 +1406,14 @@ def _reviewer_on(market_id: str):
         return None, None, (jsonify({"error": refusal}), 403)
     user = UsersApi.get_user(requesting_user)
     return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
+
+
+def _change_refused(context: MarketsApi.MarketContext) -> Optional[str]:
+    """Why the signed-in reviewer may not change a verdict already given, or None while they may:
+    the table's change row (E38/F06/S01), asked on top of ``_reviewer_on``'s. Asked of each
+    application at its write, since only its status says whether the write is a change."""
+    return Actions.refusal(
+        Actions.CHANGE_VERDICTS, authenticated_email(), context.market, context.organization)
 
 
 def _named_status(name: Any) -> Optional[ApplicationStatus]:
@@ -1426,7 +1447,7 @@ def review_application(market_id: str, application_id: str) -> Response:
             context.market, context.organization, person, data['ownerEmail'])
     result, status_code = ApplicantsApi.review_application(
         market_id, application_id, new_status, by=person.as_giver(), owner=owner,
-        seen=ApplicantsApi.seen_from(data.get('seen')),
+        seen=ApplicantsApi.seen_from(data.get('seen')), change_refused=_change_refused(context),
     )
     return jsonify(result), status_code
 
@@ -1440,7 +1461,7 @@ def review_selection(market_id: str) -> Response:
             "applications": [{ "id": "...", "seen": { "status": "open", "verdictAt": null } }] }
     Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
     """
-    person, _context, refused = _reviewer_on(market_id)
+    person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = json_object(required=False)
@@ -1455,7 +1476,7 @@ def review_selection(market_id: str) -> Response:
     result, status_code = ApplicantsApi.review_selection(
         market_id,
         [(str(item.get('id') or ''), ApplicantsApi.seen_from(item.get('seen'))) for item in ticked],
-        new_status, by=person.as_giver())
+        new_status, by=person.as_giver(), change_refused=_change_refused(context))
     return jsonify(result), status_code
 
 

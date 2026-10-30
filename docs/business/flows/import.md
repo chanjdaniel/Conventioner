@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
@@ -16,6 +16,8 @@ sources:
   - E31/F03/S04
   - E32/F02
   - E33/F03/S02
+  - E38/F03/S01
+  - E38/F03/S02
   - E01
   - E20
   - E20/F02/S01
@@ -31,6 +33,7 @@ sources:
   - bug/42
   - E38/F04/S01
   - E38/F04/S03
+  - E38/F06/S01
 ---
 
 # Importing a Google Form's responses
@@ -58,19 +61,23 @@ Its cost is that a first import is the least guided of the three.
 
 **Status:** Works (re-walked live on 2026-10-03; where it is offered read from the code as of E31/F03/S04 and E38/F04: `back-end/csv_import.py`, `front-end/src/utils/importPhase.ts`, `a-late-export.spec.ts`).
 Each case below is one of its branches.
-Covered by: `csv-import.spec.ts`, `form-amendment.spec.ts`, `a-late-export.spec.ts`, `the-import-lines-up.spec.ts`, `market-journey.spec.ts`.
+Covered by: `csv-import.spec.ts`, `automatic-rejections.spec.ts`, `form-amendment.spec.ts`, `a-late-export.spec.ts`, `the-import-lines-up.spec.ts`, `market-journey.spec.ts`.
 
 ### H2a. First import, everything maps
 
-**Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02).
+**Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02, and the preview's rows as of E38/F03/S02).
 On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word (a usability observation, not a bug).
 
 1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
    A draft whose setup would keep it out of Review is told what it lacks before a file is picked ("This market is not ready for its first import"), and nothing is written.
 2. **Map columns:** every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
-3. **Preview** ("Preview import"): "N of M rows will be imported", "Each imported row becomes an application awaiting your review. Nothing has been written yet.", the first rows as they will be stored, "Where each answer comes from".
+3. **Preview** ("Preview import"): "N of M rows will be imported", ending "; K of them will be rejected by your automatic rejections" when a rule rejects any, then "Each imported row becomes an application awaiting your review. Nothing has been written yet.", which, when a rule rejects any, reads "...awaiting your review, except the K listed below, which arrive already rejected. Nothing has been written yet."
+   "The first N rows, as they will be imported" checks the mapping: the first rows that import and no rule rejects, as a list of rows that expand, each headed by the vendor's name over their email and its file row ("Row 2"), the first open.
+   A row opens to its answers as the review card lays them out: the market's highlighted answers, then "N more answers" ([review highlights](../rules/review-highlights.md)).
+   "Rejected by your automatic rejections", with its count, checks the rules: every row the import's judging will newly reject, in the same format, each marked "Rejected" and opening on "Rejected automatically:" and its reason; its line says who may overturn one, as the market's row "Change a verdict, or overturn an automatic rejection" stands (`rejectedRowsWhy`, "an Admin or the owner" by default, E38/F06/S01).
+   Then "Where each answer comes from".
 4. **Confirm** ("Import N rows"): "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
-5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; a reviewer can overturn any of them." ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
+5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.", naming whoever the market's change row lets overturn them ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 For a market started from a Google Form, step 2 opens "Mapped when your form was started from this file." and needs no decisions; a later import opens "Restored from your last import."
 
@@ -122,7 +129,8 @@ Why a later export updates rather than adds, and why only a changed answer the s
 
 1. The mapping is restored by column heading; "N columns are new since then." and lost columns are named to map again.
 2. The preview says "N new, M updated, K unchanged"; how many approved applications "will return to review" because their answers changed; and how many existing applications are not in the file ("They will be left exactly as they are.").
-   A file with nothing new reads "Nothing to import: N of M rows are already here, unchanged".
+   A file with nothing new reads "Nothing to import: N of M rows are already here, unchanged", and its button "Import nothing new"; otherwise the button counts the rows the headline counts, so an unchanged row is never among them.
+   When a rule newly rejects any row, the headline adds "; K will be rejected by your automatic rejections", which says "K of them" except when some rows are unchanged and others are still written, where it drops "of them".
 3. Confirm: "Imported N new applications, updated M."
 
 A first-come-first-served priority rule with no column mapped to "Submitted at" warns that "That rule will order nothing."

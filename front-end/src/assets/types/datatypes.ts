@@ -111,10 +111,28 @@ export interface TierPrice {
   cents: number;
 }
 
-/** The Pricing card: the market's one currency, the half table's share, and a price per tier. */
+/** A choice question and the answers to it that meet the condition: an automatic rejection's
+ *  rule, and a price group's condition (`back-end/rejection_rules.py` judges both). */
+export interface AnswerCondition {
+  key: string;
+  answers: string[];
+}
+
+/** A row of the Pricing card above "Everyone else" (E43/F01/S02): a group the organizer names,
+ *  the conditions that must all hold of a vendor's answers, and its price per tier. */
+export interface PriceGroup {
+  name: string;
+  conditions: AnswerCondition[];
+  prices: TierPrice[];
+}
+
+/** The Pricing card: the market's one currency, the half table's share, the groups, and
+ *  "Everyone else"'s price per tier. */
 export interface PricingObject {
   currency: string;
   halfTablePercent: number;
+  /** Absent on a card saved before there were groups, which has none. */
+  groups?: PriceGroup[];
   everyoneElse: TierPrice[];
 }
 
@@ -195,10 +213,7 @@ export interface IncompleteApplication {
 }
 
 /** A choice question and the answers to it that reject an application (E33/F03/S01). */
-export interface RejectionRule {
-  key: string;
-  answers: string[];
-}
+export type RejectionRule = AnswerCondition;
 
 /** A question an automatic rejection may name, and the answers it offers. */
 export interface RejectionQuestion {
@@ -220,6 +235,8 @@ export interface PermissionTableRow {
   fixed: boolean;
   /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
   mayWhat: string;
+  /** Who may take it here, in the words a refusal names them: "an Admin or the owner" (E38/F06/S01). */
+  whoMay?: string;
 }
 
 export interface Market {

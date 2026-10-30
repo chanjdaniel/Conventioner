@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from 'vue';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
-import { ESSENTIAL_KEY_PREFIX, answerText } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, answerText, applicantName } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { addedLine, verdictLine } from '@/utils/verdicts';
@@ -39,8 +39,10 @@ export interface MarketTableRowResponse {
   tableChoice: string;
   tableCode: string;
   tier: string;
-  /** Each occupant's price for this table-day, in cents; none where it is unpriced (E43/F01/S01). */
-  prices?: { email: string; cents: number }[];
+  /** Each occupant's price for this table-day, in cents, and the Pricing card's row that set it:
+   *  a group's name, "Everyone else" on a card with groups, null on one without; none where it is
+   *  unpriced (E43/F01/S01, S02). */
+  prices?: { email: string; cents: number; group?: string | null }[];
 }
 
 export interface VendorTableAssignment {
@@ -51,6 +53,8 @@ export interface VendorTableAssignment {
   location: string;
   /** What this assignment costs for its day, in cents, or null where the market prices nothing. */
   priceCents: number | null;
+  /** The price group that set it, or null where the card has no groups (E43/F01/S02). */
+  priceGroup: string | null;
 }
 
 /** One vendor as the Vendors list and the vendor drawer read them: their application and seats. */
@@ -120,6 +124,12 @@ function assignmentSummary(assignment: VendorTableAssignment): string {
 /** One vendor on one date, as the reason and override indexes key them. */
 const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
 
+/** One occupant's price on a table row and the card's row that set it, by their lowercased address. */
+function priceOf(row: MarketTableRowResponse, address: string) {
+  const price = row.prices?.find((each) => each.email.trim().toLowerCase() === address);
+  return { priceCents: price?.cents ?? null, priceGroup: price?.group ?? null };
+}
+
 /**
  * A market's vendors, each with their application and their seats (E35/F01/S01): what the Vendors
  * list reads, and what the vendor drawer shows wherever it opens - from a seat, at the door, in
@@ -131,7 +141,8 @@ const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCas
 export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | null | undefined>) {
   const applications = ref<Application[]>([]);
   const tableRows = ref<MarketTableRowResponse[]>([]);
-  const vendorNames = ref<VendorNames>({});
+  /** The names the tables read gave, the server's `display_name` of each vendor it knows. */
+  const servedNames = ref<VendorNames>({});
   /**
    * Who the assignment run places. The tables read serves every applicant (E36/F02/S02), the ones
    * outside the run with why, so the run's own are those it says nothing against.
@@ -144,23 +155,80 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
   const loaded = ref(false);
   const loadError = ref('');
 
+  /** Whether the last read had where every vendor sits: the tables and the statistics. */
+  const placementsRead = ref(false);
+
+  /**
+   * What to call each vendor: the name their application gives (`applicantName`, the client's
+   * reading of `display_name`), then the server's, which wins where it has one. From the
+   * applications too, so a refused placements read keeps every name (T123): the drawer's title, the
+   * rows and the search by name.
+   */
+  const vendorNames = computed<VendorNames>(() => {
+    const names: Record<string, string> = {};
+    for (const application of applications.value) {
+      const email = (application.applicantEmail ?? '').trim().toLowerCase();
+      const name = applicantName(application.formData as Record<string, unknown> | undefined);
+      if (email && name) names[email] = name;
+    }
+    return { ...names, ...servedNames.value };
+  });
+
+  function forgetPlacements(): void {
+    tableRows.value = [];
+    servedNames.value = {};
+    placeable.value = new Set();
+    unplacedReasons.value = new Map();
+    placementOverrides.value = new Map();
+    unassignedEmails.value = new Set();
+    placementsRead.value = false;
+  }
+
+  /**
+   * The applications, and where each vendor sits, read side by side but standing apart (T123).
+   *
+   * One `Promise.all` once emptied all three on any refusal: an approved application with
+   * incomplete answers makes the server refuse the two assignment reads, and the drawer then said a
+   * market with questions "asks no questions of its own". A refused placement read now leaves the
+   * applications standing, with the server's reason in `loadError` and `placementsRead` false.
+   */
   async function load(): Promise<void> {
     const id = marketId.value;
     if (!id) return;
     loadError.value = '';
     isLoading.value = true;
     const encoded = encodeURIComponent(id);
+    const placements = Promise.all([
+      api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
+      api.get<{
+        rows: MarketTableRowResponse[];
+        vendorNames: VendorNames;
+        vendors?: { email: string; inTheRun: boolean }[];
+      }>(`/markets/${encoded}/tables`),
+    ]);
+    const [applicationsRead, placementsReadNow] = await Promise.allSettled([
+      fetchMarketApplications(id),
+      placements,
+    ]);
     try {
-      const [applicationList, statsResp, tablesResp] = await Promise.all([
-        fetchMarketApplications(id),
-        api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-        api.get<{
-          rows: MarketTableRowResponse[];
-          vendorNames: VendorNames;
-          vendors?: { email: string; inTheRun: boolean }[];
-        }>(`/markets/${encoded}/tables`),
-      ]);
+      if (applicationsRead.status === 'rejected') {
+        loadError.value = errorText(applicationsRead.reason, 'Failed to load vendors.');
+        applications.value = [];
+        forgetPlacements();
+        return;
+      }
+      const applicationList = applicationsRead.value;
       applications.value = Array.isArray(applicationList) ? applicationList : [];
+      loaded.value = true;
+      if (placementsReadNow.status === 'rejected') {
+        loadError.value = errorText(
+          placementsReadNow.reason,
+          'Where the vendors sit could not be read.',
+        );
+        forgetPlacements();
+        return;
+      }
+      const [statsResp, tablesResp] = placementsReadNow.value;
       placeable.value = new Set(
         (tablesResp.data?.vendors ?? [])
           .filter((vendor) => vendor.inTheRun)
@@ -173,17 +241,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         statsList.map((item) => extractEmail(item).toLowerCase()).filter(Boolean),
       );
       tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
-      vendorNames.value = tablesResp.data?.vendorNames ?? {};
-      loaded.value = true;
-    } catch (err: unknown) {
-      loadError.value = errorText(err, 'Failed to load vendors.');
-      applications.value = [];
-      tableRows.value = [];
-      vendorNames.value = {};
-      placeable.value = new Set();
-      unplacedReasons.value = new Map();
-      placementOverrides.value = new Map();
-      unassignedEmails.value = new Set();
+      servedNames.value = tablesResp.data?.vendorNames ?? {};
+      placementsRead.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -210,9 +269,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
           section: row.section,
           tier: row.tier,
           location: row.location,
-          priceCents:
-            row.prices?.find((price) => price.email.trim().toLowerCase() === address)?.cents ??
-            null,
+          ...priceOf(row, address),
         });
       }
     }
@@ -286,8 +343,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return assignment ? assignmentSummary(assignment) : null;
   }
 
-  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35"; null where
-   * they hold none or the market prices nothing. */
+  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35", with
+   * the price group where the card has groups; null where they hold none or the market prices nothing. */
   function priceOn(row: VendorRow, date: string): string | null {
     const assignment = row.assignmentsByDate.get(date);
     const currency = market.value?.setupObject?.pricing?.currency ?? 'CAD';
@@ -319,6 +376,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     isLoading,
     loaded,
     loadError,
+    placementsRead,
     load,
     marketDates,
     rows,

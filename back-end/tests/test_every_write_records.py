@@ -340,6 +340,15 @@ def _verdicts(client, world):
         "status": "reviewer_rejected", "applications": [{"id": "app-1"}, {"id": "app-2"}]})
 
 
+def _changed_verdict(client, world):
+    world.market(MarketPhase.APPLICATIONS)
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, status="reviewer_approved", verdict_at="2026-10-02T00:00:00+00:00",
+        verdict_by={"kind": "person", "user_id": "user-owner", "email": OWNER}))
+    return client.put(f"/markets/{MARKET}/applications/app-1/review",
+                      json={"status": "reviewer_rejected"})
+
+
 def _follow_up_owner(client, world):
     world.market(MarketPhase.APPLICATIONS)
     world.applications.insert_one(_application(
@@ -561,6 +570,9 @@ WRITES = [
     Write("a selection's verdict", "POST", f"{M}/applications/verdicts", Actions.GIVE_VERDICTS,
           History.VERDICTS, _verdicts, vendors=(VENDOR, "ben@example.com"),
           subject={"application_ids": ["app-1", "app-2"]}),
+    Write("a verdict changed", "PUT", f"{M}/applications/<application_id>/review",
+          Actions.CHANGE_VERDICTS, History.VERDICT, _changed_verdict, vendors=(VENDOR,),
+          subject={"application_id": "app-1"}),
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
@@ -661,6 +673,7 @@ NOT_A_CHANGE = {
 #: The table's rows no write records, and why.
 NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
+    Actions.READ_HISTORY.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
 }

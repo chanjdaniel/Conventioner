@@ -168,6 +168,23 @@ test.describe('changing what is owed and paid', () => {
     const refund = tab.locator('[data-testid="payment-entry"][data-kind="refund"]');
     await expect(refund.getByTestId('payment-entry-amount')).toHaveText('-$15');
     await expect(refund).toContainText('Refund by e-transfer');
+
+    // Each change is in the vendor's drawer History, with who and when (E40/F01/S04).
+    await page.getByRole('tab', { name: 'History' }).click();
+    const said = (action: string) =>
+      page.locator(`[data-testid="market-history-entry"][data-action="${action}"]`);
+    await expect(said('record-payment').getByTestId('market-history-sentence')).toHaveText(
+      `${TEST_USER.email} recorded a payment of $50 from Alice Example`,
+    );
+    await expect(said('change-owed').getByTestId('market-history-sentence')).toHaveText(
+      `${TEST_USER.email} set what Alice Example owes on May 8, 2099 to $0`,
+    );
+    await expect(said('adjust-paid').getByTestId('market-history-sentence')).toHaveText(
+      `${TEST_USER.email} recorded a refund of $15 to Alice Example`,
+    );
+    for (const action of ['record-payment', 'change-owed', 'adjust-paid']) {
+      await expect(said(action).locator('.history-when')).toHaveText(/\d{4} at \d{1,2}:\d{2}/);
+    }
   });
 
   test('freeing it unticked leaves the line $15 owed, and saying the table was freed', async ({

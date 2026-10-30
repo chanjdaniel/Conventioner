@@ -34,7 +34,7 @@ test('the drawer opens on the application, each tab a click away, the notes on e
   for (const [tab, panel] of [
     ['Assignments', 'vendors-detail-assignment-item'],
     ['Payment', 'payment-tab'],
-    ['History', 'placement-history'],
+    ['History', 'market-history'],
   ] as const) {
     await tabs.getByRole('tab', { name: tab }).click();
     await expect(tabs.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');

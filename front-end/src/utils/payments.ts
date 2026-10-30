@@ -24,6 +24,9 @@ export interface PaymentLine {
   tableCode: string;
   tier: string;
   tableChoice: string;
+  /** The price group that set its price (E43/F01/S02), "Everyone else", or null on a card with
+   * no groups. */
+  group?: string | null;
   /** What the pricing calculates for the seat; null where it has no price. */
   priceCents: number | null;
   /** What is owed for the day: the price, unless someone set it by hand. */
@@ -99,10 +102,11 @@ export function balanceState(account: VendorAccount): 'owing' | 'settled' | 'ove
   return balance > 0 ? 'owing' : balance < 0 ? 'overpaid' : 'settled';
 }
 
-/** A line's seat as it reads: "Atrium 1, Gold, full table". */
+/** A line's seat as it reads: "Atrium 1, Gold, full table", and the price group that set its price
+ * where the card has groups, as the date card names it: "…, UBC student + club member". */
 export function seatText(line: PaymentLine): string {
   const size = /half/i.test(line.tableChoice) ? 'half table' : 'full table';
-  return [line.tableCode, line.tier.trim(), size].filter(Boolean).join(', ');
+  return [line.tableCode, line.tier.trim(), size, line.group ?? ''].filter(Boolean).join(', ');
 }
 
 /**

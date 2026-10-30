@@ -24,12 +24,13 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row and E44/F01's payment rows, and without the
-#: form amendment's, which E38/F04 removed (the amendment's walk is gone): (id, group, label,
-#: default, fixed).
+#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row and E44/F01's payment
+#: rows, and without the form amendment's, which E38/F04 removed (the amendment's walk is gone):
+#: (id, group, label, default, fixed).
 THE_TABLE = [
-    ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance, "
-     "history and floorplan export", MarketRole.VIEWER, True),
+    ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance "
+     "and floorplan export", MarketRole.VIEWER, True),
+    ("read-history", "Reading", "Read the market's history", MarketRole.VIEWER, False),
     ("export-csv", "Reading", "Export CSV", MarketRole.VIEWER, False),
     ("change-setup", "Market Setup",
      "Change Market Setup: the plan, its floorplans, the market's name", MarketRole.EDITOR, False),
@@ -39,6 +40,8 @@ THE_TABLE = [
     ("import-applications", "Applications", "Import applications, and start a market from a CSV",
      MarketRole.ADMIN, False),
     ("give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR, False),
+    ("change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
+     MarketRole.ADMIN, False),
     ("move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, False),
     ("stop-applications", "Lifecycle", "Stop taking applications, and take them again",
      MarketRole.ADMIN, False),

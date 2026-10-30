@@ -16,6 +16,7 @@ import {
   MarketRole,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), delete: vi.fn() }));
@@ -63,25 +64,28 @@ const HELD = BUILT_IN.map((r) =>
   r.id === 'check-in' ? { ...r, role: MarketRole.Admin, source: 'market' as const } : r,
 );
 
-function market(table: PermissionTableRow[]): Market {
+function market(table: PermissionTableRow[], refused: MarketAction[] = []): Market {
   return {
     id: 'market-1',
     name: 'Riverside',
     phase: MarketPhase.Applications,
-    actionRefusals: answersRefusing(),
+    actionRefusals: answersRefusing(...refused),
     permissionTable: table,
   } as unknown as Market;
 }
 
 let wrapper: VueWrapper | null = null;
 
-async function openSection(table: PermissionTableRow[]): Promise<VueWrapper> {
+async function openSection(
+  table: PermissionTableRow[],
+  refused: MarketAction[] = [],
+): Promise<VueWrapper> {
   // The dialog's copy of the market takes the table a write answers, as Manage market does.
   const mounted = mount(MarketPermissions, {
     props: {
-      market: market(table),
+      market: market(table, refused),
       onChanged: (answered: PermissionTableRow[]) =>
-        void mounted.setProps({ market: market(answered) }),
+        void mounted.setProps({ market: market(answered, refused) }),
     },
     attachTo: document.body,
   });
@@ -212,5 +216,24 @@ describe('the changes', () => {
     expect(section.find('[data-testid="manage-market-permission-changes-more"]').exists()).toBe(
       false,
     );
+  });
+
+  it('are left out, and never asked for, for a person the history is not open to', async () => {
+    // An owner may raise reading the history above a role that still sees this section.
+    const section = await openSection(HELD, [MarketAction.ReadHistory]);
+
+    expect(section.text()).not.toContain('Changes');
+    expect(section.find('[data-testid="manage-market-permission-changes"]').exists()).toBe(false);
+    expect(section.find('.error').exists()).toBe(false);
+    expect(api.get.mock.calls.map(([url]) => url)).not.toContain(
+      '/markets/market-1/permission-history',
+    );
+    // A row this market changed still says so, without the history to say who.
+    expect(
+      section
+        .get('[data-testid="manage-market-permission-row-check-in"]')
+        .get('[data-testid="manage-market-permission-source"]')
+        .text(),
+    ).toBe('Changed on this market');
   });
 });

@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * Page object for the ManageMarketOverlay reached from MarketsView.
  * Covers adding/removing/changing user roles, org management,
- * market rename, deletion, and who may do what.
+ * market rename, deletion, who may do what, and the market's history.
  */
 export class ManageMarketPage {
   readonly page: Page;
@@ -31,6 +31,15 @@ export class ManageMarketPage {
   readonly permissionsReset: Locator;
   readonly permissionConfirm: Locator;
   readonly resetConfirm: Locator;
+  readonly history: Locator;
+  readonly historyToggle: Locator;
+  readonly historyEntries: Locator;
+  readonly historySentences: Locator;
+  readonly historyVendorLinks: Locator;
+  readonly historyWho: Locator;
+  readonly historyKind: Locator;
+  readonly historyVendor: Locator;
+  readonly historyLoadMore: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -61,6 +70,28 @@ export class ManageMarketPage {
     // Each its own dialog, a sibling of Manage market.
     this.permissionConfirm = page.getByTestId('manage-market-permission-confirm-window');
     this.resetConfirm = page.getByTestId('manage-market-permissions-reset-confirm-window');
+    this.history = page.getByTestId('manage-market-history');
+    this.historyToggle = page.getByTestId('manage-market-history-toggle');
+    this.historyEntries = page.getByTestId('market-history-entry');
+    this.historySentences = page.getByTestId('market-history-sentence');
+    this.historyVendorLinks = page.getByTestId('market-history-vendor-link');
+    this.historyWho = page.getByTestId('market-history-who');
+    this.historyKind = page.getByTestId('market-history-kind');
+    this.historyVendor = page.getByTestId('market-history-vendor');
+    this.historyLoadMore = page.getByTestId('market-history-load-more');
+  }
+
+  /** Opens the History section, closed until opened, and waits for its first page. */
+  async openHistory(): Promise<void> {
+    await this.historyToggle.click();
+    await this.page.getByTestId('market-history').waitFor();
+  }
+
+  /** Opens one change of the History section to its before and after, and answers that table. */
+  async openHistoryEntry(index: number): Promise<Locator> {
+    const entry = this.historyEntries.nth(index);
+    await entry.getByTestId('market-history-toggle').click();
+    return entry.getByTestId('market-history-changes');
   }
 
   async waitForOverlay(): Promise<void> {
