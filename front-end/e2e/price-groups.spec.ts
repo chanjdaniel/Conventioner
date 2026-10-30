@@ -12,13 +12,13 @@ import { ManageMarketPage } from './pages/ManageMarketPage';
  *
  * The organizer names groups over the market's own choice questions, each priced per tier; a vendor
  * pays the cheapest group they are in, and "Everyone else" when they are in none. The fixture is the
- * UBC table: three groups and "Everyone else", Gold and Silver, one configuration of a general card.
+ * Example College table: three groups and "Everyone else", Gold and Silver, one configuration of a general card.
  */
 const SECOND_DATE = '2099-05-08';
 const GOLD = { id: 1, name: 'Gold' };
 const SILVER = { id: 2, name: 'Silver' };
-const STUDENT = 'Current UBC student';
-const ALUMNI = 'UBC alumni/staff';
+const STUDENT = 'Current Example College student';
+const ALUMNI = 'Example College alumni/staff';
 const CLUBS = ['Art Club', 'Craft Club'];
 const NO_CLUB = 'Not in any of these clubs';
 
@@ -28,7 +28,7 @@ const PLAN = {
   tiers: [GOLD, SILVER],
   locations: [{ name: 'Main Hall' }],
   sections: [
-    { name: 'Atrium', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
+    { name: 'North Wing', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
     { name: 'Landing', location: { name: 'Main Hall' }, tier: SILVER, count: 2 },
   ],
   assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
@@ -38,7 +38,7 @@ const FORM = {
   fields: [
     {
       key: 'affiliation',
-      label: 'Are you a UBC student or alumni?',
+      label: 'Are you an Example College student or alumni?',
       type: 'multi_select',
       required: false,
       options: [STUDENT, ALUMNI],
@@ -57,7 +57,7 @@ const FORM = {
 
 const UBC_GROUPS = [
   {
-    name: 'UBC student + club member',
+    name: 'Example College student + club member',
     conditions: [
       { key: 'affiliation', answers: [STUDENT] },
       { key: 'clubs', answers: CLUBS },
@@ -65,12 +65,12 @@ const UBC_GROUPS = [
     prices: ['12', '10'],
   },
   {
-    name: 'UBC student only',
+    name: 'Example College student only',
     conditions: [{ key: 'affiliation', answers: [STUDENT] }],
     prices: ['15', '13'],
   },
   {
-    name: 'UBC alumni + club member',
+    name: 'Example College alumni + club member',
     conditions: [
       { key: 'affiliation', answers: [ALUMNI] },
       { key: 'clubs', answers: CLUBS },
@@ -83,7 +83,7 @@ async function ok(res: Awaited<ReturnType<APIRequestContext['get']>>, what: stri
   expect(res.ok(), `${what}: ${await res.text()}`).toBeTruthy();
 }
 
-/** A draft market on the vendors' own page, with Gold and Silver and the UBC form's questions. */
+/** A draft market on the vendors' own page, with Gold and Silver and the Example College form's questions. */
 async function seedUbcMarket(request: APIRequestContext) {
   const userId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
@@ -140,7 +140,7 @@ async function priceLines(page: Page, marketId: string, email: string) {
 }
 
 test.describe('price groups', () => {
-  test('the UBC table entered as three groups prices each vendor by the cheapest they are in', async ({
+  test('the Example College table entered as three groups prices each vendor by the cheapest they are in', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -187,12 +187,14 @@ test.describe('price groups', () => {
     const changes = await manage.openHistoryEntry(0);
     const after = changes
       .locator('tbody tr')
-      .filter({ has: page.getByRole('rowheader', { name: 'Group “UBC alumni + club member”' }) })
+      .filter({
+        has: page.getByRole('rowheader', { name: 'Group “Example College alumni + club member”' }),
+      })
       .locator('td')
       .nth(1);
     await expect(after).toHaveText(
       'Gold $25, Silver $22\n' +
-        'when “Are you a UBC student or alumni?” includes “UBC alumni/staff”\n' +
+        'when “Are you an Example College student or alumni?” includes “Example College alumni/staff”\n' +
         'and “Which clubs are you a member of?” includes “Art Club” or “Craft Club”',
       { useInnerText: true },
     );
@@ -215,7 +217,7 @@ test.describe('price groups', () => {
       seedApprovedVendor(marketId, email, {
         dates: [SEED_MARKET_DATE, SECOND_DATE],
         tiers: ['Gold', 'Silver'],
-        sections: ['Atrium', 'Landing'],
+        sections: ['North Wing', 'Landing'],
         extra,
       });
     }
@@ -230,7 +232,7 @@ test.describe('price groups', () => {
       ['alumnus@example.com', 2],
     ] as const) {
       for (const [date, section] of [
-        [SEED_MARKET_DATE, 'Atrium'],
+        [SEED_MARKET_DATE, 'North Wing'],
         [SECOND_DATE, 'Landing'],
       ]) {
         await ok(
@@ -243,8 +245,12 @@ test.describe('price groups', () => {
     }
 
     const student = await priceLines(page, marketId, 'student@example.com');
-    await expect(student[0]).toHaveText('Gold, full table, UBC student + club member, $12');
-    await expect(student[1]).toHaveText('Silver, full table, UBC student + club member, $10');
+    await expect(student[0]).toHaveText(
+      'Gold, full table, Example College student + club member, $12',
+    );
+    await expect(student[1]).toHaveText(
+      'Silver, full table, Example College student + club member, $10',
+    );
     const alumnus = await priceLines(page, marketId, 'alumnus@example.com');
     await expect(alumnus[0]).toHaveText('Gold, full table, Everyone else, $35');
     await expect(alumnus[1]).toHaveText('Silver, full table, Everyone else, $30');
