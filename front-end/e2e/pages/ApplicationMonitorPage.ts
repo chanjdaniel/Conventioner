@@ -63,6 +63,20 @@ export class ApplicationMonitorPage {
     return this.decidedRows.filter({ hasText: applicantEmail });
   }
 
+  /** Who gave a reviewed application its verdict, on its row. */
+  decidedGiverOf(applicantEmail: string): Locator {
+    return this.decidedRow(applicantEmail).getByTestId('app-monitor-decided-giver');
+  }
+
+  /**
+   * "Approve instead" or "Reject instead" on a reviewed row, or on every row when no applicant is
+   * named: a change of verdict, offered only where the change row allows (E38/F06/S01).
+   */
+  changeButton(verdict: 'approve' | 'reject', applicantEmail?: string): Locator {
+    const scope = applicantEmail ? this.decidedRow(applicantEmail) : this.page;
+    return scope.getByTestId(`app-monitor-decided-${verdict}-button`);
+  }
+
   /** Straight to One by one by its address: the Applications tab opens on All (E38/F05/S01). */
   async goto(marketId: string): Promise<void> {
     await this.page.goto(oneByOnePath(marketId));

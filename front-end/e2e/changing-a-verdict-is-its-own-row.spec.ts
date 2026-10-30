@@ -1,5 +1,4 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { oneByOnePath } from './helpers/marketScreens';
 import {
   seedApplicationWithStatus,
   seedPhaseMarket,
@@ -51,21 +50,21 @@ test('an Editor gives a verdict, and is offered no change to one already given',
   browser,
 }) => {
   await withUser(browser, PEOPLE.editor.email, PEOPLE.editor.password, async (page) => {
-    await page.goto(oneByOnePath(marketId));
     const review = new ApplicationMonitorPage(page);
+    await review.goto(marketId);
     await review.waitForLoaded();
 
     await review.openDecided();
     await expect(review.decidedReason).toHaveText(CHANGE_REFUSED);
-    await expect(page.getByTestId('app-monitor-decided-approve-button')).toHaveCount(0);
-    await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+    await expect(review.changeButton('approve')).toHaveCount(0);
+    await expect(review.changeButton('reject')).toHaveCount(0);
 
     // A first verdict is still theirs.
     await review.approve('ana@thistle.test');
-    await expect(
-      review.decidedRow('ana@thistle.test').getByTestId('app-monitor-decided-giver'),
-    ).toHaveText(new RegExp(`^Approved by ${PEOPLE.editor.email}, `));
-    await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+    await expect(review.decidedGiverOf('ana@thistle.test')).toHaveText(
+      new RegExp(`^Approved by ${PEOPLE.editor.email}, `),
+    );
+    await expect(review.changeButton('reject')).toHaveCount(0);
 
     // The All view: no tick on a decided row, said once; Select all ticks the rest and says why.
     const all = new ApplicationsAllPage(page);
@@ -92,15 +91,14 @@ test('an Editor gives a verdict, and is offered no change to one already given',
 
 test('an Admin changes a verdict already given', async ({ browser }) => {
   await withUser(browser, PEOPLE.admin.email, PEOPLE.admin.password, async (page) => {
-    await page.goto(oneByOnePath(marketId));
     const review = new ApplicationMonitorPage(page);
+    await review.goto(marketId);
     await review.waitForLoaded();
 
     await review.openDecided();
     await expect(review.decidedReason).toHaveCount(0);
-    const cleo = review.decidedRow('cleo@fern.test');
-    await cleo.getByTestId('app-monitor-decided-approve-button').click();
-    await expect(cleo.getByTestId('app-monitor-decided-giver')).toHaveText(
+    await review.changeButton('approve', 'cleo@fern.test').click();
+    await expect(review.decidedGiverOf('cleo@fern.test')).toHaveText(
       new RegExp(`^Approved by ${PEOPLE.admin.email}, `),
     );
 
