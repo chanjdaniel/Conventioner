@@ -438,6 +438,30 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // What the vendor owes and paid (E44/F01/S01).
+    name: "the vendor drawer's Payment tab",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-tab'],
+    ),
+  },
+  {
+    name: 'the record-payment dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-record'],
+      ['payment-record', 'record-payment-window'],
+    ),
+  },
+  {
     name: 'the add-vendor dialog',
     who: 'organizer',
     sizes: ORGANIZER,
