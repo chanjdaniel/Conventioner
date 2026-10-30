@@ -37,7 +37,7 @@ The glossary concept: [Market](../../business/concepts/market.md).
 Approval is what decides the solver's whole input, which is why the journey must click it.
 It stops at the result: publishing and market day are the slices'.
 
-A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, One by one, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 
 ## The slices
 

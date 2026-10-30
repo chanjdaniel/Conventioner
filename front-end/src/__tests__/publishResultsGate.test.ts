@@ -91,7 +91,7 @@ describe('a form-intake market (E36/F04/S01)', () => {
 });
 
 describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
-  it.each([MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review])(
+  it.each([MarketPhase.Draft, MarketPhase.Applications])(
     'offers no Publish Results, not even a disabled one, in %s',
     async (phase) => {
       const wrapper = await mounted(marketTaking(IntakeMode.Form, { phase }));

@@ -271,7 +271,9 @@ test.describe('The MVP journey', () => {
     await vendorContext.close();
 
     // --- 4. Reviewed in the same stage, applications still open ------------------------------
+    // The page opens on All (E38/F05/S01); this walk decides one card at a time.
     await page.reload();
+    await monitor.switchTo();
     await monitor.waitForLoaded();
     await monitor.approve(VENDOR);
     await expect(monitor.tally).toContainText('1 reviewed · 1 approved');

@@ -32,12 +32,10 @@ async function reviewingMarket(request: import('@playwright/test').APIRequestCon
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   const theo = seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
   const ines = seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });
@@ -140,18 +138,12 @@ test('Refresh recovers from a list that failed to load, in both views', async ({
     );
 
   // All: the first read fails, so the page says so; a Refresh that reads the list shows it.
-  const lead = page.getByTestId('market-setup-applications-condition');
   await failRead();
   await all.goto(marketId);
   await expect(page.getByText('Failed to load applications')).toBeVisible();
-  // Nothing was read, so nothing is counted: not "Every application has been decided".
-  await expect(lead).toHaveText(
-    'Every application must be decided before this market can enter Assignment.',
-  );
   await page.unroute(THE_LIST);
   await refresh.click();
   await expect(all.rows).toHaveCount(3);
-  await expect(lead).toContainText('3 applications still to decide');
   await expect(all.selectAll).toBeVisible();
   await expect(page.getByText('Failed to load applications')).toHaveCount(0);
 
@@ -159,7 +151,6 @@ test('Refresh recovers from a list that failed to load, in both views', async ({
   await failRead();
   await monitor.goto(marketId);
   await expect(page.getByText('Failed to load applications')).toBeVisible();
-  await expect(lead).not.toContainText('Every application has been decided');
   // Not "No applications received yet." under the error: nothing was read to say so.
   await expect(monitor.empty).toHaveCount(0);
   await page.unroute(THE_LIST);

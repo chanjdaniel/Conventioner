@@ -107,7 +107,7 @@ test('the review opens on All, its views and its filter named on screen', async 
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const all = new ApplicationsAllPage(page);
   // Before anyone applies, it says nothing has come in, not that nothing matches.
   await page.goto(marketScreenPath(marketId, 'applications'));
@@ -269,13 +269,11 @@ test('Select all ticks the open rows shown, skipping the one held elsewhere', as
     TEST_USER.password,
     { intakeMode: 'form' },
   );
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
   const nadia = seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
   seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
   seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
   seedApplicationWithStatus(marketId, 'reviewer_approved', 'omar@kiln.test');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
-  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
   const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
     data: { user_email: SECOND.email, role: 'editor' },
   });

@@ -26,7 +26,6 @@ sources:
   - E39/F01/S03
   - E39/F01/S04
   - E42/F01/S01
-  - E38/F05
 ---
 
 # What each role may do
