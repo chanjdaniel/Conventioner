@@ -227,8 +227,9 @@ const changesOf = (entry: MarketHistoryEntry) =>
   gap: var(--space-2);
 }
 
-/* Laid out by its content, so a field's name keeps to one line however narrow the drawer: in a
-   fixed share every question of an application wrapped to two or three lines beside a "none". */
+/* The Field column as wide as its names, each on one line however narrow the drawer (in a fixed
+   share every question of an application wrapped to two or three lines beside a "none"), and
+   Before and After halves of the rest, so the values split alike in every entry down the list. */
 .history-table {
   width: 100%;
   border-collapse: collapse;
@@ -260,6 +261,14 @@ const changesOf = (entry: MarketHistoryEntry) =>
 }
 
 /* The field's name is a few words; the values beside it are what is read. */
+.history-table thead th:first-child {
+  width: 1%;
+}
+
+.history-table thead th:not(:first-child) {
+  width: 50%;
+}
+
 .history-table tbody th {
   white-space: nowrap;
 }
