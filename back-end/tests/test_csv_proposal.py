@@ -4,9 +4,10 @@ The answer key below is the one written by hand for the form-started-from-a-CSV 
 before any rule existed, and it is what the rules were measured against: every column's kind, the
 type and options of every question of the organizer's own (its required flags went with
 E33/F02/S01: the proposal marks nothing required). It is asserted here on
-the five Google Form exports in ``tests/test_data/google_forms/``, so the rules are held to the
-numbers they were chosen on. Each file carries answers at least 3 applicants gave, which is the
-same line the rules read the file through, so the fixtures carry what the rules need.
+the five synthetic Google Form exports in ``tests/test_data/google_forms/``, so the rules are held
+to the numbers they were chosen on: ``tests/fixtures/synthetic_form_exports.py`` states every
+column's counts exactly, so each file keeps the columns, options and answer counts of the export it
+replaced.
 
 No row value appears here: columns are named by header prefix, options by the form's own wording.
 """
