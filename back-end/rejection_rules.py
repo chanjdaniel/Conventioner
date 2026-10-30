@@ -11,6 +11,7 @@ change is ``api.markets.rejection_rules_lock_reason``, beside the assignment rul
 read serves the questions and the rules as they stand against the current form, so the review setup
 offers exactly what the write will take.
 """
+from dataclasses import dataclass
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -156,9 +157,22 @@ def _answer_values(field_type: str, raw: Any) -> List[str]:
     return [str(raw)] if raw not in (None, "") else []
 
 
-def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) -> int:
+@dataclass(frozen=True)
+class Judged:
+    """What one judging changed: how many applications the rules rejected, and how many a rule had
+    rejected that it returned to undecided. The write that judged counts both in its history entry,
+    since no rule is a person to record an entry of its own."""
+
+    rejected: int = 0
+    returned: int = 0
+
+    def counts(self) -> Dict[str, int]:
+        return {"rejected": self.rejected, "returned": self.returned}
+
+
+def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) -> Judged:
     """Apply the rules to the market's undecided applications and to those a rule rejected; or to
-    ``application_id`` alone, as it arrives. Returns how many it rejected.
+    ``application_id`` alone, as it arrives. Returns how many it rejected and returned.
 
     An undecided application a rule meets is stored rejected, the rule its giver and the answer its
     reason. One a rule rejected that no rule meets any longer returns to undecided - unless the
@@ -166,14 +180,14 @@ def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) 
     conditioned on the application being as it was read, so a person's verdict that lands in
     between is never overwritten.
     """
-    rejected = 0
+    rejected = returned = 0
     for doc in ApplicationsApi.judgeable_applications(market_id, application_id):
         by_rule = doc.get("status") == ApplicationStatus.REVIEWER_REJECTED.value
         met = book.rejecting(doc.get("form_data") or {})
         if met is None:
-            if by_rule and not book.results_published:
-                ApplicationsApi.update_application_status(
-                    doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc)
+            if by_rule and not book.results_published and ApplicationsApi.update_application_status(
+                    doc["id"], ApplicationStatus.OPEN, if_unchanged_since=doc):
+                returned += 1
             continue
         rule_key, reason = met
         if by_rule and (doc.get("verdict_by") or {}).get("rule") == rule_key \
@@ -184,4 +198,4 @@ def judge(book: Rulebook, market_id: str, application_id: Optional[str] = None) 
                 by=VerdictGiver(kind="rule", rule=rule_key), reason=reason,
                 if_unchanged_since=doc):
             rejected += 1
-    return rejected
+    return Judged(rejected=rejected, returned=returned)

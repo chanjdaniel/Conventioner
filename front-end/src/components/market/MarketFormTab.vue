@@ -14,6 +14,7 @@
  * editable, which the applications tab reads, and the form's FIELDS, which the plan's assignment
  * priority offers as the questions a rule can order by.
  */
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -65,10 +66,15 @@ const formLoadError = ref<string | null>(null);
  * market after every write - a transition included - so it is right the moment one lands.
  */
 /** The form's own lock first - the phase and the first application - then whether this person may
- *  change the market at all (bug 37). */
+ *  change the form (bug 37, E39/F01/S02). */
 const formLockReason = computed(
-  () => market.value?.applicationFormLockReason || market.value?.readOnlyReason || null,
+  () =>
+    market.value?.applicationFormLockReason ||
+    actionRefusal(market.value, MarketAction.ChangeForm) ||
+    null,
 );
+/** The highlights and the automatic rejections are the form's row too. */
+const changesForm = computed(() => mayTake(market.value, MarketAction.ChangeForm));
 const formLockKnown = computed(() => market.value?.applicationFormLockReason !== undefined);
 const formLocked = computed(() => formLockReason.value !== null);
 /**
@@ -415,7 +421,7 @@ watch(formLocked, (locked, wasLocked) => {
                 :fields="applicationForm?.fields ?? []"
                 :essentialOptions="essentialOptions"
                 :highlights="highlights"
-                :disabled="!!market?.readOnlyReason"
+                :disabled="!changesForm"
                 @update:highlights="saveHighlights"
               />
               <p
@@ -436,7 +442,7 @@ watch(formLocked, (locked, wasLocked) => {
                 :questions="market?.rejectionQuestions ?? []"
                 :rules="rejectionRules"
                 :lockReason="market?.rejectionRulesLockReason ?? null"
-                :disabled="!!market?.readOnlyReason"
+                :disabled="!changesForm"
                 @update:rules="saveRejectionRules"
               />
               <p

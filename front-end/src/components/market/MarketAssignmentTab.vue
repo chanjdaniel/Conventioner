@@ -33,8 +33,16 @@ const props = defineProps<{
   /** The applications a refused run named, each linked to where it can be dealt with (bug 42). */
   assignIncomplete: IncompleteApplication[];
   marketId: string;
-  /** This person may change nothing on the market; the frame says why (T15). */
+  /**
+   * This person may not change the rules, by the table: they ride in the plan, so their write asks
+   * both the Market Setup row and the Assignment row (E39/F01/S01).
+   */
   readOnly: boolean;
+  /**
+   * This person may allocate tables, by the table's Assignment row alone: a market's owner may set
+   * it apart from Market Setup's (E39/F01/S03).
+   */
+  mayAllocate: boolean;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
   /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
@@ -46,7 +54,7 @@ const emit = defineEmits<{
   (event: 'assign'): void;
 }>();
 
-/** The rules cannot change and nothing runs, for either reason. */
+/** The rules cannot change, for either reason. */
 const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
 </script>
 
@@ -85,9 +93,9 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       </ElementSettingContainer>
     </section>
 
-    <!-- Nothing can run once the rules are settled, or for a person who may change nothing, so
-         there is no button to explain. -->
-    <div v-if="!locked" class="assign-actions">
+    <!-- Nothing can be allocated once the rules are settled, or by a person the Assignment row
+         refuses, so there is no button to explain. -->
+    <div v-if="mayAllocate && !rulesLockReason" class="assign-actions">
       <button
         type="button"
         class="btn btn--primary done-button"
@@ -95,7 +103,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         @click="emit('assign')"
         data-testid="market-setup-assign-button"
       >
-        {{ handPlacements === null ? 'Assign' : 'Run again' }}
+        {{ handPlacements === null ? 'Allocate tables' : 'Allocate tables again' }}
       </button>
       <p
         v-if="handPlacements !== null && !assignRefusalReason"
@@ -104,8 +112,8 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
       >
         {{
           handPlacements
-            ? `Keeps your ${handPlacements} hand placement${handPlacements === 1 ? '' : 's'}; places everyone else again.`
-            : 'Places everyone again.'
+            ? `Keeps your ${handPlacements} hand assignment${handPlacements === 1 ? '' : 's'}; allocates tables for everyone else again.`
+            : 'Allocates tables for everyone again.'
         }}
       </p>
       <!-- The phase comes first: a market that may not be assigned at all is not waiting on
@@ -122,7 +130,7 @@ const locked = computed(() => props.readOnly || Boolean(props.rulesLockReason));
         class="assign-disabled-hint"
         data-testid="market-setup-assign-hint"
       >
-        Correct the assignment options above to run the assignment.
+        Correct the assignment rules above to allocate tables.
       </p>
       <div v-if="assignError" class="assign-error-banner" data-testid="market-setup-assign-error">
         <!-- A refusal that names applicants hands the organizer to each one: their name with

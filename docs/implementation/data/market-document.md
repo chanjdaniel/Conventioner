@@ -4,6 +4,7 @@ kind: data
 describes:
   - back-end/market_documents.py
   - back-end/datatypes.py#Market
+  - back-end/datatypes.py#MarketPermission
   - back-end/datatypes.py#MarketPhase
   - back-end/datatypes.py#phase_from_market_document
   - back-end/datatypes.py#intake_mode_from_market_document
@@ -20,7 +21,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-27
+verified: 2026-10-30
 sources:
   - E02
   - E03/F03
@@ -29,6 +30,7 @@ sources:
   - E26/F06/S03
   - E01/F06
   - E38/F02/S01
+  - E39/F01/S03
 ---
 
 # The market document
@@ -63,6 +65,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
+| `permissions` | the rows of [the table](../modules/market-actions.md#a-markets-own-rows) this market differs on: a map from action id to `{role, source}`, `source` being `market` or `organization`; a row it does not hold reads its built-in default, so absent or `{}` is the built-in table and needs no migration; written only by its owner's write, `{}` at creation ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)) |
 | `intakeMode` | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `applicant_intake_market_by_slug` |
 | `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options and floorplans; null on a market whose plan was never saved |
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |

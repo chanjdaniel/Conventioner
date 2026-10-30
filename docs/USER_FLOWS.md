@@ -55,6 +55,7 @@ A bug the status once named is cited where its fix changed what a step says.
 - [K. Publishing and market days](business/flows/market-day-door.md) - K1 to K5; [K6](#k6-send-offers-instead-of-publishing) is planned, below
 - [L. Ending and managing a market](business/flows/ending-and-managing-a-market.md) - L1 to L5, with P6
 - [M. Offers and outcomes (planned)](#m-offers-and-outcomes-planned) - M1 to M5; planned, below
+- [N. The market's statistics](business/flows/stats.md) - N1, N2
 
 ## Planned, not built
 

@@ -31,6 +31,7 @@ export function marketScreenPath(
     | 'result'
     | 'vendors'
     | 'attendance'
+    | 'stats'
     | 'import'
     | 'floorplan',
 ): string {

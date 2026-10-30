@@ -124,11 +124,18 @@ def user_has_permission(user_email: str, market: Market, required_role: MarketRo
     with a role of its own: it asks its row in ``api.market_actions``, which calls this with the
     row's role (E39/F01/S01).
     """
-    user_role = get_user_market_role(user_email, market, organization)
-    if user_role is None:
-        return False
+    return role_reaches(get_user_market_role(user_email, market, organization), required_role)
 
-    return ROLE_RANK[user_role] >= ROLE_RANK[required_role]
+
+def role_reaches(role: Optional[MarketRole], required_role: MarketRole) -> bool:
+    """Whether a role already resolved is ``required_role`` or above it; holding none reaches none.
+
+    The one ranking: ``user_has_permission`` ranks through it, and so does the table for a role a
+    list resolved from the documents it holds (``market_actions.role_refusal``).
+    """
+    if role is None:
+        return False
+    return ROLE_RANK[role] >= ROLE_RANK[required_role]
 
 
 def get_user_organizations(user_email: str) -> List[Organization]:

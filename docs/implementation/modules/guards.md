@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -90,6 +90,8 @@ Do not add a second copy of that write: the endpoint carried one until E26, whic
 **`offers` is deadlocked, and kept.**
 `assignment -> offers` waits on `NoApprovedApplicationsGuard`, and nothing writes the statuses that would clear it; it is a post-MVP phase off the rail's spine, and `market_days` is reached from `assignment` directly.
 Its entry invariant is the warning `AssignmentComputedGuard` heeds: a guard must wait on something the product actually writes.
+
+**`take_move` records the move in [the market's history](../data/history.md)** once it is taken (`move-phase`, the phase before and after, by whoever made it); the phase history stays the state the guards read, and an amendment's walk is recorded as the amendment.
 
 ## Why
 

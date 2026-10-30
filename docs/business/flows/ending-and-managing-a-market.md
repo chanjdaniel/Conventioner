@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
-verified: 2026-10-28
+verified: 2026-10-29
 sources:
   - E20/F01/S03
   - E21/F03/S04
@@ -43,7 +43,7 @@ Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../
 **Status:** Works (re-walked live on 2026-10-03; archiving as the step onward and the landing read from the code as of E31/F02/S03 and E32/F01/S01).
 
 1. Once every market date has passed, "Archive Market" is the rail's main button and the rail says "The market has run. Archive it to keep it as the record of what happened."; until then it is under More….
-2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were placed, but nobody can check in."; focus on Cancel; "Archive".
+2. "Archive this market?": "Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone." and "Its check-in page stays up as a record: vendors can still look up where they were assigned, but nobody can check in."; focus on Cancel; "Archive".
 3. Expect the rail frozen with "This market is archived. It was published and ran its market days." (bug 8), landing on Result; every page is read only (bug 30), and Attendance keeps the record, every vendor who never checked in reading "Did not come".
 4. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in (bug 9).
 
@@ -54,7 +54,7 @@ Covered by: `phase-state-machine.spec.ts`, `an-archive-keeps-its-check-in-page.s
 **Status:** Works (walked live; the notes' words read from the code, `PhaseRail.vue`).
 More…, "Archive Market" from any earlier phase, with the same confirmation less the check-in line.
 It is read only, lands on Result if it was assigned and on Market Setup if not, and no check-in page is served.
-The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but was never assigned." or "It was assigned but never published, so no check-in page went on the air."; a market older than the phase record says only what it can prove ("It opened applications.", "It was assigned.").
+The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so no check-in page went on the air."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
 Its Attendance tab says "This market was archived without being published, so nobody checked in."
 Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ran says it has no attendance"), `an-archive-keeps-its-check-in-page.spec.ts`, `market-remembers-phases.spec.ts`.
 
@@ -81,7 +81,7 @@ Covered by: `public-address.spec.ts`.
 ## L5. Delete a market
 
 **Status:** Works (walked live; what it names read from the code as of bug 43's fix and E30/F01/S03).
-Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignment, its check-in records and the record of who changed what. It cannot be undone."), adds "Its application page and check-in page will stop working for anyone who has the link." for whichever of those it has, and opens on Cancel (bug 43).
+Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its application page and check-in page will stop working for anyone who has the link." for whichever of those it has, and opens on Cancel (bug 43).
 Everything the market kept beside itself is deleted with it (bug 47).
 Covered by: `tier2.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `market-records-go-with-it.spec.ts`.
 

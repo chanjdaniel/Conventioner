@@ -96,6 +96,8 @@ Hosted TypeSafe settles the two judgements the rules leave, when a key is set ([
 **The rules are held to the hand-written answer key on the five anonymised exports** ([`back-end/tests/test_csv_proposal.py`](../../../back-end/tests/test_csv_proposal.py), over [the Google Form corpus](../../../back-end/tests/test_data/README.md)): every column's kind, and every own question's type and options, written before any rule existed.
 Change a rule against that, not beside it; `test_csv_proposal_plan.py` does the same for the plan, and `test_csv_start.py` pins confirm.
 
+**The start records one entry in [the market's history](../data/history.md)**, `started` with its row, column and question counts rather than the plan and the form it wrote whole; the proposal keeps nothing and records nothing.
+
 ## Evidence
 
 The rules alone were scored against an answer key written by hand before them, on 135 columns of the five exports: every column's kind right, 72 of 74 own questions' types, options at a precision of 1.00 and a recall of 0.98, and every file's dates, tiers and ceiling, so a file needs about one correction.

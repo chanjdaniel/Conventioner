@@ -18,7 +18,7 @@ export type ExportStatus = 'open' | 'follow_up' | 'approved' | 'rejected' | 'add
 export interface ExportFilters {
   /** Any of these; none is any status. */
   statuses: ExportStatus[];
-  /** Placed or not, on `date` or, with none, on any date. */
+  /** Assigned or not (`placed` / `unplaced` on the wire), on `date` or, with none, on any date. */
   placed: '' | 'placed' | 'unplaced';
   date: string;
   /** A seat's section, tier and size, which hold only of the vendors placed. */

@@ -1,6 +1,6 @@
 /**
  * AUTO-GENERATED FILE. DO NOT EDIT MANUALLY.
- * Regenerate with: python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts
+ * Regenerate with: python back-end/generate_market_schema.py --output docs/schema.d.ts
  */
 
 export interface MarketSchema {
@@ -64,6 +64,10 @@ export interface MarketSchema {
   }[];
   name: string;
   organizationId?: string;
+  permissions?: Record<string, {
+    role: string;
+    source: string;
+  }>;
   phase?: string;
   rejectionRules?: {
     answers?: string[];

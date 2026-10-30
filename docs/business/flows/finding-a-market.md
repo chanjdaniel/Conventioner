@@ -67,7 +67,7 @@ Covered by: `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `acces
 **Status:** Works (walked live).
 
 1. `/markets/<id>` lands on the page the market is worked on in its phase (see [the lifecycle](lifecycle.md#the-phases)).
-2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/assignment`, `/result`, `/vendors`, `/attendance`, plus the `/import`, `/start-from-csv` and `/floorplan` flows.
+2. Every page has its own address: `/markets/<id>/setup`, `/form`, `/applications`, `/assignment`, `/result`, `/vendors`, `/attendance`, `/stats`, plus the `/import`, `/start-from-csv` and `/floorplan` flows.
 3. Old addresses redirect: `/markets/<id>/tables` to `/result`, `setup?tab=<page>` to that page, `/market-setup` and the other id-less paths to `/markets`, `/floorplan-editor?marketId=<id>` to the floorplan flow.
 4. An id you cannot reach shows "This market does not exist, or you do not have access to it." with "Choose a market".
 

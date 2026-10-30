@@ -80,16 +80,25 @@ def test_an_admin_of_another_organization_gets_nothing_here():
     assert PermissionsApi.get_user_market_role(ORG_ADMIN, market(), other) is None
 
 
+def served(who):
+    """The table's answers the market read serves this person, from the role it resolves."""
+    role = PermissionsApi.get_user_market_role(who, market(), organization())
+    return MarketsApi.role_action_refusals(role, market().phase, {})
+
+
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])
 def test_an_organization_admin_may_change_the_market_and_take_its_admin_actions(who):
-    assert MarketsApi.change_refusal(who, market(), organization()) is None
-    assert MarketsApi.admin_actions_refusal(who, market(), organization()) is None
+    refusals = served(who)
+
+    assert MarketsApi.read_only_reason(market(), refusals) is None
+    assert refusals["move-phase"] is None
+    assert refusals["manage-editors-and-viewers"] is None
 
 
 def test_an_organization_member_still_only_reads():
-    assert MarketsApi.change_refusal(ORG_MEMBER, market(), organization()) == (
-        MarketsApi.VIEWER_REFUSAL
-    )
+    refusals = served(ORG_MEMBER)
+
+    assert MarketsApi.read_only_reason(market(), refusals) == MarketsApi.VIEWER_REFUSAL
 
 
 @pytest.mark.parametrize("who", [ORG_OWNER, ORG_ADMIN])

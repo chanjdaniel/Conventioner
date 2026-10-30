@@ -126,7 +126,7 @@ def _applicant_address(market: Market, email: str) -> str:
     """
     address = normalized_email(email)
     if not address:
-        raise PlacementError("A placement must name the vendor it places.")
+        raise PlacementError("An assignment must name the vendor it assigns.")
     if not has_applied(market.id, address):
         raise PlacementError(
             f"{address} has no application in this market, so they cannot be given a seat. "
@@ -141,7 +141,7 @@ def _placement_for(
     """Build the row a placement writes, validating it against the market's own plan."""
     setup_object = market.setup_object
     if setup_object is None:
-        raise PlacementError("Market has no plan, so it has no tables to place anyone at.")
+        raise PlacementError("Market has no plan, so it has no tables to assign anyone to.")
 
     email = _applicant_address(market, email)
 
@@ -223,22 +223,22 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     if phase is MarketPhase.DRAFT:
         return (
             "This market is still a draft. Plan it, take its applications in and review them - "
-            "the assignment runs once the market reaches the assignment phase."
+            "tables are allocated once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_OPEN:
         return (
-            "Applications are still coming in. Review them as they arrive - the assignment runs "
+            "Applications are still coming in. Review them as they arrive - tables are allocated "
             "once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_CLOSED:
         return (
             "Applications are closed. Review them, then move the market to the assignment phase "
-            "to run the assignment."
+            "to allocate tables."
         )
     if phase is MarketPhase.REVIEW:
         return (
-            "This market is still in review. Move it to the assignment phase to run the "
-            "assignment."
+            "This market is still in review. Move it to the assignment phase to allocate "
+            "tables."
         )
     if phase is MarketPhase.ARCHIVED:
         return MarketsApi.ARCHIVED_REFUSAL
@@ -246,14 +246,15 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     # placement is what is wanted here, and the Result page is where that happens (E11/F03,
     # E22/F04/S04).
     return (
-        "The assignment for this market is settled. Change a single placement on the Result page "
-        "instead of re-running it."
+        "The table allocation for this market is settled. Change a single assignment on the Result "
+        "page instead of allocating tables again."
     )
 
 
 RESULTS_PUBLISHED_REFUSAL = (
-    "Results are published, so the assignment is settled: applicants have been told whether they "
-    "have a table, and a run could move them. Change a single placement on the Result page instead."
+    "Results are published, so the table allocation is settled: applicants have been told whether "
+    "they have a table, and allocating again could move them. Change a single assignment on the "
+    "Result page instead."
 )
 
 
@@ -354,15 +355,18 @@ def write_placement(
             "Free that seat first, or swap the two vendors."
         )
 
+    stored = market.assignment_object.vendor_assignments
+    left = next((existing for existing in stored
+                 if existing.email == placement.email and existing.date == placement.date), None)
     kept = [
         existing
-        for existing in market.assignment_object.vendor_assignments
+        for existing in stored
         if not (existing.email == placement.email and existing.date == placement.date)
     ]
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
-    History.record_placed(market_id, requesting_user, placement)
+    History.record_placed(market_id, requesting_user, placement, left)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
@@ -385,7 +389,7 @@ def remove_placement(
     email = (email or "").strip()
     date = (date or "").strip()
     if not email or not date:
-        raise PlacementError("Removing a placement must name the vendor and the date.")
+        raise PlacementError("Removing an assignment must name the vendor and the date.")
 
     kept = [
         existing

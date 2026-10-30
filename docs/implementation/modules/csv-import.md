@@ -45,7 +45,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking th
 **Importing is the CSV path's in every phase** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows only `applications_open` and `applications_closed` (`IMPORT_PHASES`): once review begins, the applicant set must stop moving under the reviewer.
 Its words name the CSV rail's moves: from a draft, "Use Import responses on the phase rail first"; from review, "Use Import more responses, under More… on the phase rail"; past review, that nothing more can be imported, since no move leads back (bug 42).
-`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)) and refuses an archived market first.
+`_import_context` asks it on every endpoint, so a hidden button is never the rule; `_importing_market_document` asks the row Import applications, and start a market from a CSV ([the market's actions](market-actions.md)), then refuses an archived market whoever may.
 The three endpoints catch nothing: their refusals are the literal answers above, and anything else is the generic 500 ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)).
 
 **Every row goes through `record_application_answers(imported=True)`**, the applicant's own write ([`back-end/application_write.py`](../../../back-end/application_write.py)), so an imported application and a submitted one are the same kind of thing by construction; `imported=True` is the import's only difference ([what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md)).
@@ -80,7 +80,9 @@ The import saves it on the market's `importMapping` after every import (`save_ma
 A saved target the form lacks is skipped, which is how the start's left-out columns wait under their would-be keys ([the CSV proposal and start](csv-proposal-and-start.md)); the targets that are not questions (`RESERVED_TARGETS`: who applied, when, the sheet's note) are never a question's key: the start's `key_for` passes over them and the form's save refuses them.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
-**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+
+**An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
 
 ## Superseded
 
