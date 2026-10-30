@@ -156,6 +156,7 @@ test('the owner resets every row to its built-in default, and the reset is recor
   await expect(manage.permissionsSummary).toContainText(
     '1 row differs from the built-in defaults.',
   );
+  await manage.permissionsReset.focus();
   await manage.resetPermissions();
   await expect(manage.resetConfirm).toContainText(
     'Check vendors in: Admin and above to Editor and above',
@@ -169,6 +170,8 @@ test('the owner resets every row to its built-in default, and the reset is recor
     await expect(source).toHaveText(/^(Built-in default|Always)$/);
   }
   await expect(manage.permissionsReset).toBeDisabled();
+  // Not on <body>: the disabled button cannot take focus back, so the section's toggle does.
+  await expect(manage.permissionsToggle).toBeFocused();
   const reset = manage.permissionChanges.first();
   await expect(reset).toContainText('Reset to built-in defaults');
   await expect(reset).toContainText('Check vendors in: Admin to Editor');

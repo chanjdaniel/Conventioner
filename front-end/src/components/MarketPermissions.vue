@@ -51,6 +51,7 @@ const pendingChange = ref<{
   select: HTMLSelectElement;
 } | null>(null);
 const resetConfirming = ref(false);
+const toggleEl = ref<HTMLButtonElement | null>(null);
 /** A refused change to the table, said in the confirmation that sent it. */
 const writeError = ref('');
 
@@ -150,6 +151,9 @@ async function confirmReset() {
     const response = await api.delete(`${marketPath()}/permissions`);
     resetConfirming.value = false;
     await afterWrite(response.data.permissionTable);
+    // The dialog gives focus back to "Reset to built-in defaults", which is disabled now that
+    // nothing is held, and focusing a disabled control does nothing: the section's toggle takes it.
+    if (document.activeElement === document.body) toggleEl.value?.focus();
   } catch (err) {
     writeError.value = getApiErrorMessage(err, 'Failed to reset the table');
   }
@@ -177,6 +181,7 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
     <div class="section-head">
       <h3 id="manage-market-permissions-heading">Permissions</h3>
       <button
+        ref="toggleEl"
         type="button"
         class="btn btn--secondary btn--compact"
         :aria-expanded="open"

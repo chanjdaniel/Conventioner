@@ -76,7 +76,16 @@ function market(table: PermissionTableRow[]): Market {
 let wrapper: VueWrapper | null = null;
 
 async function openSection(table: PermissionTableRow[]): Promise<VueWrapper> {
-  wrapper = mount(MarketPermissions, { props: { market: market(table) }, attachTo: document.body });
+  // The dialog's copy of the market takes the table a write answers, as Manage market does.
+  const mounted = mount(MarketPermissions, {
+    props: {
+      market: market(table),
+      onChanged: (answered: PermissionTableRow[]) =>
+        void mounted.setProps({ market: market(answered) }),
+    },
+    attachTo: document.body,
+  });
+  wrapper = mounted;
   await wrapper.get('[data-testid="manage-market-permissions-toggle"]').trigger('click');
   await flushPromises();
   return wrapper;
@@ -101,5 +110,27 @@ describe('the section', () => {
 
     expect(section.findAll('.note')).toHaveLength(0);
     expect(section.findAll('[data-testid="manage-market-permission-source"]')).toHaveLength(3);
+  });
+});
+
+describe('resetting every row', () => {
+  it('leaves focus on the section, since the button that opened it is disabled once nothing is held', async () => {
+    const section = await openSection(HELD);
+    api.delete.mockResolvedValue({ data: { permissionTable: BUILT_IN } });
+
+    const reset = section.get<HTMLButtonElement>('[data-testid="manage-market-permissions-reset"]');
+    reset.element.focus();
+    await reset.trigger('click');
+    await flushPromises();
+    const confirm = document.querySelector<HTMLButtonElement>(
+      '[data-testid="manage-market-permissions-reset-confirm-submit-button"]',
+    )!;
+    confirm.click();
+    await flushPromises();
+
+    expect(reset.element.disabled).toBe(true);
+    expect(document.activeElement).toBe(
+      section.get('[data-testid="manage-market-permissions-toggle"]').element,
+    );
   });
 });
