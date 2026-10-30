@@ -843,7 +843,8 @@ export function entryChanges(
     };
   }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
-    const team = (side: unknown) => valueText(addresses(asDetail(side).reviewers).join(', '));
+    // One address a line, so no address is broken across two.
+    const team = (side: unknown) => valueText(addresses(asDetail(side).reviewers).join('\n'));
     return {
       changed: [{ field: 'Reviewers', before: team(detail.before), after: team(detail.after) }],
       recorded: [],
@@ -926,6 +927,45 @@ function eachDealtTo(entry: MarketHistoryEntry, dealt: Detail): string {
     .filter(([, reviewer]) => reviewer)
     .map(([vendor, reviewer]) => `${vendor}: ${reviewer}`)
     .join(', ');
+}
+
+/**
+ * The one value column an entry's before and after needs, when every Before is "none" - an
+ * application arriving, a vendor added - so the value reads across the width a second column of
+ * "none" took: "Answer" for an applicant's own answers, "After" for anything else. Null when any
+ * Before carries a value, or nothing changed.
+ */
+export function soleColumn(
+  entry: MarketHistoryEntry,
+  changed: readonly ChangedField[],
+): string | null {
+  if (!changed.length || changed.some((row) => row.before !== 'none')) return null;
+  return entry.action === 'apply' ? 'Answer' : 'After';
+}
+
+/** A piece of a value as drawn: words, or an address split at its "@". */
+export type ValuePart =
+  { kind: 'text'; text: string } | { kind: 'address'; local: string; domain: string };
+
+const ADDRESS = /[^\s@,;()]+@[^\s@,;()]+\.[^\s@,;()]+/g;
+
+/**
+ * A value's pieces, each address apart, so the screen keeps the part before the "@" and the part
+ * from it whole: an address breaks, if a column is too narrow for it, only before its "@", never at
+ * a hyphen inside a name.
+ */
+export function addressParts(value: string): ValuePart[] {
+  const parts: ValuePart[] = [];
+  let at = 0;
+  for (const match of value.matchAll(ADDRESS)) {
+    const start = match.index ?? 0;
+    if (start > at) parts.push({ kind: 'text', text: value.slice(at, start) });
+    const split = match[0].indexOf('@');
+    parts.push({ kind: 'address', local: match[0].slice(0, split), domain: match[0].slice(split) });
+    at = start + match[0].length;
+  }
+  if (at < value.length) parts.push({ kind: 'text', text: value.slice(at) });
+  return parts;
 }
 
 /** The instant a day starts in the reader's timezone, as the history's `since` reads it. */

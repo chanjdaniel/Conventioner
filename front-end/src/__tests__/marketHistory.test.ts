@@ -8,8 +8,10 @@ import {
   dayEnds,
   dayStarts,
   entryChanges,
+  addressParts,
   entryParts,
   fieldName,
+  soleColumn,
   valueText,
   type MarketHistoryEntry,
   type MarketHistoryPart,
@@ -495,9 +497,9 @@ describe('who reviews which application (E38/F07/S02)', () => {
     ]);
   });
 
-  it('opens a change of reviewers to the lists before and after', () => {
+  it('opens a change of reviewers to the lists before and after, one address a line', () => {
     expect(entryChanges(reviewers(['a@x.test'], ['a@x.test', 'c@x.test'])).changed).toEqual([
-      { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test, c@x.test' },
+      { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test\nc@x.test' },
     ]);
     expect(entryChanges(reviewers(['a@x.test'], [])).changed).toEqual([
       { field: 'Reviewers', before: 'a@x.test', after: 'none' },
@@ -583,6 +585,30 @@ describe('an applicant’s answers, before and after', () => {
       before: 'none',
       after: 'Ember Ceramics',
     });
+  });
+});
+
+describe('how a before and after is drawn', () => {
+  it('drops the Before column when every Before is none, naming an applicant’s answers so', () => {
+    const rows = (...befores: string[]) =>
+      befores.map((before, i) => ({ field: `f${i}`, before, after: 'x' }));
+
+    expect(soleColumn(entry({ action: 'apply', kind: 'submitted' }), rows('none', 'none'))).toBe(
+      'Answer',
+    );
+    expect(soleColumn(entry({ action: 'add-vendor', kind: null }), rows('none'))).toBe('After');
+    expect(soleColumn(entry({ action: 'apply', kind: 'edited' }), rows('none', 'Gold'))).toBeNull();
+    expect(soleColumn(entry({}), [])).toBeNull();
+  });
+
+  it('marks each address in a value, so it breaks, if at all, only before its @', () => {
+    expect(addressParts('Dealt to rv-ana@example.com, and bo@x.test')).toEqual([
+      { kind: 'text', text: 'Dealt to ' },
+      { kind: 'address', local: 'rv-ana', domain: '@example.com' },
+      { kind: 'text', text: ', and ' },
+      { kind: 'address', local: 'bo', domain: '@x.test' },
+    ]);
+    expect(addressParts('none')).toEqual([{ kind: 'text', text: 'none' }]);
   });
 });
 
