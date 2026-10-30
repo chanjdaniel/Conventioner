@@ -111,7 +111,7 @@ class TestThePlanWrite:
 
         MarketsApi.save_plan("market-123", _with(PRICED), "user-1")
 
-        assert collection.last_update["$set"]["setupObject"]["pricing"] == PRICED
+        assert collection.last_update["$set"]["setupObject"]["pricing"] == {**PRICED, "groups": []}
 
     def test_a_plan_without_pricing_stays_without(self, market):
         collection = market()
@@ -193,7 +193,7 @@ class TestTheHistory:
         [entry] = [doc for doc in market_records.history.documents
                    if doc["kind"] == History.PRICING]
         assert entry["detail"]["before"] == {
-            "currency": None, "half_table_percent": None, "everyone_else": None}
+            "currency": None, "half_table_percent": None, "groups": None, "everyone_else": None}
         assert entry["detail"]["after"]["everyone_else"][0] == {"tier": "Gold", "cents": 3500}
 
     def test_restating_the_prices_records_nothing(self, market, market_records):
@@ -239,9 +239,10 @@ class TestTheTablesRead:
             _row("Landing 2", [None, None], "Silver", "Full Table"),
         ])
 
-        assert rows[0]["prices"] == [{"email": "ana@example.com", "cents": 3500}]
-        assert rows[1]["prices"] == [{"email": "ana@example.com", "cents": 1500},
-                                     {"email": "ben@example.com", "cents": 1500}]
+        # A card with no groups names none (E43/F01/S02).
+        assert rows[0]["prices"] == [{"email": "ana@example.com", "cents": 3500, "group": None}]
+        assert rows[1]["prices"] == [{"email": "ana@example.com", "cents": 1500, "group": None},
+                                     {"email": "ben@example.com", "cents": 1500, "group": None}]
         assert rows[2]["prices"] == []
 
     def test_a_market_with_no_prices_serves_none(self, monkeypatch):
@@ -254,7 +255,8 @@ class TestTheTablesRead:
 
 def test_the_pricing_object_is_not_named_after_any_one_market():
     """Q14: the card speaks of tiers and groups only; no question is named in code."""
-    assert set(PricingObject.model_fields) == {"currency", "half_table_percent", "everyone_else"}
+    assert set(PricingObject.model_fields) == {
+        "currency", "half_table_percent", "groups", "everyone_else"}
 
 
 def test_the_currency_list_is_offered_to_the_card():

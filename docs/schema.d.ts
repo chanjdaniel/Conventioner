@@ -142,6 +142,17 @@ export interface MarketSchema {
         cents: number;
         tier: string;
       }[];
+      groups: {
+        conditions: {
+          answers: string[];
+          key: string;
+        }[];
+        name: string;
+        prices: {
+          cents: number;
+          tier: string;
+        }[];
+      }[];
       halfTablePercent: number;
     };
     priority: {

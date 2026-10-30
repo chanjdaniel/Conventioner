@@ -1519,13 +1519,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
-    pricing = market.setup_object.pricing if market.setup_object else None
+    groups = Pricing.Groups(market)
+    answers = Pricing.vendor_answers(groups, market_id)
     return {
-        # Each occupant's price rides on their row, for the organizer's eyes only: this read is
-        # the market's people's, never an applicant's (E43/F01/S01, Q20.2).
+        # Each occupant's price and the card's row that set it ride on their row, for the
+        # organizer's eyes only: this read is the market's people's, never an applicant's
+        # (E43/F01/S01, S02; Q20.2).
         "rows": [
             {**convert_keys_to_camel_case(row.model_dump()),
-             "prices": Pricing.row_prices(pricing, row)}
+             "prices": Pricing.row_prices(groups, row, answers)}
             for row in rows
         ],
         # Name against address, for the surfaces that only ever knew the address. Sent with

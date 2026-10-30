@@ -247,6 +247,12 @@ def vendor_search_terms_for_market(
     return terms
 
 
+def vendor_answers_for_market(market_id: str, keys: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Every applicant's answers to ``keys``, as the organizer reads them (``effective_answers``),
+    keyed as ``vendor_names_for_market`` is: what the price groups read (E43/F01/S02)."""
+    return _answers_by_address(market_id, keys)
+
+
 def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
     """``{lowercased address: name}`` for the applications that stored one, read off a projection
     of the two name keys alone."""

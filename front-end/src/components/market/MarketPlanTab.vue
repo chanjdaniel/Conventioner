@@ -34,7 +34,7 @@ import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
 import ElementPricing from '@/components/elements/ElementPricing.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
-import type { IntakeMode, SetupObject } from '@/assets/types/datatypes';
+import type { IntakeMode, RejectionQuestion, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   setupObject: SetupObject;
@@ -52,6 +52,8 @@ const props = defineProps<{
   formQuestions: number;
   /** Why the form can no longer change, as the server serves it; null while it can. */
   formLockReason: string | null;
+  /** The form's questions with answers to choose, which a price group's condition may name. */
+  choiceQuestions: RejectionQuestion[];
 }>();
 
 const emit = defineEmits<{
@@ -165,6 +167,8 @@ const intakeEditable = computed(() => props.intakeEditable);
       <template #setting-content>
         <ElementPricing
           :setupObject="setupObject"
+          :questions="choiceQuestions"
+          :fixed="locked"
           @update:setupObject="(value) => emit('update:setupObject', value)"
           @held="(held) => emit('held', held)"
         />

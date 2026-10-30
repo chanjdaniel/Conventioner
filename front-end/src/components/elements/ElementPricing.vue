@@ -1,28 +1,51 @@
 <script setup lang="ts">
 /**
- * The Pricing card (E43/F01/S01): what one table costs for one market day, at each tier.
+ * The Pricing card (E43/F01/S01, S02): what one table costs for one market day, at each tier.
  *
- * Its columns are the market's tiers and its one row is "Everyone else"; price groups add rows
- * above it (E43/F01/S02). A half table costs a share of the full price, 50% unless the organizer
- * says otherwise, and the market has one currency, Canadian dollars unless they pick another.
- * Pricing is optional: a blank cell is a tier with no price, and a market with no prices shows
- * none anywhere. It speaks of tiers only, never of any one market's questions (Q14).
+ * Its columns are the market's tiers. Its rows are the price groups the organizer names, each a
+ * rule over the vendor's answers to the market's own choice questions, built with the automatic
+ * rejections' condition builder (`ChoiceConditions.vue`), and last the fixed row "Everyone else".
+ * A vendor pays the cheapest group they are in, and "Everyone else" when they are in none
+ * (`back-end/pricing.py`, the authority). A half table costs a share of the full price, 50% unless
+ * the organizer says otherwise, and the market has one currency, Canadian dollars unless they pick
+ * another. Pricing is optional: a blank cell is a tier with no price, and a market with no prices
+ * shows none anywhere. No question of any one market is named here (Q14).
  *
  * It sits in the plan's fieldset, so it settles with the rest of the setup on leaving draft.
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import type { PricingObject, SetupObject } from '@/assets/types/datatypes';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import type {
+  AnswerCondition,
+  PricingObject,
+  RejectionQuestion,
+  SetupObject,
+  TierPrice,
+} from '@/assets/types/datatypes';
+import ChoiceConditions from '@/components/application/ChoiceConditions.vue';
+import { brokenCondition } from '@/utils/choiceConditions';
 import {
   CURRENCIES,
+  EVERYONE_ELSE,
   UNPRICED,
   centsFromText,
+  groupNameProblem,
+  groupsOf,
   percentFromText,
   priceText,
   pricingAfterTierChange,
   tierRenamed,
 } from '@/utils/pricing';
 
-const props = defineProps<{ setupObject: SetupObject }>();
+const props = withDefaults(
+  defineProps<{
+    setupObject: SetupObject;
+    /** The questions a group's condition may name, as the server serves them for a rule. */
+    questions?: RejectionQuestion[];
+    /** Shown, not changed: the setup has settled, or this person may not change it. */
+    fixed?: boolean;
+  }>(),
+  { questions: () => [], fixed: false },
+);
 const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
   /** Whether a field holds text that is not a value, so the plan waits rather than saving. */
@@ -30,6 +53,7 @@ const emit = defineEmits<{
 }>();
 
 const pricing = computed<PricingObject>(() => props.setupObject.pricing ?? UNPRICED);
+const groups = computed(() => groupsOf(pricing.value));
 
 /** The columns: each tier the plan names, once, in its order; a tier still unnamed has none. */
 const tiers = computed(() => [
@@ -52,46 +76,120 @@ interface Typing<V> {
   before: V;
 }
 
-function storedCents(tier: string): number | null {
-  return pricing.value.everyoneElse.find((price) => price.tier === tier)?.cents ?? null;
+/** A row of the card: a group, by its place, or "Everyone else". */
+type Row = number | 'else';
+const ELSE = 'else' as const;
+
+function rowPrices(row: Row): TierPrice[] {
+  return row === ELSE ? pricing.value.everyoneElse : (groups.value[row]?.prices ?? []);
 }
 
-/** The prices with `tier`'s set to `cents`, or left out for null, in the tiers' order. */
-function withPrice(tier: string, cents: number | null): PricingObject {
-  const everyoneElse = tiers.value.flatMap((name) => {
-    const price = name === tier ? cents : storedCents(name);
+function storedCents(row: Row, tier: string): number | null {
+  return rowPrices(row).find((price) => price.tier === tier)?.cents ?? null;
+}
+
+/** The card with `row`'s price at `tier` set to `cents`, or left out for null, in the tiers' order. */
+function withPrice(row: Row, tier: string, cents: number | null): PricingObject {
+  const prices = tiers.value.flatMap((name) => {
+    const price = name === tier ? cents : storedCents(row, name);
     return price === null ? [] : [{ tier: name, cents: price }];
   });
-  return { ...pricing.value, everyoneElse };
+  if (row === ELSE) return { ...pricing.value, everyoneElse: prices };
+  return withGroups(groups.value.map((group, i) => (i === row ? { ...group, prices } : group)));
 }
+
+function withGroups(next: PricingObject['groups']): PricingObject {
+  return { ...pricing.value, groups: next };
+}
+
+/** A cell's key among the ones being typed in: its row and its tier. */
+const cellKey = (row: Row, tier: string) => JSON.stringify([row, tier]);
+const cellOf = (key: string) => JSON.parse(key) as [Row, string];
 
 const cells = ref<Record<string, Typing<number | null>>>({});
 
-function cellText(tier: string): string {
-  return cells.value[tier]?.text ?? priceText(storedCents(tier));
+function cellText(row: Row, tier: string): string {
+  return cells.value[cellKey(row, tier)]?.text ?? priceText(storedCents(row, tier));
 }
 
-function onPrice(tier: string, text: string) {
-  // `tier in`, not `??`: a blank cell's price before is null, which is a value, not "no entry yet".
-  const before = tier in cells.value ? cells.value[tier].before : storedCents(tier);
-  cells.value = { ...cells.value, [tier]: { text, before } };
+function onPrice(row: Row, tier: string, text: string) {
+  const key = cellKey(row, tier);
+  // `key in`, not `??`: a blank cell's price before is null, which is a value, not "no entry yet".
+  const before = key in cells.value ? cells.value[key].before : storedCents(row, tier);
+  cells.value = { ...cells.value, [key]: { text, before } };
   const cents = centsFromText(text);
   const kept = cents === undefined ? before : cents;
-  if (kept !== storedCents(tier)) write(withPrice(tier, kept));
+  if (kept !== storedCents(row, tier)) write(withPrice(row, tier, kept));
 }
 
 /** Leaving a cell redraws it from what is kept, unless what it holds is not an amount. */
-function onPriceLeft(tier: string) {
-  const typing = cells.value[tier];
+function onPriceLeft(row: Row, tier: string) {
+  const key = cellKey(row, tier);
+  const typing = cells.value[key];
   if (!typing || centsFromText(typing.text) === undefined) return;
-  cells.value = Object.fromEntries(Object.entries(cells.value).filter(([name]) => name !== tier));
+  cells.value = Object.fromEntries(Object.entries(cells.value).filter(([other]) => other !== key));
 }
 
 const invalidCells = computed(() =>
   Object.entries(cells.value)
     .filter(([, typing]) => centsFromText(typing.text) === undefined)
-    .map(([tier]) => tier),
+    .map(([key]) => key),
 );
+const isInvalid = (row: Row, tier: string) => invalidCells.value.includes(cellKey(row, tier));
+
+/** What each group is called on the screen and to a screen reader: its name, or its place. */
+const groupLabels = computed(() =>
+  groups.value.map((group, i) => group.name.trim() || `Group ${i + 1}`),
+);
+const nameProblems = computed(() =>
+  groups.value.map((group, i) =>
+    groupNameProblem(
+      group.name,
+      groups.value.map((other) => other.name),
+      i,
+    ),
+  ),
+);
+/** Whether each group has a condition the form no longer has: it prices nobody, and holds draft. */
+const brokenGroups = computed(() =>
+  groups.value.map((group) =>
+    group.conditions.some((condition) => brokenCondition(props.questions, condition)),
+  ),
+);
+
+async function addGroup() {
+  write(withGroups([...groups.value, { name: '', conditions: [], prices: [] }]));
+  const index = groups.value.length;
+  await nextTick();
+  document.getElementById(`pricing-group-${index}-name`)?.focus();
+}
+
+function removeGroup(index: number) {
+  write(withGroups(groups.value.filter((_, i) => i !== index)));
+  // The text being typed in a later group's cells moves up with its group.
+  cells.value = Object.fromEntries(
+    Object.entries(cells.value).flatMap(([key, typing]) => {
+      const [row, tier] = cellOf(key);
+      if (row === ELSE || row < index) return [[key, typing]];
+      return row === index ? [] : [[cellKey(row - 1, tier), typing]];
+    }),
+  );
+}
+
+function onName(index: number, name: string) {
+  write(withGroups(groups.value.map((group, i) => (i === index ? { ...group, name } : group))));
+}
+
+function onNameLeft(index: number) {
+  const name = groups.value[index]?.name ?? '';
+  if (name !== name.trim()) onName(index, name.trim());
+}
+
+function onConditions(index: number, conditions: AnswerCondition[]) {
+  write(
+    withGroups(groups.value.map((group, i) => (i === index ? { ...group, conditions } : group))),
+  );
+}
 
 const share = ref<Typing<number> | null>(null);
 const shareText = computed(() => share.value?.text ?? String(pricing.value.halfTablePercent));
@@ -126,18 +224,26 @@ watch(
     if (next !== props.setupObject.pricing && next) write(next);
 
     const renamed = tierRenamed(before, after);
-    const moved = (tier: string) =>
-      renamed && tier === renamed[0] && !(renamed[1] in cells.value) ? renamed[1] : tier;
+    const moved = (row: Row, tier: string) =>
+      renamed && tier === renamed[0] && !(cellKey(row, renamed[1]) in cells.value)
+        ? renamed[1]
+        : tier;
     cells.value = Object.fromEntries(
       Object.entries(cells.value)
-        .map(([tier, typing]) => [moved(tier), typing] as const)
-        .filter(([tier]) => tiers.value.includes(tier)),
+        .map(([key, typing]) => {
+          const [row, tier] = cellOf(key);
+          return [row, moved(row, tier), typing] as const;
+        })
+        .filter(([, tier]) => tiers.value.includes(tier))
+        .map(([row, tier, typing]) => [cellKey(row, tier), typing]),
     );
     if (tiers.value.length === 0) share.value = null;
   },
 );
 
-const held = computed(() => invalidCells.value.length > 0 || shareInvalid.value);
+const held = computed(
+  () => invalidCells.value.length > 0 || shareInvalid.value || nameProblems.value.some(Boolean),
+);
 watch(held, (value) => emit('held', value));
 onBeforeUnmount(() => {
   if (held.value) emit('held', false);
@@ -170,26 +276,136 @@ onBeforeUnmount(() => {
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          v-for="(group, g) in groups"
+          :key="g"
+          class="pricing-group"
+          :class="{ broken: brokenGroups[g] }"
+          :data-testid="`pricing-group-${g}`"
+        >
           <tr>
-            <th id="pricing-row-everyone-else" scope="row" class="pricing-who">Everyone else</th>
+            <th scope="row" class="pricing-who" :data-testid="`pricing-group-${g}-who`">
+              <span :id="`pricing-group-${g}-label`" class="visually-hidden">{{
+                groupLabels[g]
+              }}</span>
+              <input
+                :id="`pricing-group-${g}-name`"
+                class="field pricing-name"
+                type="text"
+                autocomplete="off"
+                :value="group.name"
+                :aria-label="`Name of group ${g + 1}`"
+                :aria-invalid="nameProblems[g] ? true : undefined"
+                :data-testid="`pricing-group-${g}-name`"
+                @input="onName(g, ($event.target as HTMLInputElement).value)"
+                @blur="onNameLeft(g)"
+              />
+              <span
+                v-if="nameProblems[g]"
+                class="pricing-error pricing-name-error"
+                role="alert"
+                :data-testid="`pricing-group-${g}-name-error`"
+                >{{ nameProblems[g] }}</span
+              >
+            </th>
             <td v-for="(tier, index) in tiers" :key="tier">
               <input
                 class="field pricing-cell"
                 type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                :value="cellText(tier)"
+                :value="cellText(g, tier)"
+                :aria-labelledby="`pricing-group-${g}-label pricing-tier-${index}`"
+                :aria-invalid="isInvalid(g, tier) || undefined"
+                :data-testid="`pricing-group-${g}-price-${index}`"
+                @input="onPrice(g, tier, ($event.target as HTMLInputElement).value)"
+                @blur="onPriceLeft(g, tier)"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td :colspan="tiers.length + 1" class="pricing-conditions">
+              <p class="pricing-note">
+                In this group when every condition holds of the vendor's answers.
+              </p>
+              <ChoiceConditions
+                :questions="questions"
+                :conditions="group.conditions"
+                :fixed="fixed"
+                :testid="`pricing-group-${g}`"
+                noun="condition"
+                after="includes any of"
+                unticked="Tick the answers that meet it. Until one is ticked, this group prices nobody."
+                :owner="`in ${groupLabels[g]}`"
+                @update:conditions="(next) => onConditions(g, next)"
+              />
+              <p v-if="!group.conditions.length" class="pricing-note">
+                Until it has a condition, this group prices nobody.
+              </p>
+              <p
+                v-if="brokenGroups[g]"
+                class="pricing-error"
+                :data-testid="`pricing-group-${g}-broken`"
+              >
+                Until the condition the form no longer has is fixed, this group prices nobody, and
+                the market cannot leave draft.
+              </p>
+              <button
+                v-if="!fixed"
+                type="button"
+                class="btn btn--secondary btn--compact pricing-remove"
+                :data-testid="`pricing-group-${g}-remove`"
+                @click="removeGroup(g)"
+              >
+                Remove group<span class="visually-hidden"> {{ groupLabels[g] }}</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+        <tbody>
+          <tr>
+            <th
+              id="pricing-row-everyone-else"
+              scope="row"
+              class="pricing-who"
+              data-testid="pricing-everyone-else"
+            >
+              {{ EVERYONE_ELSE }}
+            </th>
+            <td v-for="(tier, index) in tiers" :key="tier">
+              <input
+                class="field pricing-cell"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                :value="cellText(ELSE, tier)"
                 :aria-labelledby="`pricing-row-everyone-else pricing-tier-${index}`"
-                :aria-invalid="invalidCells.includes(tier) || undefined"
+                :aria-invalid="isInvalid(ELSE, tier) || undefined"
                 :data-testid="`pricing-price-${index}`"
-                @input="onPrice(tier, ($event.target as HTMLInputElement).value)"
-                @blur="onPriceLeft(tier)"
+                @input="onPrice(ELSE, tier, ($event.target as HTMLInputElement).value)"
+                @blur="onPriceLeft(ELSE, tier)"
               />
             </td>
           </tr>
         </tbody>
       </table>
+      <button
+        v-if="!fixed && questions.length"
+        type="button"
+        class="btn btn--secondary pricing-add"
+        data-testid="pricing-add-group"
+        @click="addGroup"
+      >
+        Add a group
+      </button>
+      <p
+        v-else-if="!fixed && !groups.length"
+        class="pricing-note"
+        data-testid="pricing-no-questions"
+      >
+        A price group reads the form's questions with answers to choose from, and this form asks
+        none yet, so every vendor pays {{ EVERYONE_ELSE }}.
+      </p>
       <p v-if="invalidCells.length" class="pricing-error" role="alert" data-testid="pricing-error">
         Enter a price like 35 or 35.50, or leave it blank for no price.
       </p>
@@ -230,6 +446,10 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="tiers.length" class="pricing-note">
       Optional. A tier left blank has no price, and a market with no prices shows none.
+    </p>
+    <p v-if="tiers.length && groups.length" class="pricing-note">
+      A vendor pays the cheapest group they are in at their table's tier, and
+      {{ EVERYONE_ELSE }} where they are in none or their group leaves the tier blank.
     </p>
   </div>
 </template>
@@ -284,6 +504,38 @@ onBeforeUnmount(() => {
 
 .pricing-cell {
   width: 8rem;
+}
+
+.pricing-name {
+  width: 100%;
+  min-width: 12rem;
+}
+
+.pricing-name-error {
+  display: block;
+  margin-top: var(--space-1);
+  font-weight: 400;
+}
+
+/* A group is two rows, its prices and who is in it, ruled off from the next. */
+.pricing-table tbody {
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.pricing-conditions {
+  padding-bottom: var(--space-3);
+}
+
+.pricing-conditions > * + * {
+  margin-top: var(--space-2);
+}
+
+.pricing-remove {
+  display: block;
+}
+
+.pricing-add {
+  align-self: flex-start;
 }
 
 .pricing-options {

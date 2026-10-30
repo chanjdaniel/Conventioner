@@ -371,16 +371,36 @@ class TierPrice(BaseModel):
     cents: int = Field(ge=0, le=10_000_000, strict=True)
 
 
+class AnswerCondition(BaseModel):
+    """A choice question and the answers to it that meet the condition: an automatic rejection's
+    rule, and a price group's condition (``rejection_rules.Rulebook`` judges both)."""
+    key: str
+    answers: List[str] = []
+
+
+class PriceGroup(BaseModel):
+    """A row of the Pricing card above "Everyone else" (E43/F01/S02): a group the organizer names,
+    the conditions on a vendor's answers that must all hold for them to be in it, and its price per
+    tier, as ``everyone_else`` holds them. A tier it does not price leaves its members to "Everyone
+    else" there (``pricing.Groups``)."""
+
+    name: str
+    conditions: List[AnswerCondition] = Field(default_factory=list)
+    prices: List[TierPrice] = Field(default_factory=list)
+
+
 class PricingObject(BaseModel):
     """The Pricing card on Market Setup (E43/F01/S01): what one table costs for one market day.
 
-    ``everyone_else`` is the card's one row in this story, a price per tier; a tier it does not
-    name has no price, and a market with no prices shows none anywhere. A half table costs
-    ``half_table_percent`` of the full price, rounded half up to the cent (``pricing.half_price``).
+    ``groups`` are the rows the organizer names, each priced per tier, and ``everyone_else`` is the
+    fixed last row, for a vendor in no group; a tier the row does not name has no price, and a
+    market with no prices shows none anywhere. A half table costs ``half_table_percent`` of the full
+    price, rounded half up to the cent (``pricing.half_price``).
     """
 
     currency: str = "CAD"
     half_table_percent: int = Field(default=50, ge=0, le=100, strict=True)
+    groups: List[PriceGroup] = Field(default_factory=list)
     everyone_else: List[TierPrice] = Field(default_factory=list)
 
     @field_validator("currency")
@@ -536,10 +556,8 @@ class ExampleColumn(BaseModel):
     options: ExampleOptions = Field(default_factory=ExampleOptions)
 
 
-class RejectionRule(BaseModel):
+class RejectionRule(AnswerCondition):
     """A choice question and the answers to it that reject an application (E33/F03/S01)."""
-    key: str
-    answers: List[str] = []
 
 
 class Market(BaseModel):
@@ -921,9 +939,21 @@ class TierPriceContract(TierPrice, ContractModel):
     pass
 
 
+class AnswerConditionContract(ContractModel):
+    key: str
+    answers: List[str]
+
+
+class PriceGroupContract(ContractModel):
+    name: str
+    conditions: List[AnswerConditionContract]
+    prices: List[TierPriceContract]
+
+
 class PricingContract(ContractModel):
     currency: str
     half_table_percent: int
+    groups: List[PriceGroupContract]
     everyone_else: List[TierPriceContract]
 
 

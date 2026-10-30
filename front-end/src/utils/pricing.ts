@@ -1,11 +1,12 @@
 /**
- * The Pricing card's money (E43/F01/S01): a full table's price per day for each tier, in cents and
- * in the market's one currency, and what an assignment costs as the drawer's date cards say it.
+ * The Pricing card's money (E43/F01/S01, S02): a full table's price per day for each tier and each
+ * row of the card, in cents and in the market's one currency, and what an assignment costs as the
+ * drawer's date cards say it.
  *
  * The back end is the authority: it prices each assignment (`back-end/pricing.py`, served on the tables
  * read) and refuses a plan whose prices it would not keep. This only reads and writes the card.
  */
-import type { PricingObject } from '@/assets/types/datatypes';
+import type { PriceGroup, PricingObject, TierPrice } from '@/assets/types/datatypes';
 
 /** The currencies the card offers, as `PRICING_CURRENCIES` in `back-end/datatypes.py` lists them. */
 export const CURRENCIES: readonly { code: string; name: string }[] = [
@@ -18,7 +19,36 @@ export const CURRENCIES: readonly { code: string; name: string }[] = [
 ];
 
 /** The card a market starts from before anything is typed: Canadian dollars, half off. */
-export const UNPRICED: PricingObject = { currency: 'CAD', halfTablePercent: 50, everyoneElse: [] };
+export const UNPRICED: PricingObject = {
+  currency: 'CAD',
+  halfTablePercent: 50,
+  groups: [],
+  everyoneElse: [],
+};
+
+/** The card's fixed last row, for a vendor in no group, as `EVERYONE_ELSE` in `back-end/pricing.py`. */
+export const EVERYONE_ELSE = 'Everyone else';
+
+/** The card's groups; none on a card saved before there were any. */
+export function groupsOf(pricing: PricingObject | null | undefined): PriceGroup[] {
+  return pricing?.groups ?? [];
+}
+
+/**
+ * What is wrong with `name` as the name of the group at `index` among `names`, in the card's words,
+ * or null: a group needs a name, its own, and never the last row's (`pricing_refusal` refuses each).
+ */
+export function groupNameProblem(
+  name: string,
+  names: readonly string[],
+  index: number,
+): string | null {
+  const key = name.trim().toLowerCase();
+  if (!key) return 'Name this group.';
+  if (key === EVERYONE_ELSE.toLowerCase()) return `"${EVERYONE_ELSE}" is the last row.`;
+  const taken = names.some((other, i) => i !== index && other.trim().toLowerCase() === key);
+  return taken ? 'Another group is called this.' : null;
+}
 
 /** The most one table-day may cost, as the server holds it: $100,000. */
 const MOST_CENTS = 10_000_000;
@@ -34,16 +64,28 @@ export function formatPrice(cents: number, currency: string): string {
   }).format(cents / 100);
 }
 
-/** One assignment as its date card prices it: "Gold, full table, $35"; null where it has no price. */
+/**
+ * One assignment as its date card prices it: "Gold, full table, $35", or with the card's row that
+ * set it where the card has groups, "Gold, full table, UBC student + club member, $12"; null where
+ * it has no price.
+ */
 export function priceLine(
-  assignment: { tier: string; tableChoice: string; priceCents?: number | null },
+  assignment: {
+    tier: string;
+    tableChoice: string;
+    priceCents?: number | null;
+    priceGroup?: string | null;
+  },
   currency: string,
 ): string | null {
   if (assignment.priceCents == null) return null;
   const size = /half/i.test(assignment.tableChoice) ? 'half table' : 'full table';
-  const parts = [assignment.tier.trim(), size, formatPrice(assignment.priceCents, currency)].filter(
-    Boolean,
-  );
+  const parts = [
+    assignment.tier.trim(),
+    size,
+    assignment.priceGroup ?? '',
+    formatPrice(assignment.priceCents, currency),
+  ].filter(Boolean);
   const line = parts.join(', ');
   return line.charAt(0).toUpperCase() + line.slice(1);
 }
@@ -91,9 +133,34 @@ export function tierRenamed(
 }
 
 /**
- * The prices once the tiers changed from `before` to `after`, the names in order: a tier renamed
- * in place keeps its price, a removed tier's price goes, and a tier never has two. The same object
- * where nothing changed, so a caller writes only a real change.
+ * A row's prices once the tiers changed from `before` to `after`: a tier renamed in place keeps its
+ * price, a removed tier's price goes, and a tier never has two. The same array where nothing changed.
+ */
+function pricesAfterTierChange(
+  prices: TierPrice[],
+  before: readonly string[],
+  after: readonly string[],
+): TierPrice[] {
+  let moved = prices;
+  const renamed = tierRenamed(before, after);
+  if (renamed) {
+    const [from, to] = renamed;
+    if (!moved.some((price) => price.tier === to)) {
+      moved = moved.map((price) => (price.tier === from ? { ...price, tier: to } : price));
+    }
+  }
+  const tiers = new Set(after);
+  const kept = moved.filter(
+    (price, i) => tiers.has(price.tier) && moved.findIndex((p) => p.tier === price.tier) === i,
+  );
+  const same = kept.length === prices.length && kept.every((price, i) => price === prices[i]);
+  return same ? prices : kept;
+}
+
+/**
+ * The prices once the tiers changed from `before` to `after`, the names in order, "Everyone else"'s
+ * and each group's: a tier renamed in place keeps its price, a removed tier's price goes, and a
+ * tier never has two. The same object where nothing changed, so a caller writes only a real change.
  */
 export function pricingAfterTierChange<P extends PricingObject | null | undefined>(
   pricing: P,
@@ -101,20 +168,14 @@ export function pricingAfterTierChange<P extends PricingObject | null | undefine
   after: readonly string[],
 ): P {
   if (!pricing) return pricing;
-  let prices = pricing.everyoneElse;
-  const renamed = tierRenamed(before, after);
-  if (renamed) {
-    const [from, to] = renamed;
-    if (!prices.some((price) => price.tier === to)) {
-      prices = prices.map((price) => (price.tier === from ? { ...price, tier: to } : price));
-    }
-  }
-  const tiers = new Set(after);
-  const kept = prices.filter(
-    (price, i) => tiers.has(price.tier) && prices.findIndex((p) => p.tier === price.tier) === i,
-  );
+  const everyoneElse = pricesAfterTierChange(pricing.everyoneElse, before, after);
+  const groups = groupsOf(pricing).map((group) => {
+    const prices = pricesAfterTierChange(group.prices, before, after);
+    return prices === group.prices ? group : { ...group, prices };
+  });
   const same =
-    kept.length === pricing.everyoneElse.length &&
-    kept.every((price, i) => price === pricing.everyoneElse[i]);
-  return same ? pricing : ({ ...pricing, everyoneElse: kept } as P);
+    everyoneElse === pricing.everyoneElse &&
+    groups.every((group, i) => group === groupsOf(pricing)[i]);
+  if (same) return pricing;
+  return { ...pricing, everyoneElse, ...(pricing.groups ? { groups } : {}) } as P;
 }

@@ -39,8 +39,10 @@ export interface MarketTableRowResponse {
   tableChoice: string;
   tableCode: string;
   tier: string;
-  /** Each occupant's price for this table-day, in cents; none where it is unpriced (E43/F01/S01). */
-  prices?: { email: string; cents: number }[];
+  /** Each occupant's price for this table-day, in cents, and the Pricing card's row that set it:
+   *  a group's name, "Everyone else" on a card with groups, null on one without; none where it is
+   *  unpriced (E43/F01/S01, S02). */
+  prices?: { email: string; cents: number; group?: string | null }[];
 }
 
 export interface VendorTableAssignment {
@@ -51,6 +53,8 @@ export interface VendorTableAssignment {
   location: string;
   /** What this assignment costs for its day, in cents, or null where the market prices nothing. */
   priceCents: number | null;
+  /** The price group that set it, or null where the card has no groups (E43/F01/S02). */
+  priceGroup: string | null;
 }
 
 /** One vendor as the Vendors list and the vendor drawer read them: their application and seats. */
@@ -118,6 +122,12 @@ function assignmentSummary(assignment: VendorTableAssignment): string {
 }
 
 /** One vendor on one date, as the reason and override indexes key them. */
+/** One occupant's price on a table row and the card's row that set it, by their lowercased address. */
+function priceOf(row: MarketTableRowResponse, address: string) {
+  const price = row.prices?.find((each) => each.email.trim().toLowerCase() === address);
+  return { priceCents: price?.cents ?? null, priceGroup: price?.group ?? null };
+}
+
 const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
 
 /**
@@ -210,9 +220,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
           section: row.section,
           tier: row.tier,
           location: row.location,
-          priceCents:
-            row.prices?.find((price) => price.email.trim().toLowerCase() === address)?.cents ??
-            null,
+          ...priceOf(row, address),
         });
       }
     }
@@ -286,8 +294,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     return assignment ? assignmentSummary(assignment) : null;
   }
 
-  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35"; null where
-   * they hold none or the market prices nothing. */
+  /** What their assignment that day costs, as its date card says it: "Gold, full table, $35", with
+   * the price group where the card has groups; null where they hold none or the market prices nothing. */
   function priceOn(row: VendorRow, date: string): string | null {
     const assignment = row.assignmentsByDate.get(date);
     const currency = market.value?.setupObject?.pricing?.currency ?? 'CAD';
