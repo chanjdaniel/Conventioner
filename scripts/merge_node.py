@@ -10,8 +10,10 @@ The driver merges those two lists as sets: the ancestor's items, less any either
 items ours added and the items theirs added. `verified` becomes the later of the two days. Every other
 line, the other keys and the body, is left to `git merge-file`, which marks a conflict as git's own
 merge does, in the configured `merge.conflictStyle`. A list one side dropped, a list written inline, or
-a file with no frontmatter merges as text. The result is written to %A; exits 0 on a clean merge, 1 on
-a conflict. A checkout where `install` never ran merges these files as text, as git does without it.
+a file with no frontmatter merges as text, and so does every file when the set merge itself fails;
+line endings are kept either way. The result is written to %A; exits 0 on a clean merge, 1 on a
+conflict, 255 when no result could be made. A checkout where `install` never ran merges these files as
+text, as git does without it.
 Standard library only.
 """
 
@@ -26,6 +28,7 @@ NAME = "kg-node"
 DRIVER = "python3 scripts/merge_node.py %O %A %B %L %P %S %X %Y"
 LIST_KEYS = ("describes", "sources")  # as scripts/knowledge_graph.py's LIST_KEYS
 ITEM = re.compile(r"^\s+-\s+(.*?)\s*$")
+FAILED = 255  # above 128, which git reads as a failed merge rather than a conflict
 VERIFIED = re.compile(r"^verified:\s*(\d{4}-\d{2}-\d{2})\s*$")
 
 
@@ -106,17 +109,25 @@ def conflict_style():
     return {"diff3": ["--diff3"], "zdiff3": ["--zdiff3"]}.get(style.stdout.strip(), [])
 
 
-def merge(ancestor_path, ours_path, theirs_path, marker_size, labels):
-    paths = (ancestor_path, ours_path, theirs_path)
+def settled_copies(paths, scratch):
+    """The three versions settled into files of their own, or the originals when they are not UTF-8 or settling
+    fails: a bug here must cost the set merge only, never theirs' side of the file."""
     try:
-        texts = settle([Path(path).read_text(encoding="utf-8") for path in paths])
+        texts = settle([Path(path).read_bytes().decode("utf-8") for path in paths])
     except UnicodeDecodeError:
-        texts = None
+        return paths
+    except Exception as error:
+        print(f"merge_node: {error!r}; merging as text", file=sys.stderr)
+        return paths
+    copies = [Path(scratch) / name for name in ("ancestor", "ours", "theirs")]
+    for copy, text in zip(copies, texts):
+        copy.write_bytes(text.encode("utf-8"))
+    return copies
+
+
+def merge(ancestor_path, ours_path, theirs_path, marker_size, labels):
     with tempfile.TemporaryDirectory() as scratch:
-        if texts is not None:
-            paths = [Path(scratch) / name for name in ("ancestor", "ours", "theirs")]
-            for path, text in zip(paths, texts):
-                path.write_bytes(text.encode("utf-8"))
+        paths = settled_copies((ancestor_path, ours_path, theirs_path), scratch)
         ancestor_label, ours_label, theirs_label = labels
         result = subprocess.run(
             ["git", "merge-file", "-p", f"--marker-size={marker_size}", *conflict_style()]
@@ -126,14 +137,18 @@ def merge(ancestor_path, ours_path, theirs_path, marker_size, labels):
         )
     if result.returncode < 0 or result.returncode > 127:  # git merge-file failed: no result to write
         sys.stderr.buffer.write(result.stderr)
-        return 255
+        return FAILED
     Path(ours_path).write_bytes(result.stdout)
     return 0 if result.returncode == 0 else 1
 
 
 def install():
+    """Register the driver, writing the config only where it does not already hold the value."""
     for key, value in (("name", "knowledge-graph node: describes and sources merge as sets"), ("driver", DRIVER)):
-        subprocess.run(["git", "-C", str(REPO), "config", f"merge.{NAME}.{key}", value], check=True)
+        name = f"merge.{NAME}.{key}"
+        held = subprocess.run(["git", "-C", str(REPO), "config", "--get-all", name], capture_output=True, text=True)
+        if held.stdout.splitlines() != [value]:
+            subprocess.run(["git", "-C", str(REPO), "config", "--replace-all", name, value], check=True)
     return 0
 
 
@@ -142,10 +157,14 @@ def main(argv):
         return install()
     if len(argv) not in (5, 8):
         print(__doc__, file=sys.stderr)
-        return 2
+        return FAILED
     ancestor, ours, theirs, marker_size, _path = argv[:5]
     labels = argv[5:8] if len(argv) == 8 else ("base", "ours", "theirs")
-    return merge(ancestor, ours, theirs, marker_size, labels)
+    try:
+        return merge(ancestor, ours, theirs, marker_size, labels)
+    except Exception as error:  # git reads 1 as a conflict and keeps ours, unmarked: report a failure instead
+        print(f"merge_node: {error!r}", file=sys.stderr)
+        return FAILED
 
 
 if __name__ == "__main__":

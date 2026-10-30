@@ -1,6 +1,7 @@
 """merge_node.py run as git runs a merge driver, on three versions of a node, and installed in a throwaway
 repository that then merges two branches for real."""
 
+import importlib.util
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,19 +23,28 @@ def node(describes=("back-end/guards.py",), verified="2026-10-20", sources=("E31
     return "\n".join([*lines, "---", "", "# A rule", "", body])
 
 
-def merge(tmp_path, ancestor, ours, theirs, conflict_style=None):
-    """Run the driver as git does: from the work tree's top, on three temporary files, ours overwritten."""
+def write_versions(tmp_path, ancestor, ours, theirs, conflict_style=None):
+    """The work tree git runs the driver from, holding the three temporary files."""
     work = tmp_path / "work"
     if not work.exists():
         subprocess.run(["git", "init", "-q", str(work)], check=True)
     if conflict_style:
         subprocess.run(["git", "-C", str(work), "config", "merge.conflictStyle", conflict_style], check=True)
     for name, text in (("o", ancestor), ("a", ours), ("b", theirs)):
-        (work / name).write_text(text)
+        (work / name).write_bytes(text.encode("utf-8"))
+    return work
+
+
+def driver_args():
     ours_label, ancestor_label, theirs_label = LABELS
-    args = ["o", "a", "b", "7", "docs/business/rules/a-rule.md", ancestor_label, ours_label, theirs_label]
-    result = subprocess.run(["python3", str(DRIVER), *args], cwd=work, capture_output=True, text=True)
-    return result.returncode, (work / "a").read_text()
+    return ["o", "a", "b", "7", "docs/business/rules/a-rule.md", ancestor_label, ours_label, theirs_label]
+
+
+def merge(tmp_path, ancestor, ours, theirs, conflict_style=None):
+    """Run the driver as git does: from the work tree's top, on three temporary files, ours overwritten."""
+    work = write_versions(tmp_path, ancestor, ours, theirs, conflict_style)
+    result = subprocess.run(["python3", str(DRIVER), *driver_args()], cwd=work, capture_output=True, text=True)
+    return result.returncode, (work / "a").read_bytes().decode("utf-8")
 
 
 def git_merge_file(tmp_path, ancestor, ours, theirs):
@@ -42,11 +52,11 @@ def git_merge_file(tmp_path, ancestor, ours, theirs):
     files = tmp_path / "plain"
     files.mkdir()
     for name, text in (("o", ancestor), ("a", ours), ("b", theirs)):
-        (files / name).write_text(text)
+        (files / name).write_bytes(text.encode("utf-8"))
     ours_label, ancestor_label, theirs_label = LABELS
     labels = ["-L", ours_label, "-L", ancestor_label, "-L", theirs_label]
-    result = subprocess.run(["git", "merge-file", "-p", *labels, "a", "o", "b"], cwd=files, capture_output=True, text=True)
-    return result.stdout
+    result = subprocess.run(["git", "merge-file", "-p", *labels, "a", "o", "b"], cwd=files, capture_output=True)
+    return result.stdout.decode("utf-8")
 
 
 def test_two_sides_appending_different_ids_keep_both(tmp_path):
@@ -185,6 +195,54 @@ def test_a_file_with_no_frontmatter_merges_as_text(tmp_path, ours_body, theirs_b
     assert merged == git_merge_file(tmp_path, ancestor, ours, theirs)
 
 
+def crlf(text):
+    return text.replace("\n", "\r\n")
+
+
+def test_a_node_with_crlf_endings_keeps_them(tmp_path):
+    ancestor = crlf(node(verified="2026-10-20", sources=("E31/F01",)))
+    ours = crlf(node(verified="2026-10-28", sources=("E31/F01", "E41/F01/S02")))
+    theirs = crlf(node(verified="2026-10-30", sources=("E31/F01", "E40/F01/S03")))
+
+    status, merged = merge(tmp_path, ancestor, ours, theirs)
+
+    assert status == 0
+    assert merged == crlf(node(verified="2026-10-30", sources=("E31/F01", "E41/F01/S02", "E40/F01/S03")))
+
+
+def test_a_crlf_file_with_no_frontmatter_merges_as_git_does(tmp_path):
+    ancestor = crlf("# A hub\n\nOne.\nTwo.\nThree.\nFour.\n")
+    ours = crlf("# A hub\n\nOne, ours.\nTwo.\nThree.\nFour.\n")
+    theirs = crlf("# A hub\n\nOne.\nTwo.\nThree.\nFour, theirs.\n")
+
+    status, merged = merge(tmp_path, ancestor, ours, theirs)
+
+    assert status == 0
+    assert merged == git_merge_file(tmp_path, ancestor, ours, theirs)
+    assert merged == crlf("# A hub\n\nOne, ours.\nTwo.\nThree.\nFour, theirs.\n")
+
+
+def test_a_driver_that_fails_still_merges_as_text(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("merge_node", DRIVER)
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+
+    def broken(texts):
+        raise RuntimeError("a bug in the set merge")
+
+    monkeypatch.setattr(driver, "settle", broken)
+    ancestor = node(sources=("E31/F01",), body="The rule holds.\n")
+    ours = node(sources=("E31/F01", "E41/F01/S02"), body="The rule holds.\n")
+    theirs = node(sources=("E31/F01", "E40/F01/S03"), body="The rule holds for an Owner.\n")
+    work = write_versions(tmp_path, ancestor, ours, theirs)
+    monkeypatch.chdir(work)
+
+    status = driver.main(driver_args())
+
+    assert status == 1
+    assert (work / "a").read_bytes().decode("utf-8") == git_merge_file(tmp_path, ancestor, ours, theirs)
+
+
 # ── A real merge, the driver installed as a checkout installs it ─────────────
 
 
@@ -224,6 +282,16 @@ def test_install_registers_the_driver_once(repo):
 
     drivers = git(repo, "config", "--get-all", "merge.kg-node.driver").stdout.splitlines()
     assert drivers == ["python3 scripts/merge_node.py %O %A %B %L %P %S %X %Y"]
+
+
+def test_installing_again_writes_nothing(repo):
+    subprocess.run(["python3", "scripts/merge_node.py", "install"], cwd=repo, check=True)
+    config = repo / ".git" / "config"
+    before = (config.read_bytes(), config.stat().st_mtime_ns, config.stat().st_ino)
+
+    subprocess.run(["python3", "scripts/merge_node.py", "install"], cwd=repo, check=True)
+
+    assert (config.read_bytes(), config.stat().st_mtime_ns, config.stat().st_ino) == before
 
 
 def test_two_branches_appending_ids_merge_clean_once_installed(repo):
