@@ -6,11 +6,12 @@ describes:
   - back-end/api/markets.py#get_vendor_notes
   - back-end/api/markets.py#save_vendor_note
   - back-end/api/markets.py#mark_vendor_request_handled
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/what-to-show-and-when/03
   - wayfinding/what-to-show-and-when/map
   - E31/F04
+  - E41/F01/S02
 ---
 
 # Vendor notes
@@ -25,7 +26,7 @@ Neither is one field with two authors, and the vendor never sees the organizer's
 - **The vendor's request** is a built-in question on the application, "Anything else you need from us?" (`REQUEST_KEY` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py)).
   It is asked by default, never required, and the organizer can switch it off as they can the other essential questions the plan asks ([the form tab](../flows/form-tab.md)).
   On the Google Form path it is an import target, so a Google Form's own "anything else" column maps onto it.
-  It is the vendor's answer: they see it, the organizer reads it and never edits it.
+  It is the vendor's answer: they see it, and the organizer reads it; an organizer who updates it in Update info has the update kept beside it, never written over it, and the vendor still sees their own.
 - **The organizer's note** is one editable text per vendor, shared by everyone who works on the market, carrying who last edited it and when.
   Writing again replaces it; a blank note is no note.
 - **A sheet's own column**, the notes an organizer kept beside the responses in their spreadsheet, can be mapped on import to a third, read-only line, "From your sheet".
@@ -54,5 +55,5 @@ The vendor, who has no role, never reads the organizer's side.
 ## Where it is kept
 
 - [Vendor notes](../../implementation/modules/vendor-notes.md) is the module: the `vendor_notes` collection that holds the organizer's side, and why it is a collection of its own.
-- The three endpoints are `get_vendor_notes`, `save_vendor_note` and `mark_vendor_request_handled` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the read joins each vendor's request in from their application, so every page reads both kinds from one place.
+- The three endpoints are `get_vendor_notes`, `save_vendor_note` and `mark_vendor_request_handled` in [`back-end/api/markets.py`](../../../back-end/api/markets.py); the read joins each vendor's request in from their application, as the organizer reads it (`effective_answers`: an organizer's update of the request reads in its place, [an update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md)), so every page reads both kinds from one place.
 - Each change of an organizer's note or of a handled mark is recorded in [the market's history](../../implementation/data/history.md) (`note`, `request_handled`); the history is read only by the market's readers, so a vendor never reads a note there either.
