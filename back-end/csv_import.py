@@ -1441,10 +1441,9 @@ def _rule_rejections(
     application a person decided is not listed; its answers as stored, an organizer's update read
     in its place.
 
-    A row a rule meets is returned in the second set even when it is not newly rejected: an
-    unchanged row already rejected by that same rule with that same reason is what ``judge`` skips,
-    so the import rejects nothing new for it - but it is still not a sample of a row that imports
-    to review.
+    A row a rule meets is returned in the second set even when it is not newly rejected: one
+    already rejected by that same rule with that same reason is what ``judge`` skips, so the import
+    rejects nothing new for it - but it is still not a sample of a row that imports to review.
     """
     book = RejectionRules.Rulebook(market_from_document(market_doc))
     rejected = []
@@ -1464,7 +1463,7 @@ def _rule_rejections(
             continue
         rule, reason = met
         met_rows.add(line)
-        # What ``judge`` skips: unchanged, already rejected by this rule for this reason.
+        # What ``judge`` skips: already rejected by this rule for this reason, changed or not.
         if after.get("status") == ApplicationStatus.REVIEWER_REJECTED.value \
                 and (after.get("verdict_by") or {}).get("rule") == rule \
                 and after.get("verdict_reason") == reason:

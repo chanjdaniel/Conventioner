@@ -25,7 +25,7 @@ import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS, applicantName } from '@/utils/essentialFields';
-import { previewHeadline as previewHeadlineText } from '@/utils/importPreview';
+import { previewHeadline as previewHeadlineText, writingRowCount } from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
 import {
@@ -207,13 +207,14 @@ const newRows = ref(0);
 const updatedRows = ref(0);
 const unchangedRows = ref(0);
 
-/**
- * How many rows the import will write: every row it will not skip, less those already here
- * unchanged. The headline and the button both say it, so "4 of 5 rows will be imported" is never
- * confirmed with "Import 5 rows".
- */
+/** How many rows the import will write, as the headline counts them: the confirm button's count. */
 const writingRows = computed(() =>
-  unchangedRows.value === 0 ? validRows.value : newRows.value + updatedRows.value,
+  writingRowCount({
+    validRows: validRows.value,
+    newRows: newRows.value,
+    updatedRows: updatedRows.value,
+    unchangedRows: unchangedRows.value,
+  }),
 );
 
 /**

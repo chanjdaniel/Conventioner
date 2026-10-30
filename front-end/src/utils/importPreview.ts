@@ -13,10 +13,21 @@ export interface ImportPreviewCounts {
   rejected: number;
 }
 
+/**
+ * How many rows the import will write: every row it will not skip, less those already here
+ * unchanged. The headline and the confirm button both say it, so "4 of 5 rows will be imported" is
+ * never confirmed with "Import 5 rows".
+ */
+export function writingRowCount(
+  counts: Pick<ImportPreviewCounts, 'validRows' | 'newRows' | 'updatedRows' | 'unchangedRows'>,
+): number {
+  return counts.unchangedRows === 0 ? counts.validRows : counts.newRows + counts.updatedRows;
+}
+
 export function previewHeadline(counts: ImportPreviewCounts): string {
-  const { rowCount, validRows, newRows, updatedRows, unchangedRows, rejected } = counts;
+  const { rowCount, unchangedRows, rejected } = counts;
   const rows = `${rowCount} row${rowCount === 1 ? '' : 's'}`;
-  const writingRows = unchangedRows === 0 ? validRows : newRows + updatedRows;
+  const writingRows = writingRowCount(counts);
 
   if (unchangedRows === 0)
     return `${writingRows} of ${rows} will be imported${rejectedClause(true)}`;
