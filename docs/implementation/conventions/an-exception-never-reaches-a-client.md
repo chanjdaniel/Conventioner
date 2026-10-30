@@ -14,6 +14,7 @@ describes:
   - back-end/app.py#get_organizations
   - back-end/app.py#create_organization
   - back-end/app.py#get_organization
+  - back-end/app.py#get_organization_history
   - back-end/app.py#update_organization
   - back-end/app.py#organization_deletion_preview
   - back-end/app.py#delete_organization
@@ -168,7 +169,7 @@ It never names the path, the query string, the body or the view argument `vendor
 
 The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still their 400 with its own message, and anything else reaches the handler.
 
-So do the organization routes (the list, create, read, update, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
+So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).
 
 So do the market setup routes: reading a market and listing a user's markets, creating, renaming, planning and deleting one, and its vendor notes, review highlights, rejection rules and permission rows, with their history.

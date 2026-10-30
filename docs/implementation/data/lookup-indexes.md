@@ -8,6 +8,7 @@ verified: 2026-10-30
 sources:
   - E32/F03/S04
   - E40/F01/S03
+  - E40/F02/S01
 ---
 
 # Lookup indexes
@@ -29,7 +30,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `users` | `id`; `verification_token`; `password_reset_token`; `login_id` (each signed-in request loads the account by it: [users and email](users-and-email.md#the-session-names-the-account-by-its-login-id)) |
 | `applications` | `id` |
 | `attendance` | `market_id, vendor_email` |
-| `history` | `market_id`; `market_id, at, id`, the order its pages are read in ([the market's history](history.md#reading-it)) |
+| `history` | `market_id`; `market_id, at, id`, the order its pages are read in ([the market's history](history.md#reading-it)); `organization_id, at, id`, an organization's own history, read and deleted by it ([what an organization records](history.md#what-an-organization-records)) |
 | `vendor_notes` | `market_id, vendor_email` |
 | `deletion_trail` | `organization_id` ([market deletion](../modules/market-deletion.md)) |
 
