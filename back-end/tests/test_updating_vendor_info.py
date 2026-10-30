@@ -445,6 +445,25 @@ class TestKeepingAnUpdateTheirAnswerChangedUnder:
         assert entry["detail"]["after"] == {"student": "Yes"}
         assert entry["detail"]["kept"] == {"shop": "Ember Ceramics"}
 
+    def test_their_answer_changed_to_the_update_takes_the_update_away(self, market, market_records):
+        """A re-import that now carries the correction: saving takes the update away, as setting an
+        answer back to what they wrote does, rather than keeping it over an identical answer."""
+        applications = market()
+        _update({"shop": "Ember Ceramics"})
+        applications.update_one({"id": "app-1"}, {"$set": {"form_data.shop": "Ember Ceramics"}})
+        view = ApplicantsApi.organizer_view(_stored(applications))
+        assert view["answerUpdates"]["shop"]["changedSince"] is True
+
+        result, status = _update({"shop": "Ember Ceramics"})
+
+        assert status == 200
+        assert "shop" not in (_stored(applications).get("answer_updates") or {})
+        assert "shop" not in (result["application"].get("answerUpdates") or {})
+        entry = market_records.history.documents[-1]
+        assert entry["kind"] is None
+        assert entry["detail"]["matched"] == {"shop": "Ember Ceramics"}
+        assert "kept" not in entry["detail"]
+
     def test_restating_an_update_their_answer_did_not_change_under_still_records_nothing(
             self, market, market_records):
         market()

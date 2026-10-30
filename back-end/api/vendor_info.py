@@ -80,14 +80,22 @@ def update_vendor_info(
     updates: Dict[str, AnswerUpdate] = {}
     cleared = []
     kept: Dict[str, Any] = {}
+    matched: Dict[str, Any] = {}
     for key, value in values.items():
         if value == before.get(key):
             # Restated over an answer the vendor changed since: the organizer keeps their update
             # over what they wrote now, which is what "Their answer changed since your update."
-            # asked of them. Restated otherwise, it changes nothing and keeps who made it.
+            # asked of them; where what they wrote now is the update itself, the update is taken
+            # away, as setting an answer back to theirs does. Restated otherwise, it changes
+            # nothing and keeps who made it.
             if key in standing and _over(standing[key]) != theirs.get(key):
-                kept[key] = value
-                updates[key] = AnswerUpdate(value=value, by=updater, at=now, over=theirs.get(key))
+                if value == theirs.get(key):
+                    matched[key] = value
+                    cleared.append(key)
+                else:
+                    kept[key] = value
+                    updates[key] = AnswerUpdate(
+                        value=value, by=updater, at=now, over=theirs.get(key))
             continue
         if value == theirs.get(key):
             cleared.append(key)
@@ -107,15 +115,15 @@ def update_vendor_info(
         RejectionRules.Rulebook(market), market_id, application_id,
         overturns=MarketsApi.may_overturn(updater.email, market))
         if judging else RejectionRules.Judged())
-    moved = [key for key in values if key not in kept]
+    moved = [key for key in values if key not in kept and key not in matched]
     History.record(
         market_id, updater.email, Actions.UPDATE_VENDOR_INFO,
-        kind=History.KEPT if kept and not (updates.keys() - kept.keys() or cleared) else None,
+        kind=(History.KEPT if kept and not (updates.keys() - kept.keys() or cleared) else None),
         vendors=[doc.get("applicant_email")], subject={"application_id": application_id},
         detail=lambda: _with_rules(
             History.changes({key: before.get(key) for key in moved},
                             {key: after.get(key) for key in moved}),
-            kept, verdicts),
+            kept, matched, verdicts),
     )
     if verdicts.rejected or verdicts.returned:
         stored = ApplicationsApi.find_application_by_id(application_id) or stored
@@ -143,12 +151,16 @@ def _over(update: Any) -> Any:
     return update.over if isinstance(update, AnswerUpdate) else (update or {}).get("over")
 
 
-def _with_rules(changed, kept: Dict[str, Any], verdicts: RejectionRules.Judged):
-    """The answers that changed, the updates kept over what the vendor wrote since, and whether
-    the rules rejected the application, or returned it to undecided, as they landed; an update that
-    changed and kept nothing records nothing."""
-    if not changed and not kept:
+def _with_rules(
+    changed, kept: Dict[str, Any], matched: Dict[str, Any], verdicts: RejectionRules.Judged,
+):
+    """The answers that changed, the updates kept over what the vendor wrote since, the updates
+    taken away because what they wrote since matches them, and whether the rules rejected the
+    application, or returned it to undecided, as they landed; a save that did none of these records
+    nothing."""
+    if not changed and not kept and not matched:
         return None
     return {**(changed or {}), **({"kept": kept} if kept else {}),
+            **({"matched": matched} if matched else {}),
             "rejected_by_rules": bool(verdicts.rejected),
             "returned_by_rules": bool(verdicts.returned)}

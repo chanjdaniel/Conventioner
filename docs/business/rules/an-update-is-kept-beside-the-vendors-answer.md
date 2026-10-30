@@ -26,6 +26,7 @@ A vendor's answer can be misspelt, wrong or out of date, and the organizer is wh
 An answer written over would last only until the next re-import, which writes the file's answers again (Daniel, T92 Q12: "fixes method should be generalized for any kind of info correction").
 Kept beside it, the update stands, and when what the vendor wrote changes under it the organizer is told ("Their answer changed since your update."), with what they wrote now, and decides again (Q13).
 They decide in Update info: "Use their answer" takes the update away, a new answer replaces it, and Save with the update left as it stands keeps it over what they wrote now ("Save keeps your update."), which clears the line and is recorded as kept (Daniel, on T111's review note 2).
+Where what they wrote now is the update itself (a re-import carrying the correction), Save takes the update away instead ("Their answer now matches your update. Save takes the update away."), as setting an answer back to theirs does.
 Every update is confirmed before it is kept (Q13: "confirmation required for all edits too"): the dialog shows what the vendor wrote beside each answer changed, and Save is that confirmation (Q26).
 
 ## Who may

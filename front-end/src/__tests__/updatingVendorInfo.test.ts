@@ -8,7 +8,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
-import { CHANGED_SINCE, KEEPS_ON_SAVE, sameAnswer, updatedLine } from '@/utils/answerUpdates';
+import {
+  CHANGED_SINCE,
+  KEEPS_ON_SAVE,
+  MATCHES_ON_SAVE,
+  sameAnswer,
+  updatedLine,
+} from '@/utils/answerUpdates';
 import {
   ApplicationStatus,
   ApplicationType,
@@ -191,6 +197,26 @@ describe('the Update info dialog', () => {
 
     expect(wrapper.get(testid('update-info-updated-shop')).text()).toContain(KEEPS_ON_SAVE);
     expect(wrapper.get(testid('update-info-submit-button')).attributes('disabled')).toBeUndefined();
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(sent[0].body).toEqual({ answers: { shop: 'Ember Ceramics' } });
+    wrapper.unmount();
+  });
+
+  it('takes away, with Save, an update their answer changed to match', async () => {
+    const wrapper = dialog(
+      application({
+        formData: { shop: 'Ember Ceramics', student: 'No' },
+        answerUpdates: {
+          shop: { ...UPDATE, theyWrote: 'Ember Ceramics', changedSince: true },
+        },
+      }),
+    );
+
+    const line = wrapper.get(testid('update-info-updated-shop')).text();
+    expect(line).toContain(MATCHES_ON_SAVE);
+    expect(line).not.toContain(KEEPS_ON_SAVE);
     await wrapper.get('form').trigger('submit');
     await flushPromises();
 

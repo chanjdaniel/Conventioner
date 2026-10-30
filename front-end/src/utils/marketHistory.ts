@@ -669,27 +669,37 @@ function tableShareAnswer(snapshot: Detail): unknown {
 
 /** Each update an organizer kept over what the vendor wrote since, under its question, the
  * table-share question's storage keys as one answer in the vendor's words. */
-function keptFields(kept: Detail, path: IntakeMode): RecordedField[] {
-  return changedFields(kept, kept, path).map((row) => ({
-    field: `Kept: ${row.field}`,
+function keptFields(kept: Detail, path: IntakeMode, said: string): RecordedField[] {
+  return changedFields(kept, kept, path, true).map((row) => ({
+    field: `${said}: ${row.field}`,
     value: row.after,
   }));
 }
 
 /** The fields a before/after detail set, each as it was and as it is, the table-share question's
- * three storage keys collapsed into one row in the vendor's words. */
-function changedFields(before: Detail, after: Detail, path: IntakeMode): ChangedField[] {
+ * three storage keys collapsed into one row in the vendor's words; `listing` keeps a row that reads
+ * the same on both sides, for a list of answers kept as they stood. */
+function changedFields(
+  before: Detail,
+  after: Detail,
+  path: IntakeMode,
+  listing = false,
+): ChangedField[] {
   const rows: ChangedField[] = [];
   let wroteTableShare = false;
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
     if (TABLE_SHARE_KEYS.includes(key)) {
       if (wroteTableShare) continue;
       wroteTableShare = true;
-      rows.push({
+      const row = {
         field: fieldName(TABLE_SHARE_EMAIL_KEY),
         before: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(before), path),
         after: fieldValue(TABLE_SHARE_EMAIL_KEY, tableShareAnswer(after), path),
-      });
+      };
+      // The further addresses are read out of the words, so they never change alone; a row that
+      // reads the same before and after says nothing, unless it is a list of answers kept as they
+      // stood.
+      if (listing || row.before !== row.after) rows.push(row);
       continue;
     }
     rows.push({
@@ -770,8 +780,8 @@ export function entryChanges(
   const recorded = Object.entries(detail)
     .filter(([key]) => !changes || (key !== 'before' && key !== 'after'))
     .flatMap(([key, value]) =>
-      key === 'kept' && value && typeof value === 'object'
-        ? keptFields(value as Detail, path)
+      (key === 'kept' || key === 'matched') && value && typeof value === 'object'
+        ? keptFields(value as Detail, path, key === 'kept' ? 'Kept' : 'Their answer now matches')
         : [{ field: fieldName(key), value: key === 'date' ? day(value) : valueText(value) }],
     );
   return { changed, recorded };

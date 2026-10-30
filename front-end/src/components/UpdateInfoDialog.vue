@@ -28,6 +28,7 @@ import {
   ASSIGNMENT_READS,
   CHANGED_SINCE,
   KEEPS_ON_SAVE,
+  MATCHES_ON_SAVE,
   asAsked,
   inPlanOrder,
   questionKeys,
@@ -207,9 +208,11 @@ function standingUpdate(question: string): string | null {
   const update = updateOn(question);
   if (!update || isChanged(question)) return null;
   if (!update.changedSince) return `${updatedByLine(update)}.`;
-  return keeps(question)
-    ? `${updatedByLine(update)}. ${CHANGED_SINCE} ${KEEPS_ON_SAVE}`
-    : `${updatedByLine(update)}. ${CHANGED_SINCE}`;
+  if (!keeps(question)) return `${updatedByLine(update)}. ${CHANGED_SINCE}`;
+  // What they wrote now is the update itself: Save takes it away rather than keeping it.
+  return sameOn(question, theirs.value, now.value)
+    ? `${updatedByLine(update)}. ${MATCHES_ON_SAVE}`
+    : `${updatedByLine(update)}. ${CHANGED_SINCE} ${KEEPS_ON_SAVE}`;
 }
 
 /** An update this dialog takes away by putting their answer back. */

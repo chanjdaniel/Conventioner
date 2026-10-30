@@ -494,7 +494,7 @@ describe('what an entry opens to', () => {
     ]);
   });
 
-  it('still reads the one table-share row when only a hidden key changed', () => {
+  it('shows no table-share row that reads the same before and after', () => {
     expect(
       entryChanges(
         entry({
@@ -506,7 +506,7 @@ describe('what an entry opens to', () => {
           },
         }),
       ).changed,
-    ).toEqual([{ field: 'Table-share partner', before: 'none', after: 'none' }]);
+    ).toEqual([]);
   });
 
   it('never names the table-share storage keys as rows', () => {
@@ -530,6 +530,22 @@ describe('what an entry opens to', () => {
     ).toEqual([
       { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
     ]);
+  });
+
+  it('opens an update taken away because their answer matches it, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            matched: { business_name: 'Ember Ceramics' },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded[0],
+    ).toEqual({ field: 'Their answer now matches: Business name', value: 'Ember Ceramics' });
   });
 
   it('opens a kept update to each answer kept, under its question', () => {
