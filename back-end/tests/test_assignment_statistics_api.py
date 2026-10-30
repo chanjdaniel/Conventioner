@@ -359,7 +359,7 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
         id="app-2", market_id="market-123", applicant_email="dev@example.com",
         status=ApplicationStatus.REVIEWER_REJECTED, form_data={},
         verdict_by={"kind": "rule", "rule": "Affiliation"},
-        verdict_at="2026-01-01T10:00:00", verdict_reason="Not a UBC student",
+        verdict_at="2026-01-01T10:00:00", verdict_reason="Not an Example College student",
     )
     monkeypatch.setattr(
         MarketsApi, "outside_solver_vendors", lambda *_args: [(rejected, application)])
@@ -376,7 +376,7 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
             "status": "reviewer_rejected",
             "verdictBy": {"kind": "rule", "userId": None, "email": None, "rule": "Affiliation"},
             "verdictAt": "2026-01-01T10:00:00",
-            "verdictReason": "Not a UBC student",
+            "verdictReason": "Not an Example College student",
         },
         "inTheRun": False,
         "addedByHand": False,

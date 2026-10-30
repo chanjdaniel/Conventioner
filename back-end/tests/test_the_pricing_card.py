@@ -22,7 +22,7 @@ GOLD_AND_SILVER = {
     **COMPLETE_PLAN,
     "tiers": [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}],
     "sections": [
-        {"name": "Atrium", "count": 2, "location": {"name": "Main Hall"},
+        {"name": "North Wing", "count": 2, "location": {"name": "Main Hall"},
          "tier": {"id": 0, "name": "Gold"}},
         {"name": "Landing", "count": 2, "location": {"name": "Main Hall"},
          "tier": {"id": 1, "name": "Silver"}},
@@ -234,7 +234,7 @@ class TestTheTablesRead:
 
     def test_each_vendor_at_a_table_carries_their_price(self, monkeypatch):
         rows = self._tables(monkeypatch, PRICED, [
-            _row("Atrium 1", ["ana@example.com", "ana@example.com"], "Gold", "Full Table"),
+            _row("North Wing 1", ["ana@example.com", "ana@example.com"], "Gold", "Full Table"),
             _row("Landing 1", ["ana@example.com", "ben@example.com"], "Silver", "Half Table"),
             _row("Landing 2", [None, None], "Silver", "Full Table"),
         ])
@@ -246,7 +246,7 @@ class TestTheTablesRead:
 
     def test_a_market_with_no_prices_serves_none(self, monkeypatch):
         rows = self._tables(monkeypatch, None, [
-            _row("Atrium 1", ["ana@example.com", "ana@example.com"], "Gold", "Full Table"),
+            _row("North Wing 1", ["ana@example.com", "ana@example.com"], "Gold", "Full Table"),
         ])
 
         assert rows[0]["prices"] == []

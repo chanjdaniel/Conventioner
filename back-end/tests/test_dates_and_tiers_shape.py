@@ -1,7 +1,7 @@
 """One statement of how a dates-and-tiers answer becomes the stored shape (E19/F01/S01).
 
-An organizer's own form asks ONE question - "for each day, choose all tiers you would be considered
-for; choose None if you are not available" - so availability is implicit in the tier answer. A form
+An organizer's own form asks ONE question - "for each day, tick every tier you would take; tick
+None on a day you cannot come" - so availability is implicit in the tier answer. A form
 that asks once ("which tiers will you accept?") gives a flat list instead.
 
 Both converge on the stored shape before anything downstream reads them. That rule lived inline in

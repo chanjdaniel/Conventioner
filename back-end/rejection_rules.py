@@ -1,10 +1,11 @@
 """Which answers reject an application automatically (E33/F03).
 
-The real market rejects every applicant who does not agree to the no-show terms, or who is not a
-UBC student, alumnus or another accepted affiliation, and each was a manual rejection, one card at
-a time. A rule names one CHOICE question - a select, a multi-select or a checkbox of the organizer's
-own, or an essential choice the market asks (the table choice, the available dates) - and the
-answers to it that reject. Free text is never a rule's: a typed answer has no fixed set of values.
+The real market rejects every applicant who does not agree to the no-show terms, or who is not
+a student, alumnus or another accepted affiliation of its school, and each was a manual rejection,
+one card at a time. A rule names one CHOICE question - a select, a multi-select or a checkbox of
+the organizer's own, or an essential choice the market asks (the table choice, the available
+dates) - and the answers to it that reject. Free text is never a rule's: a typed answer has no
+fixed set of values.
 
 This module is the one statement of what a rule may say and of how it judges; when the rules may
 change is ``api.markets.rejection_rules_lock_reason``, beside the assignment rules' own. The market
@@ -128,7 +129,8 @@ class Rulebook:
         """The first rule these answers meet, as ``(rule key, reason)``, or None.
 
         The reason is the organizer's, whole, in the words the applicant chose from: "Did not tick
-        “I understand that no-shows”", "Answered “Not a UBC student” to “Are you a UBC student?”".
+        “I understand that no-shows”", "Answered “Not an Example College student” to “Are you an
+        Example College student?”".
         A question the application holds no answer to meets no rule: a checkbox added since it was
         written, or a column an import left out, is not an unticked box.
         """

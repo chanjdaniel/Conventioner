@@ -19,15 +19,15 @@ from conftest import FakeApplicationsCollection, client_market, complete_setup  
 from datatypes import (  # noqa: E402
     Application, ApplicationForm, ApplicationStatus, MarketPhase, RejectionRule, VerdictGiver)
 
-NOT_UBC = "No, I am not a UBC student"
+OUTSIDER = "No, I am not an Example College student"
 FIELDS = [
-    {"key": "affiliation", "label": "Are you a UBC student?", "type": "select",
-     "options": ["Yes, a current student", NOT_UBC]},
+    {"key": "affiliation", "label": "Are you an Example College student?", "type": "select",
+     "options": ["Yes, a current student", OUTSIDER]},
     {"key": "no_shows", "label": "I understand that no-shows", "type": "checkbox"},
     {"key": "clubs", "label": "Which clubs?", "type": "multi_select", "options": ["Art", "Print"]},
 ]
 NO_SHOW_RULE = RejectionRule(key="no_shows", answers=[Rules.NOT_TICKED])
-AFFILIATION_RULE = RejectionRule(key="affiliation", answers=[NOT_UBC])
+AFFILIATION_RULE = RejectionRule(key="affiliation", answers=[OUTSIDER])
 ALEX = VerdictGiver(kind="person", user_id="user-alex", email="alex@market.test")
 
 
@@ -59,8 +59,8 @@ class TestWhichAnswerRejects:
         assert Rules.Rulebook(_market(NO_SHOW_RULE)).rejecting({"no_shows": True}) is None
 
     def test_a_choice_names_the_answer_given(self):
-        assert Rules.Rulebook(_market(AFFILIATION_RULE)).rejecting({"affiliation": NOT_UBC}) == (
-            "affiliation", f"Answered “{NOT_UBC}” to “Are you a UBC student?”")
+        assert Rules.Rulebook(_market(AFFILIATION_RULE)).rejecting({"affiliation": OUTSIDER}) == (
+            "affiliation", f"Answered “{OUTSIDER}” to “Are you an Example College student?”")
 
     def test_a_multi_select_rejects_on_any_answer_it_names(self):
         rule = RejectionRule(key="clubs", answers=["Print"])
@@ -69,7 +69,7 @@ class TestWhichAnswerRejects:
 
     def test_a_rule_naming_no_answer_rejects_nobody(self):
         rule = RejectionRule(key="affiliation", answers=[])
-        assert Rules.Rulebook(_market(rule)).rejecting({"affiliation": NOT_UBC}) is None
+        assert Rules.Rulebook(_market(rule)).rejecting({"affiliation": OUTSIDER}) is None
 
 
 class TestJudgingTheMarket:
@@ -94,7 +94,7 @@ class TestJudgingTheMarket:
         assert all(a["verdict_by"]["kind"] == "person" for a in stored)
 
     def test_a_rule_that_no_longer_matches_returns_its_rejections_to_undecided(self, stored):
-        stored.append(_app("a", no_shows=False, affiliation=NOT_UBC))
+        stored.append(_app("a", no_shows=False, affiliation=OUTSIDER))
         Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
 
         Rules.judge(Rules.Rulebook(_market()), "market-123")
@@ -103,7 +103,7 @@ class TestJudgingTheMarket:
         assert "verdict_by" not in stored[0] and "verdict_reason" not in stored[0]
 
     def test_another_rule_still_matching_keeps_it_rejected_with_its_own_reason(self, stored):
-        stored.append(_app("a", no_shows=False, affiliation=NOT_UBC))
+        stored.append(_app("a", no_shows=False, affiliation=OUTSIDER))
         Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE, AFFILIATION_RULE)), "market-123")
 
         Rules.judge(Rules.Rulebook(_market(AFFILIATION_RULE)), "market-123")
@@ -180,12 +180,12 @@ class TestTheyApplyWhen:
     def test_a_rule_changes(self, stored, monkeypatch):
         import api.markets as MarketsApi
 
-        stored.append(_app("a", affiliation=NOT_UBC))
+        stored.append(_app("a", affiliation=OUTSIDER))
         monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: _market())
         monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
 
         MarketsApi.save_rejection_rules(
-            "market-123", [{"key": "affiliation", "answers": [NOT_UBC]}], "owner@x.test")
+            "market-123", [{"key": "affiliation", "answers": [OUTSIDER]}], "owner@x.test")
 
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_REJECTED.value
 

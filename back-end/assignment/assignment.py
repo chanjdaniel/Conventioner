@@ -73,7 +73,6 @@ logger = logging.getLogger(__name__)
 FULL_TABLE_LABEL = "Full Table"
 HALF_TABLE_LEFT_LABEL = "Half Table (Left)"
 HALF_TABLE_RIGHT_LABEL = "Half Table (Right)"
-NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
 MAX_HALF_TABLES_PER_SECTION = 0.3
 
 class Vendor:

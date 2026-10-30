@@ -2,9 +2,8 @@
 
 E01/F05, decided by wayfinder ticket 02.
 
-A real form asks tiers per day - "for each day, choose all table tiers you would like to be
-considered for" - and promises, in writing, "you will be given the highest tier available among the
-selections made" *for that day*. The contract stored one flat set for the whole application, so the
+A real form asks tiers per day - for each day, every table tier the applicant would take - and
+promises, in writing, the best of the chosen tiers that is free *on that day*. The contract stored one flat set for the whole application, so the
 cheap fix would have been to union the days together.
 
 The union was rejected because ``accepts_tier`` is a HARD filter and a tier sets what the vendor

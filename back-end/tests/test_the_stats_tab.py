@@ -25,7 +25,7 @@ import api.users as UsersApi
 from datatypes import FormField, MarketPhase
 
 SELLING = {
-    "key": "selling", "label": "What will you be selling at the event?", "type": "multi_select",
+    "key": "selling", "label": "What will you sell at the fair?", "type": "multi_select",
     "required": True, "options": ["Prints", "Stickers", "Jewelry"], "order": 1,
 }
 RETURNING = {
@@ -79,7 +79,7 @@ APPLICATIONS = [
 def _seat(email, table):
     return {
         "email": email, "date": "2026-11-20", "tableCode": table, "tableChoice": "Full Table",
-        "section": "A", "tier": "Gold", "location": "Atrium", "handPlaced": True,
+        "section": "A", "tier": "Gold", "location": "North Wing", "handPlaced": True,
     }
 
 
@@ -151,7 +151,7 @@ class TestTheAnswerCounts:
         questions = _counted()["questions"]
 
         assert [q["key"] for q in questions] == ["selling", "returning", "own_work"]
-        assert questions[0]["label"] == "What will you be selling at the event?"
+        assert questions[0]["label"] == "What will you sell at the fair?"
         assert questions[0]["type"] == "multi_select"
 
     def test_a_multi_select_counts_each_option_ticked_and_every_write_in_as_one_other(self):
