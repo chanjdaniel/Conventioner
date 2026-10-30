@@ -908,6 +908,17 @@ def test_a_refusal_sends_a_fixture_to_the_generator_never_to_a_real_export(repo)
     assert "back-end/tests/fixtures/synthetic_form_exports.py" in result.stdout
 
 
+def test_a_refusal_names_the_fictional_vocabulary_and_the_rule_for_test_data(repo):
+    stage(repo, "fixture.csv", f"Email Address\n{GMAIL}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert 'on the "Example" pattern' in result.stdout
+    assert "docs/implementation/testing/test-data.md" in result.stdout
+    assert (REPO / "docs" / "implementation" / "testing" / "test-data.md").is_file()
+
+
 # --- The real names ----------------------------------------------------------------------------
 
 # Invented, in place of the real names the committed list holds.

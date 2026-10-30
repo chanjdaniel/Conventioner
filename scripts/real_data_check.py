@@ -780,6 +780,9 @@ real-data-check: refused. Conventioner is public: anything pushed is published t
   Use an address at example.com or a .test domain, and a phone number from 555-0100 to 555-0199.
   A database host is written <cluster>.<id>.mongodb.net: the real one stays in the deployment's
   environment.
+  Name an invented organization, market, place or group on the "Example" pattern (Example College,
+  Example Makers Fair, Example Hall): docs/implementation/testing/test-data.md says where test data
+  lives and the rule for adding more.
   A real export never becomes test data in any form: the Google Form corpus changes only through
   back-end/tests/fixtures/synthetic_form_exports.py, never by editing a committed file.
   The fixture domains are listed in scripts/real_data_check.py; never skip the hooks to get past this."""

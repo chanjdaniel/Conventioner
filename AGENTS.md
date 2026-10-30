@@ -131,6 +131,7 @@ Tests and CI:
 - Before adding a test that spans the organizer's journey, read [the market journey spec](docs/implementation/testing/the-market-journey-spec.md).
 - Before extending floorplan coverage, read [floorplan E2E](docs/implementation/testing/floorplan-e2e.md).
 - Before changing CI, `.no-mistakes.yaml` or `nm-test.sh`, read [CI and the gate](docs/implementation/testing/ci-and-the-gate.md).
+- Before adding or changing test data, read [test data](docs/implementation/testing/test-data.md).
 
 ## Agent skills
 
