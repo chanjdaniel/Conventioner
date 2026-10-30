@@ -24,6 +24,7 @@ export const MarketAction = {
   AddVendor: 'add-vendor',
   WriteVendorNotes: 'write-vendor-notes',
   UpdateVendorInfo: 'update-vendor-info',
+  UpdateAssignmentOrPriceInfo: 'update-assignment-or-price-info',
   Assign: 'assign',
   CheckIn: 'check-in',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',

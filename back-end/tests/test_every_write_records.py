@@ -596,6 +596,8 @@ NOT_RECORDED = {
     Actions.READ.id: "a read changes nothing",
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id: "the history goes with the market; the deletion trail records it",
+    Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO.id:
+        "asked beside Update a vendor's info by the same write, which records it under that row",
 }
 
 

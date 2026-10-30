@@ -464,7 +464,7 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
         [_share_request(app) for app in parsed],
         answered={
             app.applicant_email for app in parsed
-            if EssentialFields.answered_table_share(app.form_data or {})
+            if EssentialFields.answered_table_share(ApplicationsApi.effective_answers(app))
         },
     )
     result = []
@@ -478,7 +478,7 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
 
 
 def _share_request(app: Application) -> TableShare.ShareRequest:
-    answers = app.form_data or {}
+    answers = ApplicationsApi.effective_answers(app)
     return TableShare.ShareRequest(
         email=app.applicant_email,
         table_choice=answers.get(EssentialFields.TABLE_CHOICE_KEY),

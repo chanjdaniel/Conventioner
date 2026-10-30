@@ -615,6 +615,56 @@ def essential_answer_errors(
     return errors
 
 
+#: Each essential question an organizer may update (E41/F01/S02), by the key the form answers it
+#: under, and the stored answers that answer writes. The table-share question is answered in words,
+#: and stores the words and the addresses read out of them; every other question stores itself.
+UPDATABLE_ESSENTIAL_QUESTIONS = {
+    **{key: (key,) for key, _label in ESSENTIAL_QUESTIONS},
+    TABLE_SHARE_EMAIL_KEY: (TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY),
+}
+
+#: The answers each validation step judges together: the name step stores both names, and the
+#: dates and the tiers on each must agree, so changing either judges both.
+_JUDGED_TOGETHER = {
+    FULL_NAME_KEY: {FULL_NAME_KEY, PREFERRED_NAME_KEY},
+    AVAILABLE_DATES_KEY: {AVAILABLE_DATES_KEY, TIER_PREFERENCE_KEY},
+    TIER_PREFERENCE_KEY: {AVAILABLE_DATES_KEY, TIER_PREFERENCE_KEY},
+}
+
+
+def validated_essential_update(
+    current: Dict[str, Any], incoming: Dict[str, Any], options: EssentialFormOptions,
+) -> Tuple[Optional[str], Dict[str, Any]]:
+    """An organizer's update of some essential answers (E41/F01/S02), held to the form's rules.
+
+    ``current`` is the application's answers as they read now and ``incoming`` the questions
+    updated, keyed as ``UPDATABLE_ESSENTIAL_QUESTIONS``; the update is judged together with the
+    answers it leaves, so a day ticked with no tiers is refused in the form's own words. Only the
+    steps whose answers the update touches are judged: an answer it leaves as it stood is the
+    vendor's, and not the organizer's to be refused for.
+
+    Returns ``(error_message, stored)``, ``stored`` holding the stored answers the updated
+    questions write, as the form stores them. "Number of dates you want" may stay empty where it
+    already was: an imported row from a form that never asked holds no limit (bug 24).
+    """
+    merged = {**current, TABLE_SHARE_EMAIL_KEY: _share_words(current), **incoming}
+    touched = set(incoming)
+    stored: Dict[str, Any] = {}
+    limit_required = current.get(MAX_DATES_KEY) is not None
+    for key, step in _essential_steps(merged, options, stored, limit_required):
+        error = step()
+        if error and touched & _JUDGED_TOGETHER.get(key, {key}):
+            return error, {}
+    written = {key for question in incoming for key in UPDATABLE_ESSENTIAL_QUESTIONS[question]}
+    return None, {key: value for key, value in stored.items() if key in written}
+
+
+def _share_words(answers: Dict[str, Any]) -> str:
+    """The table-share answer in the vendor's words, as the form asks it; an application written
+    before the words were kept holds them in the address field."""
+    return answers.get(TABLE_SHARE_ANSWER_KEY, answers.get(TABLE_SHARE_EMAIL_KEY)) or ""
+
+
 def _essential_steps(
     incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
     limit_required: bool,

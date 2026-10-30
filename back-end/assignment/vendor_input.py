@@ -287,7 +287,8 @@ def _tiers_by_date(
 def _solver_vendor(
     application: Application, options: EssentialFormOptions, lenient: bool = False,
 ) -> Tuple[Optional[SolverVendor], Optional[IncompleteApplication]]:
-    answers: Dict[str, Any] = application.form_data or {}
+    # As the organizer reads them: an answer they updated is the one the vendor is placed by.
+    answers: Dict[str, Any] = ApplicationsApi.effective_answers(application)
     asked = EF.asked_essential_keys(options)
     missing: List[str] = []
 

@@ -167,14 +167,6 @@ class TestTheUpdateReadsInItsPlace:
 
 
 class TestWhatMayBeUpdated:
-    def test_an_answer_the_assignment_reads_is_refused_for_now(self, market):
-        applications = market()
-
-        with pytest.raises(BadRequestError, match="assignment reads"):
-            _update({EF.FULL_NAME_KEY: "Nadia O."})
-
-        assert not _stored(applications).get("answer_updates")
-
     def test_a_question_the_form_does_not_ask_is_refused(self, market):
         market()
 
