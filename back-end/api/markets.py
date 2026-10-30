@@ -2606,7 +2606,8 @@ def get_vendor_notes(market_id: str, requesting_user: str) -> Dict[str, Dict[str
     _load_market_for(market_id, requesting_user, Actions.READ)
     notes = VendorNotes.notes_for_market(market_id)
     for application in ApplicationsApi.list_applications_for_market(market_id):
-        request = str((application.get("form_data") or {}).get(EssentialFields.REQUEST_KEY) or "")
+        request = str(
+            ApplicationsApi.effective_answers(application).get(EssentialFields.REQUEST_KEY) or "")
         email = str(application.get("applicant_email") or "").strip().lower()
         if request.strip() and email:
             notes.setdefault(email, VendorNotes.no_notes())["request"] = request.strip()

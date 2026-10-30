@@ -17,6 +17,7 @@ sources:
   - bug/23
   - T65
   - T77
+  - E41/F01/S02
 ---
 
 # The assignment solver
@@ -52,6 +53,7 @@ Hand-placed rows on the stored assignment are seated first, and applicants outsi
 **`vendor_input.py` is the one seam where application shape meets solver shape**, and the only place that knows both.
 It lives in the solver package because the solver owns what it needs from an application, while [`api/applications.py`](../../../back-end/api/applications.py) owns storage and carries no solver knowledge ([the application document](../data/application-document.md)).
 It is unit-testable with no database and no `MarketAssignment` (`tests/test_solver_vendor_input.py`).
+It reads an application's answers through `effective_answers`, so an answer an organizer updated is the one the vendor is placed by, and the run after an update uses it ([an update is kept beside the vendor's answer](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md)).
 A typed record has a failure signal the old attribute bag lacked: a wrong name raises rather than reading as "the vendor answered nothing".
 An answer naming something the offering no longer holds (a dropped tier, a removed date) is dropped, so the vendor may be unplaceable and reported unassigned; an answer that is absent refuses the run.
 Which questions count as asked is `asked_essential_keys()` in [essential fields](essential-fields.md), never restated here.

@@ -87,6 +87,8 @@ ROLE_CHANGED = "role_changed"
 ROLE_TAKEN = "role_taken"
 SUBMITTED = "submitted"
 EDITED = "edited"
+#: An organizer kept their update of a vendor's answer over what the vendor wrote since.
+KEPT = "kept"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"

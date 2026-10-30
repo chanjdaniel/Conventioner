@@ -134,6 +134,8 @@ ROW_WRITES = {
                            {"note": "Extra chair"}),
     "update-vendor-info": ("put", "/markets/market-123/applications/app-1/answers",
                            {"answers": {"business_name": "Ember Ceramics"}}),
+    "update-assignment-or-price-info": ("put", "/markets/market-123/applications/app-1/answers",
+                                        {"answers": {"essential_max_dates": 1}}),
     "assign": ("post", "/markets/market-123/assignment", None),
     "check-in": ("post", "/markets/market-123/attendance",
                  {"vendorEmail": "ana@example.com", "date": "2026-05-01"}),
