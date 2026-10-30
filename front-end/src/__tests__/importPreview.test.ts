@@ -3,7 +3,7 @@
  * rows the automatic rejections will reject - counted as the import's own judging counts them.
  */
 import { describe, expect, it } from 'vitest';
-import { previewHeadline, type ImportPreviewCounts } from '@/utils/importPreview';
+import { previewHeadline, rejectedRowsWhy, type ImportPreviewCounts } from '@/utils/importPreview';
 
 function counts(overrides: Partial<ImportPreviewCounts>): ImportPreviewCounts {
   return {
@@ -53,6 +53,23 @@ describe('the import preview headline', () => {
   it('adds no rejection clause when nothing is rejected', () => {
     expect(previewHeadline(counts({ rowCount: 3, validRows: 3, newRows: 3 }))).toBe(
       '3 of 3 rows will be imported',
+    );
+  });
+});
+
+describe('what the preview says of the rows a rule rejects (E38/F03/S02, E38/F06/S01)', () => {
+  it('names who the market lets overturn one, from its table', () => {
+    expect(rejectedRowsWhy('an Admin or the owner')).toBe(
+      'A check that your rules reject who they should. These are imported as rejected, each with its reason; an Admin or the owner can overturn one.',
+    );
+    expect(rejectedRowsWhy('an Editor, an Admin or the owner')).toContain(
+      'an Editor, an Admin or the owner can overturn one.',
+    );
+  });
+
+  it('names nobody when the market read carries no such row', () => {
+    expect(rejectedRowsWhy(null)).toBe(
+      'A check that your rules reject who they should. These are imported as rejected, each with its reason.',
     );
   });
 });

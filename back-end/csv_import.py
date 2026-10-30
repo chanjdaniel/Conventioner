@@ -1758,9 +1758,14 @@ def import_applications(
     save_mapping(markets_collection, market_id, headers, resolved, resolutions)
 
     # The rules judge what this import wrote - after any approval it sent back to review - and
-    # anything else still undecided (E33/F03/S02).
+    # anything else still undecided (E33/F03/S02), returning a rule's rejection to open only for an
+    # importer who may overturn one (E38/F06/S01).
+    import api.markets as MarketsApi
+
+    judged_market = market_from_document(market_doc)
     verdicts = RejectionRules.judge(
-        RejectionRules.Rulebook(market_from_document(market_doc)), market_id)
+        RejectionRules.Rulebook(judged_market), market_id,
+        overturns=by is not None and MarketsApi.may_overturn(by, judged_market))
 
     # Only now, the rows written: a draft's first import is its way into Review (E38/F04/S01).
     phase = phase_from_market_document(market_doc).value

@@ -77,6 +77,30 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test set 2 applications to Rejected: [Ana Rivera], [Ben Okafor]');
   });
 
+  it('words a change of verdict by what it was and what it became (E38/F06/S01)', () => {
+    expect(
+      sentence({
+        action: 'change-verdicts',
+        kind: 'verdict',
+        detail: { before: { status: 'reviewer_approved' }, after: { status: 'reviewer_rejected' } },
+      }),
+    ).toBe('dana@ember.test changed [Ana Rivera] from Approved to Rejected');
+  });
+
+  it('words a selection that changed verdicts as a selection', () => {
+    expect(
+      sentence({
+        action: 'change-verdicts',
+        kind: 'verdicts',
+        vendors: ['ana@ember.test', 'ben@ember.test'],
+        detail: {
+          before: { a1: { status: 'reviewer_approved' }, a2: { status: 'open' } },
+          after: { a1: { status: 'reviewer_rejected' }, a2: { status: 'reviewer_rejected' } },
+        },
+      }),
+    ).toBe('dana@ember.test set 2 applications to Rejected: [Ana Rivera], [Ben Okafor]');
+  });
+
   it('words a setup change by the fields it changed', () => {
     expect(
       sentence({
