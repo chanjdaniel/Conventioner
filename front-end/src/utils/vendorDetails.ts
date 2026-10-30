@@ -122,13 +122,13 @@ function assignmentSummary(assignment: VendorTableAssignment): string {
 }
 
 /** One vendor on one date, as the reason and override indexes key them. */
+const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
+
 /** One occupant's price on a table row and the card's row that set it, by their lowercased address. */
 function priceOf(row: MarketTableRowResponse, address: string) {
   const price = row.prices?.find((each) => each.email.trim().toLowerCase() === address);
   return { priceCents: price?.cents ?? null, priceGroup: price?.group ?? null };
 }
-
-const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
 
 /**
  * A market's vendors, each with their application and their seats (E35/F01/S01): what the Vendors
