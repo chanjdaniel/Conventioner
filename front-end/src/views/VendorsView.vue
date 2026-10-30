@@ -210,6 +210,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               <span class="summary-strong">{{ totalVendorCount }}</span>
               vendors shown
             </template>
+            <!-- Where they sit was refused, so nobody is counted as placed or not (T123). -->
+            <template v-else-if="assigned && details.loaded.value && !details.placementsRead.value">
+              <span class="summary-strong">{{ totalVendorCount }}</span>
+              {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
+            </template>
             <template v-else-if="!assigned">
               <span class="summary-strong">{{ runVendorCount }}</span>
               {{ runVendorCount === 1 ? 'vendor' : 'vendors' }}

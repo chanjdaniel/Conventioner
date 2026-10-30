@@ -144,23 +144,64 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
   const loaded = ref(false);
   const loadError = ref('');
 
+  /** Whether the last read had where every vendor sits: the tables and the statistics. */
+  const placementsRead = ref(false);
+
+  function forgetPlacements(): void {
+    tableRows.value = [];
+    vendorNames.value = {};
+    placeable.value = new Set();
+    unplacedReasons.value = new Map();
+    placementOverrides.value = new Map();
+    unassignedEmails.value = new Set();
+    placementsRead.value = false;
+  }
+
+  /**
+   * The applications, and where each vendor sits, read side by side but standing apart (T123).
+   *
+   * One `Promise.all` once emptied all three on any refusal: an approved application with
+   * incomplete answers makes the server refuse the two assignment reads, and the drawer then said a
+   * market with questions "asks no questions of its own". A refused placement read now leaves the
+   * applications standing, with the server's reason in `loadError` and `placementsRead` false.
+   */
   async function load(): Promise<void> {
     const id = marketId.value;
     if (!id) return;
     loadError.value = '';
     isLoading.value = true;
     const encoded = encodeURIComponent(id);
+    const placements = Promise.all([
+      api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
+      api.get<{
+        rows: MarketTableRowResponse[];
+        vendorNames: VendorNames;
+        vendors?: { email: string; inTheRun: boolean }[];
+      }>(`/markets/${encoded}/tables`),
+    ]);
+    const [applicationsRead, placementsReadNow] = await Promise.allSettled([
+      fetchMarketApplications(id),
+      placements,
+    ]);
     try {
-      const [applicationList, statsResp, tablesResp] = await Promise.all([
-        fetchMarketApplications(id),
-        api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-        api.get<{
-          rows: MarketTableRowResponse[];
-          vendorNames: VendorNames;
-          vendors?: { email: string; inTheRun: boolean }[];
-        }>(`/markets/${encoded}/tables`),
-      ]);
+      if (applicationsRead.status === 'rejected') {
+        loadError.value = errorText(applicationsRead.reason, 'Failed to load vendors.');
+        applications.value = [];
+        forgetPlacements();
+        return;
+      }
+      const applicationList = applicationsRead.value;
       applications.value = Array.isArray(applicationList) ? applicationList : [];
+      loaded.value = true;
+      if (placementsReadNow.status === 'rejected') {
+        loadError.value = errorText(
+          placementsReadNow.reason,
+          'Where the vendors sit could not be read.',
+        );
+        forgetPlacements();
+        return;
+      }
+      const [statsResp, tablesResp] = placementsReadNow.value;
       placeable.value = new Set(
         (tablesResp.data?.vendors ?? [])
           .filter((vendor) => vendor.inTheRun)
@@ -174,16 +215,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       );
       tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
       vendorNames.value = tablesResp.data?.vendorNames ?? {};
-      loaded.value = true;
-    } catch (err: unknown) {
-      loadError.value = errorText(err, 'Failed to load vendors.');
-      applications.value = [];
-      tableRows.value = [];
-      vendorNames.value = {};
-      placeable.value = new Set();
-      unplacedReasons.value = new Map();
-      placementOverrides.value = new Map();
-      unassignedEmails.value = new Set();
+      placementsRead.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -319,6 +351,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     isLoading,
     loaded,
     loadError,
+    placementsRead,
     load,
     marketDates,
     rows,

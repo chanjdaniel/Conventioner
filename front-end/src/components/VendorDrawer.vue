@@ -268,6 +268,17 @@ watch(
         class="detail-panel-body"
         :data-testid="`vendor-drawer-panel-${tab}`"
       >
+        <!-- What the read could not get, on every tab: the server's reason, such as an approved
+             application whose answers are incomplete refusing where anyone sits (T123). -->
+        <p
+          v-if="details.loadError.value && !details.isLoading.value"
+          class="detail-error"
+          role="alert"
+          data-testid="vendors-detail-load-error"
+        >
+          {{ details.loadError.value }}
+        </p>
+
         <p v-if="details.isLoading.value && !vendor" class="detail-empty">Loading…</p>
 
         <template v-else-if="tab === 'application'">
@@ -304,7 +315,7 @@ watch(
                 </dd>
               </template>
             </dl>
-            <p v-else class="detail-empty">This market asks no questions of its own.</p>
+            <p v-else-if="vendor" class="detail-empty">This market asks no questions of its own.</p>
           </div>
         </template>
 
@@ -312,7 +323,7 @@ watch(
           <div v-if="details.marketDates.value.length === 0" class="detail-empty">
             No market dates configured.
           </div>
-          <ul v-else-if="vendor" class="assignment-list">
+          <ul v-else-if="vendor && details.placementsRead.value" class="assignment-list">
             <VendorDateCard
               v-for="date in details.marketDates.value"
               :key="date.date"
@@ -563,6 +574,14 @@ watch(
   margin: 0;
   padding: var(--space-4) var(--space-6);
   color: var(--mm-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* As the Vendors page says its own read failed: red ink, 5.44 on white. */
+.detail-error {
+  margin: 0;
+  padding: var(--space-4) var(--space-6) 0;
+  color: var(--mm-red);
   font-size: var(--text-sm);
 }
 
