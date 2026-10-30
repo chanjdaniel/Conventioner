@@ -12,6 +12,7 @@ sources:
   - bug/30
   - T15
   - E39/F01/S03
+  - E40/F01/S03
 ---
 
 # An archived market is read-only
@@ -30,6 +31,7 @@ Roles and deletion are decisions about the record, not changes to it.
 ## Who may
 
 Nobody changes it; an owner or admin still manages its roles, and its owner may delete it.
+Anyone who may read it still reads it, its history included ([reading the market's history](../flows/reading-the-markets-history.md)): reading changes nothing.
 Its table of who may do what is part of the record too, and its owner no longer changes it (E39/F01/S03).
 
 ## Where it is kept

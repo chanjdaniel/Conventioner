@@ -267,6 +267,21 @@ export function entryParts(
           `took the ${getRoleDisplayName(str(before.role))} role from ${str(entry.subject.email)}`,
         ),
       ];
+    case 'change-the-table/permission_set':
+      return [
+        actor,
+        text(
+          `changed ${rowLabel(entry, labels)} from ${getRoleDisplayName(str(before.role))} to ` +
+            getRoleDisplayName(str(after.role)),
+        ),
+      ];
+    case 'change-the-table/permission_reset':
+      return [
+        actor,
+        text(
+          `set ${rowLabel(entry, labels)} back to its default, ${getRoleDisplayName(str(after.role))}`,
+        ),
+      ];
     case 'apply/submitted':
       return [vendor, text(' applied')];
     case 'apply/edited':
@@ -280,6 +295,12 @@ export function entryParts(
       return parts;
     }
   }
+}
+
+/** The row of the permission table a change to it is about, by its label, else by its id. */
+function rowLabel(entry: MarketHistoryEntry, labels: Readonly<Record<string, string>>): string {
+  const id = str(entry.subject.action);
+  return labels[id] ?? id;
 }
 
 /** When it happened, as a moment, in the reader's own timezone. */
@@ -304,11 +325,19 @@ export function valueText(value: unknown): string {
   return words.length > LONGEST_VALUE ? `${words.slice(0, LONGEST_VALUE)}…` : words;
 }
 
+/** Where a row of the permission table came from, in words. */
+const PERMISSION_SOURCES: Record<string, string> = {
+  'built-in': 'Built in',
+  organization: 'The organization’s default',
+  market: 'This market',
+};
+
 /** The stored values the screens already name: a phase, a status and a role, in their words. */
 const NAMED_VALUES: Partial<Record<string, (value: string) => string>> = {
   phase: phaseLabel,
   status: statusLabel,
   role: getRoleDisplayName,
+  source: (source) => PERMISSION_SOURCES[source] ?? source,
 };
 
 /** A field's value as the screens name it, else as `valueText` draws it. */

@@ -143,6 +143,40 @@ describe('what an entry says', () => {
     ).toBe('[Ana Rivera] checked in on the check-in page on Nov 19, 2026');
   });
 
+  it('words a change to a row of the permission table by its label and both roles', () => {
+    const labels = { 'check-in': 'Check vendors in' };
+    expect(
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_set',
+          vendors: [],
+          subject: { action: 'check-in' },
+          detail: {
+            before: { role: 'editor', source: 'built-in' },
+            after: { role: 'admin', source: 'market' },
+          },
+        },
+        labels,
+      ),
+    ).toBe('dana@ember.test changed Check vendors in from Editor to Admin');
+    expect(
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_reset',
+          vendors: [],
+          subject: { action: 'check-in' },
+          detail: {
+            before: { role: 'admin', source: 'market' },
+            after: { role: 'editor', source: 'built-in' },
+          },
+        },
+        labels,
+      ),
+    ).toBe('dana@ember.test set Check vendors in back to its default, Editor');
+  });
+
   it('words an applicant’s own application as theirs', () => {
     expect(sentence({ actor: 'ana@ember.test', action: 'apply', kind: 'submitted' })).toBe(
       '[Ana Rivera] applied',
@@ -190,6 +224,24 @@ describe('what an entry opens to', () => {
     ).toEqual([{ field: 'Table', before: 'none', after: 'B7' }]);
     expect(entryChanges(entry({ detail: { table_code: 'B7' } })).changed).toEqual([
       { field: 'Table', before: 'unknown', after: 'B7' },
+    ]);
+  });
+
+  it('names where a permission row came from in words', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-the-table',
+          kind: 'permission_set',
+          detail: {
+            before: { role: 'editor', source: 'organization' },
+            after: { role: 'admin', source: 'market' },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Role', before: 'Editor', after: 'Admin' },
+      { field: 'Source', before: 'The organization’s default', after: 'This market' },
     ]);
   });
 

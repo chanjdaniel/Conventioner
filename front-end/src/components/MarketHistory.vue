@@ -22,7 +22,11 @@ import {
   type MarketHistoryGroup,
 } from '@/utils/marketHistory';
 
-const props = defineProps<{ marketId: string }>();
+const props = defineProps<{
+  marketId: string;
+  /** The market's own table's labels by row id, Reading rows included, for a change to a row. */
+  rowLabels?: Readonly<Record<string, string>>;
+}>();
 
 interface HistoryPage {
   entries: MarketHistoryEntry[];
@@ -48,10 +52,14 @@ const vendorText = ref('');
 const from = ref('');
 const to = ref('');
 
-/** Each row of the table by its label, for a change this screen has no words for yet. */
-const labels = computed(() =>
-  Object.fromEntries(groups.value.flatMap((g) => g.actions.map((a) => [a.id, a.label]))),
-);
+/**
+ * Each row of the table by its label: for a change to a row, and for a change this screen has no
+ * words for yet. The market's own table names the Reading rows too, which the groups leave out.
+ */
+const labels = computed(() => ({
+  ...Object.fromEntries(groups.value.flatMap((g) => g.actions.map((a) => [a.id, a.label]))),
+  ...props.rowLabels,
+}));
 
 /**
  * Every vendor the section knows: those who gave a name, and every address an entry it has loaded

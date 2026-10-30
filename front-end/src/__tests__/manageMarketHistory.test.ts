@@ -209,6 +209,34 @@ describe('the History section', () => {
     );
   });
 
+  it('names a permission row by the label the market’s table gives it', async () => {
+    serve({
+      entries: [
+        {
+          ...assigned('e1', 1),
+          action: 'change-the-table',
+          kind: 'permission_set',
+          vendors: [],
+          subject: { action: 'read-history' },
+          detail: {
+            before: { role: 'viewer', source: 'built-in' },
+            after: { role: 'editor', source: 'market' },
+          },
+        },
+      ],
+      next: null,
+    });
+    const wrapper = mount(MarketHistory, {
+      props: { marketId: 'market-1', rowLabels: { 'read-history': "Read the market's history" } },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+    await flushPromises();
+
+    expect(sentences(wrapper)).toEqual([
+      "dana@ember.test changed Read the market's history from Viewer to Editor",
+    ]);
+  });
+
   it('says so when nothing matches the filters', async () => {
     serve({ entries: [], next: null });
     const wrapper = mountHistory();

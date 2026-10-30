@@ -114,6 +114,11 @@ const grantableRoles = computed(() =>
 /** Deleting a market is the table's "Delete the market" row, its owner's alone. */
 const canDelete = computed(() => mayTake(marketData.value, MarketAction.DeleteMarket));
 
+/** The market's own table's labels by row id, for the history's changes to a row. */
+const rowLabels = computed(() =>
+  Object.fromEntries((marketData.value?.permissionTable ?? []).map((row) => [row.id, row.label])),
+);
+
 /** The market's history is read at its own row, "Read the market's history" (E40/F01/S03). */
 const canReadHistory = computed(() => mayTake(marketData.value, MarketAction.ReadHistory));
 
@@ -375,7 +380,7 @@ function closeAddUser() {
           </button>
         </h3>
         <div v-show="historyOpen" id="manage-market-history-body">
-          <MarketHistory v-if="historyRead" :market-id="marketData.id" />
+          <MarketHistory v-if="historyRead" :market-id="marketData.id" :row-labels="rowLabels" />
         </div>
       </section>
 
