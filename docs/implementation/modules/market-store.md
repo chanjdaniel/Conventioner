@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -59,6 +59,7 @@ Each control asks the row of the action it takes:
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too |
+| Applications, the review | Choose reviewers, Change reviewers | Choose reviewers, while `verdictsSettledReason` is null |
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
 | Assignments, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
