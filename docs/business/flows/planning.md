@@ -125,7 +125,8 @@ A person who may change nothing finds every card disabled too, and reads why onc
 What still changes after Draft, and where:
 
 - the assignment rules (priority and options), on the Assignment tab, until the market can no longer return to Assignment or its results are published ([J14](assignment-and-result.md#j14-the-rules-close-with-the-assignment));
-- what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
+- what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first));
+- the Discord card, in every phase until the market is archived, since it is a manual tool rather than part of the plan ([the Discord connection](../../implementation/modules/discord.md)).
 
 What else freezes, and when:
 

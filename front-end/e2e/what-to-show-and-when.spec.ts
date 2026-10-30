@@ -60,7 +60,7 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
   });
 
-  test('the bar keeps all six tabs, and one out of its phase says when it matters', async ({
+  test('the bar keeps all seven tabs, and one out of its phase says when it matters', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -81,6 +81,7 @@ test.describe('What to show, and when', () => {
       'Applications',
       'Assignment',
       'Attendance',
+      'Tools',
       'Stats',
     ]);
 

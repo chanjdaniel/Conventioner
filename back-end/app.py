@@ -13,6 +13,7 @@ import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
 import api.vendor_export as VendorExportApi
+import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
@@ -723,6 +724,50 @@ def save_plan(market_id: str) -> Response:
     data = json_object(required=True)
     MarketsApi.save_plan(market_id, data, authenticated_email())
     return jsonify({"message": "Plan saved"}), 200
+
+
+@app.route('/markets/<market_id>/discord/authorization', methods=['POST'])
+@login_required
+def start_discord_connection(market_id: str) -> Response:
+    """Begin connecting the market to a Discord server (E46/F01/S02): the address of Discord's
+    approval screen, which sends the person back to the app's ``/discord/connected``. Asks
+    ``Actions.CONNECT_DISCORD``."""
+    return jsonify(DiscordConnectionApi.start(market_id, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/discord/connection', methods=['POST'])
+@login_required
+def connect_discord(market_id: str) -> Response:
+    """Finish connecting, from the page Discord sent the person back to. Body: { "code", "state" }.
+    Asks ``Actions.CONNECT_DISCORD``."""
+    data = json_object(required=True)
+    DiscordConnectionApi.connect(
+        market_id, string_field(data, "code"), string_field(data, "state"), authenticated_email())
+    return jsonify({"marketId": market_id}), 200
+
+
+@app.route('/markets/<market_id>/discord/connection', methods=['DELETE'])
+@login_required
+def disconnect_discord(market_id: str) -> Response:
+    """Forget the market's Discord server. Asks ``Actions.CONNECT_DISCORD``."""
+    DiscordConnectionApi.disconnect(market_id, authenticated_email())
+    return jsonify({"message": "Disconnected"}), 200
+
+
+@app.route('/markets/<market_id>/discord', methods=['PUT'])
+@login_required
+def save_discord(market_id: str) -> Response:
+    """Change the Discord card's choices. Body: any of { "roleId", "usernameQuestion",
+    "inviteLink" }, each a string or null. Asks ``Actions.CONNECT_DISCORD``."""
+    DiscordConnectionApi.save(market_id, json_object(required=True), authenticated_email())
+    return jsonify({"message": "Saved"}), 200
+
+
+@app.route('/markets/<market_id>/discord/roles', methods=['GET'])
+@login_required
+def discord_roles(market_id: str) -> Response:
+    """The connected server's roles, for the Discord card. Asks ``Actions.CONNECT_DISCORD``."""
+    return jsonify({"roles": DiscordConnectionApi.roles(market_id, authenticated_email())}), 200
 
 
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
