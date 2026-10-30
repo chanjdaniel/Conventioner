@@ -84,7 +84,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
-If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells anyone else the row's sentence instead.
+If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells a reviewer it refuses the row's sentence instead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
@@ -93,7 +93,7 @@ Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-h
 
 **Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`).
 "Show N reviewed" lists decided applications by email, each with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
-**Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and anyone else reads its sentence once, above the list: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
+**Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
@@ -105,7 +105,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
-3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on an application already approved or rejected, only for someone who may change a verdict, and anyone else reads the change row's sentence there instead.
+3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on an application already approved or rejected, only for someone who may change a verdict, and a reviewer the change row refuses reads its sentence there instead.
    Its "Update info" updates the vendor's answers, and the list is read again once it saves.
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
    "Select all" ticks every row the filter and Mine show, and none they hide; it leaves the rows another reviewer has open, and says so ("N applications not selected: another reviewer has them open.").
