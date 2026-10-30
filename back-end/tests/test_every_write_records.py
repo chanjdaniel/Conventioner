@@ -479,6 +479,13 @@ def _reset_permissions(client, world):
     return client.delete(f"/markets/{MARKET}/permissions")
 
 
+def _copy_organization_default(client, world):
+    world.market(MarketPhase.APPLICATIONS, organizationId="org-1")
+    world.patch(MarketsApi.OrgsApi, "get_organization", lambda _org_id: {
+        "id": "org-1", "default_permissions": {"check-in": {"role": "admin"}}})
+    return client.post(f"/markets/{MARKET}/permissions/organization-default")
+
+
 M = "/markets/<market_id>"
 APPLICANT = "/public/markets/<market_slug>/applicant/application"
 PUBLIC_DOOR = "/public/markets/<market_slug>/attendance/checkin"
@@ -577,6 +584,9 @@ WRITES = [
           subject={"action": "check-in"}),
     Write("the table reset", "DELETE", f"{M}/permissions",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
+    Write("the organization's default copied again", "POST",
+          f"{M}/permissions/organization-default", Actions.CHANGE_THE_TABLE,
+          History.PERMISSION_TABLE_COPIED, _copy_organization_default),
 ]
 
 #: The write routes that change nothing on a market's record, and why.
