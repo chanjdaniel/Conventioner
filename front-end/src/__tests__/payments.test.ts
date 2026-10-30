@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   balanceState,
   balanceText,
+  lineSource,
   methodLabel,
   seatText,
   today,
@@ -26,6 +27,8 @@ const LINE: PaymentLine = {
   owedSetBy: null,
   owedSetAt: null,
   freed: false,
+  freedAt: null,
+  freedBy: null,
 };
 
 describe('how what they paid compares with what they owe', () => {
@@ -67,6 +70,26 @@ describe('a line’s seat', () => {
 
   it('leaves out a tier the table has none of', () => {
     expect(seatText({ ...LINE, tier: '' })).toBe('Atrium 1, full table');
+  });
+});
+
+describe('where a line’s number came from', () => {
+  it('is the seat it prices, for a seat held now', () => {
+    expect(lineSource(LINE)).toBe('Atrium 1, Gold, full table');
+  });
+
+  it('says a freed seat was freed, and when', () => {
+    const freed = {
+      ...LINE,
+      freed: true,
+      freedAt: '2026-10-30T12:00:00+00:00',
+      freedBy: 'editor@example.com',
+    };
+    expect(lineSource(freed)).toBe('Atrium 1, Gold, full table - table freed Oct 30, 2026');
+  });
+
+  it('says a freed seat was freed when the day it was is not known', () => {
+    expect(lineSource({ ...LINE, freed: true })).toBe('Atrium 1, Gold, full table - table freed');
   });
 });
 

@@ -52,7 +52,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    - **Payment:** what they owe and what they paid ([payments](../../implementation/data/payments.md)), for the organizers alone (Q20.2).
      Both totals head it, "Owed" and "Paid", with how the two compare: "Owes $27", "Paid in full", "Paid $15 more than owed" (the case where a refund is to be issued by hand), or "Nothing owed".
      Then a line per table-day, its date, table, tier and size, and what is owed for it: the price of the seat they hold that day, following the seat when it moves; a market with no prices reads "No price".
-     A day whose table was freed keeps its line, marked "Table freed", still owed: freeing a table changes neither amount by itself (Daniel, T92 Q26).
+     A day whose table was freed keeps its line, still owed, and says so beside the seat it prices: "Atrium 1, Gold, full table - table freed Oct 30, 2026", so every number says where it came from; freeing a table changes neither amount by itself (Daniel, T92 Q26).
      Then each payment, the last recorded first: its amount, e-transfer or cash, the day it was paid, its note, and who recorded it and when.
      "Record payment", at the end of the Payments heading for whoever the row "Record a payment" allows, opens a dialog of the amount, e-transfer or cash, the day paid (today to begin with) and an optional note; once recorded, the tab reads the account the server answers.
    - **History:** their [assignment history](placing-by-hand.md#j13-assignment-history).

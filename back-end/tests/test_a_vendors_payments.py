@@ -150,6 +150,9 @@ class TestFreeingATable:
         got = account()
         assert owed(got["lines"]) == [(SAT, "Atrium 1", 3500, False), (SUN, "Atrium 1", 3500, True)]
         assert got["lines"][1]["tier"] == "Gold"
+        assert got["lines"][1]["freedBy"] == EDITOR
+        assert got["lines"][1]["freedAt"]
+        assert got["lines"][0]["freedAt"] is None
         assert (got["owedCents"], got["paidCents"]) == (7000, 7000)
 
     def test_a_freed_day_seated_again_follows_its_new_seat(self, market):

@@ -119,12 +119,14 @@ def lines(
     """A vendor's table-day lines, by date, camelCased for the wire.
 
     A day they hold a seat on reads that seat and its price; a day whose seat was freed reads the
-    seat as it was freed, marked so. Either way an amount set by hand is what they owe.
+    seat as it was freed, with who freed it and when, so the line says where its number came from.
+    Either way an amount set by hand is what they owe.
     """
     found = []
     for date in sorted({*seats, *(day for day, doc in kept.items() if doc.get("freed"))}):
         held = seats.get(date)
-        seat = held or Seat(**{key: kept[date]["freed"].get(key)
+        freed = None if held else kept[date]["freed"]
+        seat = held or Seat(**{key: freed.get(key)
                                for key in ("table_code", "tier", "table_choice", "cents")})
         by_hand = (kept.get(date) or {}).get("set_by_hand")
         found.append({
@@ -137,6 +139,8 @@ def lines(
             "owedSetBy": by_hand["by"] if by_hand else None,
             "owedSetAt": by_hand["at"] if by_hand else None,
             "freed": held is None,
+            "freedAt": freed.get("at") if freed else None,
+            "freedBy": freed.get("by") if freed else None,
         })
     return found
 

@@ -8,6 +8,7 @@
  */
 import { api } from '@/utils/api';
 import { formatPrice } from '@/utils/pricing';
+import { getTimestampDate } from '@/utils/utils';
 
 /** How the organizers take a payment (Daniel, T92 Q7), as the server names each. */
 export const PAYMENT_METHODS: readonly { id: PaymentMethod; label: string }[] = [
@@ -31,6 +32,9 @@ export interface PaymentLine {
   owedSetAt: string | null;
   /** The table was freed; the line stays, still owed (Q26). */
   freed: boolean;
+  /** When and by whom it was freed; null for a seat held now. */
+  freedAt: string | null;
+  freedBy: string | null;
 }
 
 export interface Payment {
@@ -89,6 +93,17 @@ export function balanceState(account: VendorAccount): 'owing' | 'settled' | 'ove
 export function seatText(line: PaymentLine): string {
   const size = /half/i.test(line.tableChoice) ? 'half table' : 'full table';
   return [line.tableCode, line.tier.trim(), size].filter(Boolean).join(', ');
+}
+
+/**
+ * Where a line's number came from, under its day: the seat it prices, and for a freed seat that it
+ * was freed and when (Daniel: "from Sunday, now deleted"): "Atrium 1, Gold, full table - table
+ * freed Oct 30, 2026".
+ */
+export function lineSource(line: PaymentLine): string {
+  if (!line.freed) return seatText(line);
+  const when = line.freedAt ? ` ${getTimestampDate(line.freedAt)}` : '';
+  return `${seatText(line)} - table freed${when}`;
 }
 
 export function methodLabel(method: PaymentMethod): string {

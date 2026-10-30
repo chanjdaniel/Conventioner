@@ -157,7 +157,10 @@ test.describe('the Payment tab', () => {
       const tab = await paymentTab(page, marketId);
       const lines = tab.getByTestId('payment-line');
       await expect(lines).toHaveCount(2);
-      await expect(lines.nth(1).getByTestId('payment-line-freed')).toHaveText('Table freed');
+      // The line says where its number came from: the seat, freed, and when.
+      await expect(lines.nth(1).getByTestId('payment-line-source')).toHaveText(
+        /^Atrium 1, Gold, full table - table freed [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+      );
       await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35');
       await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
       await expect(tab.getByTestId('payment-balance')).toHaveText('Paid in full');

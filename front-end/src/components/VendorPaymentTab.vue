@@ -4,8 +4,8 @@
  * recorded, and how the two compare, with both totals at its head.
  *
  * A line per table-day: its seat and what is owed for it, which the pricing calculates and which
- * follows the seat while nobody has set it by hand. A freed table keeps its line, marked, still
- * owed (Daniel, T92 Q26). "Record payment" is offered on the table's row for it; the organizers
+ * follows the seat while nobody has set it by hand. A freed table keeps its line, still owed, and
+ * says it was freed and when, so every number says where it came from (Daniel, T92 Q26). "Record payment" is offered on the table's row for it; the organizers
  * alone read any of this, never the vendor (Q20.2).
  */
 import { computed, ref, watch } from 'vue';
@@ -16,9 +16,9 @@ import {
   balanceState,
   balanceText,
   loadAccount,
+  lineSource,
   methodLabel,
   money,
-  seatText,
   type VendorAccount,
 } from '@/utils/payments';
 
@@ -107,16 +107,14 @@ defineExpose({ reload: load });
             v-for="line in account.lines"
             :key="line.date"
             class="payment-line"
-            :class="{ 'payment-line--freed': line.freed }"
             :data-date="line.date"
             data-testid="payment-line"
           >
             <div class="payment-line-main">
               <span class="payment-line-date">{{ dateLabel(line.date) }}</span>
-              <span class="payment-line-seat">{{ seatText(line) }}</span>
-              <span v-if="line.freed" class="chip chip--neutral" data-testid="payment-line-freed">
-                Table freed
-              </span>
+              <span class="payment-line-seat" data-testid="payment-line-source">{{
+                lineSource(line)
+              }}</span>
             </div>
             <span class="payment-amount" data-testid="payment-line-owed">
               {{ owedText(line.owedCents) }}
@@ -291,19 +289,10 @@ defineExpose({ reload: load });
   overflow-wrap: anywhere;
 }
 
-.payment-line-main .chip {
-  margin-top: var(--space-1);
-}
-
 .payment-amount {
   flex-shrink: 0;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   color: var(--mm-black);
-}
-
-/* Still owed, so the amount stays as it was; only the seat reads as gone. */
-.payment-line--freed .payment-line-seat {
-  text-decoration: line-through;
 }
 </style>

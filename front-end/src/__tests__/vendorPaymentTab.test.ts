@@ -22,13 +22,21 @@ const LINE = {
   owedSetBy: null,
   owedSetAt: null,
   freed: false,
+  freedAt: null,
+  freedBy: null,
 };
 
 const ACCOUNT: VendorAccount = {
   currency: 'CAD',
   lines: [
     { ...LINE, date: '2099-05-07' },
-    { ...LINE, date: '2099-05-08', freed: true },
+    {
+      ...LINE,
+      date: '2099-05-08',
+      freed: true,
+      freedAt: '2099-04-20T12:00:00+00:00',
+      freedBy: 'editor@example.com',
+    },
   ],
   payments: [
     {
@@ -75,13 +83,17 @@ describe('the Payment tab', () => {
     expect(wrapper.get('[data-testid="payment-balance"]').text()).toBe('Owes $35');
   });
 
-  it('keeps a freed table’s line, marked, still owed', async () => {
+  it('keeps a freed table’s line, still owed, saying it was freed and when', async () => {
     const wrapper = await tab(true);
 
     const lines = wrapper.findAll('[data-testid="payment-line"]');
     expect(lines).toHaveLength(2);
-    expect(lines[0].find('[data-testid="payment-line-freed"]').exists()).toBe(false);
-    expect(lines[1].get('[data-testid="payment-line-freed"]').text()).toBe('Table freed');
+    expect(lines[0].get('[data-testid="payment-line-source"]').text()).toBe(
+      'Atrium 1, Gold, full table',
+    );
+    expect(lines[1].get('[data-testid="payment-line-source"]').text()).toBe(
+      'Atrium 1, Gold, full table - table freed Apr 20, 2099',
+    );
     expect(lines[1].get('[data-testid="payment-line-owed"]').text()).toBe('$35');
   });
 
