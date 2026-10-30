@@ -8,7 +8,7 @@
  * focus back. A choice closes it and hands focus back first, so a dialog the choice opens returns
  * focus to the button when it closes.
  */
-import { nextTick, onUnmounted, ref, watch } from 'vue';
+import { nextTick, onUnmounted, ref, useId, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 
 const props = defineProps<{
@@ -76,7 +76,7 @@ function choose(id: string) {
   emit('select', id);
 }
 
-const menuId = `${props.testid}-menu`;
+const menuId = `${props.testid}-${useId()}-menu`;
 </script>
 
 <template>
