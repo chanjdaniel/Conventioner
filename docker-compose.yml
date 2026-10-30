@@ -70,6 +70,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Optional: hosted TypeSafe helps read a Google Form's CSV. Unset means the rules alone.
       - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
+      # Optional: Conventioner's Discord bot, all three or none. Unset means the Discord card says
+      # Discord is not set up. Discord's OAuth2 redirect is FRONTEND_URL + /discord/connected.
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
     # 5001, not Flask's 5000: docs/TESTING.md ("Testing gotchas") says why.
     ports:
       - "127.0.0.1:5001:5001"

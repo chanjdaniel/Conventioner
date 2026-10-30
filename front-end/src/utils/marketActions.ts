@@ -29,6 +29,7 @@ export const MarketAction = {
   UpdateAssignmentOrPriceInfo: 'update-assignment-or-price-info',
   Assign: 'assign',
   CheckIn: 'check-in',
+  ConnectDiscord: 'connect-discord',
   ManageEditorsAndViewers: 'manage-editors-and-viewers',
   ManageAdmins: 'manage-admins',
   DeleteMarket: 'delete-market',

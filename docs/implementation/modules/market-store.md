@@ -55,6 +55,7 @@ Each control asks the row of the action it takes:
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
 | The Assignment tab's Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
 | The Assignment tab's Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| Tools, the Discord card | Connect, Disconnect, and each choice | Connect Discord and give roles |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too |

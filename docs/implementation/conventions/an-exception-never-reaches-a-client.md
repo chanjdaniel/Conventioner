@@ -151,6 +151,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 - Updating a vendor's info refuses with `BadRequestError` (an answer the form refuses, a question it does not ask), `ForbiddenError` (an answer the assignment reads, to whoever the row "Update info the assignment or price reads" refuses, before the answer is judged) and `NotFoundError` (an application not on the market), in [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).
 - `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
 - `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
+- [The Discord connection](../modules/discord.md): `DiscordNotSetUp` is a 503 when the deployment has no Discord values, `DiscordRefused` a 400, and `DiscordUnavailable` a 502 for a 401 from Discord (the deployment's settings), a 429, a 5xx or an unreachable host, each in Conventioner's words and never Discord's.
 
 What stays a builtin is a bug if it escapes: the room with neither walls nor a size (the route refuses that first), `normalized_submitted_at`'s refusal (every caller catches it), and the applications API's verdict without a giver, its index error and its upsert that keeps losing a race.
 

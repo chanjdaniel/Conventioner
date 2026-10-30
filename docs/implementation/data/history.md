@@ -25,6 +25,7 @@ sources:
   - E38/F04/S02
   - E40/F02/S01
   - E38/F06/S01
+  - E46/F01/S02
 ---
 
 # The market's history
@@ -97,6 +98,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |
 | `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
 | `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here | the vendor | `date` | `checked_in`, and `via: check_in_page` from the public page, whose actor is null |
+| `connect-discord` | `discord_connected`, `discord`, `discord_disconnected` | [the Discord card](../modules/discord.md): connecting, a choice, disconnecting | - | - | whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question` and `invite_link` changed |
 | `manage-editors-and-viewers`, or `manage-admins` when an Admin or Owner role is either side | `role_given`, `role_changed`, `role_taken` | Manage market's people | - | `user_id`, `email` | `role` |
 | `change-the-table` | `permission_set`, `permission_reset` | the market's owner setting a row of [its table](../modules/market-actions.md#a-markets-own-rows), or returning it to its built-in default | - | `action`: the row | `role` and `source` (`built-in`, `organization` or `market`), both always, so a reset that keeps the role still says it |
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
@@ -123,7 +125,7 @@ None names a vendor.
 
 No rule is a person, so a rule's verdict is never an entry of its own: the write that judged counts what the rules did in its own entry, as the form, the rules, an applicant's save and an import (`rejected_by_rules`, `returned_by_rules`) do, and a move counts the offers it swept.
 
-Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
+Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved; and starting Discord's approval screen, which keeps a state in the person's session and nothing on the market.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
 **Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.

@@ -38,6 +38,14 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
+  discord?: {
+    guildId?: string;
+    guildName?: string;
+    inviteLink?: string;
+    roleId?: string;
+    roleName?: string;
+    usernameQuestion?: string;
+  };
   exampleColumns?: {
     headers?: string[];
     helpText?: string;

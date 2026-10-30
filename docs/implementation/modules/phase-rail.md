@@ -81,7 +81,7 @@ An address chip is the one flexible part of the row: it drops the scheme every a
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
-**The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
+**The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself and its actions wrap onto a second line, so a draft's three (Pick market dates, Open Applications, More) stay inside the window; see [the design language](../../design-system.md#layout).
 While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
 Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
 
