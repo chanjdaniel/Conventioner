@@ -13,7 +13,8 @@ describes:
   - back-end/utils/identity.py
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_changing_a_verdict_is_its_own_row.py
-verified: 2026-10-30
+  - back-end/tests/test_a_chosen_reviewer_decides.py
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -31,11 +32,13 @@ sources:
   - E40/F01/S03
   - E38/F06/S01
   - E39/F02/S01
+  - E38/F07/S03
 ---
 
 # What each role may do
 
 A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights and the automatic rejections, gives verdicts, updates a vendor's info, and checks vendors in; an Admin or the owner also changes a verdict already given, overturns an automatic rejection, moves the phase, stops or resumes taking applications, publishes results, imports applications and starts the market from a CSV.
+A reviewer chosen for the review decides any application whatever their role; who may be chosen is the table's row.
 Each screen offers each person only what their role lets them do, and the server decides it.
 **Every check reads one table**: each action is a row saying the lowest role that may take it, and the roles below are the rows' built-in defaults ([the market's actions](../../implementation/modules/market-actions.md)).
 **A market's owner may change its rows, and only its owner**: each row's role on that market, or back to its default; fixed rows (reading the market, managing admins, deleting it, and changing the table itself) change for nobody, and every change is recorded with who made it and when ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)).
@@ -51,6 +54,8 @@ An Editor works on the market (the plan, the seats, the review) but takes none o
 A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdict records who gave it.
 **Changing one is an Admin's** (E38/F06/S01, the 2026-10-29 walk): a verdict is approved or rejected, and once given, turning it into the other, sending it back to needs follow-up, or overturning an automatic rejection undoes a decision someone already made, so it is the row "Change a verdict, or overturn an automatic rejection", default Admin.
 Deciding a follow-up, approved or rejected, is giving a verdict, not changing one.
+**Being chosen as a reviewer lets a Viewer decide** (E38/F07/S03): an Admin or the owner could not put a volunteer or a helper from the organization to work on the review without making them an Editor, a role that also changes the plan, the seats and the notes.
+Being chosen is per review and lost when removed, so it is a privilege of the table rather than a role ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): who may be chosen is the row "Be chosen as a reviewer, and then give verdicts and follow-ups", default Viewer, and the owner raising it to Editor takes the privilege from the chosen Viewers on that market.
 An organization's admins run its markets ([the decision of 2026-10-20](../../records/DECISION_2026-10-20.md)): the admin running a market on the day could read every seat and swap none, because membership gave only Viewer, and giving each admin a role on each market by hand was a step nobody knew to take.
 
 ## Who may
@@ -61,6 +66,10 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), check-ins at the door |
 | Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md), [updating an answer the assignment reads](an-update-is-kept-beside-the-vendors-answer.md#who-may); manage editors and viewers; connect the market to Discord and choose its role ([the Discord connection](../../implementation/modules/discord.md)) |
 | Owner | everything an Admin may, and manage admins, and delete the market |
+
+**A chosen reviewer gives verdicts and follow-ups whatever their role**, as long as their role reaches the row "Be chosen as a reviewer, and then give verdicts and follow-ups" (default Viewer): a chosen Viewer approves, rejects and marks follow-ups on any application, hands a follow-up on, and is handed cards in One by one, as an Editor is.
+They change no verdict already given (the change row stays on top of the giving row), and write no vendor notes, so marking a follow-up offers them no notes box.
+A Viewer who is not chosen reads the review and decides nothing.
 
 Whoever creates a market is its owner, and a market has exactly one.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
@@ -107,6 +116,12 @@ See [the organization document](../../implementation/data/organization-document.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).
   So a change takes both rows (the change row is asked on top of the giving row, `on_top_of`): with the change row set below the giving row, someone the giving row refuses still changes nothing and overturns nothing, by a verdict or by any write that judges the rules again, and is told the giving row's words.
   [`back-end/tests/test_changing_a_verdict_is_its_own_row.py`](../../../back-end/tests/test_changing_a_verdict_is_its_own_row.py) pins each role and each move, and a market whose owner moved the row.
+- **Being chosen passes the giving row, in the actions module alone** (E38/F07/S03): `refusal` and `role_refusal` answer None for "Give verdicts and follow-ups" to someone the row refuses who is a chosen reviewer (`is_chosen`, by address, off the market's `reviewTeam`) and whose role reaches `review-when-chosen`.
+  A write reads it off the market; the market read passes it once, so `actionRefusals`, `readOnlyReason` and `peopleOnMarket` let a chosen Viewer in, and every review write (`_reviewer_on`) does, with no role named anywhere else.
+  The change row, asked on top, still refuses them in its own words.
+  `may_be_chosen` asks the same row of someone known by id (`market_role_of` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py)): the reviewers the chooser is offered and which chosen reviewers are still able, dealt to and served `able`.
+  The row changes nothing itself, so holding it alone still reads as read-only (`CHANGING_NOTHING`), and the history's kind filter leaves it out, since nothing is recorded under it.
+  [`back-end/tests/test_a_chosen_reviewer_decides.py`](../../../back-end/tests/test_a_chosen_reviewer_decides.py) pins each review write for the owner, an Admin, an Editor, a Viewer and an organization member, chosen and not, the review's close and an archive, and the row raised to Editor.
 - A follow-up's owner is anyone with a role on the market by this rule, explicit or through its organization, members included ([needs follow-up](needs-follow-up.md)).
 
 ## Superseded
@@ -115,4 +130,5 @@ Verdicts were an admin action, served on a reason that also stood for moving the
 One row covered giving a verdict and changing one, so an Editor could turn an approval into a rejection or overturn an automatic rejection as freely as they gave a first verdict; changing one became its own row, default Admin (E38/F06/S01).
 The screens read five role-shaped reasons, each standing for several rows, and Manage market and the markets list compared the person's role; each screen now asks its own row's answer (E39/F01/S02).
 Every market answered by the built-in table alike; a market now keeps the rows its owner changed (E39/F01/S03).
+A Viewer decided nothing, so putting a helper to work on the review meant making them an Editor; being chosen as a reviewer now lets them decide (E38/F07/S03).
 Organization membership gave only Viewer on its markets, even to its owner and admins, and a role on the market replaced the organization's rather than adding to it; an organization's owner and admins became Admin, and the higher role counts (T15, decision/2026-10-20).

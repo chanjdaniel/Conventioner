@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import { signedInEmail } from '@/utils/signedIn';
 import { saveVendorNote } from '@/utils/vendorNotes';
+import { MarketAction, mayTake } from '@/utils/marketActions';
 
 /** What became of a verdict: written, refused because it changed since it was seen, or failed. */
 export type VerdictOutcome =
@@ -32,6 +33,10 @@ export function useVerdictActions(
   /** A follow-up's possible owners, as the server serves them to this reviewer (T15): everyone
    *  with a role on the market if they are in its organization, its own roles if not. */
   const people = computed(() => market.value?.peopleOnMarket ?? []);
+
+  /** Whether this reviewer may write the vendor's notes, and so is offered "Their notes" when
+   *  marking a follow-up: a chosen Viewer gives verdicts but writes no notes (E38/F07/S03). */
+  const writesNotes = computed(() => mayTake(market.value, MarketAction.WriteVendorNotes));
 
   /**
    * Take an application the server answered with, merged over what the list holds: a single
@@ -68,16 +73,17 @@ export function useVerdictActions(
 
   /**
    * Mark a follow-up: the note first, when the reviewer changed it - it is the vendor's notes, so
-   * what was there is edited, never written over by an empty box - then the status.
+   * what was there is edited, never written over by an empty box - then the status. With no note
+   * (the dialog offered no box: `writesNotes`), only the status.
    */
   async function markFollowUp(
     app: Application,
-    { ownerEmail, note }: { ownerEmail: string; note: string },
+    { ownerEmail, note }: { ownerEmail: string; note?: string },
     noteBefore: string,
   ): Promise<VerdictOutcome> {
     const marketId = market.value?.id;
     if (!marketId) return { kind: 'failed', message: 'No market is open.' };
-    if (note !== noteBefore.trim()) {
+    if (note !== undefined && writesNotes.value && note !== noteBefore.trim()) {
       try {
         await saveVendorNote(marketId, app.applicantEmail, note);
       } catch (err) {
@@ -91,5 +97,5 @@ export function useVerdictActions(
     );
   }
 
-  return { me, people, adopt, give, markFollowUp };
+  return { me, people, writesNotes, adopt, give, markFollowUp };
 }

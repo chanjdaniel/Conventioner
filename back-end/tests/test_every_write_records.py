@@ -677,6 +677,9 @@ NOT_RECORDED = {
         "the history goes with the market; its organization's history records it",
     Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO.id:
         "asked beside Update a vendor's info by the same write, which records it under that row",
+    Actions.REVIEW_WHEN_CHOSEN.id:
+        "who may be chosen changes nothing; a chosen reviewer's verdict is recorded under the "
+        "giving row, and the choice under Choose reviewers",
 }
 
 

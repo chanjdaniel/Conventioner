@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 import api.permissions as PermissionsApi
 from datatypes import Market, MarketPermission, MarketRole, Organization
+from utils.email_address import normalized_email
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,13 @@ CHANGE_VERDICTS = action(
 CHOOSE_REVIEWERS = action(
     "choose-reviewers", "Applications", "Choose reviewers", MarketRole.ADMIN,
     "choose this market's reviewers")
+#: Whose role may be chosen as a reviewer (E38/F07/S03, ADR 0020). Being chosen is a privilege of
+#: this table: an eligible chosen reviewer takes ``GIVE_VERDICTS`` whatever that row asks of their
+#: role, so a chosen Viewer decides; raising this row takes the privilege back.
+REVIEW_WHEN_CHOSEN = action(
+    "review-when-chosen", "Applications",
+    "Be chosen as a reviewer, and then give verdicts and follow-ups", MarketRole.VIEWER,
+    "be chosen as a reviewer on this market")
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(
@@ -288,7 +296,9 @@ def refusal(
 
     The row asks the market's role for it (``minimum_role``). The person's role is the one
     ``get_user_market_role`` resolves: the market's own and the one its organization gives, the
-    higher counting. A row asked on top of another asks that one first, in its own words.
+    higher counting. A row asked on top of another asks that one first, in its own words. The
+    giving row also lets in a chosen reviewer whose role reaches ``REVIEW_WHEN_CHOSEN``, read off
+    the market's team by address (``is_chosen``).
     """
     if row.on_top_of is not None:
         under = refusal(row.on_top_of, user_email, market, organization)
@@ -297,26 +307,53 @@ def refusal(
     required = minimum_role(row, market)
     if PermissionsApi.user_has_permission(user_email, market, required, organization):
         return None
+    if row is GIVE_VERDICTS and is_chosen(user_email, market) and PermissionsApi.user_has_permission(
+            user_email, market, minimum_role(REVIEW_WHEN_CHOSEN, market), organization):
+        return None
     return refusal_sentence(row, required)
 
 
 def role_refusal(
-    row: Action, role: Optional[MarketRole], rows: Mapping[str, Any],
+    row: Action, role: Optional[MarketRole], rows: Mapping[str, Any], chosen: bool = False,
 ) -> Optional[str]:
     """``refusal`` for a role already resolved, on a market holding ``rows``: the market read
     resolves the person's role once and asks every row of it, and the markets list resolves each
     entry's role from the documents it holds (``_summary_role``) and passes the document's stored
     rows; each asks the row of that rather than resolving it again. A row asked on top of another
-    asks that one first, as ``refusal`` does.
+    asks that one first, as ``refusal`` does. ``chosen`` says whether the person is one of the
+    market's chosen reviewers, which lets them take the giving row as ``refusal`` does.
     """
     if row.on_top_of is not None:
-        under = role_refusal(row.on_top_of, role, rows)
+        under = role_refusal(row.on_top_of, role, rows, chosen)
         if under:
             return under
     required = _minimum_role_of(row, rows)
     if PermissionsApi.role_reaches(role, required):
         return None
+    if row is GIVE_VERDICTS and chosen and PermissionsApi.role_reaches(
+            role, _minimum_role_of(REVIEW_WHEN_CHOSEN, rows)):
+        return None
     return refusal_sentence(row, required)
+
+
+def is_chosen(user_email: str, market: Market) -> bool:
+    """Whether this person is one of the market's chosen reviewers, by address (ADR 0020). Being
+    chosen lets them take the giving row only while their role reaches ``REVIEW_WHEN_CHOSEN``."""
+    address = normalized_email(user_email)
+    team = market.review_team
+    return bool(address) and team is not None and any(
+        normalized_email(person.email) == address for person in team.reviewers)
+
+
+def may_be_chosen(
+    user_id: Optional[str], market: Market, organization: Optional[Organization],
+) -> bool:
+    """Whether the person with this id holds a role on this market that ``REVIEW_WHEN_CHOSEN``
+    lets be chosen as a reviewer here: who the chooser is offered, and which chosen reviewers are
+    still dealt applications and decide them (E38/F07/S03)."""
+    return PermissionsApi.role_reaches(
+        PermissionsApi.market_role_of(user_id, market, organization),
+        minimum_role(REVIEW_WHEN_CHOSEN, market))
 
 
 def may(

@@ -424,7 +424,7 @@ function next() {
 const followUpOpen = ref(false);
 const followUpError = ref('');
 
-async function markFollowUp(choice: { ownerEmail: string; note: string }) {
+async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const app = current.value;
   if (!app || saving.value) return;
   followUpError.value = '';
@@ -768,6 +768,7 @@ function submittedOn(app: Application): string {
         :people="people"
         :me="me"
         :note="current ? (entryFor(current.applicantEmail)?.note ?? '') : ''"
+        :writesNotes="writesNotes"
         :error="followUpError"
         @close="followUpOpen = false"
         @confirm="markFollowUp"

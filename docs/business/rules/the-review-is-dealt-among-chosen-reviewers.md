@@ -44,7 +44,7 @@ A decided application stays with whoever had it, as the record of whose share it
 A follow-up handed to someone who was never a reviewer stays theirs.
 Saving the same people again changes nothing and records nothing; choosing no one returns every open application to first come, first served, and leaves every follow-up with its owner.
 
-**A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone.
+**A chosen reviewer who no longer holds a role on the market can no longer review here**: their role taken in Manage market, or their place in the organization gone, or their role one the table's row "Be chosen as a reviewer, and then give verdicts and follow-ups" no longer reaches.
 Every deal skips them, the panel marks them "Can no longer review here", and their share stays theirs until an Admin removes them, which deals it again as any removal does; nothing removes them silently.
 With nobody able, nothing is dealt.
 
@@ -54,7 +54,11 @@ With nobody able, nothing is dealt.
 
 Choosing is the row "Choose reviewers" of [what each role may do](what-each-role-may-do.md) (default Admin), open from draft through the stage where applications are reviewed, and refused once the review has closed on entering Assignment ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)) and on [an archived market](an-archived-market-is-read-only.md).
 A reviewer is chosen from the people the chooser may hand a follow-up to ([needs follow-up](needs-follow-up.md)): everyone with a role on the market to someone in its organization, and only the people the market's roles name to anyone else, so the organization's addresses never reach someone outside it.
+Only those whose role reaches the row "Be chosen as a reviewer, and then give verdicts and follow-ups" (default Viewer, so anyone with a role) are offered.
 Anyone else's address is refused by name; a current reviewer the chooser is not offered may stay.
+
+**A chosen reviewer decides, whatever their role** (E38/F07/S03): being chosen lets them take the row "Give verdicts and follow-ups", so a chosen Viewer approves, rejects and marks follow-ups on any application, as an Editor does, and changes no verdict already given, which stays the change row's ([what each role may do](what-each-role-may-do.md)).
+The owner raising who may be chosen to Editor takes it from the chosen Viewers on that market; a Viewer who is not chosen reads the review and decides nothing.
 
 ## Where it is kept
 

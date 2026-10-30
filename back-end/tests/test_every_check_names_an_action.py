@@ -25,8 +25,8 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row and E38/F07/S02's
-#: reviewers row, and without the form amendment's, which E38/F04 removed (the amendment's walk is
+#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row and E38/F07's
+#: reviewers rows, and without the form amendment's, which E38/F04 removed (the amendment's walk is
 #: gone): (id, group, label, default, fixed).
 THE_TABLE = [
     ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance "
@@ -44,6 +44,8 @@ THE_TABLE = [
     ("change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
      MarketRole.ADMIN, False),
     ("choose-reviewers", "Applications", "Choose reviewers", MarketRole.ADMIN, False),
+    ("review-when-chosen", "Applications",
+     "Be chosen as a reviewer, and then give verdicts and follow-ups", MarketRole.VIEWER, False),
     ("move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, False),
     ("stop-applications", "Lifecycle", "Stop taking applications, and take them again",
      MarketRole.ADMIN, False),
@@ -235,7 +237,7 @@ def test_the_market_read_asks_the_read_row(monkeypatch):
     asked = []
     monkeypatch.setattr(MarketsApi.PermissionsApi, "get_user_market_role", lambda *_a, **_k: None)
     monkeypatch.setattr(
-        Actions, "role_refusal", lambda action, _role, _rows: asked.append(action) or "No.")
+        Actions, "role_refusal", lambda action, *_asked: asked.append(action) or "No.")
     monkeypatch.setattr(MarketsApi, "load_market_context", lambda _id: SimpleNamespace(
         market=client_market(), document={}, organization=None, organization_dict=None))
 

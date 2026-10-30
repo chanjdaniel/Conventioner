@@ -5,6 +5,7 @@ describes:
   - back-end/api/market_actions.py
   - back-end/api/permissions.py#user_has_permission
   - back-end/api/permissions.py#role_reaches
+  - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
@@ -17,7 +18,8 @@ describes:
   - back-end/api/markets.py#copy_organization_default
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_the_organizations_default.py
-verified: 2026-10-30
+  - back-end/tests/test_a_chosen_reviewer_decides.py
+verified: 2026-10-31
 sources:
   - E39
   - E39/F01/S01
@@ -33,6 +35,7 @@ sources:
   - E41/F01/S02
   - E38/F06/S01
   - E38/F07/S02
+  - E38/F07/S03
   - E46/F01/S02
 ---
 
@@ -52,7 +55,13 @@ A market keeps the rows it differs on, and its owner changes them (E39/F01/S03, 
 **One question answers every check**: `refusal(row, user_email, market, organization)` is None when the person may, or the row's sentence when they may not; `may(...)` is the same as a bool.
 The row asks the role `minimum_role(row, market)` gives: the market's own row where it holds one, else the row's default (below).
 The person's role is the one `get_user_market_role` resolves (the market's own and the one its organization gives, the higher counting, [the organization document](../data/organization-document.md#what-a-person-may-do-on-a-market)), and `refusal` ranks it through `user_has_permission` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py), which nothing else calls.
-`role_refusal(row, role, rows)` asks a row of a role already resolved, on a market holding `rows`, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`) and passes the document's stored rows; both rank through `role_reaches`, the one ranking.
+`role_refusal(row, role, rows, chosen)` asks a row of a role already resolved, on a market holding `rows`, for the market read, which resolves the person's role once, and the markets list, which resolves each entry's role from the documents it holds (`_summary_role`) and passes the document's stored rows; both rank through `role_reaches`, the one ranking.
+
+**Being chosen as a reviewer passes the giving row** (E38/F07/S03, [ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)): `refusal` and `role_refusal` answer None for `give-verdicts` to someone its role refuses when they are a chosen reviewer and their role reaches `review-when-chosen`.
+`refusal` reads it off the market's team by address (`is_chosen`); `role_refusal` takes it as `chosen`, which the market read passes once (the markets list passes none, since no card asks the giving row).
+A row on top of the giving row asks it with the same `chosen`, so a chosen Viewer is refused a change of verdict in the change row's own words.
+[`back-end/tests/test_a_chosen_reviewer_decides.py`](../../../back-end/tests/test_a_chosen_reviewer_decides.py) pins every review write for each role, chosen and not, and the row raised.
+`may_be_chosen(user_id, market, organization)` asks `review-when-chosen` of someone known by id, their role resolved by `market_role_of` in [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) with the organization already loaded: whom the chooser is offered (`reviewer_candidate_ids`, `reviewerCandidates`) and which chosen reviewers are still able (`review_team.eligible`).
 
 **A refusal is a sentence naming who may**: `refusal_sentence(row, required)` is "Only <who> may <may_what>.", <who> naming `required`, the role the row asks on the market refusing (its default when not given): "someone who holds a role", "an Editor, an Admin or the owner", "an Admin or the owner" or "the market's owner".
 So with "Check vendors in" set to Admin on a market, an Editor there is told "Only an Admin or the owner may check vendors in at this market."
@@ -79,9 +88,10 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
 | Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
-| Give verdicts and follow-ups (`give-verdicts`) | Editor | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers; on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason` |
+| Give verdicts and follow-ups (`give-verdicts`) | Editor, or a chosen reviewer the row below lets be chosen | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers; on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason` |
 | Change a verdict, or overturn an automatic rejection (`change-verdicts`) | Admin | on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`); and whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import); on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer; the form tab's and the import's lines name who may by the row's role (`whoMayTake`) |
 | Choose reviewers (`choose-reviewers`) | Admin | `PUT /markets/:id/reviewers` (`choose_reviewers`, E38/F07/S02), and whom the market read offers as `reviewerCandidates` while the review is open; on screen, the Reviewers panel's Choose or Change reviewers shows by its answer ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)) |
+| Be chosen as a reviewer, and then give verdicts and follow-ups (`review-when-chosen`) | Viewer | under the giving row's checks, for a chosen reviewer (`refusal`, `role_refusal`); `may_be_chosen`: whom `PUT /markets/:id/reviewers` takes and the market read offers as `reviewerCandidates`, and which chosen reviewers are dealt to and served `able` (E38/F07/S03); nothing is recorded under it, so the history's kind filter leaves it out (`history_groups`) |
 | Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
 | Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results`; on screen, the Applications page draws Publish Results by its answer |
@@ -142,9 +152,9 @@ It sets and unsets exactly the rows that change, so a row this build cannot read
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
 `ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
-The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04).
+The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04); it does not ask whether the person is a chosen reviewer, so a chosen Viewer's card says the giving row refuses them, which no card reads.
 
-**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
+**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`, and neither does `review-when-chosen` by itself, `CHANGING_NOTHING`; a chosen reviewer's giving row does), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
 The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".

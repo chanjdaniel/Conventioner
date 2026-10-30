@@ -136,7 +136,7 @@ const verdicts = useVerdictActions(
   computed(() => props.market),
   applications,
 );
-const { me, people } = verdicts;
+const { me, people, writesNotes } = verdicts;
 
 function setQuery(change: Record<string, string | null>) {
   const query: LocationQuery = { ...route.query };
@@ -242,7 +242,7 @@ async function give(status: ApplicationStatus) {
   }
 }
 
-async function markFollowUp(choice: { ownerEmail: string; note: string }) {
+async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const app = opened.value;
   if (!app || saving.value) return;
   saving.value = true;
@@ -665,6 +665,7 @@ async function decideSelection() {
       :people="people"
       :me="me"
       :note="noteBefore"
+      :writesNotes="writesNotes"
       :error="followUpError"
       @close="followUpOpen = false"
       @confirm="markFollowUp"

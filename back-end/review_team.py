@@ -31,7 +31,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.organizations as OrgsApi
-import api.permissions as PermissionsApi
 import history as History
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from client_errors import ConflictError
@@ -89,9 +88,10 @@ def _addresses(people: List[MarketPerson]) -> List[str]:
 
 
 def eligible(market: Market, organization: Optional[Organization]) -> List[MarketPerson]:
-    """The chosen reviewers who may still review here: those who still hold a role on the market."""
-    holding = set(PermissionsApi.people_with_market_role(market, organization))
-    return [person for person in team_of(market).reviewers if person.user_id in holding]
+    """The chosen reviewers who may still review here: those who still hold a role on the market
+    that the table's ``review-when-chosen`` row lets be chosen (``Actions.may_be_chosen``)."""
+    return [person for person in team_of(market).reviewers
+            if Actions.may_be_chosen(person.user_id, market, organization)]
 
 
 def served(
@@ -271,10 +271,11 @@ def _deal_arriving(market: Market, organization: Optional[Organization], deal: s
     undealt. Records one entry per write they arrived by, under its action and actor."""
     stored = markets_collection.find_one({"id": market.id}) or {}
     team = _team_of_document(stored)
-    # The roles as they stand now, read with the turn: someone whose role was taken is skipped.
-    holding = set(PermissionsApi.people_with_market_role(
-        market_from_document(stored) if stored else market, organization))
-    able = [person for person in team.reviewers if person.user_id in holding]
+    # The roles and the table as they stand now, read with the turn: someone whose role was taken,
+    # or whose role the table no longer lets be chosen, is skipped.
+    now = (market_from_document(stored) if stored else market).model_copy(
+        update={"review_team": team})
+    able = eligible(now, organization)
     turn = team.turn
     dealt: List[Tuple[Dict[str, Any], MarketPerson]] = []
     for doc in ApplicationsApi.arriving_in_arrival_order(market.id):

@@ -126,6 +126,9 @@ ROW_WRITES = {
     "change-verdicts": ("put", "/markets/market-123/applications/app-1/review",
                         {"status": "reviewer_approved"}),
     "choose-reviewers": ("put", "/markets/market-123/reviewers", {"reviewers": []}),
+    # A chosen reviewer takes this row through the giving row's write: a verdict.
+    "review-when-chosen": ("put", "/markets/market-123/applications/app-1/review",
+                           {"status": "reviewer_rejected"}),
     "move-phase": ("post", "/markets/market-123/transition", {"toPhase": "draft"}),
     "stop-applications": ("post", "/markets/market-123/applications-stopped", {"stopped": True}),
     "publish-results": ("post", "/markets/market-123/publish-results", {}),
