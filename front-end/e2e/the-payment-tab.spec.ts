@@ -27,7 +27,7 @@ const PLAN = {
   tiers: [GOLD, SILVER],
   locations: [{ name: 'Main Hall' }],
   sections: [
-    { name: 'Atrium', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
+    { name: 'North Wing', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
     { name: 'Landing', location: { name: 'Main Hall' }, tier: SILVER, count: 2 },
   ],
   assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
@@ -63,7 +63,7 @@ async function aliceOnTwoGoldDays(request: APIRequestContext): Promise<string> {
   const marketId = seed.marketId;
   mongoEval(
     `db.applications.updateMany({ market_id: ${JSON.stringify(marketId)} },
-      { $set: { 'form_data.essential_section_ranking': ['Atrium', 'Landing'] } })`,
+      { $set: { 'form_data.essential_section_ranking': ['North Wing', 'Landing'] } })`,
   );
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
   for (const [user, role] of [
@@ -79,7 +79,7 @@ async function aliceOnTwoGoldDays(request: APIRequestContext): Promise<string> {
     await call(request, 'put', `/markets/${marketId}/placements`, {
       email: ALICE,
       date,
-      table_code: 'Atrium 1',
+      table_code: 'North Wing 1',
       table_choice: 'Full Table',
     });
   }
@@ -122,7 +122,7 @@ test.describe('the Payment tab', () => {
       const tab = await paymentTab(page, marketId);
       const lines = tab.getByTestId('payment-line');
       await expect(lines).toHaveCount(2);
-      await expect(lines.nth(0)).toContainText('Atrium 1, Gold, full table');
+      await expect(lines.nth(0)).toContainText('North Wing 1, Gold, full table');
       await expect(lines.nth(0).getByTestId('payment-line-owed')).toHaveText('$35');
       await expect(tab.getByTestId('payment-owed')).toHaveText('$70');
       await expect(tab.getByTestId('payment-paid')).toHaveText('$0');
@@ -159,7 +159,7 @@ test.describe('the Payment tab', () => {
       await expect(lines).toHaveCount(2);
       // The line says where its number came from: the seat, freed, and when.
       await expect(lines.nth(1).getByTestId('payment-line-source')).toHaveText(
-        /^Atrium 1, Gold, full table - table freed [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+        /^North Wing 1, Gold, full table - table freed [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
       );
       await expect(lines.nth(1).getByTestId('payment-line-owed')).toHaveText('$35');
       await expect(tab.getByTestId('payment-owed')).toHaveText('$70');

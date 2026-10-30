@@ -102,8 +102,8 @@ export function balanceState(account: VendorAccount): 'owing' | 'settled' | 'ove
   return balance > 0 ? 'owing' : balance < 0 ? 'overpaid' : 'settled';
 }
 
-/** A line's seat as it reads: "Atrium 1, Gold, full table", and the price group that set its price
- * where the card has groups, as the date card names it: "…, UBC student + club member". */
+/** A line's seat as it reads: "North Wing 1, Gold, full table", and the price group that set its price
+ * where the card has groups, as the date card names it: "…, Example College student + club member". */
 export function seatText(line: PaymentLine): string {
   const size = /half/i.test(line.tableChoice) ? 'half table' : 'full table';
   return [line.tableCode, line.tier.trim(), size, line.group ?? ''].filter(Boolean).join(', ');
@@ -111,7 +111,7 @@ export function seatText(line: PaymentLine): string {
 
 /**
  * Where a line's number came from, under its day: the seat it prices, and for a freed seat that it
- * was freed and when (Daniel: "from Sunday, now deleted"): "Atrium 1, Gold, full table - table
+ * was freed and when (Daniel: "from Sunday, now deleted"): "North Wing 1, Gold, full table - table
  * freed" and "Oct 30, 2026", the day apart so the screen keeps it on one line.
  */
 export function lineSource(line: PaymentLine): { text: string; freedOn: string | null } {

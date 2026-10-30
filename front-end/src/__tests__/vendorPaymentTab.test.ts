@@ -14,7 +14,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
 });
 
 const LINE = {
-  tableCode: 'Atrium 1',
+  tableCode: 'North Wing 1',
   tier: 'Gold',
   tableChoice: 'Full Table',
   priceCents: 3500,
@@ -98,10 +98,10 @@ describe('the Payment tab', () => {
     const lines = wrapper.findAll('[data-testid="payment-line"]');
     expect(lines).toHaveLength(2);
     expect(lines[0].get('[data-testid="payment-line-source"]').text()).toBe(
-      'Atrium 1, Gold, full table',
+      'North Wing 1, Gold, full table',
     );
     expect(lines[1].get('[data-testid="payment-line-source"]').text()).toBe(
-      'Atrium 1, Gold, full table - table freed Apr 20, 2099',
+      'North Wing 1, Gold, full table - table freed Apr 20, 2099',
     );
     expect(lines[1].get('[data-testid="payment-line-owed"]').text()).toBe('$35');
   });

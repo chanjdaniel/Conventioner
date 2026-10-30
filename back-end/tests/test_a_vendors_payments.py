@@ -33,7 +33,7 @@ PLAN = {
     "tiers": [{"id": 1, "name": "Gold"}, {"id": 2, "name": "Silver"}],
     "locations": [{"name": "Main Hall"}],
     "sections": [
-        {"name": "Atrium", "location": {"name": "Main Hall"}, "tier": {"id": 1, "name": "Gold"},
+        {"name": "North Wing", "location": {"name": "Main Hall"}, "tier": {"id": 1, "name": "Gold"},
          "count": 2},
         {"name": "Landing", "location": {"name": "Main Hall"},
          "tier": {"id": 2, "name": "Silver"}, "count": 2},
@@ -70,7 +70,7 @@ def market(monkeypatch, applications):
                              "application_type": "main"})
     for date in (SAT, SUN):
         PlacementsApi.write_placement(
-            MARKET, {"email": ANA, "date": date, "table_code": "Atrium 1",
+            MARKET, {"email": ANA, "date": date, "table_code": "North Wing 1",
                      "table_choice": "Full Table"}, EDITOR)
     return live
 
@@ -98,7 +98,7 @@ class TestTheAmountOwed:
     def test_two_gold_full_days_owe_seventy_dollars(self, market):
         got = account()
 
-        assert owed(got["lines"]) == [(SAT, "Atrium 1", 3500, False), (SUN, "Atrium 1", 3500, False)]
+        assert owed(got["lines"]) == [(SAT, "North Wing 1", 3500, False), (SUN, "North Wing 1", 3500, False)]
         assert got["lines"][0]["tier"] == "Gold"
         assert got["lines"][0]["tableChoice"] == "Full Table"
         assert got["lines"][0]["group"] is None
@@ -134,18 +134,18 @@ class TestTheAmountOwed:
     ):
         """E43/F01/S02: the line is priced as the date card is, by the groups their answers put
         them in."""
-        from test_price_groups import FIELDS, STUDENT, UBC_TABLE
+        from test_price_groups import FIELDS, STUDENT, EXAMPLE_TABLE
 
         market.doc["applicationForm"] = {"fields": FIELDS}
-        market.doc["setupObject"]["pricing"] = copy.deepcopy(UBC_TABLE)
+        market.doc["setupObject"]["pricing"] = copy.deepcopy(EXAMPLE_TABLE)
         applications.documents[0]["form_data"] = {"affiliation": [STUDENT], "clubs": ["Art Club"]}
 
         got = account()
 
         assert [(line["owedCents"], line["group"]) for line in got["lines"]] == [
-            (1200, "UBC student + club member"), (1200, "UBC student + club member")]
+            (1200, "Example College student + club member"), (1200, "Example College student + club member")]
         PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
-        assert account()["lines"][1]["group"] == "UBC student + club member"
+        assert account()["lines"][1]["group"] == "Example College student + club member"
 
     def test_a_market_with_no_prices_owes_nothing_and_says_so(self, market):
         market.doc["setupObject"]["pricing"] = None
@@ -167,7 +167,7 @@ class TestFreeingATable:
         PlacementsApi.remove_placement(MARKET, ANA, SUN, EDITOR)
 
         got = account()
-        assert owed(got["lines"]) == [(SAT, "Atrium 1", 3500, False), (SUN, "Atrium 1", 3500, True)]
+        assert owed(got["lines"]) == [(SAT, "North Wing 1", 3500, False), (SUN, "North Wing 1", 3500, True)]
         assert got["lines"][1]["tier"] == "Gold"
         assert got["lines"][1]["freedBy"] == EDITOR
         assert got["lines"][1]["freedAt"]
@@ -219,7 +219,7 @@ class TestFreeingATable:
         assert status == 200
         kept = {doc["date"]: doc["freed"] for doc in stores.owed.documents}
         assert kept[SUN] is None and kept[SAT]
-        assert owed(account()["lines"]) == [(SAT, "Atrium 1", 3500, True),
+        assert owed(account()["lines"]) == [(SAT, "North Wing 1", 3500, True),
                                             (SUN, "Landing 1", 3000, False)]
 
     def test_freeing_a_seat_nobody_holds_keeps_no_line(self, market, stores):

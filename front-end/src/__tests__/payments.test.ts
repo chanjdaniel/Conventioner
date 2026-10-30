@@ -23,7 +23,7 @@ function account(owedCents: number, paidCents: number, currency: string | null =
 
 const LINE: PaymentLine = {
   date: '2099-05-07',
-  tableCode: 'Atrium 1',
+  tableCode: 'North Wing 1',
   tier: 'Gold',
   tableChoice: 'Full Table',
   priceCents: 3500,
@@ -66,26 +66,26 @@ describe('how what they paid compares with what they owe', () => {
 
 describe('a line’s seat', () => {
   it('names the table, the tier and the size', () => {
-    expect(seatText(LINE)).toBe('Atrium 1, Gold, full table');
+    expect(seatText(LINE)).toBe('North Wing 1, Gold, full table');
     expect(
       seatText({ ...LINE, tableCode: 'Landing 2', tier: 'Silver', tableChoice: 'Half Table' }),
     ).toBe('Landing 2, Silver, half table');
   });
 
   it('names the price group that set its price, as the date card does', () => {
-    expect(seatText({ ...LINE, group: 'UBC student + club member' })).toBe(
-      'Atrium 1, Gold, full table, UBC student + club member',
+    expect(seatText({ ...LINE, group: 'Example College student + club member' })).toBe(
+      'North Wing 1, Gold, full table, Example College student + club member',
     );
   });
 
   it('leaves out a tier the table has none of', () => {
-    expect(seatText({ ...LINE, tier: '' })).toBe('Atrium 1, full table');
+    expect(seatText({ ...LINE, tier: '' })).toBe('North Wing 1, full table');
   });
 });
 
 describe('where a line’s number came from', () => {
   it('is the seat it prices, for a seat held now', () => {
-    expect(lineSource(LINE)).toEqual({ text: 'Atrium 1, Gold, full table', freedOn: null });
+    expect(lineSource(LINE)).toEqual({ text: 'North Wing 1, Gold, full table', freedOn: null });
   });
 
   it('says a freed seat was freed, and when', () => {
@@ -96,14 +96,14 @@ describe('where a line’s number came from', () => {
       freedBy: 'editor@example.com',
     };
     expect(lineSource(freed)).toEqual({
-      text: 'Atrium 1, Gold, full table - table freed',
+      text: 'North Wing 1, Gold, full table - table freed',
       freedOn: 'Oct 30, 2026',
     });
   });
 
   it('says a freed seat was freed when the day it was is not known', () => {
     expect(lineSource({ ...LINE, freed: true })).toEqual({
-      text: 'Atrium 1, Gold, full table - table freed',
+      text: 'North Wing 1, Gold, full table - table freed',
       freedOn: null,
     });
   });
