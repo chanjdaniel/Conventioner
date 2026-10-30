@@ -15,7 +15,7 @@
  * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  */
-import { MarketAction, mayTake } from '@/utils/marketActions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
@@ -37,7 +37,7 @@ import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue'
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
-import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
 import { useMarketStore } from '@/stores/market';
@@ -82,13 +82,6 @@ const givers = computed(
   () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
 );
 
-/** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
-function reDecidable(app: Application): boolean {
-  return (
-    app.status === ApplicationStatus.ReviewerApproved ||
-    app.status === ApplicationStatus.ReviewerRejected
-  );
-}
 const approvedCount = computed(
   () => applications.value.filter((a) => a.status === ApplicationStatus.ReviewerApproved).length,
 );
@@ -166,6 +159,22 @@ const writesNotes = computed(() => mayTake(props.market, MarketAction.WriteVendo
  */
 const decides = computed(
   () => mayTake(props.market, MarketAction.GiveVerdicts) && !props.market?.verdictsSettledReason,
+);
+/**
+ * Whether this person may also change a verdict already given, an automatic rejection included:
+ * the table's change row, on top of giving one (E38/F06/S01). Said once, above the reviewed list,
+ * to a reviewer it refuses.
+ */
+const changes = computed(() => decides.value && mayTake(props.market, MarketAction.ChangeVerdicts));
+const changeRefusal = computed(() =>
+  decides.value && !changes.value ? actionRefusal(props.market, MarketAction.ChangeVerdicts) : null,
+);
+/**
+ * Whether the card takes a verdict from this person: one someone else decided first (E34/F03/S01)
+ * takes one only from someone who may change a verdict.
+ */
+const decidesCurrent = computed(
+  () => decides.value && (changes.value || !current.value || !isDecided(current.value)),
 );
 
 /**
@@ -437,7 +446,7 @@ function onKey(event: KeyboardEvent) {
     next();
     return;
   }
-  if (!decides.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
+  if (!decidesCurrent.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
   event.preventDefault();
   if (key === 'a') decideCurrent(ApplicationStatus.ReviewerApproved);
   if (key === 'r') decideCurrent(ApplicationStatus.ReviewerRejected);
@@ -651,9 +660,16 @@ function submittedOn(app: Application): string {
         </div>
 
         <!-- A reader walks the queue with Next alone; the verdicts are a reviewer's. -->
+        <p
+          v-if="decides && !decidesCurrent"
+          class="change-reason"
+          data-testid="app-monitor-card-change-reason"
+        >
+          {{ changeRefusal }}
+        </p>
         <div class="card-actions">
           <button
-            v-if="decides"
+            v-if="decidesCurrent"
             class="btn btn--destructive"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerRejected)"
@@ -662,7 +678,7 @@ function submittedOn(app: Application): string {
             Reject <kbd>R</kbd>
           </button>
           <button
-            v-if="decides && current.status !== ApplicationStatus.NeedsFollowUp"
+            v-if="decidesCurrent && current.status !== ApplicationStatus.NeedsFollowUp"
             class="btn btn--secondary"
             :disabled="saving"
             @click="followUpOpen = true"
@@ -679,7 +695,7 @@ function submittedOn(app: Application): string {
             {{ refusedOn ? 'Back to the queue' : 'Next' }} <kbd>N</kbd>
           </button>
           <button
-            v-if="decides"
+            v-if="decidesCurrent"
             class="btn btn--primary"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerApproved)"
@@ -726,7 +742,8 @@ function submittedOn(app: Application): string {
         @confirm="markFollowUp"
       />
 
-      <!-- Decided applications, so a verdict can be read back and corrected - one at a time. -->
+      <!-- Decided applications, so a verdict can be read back, and changed one at a time by
+           whoever the change row lets change one (E38/F06/S01). -->
       <div v-if="decided.length" class="decided">
         <button
           class="decided-toggle"
@@ -737,6 +754,13 @@ function submittedOn(app: Application): string {
         >
           {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
         </button>
+        <p
+          v-if="showDecided && changeRefusal"
+          class="change-reason"
+          data-testid="app-monitor-decided-reason"
+        >
+          {{ changeRefusal }}
+        </p>
         <ul
           v-if="showDecided"
           id="app-monitor-decided-list"
@@ -765,7 +789,7 @@ function submittedOn(app: Application): string {
             </span>
             <!-- The action is a quiet button beside the verdict, never a second verdict. -->
             <button
-              v-if="decides && app.status === ApplicationStatus.ReviewerRejected"
+              v-if="changes && app.status === ApplicationStatus.ReviewerRejected"
               type="button"
               class="btn btn--secondary btn--compact"
               :disabled="saving"
@@ -775,7 +799,7 @@ function submittedOn(app: Application): string {
               Approve instead
             </button>
             <button
-              v-else-if="decides && reDecidable(app)"
+              v-else-if="changes && isDecided(app)"
               type="button"
               class="btn btn--secondary btn--compact"
               :disabled="saving"
@@ -889,6 +913,18 @@ function submittedOn(app: Application): string {
 
 .changed-since .verdict-giver {
   color: inherit;
+}
+
+/* Why a verdict already given is not this reviewer's to change (E38/F06/S01): over the reviewed
+   list, on white, and on the card, on beige. */
+.change-reason {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+}
+
+.review-card .change-reason {
+  color: var(--mm-text-muted-on-beige);
 }
 
 .held-by {

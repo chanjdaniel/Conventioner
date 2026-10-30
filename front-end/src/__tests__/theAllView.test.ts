@@ -9,6 +9,7 @@ import {
   allViewApplications,
   allViewFilter,
   heldElsewhere,
+  notSelectedLine,
   reviewView,
   selectAll,
 } from '@/utils/reviewQueue';
@@ -107,12 +108,63 @@ describe('Select all (E38/F05/S02)', () => {
   });
 
   it('skips the rows another reviewer has open, and counts them', () => {
-    expect(selectAll(ROWS, 'alex@market.test')).toEqual({ ids: ['a', 'c', 'd'], skipped: 1 });
+    expect(selectAll(ROWS, 'alex@market.test')).toEqual({
+      ids: ['a', 'c', 'd'],
+      held: 1,
+      decided: 0,
+    });
+  });
+
+  it('skips the rows already approved or rejected for someone who may not change a verdict (E38/F06/S01)', () => {
+    expect(selectAll(ROWS, 'alex@market.test', false)).toEqual({
+      ids: ['a', 'c'],
+      held: 1,
+      decided: 1,
+    });
+    // A row held elsewhere is said once, as held, whatever its verdict.
+    const heldAndDecided = held('e', ApplicationStatus.ReviewerRejected, 'sam@market.test');
+    expect(selectAll([heldAndDecided], 'alex@market.test', false)).toEqual({
+      ids: [],
+      held: 1,
+      decided: 0,
+    });
   });
 
   it("reads a row the viewer has open as theirs, whatever the address's case", () => {
     expect(heldElsewhere(ROWS[2], 'alex@market.test')).toBeNull();
     expect(heldElsewhere(ROWS[1], 'alex@market.test')).toBe('sam@market.test');
     expect(heldElsewhere(ROWS[0], 'alex@market.test')).toBeNull();
+  });
+});
+
+describe('what Select all left out, in words (E38/F05/S02, E38/F06/S01)', () => {
+  const WHO = 'an Admin or the owner';
+
+  it('says nothing when it left nothing out', () => {
+    expect(notSelectedLine(0, 0, WHO)).toBeNull();
+  });
+
+  it('says the rows another reviewer has open', () => {
+    expect(notSelectedLine(1, 0, WHO)).toBe(
+      '1 application not selected: another reviewer has it open.',
+    );
+    expect(notSelectedLine(2, 0, WHO)).toBe(
+      '2 applications not selected: another reviewer has them open.',
+    );
+  });
+
+  it('says the rows already decided, and who may change them', () => {
+    expect(notSelectedLine(0, 1, WHO)).toBe(
+      '1 application not selected: it already has a verdict, which only an Admin or the owner may change.',
+    );
+    expect(notSelectedLine(0, 3, null)).toBe(
+      '3 applications not selected: they already have a verdict, which you may not change.',
+    );
+  });
+
+  it('says both, each in its own clause', () => {
+    expect(notSelectedLine(1, 2, WHO)).toBe(
+      '3 applications not selected: another reviewer has 1 open, and 2 already have a verdict, which only an Admin or the owner may change.',
+    );
   });
 });

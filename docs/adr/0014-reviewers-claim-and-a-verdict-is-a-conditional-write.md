@@ -7,7 +7,7 @@ describes:
   - back-end/api/applications.py#CLAIM_LEASE
   - back-end/api/applicants.py#review_selection
   - front-end/src/utils/reviewClaims.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - brain-dump/2026-10-19#11
   - brain-dump/2026-10-19#23
@@ -15,6 +15,7 @@ sources:
   - E34/F03/S01
   - E34/F03/S02
   - E34/F04/S02
+  - E38/F06/S01
 status: accepted
 ---
 
@@ -43,10 +44,11 @@ Someone who gives no verdicts walks the queue locally and holds nothing.
 Every review sends `seen` with its verdict: the status, the verdict's time and the answers' time it showed.
 `update_application_status` writes only if all three are still those (`if_unchanged_since`); otherwise the verdict is refused with a 409 naming who changed it and to what ("<email> approved this application since you opened it.", an automatic rejection, or "Its answers changed since you opened it."), with the application as it stands, and the card stays on it until the reviewer decides again.
 The automatic rejections write through the same condition, so a person's verdict that lands while a rule is judging is never overwritten.
+For a reviewer who may not change a verdict (E38/F06/S01), the write also refuses an application already approved or rejected (`unless_decided`), so one decided between their look and their write is this same 409, never written over.
 
 **A claim never refuses a verdict; the condition is the guarantee.**
 The claim keeps reviewers apart in the ordinary case, and says who holds a card ("<email> is looking at this."); the conditional write is what holds when a claim has lapsed, when a card was opened from a link, or when a verdict comes from the All view.
-A verdict on a selection (`review_selection` in [`back-end/api/applicants.py`](../../back-end/api/applicants.py)) writes each ticked application as one verdict is: one another reviewer holds is not written, one changed since is skipped with who changed it, and one already at that status is skipped, so a follow-up is never handed to a new owner by being marked again; the answer lists what was written and why each other was not.
+A verdict on a selection (`review_selection` in [`back-end/api/applicants.py`](../../back-end/api/applicants.py)) writes each ticked application as one verdict is: one another reviewer holds is not written, one changed since is skipped with who changed it, and one already at that status is skipped, so a follow-up is never handed to a new owner by being marked again; one already approved or rejected is skipped, for someone who may not change a verdict, with the change row's sentence; the answer lists what was written and why each other was not.
 
 ## Consequences
 
