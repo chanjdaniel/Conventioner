@@ -107,7 +107,7 @@ const noteId = computed(() => `${props.testid}-note-${props.email}`);
 
     <div class="vendor-notes-body">
       <section v-if="request" class="vendor-notes-kind" :data-testid="`${testid}-request`">
-        <h4 class="vendor-notes-label">Their request</h4>
+        <h3 class="vendor-notes-label">Their request</h3>
         <p class="vendor-notes-text">{{ request }}</p>
         <label v-if="canWrite" class="vendor-notes-handled">
           <input
@@ -123,10 +123,10 @@ const noteId = computed(() => `${props.testid}-note-${props.email}`);
       </section>
 
       <section class="vendor-notes-kind" :data-testid="`${testid}-note`">
-        <h4 class="vendor-notes-label">
+        <h3 class="vendor-notes-label">
           <label v-if="canWrite" :for="noteId">Your note</label>
           <template v-else>Your note</template>
-        </h4>
+        </h3>
         <template v-if="canWrite">
           <textarea
             :id="noteId"
@@ -153,7 +153,7 @@ const noteId = computed(() => `${props.testid}-note-${props.email}`);
       </section>
 
       <section v-if="entry?.fromSheet" class="vendor-notes-kind" :data-testid="`${testid}-sheet`">
-        <h4 class="vendor-notes-label">From your sheet</h4>
+        <h3 class="vendor-notes-label">From your sheet</h3>
         <p class="vendor-notes-text">{{ entry.fromSheet }}</p>
       </section>
 

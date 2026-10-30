@@ -66,6 +66,12 @@ watch(marketId, () => void loadVendors(), { immediate: true });
  * applicant counted as an unassigned vendor made this page disagree with Result (bug 10).
  */
 const vendors = computed(() => details.rows.value);
+/**
+ * The server refused where vendors sit (T123), as it does while an approved application's answers
+ * are incomplete: the applications are listed, and nothing on the page says who is placed or not -
+ * no date count, no "Unassigned only", no filter by where they sit, no "N of M assigned".
+ */
+const placementsRefused = computed(() => details.loaded.value && !details.placementsRead.value);
 const runVendors = computed(() => vendors.value.filter((v) => v.inTheRun));
 const isRejected = (v: { status: string }) => v.status === ApplicationStatus.ReviewerRejected;
 const anyRejected = computed(() => vendors.value.some(isRejected));
@@ -74,7 +80,10 @@ const anyRejected = computed(() => vendors.value.some(isRejected));
  * One kind of applicant, in the address so a link is a link: "Unassigned only", where "N
  * unassigned" on the Result page leads (E22/F04/S04), and "Rejected only" beside it.
  */
-const shown = computed<VendorsShown>(() => vendorsShownFrom(route.query.show));
+const shown = computed<VendorsShown>(() => {
+  const asked = vendorsShownFrom(route.query.show);
+  return asked === 'unassigned' && placementsRefused.value ? null : asked;
+});
 const onlyUnassigned = computed(() => shown.value === 'unassigned');
 
 function show(choice: VendorsShown): void {
@@ -90,7 +99,11 @@ function show(choice: VendorsShown): void {
  */
 const { filters: addressFilters } = useResultFilters();
 /** The where-filters, or the date alone beside "Unassigned only" (`filtersBeside`). */
-const offered = computed(() => filtersBeside('vendors', onlyUnassigned.value));
+const offered = computed(() =>
+  // None on a refused read: a filter by where vendors sit would ask that read of the list, and
+  // Export opens on these.
+  placementsRefused.value ? [] : filtersBeside('vendors', onlyUnassigned.value),
+);
 const filters = computed(() => offeredFilters(addressFilters.value, offered.value));
 const filterOptionsShown = computed(() => filterOptions(tableRows.value));
 const placeFiltered = computed(() => hasPlaceFilter(filters.value));
@@ -163,8 +176,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             class="filter-input"
             data-testid="vendors-search-input"
           />
-          <div v-if="assigned" class="vendors-shown" role="group" aria-label="Show only">
+          <div
+            v-if="assigned && (!placementsRefused || anyRejected)"
+            class="vendors-shown"
+            role="group"
+            aria-label="Show only"
+          >
             <button
+              v-if="!placementsRefused"
               type="button"
               class="btn btn--secondary btn--compact"
               :aria-pressed="onlyUnassigned"
@@ -210,6 +229,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               <span class="summary-strong">{{ totalVendorCount }}</span>
               vendors shown
             </template>
+            <!-- Where they sit was refused, so nobody is counted as placed or not (T123). -->
+            <template v-else-if="placementsRefused">
+              <span class="summary-strong">{{ totalVendorCount }}</span>
+              {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
+            </template>
             <template v-else-if="!assigned">
               <span class="summary-strong">{{ runVendorCount }}</span>
               {{ runVendorCount === 1 ? 'vendor' : 'vendors' }}
@@ -254,7 +278,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             v-for="vendor in filteredVendors"
             :key="vendor.rowIndex"
             class="vendor-row"
-            :class="{ 'vendor-row--active': vendor.email === drawer.email.value }"
+            :class="{ 'vendor-row--open': vendor.email === drawer.email.value }"
           >
             <button
               type="button"
@@ -288,7 +312,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
                 >
                   {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
                 </span>
-                <span class="vendor-date-count" data-testid="vendor-date-count">
+                <span
+                  v-if="!placementsRefused"
+                  class="vendor-date-count"
+                  data-testid="vendor-date-count"
+                >
                   {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
                   {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
                 </span>
@@ -480,10 +508,24 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   transform: translateY(1px);
 }
 
-.vendor-row--active .vendor-row-button {
+/* The vendor whose details are open is the selected row: the on toggle's green tint inside a green
+   border (`docs/design-system.md`), where it once drew a 2px black outline beside the focus halo. */
+.vendor-row--open .vendor-row-button {
+  background: var(--mm-chip-positive);
   border-color: var(--mm-green);
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
+}
+
+/* The tint is a chip's own ground, so a chip on it would lose its edge: each keeps its ink on
+   white, where every chip ink measures higher than on its own tint. */
+.vendor-row--open :is(.chip, .vendor-badge) {
+  background: white;
+}
+
+/* `--mm-text-muted` is 4.27 on the tint; this is 5.25 (`contrast.test.ts`). Both muted lines take
+   it: the address under a name, and the date count. */
+.vendor-row--open :deep(.vendor-identity-email),
+.vendor-row--open .vendor-date-count {
+  color: var(--mm-text-muted-on-beige);
 }
 
 .vendor-email {
@@ -511,17 +553,17 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
   white-space: nowrap;
 }
 
+/* A badge is a chip's ground and ink in its own type: the opaque `--mm-chip-*` ground, which reads
+   the same whatever it sits on, and the ink `contrast.test.ts` holds to it. */
 .vendor-badge--assigned {
-  background: rgba(54, 130, 111, 0.16);
-  /* Darkened from #1e7a4f, which measured 4.35 on this tint - the rendered-usage sweep in
-     E16/F01/S05 is what found it. A tinted chip is its own ground, and neither the token test nor
-     the eye catches a miss of 0.15. */
-  color: var(--mm-text-green); /* 5.34 on rgba(54,130,111,.16) over white */
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green); /* 5.34 on that ground */
 }
 
 .vendor-badge--unassigned {
-  background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  background: var(--mm-chip-attention);
+  /* `--mm-text-yellow` measured 3.96 on this ground. */
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .vendor-date-count {
