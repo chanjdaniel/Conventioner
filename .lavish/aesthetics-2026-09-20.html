@@ -104,9 +104,7 @@
 
   /* figures */
   figure{ margin:0 0 16px; }
-  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:8px; background:#fff; }
   figure figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
-  .shot-tight img{ border-radius:6px; }
 
   /* tables */
   .tw{ overflow-x:auto; margin:0 0 16px; border:1px solid var(--grey); border-radius:10px; background:var(--card); }
@@ -244,7 +242,7 @@
         <span class="sev crit">Critical</span>
       </div>
       <div class="fb">
-        <figure class="shot-tight">
+        <figure>
         <figcaption>The confirmation dialog as it renders at 1920&times;1080. The Archive button is present and clickable at 75&times;36, immediately left of Cancel. Every pixel inside its box measures <code>(255,255,255)</code>.</figcaption></figure>
         <p>The dialog says <em>"Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone."</em> and then appears to offer exactly one option: <strong>Cancel</strong>.</p>
         <div class="tw"><table>
@@ -286,7 +284,7 @@
           </tbody>
         </table></div>
         <p>So the tier column reads <code>Pr&hellip;</code>, <code>St&hellip;</code>, <code>Co&hellip;</code> on every row, forever. The Location select is the same problem one notch less severe: at 89px it truncates "Mezzanine" by 10px.</p>
-        <figure class="shot-tight">
+        <figure>
           <figcaption>Section Setup at the 1920&times;1080 design target. Also visible: H10, the column headers styled identically to the editable pills beneath them.</figcaption>
         </figure>
         <p>The cause is the three setup panels being forced to equal thirds. Location Setup needs one column and gets 461px; Section Setup needs four columns plus a delete control and gets 460px.</p>
@@ -317,7 +315,7 @@
         </table></div>
         <p>Three typefaces and five control heights on one screen. The 13.33px size is the browser's own default, which is the tell: those controls have never been styled at all.</p>
         <div class="callout warn"><strong>The one-line fix is wrong on its own.</strong> Adding <code>button, input, select, textarea { font: inherit }</code> would make every control render <strong>Inter</strong>, because that is what <code>body</code> declares - while the 274 Outfit rules around them stay Outfit. The fix is two lines: set <code>body</code> to Outfit (already the product's real UI face, 274 declarations against Inter's 2), then inherit on the controls. See also H16 below.</div>
-        <figure class="shot-tight">
+        <figure>
           <figcaption>The tab labels, field text and "Show" are Arial; the green submit button is Outfit. The mismatch is subtle individually and is why the screen reads as slightly generic.</figcaption>
         </figure>
       </div>
@@ -424,7 +422,7 @@
       </div>
       <div class="fb">
         <p>"Download CSV" sits at y=881, "Send to Discord" at y=902, both 35px tall, both in the same footer row. The gap comes from the Discord hint being stacked above its button while the CSV button has no hint, so nothing holds the row to a shared baseline.</p>
-        <figure class="shot-tight"><figcaption>The two actions that finish the job, not sharing a line.</figcaption></figure>
+        <figure><figcaption>The two actions that finish the job, not sharing a line.</figcaption></figure>
         <p>The hint also sits <em>above</em> the control it explains and clears the card above it by 3px.</p>
       </div>
     </div>
