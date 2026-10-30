@@ -6,14 +6,15 @@
  * state that leads with the market's id; Discord returns it here, in that tab, with a code, and
  * this page posts both to that market, which checks the state against the organizer's session and
  * asks Discord which server the bot was added to. Then it tells the market's own tab, whose card
- * shows the server, and says this tab can be closed. The `guild_id` Discord also adds is never
+ * shows the server, and says this tab can be closed; a cancel or a refusal is told to that tab too,
+ * so its card stops saying Discord is open. The `guild_id` Discord also adds is never
  * read: anyone can type one, and the server's answer is the authority.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { announceDiscordConnected } from '@/utils/discordConnected';
+import { announceDiscordConnected, announceDiscordNotConnected } from '@/utils/discordConnected';
 import { marketPath } from '@/utils/market';
 
 const route = useRoute();
@@ -35,6 +36,7 @@ onMounted(async () => {
   }
   if (route.query.error || !code) {
     error.value = 'Discord was not connected: the approval was cancelled.';
+    announceDiscordNotConnected(marketId);
     return;
   }
   try {
@@ -43,6 +45,7 @@ onMounted(async () => {
     done.value = true;
   } catch (err) {
     error.value = getApiErrorMessage(err, 'Discord was not connected.');
+    announceDiscordNotConnected(marketId);
   }
 });
 </script>

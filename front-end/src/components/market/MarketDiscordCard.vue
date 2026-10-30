@@ -9,7 +9,8 @@
  * what to change in the server's settings.
  *
  * Discord's screen opens in a new tab, so the market stays open here; the page Discord returns to
- * says when the market is connected (`utils/discordConnected.ts`), and the card re-reads it.
+ * says how connecting ended (`utils/discordConnected.ts`), and the card re-reads the market, or
+ * stops saying Discord is open, as it does when this tab is shown again.
  *
  * A manual tool, not part of the plan (Q10, Q19): it stands on the Tools tab, so the setup settling
  * on leaving draft leaves it editable, and it stays so until the market is archived. Whether this
@@ -21,7 +22,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import AppDialog from '@/components/AppDialog.vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { whenDiscordConnected } from '@/utils/discordConnected';
+import { whenDiscordEnds } from '@/utils/discordConnected';
 import { MarketAction, actionRefusal } from '@/utils/marketActions';
 import type { DiscordRole, Market } from '@/assets/types/datatypes';
 
@@ -127,11 +128,25 @@ async function connect(): Promise<void> {
   }
 }
 
-const stopListening = whenDiscordConnected(
-  () => props.market.id,
-  () => emit('changed'),
-);
-onUnmounted(stopListening);
+const stopListening = whenDiscordEnds(() => props.market.id, {
+  connected: () => {
+    waiting.value = false;
+    emit('changed');
+  },
+  notConnected: () => {
+    waiting.value = false;
+  },
+});
+// Back on this tab, Discord's tab is done with, or closed: the market is read again
+// (`useOpenMarket`), and the card no longer says Discord is open.
+const onVisible = () => {
+  if (document.visibilityState === 'visible') waiting.value = false;
+};
+document.addEventListener('visibilitychange', onVisible);
+onUnmounted(() => {
+  stopListening();
+  document.removeEventListener('visibilitychange', onVisible);
+});
 
 const saveError = ref<string | null>(null);
 

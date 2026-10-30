@@ -2,7 +2,8 @@
  * Discord's approval screen sends the organizer back to `/discord/connected` (E46/F01/S02), in the
  * tab Connect Discord opened, with a code and the state it began. The page finishes connecting the
  * market the state names, tells the market's own tab, and says the outcome and that this tab can
- * be closed; or says what went wrong, with a link to the market's Tools.
+ * be closed; or says what went wrong, with a link to the market's Tools, and tells the market's tab
+ * that connecting ended without a connection.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
@@ -71,7 +72,8 @@ describe('Discord sends the organizer back', () => {
     );
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/markets/market-123/tools');
     expect(wrapper.text()).toContain('You can close this tab.');
-    expect(heard).toEqual([]);
+    // The market's tab stops saying Discord is open.
+    await vi.waitFor(() => expect(heard).toEqual([{ notConnected: 'market-123' }]));
   });
 
   it('says nothing was connected when the organizer cancelled on Discord', async () => {
@@ -85,7 +87,7 @@ describe('Discord sends the organizer back', () => {
       'Discord was not connected: the approval was cancelled.',
     );
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/markets/market-123/tools');
-    expect(heard).toEqual([]);
+    await vi.waitFor(() => expect(heard).toEqual([{ notConnected: 'market-123' }]));
   });
 
   it('sends a page reached with no state to the markets', async () => {

@@ -12,7 +12,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import MarketDiscordCard from '@/components/market/MarketDiscordCard.vue';
 import type { DiscordConnection, Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
-import { announceDiscordConnected } from '@/utils/discordConnected';
+import { announceDiscordConnected, announceDiscordNotConnected } from '@/utils/discordConnected';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
@@ -141,6 +141,41 @@ describe('a market not connected', () => {
     expect(find(wrapper, 'discord-connect-error').text()).toBe(
       'Your browser blocked the tab for Discord. Allow pop-ups for Conventioner, then connect again.',
     );
+    open.mockRestore();
+  });
+
+  it('stops saying Discord is open once the tab Discord returned to says it was not connected', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(blankTab() as unknown as Window);
+    api.post.mockResolvedValue({ data: { url: 'https://discord.com/oauth2/authorize?state=s' } });
+    const wrapper = card(market());
+    await find(wrapper, 'discord-connect-button').trigger('click');
+    await flushPromises();
+    expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(true);
+
+    announceDiscordNotConnected('another-market');
+    announceDiscordNotConnected('market-123');
+
+    await vi.waitFor(() => expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(false));
+    expect(wrapper.emitted('changed')).toBeUndefined();
+    wrapper.unmount();
+    open.mockRestore();
+  });
+
+  it('stops saying Discord is open when this tab is shown again', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(blankTab() as unknown as Window);
+    api.post.mockResolvedValue({ data: { url: 'https://discord.com/oauth2/authorize?state=s' } });
+    const wrapper = card(market());
+    await find(wrapper, 'discord-connect-button').trigger('click');
+    await flushPromises();
+    expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(true);
+
+    // Discord's tab closed, or left, and the organizer back on the market.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushPromises();
+
+    expect(document.visibilityState).toBe('visible');
+    expect(find(wrapper, 'discord-connect-waiting').exists()).toBe(false);
+    wrapper.unmount();
     open.mockRestore();
   });
 
