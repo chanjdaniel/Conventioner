@@ -19,7 +19,7 @@ import {
 import { MarketAction } from '@/utils/marketActions';
 import { answersRefusing } from './support/servedAnswers';
 
-const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), delete: vi.fn() }));
+const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), delete: vi.fn(), post: vi.fn() }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -68,6 +68,7 @@ function market(table: PermissionTableRow[], refused: MarketAction[] = []): Mark
   return {
     id: 'market-1',
     name: 'Riverside',
+    organizationId: 'org-1',
     phase: MarketPhase.Applications,
     actionRefusals: answersRefusing(...refused),
     permissionTable: table,
@@ -100,6 +101,7 @@ beforeEach(() => {
   api.get.mockReset().mockResolvedValue({ data: { entries: [] } });
   api.put.mockReset();
   api.delete.mockReset();
+  api.post.mockReset();
 });
 
 afterEach(() => {
@@ -235,5 +237,56 @@ describe('the changes', () => {
         .get('[data-testid="manage-market-permission-source"]')
         .text(),
     ).toBe('Changed on this market');
+  });
+});
+
+describe("copying the organization's defaults again", () => {
+  const COPIED = BUILT_IN.map((r) =>
+    r.id === 'check-in' ? { ...r, role: MarketRole.Admin, source: 'organization' as const } : r,
+  );
+
+  it('is asked about, sent, and shows the copied rows as copied', async () => {
+    const section = await openSection(HELD);
+    api.post.mockResolvedValue({ data: { permissionTable: COPIED } });
+
+    await section.get('[data-testid="manage-market-permissions-copy"]').trigger('click');
+    const confirm = document.querySelector(
+      '[data-testid="manage-market-permissions-copy-confirm-window"]',
+    );
+    expect(confirm?.textContent).toContain('Rows changed on this market are replaced.');
+    expect(api.post).not.toHaveBeenCalled();
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-testid="manage-market-permissions-copy-confirm-submit-button"]',
+      )!
+      .click();
+    await flushPromises();
+
+    expect(api.post).toHaveBeenCalledWith('/markets/market-1/permissions/organization-default');
+    expect(
+      section
+        .get('[data-testid="manage-market-permission-row-check-in"]')
+        .get('[data-testid="manage-market-permission-source"]')
+        .text(),
+    ).toBe('Copied from the organization');
+  });
+
+  it('is offered to the owner alone', async () => {
+    const section = await openSection(HELD, [MarketAction.ChangeTheTable]);
+
+    expect(section.find('[data-testid="manage-market-permissions-copy"]').exists()).toBe(false);
+  });
+
+  it('is not offered on a market of no organization', async () => {
+    const mounted = mount(MarketPermissions, {
+      props: { market: { ...market(HELD), organizationId: null } },
+      attachTo: document.body,
+    });
+    wrapper = mounted;
+    await mounted.get('[data-testid="manage-market-permissions-toggle"]').trigger('click');
+    await flushPromises();
+
+    expect(mounted.find('[data-testid="manage-market-permissions-copy"]').exists()).toBe(false);
+    expect(mounted.find('[data-testid="manage-market-permissions-reset"]').exists()).toBe(true);
   });
 });

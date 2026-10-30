@@ -18,17 +18,23 @@
  * Three closes are correct and stay: deleting the organization, the explicit close control, and
  * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
  *
- * A member opens it too, to read the organization's History (E40/F02/S01); the people and the
- * controls an owner or an admin manages are theirs alone.
+ * A member opens it too, to read the organization's History (E40/F02/S01) and the default
+ * permissions its new markets copy (E39/F02/S01); the people and the controls an owner or an admin
+ * manages are theirs alone.
  */
 import { nextTick, ref, watch } from 'vue';
-import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
+import {
+  type Organization,
+  type OrganizationRoleType,
+  type PermissionTableRow,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
 import HistorySection from '@/components/HistorySection.vue';
 import OrganizationHistory from '@/components/OrganizationHistory.vue';
+import OrganizationPermissions from '@/components/OrganizationPermissions.vue';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -155,6 +161,13 @@ async function closeAddMember() {
   addMemberError.value = '';
   await nextTick();
   addMemberButton.value?.focus();
+}
+
+/** The default table a change answered, shown at once; its History reads the change. */
+function defaultsChanged(table: PermissionTableRow[]) {
+  if (orgData.value) orgData.value = { ...orgData.value, defaultPermissionTable: table };
+  changesMade.value++;
+  emit('changed');
 }
 
 async function handleRename() {
@@ -297,7 +310,9 @@ function handleDeleted() {
             <div class="add-org-row">
               <input
                 ref="addAdminInput"
+                id="manage-org-add-admin-email"
                 v-model="newAdminEmail"
+                name="admin-email"
                 type="email"
                 placeholder="User email"
                 aria-label="Email of the admin to add"
@@ -366,7 +381,9 @@ function handleDeleted() {
             <div class="add-org-row">
               <input
                 ref="addMemberInput"
+                id="manage-org-add-member-email"
                 v-model="newMemberEmail"
+                name="member-email"
                 type="email"
                 placeholder="User email"
                 aria-label="Email of the member to add"
@@ -396,6 +413,10 @@ function handleDeleted() {
           </form>
         </section>
 
+        <!-- The table its new markets copy (E39/F02/S01): its owner and admins change it, its
+             members read it. -->
+        <OrganizationPermissions :key="orgData.id" :org="orgData" @changed="defaultsChanged" />
+
         <!-- The organization's own changes, newest first (E40/F02/S01), opened as Manage market's
              History opens; its owner, its admins and its members read it. -->
         <HistorySection :key="orgData.id" testid="manage-org-history">
@@ -407,7 +428,9 @@ function handleDeleted() {
           <h3>Rename organization</h3>
           <form class="rename-row" @submit.prevent="handleRename">
             <input
+              id="manage-org-rename"
               v-model="renameValue"
+              name="organization-name"
               class="field"
               aria-label="Organization name"
               data-testid="manage-org-rename-input"

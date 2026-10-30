@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * Page object for the Organizations view (OrganizationsView) and the
  * ManageOrgOverlay. Covers org CRUD: create, rename, add/remove admin/member,
- * delete, and the organization's History.
+ * delete, the organization's History, and its default permissions for new markets.
  *
  * The manage dialog is built on `AppDialog` (E20/F01/S02), so its window, scrim and close ids
  * come from the shell's `manage-org` prefix. **It no longer closes when something saves**: add
@@ -53,6 +53,14 @@ export class OrganizationsPage {
   readonly historySentences: Locator;
   readonly historyLoadMore: Locator;
 
+  // ── Manage org's default permissions for new markets (E39/F02/S01) ──
+  readonly defaults: Locator;
+  readonly defaultsToggle: Locator;
+  readonly defaultsReadOnly: Locator;
+  readonly defaultSelects: Locator;
+  readonly defaultChanges: Locator;
+  readonly defaultConfirm: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -95,6 +103,13 @@ export class OrganizationsPage {
     this.historyEntries = page.getByTestId('org-history-entry');
     this.historySentences = page.getByTestId('org-history-sentence');
     this.historyLoadMore = page.getByTestId('org-history-load-more');
+
+    this.defaults = page.getByTestId('manage-org-permissions');
+    this.defaultsToggle = page.getByTestId('manage-org-permissions-toggle');
+    this.defaultsReadOnly = page.getByTestId('manage-org-permissions-read-only');
+    this.defaultSelects = page.getByTestId('manage-org-permission-select');
+    this.defaultChanges = page.getByTestId('manage-org-permission-change');
+    this.defaultConfirm = page.getByTestId('manage-org-permission-confirm-window');
   }
 
   async goto(): Promise<void> {
@@ -206,6 +221,39 @@ export class OrganizationsPage {
     const entry = this.historyEntries.nth(index);
     await entry.getByTestId('org-history-toggle').click();
     return entry.getByTestId('org-history-changes');
+  }
+
+  // ── Default permissions for new markets ──
+
+  async showDefaults(): Promise<void> {
+    await this.defaultsToggle.click();
+  }
+
+  /** One row of the default, by its action id: `check-in`. */
+  defaultRow(actionId: string): Locator {
+    return this.page.getByTestId(`manage-org-permission-row-${actionId}`);
+  }
+
+  defaultSelect(actionId: string): Locator {
+    return this.defaultRow(actionId).getByTestId('manage-org-permission-select');
+  }
+
+  defaultRole(actionId: string): Locator {
+    return this.defaultRow(actionId).getByTestId('manage-org-permission-role');
+  }
+
+  defaultSource(actionId: string): Locator {
+    return this.defaultRow(actionId).getByTestId('manage-org-permission-source');
+  }
+
+  /** Chooses a role for a row, from the focused select as a person does, which opens its confirmation. */
+  async chooseDefault(actionId: string, role: string): Promise<void> {
+    await this.defaultSelect(actionId).focus();
+    await this.defaultSelect(actionId).selectOption(role);
+  }
+
+  async confirmDefault(): Promise<void> {
+    await this.page.getByTestId('manage-org-permission-confirm-submit-button').click();
   }
 
   // ── Delete ──

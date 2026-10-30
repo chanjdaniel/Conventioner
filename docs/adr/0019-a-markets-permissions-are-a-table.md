@@ -6,11 +6,14 @@ describes:
   - back-end/api/markets.py#set_permission
   - back-end/api/markets.py#reset_permission
   - back-end/api/markets.py#reset_permissions
+  - back-end/api/markets.py#create_market
+  - back-end/api/markets.py#copy_organization_default
   - back-end/datatypes.py#MarketPermission
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E39
   - E39/F01/S03
+  - E39/F02/S01
   - T92
   - E38/F04/S01
 status: accepted
@@ -35,11 +38,14 @@ The table's rows, their labels, groups and built-in defaults, and which rows are
 A row the market does not hold reads its built-in default, so an absent field is the built-in table and no market needs a migration; a fixed row is never read from the market, whatever is stored.
 Every check asks `minimum_role(row, market)`, the market's row or the default, and the market read serves every row's answer from the same rows.
 
-**Where a row came from is one of three**: the built-in default (no row held), copied from the organization's default when the market was created (E39/F02 writes these), or changed on this market.
-An organization's default is a copy, not a live link: a market created from it holds its rows from then on, and a later change to the organization's default reaches only the markets created after it.
+**Where a row came from is one of three**: the built-in default (no row held), copied from the organization's default, or changed on this market.
 
-**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default, and another returns every row the market holds at once (`set_permission`, `reset_permission` and `reset_permissions` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
-The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is, E39/F02).
+**A market's table is first filled from its organization's default** (E39/F02/S01): `create_market` copies every row the organization sets (`default_permissions` on [the organization document](../implementation/data/organization-document.md#its-default-table)) into the new market's `permissions`, each marked `organization`, whatever the create body carried; a market of no organization, or of one that sets none, starts holding no row, the built-in table.
+The organization's owner and its admins change its default, and its members read it.
+It is a copy, not a live link: a market created from it holds its rows from then on, and a later change to the organization's default reaches only the markets created after it, or a market whose owner copies the organization's default again (`copy_organization_default`): every row the organization sets then replaces the market's, and every other row returns to its built-in default, in one write and one recorded change.
+
+**Only the market's owner changes its rows**, through the fixed row "Change this table": one write sets a row's role, another returns it to its built-in default, another returns every row the market holds at once, and another copies the organization's default again (`set_permission`, `reset_permission`, `reset_permissions` and `copy_organization_default` in [`back-end/api/markets.py`](../../back-end/api/markets.py)).
+The owner is the market's single owner; an organization's owner and admins hold Admin on its markets, never Owner, so a market's own rows are not theirs to change (the organization's default is).
 An archived market's table is part of its record, and is not changed.
 
 **Every change is recorded** in [the market's history](../implementation/data/history.md) ([ADR 0017](0017-one-history-for-every-change.md)): who, when, the row, and its role and source before and after.
