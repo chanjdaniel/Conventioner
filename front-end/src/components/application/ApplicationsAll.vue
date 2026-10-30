@@ -19,7 +19,7 @@ import {
   type SelectionResult,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
-import { FULL_NAME_KEY, PREFERRED_NAME_KEY } from '@/utils/essentialFields';
+import { applicantName } from '@/utils/essentialFields';
 import {
   ALL_VIEW_FILTERS,
   allViewApplications,
@@ -144,8 +144,7 @@ const shown = computed(() =>
 );
 
 function nameOf(app: Application): string {
-  const answers = app.formData ?? {};
-  return String(answers[PREFERRED_NAME_KEY] || answers[FULL_NAME_KEY] || '').trim();
+  return applicantName(app.formData);
 }
 
 /** The answers a reviewer reads first (E19/F03), as one line per row. */

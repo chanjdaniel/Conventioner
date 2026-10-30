@@ -124,7 +124,7 @@ test.describe('Automatic rejections', () => {
 });
 
 test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
-  test('an import rejects the rows a rule meets, and a reviewer overturns one', async ({
+  test('the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one', async ({
     authenticatedPage: page,
   }) => {
     const seed = await seedApplicantMarket(
@@ -142,11 +142,36 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
     const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
     await expect(importPage.view).toBeVisible({ timeout: 15000 });
-    await importPage.importCsv(
-      exportOf(RESPONSES.nadia, RESPONSES.theo),
-      EXPORT_HEADERS,
-      EXPORT_MAPPING,
+    await importPage.chooseFile(exportOf(RESPONSES.nadia, RESPONSES.theo, RESPONSES.ines));
+    await importPage.mapColumns(EXPORT_HEADERS, EXPORT_MAPPING);
+    await importPage.clickPreview();
+
+    // Before anything is written, the preview names every row the rule will reject, with the
+    // reason the review will show, and its headline counts them (E38/F03/S02).
+    await expect(importPage.previewCounts).toHaveText(
+      '3 of 3 rows will be imported; 1 of them will be rejected by your automatic rejections',
     );
+    await expect(importPage.previewMerge).toContainText(
+      'awaiting your review, except the 1 listed below, which arrives already rejected.',
+    );
+    await expect(importPage.rejectedCount).toHaveText('1');
+    await expect(importPage.rejectedRows).toHaveCount(1);
+    const rejected = importPage.rejectedRows.first();
+    await expect(rejected.getByTestId('import-row-name')).toHaveText('Theo Marchetti');
+    await expect(rejected.getByTestId('import-row-number')).toHaveText('Row 3');
+    await rejected.locator(':scope > summary').click();
+    await expect(rejected.getByTestId('import-row-reason')).toHaveText(
+      'Rejected automatically: Answered “Half a table, shared” to “Table choice”',
+    );
+    // The samples are the rows that import and no rule rejects: a check of the mapping alone.
+    await expect(importPage.sampleRows.getByTestId('import-row-name')).toHaveText([
+      'Nadia Okonkwo',
+      'Ines Albrecht',
+    ]);
+    const before = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`);
+    expect((await before.json()).applications).toEqual([]);
+
+    await importPage.clickConfirm();
     await expect(page.getByTestId('import-result-rejected-note')).toContainText(
       '1 was rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.',
     );
@@ -157,8 +182,9 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
     const monitor = new ApplicationMonitorPage(page);
     await monitor.switchTo();
     await monitor.waitForLoaded();
-    // Only Nadia waits: Theo arrived already rejected, the rule his giver and his answer the reason.
-    expect(await monitor.queuedEmails()).toEqual(['nadia@ember.test']);
+    // Nadia and Ines wait: Theo arrived already rejected, the rule his giver and his answer the
+    // reason.
+    expect(await monitor.queuedEmails()).toEqual(['nadia@ember.test', 'ines@loom.test']);
     await monitor.openDecided();
     const theo = page
       .getByTestId('app-monitor-decided-row')

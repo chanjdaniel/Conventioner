@@ -60,9 +60,12 @@ def action(
 
 READ = action(
     "read", "Reading",
-    "Read the market: its applications, assignments, statistics, attendance, history and "
-    "floorplan export",
+    "Read the market: its applications, assignments, statistics, attendance and floorplan "
+    "export",
     MarketRole.VIEWER, "see this market", fixed=True)
+READ_HISTORY = action(
+    "read-history", "Reading", "Read the market's history", MarketRole.VIEWER,
+    "read this market's history")
 EXPORT_CSV = action(
     "export-csv", "Reading", "Export CSV", MarketRole.VIEWER, "export this market's CSV")
 CHANGE_SETUP = action(

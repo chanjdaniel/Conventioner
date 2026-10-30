@@ -26,7 +26,7 @@ import { isDecided } from '@/utils/verdicts';
  * and the applicant's own dashboard reads the same answers back.
  */
 export function reviewAnswers(
-  application: Application,
+  application: Pick<Application, 'formData'>,
   form?: ApplicationForm | null,
   highlights: string[] = [],
 ): { leading: AnswerRow[]; rest: AnswerRow[] } {
