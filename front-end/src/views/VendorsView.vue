@@ -66,6 +66,12 @@ watch(marketId, () => void loadVendors(), { immediate: true });
  * applicant counted as an unassigned vendor made this page disagree with Result (bug 10).
  */
 const vendors = computed(() => details.rows.value);
+/**
+ * The server refused where vendors sit (T123), as it does while an approved application's answers
+ * are incomplete: the applications are listed, and nothing on the page says who is placed or not -
+ * no date count, no "Unassigned only", no filter by where they sit, no "N of M assigned".
+ */
+const placementsRefused = computed(() => details.loaded.value && !details.placementsRead.value);
 const runVendors = computed(() => vendors.value.filter((v) => v.inTheRun));
 const isRejected = (v: { status: string }) => v.status === ApplicationStatus.ReviewerRejected;
 const anyRejected = computed(() => vendors.value.some(isRejected));
@@ -74,7 +80,10 @@ const anyRejected = computed(() => vendors.value.some(isRejected));
  * One kind of applicant, in the address so a link is a link: "Unassigned only", where "N
  * unassigned" on the Result page leads (E22/F04/S04), and "Rejected only" beside it.
  */
-const shown = computed<VendorsShown>(() => vendorsShownFrom(route.query.show));
+const shown = computed<VendorsShown>(() => {
+  const asked = vendorsShownFrom(route.query.show);
+  return asked === 'unassigned' && placementsRefused.value ? null : asked;
+});
 const onlyUnassigned = computed(() => shown.value === 'unassigned');
 
 function show(choice: VendorsShown): void {
@@ -93,16 +102,17 @@ const { filters: addressFilters } = useResultFilters();
 const offered = computed(() => filtersBeside('vendors', onlyUnassigned.value));
 const filters = computed(() => offeredFilters(addressFilters.value, offered.value));
 const filterOptionsShown = computed(() => filterOptions(tableRows.value));
-const placeFiltered = computed(() => hasPlaceFilter(filters.value));
+const placeFiltered = computed(() => !placementsRefused.value && hasPlaceFilter(filters.value));
 
 const filteredVendors = computed(() => {
   const listed = vendors.value.filter(
     (v) =>
       inVendorsShown({ inTheRun: v.inTheRun, rejected: isRejected(v) }, shown.value) &&
-      vendorShown(v.assignmentsByDate, filters.value, {
-        onlyUnassigned: onlyUnassigned.value,
-        isAssigned: v.isAssigned,
-      }),
+      (placementsRefused.value ||
+        vendorShown(v.assignmentsByDate, filters.value, {
+          onlyUnassigned: onlyUnassigned.value,
+          isAssigned: v.isAssigned,
+        })),
   );
   const term = filterText.value.trim();
   if (!term) return listed;
@@ -163,8 +173,14 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
             class="filter-input"
             data-testid="vendors-search-input"
           />
-          <div v-if="assigned" class="vendors-shown" role="group" aria-label="Show only">
+          <div
+            v-if="assigned && (!placementsRefused || anyRejected)"
+            class="vendors-shown"
+            role="group"
+            aria-label="Show only"
+          >
             <button
+              v-if="!placementsRefused"
               type="button"
               class="btn btn--secondary btn--compact"
               :aria-pressed="onlyUnassigned"
@@ -211,7 +227,7 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               vendors shown
             </template>
             <!-- Where they sit was refused, so nobody is counted as placed or not (T123). -->
-            <template v-else-if="assigned && details.loaded.value && !details.placementsRead.value">
+            <template v-else-if="assigned && placementsRefused">
               <span class="summary-strong">{{ totalVendorCount }}</span>
               {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
             </template>
@@ -293,7 +309,11 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
                 >
                   {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
                 </span>
-                <span class="vendor-date-count" data-testid="vendor-date-count">
+                <span
+                  v-if="!placementsRefused"
+                  class="vendor-date-count"
+                  data-testid="vendor-date-count"
+                >
                   {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
                   {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
                 </span>

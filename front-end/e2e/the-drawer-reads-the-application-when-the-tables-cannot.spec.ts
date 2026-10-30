@@ -10,7 +10,8 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  * The drawer reads the applications, the assignment's statistics and the tables together, and one
  * refusal emptied all three: an approved application whose answers are incomplete makes the server
  * refuse the two assignment reads, and the drawer then said "This market asks no questions of its
- * own." of a market that asks one, with the refusal shown nowhere.
+ * own." of a market that asks one, with the refusal shown nowhere, and the Vendors list said where
+ * vendors sit from a read it never had.
  */
 test('a vendor drawer shows their answers and why the placements are missing', async ({
   authenticatedPage: page,
@@ -27,14 +28,23 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   const panel = page.getByTestId('vendor-drawer-panel-application');
   await expect(panel).toBeVisible({ timeout: 15000 });
 
+  // Named from the application, which the drawer did read.
+  await expect(page.getByRole('heading', { name: 'Bob Example' })).toBeVisible();
   await expect(page.getByTestId('vendors-detail-answer-business_name')).toBeVisible();
   await expect(panel).not.toContainText('asks no questions');
   await expect(page.getByTestId('vendors-detail-load-error')).toContainText(
     'cannot be assigned until its answers are complete',
   );
 
-  // Behind it the page lists both, says why, and counts no one as placed or not.
+  // Behind it the page lists both by name, and says nothing of who is placed: no count of the
+  // assigned, no date count on a row, no "Unassigned only".
   await page.keyboard.press('Escape');
-  await expect(page.getByTestId('vendors-list-item')).toHaveCount(2);
+  const rows = page.getByTestId('vendors-list-item');
+  await expect(rows).toHaveCount(2);
   await expect(page.getByTestId('vendors-summary')).toHaveText('2 vendors');
+  await expect(page.getByTestId('vendor-date-count')).toHaveCount(0);
+  await expect(page.getByTestId('vendors-filter-unassigned')).toHaveCount(0);
+  await page.getByTestId('vendors-search-input').fill('Bob');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Bob Example');
 });
