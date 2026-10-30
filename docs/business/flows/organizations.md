@@ -87,7 +87,7 @@ Refused, naming each blocking market and its phase: "Archive or delete them firs
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
-## B6. Read the organization's history
+## B7. Read the organization's history
 
 **Status:** Works (E2E-walked by `the-organizations-history.spec.ts`; not yet walked live).
 **Who:** the organization's owner, its admins and its members; anyone else is refused.
