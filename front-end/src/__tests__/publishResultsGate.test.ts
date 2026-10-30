@@ -7,45 +7,20 @@
  * only - so on a CSV market, which is every market this product can currently create, the flag has
  * no reader and the button was a no-op with a confident label.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
-import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-import {
-  ApplicationStatus,
-  IntakeMode,
-  type Application,
-  type Market,
-} from '@/assets/types/datatypes';
+import PublishResults from '@/components/application/PublishResults.vue';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
 import { answersRefusing } from './support/servedAnswers';
 
-const fetchMarketApplications = vi.fn();
 const publishResults = vi.fn();
 
 // A publish is followed by a re-read of the market, which is the store's to do.
 vi.mock('@/stores/market', () => ({ useMarketStore: () => ({ refresh: vi.fn() }) }));
-// The review's own calls - a claim on the next card, the vendor's notes - answer nothing here,
-// rather than reaching for a server a unit test does not have.
-vi.mock('@/utils/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/api')>();
-  const answered = () => Promise.resolve({ data: {} });
-  return { ...actual, api: { get: answered, post: answered, put: answered, delete: answered } };
-});
-
 vi.mock('@/utils/applicantApi', () => ({
-  fetchMarketApplications: (id: string) => fetchMarketApplications(id),
-  reviewApplication: vi.fn(),
   publishResults: (id: string) => publishResults(id),
 }));
-
-function application(status: ApplicationStatus): Application {
-  return {
-    id: `app-${status}`,
-    marketId: 'm1',
-    applicantEmail: 'nadia@ember.test',
-    status,
-    formData: {},
-  } as unknown as Application;
-}
 
 function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): Market {
   return {
@@ -55,27 +30,19 @@ function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): M
     actionRefusals: answersRefusing(),
     publishWaitsReason: null,
     publishOutcomes: { haveATable: 3, notAssigned: 2 },
+    phase: MarketPhase.Assignment,
     ...publish,
   } as unknown as Market;
 }
 
 async function mounted(market: Market) {
-  const wrapper = mount(ApplicationMonitor, {
-    props: { market, visible: true },
-  });
-  await vi.waitFor(() => {
-    expect(wrapper.find('[data-testid="app-monitor-panel"]').exists()).toBe(true);
-  });
+  const wrapper = mount(PublishResults, { props: { market } });
   await wrapper.vm.$nextTick();
   return wrapper;
 }
 
-const button = '[data-testid="app-monitor-publish-button"]';
-const hint = '[data-testid="app-monitor-publish-hint"]';
-
-beforeEach(() => {
-  fetchMarketApplications.mockResolvedValue([application(ApplicationStatus.ReviewerApproved)]);
-});
+const button = '[data-testid="applications-publish-button"]';
+const hint = '[data-testid="applications-publish-hint"]';
 
 describe('a market with no applicants', () => {
   it('offers no Publish Results control on a CSV market', async () => {
@@ -120,5 +87,50 @@ describe('a form-intake market (E36/F04/S01)', () => {
 
     await wrapper.find('[data-testid="publish-results-submit-button"]').trigger('submit');
     expect(publishResults).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('before the assignment (E38/F05, Daniel on 2026-10-29)', () => {
+  it.each([MarketPhase.Draft, MarketPhase.Applications])(
+    'offers no Publish Results, not even a disabled one, in %s',
+    async (phase) => {
+      const wrapper = await mounted(marketTaking(IntakeMode.Form, { phase }));
+
+      expect(wrapper.find(button).exists()).toBe(false);
+      expect(wrapper.find(hint).exists()).toBe(false);
+    },
+  );
+
+  it('offers it again from the assignment on, published or not', async () => {
+    const days = await mounted(
+      marketTaking(IntakeMode.Form, { phase: MarketPhase.MarketDays, resultsPublished: true }),
+    );
+    expect(days.find('[data-testid="applications-published-badge"]').exists()).toBe(true);
+  });
+});
+
+describe('who may publish: the Publish results row (E39/F01, E38/F05)', () => {
+  it('offers none to someone the row refuses', async () => {
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, {
+        actionRefusals: answersRefusing(MarketAction.PublishResults),
+      }),
+    );
+
+    expect(wrapper.find(button).exists()).toBe(false);
+  });
+
+  it('offers none on a market read that does not say who may', async () => {
+    const wrapper = await mounted(marketTaking(IntakeMode.Form, { actionRefusals: undefined }));
+
+    expect(wrapper.find(button).exists()).toBe(false);
+  });
+
+  it('asks its own row, not the one that moves the phase', async () => {
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, { actionRefusals: answersRefusing(MarketAction.MovePhase) }),
+    );
+
+    expect(wrapper.find(button).exists()).toBe(true);
   });
 });
