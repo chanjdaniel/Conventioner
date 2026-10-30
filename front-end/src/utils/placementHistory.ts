@@ -15,6 +15,18 @@ import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 /** Mirrors the placement kinds in `back-end/history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
 
+const PLACEMENT_KINDS: ReadonlySet<string> = new Set<PlacementHistoryKind>([
+  'placed',
+  'freed',
+  'swapped',
+  'assigned',
+]);
+
+/** Whether a history entry's kind is a placement's, so it reads in this file's words. */
+export function isPlacementKind(kind: string | null): kind is PlacementHistoryKind {
+  return kind !== null && PLACEMENT_KINDS.has(kind);
+}
+
 export interface PlacementHistoryEntry {
   id: string;
   actor: string;
@@ -62,7 +74,7 @@ export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): 
       return [
         text('Assigned '),
         who(entry.vendors[0]),
-        text(` at ${detail.tableCode} (${detail.tableChoice})`),
+        text(` at ${detail.tableCode}${detail.tableChoice ? ` (${detail.tableChoice})` : ''}`),
       ];
     case 'freed':
       return [

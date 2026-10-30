@@ -23,6 +23,7 @@ sources:
   - E39/F01/S03
   - E39/F01/S04
   - E42/F01/S01
+  - E40/F01/S03
   - E41/F01/S01
   - E38/F04/S02
   - E38/F05
@@ -65,7 +66,8 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 | Row (`id`) | Default | Asked by |
 | --- | --- | --- |
-| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, placement history, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
+| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
+| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
@@ -107,18 +109,18 @@ Setting writes `permissions.<action>` to `{role, source: market}`, and resetting
 Mongo cannot set a key inside a stored null or string, so setting a row on a market whose stored `permissions` is not a map, which the read takes as no rows held, writes the whole map holding that row.
 
 **Every change is recorded** in [the market's history](../data/history.md): the `change-the-table` action, kind `permission_set` or `permission_reset`, subject `{action}` and detail `{before, after}`, each `{role, source}`; a reset of every row is one entry of kind `permission_table_reset`, no subject, and detail `{before, after}`, each a map from every row it returned to its `{role, source}`.
-`GET /markets/:id/permission-history` (`get_permission_history`, at Read) answers `{entries}`, the market's history narrowed to them, newest first.
+`GET /markets/:id/permission-history` (`get_permission_history`, at the history's row, `read-history`) answers `{entries}`, the market's history narrowed to them, newest first.
 [`back-end/tests/test_the_market_keeps_its_own_rows.py`](../../../back-end/tests/test_the_market_keeps_its_own_rows.py) pins the read, the write, each refusal, the record, and a changed row reaching the checks, the read and the markets list.
 
 ## What the screens read
 
 **The market read serves every row's answer for the person asking**, `actionRefusals`, by row id (`role_action_refusals` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), E39/F01/S02): null where they may, else why not.
 `get_market_for_user` resolves the person's role once, as `refusal` resolves it, and asks each row `role_refusal` of it, so the answer is the writes' and the role is resolved once rather than once per row; where the archived rule refuses the row's writes its words come first, as the screens always said them, so the yes and no are the writes' and only who is told which reason first differs.
-`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
+`ARCHIVED_STILL_TAKES` lists the rows an archived market still takes: reading it and its history and exporting it, giving and taking roles, and deleting it; every other row, one added later included, is refused on an archived market.
 `TestEveryRowOfTheTable` in [`back-end/tests/test_an_archive_is_read_only.py`](../../../back-end/tests/test_an_archive_is_read_only.py) sends one write of every row to an archived market, and fails when a row outside the set is not refused in the archived rule's words or a row inside it is; the phase move is refused there by the transition table, since no move leaves `archived`.
 The markets list serves the same answers, through the same function, for each entry's role, so a card offers Manage to whoever may read the market, where everyone reads the table (E39/F01/S04).
 
-**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading and exporting change nothing), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
+**`readOnlyReason` is set when the market is archived, or none of the table's changing rows is the person's** (`read_only_reason`; reading, reading the history and exporting change nothing, `READING_ROWS`), in the words "You can view this market but not change it."; [the market frame](market-frame.md) says it once on every page.
 
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
 The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".

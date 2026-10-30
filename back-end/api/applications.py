@@ -526,12 +526,17 @@ def judgeable_applications(
         docs = [doc] if doc and doc.get("market_id") == market_id else []
     else:
         docs = list_applications_for_market(market_id)
-    return [
-        doc for doc in docs
-        if doc.get("status") in UNDECIDED_STATUSES
-        or (doc.get("status") == ApplicationStatus.REVIEWER_REJECTED.value
-            and (doc.get("verdict_by") or {}).get("kind") == "rule")
-    ]
+    return [doc for doc in docs if is_judgeable(doc)]
+
+
+def is_judgeable(application: Dict[str, Any]) -> bool:
+    """Whether a market's automatic rejections may judge this stored application: an undecided
+    one, or one a rule rejected; never one a person decided. The import's preview asks it of an
+    application as the import would leave it (E38/F03/S02)."""
+    status = application.get("status")
+    return status in UNDECIDED_STATUSES or (
+        status == ApplicationStatus.REVIEWER_REJECTED.value
+        and (application.get("verdict_by") or {}).get("kind") == "rule")
 
 
 def update_application_form_data(

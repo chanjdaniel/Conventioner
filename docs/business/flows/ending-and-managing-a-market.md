@@ -21,17 +21,18 @@ sources:
   - bug/43
   - bug/47
   - T15
+  - E40/F01/S03
   - E39/F01/S04
 ---
 
 # Ending and managing a market
 
 **Who:** the market's Admin or owner archives it and manages who has access; only the owner deletes it and changes who may do what; everyone who may read the market opens Manage market and reads it ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, rename, delete or set who may do what ([finding a market](finding-a-market.md#c2-the-markets-list)).
+**Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, set who may do what, read the history, rename or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md) and [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
-Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds its people, who may do what, its organization, its name and its deletion.
+Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 
 ## P6. Ending early, or not at all
 
@@ -88,6 +89,8 @@ Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market
 5. "Reset to built-in defaults" lists each row it returns, from its role now to its default, opens on Cancel since it throws away every row the owner set, and resets them all in one write, recorded as one change; it is disabled while every row is at its default, so after a reset focus goes to the section's toggle rather than back to it.
 6. "Changes" lists the market's history narrowed to the table, newest first, ten at a time with "Load more" as the market's History pages: the row, its role before and after ("Editor to Admin"), or "Reset to built-in defaults" with each row it returned, and who made it and when, by their address, as "Users with access" names people.
 7. For anyone but the owner the section is read-only and says "Only the market's owner changes these."; on an archived market, the owner included, it says the archived words instead.
+
+Beneath Permissions, "History", closed until opened, lists every change on the market, newest first, for whoever may read the market's history: [L6](reading-the-markets-history.md#l6-read-the-markets-history).
 
 A change reaches every screen at its next read of the market: the section shows the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
 The section is [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its two confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.

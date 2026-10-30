@@ -79,6 +79,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | [The vendor drawer](../../business/flows/vendor-drawer.md) | `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts` | none noted |
 | [K Publishing and market days](../../business/flows/market-day-door.md) | `phase-rail.spec.ts`, `checkin.spec.ts`, `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `alignment.spec.ts` | none noted |
 | [L Ending and managing](../../business/flows/ending-and-managing-a-market.md) | `phase-state-machine.spec.ts`, `an-archive-is-read-only.spec.ts`, `an-archive-keeps-its-check-in-page.spec.ts`, `tier2.spec.ts`, `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `the-permissions-section.spec.ts`, `public-address.spec.ts`, `org-deletion.spec.ts`, `market-records-go-with-it.spec.ts` | none noted |
+| [L6 Reading the market's history](../../business/flows/reading-the-markets-history.md) | `the-markets-history.spec.ts` | none noted |
 | Paths: [P1 and P2](../../business/flows/the-google-form-path.md), [P3](../../business/flows/the-online-path.md), [P4](../../business/flows/the-mixed-path.md) | `market-journey.spec.ts` walks P1 from creation to the result; `start-from-csv.spec.ts` walks P2's seam from the confirm to the first import; `what-to-show-and-when.spec.ts` holds P4 refused | **P1 and P2 whole, from creation to archive** |
 
 

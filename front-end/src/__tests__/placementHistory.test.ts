@@ -40,6 +40,15 @@ describe('what one entry says', () => {
     expect(text).toContain('Front 1');
   });
 
+  it('names the table alone for a placement that recorded no table choice', () => {
+    const text = historySummary(
+      entry({ kind: 'placed', detail: { date: '2026-08-01', tableCode: 'Front 1' } }),
+      NAMES,
+    );
+
+    expect(text).toBe('Assigned Ana Rivera (ana@ember.test) at Front 1');
+  });
+
   it('says what freeing a seat left behind', () => {
     // Recorded even though nobody was placed: this is what a vendor dropping out looks like.
     const text = historySummary(
