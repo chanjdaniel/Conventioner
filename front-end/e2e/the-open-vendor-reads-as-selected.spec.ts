@@ -74,5 +74,14 @@ for (const size of [
     expect(open.border).toBe(GREEN);
     expect(open.shadow).not.toContain(HALO);
     expect((await lookOf(rows.nth(1))).ground).toBe(WHITE);
+
+    // Closed, focus comes back to the row, which is focused and no longer open.
+    await page.keyboard.press('Escape');
+    await expect(vendors.detailCloseButton).toBeHidden();
+    await expect(first).toBeFocused();
+    await settle(page);
+    const back = await lookOf(first);
+    expect(back.shadow).toContain(HALO);
+    expect(back.ground).toBe(WHITE);
   });
 }

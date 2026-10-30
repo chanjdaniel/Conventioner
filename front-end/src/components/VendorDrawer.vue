@@ -22,6 +22,7 @@ import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
 import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
@@ -152,6 +153,25 @@ useInertBehind(
   () => open.value,
   () => [overlay.value, panel.value],
 );
+
+/**
+ * Focus moves in as the drawer opens, and goes back to what opened it as it closes, as a dialog's
+ * does (`docs/implementation/conventions/dialogs.md`): the row or name that opened it is
+ * inert behind the drawer, and closing unmounts the drawer's controls, which dropped focus to
+ * `<body>`. It opens on its close, its first control, since what follows may be a verdict or a note.
+ * Only opening moves focus: another vendor shown in the open drawer leaves it where it is.
+ */
+const closeButton = ref<HTMLButtonElement | null>(null);
+useFocusGoesBack(() => open.value);
+watch(
+  open,
+  async (opened) => {
+    if (!opened) return;
+    await nextTick();
+    closeButton.value?.focus();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -194,6 +214,7 @@ useInertBehind(
         </div>
         <button
           type="button"
+          ref="closeButton"
           class="detail-close"
           aria-label="Close vendor detail"
           @click="emit('close')"
