@@ -60,7 +60,7 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Application Form');
   });
 
-  test('the bar keeps all six tabs, and one out of its phase says when it matters', async ({
+  test('the bar keeps all seven tabs, and one out of its phase says when it matters', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -81,6 +81,7 @@ test.describe('What to show, and when', () => {
       'Applications',
       'Assignment',
       'Attendance',
+      'Tools',
       'Stats',
     ]);
 
@@ -228,7 +229,7 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
       { run: false },
     );
-    await page.goto(marketScreenPath(marketId, 'result'));
+    await page.goto(marketScreenPath(marketId, 'assignments'));
     await expect(page.getByTestId('result-empty')).toContainText('Nothing assigned yet');
     await expect(page.getByTestId('phase-rail-next')).toHaveText(
       /Set the rules and allocate tables\./,
@@ -243,6 +244,6 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('vendors-list-item')).toHaveCount(2);
     await expect(page.getByTestId('vendor-date-count')).toHaveCount(0);
     await empty.getByRole('link').click();
-    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignment$`));
+    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/settings$`));
   });
 });

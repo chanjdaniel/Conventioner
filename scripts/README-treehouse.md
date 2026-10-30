@@ -31,7 +31,8 @@ The wrappers are [`th-lease.sh`](th-lease.sh), [`th-compose.sh`](th-compose.sh) 
 ```sh
 # 1. Acquire an isolated, pre-warmed worktree (leases it, copies .env files,
 #    installs front-end/node_modules from the committed lockfile with npm ci, and
-#    sets core.hooksPath to the committed .githooks/). Prints the worktree path.
+#    sets core.hooksPath to the committed .githooks/ and registers the
+#    knowledge-graph nodes' merge driver). Prints the worktree path.
 path=$(scripts/th-lease.sh my-agent-label)
 cd "$path"
 

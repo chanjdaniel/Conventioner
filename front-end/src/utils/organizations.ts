@@ -1,6 +1,7 @@
 import {
   type Organization,
   type OrganizationRoleType,
+  type PermissionTableRow,
   type ThemeObject,
 } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -21,6 +22,7 @@ export type RawOrganization = {
   theme?: ThemeObject;
   userRole?: OrganizationRoleType;
   user_role?: OrganizationRoleType;
+  defaultPermissionTable?: PermissionTableRow[];
 };
 
 export function parseOrgFromApi(org: RawOrganization): Organization {
@@ -37,6 +39,7 @@ export function parseOrgFromApi(org: RawOrganization): Organization {
     memberEmails: org.memberEmails ?? org.member_emails,
     theme: org.theme,
     userRole: userRole ?? undefined,
+    defaultPermissionTable: org.defaultPermissionTable,
   };
 }
 

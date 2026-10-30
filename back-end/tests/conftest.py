@@ -195,10 +195,13 @@ def mongo_project(doc: dict, projection) -> dict:
 
     A fake that ignores the projection hands the caller fields the real query never fetched, which
     is exactly how a read of a field nobody asked for passes here and reads ``None`` in production.
-    Only the inclusion form is modelled, because that is the only form these callers use.
+    The exclusion form (every field 0, as the organization's history reads) drops the top-level
+    fields it names and keeps the rest.
     """
     if not projection:
         return doc
+    if not any(projection.values()):
+        return {key: value for key, value in doc.items() if key not in projection}
     kept: dict = {}
     for path, wanted in projection.items():
         if not wanted:
@@ -316,7 +319,8 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     filter is a fake that passes a document Mongo would never have handed back - which is exactly
     how a lookup querying a field no document carries would go unnoticed here and 404 in
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them.
+    lookup is built out of them, ``$gt`` because a deal's lease is, and ``$type: object`` because the
+    applications waiting to be dealt are read by it.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
@@ -332,6 +336,12 @@ def mongo_matches(doc: dict, query: dict) -> bool:
             if "$ne" in condition and doc.get(key) == condition["$ne"]:
                 return False
             if "$in" in condition and doc.get(key) not in condition["$in"]:
+                return False
+            if "$type" in condition and not (
+                    condition["$type"] == "object" and isinstance(doc.get(key), dict)):
+                return False
+            # Mongo compares a missing or null field as matching no range (a lease's end, say).
+            if "$gt" in condition and (doc.get(key) is None or not doc[key] > condition["$gt"]):
                 return False
         elif condition is None:
             # A null matches a field that is null or absent.

@@ -32,6 +32,7 @@ from datatypes import (
     SetupObject,
     UnassignedTableEntry,
     User,
+    VendorAssignmentResult,
     intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
@@ -52,6 +53,7 @@ import api.applicants as ApplicantsApi
 import result_outcome as ResultOutcome
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
+import discord_client as DiscordClient
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
@@ -71,6 +73,7 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import rejection_rules as RejectionRules
+import review_team as ReviewTeam
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import (
@@ -84,6 +87,7 @@ import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
+from utils.email_address import normalized_email
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -263,7 +267,7 @@ def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Opti
 
 VERDICTS_SETTLED = (
     "The review is closed: the verdicts settled when this market entered Assignment. To assign "
-    "someone or free a seat, change the assignment on the Result page."
+    "someone or free a seat, change the assignment on the Assignments page."
 )
 
 
@@ -375,14 +379,14 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 ASSIGNMENT_RULES_SETTLED = (
     "The table allocation for this market is settled. A rule only takes effect when tables are "
     "allocated, and this market can no longer allocate them. Change a single assignment on the "
-    "Result page instead."
+    "Assignments page instead."
 )
 
 
 ASSIGNMENT_RULES_PUBLISHED = (
     "Results are published, so the table allocation is settled: a rule only takes effect when "
     "tables are allocated, and they are not allocated again once applicants have been told. Change "
-    "a single assignment on the Result page instead."
+    "a single assignment on the Assignments page instead."
 )
 
 
@@ -865,7 +869,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
-    # Hand placements at a seat the plan no longer has, for Result and the vendor's panel to mark
+    # Hand placements at a seat the plan no longer has, for Assignments and the vendor's panel to mark
     # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
     # deciding for themselves which seats exist.
     market_dict['orphanedPins'] = [
@@ -916,6 +920,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
+    # Whether this deployment has Discord's values (E46/F01/S02): the Discord card offers nothing
+    # without them, and says so.
+    market_dict['discordSetUp'] = DiscordClient.credentials() is not None
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
@@ -941,6 +948,23 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
     }
     market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
+    # Who reviews which application (E38/F07/S02): the chosen reviewers to every reader, never the
+    # turn, which the stored team is served over, and whom this reader may choose from, served only
+    # to someone who may choose them while the review is open, when the panel offers the choice.
+    # They are the people a follow-up may be handed to, already read above for someone who gives
+    # verdicts, so the read looks nobody up twice.
+    market_dict['reviewTeam'] = ReviewTeam.served(
+        ReviewTeam.team_of(market), market, context.organization)
+    may_choose = review_is_open(market.phase) and Actions.role_refusal(
+        Actions.CHOOSE_REVIEWERS, user_role, market.permissions) is None
+    if not may_choose:
+        candidates: List[str] = []
+    elif may_give_verdicts:
+        candidates = list(email_by_user_id.values())
+    else:
+        candidates = [person.email for person in reviewer_candidates(
+            market, context.organization, UsersApi.get_user(user_email))]
+    market_dict['reviewerCandidates'] = sorted(candidates)
     return market_dict
 
 def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
@@ -1113,9 +1137,12 @@ def create_market(market: Market, owner_email: str) -> tuple:
     # start kept of its file the start's alone (E38/F02), so a new market carries neither.
     market_dict["import_mapping"] = None
     market_dict["example_columns"] = None
-    # Server-owned too: a new market starts at the built-in table, whatever the body carried; the
-    # organization's default is copied in here once it has one (E39/F02/S01).
-    market_dict["permissions"] = {}
+    # Server-owned too: a new market starts with its organization's default rows, each marked as
+    # copied from it, whatever the body carried; a market of no organization, or of one that sets
+    # none, starts at the built-in table (E39/F02/S01). A copy, not a link.
+    market_dict["permissions"] = _organization_default_rows(market.organization_id)
+    # And the reviewers: chosen on the market once it exists, by their own write (E38/F07/S02).
+    market_dict["review_team"] = None
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1156,6 +1183,13 @@ def create_market(market: Market, owner_email: str) -> tuple:
             logger.warning(f"Failed to add market to organization: {e}")
     
     return result, market_id
+
+def _organization_default_rows(organization_id: Optional[str]) -> Dict[str, Dict[str, str]]:
+    """The organization's default rows as a market of it holds them, copied (E39/F02/S01)."""
+    organization = OrgsApi.get_organization(organization_id) if organization_id else None
+    rows = Actions.organization_rows((organization or {}).get(OrgsApi.DEFAULT_PERMISSIONS))
+    return {row_id: held.model_dump() for row_id, held in rows.items()}
+
 
 def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
     """Why no market may be called this, or None when it may (E21/F03/S03).
@@ -1335,12 +1369,22 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 
     rows = derive_market_table_rows(assigned_market)
     stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+    placed_rows = assigned_market.assignment_object.vendor_assignments or []
+    # Everyone the run does not read, read once: the vendors added by hand are counted below, and
+    # the applicants the review did not approve are marked where a seat overrides them.
+    outside = outside_solver_vendors(
+        market.id, EssentialFields.effective_essential_options_for_market(market),
+        {vendor.email for vendor in vendors},
+    )
+    count_added_vendors(
+        stats, [vendor.email for vendor, application in outside if needs_a_table(application)],
+        placed_rows,
+    )
 
     payload = convert_keys_to_camel_case(stats.model_dump())
     # Why each vendor holds no table, computed from the plan, the applications and the
     # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
     # unplaced, so the panel listing them can say why without a second request.
-    placed_rows = assigned_market.assignment_object.vendor_assignments or []
     payload["unplacedDates"] = [
         {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
         for entry in unplaced_dates(
@@ -1361,7 +1405,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         }
         for entry in overridden_placements(
             vendors, placed_rows,
-            not_approved_vendors(market, {vendor.email for vendor in vendors}),
+            [vendor for vendor, application in outside if is_not_approved(application)],
         )
     ]
     # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
@@ -1549,6 +1593,35 @@ def is_not_approved(application: Application) -> bool:
     return application.status is not ApplicationStatus.REVIEWER_APPROVED
 
 
+def needs_a_table(outside: Optional[Application]) -> bool:
+    """Whether a vendor needs a table (E38/F08/S02): everyone the run reads (``outside`` None), and
+    an applicant outside it whom nothing left out - a vendor added by hand, approved by the adding.
+
+    Said apart from "in the run", which is only who the run places: an added vendor stays out of
+    the run, whose answers they may not have, and is still unassigned like anyone until seated. A
+    rejected or undecided applicant needs none, seated by hand or not (bug 10)."""
+    return outside is None or not is_not_approved(outside)
+
+
+def count_added_vendors(
+    stats: AssignmentStatistics, added: Iterable[str], placements: Iterable[VendorAssignmentResult],
+) -> None:
+    """Count the vendors added by hand in the statistics' vendors (E38/F08/S02), beside the run's.
+
+    The run counts only the vendors it reads, so a vendor added without a table was missing from
+    "N unassigned" while Vendors' "Unassigned only" listed them, and the link led to a list longer
+    than its number. An added vendor needs a table on every market day, and holds one when seated
+    on any, as the run's vendors do; satisfaction stays the run's, measured against their answers.
+    """
+    seated = {placement.email for placement in placements}
+    for email in sorted(set(added)):
+        stats.total_vendors += 1
+        if email in seated:
+            stats.total_assigned_vendors += 1
+        else:
+            stats.unassigned_vendors.append(email)
+
+
 def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[SolverVendor]:
     """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
     to one by hand is marked "not approved" wherever the other overrides show."""
@@ -1576,6 +1649,9 @@ def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str
         # Said, never inferred (E36/F02/S04): a vendor added by hand is approved and still outside
         # the run, and counting them in it made Vendors and Result disagree again (bug 10).
         "inTheRun": outside is None,
+        # And whether they need a table, said apart (E38/F08/S02): a vendor added by hand is out
+        # of the run and unassigned like anyone until seated.
+        "needsATable": needs_a_table(outside),
         "addedByHand": bool(outside is not None and outside.added_by),
         "email": vendor.email,
         "tableChoice": vendor.table_choice,
@@ -1623,6 +1699,18 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
     rows = derive_market_table_rows(assigned_market)
     groups = Pricing.Groups(market)
     answers = Pricing.vendor_answers(groups, market_id)
+    # Who may be put in a seat, and what they asked for. Sent with the grid because the view has
+    # to warn - before the change, not after - when a placement would alter a vendor's table choice
+    # away from their own answer (E11/F03/S01). Every applicant, the ones outside the run with why
+    # (E36/F02/S02): an organizer may seat anyone by hand, warned, and the run's own come first.
+    placeable = [_placeable(vendor, None) for vendor in vendors] + [
+        _placeable(vendor, application)
+        for vendor, application in outside_solver_vendors(
+            market_id,
+            EssentialFields.effective_essential_options_for_market(market),
+            {vendor.email for vendor in vendors},
+        )
+    ]
     return {
         # Each occupant's price and the card's row that set it ride on their row, for the
         # organizer's eyes only: this read is the market's people's, never an applicant's
@@ -1636,25 +1724,16 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
         # the rows rather than fetched separately so the grid and its occupants' names can
         # never be a request apart.
         "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
-        # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+        # What the page's search finds each vendor by, beyond their address (E35/F02/S01): every
+        # vendor at a table, and every one the place dialog offers, whose picker searches by the
+        # same terms (E38/F08/S03).
         "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
             market_id,
             market.application_form.fields if market.application_form else [],
-            {email for row in rows for email in row.assignment_slots if email},
+            {email for row in rows for email in row.assignment_slots if email}
+            | {vendor["email"] for vendor in placeable},
         ),
-        # Who may be put in a seat, and what they asked for. Sent with the grid because the
-        # view has to warn - before the change, not after - when a placement would alter a
-        # vendor's table choice away from their own answer (E11/F03/S01).
-        # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
-        # seat anyone by hand, warned, and the run's own vendors come first.
-        "vendors": [_placeable(vendor, None) for vendor in vendors] + [
-            _placeable(vendor, application)
-            for vendor, application in outside_solver_vendors(
-                market_id,
-                EssentialFields.effective_essential_options_for_market(market),
-                {vendor.email for vendor in vendors},
-            )
-        ],
+        "vendors": placeable,
     }, 200
 
 
@@ -1974,7 +2053,6 @@ def update_market_role(market_id: str, user_id: str, new_role: MarketRole, reque
 
 
 NO_SUCH_ROW = "This market's table has no such row."
-NOT_A_ROLE = "A row's role is one of viewer, editor, admin or owner."
 
 
 def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tuple[Market, Actions.Action]:
@@ -1989,15 +2067,8 @@ def _row_to_change(market_id: str, action_id: Any, requesting_user: str) -> Tupl
     if row is None:
         raise BadRequestError(NO_SUCH_ROW)
     if row.fixed:
-        raise BadRequestError(f'Who may take the row "{row.label}" is fixed, so it cannot be changed.')
+        raise BadRequestError(Actions.fixed_row_refusal(row))
     return market, row
-
-
-def _permission_state(row: Actions.Action, held: Optional[MarketPermission]) -> Dict[str, str]:
-    """A row as a history entry's before or after: the role it asks, and where that came from."""
-    if held is None:
-        return {"role": row.default.value, "source": Actions.BUILT_IN}
-    return {"role": held.role, "source": held.source}
 
 
 def _record_permission(
@@ -2007,7 +2078,7 @@ def _record_permission(
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=kind,
         subject={"action": row.id},
-        detail={"before": _permission_state(row, before), "after": _permission_state(row, after)},
+        detail={"before": Actions.row_state(row, before), "after": Actions.row_state(row, after)},
     )
 
 
@@ -2023,7 +2094,7 @@ def set_permission(
     """
     market, row = _row_to_change(market_id, action_id, requesting_user)
     if not isinstance(role, str) or role not in {r.value for r in MarketRole}:
-        raise BadRequestError(NOT_A_ROLE)
+        raise BadRequestError(Actions.NOT_A_ROLE)
 
     before = Actions.held_row(row, market.permissions)
     if Actions.minimum_role(row, market).value == role:
@@ -2085,12 +2156,69 @@ def reset_permissions(market_id: str, requesting_user: str) -> List[Dict[str, An
     History.record(
         market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_RESET,
         detail=lambda: {
-            "before": {row.id: _permission_state(row, held) for row, held in held_rows},
-            "after": {row.id: _permission_state(row, None) for row, _ in held_rows},
+            "before": {row.id: Actions.row_state(row, held) for row, held in held_rows},
+            "after": {row.id: Actions.row_state(row, None) for row, _ in held_rows},
         },
     )
     for row, _ in held_rows:
         market.permissions.pop(row.id, None)
+    return Actions.table(market)
+
+
+NO_ORGANIZATION_TO_COPY = "This market belongs to no organization, so it has no default to copy."
+
+
+def copy_organization_default(market_id: str, requesting_user: str) -> List[Dict[str, Any]]:
+    """Replace this market's table with its organization's default as it is now, as its owner
+    (E39/F02/S01). Asks ``Actions.CHANGE_THE_TABLE``.
+
+    For a market created before its organization's default changed, which a copy at creation never
+    follows: every row the organization sets is copied, marked so, and every other row returns to
+    its built-in default, the rows its owner changed here included. One write and one entry, every
+    row it changed before and after; a market already holding the default records nothing.
+    Returns the market's table.
+    """
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHANGE_THE_TABLE)
+    organization = (
+        OrgsApi.get_organization(market.organization_id) if market.organization_id else None)
+    if organization is None:
+        raise BadRequestError(NO_ORGANIZATION_TO_COPY)
+    copied = Actions.organization_rows(organization.get(OrgsApi.DEFAULT_PERMISSIONS))
+
+    changed = []
+    for row in Actions.ACTIONS.values():
+        before = Actions.held_row(row, market.permissions)
+        after = copied.get(row.id)
+        if Actions.row_state(row, before) != Actions.row_state(row, after):
+            changed.append((row, before, after))
+    if not changed:
+        return Actions.table(market)
+
+    key = market_doc_key('permissions')
+    if _stored_rows_are_a_map(market_id):
+        # Row by row, so a row this build cannot read stays, as a reset leaves it.
+        update: Dict[str, Any] = {}
+        sets = {f"{key}.{row.id}": after.model_dump() for row, _, after in changed if after}
+        unsets = {f"{key}.{row.id}": "" for row, _, after in changed if after is None}
+        if sets:
+            update["$set"] = sets
+        if unsets:
+            update["$unset"] = unsets
+    else:
+        update = {"$set": {key: {row_id: held.model_dump() for row_id, held in copied.items()}}}
+    markets_collection.update_one(market_doc_filter("id", market_id), update)
+    History.record(
+        market_id, requesting_user, Actions.CHANGE_THE_TABLE, kind=History.PERMISSION_TABLE_COPIED,
+        detail=lambda: {
+            "before": {row.id: Actions.row_state(row, before) for row, before, _ in changed},
+            "after": {row.id: Actions.row_state(row, after) for row, _, after in changed},
+        },
+    )
+    for row, _, after in changed:
+        if after is None:
+            market.permissions.pop(row.id, None)
+        else:
+            market.permissions[row.id] = after
     return Actions.table(market)
 
 
@@ -2380,6 +2508,62 @@ def follow_up_owner(
     raise BadRequestError("A follow-up's owner must have a role on this market.")
 
 
+def reviewer_candidates(
+    market: Market, organization: Optional[Organization], chooser: Any,
+) -> List[MarketPerson]:
+    """Whom this person may choose as a reviewer (E38/F07/S02): everyone they may hand a follow-up
+    to (``follow_up_owners_for``), so someone outside the market's organization is never offered
+    its people."""
+    people = []
+    for user_id in PermissionsApi.follow_up_owners_for(
+            market, organization, chooser.id if chooser else None):
+        user = UsersApi.get_user_by_id(user_id)
+        if user:
+            people.append(MarketPerson(user_id=user.id, email=user.email))
+    return people
+
+
+REVIEWERS_SETTLED = (
+    "The review is closed: the verdicts settled when this market entered Assignment, so its "
+    "reviewers no longer change."
+)
+
+
+def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Dict[str, Any]:
+    """Choose who reviews this market's applications, and deal the open ones among them
+    (E38/F07/S02). Asks ``Actions.CHOOSE_REVIEWERS``.
+
+    ``addresses`` is the whole team, in any case and order; an empty list removes every reviewer.
+    Refused on an archived market, once the review has closed, and for an address the chooser is
+    not offered (``reviewer_candidates``, asked of the same list), which the refusal names; a
+    current reviewer they are not offered may stay. Answers the team as the market read serves it, and how many it dealt.
+    """
+    if not isinstance(addresses, list) or not all(isinstance(a, str) for a in addresses):
+        raise BadRequestError("reviewers is a list of addresses")
+    market = _load_market_to_change(market_id, requesting_user, Actions.CHOOSE_REVIEWERS)
+    if not review_is_open(market.phase):
+        raise BadRequestError(REVIEWERS_SETTLED)
+    organization = _load_organization(market.organization_id)
+    chooser = UsersApi.get_user(requesting_user)
+    offered = set(PermissionsApi.follow_up_owners_for(
+        market, organization, chooser.id if chooser else None))
+    current = {
+        normalized_email(person.email): person for person in ReviewTeam.team_of(market).reviewers}
+    chosen = []
+    for address in addresses:
+        person = current.get(normalized_email(address))
+        if person is None:
+            user = UsersApi.get_user(normalized_email(address))
+            if user is None or user.id not in offered:
+                raise BadRequestError(
+                    f"{address.strip()} is not someone you can choose as a reviewer on this "
+                    "market.")
+            person = MarketPerson(user_id=user.id, email=user.email)
+        chosen.append(person)
+    team, dealt = ReviewTeam.choose(market, organization, chosen, requesting_user)
+    return {"reviewTeam": ReviewTeam.served(team, market, organization), "dealt": dealt}
+
+
 def save_rejection_rules(
     market_id: str, rules: Any, requesting_user: str
 ) -> List[Dict[str, Any]]:
@@ -2407,6 +2591,9 @@ def save_rejection_rules(
                        {"rejection_rules": [rule.model_dump() for rule in market.rejection_rules or []]},
                        {"rejection_rules": [rule.model_dump() for rule in judged.rejection_rules or []]},
                    ), verdicts))
+    # What the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
+    if verdicts.returned:
+        ReviewTeam.deal_arrivals(judged, requesting_user, Actions.CHANGE_FORM)
     return prepared
 
 
@@ -2429,6 +2616,8 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         market, application_form_data, overturns=may_overturn(requesting_user, market))
     History.record(market_id, requesting_user, Actions.CHANGE_FORM, kind=History.FORM,
                    detail=lambda: _with_counts(form_changes(market, form_dict), verdicts))
+    if verdicts.returned:
+        ReviewTeam.deal_arrivals(market, requesting_user, Actions.CHANGE_FORM)
     return form_dict
 
 
@@ -2556,7 +2745,8 @@ def get_vendor_notes(market_id: str, requesting_user: str) -> Dict[str, Dict[str
     _load_market_for(market_id, requesting_user, Actions.READ)
     notes = VendorNotes.notes_for_market(market_id)
     for application in ApplicationsApi.list_applications_for_market(market_id):
-        request = str((application.get("form_data") or {}).get(EssentialFields.REQUEST_KEY) or "")
+        request = str(
+            ApplicationsApi.effective_answers(application).get(EssentialFields.REQUEST_KEY) or "")
         email = str(application.get("applicant_email") or "").strip().lower()
         if request.strip() and email:
             notes.setdefault(email, VendorNotes.no_notes())["request"] = request.strip()

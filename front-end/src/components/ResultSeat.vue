@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * One seat on the Result page: who holds it, and the way into changing that.
+ * One seat on the Assignments page: who holds it, and the way into changing that.
  *
  * Every seat is a control on a market that can change - an empty one is filled, an occupied one is
  * freed or traded, and a seat rather than a table is what a placement names (E11/F03/S01). On a

@@ -9,7 +9,7 @@ describes:
   - .nvmrc
   - docker-compose.yml
   - front-end/vite.config.ts
-verified: 2026-10-28
+verified: 2026-10-30
 ---
 # Technology Stack
 
@@ -138,7 +138,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### UI Framework & Components
 - **The app's own components, on no component library** ([ADR 0015](adr/0015-the-app-owns-its-components.md))
   - A dialog is [`AppDialog`](../front-end/src/components/AppDialog.vue) ([dialogs](implementation/conventions/dialogs.md)); controls are the primitives of [the design language](design-system.md#the-primitive-layer), `.btn`, `.field` and `.chip`, over native inputs
-  - A widget that is hard to get right, a combobox, a date picker or a menu, would start from a headless library such as Reka UI; `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
+  - A widget that is hard to get right, a date picker or a menu, would start from a headless library such as Reka UI; the first combobox, the placement dialog's searchable vendor pickers, is the app's own ([`SearchPicker.vue`](../front-end/src/components/SearchPicker.vue), [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps PrimeTek's packages out
 - **Icons are local SVG components** in [`src/components/icons/`](../front-end/src/components/icons/), no icon library or font
   - Each draws in `currentColor`; the five Lucide icons (`IconPencil`, `IconTrash`, `IconList`, `IconImage`, `IconCloudUpload`) are copied from `lucide-static` 1.61.0 at `1em`, so the `font-size` around them sizes them, with Lucide's ISC notice beside them in `LICENSE-lucide.txt` and in a `/*! @license` banner in each, which reaches the bundle (`theLucideNoticeReachesTheBundle.test.ts`)
   - They replaced an icon font whose next major is proprietary (T45, [ADR 0015](adr/0015-the-app-owns-its-components.md)); `theAppOwnsItsComponents.test.ts` keeps the font out
@@ -282,7 +282,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 
 ### Backend
 - `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
-- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://127.0.0.1:5173`). Has no say in CORS
+- `FRONTEND_URL` - The address organizers sign in at: email links, and Discord's OAuth2 redirect (this plus `/discord/connected`) (e.g., `http://127.0.0.1:5173`). Has no say in CORS
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
 - `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused
@@ -390,6 +390,12 @@ Conventioner/
 - **Use Cases**: Registration form protection
 - **Configuration**: Site key (frontend) and secret key (backend)
 - **Documentation**: https://developers.google.com/recaptcha/docs/v3
+
+### Discord
+- **Purpose**: Conventioner's one bot, added to an organizer's server, gives a market's vendors its role
+- **Use Cases**: the Discord card, on a market's Tools tab, connects a market to a server ([the Discord connection](implementation/modules/discord.md))
+- **Configuration**: optional; client id, client secret and bot token, all three or Discord is off; called over REST only, with `requests`
+- **Documentation**: https://docs.discord.com/developers
 
 ## Version Information
 

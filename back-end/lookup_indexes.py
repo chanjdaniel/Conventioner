@@ -58,6 +58,8 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     ],
     APPLICATIONS_COLLECTION: [
         ("id",),
+        # The applications waiting to be dealt as they arrived, read while a deal holds the market.
+        ("market_id", "arriving"),
     ],
     ATTENDANCE_COLLECTION: [
         ("market_id", "vendor_email"),

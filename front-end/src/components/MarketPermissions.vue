@@ -3,9 +3,10 @@
  * Manage market's Permissions section (E39/F01/S04): who may do what on this market, where each
  * row's role came from, and every change to it.
  *
- * Its owner sets each row, after a confirmation naming who may after it, or resets them all;
- * everyone else who may read the market reads it, with the owner-only line. The words are
- * `utils/permissionTable.ts`'s.
+ * Its owner sets each row, after a confirmation naming who may after it, resets them all, or
+ * copies its organization's default again (E39/F02/S01); everyone else who may read the market
+ * reads it, with the owner-only line. The words are `utils/permissionTable.ts`'s, and the rows and
+ * changes `PermissionRows`' and `PermissionChanges`'.
  */
 import { computed, ref } from 'vue';
 import {
@@ -17,21 +18,18 @@ import {
 import { api, getApiErrorMessage } from '@/utils/api';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
+import PermissionChanges from '@/components/PermissionChanges.vue';
+import PermissionRows from '@/components/PermissionRows.vue';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import {
-  WHO_MAY_CHOICES,
   changeConsequence,
-  changeLines,
   changeQuestion,
-  groupedRows,
   heldRows,
-  selfPromotionNote,
   selfPromotionWarning,
   sourceLine,
   whoMayLabel,
   type PermissionHistoryEntry,
 } from '@/utils/permissionTable';
-import { getFormattedTimestamp } from '@/utils/utils';
 
 const props = defineProps<{ market: Market }>();
 
@@ -51,12 +49,12 @@ const pendingChange = ref<{
   select: HTMLSelectElement;
 } | null>(null);
 const resetConfirming = ref(false);
+const copyConfirming = ref(false);
 const toggleEl = ref<HTMLButtonElement | null>(null);
 /** A refused change to the table, said in the confirmation that sent it. */
 const writeError = ref('');
 
 const table = computed(() => props.market.permissionTable ?? []);
-const groups = computed(() => groupedRows(table.value));
 const held = computed(() => heldRows(table.value));
 
 /**
@@ -92,15 +90,11 @@ const resetChanges = computed(() =>
   held.value.map((row) => `${row.label}: ${whoMayLabel(row.role)} to ${whoMayLabel(row.default)}`),
 );
 
-/** Ten at a time, newest first, as the market's History pages (E40/F01/S03). */
-const CHANGES_PAGE = 10;
-const changesShown = ref(CHANGES_PAGE);
-
-const changes = computed(() =>
-  history.value
-    .slice(0, changesShown.value)
-    .map((entry) => ({ entry, ...changeLines(entry, table.value) })),
-);
+/**
+ * A market of an organization may take its organization's default again: a copy at creation never
+ * follows a later change to it (E39/F02/S01).
+ */
+const mayCopy = computed(() => mayChange.value && !!props.market.organizationId);
 
 const marketPath = () => `/markets/${encodeURIComponent(props.market.id)}`;
 
@@ -122,31 +116,10 @@ async function fetchHistory() {
   }
 }
 
-/** A choice is asked about before it is sent; choosing the role the row already asks is nothing. */
-function askChange(row: PermissionTableRow, select: HTMLSelectElement) {
-  const role = select.value as MarketRole;
-  if (role === row.role) return;
+/** A choice is asked about before it is sent. */
+function askChange(row: PermissionTableRow, role: MarketRole, select: HTMLSelectElement) {
   writeError.value = '';
   pendingChange.value = { row, role, select };
-}
-
-/** The keys that step a closed select's value, each step its own change and so its own question. */
-const STEPPING_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']);
-
-/**
- * A closed select steps its value on these keys, and every step is a change, so a keyboard user
- * met a confirmation at the first option past their own (T114's review). They open the list
- * instead, where the keys move among the options and only Enter chooses.
- */
-function openInsteadOfStepping(event: KeyboardEvent) {
-  if (event.altKey || !STEPPING_KEYS.has(event.key)) return;
-  event.preventDefault();
-  const select = event.currentTarget as HTMLSelectElement & { showPicker?: () => void };
-  try {
-    select.showPicker?.();
-  } catch {
-    // Refused without a user gesture somewhere: Space and Alt+ArrowDown still open the list.
-  }
 }
 
 /** Cancelling puts the select back on the role the row still asks. */
@@ -191,6 +164,22 @@ async function confirmReset() {
   }
 }
 
+function cancelCopy() {
+  copyConfirming.value = false;
+  writeError.value = '';
+}
+
+async function confirmCopy() {
+  writeError.value = '';
+  try {
+    const response = await api.post(`${marketPath()}/permissions/organization-default`);
+    copyConfirming.value = false;
+    await afterWrite(response.data.permissionTable);
+  } catch (err) {
+    writeError.value = getApiErrorMessage(err, "Failed to copy the organization's defaults");
+  }
+}
+
 /**
  * The write answers the table, which the section shows at once; the changes are read again. The
  * open market is re-read if it is this one, as a rename does, and every other screen asks the table
@@ -231,83 +220,41 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
       <p v-if="readOnlyLine" class="hint" data-testid="manage-market-permissions-read-only">
         {{ readOnlyLine }}
       </p>
-      <div v-for="{ group, rows } in groups" :key="group">
-        <h4 class="subheading">{{ group }}</h4>
-        <ul class="rows">
-          <li
-            v-for="row in rows"
-            :key="row.id"
-            class="row"
-            :data-testid="`manage-market-permission-row-${row.id}`"
-          >
-            <div class="text">
-              <span :id="`manage-market-permission-${row.id}`" class="label">{{ row.label }}</span>
-              <span class="caption" data-testid="manage-market-permission-source">
-                {{ row.fixed ? 'Always' : sourceLine(row, history) }}
-              </span>
-              <span v-if="selfPromotionNote(row.id)" class="caption">
-                {{ selfPromotionNote(row.id) }}
-              </span>
-            </div>
-            <!-- Named by the row's own words, which a voice user reads off the screen. -->
-            <select
-              v-if="mayChange && !row.fixed"
-              :id="`manage-market-permission-select-${row.id}`"
-              :value="row.role"
-              :name="row.id"
-              :aria-labelledby="`manage-market-permission-${row.id}`"
-              class="field field--select select"
-              data-testid="manage-market-permission-select"
-              @keydown="openInsteadOfStepping"
-              @change="askChange(row, $event.target as HTMLSelectElement)"
-            >
-              <option v-for="role in WHO_MAY_CHOICES" :key="role" :value="role">
-                {{ whoMayLabel(role) }}
-              </option>
-            </select>
-            <span v-else class="chip chip--neutral" data-testid="manage-market-permission-role">
-              {{ whoMayLabel(row.role) }}
-            </span>
-          </li>
-        </ul>
-      </div>
-      <button
-        v-if="mayChange"
-        type="button"
-        class="btn btn--secondary reset"
-        :disabled="!resetChanges.length"
-        data-testid="manage-market-permissions-reset"
-        @click="resetConfirming = true"
-      >
-        Reset to built-in defaults
-      </button>
-
-      <template v-if="readsHistory">
-        <h4 class="subheading">Changes</h4>
-        <p v-if="historyError" class="error">{{ historyError }}</p>
-        <p v-else-if="!changes.length" class="hint">No changes yet.</p>
-        <ol v-else class="rows" data-testid="manage-market-permission-changes">
-          <li
-            v-for="{ entry, title, rows } in changes"
-            :key="entry.id"
-            class="change"
-            data-testid="manage-market-permission-change"
-          >
-            <span class="label change-title">{{ title }}</span>
-            <span v-for="line in rows" :key="line" class="change-line">{{ line }}</span>
-            <span class="caption">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
-          </li>
-        </ol>
+      <PermissionRows
+        :table="table"
+        :editable="mayChange"
+        :source-of="(row) => sourceLine(row, history)"
+        testid="manage-market-permission"
+        @ask="askChange"
+      />
+      <div v-if="mayChange" class="actions">
         <button
-          v-if="history.length > changesShown"
           type="button"
-          class="btn btn--secondary more"
-          data-testid="manage-market-permission-changes-more"
-          @click="changesShown += CHANGES_PAGE"
+          class="btn btn--secondary"
+          :disabled="!resetChanges.length"
+          data-testid="manage-market-permissions-reset"
+          @click="resetConfirming = true"
         >
-          Load more
+          Reset to built-in defaults
         </button>
-      </template>
+        <button
+          v-if="mayCopy"
+          type="button"
+          class="btn btn--secondary"
+          data-testid="manage-market-permissions-copy"
+          @click="copyConfirming = true"
+        >
+          Copy the organization's defaults again
+        </button>
+      </div>
+
+      <PermissionChanges
+        v-if="readsHistory"
+        :entries="history"
+        :table="table"
+        :error="historyError"
+        testid="manage-market-permission"
+      />
     </div>
   </section>
 
@@ -355,6 +302,23 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         <li v-for="line in resetChanges" :key="line" class="confirm-text">{{ line }}</li>
       </ul>
     </AppDialog>
+
+    <!-- Destructive as the reset is: every row the owner set gives way to the organization's. -->
+    <AppDialog
+      :open="copyConfirming"
+      title="Copy the organization's defaults again?"
+      testid="manage-market-permissions-copy-confirm"
+      destructive
+      confirm-label="Copy"
+      :error="writeError"
+      @close="cancelCopy"
+      @submit="confirmCopy"
+    >
+      <p class="confirm-text">
+        Every row takes the organization's default for new markets as it is now, and a row it does
+        not set returns to its built-in default. Rows changed on this market are replaced.
+      </p>
+    </AppDialog>
   </Teleport>
 </template>
 
@@ -380,21 +344,8 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   font-size: var(--text-xs);
 }
 
-.error {
-  margin: 0;
-  color: var(--mm-red);
-  font-size: var(--text-xs);
-}
-
 .body {
   margin-top: var(--space-2);
-}
-
-.subheading {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--mm-black);
 }
 
 .rows {
@@ -403,65 +354,11 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
   padding: 0;
 }
 
-/* A compact table rather than a card per row, which would make the dialog unwieldy. */
-.row {
+.actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-.text {
-  flex: 1 1 16rem;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-}
-
-.label {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
-}
-
-.caption {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.select {
-  width: auto;
-  flex: 0 0 auto;
-}
-
-.reset {
+  gap: var(--space-2);
   margin-top: var(--space-3);
-}
-
-.more {
-  margin-top: var(--space-3);
-}
-
-.change {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-/* The row an entry is about leads it, so a list of entries does not read as one run of lines. */
-.change-title {
-  font-weight: 600;
-}
-
-.change-line {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
 }
 
 .confirm-text {

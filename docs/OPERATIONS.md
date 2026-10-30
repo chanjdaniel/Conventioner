@@ -38,6 +38,7 @@ Production went live on 2026-10-18 as v1.0.0.
 | Email | Resend, sending domain `conventioner.io`, sender `registration@conventioner.io` | verification links, password resets, sign-in codes |
 | Captcha | Google reCAPTCHA v3, one property listing `conventioner.io` | organizer sign-up only |
 | CSV help | Hosted TypeSafe (optional) | reading a Google Form export's columns |
+| Discord | Discord Developer Portal, the Conventioner application (optional) | connecting a market to an organizer's server, where a later run gives its vendors a role ([the Discord connection](implementation/modules/discord.md)) |
 | CI and deploys | GitHub Actions: `Test` (`test.yml`), `Deploy` (`deploy.yml`), `Release Please` | `github.com/chanjdaniel/Conventioner` |
 
 The domains are DNS records at a third-party registrar pointing at Vercel.
@@ -63,11 +64,12 @@ Values are never committed, and the app refuses to boot on a blank, a placeholde
 | `SESSION_TYPE` | back end | `null` (the session lives in the signed cookie) |
 | `CORS_ALLOWED_ORIGINS` | back end | `https://conventioner.io` |
 | `TRUSTED_PROXY_HOPS` | back end | `1` |
-| `FRONTEND_URL` | back end | `https://conventioner.io` (the links in outgoing mail) |
+| `FRONTEND_URL` | back end | `https://conventioner.io` (the address organizers sign in at: the links in outgoing mail, and Discord's OAuth2 redirect, this + `/discord/connected`) |
 | `FROM_EMAIL` | back end | `registration@conventioner.io` |
 | `RESEND_API_KEY` | back end | Resend dashboard, API keys |
 | `RECAPTCHA_SECRET_KEY` | back end | reCAPTCHA admin console, the property's secret |
 | `TYPESAFE_API_KEY` | back end | TypeSafe console (optional; unset means the rules alone) |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` | back end | Discord Developer Portal, the Conventioner application: OAuth2's client id and secret, Bot's token (optional, all three or none; unset means Discord is off) |
 | `VITE_FLASK_HOST` | front end, **build time** | `https://api.conventioner.io` |
 | `VITE_RECAPTCHA_SITE_KEY` | front end, **build time** | the same reCAPTCHA property's site key |
 | `VERCEL_TOKEN` | GitHub, environment `production`, secret | vercel.com/account/tokens, scoped to the team |

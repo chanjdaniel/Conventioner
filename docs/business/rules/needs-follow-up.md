@@ -6,6 +6,7 @@ describes:
   - back-end/api/markets.py#follow_up_owner
   - back-end/api/permissions.py#people_with_market_role
   - back-end/api/permissions.py#follow_up_owners_for
+  - back-end/api/applications.py#deal_follow_up
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
 verified: 2026-10-30
@@ -18,6 +19,7 @@ sources:
   - T15
   - decision/2026-10-22
   - E38/F06/S01
+  - E38/F07/S02
 ---
 
 # Needs follow-up
@@ -39,6 +41,8 @@ Members are included, as an explicit Viewer is.
 **Who is offered them depends on who asks** ([decision of 2026-10-22](../../records/DECISION_2026-10-22.md)): someone in the organization - its owner, an admin or a member - is offered everyone above, while an Editor from outside it, there by a role on the market alone, is offered only the people the market's roles name, so the organization's addresses never reach a volunteer given one market.
 The server takes as owner only the people that requester is offered.
 Nothing is sent to the owner; the All view's "Mine" filter is how they find their follow-ups.
+
+**A follow-up owned by a reviewer who is removed goes to another reviewer** ([the review is dealt among chosen reviewers](the-review-is-dealt-among-chosen-reviewers.md)): it is dealt with the open applications and handed to the reviewer it goes to, still needing a follow-up, and the history names who held it before; one whose owner was never a reviewer stays with them.
 
 **It is not undecided to the automatic rejections**: a rule never judges a follow-up, since a person has looked at it and decided it needs more.
 

@@ -5,14 +5,16 @@
  * organization's (`OrganizationHistory.vue`, E40/F02/S01) both draw their entries with it, so the
  * two read alike; each reads its own pages and says when it has none.
  */
-import { ref } from 'vue';
+import { onMounted, onUpdated, ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
-import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import type { VendorNames } from '@/utils/vendorIdentity';
 import {
+  addressParts,
   entryChanges,
   entryParts,
   entryWhen,
+  soleColumn,
   type MarketHistoryEntry,
 } from '@/utils/marketHistory';
 
@@ -32,6 +34,8 @@ const props = withDefaults(
     ownVendor?: string;
     /** The market's choice questions, so a price group's conditions read in the card's words. */
     questions?: readonly RejectionQuestion[];
+    /** The market's form, whose questions name a vendor's answers. */
+    fields?: readonly FormField[];
   }>(),
   {
     names: () => ({}),
@@ -40,6 +44,7 @@ const props = withDefaults(
     vendorLink: undefined,
     ownVendor: '',
     questions: () => [],
+    fields: () => [],
   },
 );
 
@@ -53,11 +58,74 @@ function toggle(id: string) {
 }
 
 const changesOf = (entry: MarketHistoryEntry) =>
-  entryChanges(entry, props.labels, props.path, props.questions);
+  entryChanges(entry, props.labels, props.path, props.questions, props.ownVendor, props.fields);
+
+/** The value columns an entry's table draws: Before and After, or the one an arrival needs. */
+function valueColumns(entry: MarketHistoryEntry): string[] {
+  const sole = soleColumn(entry, changesOf(entry).changed);
+  return sole ? [sole] : ['Before', 'After'];
+}
+
+/**
+ * One Field width for the whole list, so the value columns line up down it: the column as wide as
+ * the widest name of any table open, a name counted at 12rem at most, and the column itself, its
+ * padding and border included, never wider than a third of the table, so in the narrow drawer a
+ * long name wraps rather than squeezing every value beside it.
+ */
+const FIELD_MOST_REM = 12;
+const FIELD_MOST_SHARE = 1 / 3;
+const list = ref<HTMLOListElement | null>(null);
+const fieldWidth = ref('');
+
+function measureFields() {
+  const names = list.value?.querySelectorAll<HTMLElement>('.history-field-name') ?? [];
+  const cell = names[0]?.parentElement;
+  if (!cell) {
+    fieldWidth.value = '';
+    return;
+  }
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const table = cell.closest('table')?.getBoundingClientRect().width ?? 0;
+  const most = FIELD_MOST_REM * rem;
+  let widest = 0;
+  for (const name of names) widest = Math.max(widest, Math.min(naturalWidth(name), most));
+  const style = getComputedStyle(cell);
+  const chrome =
+    parseFloat(style.paddingLeft) +
+    parseFloat(style.paddingRight) +
+    parseFloat(style.borderLeftWidth) +
+    parseFloat(style.borderRightWidth);
+  const column = Math.min(widest + (chrome || 0), table ? table * FIELD_MOST_SHARE : Infinity);
+  const next = widest ? `${Math.floor(column)}px` : '';
+  if (fieldWidth.value !== next) fieldWidth.value = next;
+}
+/** A name's width on one line, whatever the column it sits in has wrapped it to: from its text in
+ * its own font, or, where nothing can measure text (a test's DOM), from its box. */
+let measuring: CanvasRenderingContext2D | null | undefined;
+function naturalWidth(name: HTMLElement): number {
+  if (measuring === undefined) {
+    try {
+      measuring = document.createElement('canvas').getContext('2d');
+    } catch {
+      measuring = null;
+    }
+  }
+  if (!measuring) return name.getBoundingClientRect().width;
+  const style = getComputedStyle(name);
+  measuring.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  return measuring.measureText(name.textContent ?? '').width;
+}
+
+onMounted(measureFields);
+onUpdated(measureFields);
 </script>
 
 <template>
-  <ol class="history-list">
+  <ol
+    ref="list"
+    class="history-list"
+    :style="fieldWidth ? { '--history-field-width': fieldWidth } : undefined"
+  >
     <li
       v-for="entry in entries"
       :key="entry.id"
@@ -66,7 +134,10 @@ const changesOf = (entry: MarketHistoryEntry) =>
       :data-testid="`${testid}-entry`"
     >
       <p class="history-what" :data-testid="`${testid}-sentence`">
-        <template v-for="(part, index) in entryParts(entry, names, labels, path)" :key="index">
+        <template
+          v-for="(part, index) in entryParts(entry, names, labels, path, ownVendor)"
+          :key="index"
+        >
           <template v-if="part.kind === 'text'">{{ part.text }}</template>
           <!-- The drawer's head names them with their address, so here the name is enough. -->
           <span
@@ -111,14 +182,22 @@ const changesOf = (entry: MarketHistoryEntry) =>
           <thead>
             <tr>
               <th scope="col">Field</th>
-              <th scope="col">Before</th>
-              <th scope="col">After</th>
+              <th v-for="column in valueColumns(entry)" :key="column" scope="col">
+                {{ column }}
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
-              <th scope="row">{{ row.field }}</th>
-              <td v-for="(side, s) in [row.before, row.after]" :key="s">
+              <th scope="row">
+                <span class="history-field-name">{{ row.field }}</span>
+              </th>
+              <td
+                v-for="(side, s) in valueColumns(entry).length === 1
+                  ? [row.after]
+                  : [row.before, row.after]"
+                :key="s"
+              >
                 <template v-if="row.hanging">
                   <span
                     v-for="(line, i) in side.split('\n')"
@@ -128,7 +207,14 @@ const changesOf = (entry: MarketHistoryEntry) =>
                     >{{ line }}</span
                   >
                 </template>
-                <template v-else>{{ side }}</template>
+                <!-- An address breaks, if at all, only before its "@". -->
+                <template v-for="(part, p) in addressParts(side)" v-else :key="p">
+                  <template v-if="part.kind === 'text'">{{ part.text }}</template>
+                  <template v-else
+                    ><span class="history-address">{{ part.local }}</span
+                    ><wbr /><span class="history-address">{{ part.domain }}</span></template
+                  >
+                </template>
               </td>
             </tr>
           </tbody>
@@ -152,6 +238,8 @@ const changesOf = (entry: MarketHistoryEntry) =>
 
 <style scoped>
 .history-list {
+  /* Until a table is open and measured; `measureFields` sets it on the list. */
+  --history-field-width: 22%;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -216,6 +304,9 @@ const changesOf = (entry: MarketHistoryEntry) =>
   gap: var(--space-2);
 }
 
+/* One Field width for the whole list (`--history-field-width`, the widest name of any open table,
+   the column at most a third of the table, its padding and border included), so Before and After,
+   halves of the rest, line up down it. An entry whose every Before is "none" draws its one value across the rest. */
 .history-table {
   width: 100%;
   border-collapse: collapse;
@@ -249,7 +340,17 @@ const changesOf = (entry: MarketHistoryEntry) =>
 
 /* The field's name is a few words; the values beside it are what is read. */
 .history-table thead th:first-child {
-  width: 22%;
+  width: var(--history-field-width);
+}
+
+/* A name wraps only where it is wider than the list's Field column, which is as wide as the widest
+   name up to its cap (`measureFields`): an organizer's long question, or a long name in the drawer. */
+.history-table tbody th {
+  overflow-wrap: normal;
+}
+
+.history-address {
+  white-space: nowrap;
 }
 
 .history-table thead th {

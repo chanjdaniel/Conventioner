@@ -68,10 +68,10 @@ Inside the stage, More… also offers what is not a move: "Redo import" on the G
 | --- | --- | --- | --- | --- |
 | Draft / Draft | Plan the market, build the form | Market Setup | Open Applications / Import responses (the fix), then Begin Review | Archive Market |
 | Applications / Review | Online applications arrive and are reviewed as they do / every imported response is reviewed | Applications | Begin Assignment | Stop taking applications or Take applications again / Redo import; Reopen for Editing, Archive Market |
-| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Assignment, then Result once run | Publish Market | Archive Market |
-| Offers (planned) | Vendors accept or refuse | Result once run, else Assignment | Publish Market | Archive Market |
+| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Settings, then Assignments once run | Publish Market | Archive Market |
+| Offers (planned) | Vendors accept or refuse | Assignments once run, else Settings | Publish Market | Archive Market |
 | Market Days / Market Days | Vendors check in | Attendance | Archive Market, once every date has passed | Archive Market, until then |
-| Archived / Archived | Read only | Result if it was assigned, else Market Setup | none | none |
+| Archived / Archived | Read only | Assignments if it was assigned, else Market Setup | none | none |
 
 "Send Offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
 
@@ -85,15 +85,15 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
 | Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin Assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
-| Assignment, run | "Check the result, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
-| Assignment, results published | "Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
+| Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
+| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
 
 Every tab stays on the bar from Draft to the end, on both paths.
 A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Responses arrive here with your first import, which begins review."), and Attendance until the market is published ("Opens when the market is published.").
 The note stands in for the tab's pages only, never for a flow it holds, so the first import opens from Draft.
-Result and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
+Assignments and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
 The setup, the form and the assignment rules each say they are settled where they are edited, in the server's own words.
 
 ## What refuses a move

@@ -1,0 +1,2 @@
+# A knowledge-graph node merges its describes and sources lists as sets: scripts/merge_node.py, registered by its install.
+docs/**/*.md merge=kg-node

@@ -10,8 +10,8 @@ must outlive what it describes and this history is deleted with its market.
 
 **An organization's own changes are recorded here too** (E40/F02/S01): its people, its name,
 ownership handed on, a market created in it or deleted, and its floorplan templates, each an entry keyed by ``organization_id`` in
-place of ``market_id``, read in Manage organization and deleted with the organization. Its kinds
-for the organization's default rows wait for E39/F02/S01 to write them.
+place of ``market_id``, read in Manage organization and deleted with the organization; and every
+change to its default rows (E39/F02/S01).
 
 **An entry says what happened, never a sentence**: the ``E39`` action it was
 (``api.market_actions``, so the verb that asked "may this person" is the one recorded), a finer
@@ -87,9 +87,20 @@ ROLE_CHANGED = "role_changed"
 ROLE_TAKEN = "role_taken"
 SUBMITTED = "submitted"
 EDITED = "edited"
+#: An organizer kept their update of a vendor's answer over what the vendor wrote since.
+KEPT = "kept"
 PERMISSION_SET = "permission_set"
 PERMISSION_RESET = "permission_reset"
 PERMISSION_TABLE_RESET = "permission_table_reset"
+# Who reviews which application (E38/F07, ADR 0020): the reviewers chosen, and applications dealt
+# to them - by a change of reviewers, or as they arrive - each under the action that dealt them.
+REVIEWERS = "reviewers"
+DEALT = "dealt"
+#: A market's table replaced by its organization's default as it is now (E39/F02/S01).
+PERMISSION_TABLE_COPIED = "permission_table_copied"
+DISCORD_CONNECTED = "discord_connected"
+DISCORD_SETTINGS = "discord"
+DISCORD_DISCONNECTED = "discord_disconnected"
 
 
 def _now() -> str:
@@ -102,10 +113,13 @@ Part = Union[Dict[str, Any], None, Callable[[], Optional[Dict[str, Any]]]]
 
 
 def record(
-    market_id: str, actor: Optional[str], action: Action, *, kind: Optional[str] = None,
-    vendors: Iterable[str] = (), subject: Part = None, detail: Part,
+    market_id: str, actor: Optional[str], action: Union[Action, str], *,
+    kind: Optional[str] = None, vendors: Iterable[str] = (), subject: Part = None, detail: Part,
 ) -> None:
     """Write one entry. Never raises: a history that can break a change is worse than no history.
+
+    ``action`` is the table's row the change asked, or ``APPLY`` for what an applicant's own save
+    did beyond their answers (the deal of their application, E38/F07/S03).
 
     The write that matters has already happened by the time this is called - the seat is taken,
     and check-in will read it. Failing the request because the *record* of it could not be saved
@@ -116,7 +130,8 @@ def record(
 
     A detail that builds to None is a write that changed nothing, and records nothing.
     """
-    _write({MARKET_ID_FIELD: market_id}, actor, action.id, kind, vendors, subject, detail)
+    _write({MARKET_ID_FIELD: market_id}, actor, action if isinstance(action, str) else action.id,
+           kind, vendors, subject, detail)
 
 
 def record_applicant(
@@ -471,7 +486,8 @@ TEMPLATE_REMOVED = "template_removed"
 TEMPLATE_MOVED_OUT = "template_moved_out"
 TEMPLATE_MOVED_IN = "template_moved_in"
 #: A row of the organization's default table set or reset, ``permission_set`` and
-#: ``permission_reset`` with the market's subject and detail (E39/F02/S01 writes it).
+#: ``permission_reset``, or every row reset, ``permission_table_reset``, each with the subject and
+#: detail a market's table records (E39/F02/S01).
 CHANGE_THE_DEFAULT = "change-the-default"
 
 
@@ -482,6 +498,12 @@ def record_for_organization(
     """Write one entry of an organization's own history. Never raises, as ``record`` never does:
     the change it records has already landed."""
     _write({ORGANIZATION_ID_FIELD: organization_id}, actor, action_id, kind, (), subject, detail)
+
+
+def default_permission_entries(organization_id: str) -> List[Dict[str, Any]]:
+    """This organization's history narrowed to the changes to its default table, newest first."""
+    query = {ORGANIZATION_ID_FIELD: organization_id, "action": CHANGE_THE_DEFAULT}
+    return _newest_first(history_collection.find(query, _ORGANIZATION_ENTRY_PROJECTION))
 
 
 def delete_for_organization(organization_id: str) -> int:

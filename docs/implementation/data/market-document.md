@@ -22,7 +22,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E02
   - E03/F03
@@ -32,7 +32,10 @@ sources:
   - E01/F06
   - E38/F02/S01
   - E39/F01/S03
+  - E39/F02/S01
   - E43/F01/S01
+  - E38/F07/S02
+  - E46/F01/S02
 ---
 
 # The market document
@@ -67,7 +70,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `phase` | the lifecycle, one of the six `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
-| `permissions` | the rows of [the table](../modules/market-actions.md#a-markets-own-rows) this market differs on: a map from action id to `{role, source}`, `source` being `market` or `organization`; a row it does not hold reads its built-in default, so absent or `{}` is the built-in table and needs no migration; written only by its owner's write, `{}` at creation ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)) |
+| `permissions` | the rows of [the table](../modules/market-actions.md#a-markets-own-rows) this market differs on: a map from action id to `{role, source}`, `source` being `market` or `organization`; a row it does not hold reads its built-in default, so absent or `{}` is the built-in table and needs no migration; a new market starts with [its organization's default rows](organization-document.md#its-default-table), each `source: "organization"`, or `{}` when it has no organization or the organization sets none; after that only its owner's writes change it, copying the organization's default again among them ([ADR 0019](../../adr/0019-a-markets-permissions-are-a-table.md)) |
 | `intakeMode` | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `applicant_intake_market_by_slug` |
 | `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options, floorplans and `pricing`; null on a market whose plan was never saved |
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |
@@ -76,8 +79,10 @@ The other collections differ: applications and the placement trail are stored sn
 | `exampleColumns` | what [the start from a Google Form's responses](../modules/csv-proposal-and-start.md) kept of each question and left-out column of its file: label, key and the options at least 3 applicants gave that name nobody; server-owned, absent on any other market |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
+| `discord` | the Discord server the market is connected to and what [its card](../modules/discord.md) chose (`guildId`, `guildName`, `roleId`, `roleName`, `usernameQuestion`, `inviteLink`), written only by the card's routes, who connected it and when being the history's; absent is not connected, and a market disconnected keeps only `usernameQuestion`; the `discordGuildId` and `discordWebhookUrl` some old documents carry are E18/F05's removed fields, read by nothing |
 | `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
-| `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
+| `reviewTeam` | the reviewers chosen for the review, `{reviewers: [{userId, email}], turn}`, in the order they are dealt to (by address), and how many applications were dealt since they last changed, and while a deal runs `dealing` (`{by, until}`), the lease by which every deal holds the market, so the turn has one writer at a time ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)); absent is none chosen, so no migration; written only by [`back-end/review_team.py`](../../../back-end/review_team.py), null at creation, and never by a market update body ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); the read serves every reader `{reviewers: [{email, able}]}`, never the turn |
+| `creationDate`, `modificationList`, `theme` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.
 

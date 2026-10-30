@@ -230,7 +230,7 @@ export interface PermissionTableRow {
   /** The lowest role that may take the action on this market: that role and every one above it. */
   role: MarketRole;
   default: MarketRole;
-  /** No row held, copied from the organization's default at creation, or changed here. */
+  /** No row held, copied from the organization's default, or changed here. */
   source: 'built-in' | 'organization' | 'market';
   fixed: boolean;
   /** What the action is, after "may": "check vendors in at this market" (E39/F01/S04). */
@@ -266,7 +266,13 @@ export interface Market {
   modificationList: ModificationObject[];
   assignmentObject: AssignmentObject;
   applicationForm?: ApplicationForm;
-  reviewConfig?: Record<string, unknown>;
+  /** Who reviews this market's applications (E38/F07/S02), in the order they are dealt to, each
+   *  with whether they may still review here; none chosen is an empty list. Served to every
+   *  reader. */
+  reviewTeam?: ReviewTeam;
+  /** Whom this reader may choose as a reviewer, sorted: served only to someone who may choose
+   *  them, and empty for anyone else. */
+  reviewerCandidates?: string[];
   resultsPublished?: boolean;
   /** How vendors reach this market. Organizer-settable while draft, frozen by the server after.
    * Absent means `csv`, which is what the server reads too. */
@@ -358,6 +364,32 @@ export interface Market {
   applicationsStopReason?: string | null;
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
+  /** The Discord server this market is connected to, and what its card chose (E46/F01/S02). */
+  discord?: DiscordConnection | null;
+  /** Whether this Conventioner has Discord's values; the Discord card offers nothing without. */
+  discordSetUp?: boolean;
+}
+
+/**
+ * A market's Discord connection as stored (E46/F01/S02). Discord's ids are strings. A market
+ * disconnected keeps only its username question; every other field is then absent.
+ */
+export interface DiscordConnection {
+  guildId?: string;
+  guildName?: string;
+  roleId?: string;
+  roleName?: string;
+  /** The key of the form's text question that holds each vendor's Discord username. */
+  usernameQuestion?: string;
+  inviteLink?: string;
+}
+
+/** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */
+export interface DiscordRole {
+  id: string;
+  name: string;
+  /** Whether it sits below the bot's own highest role, the only roles a bot may give. */
+  belowBot: boolean;
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';
@@ -374,6 +406,8 @@ export interface Organization {
   memberEmails?: string[]; // Resolved display (from API)
   theme?: ThemeObject; // Organization theming
   userRole?: OrganizationRoleType; // Current user's role (from API, for Manage button)
+  /** The table each market created in it starts with, copied (E39/F02/S01). */
+  defaultPermissionTable?: PermissionTableRow[];
 }
 
 export interface VendorAttendance {
@@ -491,6 +525,11 @@ export interface AnswerUpdate {
   changedSince: boolean;
 }
 
+/** A market's chosen reviewers, as the market read serves them (E38/F07/S02). */
+export interface ReviewTeam {
+  reviewers: Array<{ email: string; able: boolean }>;
+}
+
 export interface Application {
   id: string;
   marketId: string;
@@ -501,7 +540,8 @@ export interface Application {
   mainApplicationId?: string;
   submittedAt?: string;
   updatedAt: string;
-  assignedReviewerId?: string;
+  /** Organizer's only: whose share it was dealt to (E38/F07/S02); null when it never was. */
+  reviewer?: { userId?: string | null; email: string } | null;
   /** Organizer's list only: set when this applicant's table-share request pairs nobody. */
   tableShareNotice?: TableShareNotice | null;
   /** Organizer's only: who gave the verdict, and when (E34/F01/S01). Null without one. */

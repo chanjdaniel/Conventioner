@@ -371,6 +371,10 @@ RECORDED = {
     ("POST", "/organizations/<org_id>/members"): "a member added",
     ("DELETE", "/organizations/<org_id>/users/<user_id>"): "a person removed",
     ("POST", "/organizations/<org_id>/transfer"): "ownership handed on",
+    # Sent in ``test_the_organizations_default.py`` (E39/F02/S01).
+    ("PUT", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row set",
+    ("DELETE", "/organizations/<org_id>/default-permissions/<action_id>"): "a default row reset",
+    ("DELETE", "/organizations/<org_id>/default-permissions"): "every default row reset",
     # Sent in ``test_floorplan_template_access.py``; one of no organization records nothing.
     ("POST", "/floorplans/templates"): "a template added",
     ("PUT", "/floorplans/templates/<template_id>"): "a template changed",

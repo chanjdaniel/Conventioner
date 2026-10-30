@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - front-end/e2e/market-journey.spec.ts
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - wayfinding/v0-1-0/map
   - E03/F02/S04
@@ -38,6 +38,7 @@ Approval is what decides the solver's whole input, which is why the journey must
 It stops at the result: publishing and market day are the slices'.
 
 A second test walks the online path to the same seam: a market whose vendors apply on its own page is created and planned, opens applications, a vendor applies on its page in a browser of their own, the organizer approves them in the same stage, One by one, begins assignment and runs it, and the vendor holds a table ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+Its vendor applies from an address of the run's own, since one address is sent at most five sign-in codes in 15 minutes ([E2E patterns](e2e-patterns.md#sharp-edges)), so the test can be repeated in one run.
 
 ## The slices
 

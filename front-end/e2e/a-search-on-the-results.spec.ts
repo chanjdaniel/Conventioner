@@ -6,7 +6,7 @@ import { TablesPage } from './pages/TablesPage';
 /**
  * A search on the results (E35/F02/S01).
  *
- * The Result page filtered by date, section, tier and size, so finding one vendor's table meant
+ * The Assignments page filtered by date, section, tier and size, so finding one vendor's table meant
  * reading every card. The search keeps the tables seating someone whose name, business or address
  * matches, and the tables whose label does - in the address with the other filters.
  */

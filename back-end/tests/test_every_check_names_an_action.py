@@ -13,6 +13,7 @@ import pytest
 
 from conftest import COMPLETE_PLAN, client_market, stored_market
 import api.added_vendors as AddedVendorsApi
+import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -24,9 +25,9 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row and E38/F06/S01's change row, and without the form
-#: amendment's, which E38/F04 removed (the amendment's walk is gone): (id, group, label, default,
-#: fixed).
+#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row and E38/F07/S02's
+#: reviewers row, and without the form amendment's, which E38/F04 removed (the amendment's walk is
+#: gone): (id, group, label, default, fixed).
 THE_TABLE = [
     ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance "
      "and floorplan export", MarketRole.VIEWER, True),
@@ -42,6 +43,7 @@ THE_TABLE = [
     ("give-verdicts", "Applications", "Give verdicts and follow-ups", MarketRole.EDITOR, False),
     ("change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
      MarketRole.ADMIN, False),
+    ("choose-reviewers", "Applications", "Choose reviewers", MarketRole.ADMIN, False),
     ("move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, False),
     ("stop-applications", "Lifecycle", "Stop taking applications, and take them again",
      MarketRole.ADMIN, False),
@@ -49,10 +51,13 @@ THE_TABLE = [
     ("add-vendor", "Vendors", "Add a vendor who never applied", MarketRole.EDITOR, False),
     ("write-vendor-notes", "Vendors", "Write vendor notes", MarketRole.EDITOR, False),
     ("update-vendor-info", "Vendors", "Update a vendor's info", MarketRole.EDITOR, False),
+    ("update-assignment-or-price-info", "Vendors", "Update info the assignment or price reads",
+     MarketRole.ADMIN, False),
     ("assign", "Assignment",
      "Allocate tables, change the assignment rules, and assign, swap or free seats",
      MarketRole.EDITOR, False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
+    ("connect-discord", "Discord", "Connect Discord and give roles", MarketRole.ADMIN, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
      MarketRole.ADMIN, False),
     ("manage-admins", "People", "Give and take Admin roles", MarketRole.OWNER, True),
@@ -166,6 +171,12 @@ EACH_LOAD_ASKS = [
         "market-123", {}, MarketPerson(user_id="u", email="u@x.test")), Actions.ADD_VENDOR),
     (lambda: VendorExportApi.preview("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
     (lambda: VendorExportApi.export("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
+    (lambda: DiscordConnectionApi.start("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.connect("market-123", "c", "s", "u@x.test"),
+     Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.disconnect("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.save("market-123", {}, "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.roles("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
 ]
 
 

@@ -10,7 +10,7 @@
  * history alone, with no filters: the same entries in the same words, narrowed by the server.
  */
 import { computed, ref, watch } from 'vue';
-import type { IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
+import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
@@ -31,6 +31,8 @@ const props = defineProps<{
   /** The market's choice questions (`rejectionQuestions`), so a price group's conditions read in
    *  the card's words (E43/F01/S02). */
   questions?: readonly RejectionQuestion[];
+  /** The market's form, whose questions name a vendor's answers in an entry's before and after. */
+  fields?: readonly FormField[];
   /** Counts the changes the dialog holding it has made: each reads the first page again, under
    * the filters as they are, so the change shows without reopening the dialog. */
   changesMade?: number;
@@ -317,6 +319,7 @@ const emptyText = computed(() => {
       :vendor-link="vendorLink"
       :own-vendor="ownVendor"
       :questions="questions"
+      :fields="fields"
     />
 
     <p v-if="loadError && entries.length" class="form-error" data-testid="market-history-error">

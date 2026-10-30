@@ -405,6 +405,7 @@ async function closeAddUser() {
           :path="intakeModeOf(marketData)"
           :changes-made="changesMade"
           :questions="marketData.rejectionQuestions ?? []"
+          :fields="marketData.applicationForm?.fields ?? []"
         />
       </HistorySection>
 

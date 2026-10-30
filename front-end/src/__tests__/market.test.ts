@@ -43,7 +43,7 @@ describe('parseMarketFromApi', () => {
     expect(market.phase).toBe(MarketPhase.Archived);
   });
 
-  it('round-trips the application form and review config', () => {
+  it('round-trips the application form and the reviewers', () => {
     const market = parseMarketFromApi({
       ...apiMarket,
       applicationForm: {
@@ -58,11 +58,11 @@ describe('parseMarketFromApi', () => {
           },
         ],
       },
-      reviewConfig: { reviewers: ['a@example.com'] },
+      reviewTeam: { reviewers: [{ email: 'a@example.com', able: true }] },
     });
 
     expect(market.applicationForm?.fields[0].label).toBe('Shop name');
-    expect(market.reviewConfig).toEqual({ reviewers: ['a@example.com'] });
+    expect(market.reviewTeam).toEqual({ reviewers: [{ email: 'a@example.com', able: true }] });
   });
 
   /**
@@ -122,7 +122,7 @@ describe('parseMarketFromApi', () => {
 
     expect(market.phase).toBeUndefined();
     expect(market.applicationForm).toBeUndefined();
-    expect(market.reviewConfig).toBeUndefined();
+    expect(market.reviewTeam).toEqual({ reviewers: [] });
   });
 });
 
@@ -174,8 +174,8 @@ describe('openMarket', () => {
 describe('marketPath', () => {
   it('gives every market page its own address, so a link opens that page of that market', () => {
     expect(marketPath('m1', 'setup')).toBe('/markets/m1/setup');
-    expect(marketPath('m1', 'assignment')).toBe('/markets/m1/assignment');
-    expect(marketPath('m1', 'result')).toBe('/markets/m1/result');
+    expect(marketPath('m1', 'settings')).toBe('/markets/m1/settings');
+    expect(marketPath('m1', 'assignments')).toBe('/markets/m1/assignments');
     expect(marketPath('m1', 'import')).toBe('/markets/m1/import');
   });
 

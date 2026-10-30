@@ -34,8 +34,10 @@ import api.permissions as PermissionsApi  # noqa: E402
 import api.placements as PlacementsApi  # noqa: E402
 import api.users as UsersApi  # noqa: E402
 import csv_import as CsvImport  # noqa: E402
+import discord_client as Discord  # noqa: E402
 import db_config  # noqa: E402
 import history as History  # noqa: E402
+import review_team as ReviewTeam  # noqa: E402
 from bson.errors import InvalidDocument  # noqa: E402
 from datatypes import MarketPerson, MarketPhase  # noqa: E402
 from test_csv_import import MAPPING, _csv, _market_doc  # noqa: E402
@@ -121,7 +123,12 @@ class LiveMarkets:
                 target = target.setdefault(part, {})
             target[last] = value
         for key in update.get("$unset") or {}:
-            self.doc.pop(key, None)
+            *parents, last = key.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.get(part) if isinstance(target, dict) else None
+            if isinstance(target, dict):
+                target.pop(last, None)
         for key, value in (update.get("$push") or {}).items():
             added = value["$each"] if isinstance(value, dict) and "$each" in value else [value]
             self.doc.setdefault(key, []).extend(added)
@@ -149,7 +156,7 @@ def _account(email: str) -> SimpleNamespace:
 @pytest.fixture
 def world(monkeypatch, applications, market_records):
     markets = LiveMarkets()
-    for module in (MarketsApi, AttendanceApi, FloorplansSave):
+    for module in (MarketsApi, AttendanceApi, FloorplansSave, ReviewTeam):
         monkeypatch.setattr(module, "markets_collection", markets)
     monkeypatch.setattr(db_config, "get_database", lambda *_a, **_k: {"markets": markets})
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
@@ -359,6 +366,12 @@ def _follow_up_owner(client, world):
                       json={"ownerEmail": SAM})
 
 
+def _choose_reviewers(client, world):
+    # No application open, so the choice deals nothing and records its one entry.
+    world.market(MarketPhase.APPLICATIONS, roles={"user-owner": "owner"})
+    return client.put(f"/markets/{MARKET}/reviewers", json={"reviewers": [OWNER]})
+
+
 def _update_info(client, world):
     world.market(MarketPhase.APPLICATIONS, applicationForm={"fields": [QUESTION]})
     world.applications.insert_one(_application("app-1", VENDOR, form_data={"shop": "Ember"}))
@@ -445,6 +458,38 @@ def _door(organizer: bool, undo: bool):
     return send
 
 
+# --- Discord ----------------------------------------------------------------------------------------
+
+DISCORD_SERVER = {"guildId": "2909267986263572999", "guildName": "Market Vendors"}
+
+
+def _discord(world, **stored):
+    world.patch(Discord, "credentials", lambda: Discord.Credentials("id", "secret", "token"))
+    world.patch(Discord, "connected_server",
+                lambda *_a: Discord.Server("2909267986263572999", "Market Vendors"))
+    world.patch(Discord, "server_roles",
+                lambda *_a: [Discord.Role("r-vendor", "Vendor Test", below_bot=True)])
+    world.market(MarketPhase.MARKET_DAYS, **({"discord": stored} if stored else {}))
+
+
+def _connect_discord(client, world):
+    _discord(world)
+    started = client.post(f"/markets/{MARKET}/discord/authorization").get_json()["url"]
+    state = started.split("state=")[1].split("&")[0]
+    return client.post(f"/markets/{MARKET}/discord/connection",
+                       json={"code": "a-code", "state": state})
+
+
+def _discord_choice(client, world):
+    _discord(world, **DISCORD_SERVER)
+    return client.put(f"/markets/{MARKET}/discord", json={"roleId": "r-vendor"})
+
+
+def _disconnect_discord(client, world):
+    _discord(world, **DISCORD_SERVER)
+    return client.delete(f"/markets/{MARKET}/discord/connection")
+
+
 # --- People -----------------------------------------------------------------------------------------
 
 def _give_role(client, world):
@@ -477,6 +522,13 @@ def _reset_permissions(client, world):
     world.market(MarketPhase.APPLICATIONS,
                  permissions={"check-in": {"role": "admin", "source": "market"}})
     return client.delete(f"/markets/{MARKET}/permissions")
+
+
+def _copy_organization_default(client, world):
+    world.market(MarketPhase.APPLICATIONS, organizationId="org-1")
+    world.patch(MarketsApi.OrgsApi, "get_organization", lambda _org_id: {
+        "id": "org-1", "default_permissions": {"check-in": {"role": "admin"}}})
+    return client.post(f"/markets/{MARKET}/permissions/organization-default")
 
 
 M = "/markets/<market_id>"
@@ -526,6 +578,8 @@ WRITES = [
     Write("a follow-up handed on", "PUT", f"{M}/applications/<application_id>/follow-up-owner",
           Actions.GIVE_VERDICTS, History.FOLLOW_UP_OWNER, _follow_up_owner, vendors=(VENDOR,),
           subject={"application_id": "app-1"}),
+    Write("reviewers chosen", "PUT", f"{M}/reviewers", Actions.CHOOSE_REVIEWERS,
+          History.REVIEWERS, _choose_reviewers),
     Write("a vendor's info updated", "PUT", f"{M}/applications/<application_id>/answers",
           Actions.UPDATE_VENDOR_INFO, None, _update_info, vendors=(VENDOR,),
           subject={"application_id": "app-1"},
@@ -563,6 +617,12 @@ WRITES = [
     Write("a vendor's own check-in undone", "DELETE", PUBLIC_DOOR, Actions.CHECK_IN,
           History.CHECK_IN_UNDONE, _door(organizer=False, undo=True), actor=None,
           vendors=(VENDOR,), subject={"date": DATE}, detail_keys=("via",)),
+    Write("Discord connected", "POST", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
+          History.DISCORD_CONNECTED, _connect_discord),
+    Write("a Discord choice", "PUT", f"{M}/discord", Actions.CONNECT_DISCORD,
+          History.DISCORD_SETTINGS, _discord_choice),
+    Write("Discord disconnected", "DELETE", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
+          History.DISCORD_DISCONNECTED, _disconnect_discord),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,
           History.ROLE_GIVEN, _give_role, subject=SAM_BY_ID),
     Write("a role changed", "PUT", f"{M}/roles/<user_id>", Actions.MANAGE_ADMINS,
@@ -577,6 +637,9 @@ WRITES = [
           subject={"action": "check-in"}),
     Write("the table reset", "DELETE", f"{M}/permissions",
           Actions.CHANGE_THE_TABLE, History.PERMISSION_TABLE_RESET, _reset_permissions),
+    Write("the organization's default copied again", "POST",
+          f"{M}/permissions/organization-default", Actions.CHANGE_THE_TABLE,
+          History.PERMISSION_TABLE_COPIED, _copy_organization_default),
 ]
 
 #: The write routes that change nothing on a market's record, and why.
@@ -601,6 +664,8 @@ NOT_A_CHANGE = {
     ("POST", "/floorplans/analyze"): "reads an image and keeps nothing",
     ("POST", "/floorplans/place-tables"): "proposes table positions and keeps nothing",
     ("POST", "/floorplans/export"): "a read",
+    ("POST", f"{M}/discord/authorization"):
+        "keeps a one-time state in the person's session; connecting, which records, spends it",
 }
 
 #: The table's rows no write records, and why.
@@ -610,6 +675,8 @@ NOT_RECORDED = {
     Actions.EXPORT_CSV.id: "a read changes nothing",
     Actions.DELETE_MARKET.id:
         "the history goes with the market; its organization's history records it",
+    Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO.id:
+        "asked beside Update a vendor's info by the same write, which records it under that row",
 }
 
 

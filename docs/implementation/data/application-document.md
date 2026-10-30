@@ -11,7 +11,7 @@ describes:
   - back-end/datatypes.py#AnswerUpdate
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01
@@ -23,6 +23,9 @@ sources:
   - E34/F03/S02
   - E36/F03/S01
   - E41/F01/S01
+  - E38/F07/S02
+  - E38/F07/S03
+  - E41/F01/S02
 ---
 
 # The application document
@@ -57,7 +60,8 @@ The organizer's and the applicant's views camel-case an application on the way o
 | `follow_up_owner` | who is reaching out, while the status is `needs_follow_up` |
 | `held_by`, `held_until` | the reviewer looking at it, and until when: a five-minute lease, renewed while the card stays open |
 | `added_by`, `added_at` | who recorded a vendor who never applied, and when |
-| `assigned_reviewer_id` | carried on the model; nothing writes it |
+| `arriving` | an application waiting to be dealt as it arrived, `{actor, action}`: the write it arrived by, for the deal's history entry; set by `mark_arriving` while it is open and undealt, cleared as it is dealt or let go, so a deal that could not hold the market leaves it for the one that does ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)) |
+| `reviewer` | whose share it was dealt to (`{user_id, email}`), absent when it never was ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); three writes in this module write it, each called only by [`back-end/review_team.py`](../../../back-end/review_team.py) while its deal holds the market, so no two deals write the turn or a reviewer at once: `deal`, when reviewers are chosen or changed, only while the application is open and still dealt as read; `deal_follow_up`, a removed reviewer's follow-up handed on, which sets `follow_up_owner` with it; and `deal_arrival`, an arrival (an applicant's save, an import, or the rules returning it to open), only while it is still open, undealt and marked `arriving`, so one decided meanwhile keeps its verdict alone; a verdict never clears it, so it stays the record of whose share it was; not who is looking at it now, which is `held_by` |
 
 A vendor's names are answers in `form_data` too; `vendor_names_for_market` reads them as one map from address to the name to call each vendor ([a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md)).
 
@@ -79,12 +83,12 @@ Writing over `form_data` instead would last until the next re-import.
 `write_answer_updates` sets and unsets each update by its own dotted path, so two organizers updating different answers at once both land; an update does not move `updated_at`, which is the vendor's answers' time a verdict is conditioned on.
 
 **`effective_answers` is the one reader of the answers as the organizer reads them**: `form_data` with each update's value in its place.
-The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`), the price groups (`vendor_answers_for_market`, [a price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups)) and the [automatic rejections](../../business/rules/automatic-rejections.md) read through it, and so does any reader added later that calls it.
+The organizer's views (`formData` in `_application_response_organizer`, beside `answerUpdates`), the results search and the names (`_answers_by_address`), the vendor export (`Vendor.answers` in `api/vendor_export.py`), the Stats tab's answer counts (`market_stats.py`), the price groups (`vendor_answers_for_market`, [a price follows the table](../../business/rules/a-price-follows-the-table.md#price-groups)), the [automatic rejections](../../business/rules/automatic-rejections.md), the solver's input (`_solver_vendor` in `assignment/vendor_input.py`, and so the placement warnings and what a run was made from), the empty-tier check (`NoAskedForTierWithoutTablesGuard`), the table-share notice (`_share_request` in `api/applicants.py`) and the vendor's request beside the notes (`get_vendor_notes`) read through it, and so does any reader added later that calls it.
 The applicant's own view serves `form_data`, what they wrote, and no update.
-The solver's input still reads `form_data`: the essential answers it reads cannot be updated yet (E41/F01/S02).
+A re-import still compares the file with `form_data` (`csv_import._would_return_to_review`): whether the vendor's own answer changed is the question there, not how it reads.
 
 `answerUpdates` serves each update with `theyWrote`, the vendor's answer now, and `changedSince`, whether that differs from `over`: a re-import or their own edit changed it after the update, which the drawer says.
-[`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py) makes the update (`PUT /markets/:id/applications/:app_id/answers`): it validates each answer as the form does (`validated_answer` in `application_write.py`), refuses an essential key and a key the form does not ask, takes an update away when its answer is set back to what the vendor wrote, and keeps an update restated as it stands, with who made it.
+[`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py) makes the update (`PUT /markets/:id/applications/:app_id/answers`): it validates each answer as the form does (`validated_answer` in `application_write.py`, and `validated_essential_update` in `essential_fields.py` for an essential question), refuses a key the form does not ask, takes an update away when its answer is set back to what the vendor wrote, and keeps an update restated as it stands, with who made it; restated over an answer the vendor changed since, the update is kept over what they wrote now, by whoever saved it, and recorded as kept.
 
 ## Statuses
 

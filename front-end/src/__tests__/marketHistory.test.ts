@@ -3,12 +3,15 @@
  * structured entry, which opens to show before and after.
  */
 import { describe, expect, it } from 'vitest';
-import { IntakeMode, type RejectionQuestion } from '@/assets/types/datatypes';
+import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import {
   dayEnds,
   dayStarts,
   entryChanges,
+  addressParts,
   entryParts,
+  fieldName,
+  soleColumn,
   valueText,
   type MarketHistoryEntry,
   type MarketHistoryPart,
@@ -283,10 +286,41 @@ describe('what an entry says', () => {
     );
   });
 
+  it("words a copy of the organization's defaults by the rows it changed", () => {
+    expect(
+      sentence(
+        {
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: {
+              'check-in': { role: 'editor', source: 'built-in' },
+              'move-phase': { role: 'owner', source: 'market' },
+            },
+            after: {
+              'check-in': { role: 'admin', source: 'organization' },
+              'move-phase': { role: 'admin', source: 'built-in' },
+            },
+          },
+        },
+        { 'check-in': 'Check vendors in', 'move-phase': 'Move the phase' },
+      ),
+    ).toBe(
+      "dana@ember.test copied the organization's defaults, changing Check vendors in and Move the phase",
+    );
+  });
+
   it('words an applicant’s own application as theirs', () => {
     expect(sentence({ actor: 'ana@ember.test', action: 'apply', kind: 'submitted' })).toBe(
       '[Ana Rivera] applied',
     );
+  });
+
+  it('words keeping an update over a changed answer as keeping it', () => {
+    expect(
+      sentence({ action: 'update-vendor-info', kind: 'kept', vendors: ['ben@ember.test'] }),
+    ).toBe('dana@ember.test kept their update to the info of [Ben Okafor]');
   });
 
   it('names a change it has no words for by its row of the table', () => {
@@ -324,6 +358,373 @@ describe('what an entry says', () => {
       NAMES,
     );
     expect(vendor).toEqual({ kind: 'vendor', name: '', email: 'cy@ember.test' });
+  });
+});
+
+describe('who reviews which application (E38/F07/S02)', () => {
+  const SAM = 'sam@example.com';
+  const KAI = 'kai@example.com';
+
+  function reviewers(before: string[], after: string[]): MarketHistoryEntry {
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'reviewers',
+      vendors: [],
+      detail: { before: { reviewers: before }, after: { reviewers: after } },
+    });
+  }
+
+  function dealt(to: Array<string | null>, from: Array<string | null> = []): MarketHistoryEntry {
+    const vendors = ['ana@ember.test', 'ben@ember.test', 'cy@ember.test'].slice(0, to.length);
+    const ids = vendors.map((_vendor, index) => `app-${index}`);
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'dealt',
+      vendors,
+      subject: { application_ids: ids },
+      detail: {
+        cause: 'reviewers_changed',
+        before: Object.fromEntries(ids.map((id, i) => [id, { reviewer: from[i] ?? null }])),
+        after: Object.fromEntries(ids.map((id, i) => [id, { reviewer: to[i] }])),
+      },
+    });
+  }
+
+  it('words a first choice of reviewers by who was chosen', () => {
+    expect(said(entryParts(reviewers([], ['a@x.test', 'b@x.test', 'c@x.test']), NAMES))).toBe(
+      'dana@ember.test chose the reviewers: a@x.test, b@x.test and c@x.test',
+    );
+  });
+
+  it('words a change of reviewers by who was added and who was removed', () => {
+    expect(
+      said(entryParts(reviewers(['a@x.test', 'b@x.test'], ['b@x.test', 'c@x.test']), NAMES)),
+    ).toBe('dana@ember.test changed the reviewers: added c@x.test, removed a@x.test');
+    expect(said(entryParts(reviewers(['a@x.test'], ['a@x.test', 'c@x.test']), NAMES))).toBe(
+      'dana@ember.test changed the reviewers: added c@x.test',
+    );
+  });
+
+  it('words taking every reviewer away as such', () => {
+    expect(said(entryParts(reviewers(['a@x.test'], []), NAMES))).toBe(
+      'dana@ember.test removed every reviewer',
+    );
+  });
+
+  it('words a deal of one application by the vendor and whom it went to', () => {
+    expect(said(entryParts(dealt([SAM]), NAMES))).toBe(
+      `dana@ember.test dealt the application of [Ana Rivera] to ${SAM}`,
+    );
+  });
+
+  it('words a deal of many by how many and among how many reviewers', () => {
+    expect(said(entryParts(dealt([SAM, KAI, SAM]), NAMES))).toBe(
+      'dana@ember.test dealt 3 open applications among 2 reviewers',
+    );
+  });
+
+  it('words a deal back to first come, first served as such', () => {
+    expect(said(entryParts(dealt([null, null], [SAM, KAI]), NAMES))).toBe(
+      'dana@ember.test returned 2 open applications to first come, first served',
+    );
+    expect(said(entryParts(dealt([null], [SAM]), NAMES))).toBe(
+      'dana@ember.test returned the application of [Ana Rivera] to first come, first served',
+    );
+  });
+
+  it('words a deal of many as the vendor’s own line in their own history', () => {
+    const many = dealt([SAM, KAI, SAM]);
+
+    expect(said(entryParts(many, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      `dana@ember.test dealt the application to ${KAI}`,
+    );
+    expect(
+      said(
+        entryParts(dealt([null, null], [SAM, KAI]), NAMES, {}, IntakeMode.Csv, 'BEN@ember.test'),
+      ),
+    ).toBe('dana@ember.test returned the application to first come, first served');
+  });
+
+  it('opens a deal to each vendor’s reviewer before and after, and the vendor’s own alone', () => {
+    const many = dealt([SAM, KAI], [null, SAM]);
+
+    expect(entryChanges(many)).toEqual({
+      changed: [
+        { field: 'ana@ember.test', before: 'none', after: SAM },
+        { field: 'ben@ember.test', before: SAM, after: KAI },
+      ],
+      recorded: [],
+    });
+    expect(entryChanges(many, {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
+      { field: 'Reviewer', before: SAM, after: KAI },
+    ]);
+  });
+
+  it('words an applicant’s own arrival as their application dealt, never as their deal', () => {
+    const arrived = {
+      ...dealt([SAM]),
+      action: 'apply',
+      actor: 'ana@ember.test',
+      detail: {
+        cause: 'arrived',
+        before: { 'app-0': { reviewer: null } },
+        after: { 'app-0': { reviewer: SAM } },
+      },
+    };
+
+    expect(said(entryParts(arrived, NAMES))).toBe(
+      `The application of [Ana Rivera] was dealt to ${SAM} as it arrived`,
+    );
+    expect(said(entryParts(arrived, NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
+      `The application was dealt to ${SAM} as it arrived`,
+    );
+  });
+
+  it('words an organizer’s write that dealt what arrived by who made it', () => {
+    const imported = { ...dealt([SAM, KAI]), action: 'import-applications' };
+
+    expect(said(entryParts(imported, NAMES))).toBe(
+      'dana@ember.test dealt 2 open applications among 2 reviewers',
+    );
+  });
+
+  /** A deal of a removed reviewer's follow-up beside an open application (E38/F07/S02). */
+  function handedOn(): MarketHistoryEntry {
+    return entry({
+      action: 'choose-reviewers',
+      kind: 'dealt',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      subject: { application_ids: ['app-0', 'app-1'] },
+      detail: {
+        cause: 'reviewers_changed',
+        before: { 'app-0': { reviewer: KAI }, 'app-1': { reviewer: KAI, follow_up_owner: KAI } },
+        after: { 'app-0': { reviewer: SAM }, 'app-1': { reviewer: SAM, follow_up_owner: SAM } },
+      },
+    });
+  }
+
+  it('words a deal that handed on a follow-up by both counts', () => {
+    expect(said(entryParts(handedOn(), NAMES))).toBe(
+      'dana@ember.test dealt 1 open application and 1 follow-up among 1 reviewer',
+    );
+  });
+
+  it('words a follow-up dealt on by who held it before, in the vendor’s own history too', () => {
+    const one = {
+      ...handedOn(),
+      vendors: ['ben@ember.test'],
+      subject: { application_ids: ['app-1'] },
+    };
+
+    expect(said(entryParts(one, NAMES))).toBe(
+      `dana@ember.test dealt the follow-up of [Ben Okafor] from ${KAI} to ${SAM}`,
+    );
+    expect(said(entryParts(handedOn(), NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      `dana@ember.test dealt the follow-up from ${KAI} to ${SAM}`,
+    );
+    expect(entryChanges(handedOn(), {}, IntakeMode.Csv, [], 'ben@ember.test').changed).toEqual([
+      { field: 'Reviewer', before: KAI, after: SAM },
+      { field: 'Follow-up owner', before: KAI, after: SAM },
+    ]);
+  });
+
+  it('opens a change of reviewers to the lists before and after, one address a line', () => {
+    expect(entryChanges(reviewers(['a@x.test'], ['a@x.test', 'c@x.test'])).changed).toEqual([
+      { field: 'Reviewers', before: 'a@x.test', after: 'a@x.test\nc@x.test' },
+    ]);
+    expect(entryChanges(reviewers(['a@x.test'], [])).changed).toEqual([
+      { field: 'Reviewers', before: 'a@x.test', after: 'none' },
+    ]);
+  });
+});
+
+describe('an applicant’s answers, before and after', () => {
+  const FIELDS = [
+    { key: 'business_name', label: 'Business name', type: 'text', order: 0 },
+  ] as unknown as FormField[];
+  const applied = (action = 'apply', kind: string | null = 'submitted'): MarketHistoryEntry =>
+    entry({
+      action,
+      kind,
+      detail: {
+        before: {},
+        after: {
+          business_name: 'Ember Ceramics',
+          essential_available_dates: ['2099-08-01'],
+          essential_tier_preference: { '2099-08-01': ['Gold', 'Silver'] },
+          essential_table_choice: 'half',
+          // The table-share question's three storage keys read as one answer, the partner's.
+          essential_table_share_email: 'kai@example.com',
+          essential_table_share_also: ['lee@example.com'],
+          // Stored empty, so it differs from absent, but reads as nothing either way.
+          essential_preferred_name: '',
+        },
+        rejected_by_rules: false,
+      },
+    });
+
+  it('names each question as the form asks it, and reads each answer as a person would', () => {
+    const { changed } = entryChanges(applied(), {}, IntakeMode.Form, [], '', FIELDS);
+
+    // As the form asks them: the essential questions first, then the organizer's own.
+    expect(changed.map((row) => row.field)).toEqual([
+      'Available dates',
+      'Tier preference',
+      'Table choice',
+      'Table-share partner',
+      'Business name',
+    ]);
+    expect(changed.map((row) => row.after)).toEqual([
+      'Saturday, August 1, 2099',
+      'Saturday, August 1, 2099: Gold, Silver',
+      expect.stringMatching(/half/i),
+      'kai@example.com',
+      'Ember Ceramics',
+    ]);
+    expect(changed.every((row) => row.before === 'none')).toBe(true);
+  });
+
+  it('puts the organizer’s own questions in the form’s order, and anything else after', () => {
+    const fields = [
+      { key: 'shop', label: 'Shop', type: 'text', order: 1 },
+      { key: 'wares', label: 'What do you sell?', type: 'text', order: 0 },
+    ] as unknown as FormField[];
+    const answers = entry({
+      action: 'apply',
+      kind: 'submitted',
+      detail: {
+        before: {},
+        after: { gone: 'x', shop: 'Ember', wares: 'Pots', essential_full_name: 'Ana Rivera' },
+      },
+    });
+
+    expect(
+      entryChanges(answers, {}, IntakeMode.Form, [], '', fields).changed.map((row) => row.field),
+    ).toEqual(['Full name', 'What do you sell?', 'Shop', 'Gone']);
+  });
+
+  it('reads an organizer’s update of a vendor’s info the same way', () => {
+    const { changed } = entryChanges(
+      applied('update-vendor-info', null),
+      {},
+      IntakeMode.Form,
+      [],
+      '',
+      FIELDS,
+    );
+
+    expect(changed.at(-1)).toEqual({
+      field: 'Business name',
+      before: 'none',
+      after: 'Ember Ceramics',
+    });
+  });
+});
+
+describe('how a before and after is drawn', () => {
+  it('drops the Before column when every Before is none, naming an applicant’s answers so', () => {
+    const rows = (...befores: string[]) =>
+      befores.map((before, i) => ({ field: `f${i}`, before, after: 'x' }));
+
+    expect(soleColumn(entry({ action: 'apply', kind: 'submitted' }), rows('none', 'none'))).toBe(
+      'Answer',
+    );
+    expect(soleColumn(entry({ action: 'add-vendor', kind: null }), rows('none'))).toBe('After');
+    // An arrival's deal is recorded under the applicant's action, but a reviewer is no answer.
+    expect(soleColumn(entry({ action: 'apply', kind: 'dealt' }), rows('none'))).toBe('After');
+    expect(soleColumn(entry({ action: 'apply', kind: 'edited' }), rows('none', 'Gold'))).toBeNull();
+    expect(soleColumn(entry({}), [])).toBeNull();
+  });
+
+  it('marks each address in a value, so it breaks, if at all, only before its @', () => {
+    expect(addressParts('Dealt to rv-ana@example.com, and bo@x.test')).toEqual([
+      { kind: 'text', text: 'Dealt to ' },
+      { kind: 'address', local: 'rv-ana', domain: '@example.com' },
+      { kind: 'text', text: ', and ' },
+      { kind: 'address', local: 'bo', domain: '@x.test' },
+    ]);
+    expect(addressParts('none')).toEqual([{ kind: 'text', text: 'none' }]);
+  });
+});
+
+describe('a field’s name', () => {
+  it('spells a follow-up’s owner as the chips and a deal do', () => {
+    expect(fieldName('follow_up_owner')).toBe('Follow-up owner');
+    expect(fieldName('review_highlights')).toBe('Review highlights');
+  });
+});
+
+describe('a verdict on an application dealt to a reviewer (E38/F07/S02)', () => {
+  const SAM = 'sam@example.com';
+  const verdict = (dealtTo?: string, action = 'give-verdicts'): MarketHistoryEntry =>
+    entry({
+      action,
+      kind: 'verdict',
+      subject: { application_id: 'a1' },
+      detail: {
+        before: { status: 'open' },
+        after: { status: 'reviewer_approved' },
+        ...(dealtTo ? { dealt_to: dealtTo } : {}),
+      },
+    });
+
+  it('names whose share it was when someone else decided it', () => {
+    expect(said(entryParts(verdict(SAM), NAMES))).toBe(
+      `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
+    );
+    expect(said(entryParts(verdict(SAM), NAMES, {}, IntakeMode.Csv, 'ana@ember.test'))).toBe(
+      `dana@ember.test set [Ana Rivera] to Approved, dealt to ${SAM}`,
+    );
+  });
+
+  it('adds nothing when the reviewer decided their own, or it was never dealt', () => {
+    expect(said(entryParts(verdict('dana@ember.test'), NAMES))).toBe(
+      'dana@ember.test set [Ana Rivera] to Approved',
+    );
+    expect(said(entryParts(verdict(), NAMES))).toBe('dana@ember.test set [Ana Rivera] to Approved');
+  });
+
+  it('names it on a change of verdict too', () => {
+    expect(
+      said(
+        entryParts(
+          {
+            ...verdict(SAM, 'change-verdicts'),
+            detail: {
+              before: { status: 'reviewer_rejected' },
+              after: { status: 'reviewer_approved' },
+              dealt_to: SAM,
+            },
+          },
+          NAMES,
+        ),
+      ),
+    ).toBe(`dana@ember.test changed [Ana Rivera] from Rejected to Approved, dealt to ${SAM}`);
+  });
+
+  it('names it beside each vendor of a selection dealt to someone else', () => {
+    const selection = entry({
+      action: 'give-verdicts',
+      kind: 'verdicts',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      subject: { application_ids: ['a1', 'a2'] },
+      detail: {
+        before: { a1: { status: 'open' }, a2: { status: 'open' } },
+        after: { a1: { status: 'reviewer_rejected' }, a2: { status: 'reviewer_rejected' } },
+        dealt_to: { a1: SAM, a2: 'dana@ember.test' },
+      },
+    });
+
+    expect(said(entryParts(selection, NAMES))).toBe(
+      `dana@ember.test set 2 applications to Rejected: [Ana Rivera] (dealt to ${SAM}), [Ben Okafor]`,
+    );
+    expect(entryChanges(selection).recorded).toEqual([
+      { field: 'Dealt to', value: `ana@ember.test: ${SAM}, ben@ember.test: dana@ember.test` },
+    ]);
+  });
+
+  it('opens a verdict to whose share it was', () => {
+    expect(entryChanges(verdict(SAM)).recorded).toEqual([{ field: 'Dealt to', value: SAM }]);
   });
 });
 
@@ -423,6 +824,149 @@ describe('what an entry opens to', () => {
     });
   });
 
+  it('shows an essential answer an organizer updated by its question, as the review card does', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_tier_preference: { '2099-08-01': ['Gold'] } },
+            after: { essential_tier_preference: { '2099-08-01': ['Silver'] } },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Tier preference',
+        before: 'Saturday, August 1, 2099: Gold',
+        after: 'Saturday, August 1, 2099: Silver',
+      },
+    ]);
+  });
+
+  it('reads the table-share answer as one row in the vendor’s words, never its storage keys', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: ['bea@example.com'],
+              essential_table_share_answer: 'Seat me with Ana',
+            },
+            after: {
+              essential_table_share_email: 'bea@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Bea',
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('reads a table-share answer kept only as the address under the same row', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_email: 'ana@example.com' },
+            after: { essential_table_share_email: 'bea@example.com' },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'ana@example.com', after: 'bea@example.com' },
+    ]);
+  });
+
+  it('shows no table-share row that reads the same before and after', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: { essential_table_share_also: ['bea@example.com'] },
+            after: { essential_table_share_also: [] },
+          },
+        }),
+      ).changed,
+    ).toEqual([]);
+  });
+
+  it('never names the table-share storage keys as rows', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            before: {
+              essential_table_share_answer: 'Seat me with Ana',
+              essential_table_share_also: ['bea@example.com'],
+            },
+            after: {
+              essential_table_share_answer: 'Seat me with Bea',
+              essential_table_share_also: [],
+            },
+          },
+        }),
+      ).changed,
+    ).toEqual([
+      { field: 'Table-share partner', before: 'Seat me with Ana', after: 'Seat me with Bea' },
+    ]);
+  });
+
+  it('opens an update taken away because their answer matches it, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: null,
+          detail: {
+            matched: { business_name: 'Ember Ceramics' },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded[0],
+    ).toEqual({ field: 'Their answer now matches: Business name', value: 'Ember Ceramics' });
+  });
+
+  it('opens a kept update to each answer kept, under its question', () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'update-vendor-info',
+          kind: 'kept',
+          detail: {
+            kept: {
+              essential_table_share_email: 'ana@example.com',
+              essential_table_share_also: [],
+              essential_table_share_answer: 'Seat me with Ana, ana@example.com',
+              business_name: 'Ember Ceramics',
+            },
+            rejected_by_rules: false,
+            returned_by_rules: false,
+          },
+        }),
+      ).recorded.slice(0, 2),
+    ).toEqual([
+      { field: 'Kept: Table-share partner', value: 'Seat me with Ana, ana@example.com' },
+      { field: 'Kept: Business name', value: 'Ember Ceramics' },
+    ]);
+  });
+
   it('shows a phase before and after as the market’s path names it', () => {
     const move = entry({
       action: 'move-phase',
@@ -463,6 +1007,29 @@ describe('what an entry opens to', () => {
     ).toEqual([
       { field: 'Role', before: 'Editor', after: 'Admin' },
       { field: 'Source', before: 'The organization’s default', after: 'This market' },
+    ]);
+  });
+
+  it("opens a copy of the organization's defaults to each row it changed", () => {
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-the-table',
+          kind: 'permission_table_copied',
+          vendors: [],
+          detail: {
+            before: { 'check-in': { role: 'editor', source: 'built-in' } },
+            after: { 'check-in': { role: 'admin', source: 'organization' } },
+          },
+        }),
+        { 'check-in': 'Check vendors in' },
+      ).changed,
+    ).toEqual([
+      {
+        field: 'Check vendors in',
+        before: 'Editor, Built in',
+        after: 'Admin, The organization’s default',
+      },
     ]);
   });
 

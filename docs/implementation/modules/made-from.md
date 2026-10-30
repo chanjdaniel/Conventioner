@@ -54,6 +54,6 @@ The read takes in the applications the run would refuse as well, so approving on
 - [The assignment rules close with the assignment](../../business/rules/the-assignment-rules-close-with-the-assignment.md): the rules' shape is compared here.
 - [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): results are published only while the stored run is current by these fingerprints.
 
-The organizer reads it as the Result page's out-of-date note ([J5](../../business/flows/assignment-and-result.md#j5-the-result-is-out-of-date)).
+The organizer reads it as the Assignments page's out-of-date note ([J5](../../business/flows/assignment-and-result.md#j5-the-result-is-out-of-date)).
 
 The glossary concept it serves: [Assignment](../../business/concepts/assignment.md).

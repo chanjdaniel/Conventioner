@@ -27,8 +27,10 @@ sources:
   - E39/F01/S03
   - E39/F01/S04
   - E42/F01/S01
+  - E41/F01/S02
   - E40/F01/S03
   - E38/F06/S01
+  - E39/F02/S01
 ---
 
 # What each role may do
@@ -57,7 +59,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance, and the market's history, in Manage market, the assignment history and a vendor's drawer |
 | Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), check-ins at the door |
-| Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start; manage editors and viewers |
+| Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md), [updating an answer the assignment reads](an-update-is-kept-beside-the-vendors-answer.md#who-may); manage editors and viewers; connect the market to Discord and choose its role ([the Discord connection](../../implementation/modules/discord.md)) |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 Whoever creates a market is its owner, and a market has exactly one.
@@ -67,6 +69,7 @@ So an organization admin once given Viewer on one market is still Admin there, a
 **Nobody is a market's Owner through its organization**: deleting a market and managing its admins stay with the one person who owns it.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
 **An organization's owner and admins do not change a market's own rows**: they hold Admin there, and the table is its owner's.
+**They set the organization's default instead** (E39/F02/S01, Daniel, Q22: "org admins can", "copy"): each market created in the organization starts with its rows, copied, and a later change reaches only the markets created after it, or one whose owner copies the default again ([the organization's default table](../../implementation/data/organization-document.md#its-default-table)).
 See [the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market) for how a role is resolved.
 
 ## Who signs in, and how

@@ -1,5 +1,6 @@
 /**
- * What Manage market's Permissions section says of the market's table (E39/F01/S04).
+ * What Manage market's Permissions section says of the market's table (E39/F01/S04), and Manage
+ * organization's of the default its new markets copy (E39/F02/S01).
  *
  * The server keeps the table and every change to it structured (`back-end/api/market_actions.py`,
  * `back-end/history.py`); the words are here, as the placement history's are
@@ -30,15 +31,21 @@ interface RowChange extends EntryBase {
   detail: { before: PermissionState; after: PermissionState };
 }
 
-/** Every row the market held returned to its default at once: each row's before and after, by id. */
-interface TableReset extends EntryBase {
-  kind: 'permission_table_reset';
+/**
+ * Every row held returned to its default at once, or the market's table replaced by its
+ * organization's default as it is now: each row it changed, before and after, by id.
+ */
+interface TableChange extends EntryBase {
+  kind: 'permission_table_reset' | 'permission_table_copied';
   subject: Record<string, never>;
   detail: { before: Record<string, PermissionState>; after: Record<string, PermissionState> };
 }
 
-/** One change to the market's table, as `GET /markets/:id/permission-history` serves it. */
-export type PermissionHistoryEntry = RowChange | TableReset;
+/**
+ * One change to a table, as `GET /markets/:id/permission-history` serves a market's and
+ * `GET /organizations/:id/default-permission-history` an organization's default.
+ */
+export type PermissionHistoryEntry = RowChange | TableChange;
 
 /** The "Who may" choices, lowest first: each means that role and every one above it. */
 export const WHO_MAY_CHOICES: MarketRole[] = [
@@ -120,6 +127,31 @@ export function sourceLine(row: PermissionTableRow, entries: PermissionHistoryEn
   return `Changed on this market by ${change.actor}, ${getFormattedTimestamp(change.at)}`;
 }
 
+/**
+ * Where a row of an organization's default came from: the built-in default, or the organization,
+ * named by its newest change as a market's changed row is.
+ */
+export function defaultSourceLine(
+  row: PermissionTableRow,
+  entries: PermissionHistoryEntry[],
+): string {
+  if (row.source === 'built-in') return 'Built-in default';
+  const change = entries.find(
+    (entry) => entry.kind === 'permission_set' && entry.subject?.action === row.id,
+  );
+  if (!change) return 'Set for this organization';
+  return `Set for this organization by ${change.actor}, ${getFormattedTimestamp(change.at)}`;
+}
+
+/** What a change to an organization's default reaches, said in its confirmation. */
+export const DEFAULT_REACHES =
+  'Markets created from now on start with this. The markets it already holds keep their own.';
+
+/** The question confirming a change to a row of an organization's default. */
+export function defaultChangeQuestion(row: PermissionTableRow): string {
+  return `Change “${row.label}” for new markets?`;
+}
+
 /** The confirmation's question: "Let only Admins and the owner check vendors in at this market?" */
 export function changeQuestion(row: PermissionTableRow, role: MarketRole): string {
   return `Let ${ROLE_WORDS[role].whoMay} ${row.mayWhat}?`;
@@ -167,13 +199,17 @@ function roleName(state: PermissionState | undefined): string {
   return state?.role ? getRoleDisplayName(state.role) : 'unknown';
 }
 
+function isTableChange(entry: PermissionHistoryEntry): entry is TableChange {
+  return entry.kind === 'permission_table_reset' || entry.kind === 'permission_table_copied';
+}
+
 /** One change as the "Changes" list says it: the row, or the reset, and each row's before and after. */
 export function changeLines(
   entry: PermissionHistoryEntry,
   table: PermissionTableRow[],
 ): { title: string; rows: string[] } {
   const label = (id: string) => table.find((row) => row.id === id)?.label ?? id;
-  if (entry.kind === 'permission_table_reset') {
+  if (isTableChange(entry)) {
     const before = entry.detail?.before ?? {};
     const after = entry.detail?.after ?? {};
     const order = (id: string) => {
@@ -182,7 +218,10 @@ export function changeLines(
     };
     const ids = Object.keys(before).sort((a, b) => order(a) - order(b));
     return {
-      title: 'Reset to built-in defaults',
+      title:
+        entry.kind === 'permission_table_copied'
+          ? "Copied the organization's defaults"
+          : 'Reset to built-in defaults',
       rows: ids.map((id) => `${label(id)}: ${roleName(before[id])} to ${roleName(after[id])}`),
     };
   }

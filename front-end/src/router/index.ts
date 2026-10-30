@@ -1,4 +1,9 @@
-import { createRouter, createWebHistory, type NavigationGuard } from 'vue-router';
+import {
+  createRouter,
+  createWebHistory,
+  type NavigationGuard,
+  type RouteLocation,
+} from 'vue-router';
 import { marketPath } from '@/utils/market';
 import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
 import InitView from '@/views/InitView.vue';
@@ -85,9 +90,10 @@ const router = createRouter({
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
       // The pages were a `?tab=` on `setup` until E22/F04/S02, and a bookmark or an emailed link may
-      // still say so; it lands on the page it named.
+      // still say so; it lands on the page it named, by the name it has now.
       beforeEnter: (to) => {
-        const tab = String(to.query.tab ?? '');
+        const named = String(to.query.tab ?? '');
+        const tab = named === 'assignment' ? 'settings' : named;
         if (
           to.params.page !== 'setup' ||
           tab === 'setup' ||
@@ -101,18 +107,27 @@ const router = createRouter({
       },
     },
     {
-      path: '/markets/:marketId/result',
-      name: 'market-result',
+      path: '/markets/:marketId/assignments',
+      name: 'market-assignments',
       component: () => import('@/views/ResultView.vue'),
     },
-    // Tables became the Result page (E22/F04/S02); its filters travel with it.
-    {
-      path: '/markets/:marketId/tables',
-      redirect: (to) => ({
-        path: marketPath(String(to.params.marketId), 'result'),
+    // The Assignment tab's pages took the names of what they hold (E38/F08/S01): Assignment became
+    // Settings and Result became Assignments. A saved link or a bookmark lands on the page it named,
+    // and so does Tables, which became Result (E22/F04/S02); their filters travel with them.
+    ...(
+      [
+        ['assignment', 'settings'],
+        ['result', 'assignments'],
+        ['tables', 'assignments'],
+      ] as const
+    ).map(([old, page]) => ({
+      path: `/markets/:marketId/${old}`,
+      redirect: (to: RouteLocation) => ({
+        path: marketPath(String(to.params.marketId), page),
         query: to.query,
+        hash: to.hash,
       }),
-    },
+    })),
     {
       path: '/markets/:marketId/vendors',
       name: 'vendors',
@@ -126,11 +141,29 @@ const router = createRouter({
       // The door on market day is sometimes a phone (E29/F01).
       meta: { fitsAPhone: true },
     },
+    // The manual tools an organizer runs in any phase, Discord first (E46/F01/S02).
+    {
+      path: '/markets/:marketId/tools',
+      name: 'market-tools',
+      component: () => import('@/views/ToolsView.vue'),
+      // An organizer may connect Discord from a phone (Daniel, T113), so it fits one, as the door does.
+      meta: { fitsAPhone: true },
+    },
     // The market's figures, in every phase (E45/F01/S01).
     {
       path: '/markets/:marketId/stats',
       name: 'market-stats',
       component: () => import('@/views/StatsView.vue'),
+    },
+    // Where Discord's approval screen sends the organizer back (E46/F01/S02), registered as a
+    // redirect in Discord's Developer Portal. It opens in a tab of its own: it finishes connecting,
+    // tells the market's tab, and says the outcome.
+    {
+      path: '/discord/connected',
+      name: 'discord-connected',
+      component: () => import('@/views/DiscordConnectedView.vue'),
+      // An AuthCard page, as the account pages are, so it fits a phone as they do.
+      meta: { fitsAPhone: true },
     },
     // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
     // preserve, so it can only send the organizer to choose a market.

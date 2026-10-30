@@ -12,6 +12,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { UpdateInfoDialog } from './pages/UpdateInfoDialog';
 
 /**
  * Every screen offers a control on the table's answer for the action it takes (E39/F01/S02).
@@ -143,12 +144,23 @@ for (const role of Object.keys(PEOPLE) as Role[]) {
       await all.open('ana@thistle.test');
       await expect(all.drawer.getByText('Submission')).toBeVisible({ timeout: 15000 });
       await offered(page, 'vendors-detail-update-info', edits);
+      // In it, the answers the assignment reads are their own row's, an Admin's (E41/F01/S02).
+      if (edits) {
+        const dialog = new UpdateInfoDialog(page);
+        await dialog.open();
+        await expect(dialog.essentialsNote).toHaveText(
+          administers
+            ? /the next run places them by what you save here/
+            : "Only an Admin or the owner may update the answers this market's assignment reads.",
+        );
+        await dialog.cancelButton.click();
+      }
 
       // The Assignment tab, in assignment: running it and placing seats are the Assignment row's.
-      await page.goto(marketSetupPath(markets.assignment, 'assignment'));
+      await page.goto(marketSetupPath(markets.assignment, 'settings'));
       await expect(page.getByTestId('assignment-card-priority')).toBeVisible({ timeout: 15000 });
       await offered(page, 'market-setup-assign-button', edits);
-      await page.goto(marketScreenPath(markets.assignment, 'result'));
+      await page.goto(marketScreenPath(markets.assignment, 'assignments'));
       await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({
         timeout: 15000,
       });

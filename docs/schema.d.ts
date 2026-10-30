@@ -38,6 +38,14 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
+  discord?: {
+    guildId?: string;
+    guildName?: string;
+    inviteLink?: string;
+    roleId?: string;
+    roleName?: string;
+    usernameQuestion?: string;
+  };
   exampleColumns?: {
     headers?: string[];
     helpText?: string;
@@ -73,9 +81,13 @@ export interface MarketSchema {
     answers?: string[];
     key: string;
   }[];
-  reviewConfig?: {
-  };
   reviewHighlights?: string[];
+  reviewTeam?: {
+    reviewers: {
+      able: boolean;
+      email: string;
+    }[];
+  };
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {

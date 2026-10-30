@@ -32,17 +32,17 @@ describe('where the assignment may be run', () => {
     expect(assignRefusal('applications')).not.toMatch(/close/i);
   });
 
-  it('sends an organizer past assignment to the Result page, not back to Assign', () => {
+  it('sends an organizer past assignment to the Assignments page, not back to Assign', () => {
     // The answer is settled and the vendors have been told; changing one placement is what is
-    // wanted, and the Result page is where that happens (E11/F03, E22/F04/S04).
+    // wanted, and the Assignments page is where that happens (E11/F03, E22/F04/S04).
     for (const phase of ['offers', 'market_days']) {
-      expect(assignRefusal(phase)).toContain('Result page');
+      expect(assignRefusal(phase)).toContain('Assignments page');
     }
   });
 
   it('gives an archived market the archived reason, where no placement can change', () => {
     expect(assignRefusal('archived')).toContain('archived');
-    expect(assignRefusal('archived')).not.toContain('Result page');
+    expect(assignRefusal('archived')).not.toContain('Assignments page');
   });
 
   it('treats a market with no phase as a draft, which is what an unmigrated one is', () => {

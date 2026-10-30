@@ -27,10 +27,11 @@ export function marketScreenPath(
     | 'setup'
     | 'form'
     | 'applications'
-    | 'assignment'
-    | 'result'
+    | 'settings'
+    | 'assignments'
     | 'vendors'
     | 'attendance'
+    | 'tools'
     | 'stats'
     | 'import'
     | 'floorplan',

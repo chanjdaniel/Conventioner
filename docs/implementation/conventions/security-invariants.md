@@ -26,7 +26,7 @@ describes:
   - scripts/real_data_check.py
   - scripts/real_data_terms.txt
   - .githooks/
-verified: 2026-10-29
+verified: 2026-10-30
 sources:
   - T74
   - T109
@@ -64,6 +64,7 @@ A requirement with nothing behind it teaches operators to work around the check.
 `TRUSTED_PROXY_HOPS` is required because `request.remote_addr` is what organizer signup hands Google as reCAPTCHA's `remoteip` (`api/users.py`), and it became load-bearing the moment `RECAPTCHA_SECRET_KEY` did: before, a deployment with no secret took the bypass and no token reached Google.
 The applicant sign-in limits count each caller by the same address ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)), so a wrong hop count would put every applicant behind one caller's limit.
 Make a requirement follow its caller, not the module it was first written for.
+The converse holds too: a value that turns on a feature and defends nothing is optional, read through `configured_secret` when asked for, and never a boot requirement: `TYPESAFE_API_KEY`, and the three Discord values, without which the Discord card says Discord is not set up ([the Discord connection](../modules/discord.md)).
 
 ## The one escape hatch
 

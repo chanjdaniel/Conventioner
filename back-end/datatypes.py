@@ -579,7 +579,10 @@ class Market(BaseModel):
     assignment_object: AssignmentObject
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
-    review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
+    # Who reviews this market's applications, and whose turn the next arrival is (E38/F07/S02,
+    # ADR 0020). Server-owned: only ``review_team.py`` writes it, never a market update body. Absent
+    # is no reviewers chosen: first come, first served, as before it existed.
+    review_team: Optional["ReviewTeam"] = None
     # Which answers a reviewer reads first (E19/F03/S01).
     #
     # ON THE MARKET, never on the form. The form freezes at the first application, and an organizer
@@ -614,6 +617,9 @@ class Market(BaseModel):
     # hold reads its built-in default, so absent is the built-in table and needs no migration.
     # Server-owned: written only by its owner's one write (`set_permission`, `reset_permission`).
     permissions: Dict[str, "MarketPermission"] = Field(default_factory=dict)
+    # The Discord server it is connected to (E46/F01/S02). Server-owned: only the Discord card's
+    # routes write it. Absent is not connected.
+    discord: Optional["DiscordConnection"] = None
 
     @field_validator("permissions", mode="before")
     @classmethod
@@ -763,6 +769,25 @@ class EssentialFormOptions(BaseModel):
     unasked: List[str] = []
 
 
+class DiscordConnection(BaseModel):
+    """The Discord server a market is connected to, and what its card chose (E46/F01/S02).
+
+    Written only by ``api.discord_connection``, on its own routes, so it stays editable after the
+    rest of Market Setup settles: Discord is a manual tool the organizer runs whenever they choose
+    (Daniel, T92 Q10, Q19). Discord's ids are strings, as its API sends them. Every field may be
+    None: a market disconnected keeps only the username question, which is about its form. Who
+    connected it, and when, is the history's (``discord_connected``), not a field here.
+    """
+
+    guild_id: Optional[str] = None
+    guild_name: Optional[str] = None
+    role_id: Optional[str] = None
+    role_name: Optional[str] = None
+    #: The key of the form's text question that holds each vendor's Discord username.
+    username_question: Optional[str] = None
+    invite_link: Optional[str] = None
+
+
 class MarketPermission(BaseModel):
     """One row a market holds of the table (E39/F01/S03): the role it asks, and where it came from.
 
@@ -771,7 +796,7 @@ class MarketPermission(BaseModel):
     shape for the same reason (``drop_unreadable_permissions``). ``api.market_actions`` reads a row
     it cannot understand as the built-in default, as it reads a row the market does not hold.
     ``source`` is ``market`` (changed on this market by its owner) or ``organization`` (copied from
-    the organization's default when the market was created, E39/F02).
+    the organization's default, E39/F02).
     """
 
     role: str
@@ -833,6 +858,17 @@ class MarketPerson(BaseModel):
         return {"userId": self.user_id, "email": self.email}
 
 
+class ReviewTeam(BaseModel):
+    """The reviewers chosen for a market's review, and how far the deal has gone (E38/F07/S02).
+
+    ``reviewers`` in the order they are dealt to, by address, so the deal is the same whoever chose
+    them; ``turn`` counts the applications dealt since they last changed, so the next arrival goes
+    to ``reviewers[turn % len(reviewers)]``. Stored camelCase on the market as ``reviewTeam``.
+    """
+    reviewers: List[MarketPerson] = Field(default_factory=list)
+    turn: int = 0
+
+
 class AnswerUpdate(BaseModel):
     """An organizer's update of one of a vendor's answers (E41/F01/S01), kept beside the answer the
     vendor gave, which is never written over: the value, who made it, when, and the vendor's answer
@@ -853,7 +889,10 @@ class Application(BaseModel):
     main_application_id: Optional[str] = None  # FK for waitlist prefill (D11)
     submitted_at: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    assigned_reviewer_id: Optional[str] = None
+    # Whose share it was dealt to (E38/F07/S02, ADR 0020): written only by ``review_team.py``, and
+    # never cleared by a verdict, so it stays the record of whose share it was. Absent when it was
+    # never dealt. Not who is looking at it now: that is ``held_by``.
+    reviewer: Optional[MarketPerson] = None
     # Who gave the verdict, and when (E34/F01/S01). Absent on an application stored before verdicts
     # recorded it, and on one with no verdict: a status that is none clears them.
     verdict_by: Optional[VerdictGiver] = None
@@ -1144,8 +1183,24 @@ class ExampleColumnContract(ExampleColumn, ContractModel):
     options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
 
 
+class ServedReviewerContract(ContractModel):
+    """A chosen reviewer as the market read serves one: whether they may still review here."""
+    email: str
+    able: bool
+
+
+class ServedReviewTeamContract(ContractModel):
+    """The market's reviewers as every reader is served them; the turn is never served."""
+    reviewers: List[ServedReviewerContract]
+
+
+class DiscordConnectionContract(DiscordConnection, ContractModel):
+    """Camel-cased contract view of a market's Discord connection."""
+
+
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    discord: Optional[DiscordConnectionContract] = None
     example_columns: Optional[List[ExampleColumnContract]] = None
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
@@ -1157,8 +1212,8 @@ class MarketSchemaContract(ContractModel):
     name: str
     organization_id: Optional[str] = None
     phase: Optional[str] = None
-    review_config: Optional[Dict[str, Any]] = None
     review_highlights: Optional[List[str]] = None
+    review_team: Optional[ServedReviewTeamContract] = None
     rejection_rules: Optional[List[RejectionRule]] = None
     roles: Dict[str, str]
     permissions: Optional[Dict[str, MarketPermission]] = None

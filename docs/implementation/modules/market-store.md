@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
   - front-end/src/utils/marketActions.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E38/F04/S02
   - wayfinding/the-market-frame/03
@@ -17,6 +17,7 @@ sources:
   - E21/F02/S04
   - E39/F01/S02
   - E41/F01/S01
+  - E41/F01/S02
   - E40/F01/S03
   - E40/F01/S04
 ---
@@ -52,16 +53,18 @@ Each control asks the row of the action it takes:
 | The phase rail's More…, in Applications | Redo import | Import applications |
 | The phase rail's More…, in Applications | Stop taking applications, Take applications again | Stop taking applications, and take them again, while `applicationsStopReason` is null |
 | Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
-| Market Setup, the Assignment page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
-| Market Setup, the Assignment page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| The Assignment tab's Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
+| The Assignment tab's Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| Tools, the Discord card | Connect, Disconnect, and each choice | Connect Discord and give roles |
 | The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
 | Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
 | Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too |
+| Applications, the review | Choose reviewers, Change reviewers | Choose reviewers, while `verdictsSettledReason` is null |
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
-| Result, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
+| Assignments, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
-| The drawer | Update info | Update a vendor's info |
+| The drawer | Update info | Update a vendor's info, and, for an answer the assignment reads, Update info the assignment or price reads |
 | The drawer | History | Read the market's history |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
@@ -69,7 +72,7 @@ Each control asks the row of the action it takes:
 | Manage market | History | Read the market's history |
 | Manage market | Rename; Delete | Change Market Setup; Delete the market |
 | The markets list | Manage | Read the market |
-| Vendors, Applications' All view, and Result | Export; Download CSV | Export CSV |
+| Vendors, Applications' All view, and Assignments | Export; Download CSV | Export CSV |
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
 No screen reads the role-shaped reasons the screens read before: every screen that read one is in the table above.

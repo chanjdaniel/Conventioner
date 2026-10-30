@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-29
+verified: 2026-10-30
 ---
 
 # Conventioner - Development Startup Guide
@@ -37,6 +37,17 @@ git config core.hooksPath .githooks
 
 The hooks refuse a commit or a push that holds a real person's email, phone number or name, since the repository is public and a pushed branch is published at once ([real data never leaves the PC](implementation/conventions/security-invariants.md#real-data-never-leaves-the-pc)).
 A treehouse worktree gets them from `scripts/treehouse-setup.sh`.
+
+## The knowledge-graph merge driver
+
+Once per clone:
+
+```bash
+python3 scripts/merge_node.py install
+```
+
+It registers the merge driver `.gitattributes` names for `docs/`, so two branches that each add an id to a node's `sources` or `describes` merge clean ([merging nodes](README.md#merging-nodes)).
+A treehouse worktree gets it from `scripts/treehouse-setup.sh`.
 
 ## Quick Start with Docker (Recommended)
 
@@ -337,7 +348,7 @@ Every step is reachable from the UI; none of it needs the API.
    Imported rows arrive awaiting review.
    Approve the ones a table should go to: **the solver reads approved applications and nothing
    else**, so an application left unreviewed takes no part in assignment.
-7. **Generate the assignment** by choosing "Allocate tables" on the Assignment page.
+7. **Generate the assignment** by choosing "Allocate tables" on the Settings page.
 8. **View the results** and download the CSV.
 
 **Where do I get a CSV?**
@@ -569,10 +580,17 @@ It is **optional**, and nothing in the product calls it: the floorplan wizard dr
 Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`.
 If neither key is set, the endpoint answers with an error and nothing else changes.
 
+### Discord Setup (Optional)
+
+The Discord card, on a market's Tools tab, connects a market to a Discord server through Conventioner's bot ([the Discord connection](implementation/modules/discord.md)).
+It is **optional**: without its values the card says Discord is not set up, and nothing else changes.
+To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` from the Discord Developer Portal in the root `.env` (forwarded by `docker-compose.yml`), with `FRONTEND_URL=http://127.0.0.1:5173`, the address you sign in at (an existing `FRONTEND_URL` line in `.env` overrides compose's default, so it must read that too): the redirect Discord is sent is `FRONTEND_URL` + `/discord/connected`, and a `localhost` one brings you back without your session.
+In the Developer Portal, add `http://127.0.0.1:5173/discord/connected` to the application's OAuth2 redirects, and switch on "Requires OAuth2 Code Grant" on the Bot page.
+
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, organizations, permissions, applications, applicants, applicant_auth, attendance, floorplans)
+- **API Modules**: `back-end/api/` (users, markets, market_actions, organizations, permissions, applications, applicants, applicant_auth, added_vendors, attendance, door, placements, form_amendment, vendor_export, vendor_info, discord_connection, and the floorplan modules)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)

@@ -39,6 +39,7 @@ One line per node, sorted by file name.
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)
+- [The review is dealt among chosen reviewers](the-review-is-dealt-among-chosen-reviewers.md) - chosen reviewers each get a share of the open applications, round robin in arrival order; any change deals them again
 - [The setup settles on leaving draft](the-setup-settles-on-leaving-draft.md) - Market Setup is fixed after draft, so leaving draft asks for dates, a location and tables at every tier
 - [Tier filters, section prefers](tier-filters-section-prefers.md) - never a tier a vendor refused, because it sets the price; section is only a preference
 - [Vendor notes](vendor-notes.md) - the vendor's request and the organizer's note, two kinds kept apart; the vendor never sees the organizer's

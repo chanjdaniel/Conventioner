@@ -53,6 +53,7 @@ from utils.application_token import (
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import history as History
+import review_team as ReviewTeam
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
 from assignment.made_from import changed_since_run
@@ -139,6 +140,8 @@ def _application_response_organizer(
         "followUpOwner": app.follow_up_owner.as_wire() if app.follow_up_owner else None,
         # Who is looking at it while their claim stands (E34/F03/S02).
         "heldBy": _holder(app, now),
+        # Whose share it was dealt to (E38/F07/S02), null when it never was.
+        "reviewer": app.reviewer.as_wire() if app.reviewer else None,
         # Who recorded a vendor who never applied, and when (E36/F03/S01).
         "addedBy": app.added_by.as_wire() if app.added_by else None,
         "addedAt": app.added_at,
@@ -435,6 +438,10 @@ def save_applicant_application(
     History.record_applicant(
         market_id, email, History.EDITED if existing else History.SUBMITTED, app.id,
         lambda: _with_rules(History.changes(answered, saved.form_data or {}), verdicts))
+    # Then dealt to the next reviewer in turn, if reviewers are chosen and it is still open
+    # (E38/F07/S03): the applicant's own save is its arrival, so it is recorded as theirs, and it
+    # deals theirs alone.
+    ReviewTeam.deal_arrivals(market, email, History.APPLY, only=app.id)
     if verdicts.rejected:
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
@@ -464,7 +471,7 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
         [_share_request(app) for app in parsed],
         answered={
             app.applicant_email for app in parsed
-            if EssentialFields.answered_table_share(app.form_data or {})
+            if EssentialFields.answered_table_share(ApplicationsApi.effective_answers(app))
         },
     )
     result = []
@@ -478,7 +485,7 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
 
 
 def _share_request(app: Application) -> TableShare.ShareRequest:
-    answers = app.form_data or {}
+    answers = ApplicationsApi.effective_answers(app)
     return TableShare.ShareRequest(
         email=app.applicant_email,
         table_choice=answers.get(EssentialFields.TABLE_CHOICE_KEY),
@@ -576,7 +583,8 @@ def review_application(
     History.record(
         market_id, by.email, _verdict_row([app_doc]), kind=History.VERDICT,
         vendors=[app_doc.get("applicant_email")], subject={"application_id": application_id},
-        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored)},
+        detail=lambda: {"before": _verdict_state(app_doc), "after": _verdict_state(stored),
+                        **_dealt_to(app_doc)},
     )
     app = Application(**stored)
     return {"application": _application_response_organizer(app)}, 200
@@ -599,6 +607,19 @@ def _with_rules(
         return None
     return {**answers, "rejected_by_rules": bool(verdicts.rejected),
             "returned_by_rules": bool(verdicts.returned)}
+
+
+def _dealt_to(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Whom the application was dealt to, for a verdict's entry beside who gave it (E38/F07/S02):
+    ``dealt_to``, the reviewer's address, when it has one, and nothing otherwise."""
+    reviewer = (doc.get("reviewer") or {}).get("email")
+    return {"dealt_to": reviewer} if reviewer else {}
+
+
+def _each_dealt_to(docs: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    """``_dealt_to`` for a selection's entry: by application id, for those that were dealt."""
+    dealt = {doc["id"]: _dealt_to(doc)["dealt_to"] for doc in docs if _dealt_to(doc)}
+    return {"dealt_to": dealt} if dealt else {}
 
 
 def _verdict_state(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -669,6 +690,7 @@ def review_selection(
                     app_id: _verdict_state(ApplicationsApi.find_application_by_id(app_id))
                     for app_id in written
                 },
+                **_each_dealt_to(was[app_id] for app_id in written),
             },
         )
     return {"written": written, "skipped": skipped}, 200

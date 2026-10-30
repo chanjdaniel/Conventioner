@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14
@@ -22,8 +22,10 @@ sources:
   - E35/F01/S02
   - E43/F01/S01
   - E41/F01/S01
+  - E41/F01/S02
   - E40/F01/S04
   - E38/F06/S01
+  - E38/F07/S02
   - T123
 ---
 
@@ -47,12 +49,12 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 4. Three tabs, moved between with the arrow keys; History is held only for whoever the row "Read the market's history" allows, and an address asking for it opens on Application for anyone else:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
      An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it, and "Their answer changed since your update." once a re-import or their own edit changed what they wrote.
-     "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer", and the answers the assignment reads show read-only ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
+     "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer"; below them the essential questions, as the form asks them, those the assignment reads read-only to whoever the row "Update info the assignment or price reads" refuses ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
      Escape closes the dialog alone; once it saves, the drawer reads the market's vendors again, which the Vendors list shares, and the review's All view behind it reads its list again.
    - **Assignments:** one card per market date: where they sit, with "Change assignment", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
      Where the market prices its tables, an assigned date says what the table costs that day, "Gold, full table, $35", or with the vendor's price group where the card has groups, "Gold, full table, Example College student + club member, $12" ([a price follows the table](../rules/a-price-follows-the-table.md)).
-     "Change assignment" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
-   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, and their info updated.
+     "Change assignment" opens the Assignments page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
+   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, and their info updated.
      Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.
@@ -60,9 +62,9 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    The drawer opens with focus on "×", and closing gives focus back to what opened it, a row, a name or a button ([dialogs](../../implementation/conventions/dialogs.md)).
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
-A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
+A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 The applications stand on their own read: when the server refuses where vendors sit, as it does while an approved application's answers are incomplete, the drawer still shows the answers, says the server's reason in red on every tab, and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
-Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
+Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
 
 ## The rules it obeys
 

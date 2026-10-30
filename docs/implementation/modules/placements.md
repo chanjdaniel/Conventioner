@@ -81,18 +81,18 @@ A pinned vendor counts against their own ceiling and the section's half-table sh
 
 **An applicant outside the run is seated as held.**
 A pin for someone the run does not place (an applicant the review did not approve, or a vendor added by hand) is seated from `held_vendors_for` (`held_solver_vendors` in [`back-end/assignment/vendor_input.py`](../../../back-end/assignment/vendor_input.py)), read leniently since no answer of theirs decides anything.
-The seat is occupied, they are placed nowhere else, and they are never counted among the run's vendors in the statistics.
+The seat is occupied, they are placed nowhere else, and the solver never counts them among the run's vendors; the statistics the Assignments page reads then count a vendor added by hand among the vendors who need a table, seated or not, and never a not-approved one (`count_added_vendors` in [`back-end/api/markets.py`](../../../back-end/api/markets.py), [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 
 **A pin that overrides an answer stands, and is marked.**
-`overridden_placements` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py) compares every hand placement with the vendor's own answers when the statistics are read, never when the pin is made: someone the review left out of the run first, then a date they did not offer, a tier they did not accept on a date they did offer (the one that costs money, since tier sets the price), and a table size they did not ask for.
+`overridden_placements` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py) compares every hand placement with the vendor's answers as the organizer reads them (an organizer's update included) when the statistics are read, never when the pin is made: someone the review left out of the run first, then a date they did not offer, a tier they did not accept on a date they did offer (the one that costs money, since tier sets the price), and a table size they did not ask for.
 A solver row is never compared, since the run never contradicts an answer.
 The statistics serve the list as `overriddenPlacements`, and it is the second of the vendor date card's three states ([why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md)).
 
 **A pin the plan can no longer hold is orphaned, never deleted.**
 Deleting the section a pinned seat belongs to, or dropping its table count below the pin, leaves the row in place (`orphaned_pins` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py)).
 `NoOrphanedPinGuard` in [`back-end/guards.py`](../../../back-end/guards.py) refuses the moves into `assignment` and into `market_days` until the seat is restored to the plan or the vendor is moved or freed, naming each vendor and seat.
-The market read serves the same list as `orphanedPins`, for the Result page and the vendor's panel to mark (bug 31).
-The solver keeps an orphaned pin's vendor on the date it claimed, seated nowhere, rather than quietly placing them elsewhere.
+The market read serves the same list as `orphanedPins`, for the Assignments page and the vendor's panel to mark (bug 31).
+The solver keeps an orphaned pin's vendor on the date it claimed, at that pin and nowhere else, rather than quietly placing them elsewhere; the pin stays their seat for the statistics, the Vendors list and the export alike.
 
 ## What a read shows
 

@@ -57,7 +57,7 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
   });
 
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   const answers = page.getByTestId('priority-ordering-row');
   await expect(answers).toHaveCount(12, { timeout: 15000 });
 
@@ -137,7 +137,7 @@ test('a settled market reads its rules as a record, one answer to a line', async
   expect(published.ok(), await published.text()).toBeTruthy();
 
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto(marketSetupPath(seed.marketId, 'assignment'));
+  await page.goto(marketSetupPath(seed.marketId, 'settings'));
   await expect(page.getByTestId('assignment-rules-settled')).toBeVisible({ timeout: 15000 });
   const answers = page.getByTestId('priority-ordering-answer');
   await expect(answers).toHaveCount(2);
@@ -227,7 +227,7 @@ test("a rule's question stays in its column, however long the form's other quest
   });
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   const target = page.getByTestId('priority-target-select');
   await expect(target).toHaveValue('student', { timeout: 15000 });
 

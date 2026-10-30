@@ -11,8 +11,8 @@ import type { Page } from '@playwright/test';
  * Every market page has its own address, and the bar reaches every one (E22/F04/S02, from the
  * the-assignment-tab ticket 02).
  *
- * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance and Stats in
- * every phase. It is rendered once, by the frame, so Tables - now the Result page -
+ * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance, Tools and
+ * Stats in every phase. It is rendered once, by the frame, so Tables - now the Assignments page -
  * Vendors and Attendance are reached the same way as the plan; the Back buttons those screens kept
  * because they had no tabs are gone.
  */
@@ -47,10 +47,11 @@ test.describe('Every market page has its own address', () => {
       ['setup', 'setup'],
       ['form', 'form'],
       ['applications', 'applications'],
-      ['assignment', 'assignment'],
-      ['result', 'assignment'],
+      ['settings', 'assignment'],
+      ['assignments', 'assignment'],
       ['vendors', 'assignment'],
       ['attendance', 'attendance'],
+      ['tools', 'tools'],
       ['stats', 'stats'],
     ] as const) {
       await page.goto(at(published, where));
@@ -71,8 +72,26 @@ test.describe('Every market page has its own address', () => {
     await expect(page).toHaveURL(/\/markets$/);
 
     await page.goto(`${at(published, 'tables')}?date=2026-07-15`);
-    await expect(page).toHaveURL(new RegExp(`/markets/${published}/result\\?date=2026-07-15$`));
+    await expect(page).toHaveURL(
+      new RegExp(`/markets/${published}/assignments\\?date=2026-07-15$`),
+    );
     await activeTab(page, 'assignment');
+
+    // The Assignment tab's pages took the names of what they hold (E38/F08/S01): a saved link to
+    // Assignment or Result lands on Settings or Assignments, its query kept.
+    await page.goto(`${at(published, 'result')}?date=2026-07-15&status=assigned`);
+    await expect(page).toHaveURL(
+      new RegExp(`/markets/${published}/assignments\\?date=2026-07-15&status=assigned$`),
+    );
+    await expect(page.getByTestId('market-pages-assignments')).toHaveClass(/active/);
+
+    await page.goto(`${at(published, 'assignment')}?from=bookmark`);
+    await expect(page).toHaveURL(new RegExp(`/markets/${published}/settings\\?from=bookmark$`));
+    await expect(page.getByTestId('market-pages-settings')).toHaveClass(/active/);
+
+    await page.goto(`${at(published, 'setup')}?tab=assignment`);
+    await expect(page).toHaveURL(new RegExp(`/markets/${published}/settings$`));
+    await expect(page.getByTestId('market-pages-settings')).toHaveClass(/active/);
   });
 
   test('the flows carry the bar with their tab active', async ({ authenticatedPage: page }) => {
@@ -87,7 +106,9 @@ test.describe('Every market page has its own address', () => {
     request,
   }) => {
     await page.goto(at(assigned));
-    await expect(page).toHaveURL(new RegExp(`/markets/${assigned}/result$`), { timeout: 15000 });
+    await expect(page).toHaveURL(new RegExp(`/markets/${assigned}/assignments$`), {
+      timeout: 15000,
+    });
 
     await page.goto(at(published));
     await expect(page).toHaveURL(new RegExp(`/markets/${published}/attendance$`), {
@@ -108,7 +129,7 @@ test.describe('Every market page has its own address', () => {
     // A tab opens the page carrying the dot when it holds it.
     await page.goto(at(assigned, 'setup'));
     await page.getByTestId('market-bar-tab-assignment').click();
-    await expect(page).toHaveURL(new RegExp(`/markets/${assigned}/result$`));
+    await expect(page).toHaveURL(new RegExp(`/markets/${assigned}/assignments$`));
   });
 
   test('Attendance opens the moment the market is published', async ({
@@ -118,7 +139,7 @@ test.describe('Every market page has its own address', () => {
     const market = (
       await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
     ).marketId;
-    await page.goto(at(market, 'assignment'));
+    await page.goto(at(market, 'settings'));
     await activeTab(page, 'assignment');
     // The tab is there from draft (E31/F03/S02); before publishing it says when it opens.
     await page.getByTestId('market-bar-tab-attendance').click();
@@ -134,7 +155,7 @@ test.describe('Every market page has its own address', () => {
   });
 
   test('no market page keeps a Back button of its own', async ({ authenticatedPage: page }) => {
-    for (const where of ['result', 'vendors', 'attendance']) {
+    for (const where of ['assignments', 'vendors', 'attendance']) {
       await page.goto(at(published, where));
       await expect(page.getByTestId('market-bar-title')).toBeVisible({ timeout: 15000 });
       await expect(page.locator('[data-testid$="-back-button"]')).toHaveCount(0);

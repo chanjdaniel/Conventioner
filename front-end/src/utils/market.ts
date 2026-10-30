@@ -130,7 +130,8 @@ export function parseMarketFromApi(market: any): Market {
       assignmentStatistics: null,
     },
     applicationForm: applicationForm ? (applicationForm as ApplicationForm) : undefined,
-    reviewConfig: market.reviewConfig ?? market.review_config ?? undefined,
+    // Who reviews it (E38/F07/S02): a read that carries none, a list's, reads as none chosen.
+    reviewTeam: market.reviewTeam ?? { reviewers: [] },
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
@@ -148,7 +149,7 @@ export function parseMarketFromApi(market: any): Market {
     // Which of the rules, the plan and the approved applications changed since the stored
     // assignment ran (E22/F03/S01): computed by the server on every read of one market.
     assignmentOutOfDate: market.assignmentOutOfDate,
-    // Hand placements at a seat the plan no longer has (bug 31): marked on Result and the vendor's
+    // Hand placements at a seat the plan no longer has (bug 31): marked on Assignments and the vendor's
     // panel, and the reason Publish is refused.
     orphanedPins: market.orphanedPins ?? [],
     // Where the market has been, from its phase history (E26/F06/S03): what the archived rail

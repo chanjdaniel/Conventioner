@@ -42,7 +42,7 @@ export const PHONE: Size = { width: 390, height: 844 };
 /** The sizes each kind of screen ships at: an organizer works at a desk; the rest may be a phone. */
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
-/** A route with `meta.fitsAPhone`: an organizer's, used at the door on a phone too (E29/F01). */
+/** A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01) and Tools. */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
 /** Who is signed in to see a screen. */
@@ -235,13 +235,16 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
+    // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
     name: 'the manage-organization dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(fixed('/organizations'), 'organization-card', [
-      'organizations-manage-button',
-      'manage-org-window',
-    ]),
+    open: at(
+      fixed('/organizations'),
+      'organization-card',
+      ['organizations-manage-button', 'manage-org-window'],
+      ['manage-org-permissions-toggle', 'manage-org-permission-source'],
+    ),
   },
   {
     // Its History section, loaded, with an entry opened to its before and after (E40/F02/S01):
@@ -325,6 +328,16 @@ export const SCREENS: Screen[] = [
     open: at(setup('open', 'applications'), 'applications-all-tick'),
   },
   {
+    // Who reviews which application, chosen from the panel over the views (E38/F07/S02).
+    name: 'the reviewers dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('open', 'applications'), 'applications-all-tick', [
+      'reviewers-change',
+      'reviewers-dialog-window',
+    ]),
+  },
+  {
     name: 'applications open, the plan settled',
     who: 'organizer',
     sizes: ORGANIZER,
@@ -360,13 +373,13 @@ export const SCREENS: Screen[] = [
     name: 'in assignment, the rules open',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('assignment', 'assignment'), 'assignment-card-priority'),
+    open: at(setup('assignment', 'settings'), 'assignment-card-priority'),
   },
   {
     name: 'in assignment, nothing placed yet',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('assignment', 'result'), 'market-bar-title'),
+    open: at(screen('assignment', 'assignments'), 'market-bar-title'),
   },
 
   // Market days: 36 vendors placed over four dates and three sections.
@@ -380,7 +393,7 @@ export const SCREENS: Screen[] = [
     name: 'the result',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned'),
+    open: at(screen('big', 'assignments'), 'tables-count-assigned'),
   },
   {
     // The ledger of bars (E35/F03/S01): a share in muted ink on white.
@@ -388,7 +401,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'assignments')}?stats=open`);
       await visible(page, 'result-statistics-date');
     },
   },
@@ -398,7 +411,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await page.goto(`${marketScreenPath(seed.big.marketId, 'result')}?stats=open`);
+      await page.goto(`${marketScreenPath(seed.big.marketId, 'assignments')}?stats=open`);
       await visible(page, 'result-statistics-date');
       await page.getByTestId('result-statistics-date').first().hover();
     },
@@ -408,7 +421,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await at(screen('big', 'assignments'), 'tables-count-assigned')(page, seed);
       await page.getByTestId('phase-rail-menu-button').click();
       await expect(page.locator('.rail-menu-item').first()).toBeVisible();
     },
@@ -420,7 +433,7 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: async (page, seed) => {
-      await at(screen('big', 'result'), 'tables-count-assigned')(page, seed);
+      await at(screen('big', 'assignments'), 'tables-count-assigned')(page, seed);
       await page.getByTestId('phase-rail-menu-button').click();
       await page.locator('.rail-menu-item--end').click();
       await visible(page, 'archive-confirm-window');
@@ -435,16 +448,46 @@ export const SCREENS: Screen[] = [
     name: 'the change-placement dialog',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned', [
+    open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'tables-seat-change',
       'placement-dialog-window',
     ]),
   },
   {
+    // Its swap picker searched, the list open with a choice active on its beige (E38/F08/S03).
+    name: 'the swap picker, searched',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-change',
+        'placement-dialog-window',
+      ])(page, seed);
+      const field = page.getByTestId('placement-dialog-swap-target-input');
+      await field.fill('a');
+      await field.press('ArrowDown');
+      await visible(page, 'placement-dialog-swap-target-list');
+    },
+  },
+  {
+    // And the place picker's groups, open on a free seat.
+    name: 'the place picker, open',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      await at(screen('big', 'assignments'), 'tables-count-assigned', [
+        'tables-seat-empty',
+        'placement-dialog-window',
+      ])(page, seed);
+      await page.getByTestId('placement-dialog-vendor-input').click();
+      await visible(page, 'placement-dialog-vendor-list');
+    },
+  },
+  {
     name: 'the placement history',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('big', 'result'), 'tables-count-assigned', [
+    open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'result-history-button',
       'placement-history-dialog-window',
     ]),
@@ -511,6 +554,13 @@ export const SCREENS: Screen[] = [
       await at(screen('big', 'stats'), 'stats-status')(page, seed);
       await visible(page, 'stats-answer');
     },
+  },
+  {
+    // The manual tools, Discord's card first (E46/F01/S02); it fits a phone, as the door does.
+    name: 'the tools',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'tools'), 'plan-card-discord'),
   },
   // What else the organizer reaches at the door, on the phone in their hand (T82).
   {
@@ -621,19 +671,19 @@ export const SCREENS: Screen[] = [
     name: 'the rules, settled',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(setup('rules', 'assignment'), 'assignment-rules-settled'),
+    open: at(setup('rules', 'settings'), 'assignment-rules-settled'),
   },
   {
     name: 'the result of a market with rules',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('rules', 'result'), 'tables-count-assigned'),
+    open: at(screen('rules', 'assignments'), 'tables-count-assigned'),
   },
   {
     name: 'an archive, its result',
     who: 'organizer',
     sizes: ORGANIZER,
-    open: at(screen('archived', 'result'), 'tables-count-assigned'),
+    open: at(screen('archived', 'assignments'), 'tables-count-assigned'),
   },
   {
     name: 'an archive, its plan',

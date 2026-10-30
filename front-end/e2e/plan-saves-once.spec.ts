@@ -50,7 +50,7 @@ test.describe('The plan saves once per edit', () => {
     expect(saves.count()).toBe(1);
   });
 
-  test('on the Assignment page, one option edit sends one save', async ({
+  test('on the Settings page, one option edit sends one save', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -60,7 +60,7 @@ test.describe('The plan saves once per edit', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(marketSetupPath(marketId, 'assignment'));
+    await page.goto(marketSetupPath(marketId, 'settings'));
     const proportion = page.getByTestId('setup-options-max-proportion-input');
     await expect(proportion).toBeVisible();
     const saves = countPlanSaves(page);

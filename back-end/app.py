@@ -13,6 +13,7 @@ import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
 import api.vendor_export as VendorExportApi
+import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import csv_start as CsvStart
@@ -25,6 +26,7 @@ import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
 import api.market_actions as Actions
 import history as History
+import review_team as ReviewTeam
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -519,6 +521,42 @@ def get_organization_history(org_id: str) -> Response:
     """
     return jsonify(OrgsApi.get_history(org_id, authenticated_email(), request.args.get("before"))), 200
 
+@app.route('/organizations/<org_id>/default-permissions/<action_id>', methods=['PUT'])
+@login_required
+def set_organization_default_permission(org_id: str, action_id: str) -> Response:
+    """Set the role one row of the organization's default asks, as its owner or an admin
+    (E39/F02/S01); markets created from now on copy it. Recorded in the organization's history.
+
+    Body: { "role": "admin" }. Answers the default table.
+    """
+    data = json_object(required=False)
+    table = OrgsApi.set_default_permission(org_id, action_id, data.get("role"), authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permissions/<action_id>', methods=['DELETE'])
+@login_required
+def reset_organization_default_permission(org_id: str, action_id: str) -> Response:
+    """Return one row of the organization's default to its built-in default, as its owner or an
+    admin (E39/F02/S01). Recorded in the organization's history. Answers the default table."""
+    table = OrgsApi.reset_default_permission(org_id, action_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permissions', methods=['DELETE'])
+@login_required
+def reset_organization_default_permissions(org_id: str) -> Response:
+    """Return every row of the organization's default to its built-in default, as its owner or an
+    admin (E39/F02/S01); one entry in its history. Answers the default table."""
+    table = OrgsApi.reset_default_permissions(org_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+@app.route('/organizations/<org_id>/default-permission-history', methods=['GET'])
+@login_required
+def get_organization_default_permission_history(org_id: str) -> Response:
+    """Every change to the organization's default, newest first (E39/F02/S01). Its owner, admins
+    and members read it."""
+    entries = OrgsApi.get_default_permission_history(org_id, authenticated_email())
+    return jsonify({"entries": entries}), 200
+
 @app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
 @login_required
 def organization_deletion_preview(org_id: str) -> Response:
@@ -725,6 +763,50 @@ def save_plan(market_id: str) -> Response:
     return jsonify({"message": "Plan saved"}), 200
 
 
+@app.route('/markets/<market_id>/discord/authorization', methods=['POST'])
+@login_required
+def start_discord_connection(market_id: str) -> Response:
+    """Begin connecting the market to a Discord server (E46/F01/S02): the address of Discord's
+    approval screen, which sends the person back to the app's ``/discord/connected``. Asks
+    ``Actions.CONNECT_DISCORD``."""
+    return jsonify(DiscordConnectionApi.start(market_id, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/discord/connection', methods=['POST'])
+@login_required
+def connect_discord(market_id: str) -> Response:
+    """Finish connecting, from the page Discord sent the person back to. Body: { "code", "state" }.
+    Asks ``Actions.CONNECT_DISCORD``."""
+    data = json_object(required=True)
+    DiscordConnectionApi.connect(
+        market_id, string_field(data, "code"), string_field(data, "state"), authenticated_email())
+    return jsonify({"marketId": market_id}), 200
+
+
+@app.route('/markets/<market_id>/discord/connection', methods=['DELETE'])
+@login_required
+def disconnect_discord(market_id: str) -> Response:
+    """Forget the market's Discord server. Asks ``Actions.CONNECT_DISCORD``."""
+    DiscordConnectionApi.disconnect(market_id, authenticated_email())
+    return jsonify({"message": "Disconnected"}), 200
+
+
+@app.route('/markets/<market_id>/discord', methods=['PUT'])
+@login_required
+def save_discord(market_id: str) -> Response:
+    """Change the Discord card's choices. Body: any of { "roleId", "usernameQuestion",
+    "inviteLink" }, each a string or null. Asks ``Actions.CONNECT_DISCORD``."""
+    DiscordConnectionApi.save(market_id, json_object(required=True), authenticated_email())
+    return jsonify({"message": "Saved"}), 200
+
+
+@app.route('/markets/<market_id>/discord/roles', methods=['GET'])
+@login_required
+def discord_roles(market_id: str) -> Response:
+    """The connected server's roles, for the Discord card. Asks ``Actions.CONNECT_DISCORD``."""
+    return jsonify({"roles": DiscordConnectionApi.roles(market_id, authenticated_email())}), 200
+
+
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
 @login_required
 def get_vendor_notes(market_id: str) -> Response:
@@ -808,10 +890,20 @@ def reset_market_permissions(market_id: str) -> Response:
     return jsonify({"permissionTable": table}), 200
 
 
+@app.route('/markets/<market_id>/permissions/organization-default', methods=['POST'])
+@login_required
+def copy_market_organization_default(market_id: str) -> Response:
+    """Replace the market's table with its organization's default as it is now, as its owner
+    (E39/F02/S01). Asks ``Actions.CHANGE_THE_TABLE``; one entry in the market's history. Answers
+    the table."""
+    table = MarketsApi.copy_organization_default(market_id, authenticated_email())
+    return jsonify({"permissionTable": table}), 200
+
+
 @app.route('/markets/<market_id>/permission-history', methods=['GET'])
 @login_required
 def get_market_permission_history(market_id: str) -> Response:
-    """Every change to the market's table, newest first (E39/F01/S03). Asks ``Actions.READ``."""
+    """Every change to the market's table, newest first (E39/F01/S03). Asks ``Actions.READ_HISTORY``."""
     entries = MarketsApi.get_permission_history(market_id, authenticated_email())
     return jsonify({"entries": entries}), 200
 
@@ -831,6 +923,25 @@ def save_rejection_rules(market_id: str) -> Response:
         return jsonify({"error": "rules is required"}), 400
     stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
     return jsonify({"rejectionRules": stored}), 200
+
+
+@app.route('/markets/<market_id>/reviewers', methods=['PUT'])
+@login_required
+def choose_reviewers(market_id: str) -> Response:
+    """Choose who reviews this market's applications, and deal the open ones among them
+    (E38/F07/S02).
+
+    Body: { "reviewers": ["sam@example.com", ...] }, the whole team; an empty list removes every
+    reviewer. Answers { "reviewTeam": {"reviewers": [{"email", "able"}]}, "dealt": <count> }, or
+    409 while another deal holds the market for longer than a choice waits.
+
+    The only writer of the market's reviewers.
+    """
+    data = json_object(required=False)
+    if "reviewers" not in data:
+        return jsonify({"error": "reviewers is required"}), 400
+    return jsonify(MarketsApi.choose_reviewers(
+        market_id, data["reviewers"], authenticated_email())), 200
 
 
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])
@@ -1473,7 +1584,8 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
 @login_required
 def update_vendor_info(market_id: str, application_id: str) -> Response:
     """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
-    ``Actions.UPDATE_VENDOR_INFO``.
+    ``Actions.UPDATE_VENDOR_INFO``, and ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` for an answer
+    the assignment reads.
 
     Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
     vendor wrote takes its update away.
@@ -1649,6 +1761,12 @@ def import_applications(market_id: str) -> Response:
         # One entry for the import, with its counts, however many rows it wrote: a run is one entry.
         History.record(market_id, authenticated_email(), Actions.IMPORT_APPLICATIONS,
                        kind=History.IMPORTED, detail=lambda: CsvImport.import_counts(result))
+        # Then each row it left open is dealt to the next reviewer in turn (E38/F07/S03), after the
+        # import's rules have judged and a first import has taken the market into Review.
+        context = MarketsApi.load_market_context(market_id)
+        if context is not None and context.market is not None:
+            ReviewTeam.deal_arrivals(
+                context.market, authenticated_email(), Actions.IMPORT_APPLICATIONS)
     return jsonify(result), status_code
 
 

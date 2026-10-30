@@ -82,7 +82,7 @@ test('every field on the plan, the rules and the form preview has a name', async
     },
   });
 
-  for (const tab of ['setup', 'assignment', 'form']) {
+  for (const tab of ['setup', 'settings', 'form']) {
     await page.goto(marketSetupPath(marketId, tab));
     await expect(page.getByTestId('market-bar-title')).toBeVisible();
     await page.waitForLoadState('networkidle');
@@ -101,7 +101,7 @@ test('every field on the plan, the rules and the form preview has a name', async
   }
 
   // Removing a rule, or one of its answers, is a named button a keyboard reaches.
-  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'settings'));
   await expect(page.getByTestId('priority-rule-row')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Remove rule 2' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Ceramics from rule 2' })).toBeVisible();
@@ -241,13 +241,20 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.getByTestId('manage-org-history-toggle').click();
   await page.getByTestId('org-history-toggle').first().click();
   await expect(page.getByTestId('org-history-changes')).toBeVisible();
+  // Its default permissions for new markets, open, and a row's confirmation (E39/F02/S01).
+  await page.getByTestId('manage-org-permissions-toggle').click();
+  await expect(page.getByTestId('manage-org-permission-select').first()).toBeVisible();
   await named('Manage organization');
+  await page.getByTestId('manage-org-permission-select').first().selectOption('owner');
+  await expect(page.getByTestId('manage-org-permission-confirm-window')).toBeVisible();
+  await named("a change to Manage organization's default permissions");
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.getByTestId('organizations-create-button').click();
   await named('the new-organization dialog');
   await page.keyboard.press('Escape');
 
-  for (const screen of ['result', 'vendors', 'attendance'] as const) {
+  for (const screen of ['assignments', 'vendors', 'attendance'] as const) {
     // With a filter set, so its chip and "Clear all" are walked too (E28/F02/S02).
     const filtered = screen === 'attendance' ? '' : '?choice=full';
     await page.goto(`${marketScreenPath(published.marketId, screen)}${filtered}`);
