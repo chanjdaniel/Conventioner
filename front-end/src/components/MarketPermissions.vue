@@ -59,6 +59,12 @@ const table = computed(() => props.market.permissionTable ?? []);
 const groups = computed(() => groupedRows(table.value));
 const held = computed(() => heldRows(table.value));
 
+/**
+ * The changes are the market's history narrowed to the table, so they are read and shown only to
+ * someone the history's row lets in: an owner may raise it above a role that still sees the table.
+ */
+const readsHistory = computed(() => mayTake(props.market, MarketAction.ReadHistory));
+
 /** Changing the table is its own fixed row, the market owner's alone (E39/F01/S03). */
 const mayChange = computed(() => mayTake(props.market, MarketAction.ChangeTheTable));
 
@@ -107,6 +113,7 @@ async function toggle() {
  * after each change, never on the market read, which every write re-reads. */
 async function fetchHistory() {
   historyError.value = '';
+  if (!readsHistory.value) return;
   try {
     const response = await api.get(`${marketPath()}/permission-history`);
     history.value = response.data.entries ?? [];
@@ -275,30 +282,32 @@ async function afterWrite(answered: PermissionTableRow[] | undefined) {
         Reset to built-in defaults
       </button>
 
-      <h4 class="subheading">Changes</h4>
-      <p v-if="historyError" class="error">{{ historyError }}</p>
-      <p v-else-if="!changes.length" class="hint">No changes yet.</p>
-      <ol v-else class="rows" data-testid="manage-market-permission-changes">
-        <li
-          v-for="{ entry, title, rows } in changes"
-          :key="entry.id"
-          class="change"
-          data-testid="manage-market-permission-change"
+      <template v-if="readsHistory">
+        <h4 class="subheading">Changes</h4>
+        <p v-if="historyError" class="error">{{ historyError }}</p>
+        <p v-else-if="!changes.length" class="hint">No changes yet.</p>
+        <ol v-else class="rows" data-testid="manage-market-permission-changes">
+          <li
+            v-for="{ entry, title, rows } in changes"
+            :key="entry.id"
+            class="change"
+            data-testid="manage-market-permission-change"
+          >
+            <span class="label change-title">{{ title }}</span>
+            <span v-for="line in rows" :key="line" class="change-line">{{ line }}</span>
+            <span class="caption">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
+          </li>
+        </ol>
+        <button
+          v-if="history.length > changesShown"
+          type="button"
+          class="btn btn--secondary more"
+          data-testid="manage-market-permission-changes-more"
+          @click="changesShown += CHANGES_PAGE"
         >
-          <span class="label change-title">{{ title }}</span>
-          <span v-for="line in rows" :key="line" class="change-line">{{ line }}</span>
-          <span class="caption">{{ entry.actor }}, {{ getFormattedTimestamp(entry.at) }}</span>
-        </li>
-      </ol>
-      <button
-        v-if="history.length > changesShown"
-        type="button"
-        class="btn btn--secondary more"
-        data-testid="manage-market-permission-changes-more"
-        @click="changesShown += CHANGES_PAGE"
-      >
-        Load more
-      </button>
+          Load more
+        </button>
+      </template>
     </div>
   </section>
 

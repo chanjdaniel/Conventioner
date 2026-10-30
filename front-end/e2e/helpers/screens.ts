@@ -465,6 +465,18 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // Its History tab, the market's history narrowed to the vendor (E40/F01/S04).
+    name: "the vendor drawer's history",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-history', 'market-history'],
+    ),
+  },
+  {
     name: 'the add-vendor dialog',
     who: 'organizer',
     sizes: ORGANIZER,

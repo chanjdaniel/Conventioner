@@ -28,8 +28,16 @@ const props = withDefaults(
     path?: IntakeMode;
     /** Where a vendor named in an entry opens; without it a vendor is drawn as text. */
     vendorLink?: (email: string) => RouteLocationRaw;
+    /** The vendor whose own history this is, in their drawer: named by name alone, as text. */
+    ownVendor?: string;
   }>(),
-  { names: () => ({}), labels: () => ({}), path: IntakeMode.Csv, vendorLink: undefined },
+  {
+    names: () => ({}),
+    labels: () => ({}),
+    path: IntakeMode.Csv,
+    vendorLink: undefined,
+    ownVendor: '',
+  },
 );
 
 const opened = ref<Set<string>>(new Set());
@@ -56,6 +64,13 @@ const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.label
       <p class="history-what" :data-testid="`${testid}-sentence`">
         <template v-for="(part, index) in entryParts(entry, names, labels, path)" :key="index">
           <template v-if="part.kind === 'text'">{{ part.text }}</template>
+          <!-- The drawer's head names them with their address, so here the name is enough. -->
+          <span
+            v-else-if="ownVendor && part.email.toLowerCase() === ownVendor"
+            class="history-vendor-self"
+            :data-testid="`${testid}-own-vendor`"
+            >{{ part.name || part.email }}</span
+          >
           <component
             :is="vendorLink ? RouterLink : 'span'"
             v-else
@@ -146,6 +161,11 @@ const changesOf = (entry: MarketHistoryEntry) => entryChanges(entry, props.label
 .history-vendor {
   color: var(--mm-green);
   text-decoration: underline;
+}
+
+/* The drawer's own vendor, named in their own history: no link to where the reader already is. */
+.history-vendor-self {
+  font-weight: 600;
 }
 
 /* The address beside the name, muted, so the line still reads as a sentence. */

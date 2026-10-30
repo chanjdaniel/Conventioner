@@ -68,7 +68,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Row (`id`) | Default | Asked by |
 | --- | --- | --- |
 | Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
-| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
+| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
 | Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |

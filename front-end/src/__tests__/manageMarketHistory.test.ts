@@ -158,6 +158,19 @@ describe('the History section', () => {
     expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
   });
 
+  it('narrows by a vendor typed before the first page came back, once it has', async () => {
+    const asked = serve({ entries: [assigned('e1', 1)], next: null });
+    const wrapper = mountHistory();
+
+    // Typed while the first read is still on its way: no vendor is known yet.
+    await wrapper.get('[data-testid="market-history-vendor"]').setValue('Ana');
+    await flushPromises();
+
+    expect(asked.at(-1)).toBe('/markets/market-1/history?vendor=ana%40ember.test');
+    expect(wrapper.find('[data-testid="market-history-empty"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="market-history-entry"]')).toHaveLength(1);
+  });
+
   it('finds a vendor with no name by part of an address the history names', async () => {
     const asked = serve({ entries: [assigned('e1', 1, 'cy.vendor@ember.test')], next: null });
     const wrapper = mountHistory();

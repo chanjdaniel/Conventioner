@@ -18,6 +18,7 @@ sources:
   - E40/F01/S01
   - E40/F01/S02
   - E40/F01/S03
+  - E40/F01/S04
   - E39/F01/S03
   - E39/F01/S04
   - E41/F01/S01
@@ -125,7 +126,7 @@ No rule is a person, so a rule's verdict is never an entry of its own: the write
 Not recorded, each for its reason in `NOT_A_CHANGE` and `NOT_RECORDED` of [`back-end/tests/test_every_write_records.py`](../../../back-end/tests/test_every_write_records.py): a review claim ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)), which is who holds a card open and not a change; reads and exports; a vendor signing in; a market's creation, whose own history starts empty and which [its organization's history](#what-an-organization-records) records; its deletion, which takes the history with it while its organization's history keeps that it went (the [deletion trail](../modules/market-deletion.md) records a market only when its organization is deleted); and the floorplan routes that keep nothing, or an upload the market uses only once a floorplan is saved.
 That test sends every write route as the screen sends it and asserts its one entry; it fails on a market write route, or a row of the table, that records nothing without saying why there, and on an entry Mongo could not store.
 
-**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the drawer's trail and in the whole history alike, and must be changeable without a migration.
+**Entries are stored structured, never as a sentence**: the wording belongs to the surface showing it, [`front-end/src/utils/marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) for the whole history and [`front-end/src/utils/placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts) for a placement, on the Assignment history's trail and in the whole history alike, and must be changeable without a migration.
 
 **Writing an entry never fails the change it records.**
 Every write records after its change has landed (the placement writes in `api/placements.py`, [placements](../modules/placements.md), after the seat is taken), and `record` logs and swallows its own failure: telling an organizer their change did not land when it did is worse than a missing entry.
@@ -146,11 +147,11 @@ A filter on anything but the market and the time is applied as Mongo walks the i
 The first page also answers what the filters may offer: `actors`, everyone who changed something as an organizer, the unmoved placements' organizers too (an applicant's own change is found by the vendor it names, and a check-in from the public page names nobody), and `groups`, the table's groups with their rows' ids and labels.
 Only an entry's own fields are recased to camelCase; its `subject` and `detail` are served as stored, since their keys are data (a question's key, an application's id).
 Until a database has run the migration, its unmoved placements are read beside the history here too, each given `action: assign` and its subject, merged by the same order, and an entry in both read once.
-Organizers read it in Manage market's History section ([reading the market's history](../../business/flows/reading-the-markets-history.md)).
+Organizers read it in Manage market's History section, and one vendor's, `?vendor=` and no other filter, in that vendor's drawer ([reading the market's history](../../business/flows/reading-the-markets-history.md)); a run names nobody, so it is never in a vendor's list.
 
-`GET /markets/:id/placement-history` (`get_placement_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `placement_entries`: the history narrowed to the `assign` action's placement kinds, newest first, each entry with only the fields it had before the widening (`id`, `market_id`, `actor`, `at`, `kind`, `vendors`, `detail`), so the drawer's History tab reads exactly what it always did.
+`GET /markets/:id/placement-history` (`get_placement_history` in [`back-end/api/markets.py`](../../../back-end/api/markets.py)) serves `placement_entries`: the history narrowed to the `assign` action's placement kinds, newest first, each entry with only the fields it had before the widening (`id`, `market_id`, `actor`, `at`, `kind`, `vendors`, `detail`), so the Assignment history dialog reads exactly what it always did.
 It asks the same row: the trail is the history narrowed.
-`?vendor=` narrows it to the entries naming one person, for their detail panel; a run names nobody, so it is never in a vendor's list.
+It is always the whole market's: one vendor's placements are read from `GET /markets/:id/history?vendor=`, with the rest of what names them.
 The answer carries the vendors' names against their addresses, so the trail reads as people.
 `market_id` is a [lookup index](lookup-indexes.md).
 
@@ -169,7 +170,7 @@ Until E40 the entries lived in the `placement_history` collection, without `acti
 [`back-end/migrations/migrate_placement_history.py`](../../../back-end/migrations/migrate_placement_history.py) moves each into `history` with every field it had (its `_id` too), adds `action: assign` and the subject read from its detail, and drops the old collection once it is empty.
 It writes each entry by its `_id` before deleting it from the old collection, so a second run, or one after a run that stopped part-way, moves only what is left and doubles nothing; `--dry-run` reports the count and writes nothing.
 Run it after the release that carries `history.py` is deployed, so the old build writes nothing behind it ([RELEASING.md](../../RELEASING.md#pre-deploy-database-migrations)), whenever is convenient.
-Until it runs, `placement_entries` reads `placement_history` beside `history` (the same narrowing without `action`, which the old entries lack, and the same fields), merged newest first, so the History tab answers as before from the deploy on.
+Until it runs, `placement_entries` reads `placement_history` beside `history` (the same narrowing without `action`, which the old entries lack, and the same fields), merged newest first, so the Assignment history answers as before from the deploy on.
 An entry can be in both for a moment, since the migration writes each one to `history` before deleting it from the old collection and a run can stop between the two, so an old entry whose `id` `history` already holds is left out.
 `delete_for_market` deletes a market's entries from both.
 A later release removes the fallback once every database is moved.
