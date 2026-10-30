@@ -1409,15 +1409,68 @@ def preview_values(
     result["failures"] = failures
     result["repeats"] = repeats
     result["validRows"] = len(applicants) - len(failures)
+    refused = {failure["row"] for failure in failures}
+    existing = _existing_by_email(market_doc.get("id", ""))
+    result["rejected"], met_rows = _rule_rejections(market_doc, applicants, refused, existing)
     # The first rows that WILL import, as they will be stored: the file's own first rows included a
     # skipped one, and read availability from a column a tier grid had answered instead (bug 40).
-    refused = {failure["row"] for failure in failures}
+    # A row a rule rejects is listed with its reason instead, so the two lists check different
+    # things: the mapping, and the rules (E38/F03/S02).
+    judged = refused | met_rows
     result["samples"] = [
         {"row": line, "email": email, "formData": _answers_as_stored(market_doc, data)}
-        for line, email, _submitted, data, _ignored in applicants if line not in refused
+        for line, email, _submitted, data, _ignored in applicants if line not in judged
     ][:SAMPLE_ROWS]
-    result.update(_merge_shape(market_doc.get("id", ""), applicants, failures, market_doc))
+    result.update(
+        _merge_shape(market_doc.get("id", ""), applicants, failures, existing, market_doc))
     return result, 200
+
+
+def _rule_rejections(
+    market_doc: Dict[str, Any],
+    applicants: Sequence[_Row],
+    refused: Set[int],
+    existing_by_email: Dict[str, Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Set[int]]:
+    """The rows of the file the automatic rejections will newly reject once they are imported, with
+    the rule and the reason, and every row a rule meets (E38/F03/S02). Writes nothing.
+
+    Judged as ``RejectionRules.judge`` judges at the import's end: each application as the write
+    would leave it - new and undecided, or as it stands, or undecided again where the import sends
+    an approval back to review - and only where a rule may judge it, so a row updating an
+    application a person decided is not listed; its answers as stored, an organizer's update read
+    in its place.
+
+    A row a rule meets is returned in the second set even when it is not newly rejected: one
+    already rejected by that same rule with that same reason is what ``judge`` skips, so the import
+    rejects nothing new for it - but it is still not a sample of a row that imports to review.
+    """
+    book = RejectionRules.Rulebook(market_from_document(market_doc))
+    rejected = []
+    met_rows: Set[int] = set()
+    for line, email, _submitted, data, _ignored in applicants:
+        stored = None if line in refused else _answers_as_stored(market_doc, data)
+        if stored is None:
+            continue
+        existing = existing_by_email.get(email)
+        after = {**(existing or {}), "form_data": stored}
+        if existing is None or _would_return_to_review(market_doc, existing, data):
+            after["status"] = ApplicationStatus.OPEN.value
+        if not ApplicationsApi.is_judgeable(after):
+            continue
+        met = book.rejecting(ApplicationsApi.effective_answers(after))
+        if met is None:
+            continue
+        rule, reason = met
+        met_rows.add(line)
+        # What ``judge`` skips: already rejected by this rule for this reason, changed or not.
+        if after.get("status") == ApplicationStatus.REVIEWER_REJECTED.value \
+                and (after.get("verdict_by") or {}).get("rule") == rule \
+                and after.get("verdict_reason") == reason:
+            continue
+        rejected.append(
+            {"row": line, "email": email, "formData": stored, "rule": rule, "reason": reason})
+    return rejected, met_rows
 
 
 def _answers_as_stored(
@@ -1471,10 +1524,21 @@ def _unchanged(
     return incoming is not None and incoming == (existing.get("form_data") or {})
 
 
+def _existing_by_email(market_id: str) -> Dict[str, Dict[str, Any]]:
+    """The market's applications by their address, as a row of the file names its applicant."""
+    existing_by_email = {}
+    for doc in ApplicationsApi.list_applications_for_market(market_id):
+        address = str(doc.get("applicant_email") or "").strip().lower()
+        if address:
+            existing_by_email[address] = doc
+    return existing_by_email
+
+
 def _merge_shape(
     market_id: str,
     assembled: Sequence[_Row],
     failures: Sequence[Dict[str, Any]],
+    existing_by_email: Dict[str, Dict[str, Any]],
     market_doc: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """How this file lands against the applications already here: new, updated, or absent.
@@ -1490,12 +1554,6 @@ def _merge_shape(
         row.email for row in assembled
         if row.email and row.line not in skipped_lines
     }
-
-    existing_by_email = {}
-    for doc in ApplicationsApi.list_applications_for_market(market_id):
-        address = str(doc.get("applicant_email") or "").strip().lower()
-        if address:
-            existing_by_email[address] = doc
 
     existing_emails = set(existing_by_email)
     absent = sorted(existing_emails - in_file)
@@ -1641,7 +1699,9 @@ def import_applications(
 
     # Counted before the writes, so it means "already here and not in this file" rather than
     # being confused by the rows this run is about to add.
-    absent_before = _merge_shape(market_id, applicants, failures, market_doc)["absentApplications"]
+    absent_before = _merge_shape(
+        market_id, applicants, failures, _existing_by_email(market_id), market_doc,
+    )["absentApplications"]
 
     for row_number, email, submitted_at, form_data, _ignored in applicants:
         if row_number in refused:
