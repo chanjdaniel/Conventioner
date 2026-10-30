@@ -504,26 +504,35 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </template>
 
 <style scoped>
+/* The status takes no room (E46/F01/S02): the Discord card sits the grid's gap under the plan, and
+   a status that came and went with every autosave would move it each time. So the row is a line of
+   no height, and the status is drawn in the middle of that gap, under the plan cards' right edge,
+   in the plan's own gutter: with none, "Plan saved" sat in the card's bottom-right corner,
+   touching both edges (E26 re-walk). */
 .plan-actions {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-  /* In the plan's own gutter, under its cards' right edge: with none, "Plan saved" sat in the
-     card's bottom-right corner, touching both edges (E26 re-walk). */
-  padding: 0 var(--space-6) var(--space-6);
+  position: relative;
+  align-self: stretch;
+  height: 0;
 }
 
-/* The plan's gutter, as the plan's own grid has it, under "Plan saved". */
+.plan-actions > .plan-save-status {
+  position: absolute;
+  right: var(--space-6);
+  top: calc(-1 * var(--space-2));
+  transform: translateY(-50%);
+}
+
+/* The plan's gutter, its 24px under the last card plus this 8px making the grid's 32px gap
+   (`--card-grid-gap`) between the plan's cards and the Discord card. */
 .plan-tools {
   align-self: stretch;
-  padding: 0 var(--space-6) var(--space-6);
+  padding: var(--space-2) var(--space-6) var(--space-6);
 }
 
 .plan-save-status {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+  white-space: nowrap;
 }
 
 .plan-save-status--saved {
