@@ -48,7 +48,7 @@ An organizer may [update a vendor's answer](an-update-is-kept-beside-the-vendors
 **A question the application holds no answer to meets no rule**: a checkbox added since it was written, or a column an import left out, is not an unticked box.
 
 **The rules judge when something they read changes**: when the list is saved (every judgeable application of the market), when an applicant saves online (that application), when an organizer updates a vendor's info while the review is open (that application), and at the end of an import (the market, after any approval the import sent back to review), whose result says how many the rules rejected.
-Before an import writes anything, its preview judges the file's rows the same way and lists every row the rules would reject, with its reason, so an organizer checks the rules before they reject anyone ([importing a Google Form's responses](../flows/import.md#h2a-first-import-everything-maps)).
+Before an import writes anything, its preview judges the file's rows the same way and lists every row they will newly reject, with its reason, so an organizer checks the rules before they reject anyone ([importing a Google Form's responses](../flows/import.md#h2a-first-import-everything-maps)).
 Every write is conditioned on the application being as it was read, so a reviewer's verdict that lands in between is never overwritten ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 
 **The reason is the organizer's.**

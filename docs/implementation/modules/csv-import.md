@@ -39,7 +39,7 @@ Three endpoints in [`back-end/app.py`](../../../back-end/app.py), each asking th
 | Endpoint | What it does |
 | --- | --- |
 | `POST /markets/:id/applications/import/inspect` | the file's headers, a few sample values, the targets a column can map to, a suggested mapping, and the previous import's mapping restored onto this file (`inspect`); writes nothing |
-| `POST .../import/preview` | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); once every value is settled, the first rows that will import and no rule rejects (`samples`), and every row the automatic rejections would reject, with the rule and the reason (`rejected`); writes nothing |
+| `POST .../import/preview` | every cell value that names nothing the market offers, once per distinct value with how many rows it affects, and the rows that would be refused (`preview_values`); once every value is settled, the first rows that will import and no rule rejects (`samples`), and every row the import's judging will newly reject, with the rule and the reason (`rejected`); writes nothing |
 | `POST .../import` | the rows written as applications awaiting review, the mapping saved, and a count of what was created, updated, unchanged, skipped, repeated and sent back to review (`import_applications`) |
 
 ## Sharp edges
@@ -85,7 +85,7 @@ The import saves it on the market's `importMapping` after every import (`save_ma
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
 **After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`) and returned to undecided (`returnedByRules`).
-The preview judges the file first, writing nothing (`_rule_rejections`): each row's application as the import would leave it, judged only where a rule may judge it (`is_judgeable`), its answers as stored with an organizer's update read in place, so it names the rows the import's judging will reject (E38/F03/S02).
+The preview judges the file first, writing nothing (`_rule_rejections`): each row's application as the import would leave it, judged only where a rule may judge it (`is_judgeable`), its answers as stored with an organizer's update read in place, so it names the rows the import's judging will newly reject (E38/F03/S02).
 An organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
 **An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
