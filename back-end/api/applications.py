@@ -490,10 +490,24 @@ def mark_arriving(app_id: str, actor: Optional[str], action: str) -> bool:
     return result.matched_count > 0
 
 
+#: What a deal reads of an application waiting as it arrived: enough to order, deal and record it.
+_ARRIVING_PROJECTION = {"_id": 0, "id": 1, "applicant_email": 1, "submitted_at": 1,
+                        ARRIVING_FIELD: 1}
+
+
 def arriving_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
-    """The market's applications waiting to be dealt as they arrived, earliest arrival first."""
-    return _in_arrival_order([doc for doc in list_applications_for_market(market_id)
-                              if doc.get(ARRIVING_FIELD)])
+    """The market's applications waiting to be dealt as they arrived, earliest arrival first:
+    those alone, and only what a deal reads of them, since it reads them while holding the market
+    (the ``market_id, arriving`` lookup index)."""
+    ensure_application_indexes()
+    return _in_arrival_order(list(applications_collection.find(
+        {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$exists": True}}, _ARRIVING_PROJECTION)))
+
+
+def any_arriving(market_id: str) -> bool:
+    """Whether any application of the market waits to be dealt as it arrived."""
+    return applications_collection.find_one(
+        {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$exists": True}}) is not None
 
 
 def deal_arrival(app_id: str, reviewer: Optional[MarketPerson]) -> bool:
