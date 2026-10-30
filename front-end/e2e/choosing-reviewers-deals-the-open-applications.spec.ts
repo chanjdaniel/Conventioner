@@ -63,6 +63,7 @@ async function dealtAfter(page: Page, save: () => Promise<void>) {
   const listed = page.waitForResponse(
     (response) =>
       response.request().method() === 'GET' &&
+      response.request().resourceType() !== 'document' &&
       response.url().endsWith(`/markets/${marketId}/applications`),
   );
   await save();
