@@ -108,6 +108,22 @@ describe('what an entry says', () => {
     ).toBe('dana@ember.test changed the prices: price groups and "Everyone else"');
   });
 
+  it("lists the prices' fields in the card's order, whatever order they are stored in", () => {
+    expect(
+      sentence({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        detail: {
+          before: { currency: 'CAD', half_table_percent: 50, groups: [], everyone_else: [] },
+          after: { currency: 'USD', half_table_percent: 40, groups: [{}], everyone_else: [{}] },
+        },
+      }),
+    ).toBe(
+      'dana@ember.test changed the prices: price groups, "Everyone else", half table\'s share and currency',
+    );
+  });
+
   it('words a role change by the person and both roles', () => {
     expect(
       sentence({
@@ -435,6 +451,73 @@ describe('what an entry opens to', () => {
     expect(valueText(true)).toBe('yes');
     expect(valueText({ a: 1 })).toBe('{"a":1}');
     expect(valueText('x'.repeat(300))).toHaveLength(241);
+  });
+});
+
+describe("a change of the prices opens to the card's words and money (E43/F01/S02)", () => {
+  const priced = (detail: Record<string, unknown>, currency = 'CAD') =>
+    entryChanges(
+      entry({
+        action: 'change-setup',
+        kind: 'pricing',
+        vendors: [],
+        subject: { currency },
+        detail,
+      }),
+    ).changed;
+
+  it('names each field as the card does and writes its prices in the currency', () => {
+    expect(
+      priced({
+        before: {
+          groups: [],
+          everyone_else: [{ tier: 'Gold', cents: 3500 }],
+          half_table_percent: 50,
+        },
+        after: {
+          groups: [
+            {
+              name: 'UBC student only',
+              conditions: [{ key: 'affiliation', answers: ['Current UBC student'] }],
+              prices: [
+                { tier: 'Gold', cents: 1500 },
+                { tier: 'Silver', cents: 1350 },
+              ],
+            },
+          ],
+          everyone_else: [
+            { tier: 'Gold', cents: 3600 },
+            { tier: 'Silver', cents: 3000 },
+          ],
+          half_table_percent: 40,
+        },
+      }),
+    ).toEqual([
+      { field: 'Price groups', before: 'none', after: 'UBC student only: Gold $15, Silver $13.50' },
+      { field: '"Everyone else"', before: 'Gold $35', after: 'Gold $36, Silver $30' },
+      { field: "Half table's share", before: '50%', after: '40%' },
+    ]);
+  });
+
+  it('writes the money in the currency the entry names, and a new currency in its own', () => {
+    expect(
+      priced(
+        {
+          before: { currency: 'USD', everyone_else: [{ tier: 'Gold', cents: 3500 }] },
+          after: { currency: 'EUR', everyone_else: [{ tier: 'Gold', cents: 3500 }] },
+        },
+        'EUR',
+      ),
+    ).toEqual([
+      { field: '"Everyone else"', before: 'Gold US$35', after: 'Gold €35' },
+      { field: 'Currency', before: 'USD', after: 'EUR' },
+    ]);
+  });
+
+  it('says none for a field an older entry recorded as null', () => {
+    expect(priced({ before: { everyone_else: null }, after: { everyone_else: [] } })).toEqual([
+      { field: '"Everyone else"', before: 'none', after: 'none' },
+    ]);
   });
 });
 

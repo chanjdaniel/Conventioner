@@ -12,6 +12,7 @@
 import { IntakeMode } from '@/assets/types/datatypes';
 import { pathPhaseLabel } from '@/utils/marketGuide';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { formatPrice } from '@/utils/pricing';
 import {
   historyDate,
   historyParts,
@@ -83,13 +84,47 @@ const SETUP_FIELDS: Record<string, string> = {
   name: 'name',
 };
 
-/** The Pricing card's fields, as the card names them (`pricing_fields` in `back-end/pricing.py`). */
+/** The Pricing card's fields, in the card's order and words (`pricing_fields` in
+ * `back-end/pricing.py`, which stores them in another order). */
 const PRICING_FIELDS: Record<string, string> = {
-  currency: 'currency',
-  half_table_percent: "half table's share",
   groups: 'price groups',
   everyone_else: '"Everyone else"',
+  half_table_percent: "half table's share",
+  currency: 'currency',
 };
+
+/** The pricing fields a change set, in the card's order, any the card does not know after them. */
+function pricingKeys(...sides: Detail[]): string[] {
+  const keys = new Set(sides.flatMap((side) => Object.keys(side)));
+  return [
+    ...Object.keys(PRICING_FIELDS).filter((key) => keys.has(key)),
+    ...[...keys].filter((key) => !(key in PRICING_FIELDS)),
+  ];
+}
+
+/** A row's prices as the card shows them, in `currency`: "Gold $35, Silver $30". */
+function tierPrices(value: unknown, currency: string): string {
+  const prices = Array.isArray(value) ? value.map(asDetail) : [];
+  return prices
+    .map((price) => `${str(price.tier)} ${formatPrice(Number(price.cents), currency)}`)
+    .join(', ');
+}
+
+/** A field of the Pricing card as it stood, in words and money; "none" where it was empty. */
+function pricingValue(key: string, value: unknown, currency: string): string {
+  if (value === null || value === undefined) return 'none';
+  if (key === 'everyone_else') return tierPrices(value, currency) || 'none';
+  if (key === 'groups') {
+    const groups = Array.isArray(value) ? value.map(asDetail) : [];
+    const words = groups.map((group) => {
+      const prices = tierPrices(group.prices, currency);
+      return prices ? `${str(group.name)}: ${prices}` : str(group.name);
+    });
+    return words.join('; ') || 'none';
+  }
+  if (key === 'half_table_percent') return `${str(value)}%`;
+  return valueText(value);
+}
 
 function listed(words: string[]): string {
   const unique = [...new Set(words)];
@@ -183,7 +218,7 @@ export function entryParts(
       return [actor, text(`changed Market Setup${fields.length ? `: ${listed(fields)}` : ''}`)];
     }
     case 'change-setup/pricing': {
-      const fields = Object.keys(after).map((key) => PRICING_FIELDS[key] ?? key);
+      const fields = pricingKeys(after).map((key) => PRICING_FIELDS[key] ?? key);
       return [actor, text(`changed the prices${fields.length ? `: ${listed(fields)}` : ''}`)];
     }
     case 'change-setup/floorplan':
@@ -432,6 +467,21 @@ export function entryChanges(
         field: labels[id] ?? id,
         before: permissionState(before[id]),
         after: permissionState(after[id]),
+      })),
+      recorded: [],
+    };
+  }
+  if (entry.action === 'change-setup' && entry.kind === 'pricing') {
+    // The money is written in the market's currency, which the entry's subject names, and a
+    // change of currency writes each side's prices in its own (E43/F01/S02).
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const currency = str(entry.subject.currency) || 'CAD';
+    return {
+      changed: pricingKeys(before, after).map((key) => ({
+        field: fieldName(PRICING_FIELDS[key] ?? key),
+        before: pricingValue(key, before[key], str(before.currency) || currency),
+        after: pricingValue(key, after[key], str(after.currency) || currency),
       })),
       recorded: [],
     };
