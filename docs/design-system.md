@@ -231,7 +231,7 @@ It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left,
 
 ## Elevation
 
-One shadow, extracted from the newer screens, where it is already used 77 times on a single screen.
+One elevation shadow, extracted from the newer screens, where it is already used 77 times on a single screen.
 
 ```css
 --shadow-card:
@@ -240,7 +240,7 @@ One shadow, extracted from the newer screens, where it is already used 77 times 
   0 6px 14px rgba(0, 0, 0, 0.08);
 ```
 
-**The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic.
+**The legacy halo is retired**: `0 0 4px 5px rgba(0,0,0,.25)` and its inset twin. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow - which is why the older cards read as outlined in grey fog. The inset variant is what makes the setup fields look pressed and skeuomorphic. That rule is elevation's; the focus halo below is a focus indicator, deliberately a flat ring that hugs the control.
 
 ## Colour
 
@@ -358,7 +358,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
 The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
-Contrast and axe measure each state at its first size; the layout sweep at every size.
+Contrast, axe and focus measure each state at its first size; the layout sweep at every size.
 
 ## Evidence
 
