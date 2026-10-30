@@ -96,6 +96,9 @@ REFUND_RECORDED = "refund_recorded"
 PAYMENT_EDITED = "payment_edited"
 PAYMENT_REMOVED = "payment_removed"
 OWED_TAKEN_BACK = "owed_taken_back"
+DISCORD_CONNECTED = "discord_connected"
+DISCORD_SETTINGS = "discord"
+DISCORD_DISCONNECTED = "discord_disconnected"
 
 
 def _now() -> str:

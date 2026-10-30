@@ -13,6 +13,7 @@ import pytest
 
 from conftest import COMPLETE_PLAN, client_market, stored_market
 import api.added_vendors as AddedVendorsApi
+import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
@@ -57,6 +58,7 @@ THE_TABLE = [
     ("adjust-paid", "Payments",
      "Adjust the amount paid: edit or remove a payment, record a refund", MarketRole.ADMIN, False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
+    ("connect-discord", "Discord", "Connect Discord and give roles", MarketRole.ADMIN, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
      MarketRole.ADMIN, False),
     ("manage-admins", "People", "Give and take Admin roles", MarketRole.OWNER, True),
@@ -170,6 +172,12 @@ EACH_LOAD_ASKS = [
         "market-123", {}, MarketPerson(user_id="u", email="u@x.test")), Actions.ADD_VENDOR),
     (lambda: VendorExportApi.preview("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
     (lambda: VendorExportApi.export("market-123", {}, "u@x.test"), Actions.EXPORT_CSV),
+    (lambda: DiscordConnectionApi.start("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.connect("market-123", "c", "s", "u@x.test"),
+     Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.disconnect("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.save("market-123", {}, "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.roles("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
 ]
 
 

@@ -22,7 +22,9 @@ def test_a_market_carrying_the_removed_discord_keys_still_decodes():
     assert market.name
     assert not hasattr(market, "discord_guild_id")
     assert not hasattr(market, "discord_webhook_url")
-    assert not [key for key in market.model_dump(by_alias=True) if "iscord" in key]
+    # The Discord connection that came back (E46/F01/S02) is its own key, and not made from these.
+    assert [key for key in market.model_dump(by_alias=True) if "iscord" in key] == ["discord"]
+    assert market.discord is None
 
 
 def test_a_market_carrying_an_entirely_unknown_key_still_decodes():

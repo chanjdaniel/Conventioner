@@ -149,6 +149,7 @@ ROW_WRITES = {
                       {"user_email": "admin@example.com", "role": "admin"}),
     "delete-market": ("delete", "/markets/market-123", None),
     "change-the-table": ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}),
+    "connect-discord": ("put", "/markets/market-123/discord", {"inviteLink": ""}),
 }
 
 #: A row's other writes, met the same way: resetting one row, or the whole table, is the table's row
@@ -157,6 +158,26 @@ MORE_ROW_WRITES = [
     ("change-the-table", ("delete", "/markets/market-123/permissions/check-in", None)),
     ("change-the-table", ("delete", "/markets/market-123/permissions", None)),
 ]
+
+
+#: The Discord card's writes, every one of the row's (E46/F01/S02): ``ROW_WRITES`` sends one.
+DISCORD_WRITES = [
+    ("post", "/markets/market-123/discord/authorization", None),
+    ("post", "/markets/market-123/discord/connection", {"code": "c", "state": "s"}),
+    ("put", "/markets/market-123/discord", {"roleId": "r-vendor"}),
+    ("delete", "/markets/market-123/discord/connection", None),
+]
+
+
+@pytest.mark.parametrize("method,path,body", DISCORD_WRITES)
+def test_every_discord_write_is_refused_on_an_archived_market(client, archived, method, path, body):
+    archived.doc["discord"] = {"guildId": "2909267986263572999", "guildName": "Market Vendors"}
+
+    response = getattr(client, method)(path, json=body)
+
+    assert (response.status_code, response.get_json()["error"]) == (
+        403, MarketsApi.ARCHIVED_REFUSAL)
+    assert archived.last_update is None
 
 
 class TestEveryRowOfTheTable:

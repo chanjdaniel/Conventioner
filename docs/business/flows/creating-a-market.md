@@ -34,7 +34,7 @@ The answer stays changeable on Market Setup while the market is a draft ([E5](pl
 1. `/markets`, "New market".
 2. The dialog "Create new market" asks for **Organization**, **Market name** and **How will vendors apply?**.
 3. Enter a name, choose "On this market's own page", and choose "Create market" (Enter also submits).
-4. Expect `/markets/<id>/setup` in Draft, with the market bar (Market Setup, Application Form, Applications, Assignment, Attendance, Stats) and the phase rail.
+4. Expect `/markets/<id>/setup` in Draft, with the market bar (Market Setup, Application Form, Applications, Assignment, Attendance, Tools, Stats) and the phase rail.
 
 An empty name, or no answer to how vendors apply, keeps "Create market" disabled.
 On the Google Form path the same dialog ends on the upload step instead; "Cancel" there leaves a Google Form draft on Market Setup to plan by hand, and its form tab reads "Questions" ([P1](the-google-form-path.md#p1-csv-intake-form-built-by-hand)).

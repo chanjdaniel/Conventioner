@@ -644,6 +644,9 @@ class Market(BaseModel):
     # hold reads its built-in default, so absent is the built-in table and needs no migration.
     # Server-owned: written only by its owner's one write (`set_permission`, `reset_permission`).
     permissions: Dict[str, "MarketPermission"] = Field(default_factory=dict)
+    # The Discord server it is connected to (E46/F01/S02). Server-owned: only the Discord card's
+    # routes write it. Absent is not connected.
+    discord: Optional["DiscordConnection"] = None
 
     @field_validator("permissions", mode="before")
     @classmethod
@@ -791,6 +794,25 @@ class EssentialFormOptions(BaseModel):
     # nothing but the tie-break; a default for dates, tiers or table choice would invent a
     # commitment the applicant never made.
     unasked: List[str] = []
+
+
+class DiscordConnection(BaseModel):
+    """The Discord server a market is connected to, and what its card chose (E46/F01/S02).
+
+    Written only by ``api.discord_connection``, on its own routes, so it stays editable after the
+    rest of Market Setup settles: Discord is a manual tool the organizer runs whenever they choose
+    (Daniel, T92 Q10, Q19). Discord's ids are strings, as its API sends them. Every field may be
+    None: a market disconnected keeps only the username question, which is about its form. Who
+    connected it, and when, is the history's (``discord_connected``), not a field here.
+    """
+
+    guild_id: Optional[str] = None
+    guild_name: Optional[str] = None
+    role_id: Optional[str] = None
+    role_name: Optional[str] = None
+    #: The key of the form's text question that holds each vendor's Discord username.
+    username_question: Optional[str] = None
+    invite_link: Optional[str] = None
 
 
 class MarketPermission(BaseModel):
@@ -1174,8 +1196,13 @@ class ExampleColumnContract(ExampleColumn, ContractModel):
     options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
 
 
+class DiscordConnectionContract(DiscordConnection, ContractModel):
+    """Camel-cased contract view of a market's Discord connection."""
+
+
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    discord: Optional[DiscordConnectionContract] = None
     example_columns: Optional[List[ExampleColumnContract]] = None
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
