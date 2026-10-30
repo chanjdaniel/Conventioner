@@ -108,11 +108,11 @@ test('placing and swapping warn about every answer they override, and never bloc
 
   // The free Silver table: Dana fits it as she answered; Carol is still offered, but apart.
   await tables.vacantSeat('Hall B 2').click();
-  const who = await tables.openPicker('vendor');
-  await expect(who.getByTestId('placement-dialog-fits').getByRole('option')).toHaveText([
+  await tables.openPicker('vendor');
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-fits')).toHaveText([
     /Dana Example/,
   ]);
-  await expect(who.getByTestId('placement-dialog-overrides').getByRole('option')).toHaveText([
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-overrides')).toHaveText([
     /Carol Example/,
   ]);
 

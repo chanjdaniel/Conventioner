@@ -85,8 +85,8 @@ When the server would refuse that step, the sentence is its first blocker instea
 | Draft | "Plan the market and its application form, then open applications." | "To begin review: Nothing has been imported yet. Import your Google Form's responses first.", once the plan is complete |
 | Applications / Review | "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, stopped, "Your application page is not taking applications. …" | "Every imported response is here. Every application is decided: Begin Assignment." |
 | Assignment, nothing run | "Set the rules and allocate tables." | as the online path |
-| Assignment, run | "Check the result, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
-| Assignment, results published | "Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
+| Assignment, run | "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
+| Assignment, results published | "Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
 | Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
 | Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
 

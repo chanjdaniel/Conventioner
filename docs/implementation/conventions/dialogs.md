@@ -9,6 +9,7 @@ describes:
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/src/__tests__/aDialogGivesFocusBack.test.ts
   - front-end/e2e/dialog-idiom.spec.ts
+  - front-end/src/components/SearchPicker.vue
 verified: 2026-10-30
 sources:
   - wayfinding/the-order-of-the-work/08
@@ -21,6 +22,7 @@ sources:
   - E20
   - T45
   - E39/F01/S04
+  - E38/F08/S03
 ---
 
 # Dialogs
@@ -34,6 +36,7 @@ A new dialog is built on it, never hand-rolled.
 **The form is the Enter contract.**
 Enter in a field runs the same handler as the confirm button, so it inherits that handler's guard, and a disabled submit makes Enter inert with no key handler anywhere.
 Do not add `@keydown.enter`: five views each invented their own answer, and one of them (`ApplicantLogin`) bypassed its own resend cooldown by doing so.
+The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): while its list is open, Enter takes the highlighted choice and is kept from the form, and Escape closes the list and is kept from the dialog; once the list is closed both keys are the dialog's again, so Enter submits through the form's guard and Escape closes.
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 It still gets the scrim, window, close, Escape, backdrop and inert behaviour, without the single-form footer.

@@ -62,8 +62,8 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
   const tables = new TablesPage(page);
   await tables.goto(marketId);
   await tables.vacantSeat('Hall A 3').click();
-  const who = await tables.openPicker('vendor');
-  await expect(who.getByTestId('placement-dialog-not-approved').getByRole('option')).toHaveText([
+  await tables.openPicker('vendor');
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-not-approved')).toHaveText([
     /Reza Example/,
   ]);
 

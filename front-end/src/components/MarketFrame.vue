@@ -102,7 +102,7 @@ onBeforeUnmount(() => observer?.disconnect());
         <MarketBar v-if="market || status === 'loading' || status === 'idle'" :market="market" />
         <template v-if="market">
           <PhaseRail :market="market" :beforeTransition="beforeTransition" />
-          <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors
+          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors
                (E22/F04/S03). -->
           <MarketPages :market="market" />
           <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned

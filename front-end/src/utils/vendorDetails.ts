@@ -79,8 +79,6 @@ export interface VendorRow {
   tableShareNotice: TableShareNoticeData | null;
   /** Who gave their verdict, and when (E34/F01/S01); null where nobody was recorded. */
   verdict: string | null;
-  /** Whether the assignment run reads them: an approved applicant (E36/F02/S04). */
-  inTheRun: boolean;
   /**
    * Whether they need a table, as the server says (E38/F08/S02): the run's own, and a vendor added
    * by hand, who is out of the run and unassigned like anyone until seated.
@@ -134,18 +132,16 @@ const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCas
  * review. One loader, so the list and the drawer never read a vendor differently.
  *
  * Every application is kept, decided or not: the drawer opens on an applicant still in review. The
- * Vendors list narrows them to the vendors the assignment places (`placeable`).
+ * Vendors list counts the vendors who need a table (`needsATable`), as the server says of each.
  */
 export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | null | undefined>) {
   const applications = ref<Application[]>([]);
   const tableRows = ref<MarketTableRowResponse[]>([]);
   const vendorNames = ref<VendorNames>({});
   /**
-   * Who the assignment run places. The tables read serves every applicant (E36/F02/S02), the ones
-   * outside the run with why, so the run's own are those it says nothing against.
+   * Who needs a table: the run's own and the vendors added by hand (E38/F08/S02). The tables read
+   * serves every applicant (E36/F02/S02) and says it of each.
    */
-  const placeable = ref<Set<string>>(new Set());
-  /** Who needs a table: the run's own and the vendors added by hand (E38/F08/S02). */
   const needingATable = ref<Set<string>>(new Set());
   const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
   const placementOverrides = ref<Map<string, PlacementOverride[]>>(new Map());
@@ -167,15 +163,15 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         api.get<{
           rows: MarketTableRowResponse[];
           vendorNames: VendorNames;
-          vendors?: { email: string; inTheRun: boolean; needsATable: boolean }[];
+          vendors?: { email: string; needsATable: boolean }[];
         }>(`/markets/${encoded}/tables`),
       ]);
       applications.value = Array.isArray(applicationList) ? applicationList : [];
-      const served = tablesResp.data?.vendors ?? [];
-      const addresses = (pick: (vendor: (typeof served)[number]) => boolean) =>
-        new Set(served.filter(pick).map((vendor) => vendor.email.trim().toLowerCase()));
-      placeable.value = addresses((vendor) => vendor.inTheRun);
-      needingATable.value = addresses((vendor) => vendor.needsATable);
+      needingATable.value = new Set(
+        (tablesResp.data?.vendors ?? [])
+          .filter((vendor) => vendor.needsATable)
+          .map((vendor) => vendor.email.trim().toLowerCase()),
+      );
       unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
       placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
       const statsList = statsResp.data?.unassignedVendors ?? [];
@@ -190,7 +186,6 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       applications.value = [];
       tableRows.value = [];
       vendorNames.value = {};
-      placeable.value = new Set();
       needingATable.value = new Set();
       unplacedReasons.value = new Map();
       placementOverrides.value = new Map();
@@ -259,7 +254,6 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         tableShareNotice: application.tableShareNotice ?? null,
         // Someone added by hand says so, in place of a verdict nobody reviewed (E36/F03/S01).
         verdict: addedLine(application) ?? verdictLine(application),
-        inTheRun: placeable.value.has(email),
         needsATable: needingATable.value.has(email),
         status: application.status,
         added: Boolean(application.addedBy),
@@ -327,7 +321,6 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     applications,
     tableRows,
     vendorNames,
-    placeable,
     isLoading,
     loaded,
     loadError,

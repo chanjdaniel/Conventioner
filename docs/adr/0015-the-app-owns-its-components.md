@@ -8,9 +8,11 @@ describes:
   - front-end/src/components/icons/
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
-verified: 2026-10-28
+  - front-end/src/components/SearchPicker.vue
+verified: 2026-10-30
 sources:
   - T45
+  - E38/F08/S03
 status: accepted
 ---
 
@@ -38,6 +40,12 @@ The app owns its components and its icons, and depends on no component library o
 - PrimeVue, PrimeIcons and every `@primevue/*` and `@primeuix/*` package are gone: [`main.ts`](../../front-end/src/main.ts) installs no UI plugin, [`package.json`](../../front-end/package.json) names no UI kit, and [`theAppOwnsItsComponents.test.ts`](../../front-end/src/__tests__/theAppOwnsItsComponents.test.ts) fails if `package.json` or the lockfile brings one back.
 - If a screen ever needs a widget that is hard to get right, a combobox, a date picker or a popover menu, the first stop is a headless library such as Reka UI (MIT), styled with the app's own tokens; a data table would be TanStack Table.
   That is a decision for the day a screen needs one, and a styled kit, which brings its own design language, is not.
+- The first combobox, the placement dialog's searchable vendor pickers (E38/F08/S03), stays the app's own: [`SearchPicker.vue`](../../front-end/src/components/SearchPicker.vue).
+  It was built on Reka UI's Combobox as well, and that version was set aside for three reasons.
+  It is a dependency, Reka UI with a second VueUse of its own, for one control of about 150 lines whose roles and keys its unit tests pin.
+  It put the entry JavaScript at 99,310 B against the bundle budget's 89,000 B, since the Vue runtime it uses lands in the chunk every first paint loads; the owned picker keeps it at 86,808 B.
+  And the behaviour the dialog needs is not what it gives unasked: a search narrows each group and never hides one, where its filter drops a group with no match, and the list opens in the dialog's flow, so the dialog's scroller cannot clip it.
+  A date picker or a popover menu, which must place itself over the page, is still a headless library's first.
 
 ## Consequences
 

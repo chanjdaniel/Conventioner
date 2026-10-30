@@ -4,8 +4,10 @@
  * is typed in, a combobox in the WAI-ARIA sense.
  *
  * The placement dialog's vendor pickers were native selects of every vendor seated that day, about
- * sixty on a real market, scrolled through for the one wanted. The app owns its components
- * (ADR 0015), and had no searchable picker, so this is one primitive rather than a select per use.
+ * sixty on a real market, scrolled through for the one wanted. ADR 0015 sends a combobox to a
+ * headless library first, and records why this one stays the app's own: no dependency and no growth
+ * of the first paint's JavaScript for a control this small, groups that a search narrows and never
+ * hides, and a list in the dialog's flow that its scroller cannot clip.
  *
  * - Named by its own label, and worked from the keyboard alone: the arrow keys move through the
  *   list, Enter takes the active choice, Escape closes the list. While the list is closed, Enter

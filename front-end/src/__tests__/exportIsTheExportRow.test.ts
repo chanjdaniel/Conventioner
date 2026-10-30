@@ -84,7 +84,7 @@ describe.each([
     expect(wrapper.find('[data-testid="applications-all-export-button"]').exists()).toBe(offered);
   });
 
-  it(`Result ${offered ? 'offers' : 'hides'} Download CSV`, async () => {
+  it(`Assignments ${offered ? 'offers' : 'hides'} Download CSV`, async () => {
     const wrapper = mount(ResultSummary, { props: { market: market(refused) }, shallow: true });
     await flushPromises();
 

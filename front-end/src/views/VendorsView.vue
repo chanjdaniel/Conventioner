@@ -269,29 +269,33 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
                 :names="vendorNames"
               />
               <span v-if="assigned" class="vendor-meta">
-                <!-- Whoever needs a table says whether they have one, a vendor added by hand
-                     included, with "Added" beside it (E38/F08/S02); for anyone else the verdict
-                     is what to know first (E36/F02/S04). -->
-                <span
-                  v-if="vendor.needsATable"
-                  class="vendor-badge"
-                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
-                  data-testid="vendors-list-badge"
-                >
-                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
-                </span>
+                <!-- "Added" leads, so what follows holds one column down the list: whoever needs
+                     a table says whether they have one, a vendor added by hand included
+                     (E38/F08/S02); for anyone else the verdict stands there (E36/F02/S04). -->
                 <span
                   v-if="vendor.added"
                   class="chip chip--informational"
                   data-testid="vendors-list-status"
                   >Added</span
                 >
-                <span
-                  v-else-if="!vendor.needsATable"
-                  :class="statusChip(vendor.status)"
-                  data-testid="vendors-list-status"
-                  >{{ statusLabel(vendor.status) }}</span
-                >
+                <span class="vendor-standing">
+                  <span
+                    v-if="vendor.needsATable"
+                    class="vendor-badge"
+                    :class="
+                      vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
+                    "
+                    data-testid="vendors-list-badge"
+                  >
+                    {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                  </span>
+                  <span
+                    v-else
+                    :class="statusChip(vendor.status)"
+                    data-testid="vendors-list-status"
+                    >{{ statusLabel(vendor.status) }}</span
+                  >
+                </span>
                 <span class="vendor-date-count" data-testid="vendor-date-count">
                   {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
                   {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
@@ -509,6 +513,14 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   flex-shrink: 0;
 }
 
+/* One column for the badge or the verdict, whatever its word, right before the date count. As wide
+   as "Unassigned", the longest; centred, so "Assigned" sits in the middle of the same slot. */
+.vendor-standing {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 92px;
+}
+
 .vendor-badge {
   display: inline-flex;
   align-items: center;
@@ -556,9 +568,19 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
     gap: var(--space-2);
   }
 
+  /* Under the name, the badge or verdict leads, so it keeps one column down the list whether or
+     not "Added" follows it, and the date count holds the right. */
   .vendor-meta {
     width: 100%;
-    justify-content: space-between;
+  }
+
+  .vendor-standing {
+    order: -1;
+    justify-content: flex-start;
+  }
+
+  .vendor-date-count {
+    margin-left: auto;
   }
 
   .summary-line {

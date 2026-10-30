@@ -225,19 +225,19 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     page: 'applications',
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
   }),
-  // Worked on the rules until there is a result, and on the result after.
+  // Worked on the rules until there are assignments, and on the assignments after.
   [MarketPhase.Assignment]: ({ assigned, published }) =>
     published
       ? {
           page: 'assignments',
           statement:
-            'Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone.',
+            'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
         }
       : assigned
         ? {
             page: 'assignments',
             statement:
-              'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
+              'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
         : { page: 'settings', statement: 'Set the rules and allocate tables.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({

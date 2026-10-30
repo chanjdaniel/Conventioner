@@ -41,21 +41,18 @@ test('a swap partner is found by typing, and the swap is made as before', async 
 
   const tables = new TablesPage(page);
   await tables.goto(marketId);
-  const seatOf = (email: string) =>
-    page.locator(`[data-testid="tables-seat-occupied"][data-vendor-email="${email}"]`);
-  await expect(seatOf('alice@example.com')).toBeVisible({ timeout: 15000 });
-  const aliceTable = await tables.tableCodeOf(seatOf('alice@example.com'));
-  const coraTable = await tables.tableCodeOf(seatOf('cora@example.com'));
-  const devTable = await tables.tableCodeOf(seatOf('dev@example.com'));
+  await expect(tables.seatOf('alice@example.com')).toBeVisible({ timeout: 15000 });
+  const aliceTable = await tables.tableCodeOf(tables.seatOf('alice@example.com'));
+  const coraTable = await tables.tableCodeOf(tables.seatOf('cora@example.com'));
+  const devTable = await tables.tableCodeOf(tables.seatOf('dev@example.com'));
 
-  await tables.change(seatOf('alice@example.com'));
-  const picker = tables.picker('swap-target');
-  const field = picker.getByRole('combobox', { name: 'Swap them with' });
-  const options = picker.getByRole('option');
+  await tables.change(tables.seatOf('alice@example.com'));
+  const field = tables.pickerField('swap-target');
+  const options = tables.pickerOptions('swap-target');
   expect(await namelessControls(page), 'the placement dialog').toEqual([]);
 
   // Everyone else seated that day, until a word narrows them.
-  await field.click();
+  await tables.openPicker('swap-target');
   await expect(options).toHaveCount(3);
   await field.fill('pott');
   await expect(options).toHaveText([new RegExp(`Cora Pottery.*${coraTable}`)]);
@@ -65,7 +62,7 @@ test('a swap partner is found by typing, and the swap is made as before', async 
 
   // Escape closes the list and leaves the dialog open; the next one is the dialog's.
   await field.press('Escape');
-  await expect(picker.getByRole('listbox')).toHaveCount(0);
+  await expect(tables.pickerList('swap-target')).toHaveCount(0);
   await expect(tables.dialog).toBeVisible();
 
   // Chosen from the keyboard: the first match is active as it is typed, and Enter takes it.
@@ -77,7 +74,7 @@ test('a swap partner is found by typing, and the swap is made as before', async 
 
   await tables.dialog.getByTestId('placement-dialog-swap').click();
   await expect(tables.dialog).toBeHidden();
-  await expect(seatOf('cora@example.com')).toHaveAttribute('data-vendor-email', 'cora@example.com');
-  expect(await tables.tableCodeOf(seatOf('cora@example.com'))).toBe(aliceTable);
-  expect(await tables.tableCodeOf(seatOf('alice@example.com'))).toBe(coraTable);
+  await expect(tables.seatOf('cora@example.com')).toBeVisible();
+  expect(await tables.tableCodeOf(tables.seatOf('cora@example.com'))).toBe(aliceTable);
+  expect(await tables.tableCodeOf(tables.seatOf('alice@example.com'))).toBe(coraTable);
 });

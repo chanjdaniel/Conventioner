@@ -100,7 +100,8 @@ The glossary concept it serves: [Market](../../business/concepts/market.md).
 
 ## Superseded
 
-- The Assignment tab's first page shared the tab's name, and the page row was what made it read as "the tab, and its first page"; its second was Result. They read Settings and Assignments, named for what they hold (E38/F08/S01).
+- The Assignment tab's first page shared the tab's name, and the page row was what made it read as "the tab, and its first page"; its second was Result.
+  They read Settings and Assignments, named for what they hold (E38/F08/S01).
 - Only Market Setup said why a person could change nothing, so a Viewer met the Assignments page's seats as plain text and took the page for broken; the frame says it on every page, and Market Setup's plan says only its own lock (T15).
 
 - Attendance was to join the bar once the market was published, so the bar grew with the market (wayfinding/the-assignment-tab/02); every tab stays on the bar for the market's whole life, and a tab out of its phase says when it matters (E31/F03/S02).

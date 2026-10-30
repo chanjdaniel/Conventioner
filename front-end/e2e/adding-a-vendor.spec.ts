@@ -58,8 +58,8 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   const tables = new TablesPage(page);
   await tables.goto(marketId);
   await tables.vacantSeat('A 3').click();
-  const who = await tables.openPicker('vendor');
-  await expect(who.getByTestId('placement-dialog-added').getByRole('option')).toHaveText([
+  await tables.openPicker('vendor');
+  await expect(tables.pickerOptions('vendor', 'placement-dialog-added')).toHaveText([
     /Walk-in Wares/,
   ]);
   await tables.pick('vendor', 'walk.in@example.com', 'walk-in');
