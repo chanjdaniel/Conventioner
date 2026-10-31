@@ -626,11 +626,11 @@ def claim_next_for_review(
 
     The next undecided application in arrival order after ``after`` - the one they move on from,
     which comes round last, and keeps its place once a verdict takes it out of the queue - that
-    nobody else holds. For a ``chosen`` reviewer, those dealt to them (their share, ADR 0020) come
-    first, each part in that order, and with ``mine_only`` nothing else (E38/F07/S04); for anyone
-    else ``mine_only`` means nothing. ``want`` is one they asked for by name (a link to it), tried
-    first. Taking it is conditioned on the claim it read, so two reviewers asking at once are
-    handed different cards. Their other claims are let go.
+    nobody else holds. For a ``chosen`` reviewer, their share (ADR 0020: those dealt to them, and
+    the follow-ups they own) comes first, each part in that order, and with ``mine_only`` nothing
+    else (E38/F07/S04); for anyone else ``mine_only`` means nothing. ``want`` is one they asked for
+    by name (a link to it), tried first. Taking it is conditioned on the claim it read, so two
+    reviewers asking at once are handed different cards. Their other claims are let go.
     """
     now = _now(now)
     statuses = UNDECIDED_STATUSES + (
@@ -642,8 +642,9 @@ def claim_next_for_review(
     queue = [doc for doc in arrived[start:] + arrived[:start] if doc.get("status") in statuses]
     order = queue
     if chosen:
-        share = [doc for doc in queue if _dealt_to(doc, person)]
-        order = share if mine_only else share + [doc for doc in queue if not _dealt_to(doc, person)]
+        share = [doc for doc in queue if _in_share_of(doc, person)]
+        order = share if mine_only else share + [
+            doc for doc in queue if not _in_share_of(doc, person)]
     wanted = [doc for doc in queue if doc["id"] == want]
     if wanted:
         order = wanted + [doc for doc in order if doc["id"] != want]
@@ -666,10 +667,14 @@ def claim_next_for_review(
     return None
 
 
-def _dealt_to(doc: Dict[str, Any], person: MarketPerson) -> bool:
-    """Whether an application is dealt to this person: their share (ADR 0020), by address."""
-    return normalized_email((doc.get("reviewer") or {}).get("email") or "") == normalized_email(
-        person.email)
+def _in_share_of(doc: Dict[str, Any], person: MarketPerson) -> bool:
+    """Whether an application is in this person's share (ADR 0020), by address: dealt to them, or
+    a follow-up they own, wherever it was dealt, since a follow-up stays with whoever holds it."""
+    address = normalized_email(person.email)
+    if normalized_email((doc.get("reviewer") or {}).get("email") or "") == address:
+        return True
+    return (doc.get("status") == ApplicationStatus.NEEDS_FOLLOW_UP.value
+            and normalized_email((doc.get("follow_up_owner") or {}).get("email") or "") == address)
 
 
 def renew_claim(app_id: str, person: MarketPerson, now: Optional[datetime] = None) -> bool:

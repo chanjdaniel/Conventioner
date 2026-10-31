@@ -126,9 +126,23 @@ test('a follow-up I own on another’s share is mine, under Me and with Mine', a
       `Reviewer: ${BEN}`,
     );
 
+    // Hers to follow up, so its drawer does not warn her that it is Ben's.
+    await all.open(BENS_FIRST);
+    await expect(all.drawerReviewer).toBeVisible();
+    await expect(all.drawerDealtWarning).toHaveCount(0);
+    await page.getByTestId('vendors-detail-close').click();
+
     await all.mine.check();
     await expect(all.count).toHaveText('1 of 5');
     await expect(all.rows).toHaveCount(1);
+    await expect(all.row(BENS_FIRST)).toHaveCount(1);
+  });
+
+  // Her share reads the same to anyone: Cal, not a reviewer, counts it as she does.
+  await withUser(browser, CAL, PASSWORD, async (page) => {
+    const all = new ApplicationsAllPage(page);
+    await all.goto(marketId, ANA);
+    await expect(all.count).toHaveText('4 of 5');
     await expect(all.row(BENS_FIRST)).toHaveCount(1);
   });
 });

@@ -16,10 +16,23 @@ const UNDECIDED: readonly string[] = [
   ApplicationStatus.NeedsFollowUp,
 ];
 
-type Dealt = Pick<Application, 'status' | 'reviewer'>;
+type Dealt = Pick<Application, 'status' | 'reviewer'> & Partial<Pick<Application, 'followUpOwner'>>;
 type Team = Pick<Market, 'reviewTeam'> | null | undefined;
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Whether an application is in this address's share: dealt to them, or a follow-up they own,
+ * wherever it was dealt. Marking a follow-up never moves its reviewer, and a follow-up stays with
+ * whoever holds it, so reaching out is its owner's work; it is then in both shares.
+ */
+export function inShareOf(application: Dealt, address: string): boolean {
+  if (same(application.reviewer?.email ?? '', address)) return true;
+  return (
+    application.status === ApplicationStatus.NeedsFollowUp &&
+    same(application.followUpOwner?.email ?? '', address)
+  );
+}
 
 /**
  * Whom the application was dealt to, while reviewers are chosen: with none, it is first come,
@@ -43,14 +56,14 @@ export function reviewerLine(application: Dealt, reader: string, market: Team): 
 }
 
 /**
- * The address of the reviewer an undecided application is dealt to, when that is not the reader;
- * null for the reader's own, a decided application (deciding it again is a change, not a share)
- * and one never dealt.
+ * The address of the reviewer an undecided application is dealt to, when it is not in the reader's
+ * share; null for the reader's own (a follow-up they own included), a decided application
+ * (deciding it again is a change, not a share) and one never dealt.
  */
 export function dealtElsewhere(application: Dealt, reader: string, market: Team): string | null {
   const reviewer = dealtTo(application, market);
   if (!reviewer || !UNDECIDED.includes(application.status)) return null;
-  return same(reviewer, reader) ? null : reviewer;
+  return inShareOf(application, reader) ? null : reviewer;
 }
 
 /** The warning above the verdict buttons of an application dealt to someone else. */
@@ -113,12 +126,13 @@ export function assignedAddress(choice: AssignedTo | null, reader: string): stri
 }
 
 /**
- * The reader's share of what One by one walks (E38/F07/S04): the applications dealt to them, while
- * they are one of the chosen reviewers; none for anyone else, or with nobody chosen.
+ * The reader's share of what One by one walks (E38/F07/S04): the applications dealt to them and
+ * the follow-ups they own (`inShareOf`), while they are one of the chosen reviewers; none for
+ * anyone else, or with nobody chosen.
  */
 export function myShare<T extends Dealt>(queue: T[], reader: string, market: Team): T[] {
   if (!isChosen(reader, market)) return [];
-  return queue.filter((app) => same(dealtTo(app, market) ?? '', reader));
+  return queue.filter((app) => inShareOf(app, reader));
 }
 
 /** What One by one says when the reader's share is done, of the open ones dealt to others. */

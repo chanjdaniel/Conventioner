@@ -82,6 +82,18 @@ class TestAChosenReviewer:
         assert _next(ANA, mine_only=True) is None
         assert _next(ANA, mine_only=True, follow_ups=True) == "follow-up"
 
+    def test_with_mine_only_takes_a_follow_up_they_own_on_another_share(self, dealt):
+        """A follow-up stays with whoever holds it: dealt to Ben and owned by Ana, it is in both
+        shares, so each is handed it among their own once the follow-ups are asked for."""
+        _decide(dealt, "v1", "v4", "v7", "v2", "v5")
+        follow_up = _doc(dealt, "follow-up")
+        follow_up["reviewer"] = {"user_id": "user-ben", "email": BEN}
+        follow_up["follow_up_owner"] = {"user_id": "user-ana", "email": ANA.upper()}
+
+        assert _next(ANA, mine_only=True) is None
+        assert _next(ANA, mine_only=True, follow_ups=True) == "follow-up"
+        assert _next(CAT, mine_only=True, follow_ups=True) == "v3"
+
     def test_is_handed_one_asked_for_by_name_first(self, dealt):
         assert _next(ANA, mine_only=True, want="v2") == "v2"
 

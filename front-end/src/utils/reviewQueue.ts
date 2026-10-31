@@ -4,6 +4,7 @@ import {
   type ApplicationForm,
 } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import { inShareOf } from '@/utils/reviewers';
 import { isDecided } from '@/utils/verdicts';
 
 /**
@@ -158,9 +159,8 @@ export function allViewLists(filter: AllViewFilter, status: string): boolean {
 /**
  * The applications the All view lists: those with the status asked for - "Open" is every one
  * awaiting a verdict - with Mine, only the follow-ups the viewer owns, and with a reviewer named
- * (E38/F07/S04), only that reviewer's share, decided ones included. The viewer's own share counts
- * the follow-ups they own too, whoever they were dealt to: marking a follow-up never moves the
- * reviewer, and reaching out is the owner's work.
+ * (E38/F07/S04), only that reviewer's share (`inShareOf`: dealt to them, decided ones included,
+ * and the follow-ups they own, whoever they were dealt to).
  */
 export function allViewApplications(
   applications: Application[],
@@ -170,18 +170,14 @@ export function allViewApplications(
   reviewer: string | null = null,
 ): Application[] {
   const viewer = me.trim().toLowerCase();
-  const share = reviewer?.trim().toLowerCase();
-  const owned = (a: Application) =>
-    a.status === ApplicationStatus.NeedsFollowUp &&
-    (a.followUpOwner?.email ?? '').toLowerCase() === viewer;
   return inArrivalOrder(
     applications.filter(
       (a) =>
         allViewLists(filter, a.status) &&
-        (!mine || owned(a)) &&
-        (!share ||
-          (a.reviewer?.email ?? '').trim().toLowerCase() === share ||
-          (share === viewer && owned(a))),
+        (!mine ||
+          (a.status === ApplicationStatus.NeedsFollowUp &&
+            (a.followUpOwner?.email ?? '').toLowerCase() === viewer)) &&
+        (!reviewer || inShareOf(a, reviewer)),
     ),
   );
 }

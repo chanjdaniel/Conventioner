@@ -197,6 +197,20 @@ describe('the All view narrowed to a reviewer’s share (E38/F07/S04)', () => {
     expect(shareIds('sam@market.test')).toEqual(['b', 'd']);
   });
 
+  it('counts a follow-up the reviewer named owns in their share, whoever reads it', () => {
+    const owned = [
+      ...SHARES,
+      dealt('g', ApplicationStatus.NeedsFollowUp, 'alex@market.test', 'sam@market.test'),
+    ];
+    const ids = (reviewer: string) =>
+      allViewApplications(owned, allViewFilter('all'), false, 'alex@market.test', reviewer).map(
+        (a) => a.id,
+      );
+    // Alex reads Sam's share: Sam's follow-up on Alex's share is in both.
+    expect(ids('sam@market.test')).toEqual(['b', 'd', 'g']);
+    expect(ids('alex@market.test')).toEqual(['a', 'c', 'd', 'e', 'g']);
+  });
+
   it('counts a follow-up the reader owns in their own share, whoever it was dealt to', () => {
     expect(shareIds('alex@market.test')).toEqual(['a', 'c', 'd', 'e']);
     expect(shareIds('ALEX@market.test ')).toEqual(['a', 'c', 'd', 'e']);

@@ -7,6 +7,7 @@ import {
   assignedToOptions,
   dealtElsewhere,
   dealtWarning,
+  myShare,
   reviewerLine,
   selectionDealtLine,
 } from '@/utils/reviewers';
@@ -31,8 +32,13 @@ const noneChosen: Pick<Market, 'reviewTeam'> = { reviewTeam: { reviewers: [] } }
 function application(
   status: ApplicationStatus,
   reviewer: string | null,
-): Pick<Application, 'status' | 'reviewer'> {
-  return { status, reviewer: reviewer ? { userId: 'u', email: reviewer } : null };
+  owner?: string,
+): Pick<Application, 'status' | 'reviewer' | 'followUpOwner'> {
+  return {
+    status,
+    reviewer: reviewer ? { userId: 'u', email: reviewer } : null,
+    followUpOwner: owner ? { userId: 'o', email: owner } : null,
+  };
 }
 
 describe('reviewerLine', () => {
@@ -74,6 +80,18 @@ describe('dealtElsewhere', () => {
     expect(dealtElsewhere(application(ApplicationStatus.NeedsFollowUp, SAM), ANA, chosen)).toBe(
       SAM,
     );
+  });
+
+  it('answers null to the owner of a follow-up dealt to someone else: it is in their share too', () => {
+    expect(
+      dealtElsewhere(
+        application(ApplicationStatus.NeedsFollowUp, SAM, 'ANA@example.com'),
+        ANA,
+        chosen,
+      ),
+    ).toBeNull();
+    // Owning it is a follow-up's alone: an open application keeps no owner's share.
+    expect(dealtElsewhere(application(ApplicationStatus.Open, SAM, ANA), ANA, chosen)).toBe(SAM);
   });
 
   it('answers null for the reader’s own, compared in lower case', () => {
@@ -179,5 +197,25 @@ describe('the "Assigned to" filter (E38/F07/S04)', () => {
     expect(assignedAddress('anyone', ANA)).toBeNull();
     expect(assignedAddress(null, ANA)).toBeNull();
     expect(assignedAddress(SAM, ANA)).toBe(SAM);
+  });
+});
+
+describe('myShare (E38/F07/S04)', () => {
+  const queue = [
+    { id: 'a', ...application(ApplicationStatus.Open, ANA) },
+    { id: 'b', ...application(ApplicationStatus.Open, SAM) },
+    { id: 'c', ...application(ApplicationStatus.NeedsFollowUp, SAM, ANA) },
+    { id: 'd', ...application(ApplicationStatus.NeedsFollowUp, ANA, SAM) },
+  ];
+  const ids = (reader: string, market = chosen) => myShare(queue, reader, market).map((a) => a.id);
+
+  it('holds what was dealt to the reader and the follow-ups they own, wherever dealt', () => {
+    expect(ids(ANA)).toEqual(['a', 'c', 'd']);
+    expect(ids(SAM)).toEqual(['b', 'c', 'd']);
+  });
+
+  it('is empty for someone not chosen, and with nobody chosen', () => {
+    expect(ids('cal@example.com')).toEqual([]);
+    expect(ids(ANA, noneChosen)).toEqual([]);
   });
 });
