@@ -542,7 +542,7 @@ def _discord_choice(client, world):
 
 def _check_discord(client, world):
     _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username")
-    world.patch(Discord, "server_members", lambda *_a: [])
+    world.patch(Discord, "server_members", lambda *_a, **_k: [])
     world.markets.doc["applicationForm"] = {"fields": [
         {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
     world.applications.insert_one(_application(
@@ -564,7 +564,7 @@ def _give_discord_roles(client, world):
     _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username", roleId="r-vendor",
              roleName="Vendor Test")
     world.markets.doc["assignmentObject"] = _seated(VENDOR)
-    world.patch(Discord, "server_members", lambda *_a: [Discord.Member("1001", "maple", ())])
+    world.patch(Discord, "server_members", lambda *_a, **_k: [Discord.Member("1001", "maple", ())])
     world.patch(Discord, "RoleGrants", _GrantsThatGive)
     world.markets.doc["applicationForm"] = {"fields": [
         {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
