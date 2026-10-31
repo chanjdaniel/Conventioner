@@ -47,12 +47,13 @@ const theyWrote = computed(() => {
 
 /** How many more members looked alike than the check kept, past its cap of five. */
 const moreMatches = computed(() => props.vendor?.moreMatches ?? 0);
-/** One member alike, or how many: several say the match is not one person's for certain. */
+/** One member alike, or how many: several say the match is not one person's for certain. The
+ *  count keeps to its noun, so a line never ends on the number alone. */
 const alikeSentence = computed(() => {
   const alike = (props.vendor?.matches.length ?? 0) + moreMatches.value;
   return alike === 1
     ? 'A member whose name looks like it may be them.'
-    : `${alike} members whose names look like it may be them.`;
+    : `${alike}\u00a0members whose names look like it may be them.`;
 });
 
 const confirming = ref<DiscordPossibleMatch | null>(null);

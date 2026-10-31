@@ -191,7 +191,7 @@ describe('the drawer’s offer', () => {
       'Possible match: Fern @fernstudio',
     ]);
     expect(wrapper.find('.discord-offer-lead').text()).toBe(
-      'No member of Riverside Makers has the username “Fern Studio”. 2 members whose names look like it may be them.',
+      'No member of Riverside Makers has the username “Fern Studio”. 2\u00a0members whose names look like it may be them.',
     );
     expect(wrapper.find(testid('vendors-detail-discord-more')).exists()).toBe(false);
     expect(wrapper.findAll(testid('vendors-detail-discord-confirm'))).toHaveLength(2);
@@ -215,7 +215,7 @@ describe('the drawer’s offer', () => {
 
     expect(wrapper.findAll(testid('vendors-detail-discord-match'))).toHaveLength(5);
     expect(wrapper.find('.discord-offer-lead').text()).toContain(
-      '8 members whose names look like it may be them.',
+      '8\u00a0members whose names look like it may be them.',
     );
     expect(wrapper.find(testid('vendors-detail-discord-more')).text()).toBe(
       'And 3 more not shown.',
