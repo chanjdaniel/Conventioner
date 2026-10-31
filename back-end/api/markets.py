@@ -444,6 +444,13 @@ def rejection_facts(market: Market) -> Dict[str, Any]:
     }
 
 
+def price_facts(market: Market) -> Dict[str, Any]:
+    """The questions the price groups read, served on the market read: adding a vendor asks the
+    form's own of them, and updating any of them asks the row "Update info the assignment or price
+    reads" (E43/F01/S03)."""
+    return {"priceReads": Pricing.Groups(market).keys()}
+
+
 # The menu's own name for the move back to draft (``pathTransitionLabel`` in
 # ``front-end/src/utils/marketGuide.ts``).
 _WAY_BACK = "Reopen for Editing"
@@ -857,6 +864,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignRefusalReason'] = assign_refusal(market)
     # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
     market_dict.update(rejection_facts(market))
+    # And what the price groups read, which adding a vendor asks and updating guards (E43/F01/S03).
+    market_dict.update(price_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
     market_dict['setupLockReason'] = setup_lock_reason(market)
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the

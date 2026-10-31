@@ -621,6 +621,61 @@ describe('an applicant’s answers, before and after', () => {
   });
 });
 
+describe('a vendor added by hand', () => {
+  it('reads their name and status, then the price answers as the form asks them (E43/F01/S03)', () => {
+    const fields = [
+      { key: 'affiliation', label: 'Student or alumni?', type: 'multi_select', order: 0 },
+      { key: 'clubs', label: 'Which clubs?', type: 'select', order: 1 },
+    ] as unknown as FormField[];
+    const added = entry({
+      action: 'add-vendor',
+      kind: null,
+      detail: {
+        before: { name: null, status: null, answers: null },
+        after: {
+          name: 'Walk-in Wares',
+          status: 'reviewer_approved',
+          answers: {
+            clubs: 'Art Club',
+            affiliation: ['Student'],
+          },
+        },
+      },
+    });
+
+    expect(entryChanges(added, {}, IntakeMode.Form, [], '', fields).changed).toEqual([
+      { field: 'Name', before: 'none', after: 'Walk-in Wares' },
+      { field: 'Status', before: 'none', after: 'Approved' },
+      { field: 'Student or alumni?', before: 'none', after: 'Student' },
+      { field: 'Which clubs?', before: 'none', after: 'Art Club' },
+    ]);
+  });
+
+  it('keeps a price answer keyed status apart from the vendor’s status', () => {
+    const fields = [
+      { key: 'status', label: 'Student or staff?', type: 'select', order: 0 },
+    ] as unknown as FormField[];
+    const added = entry({
+      action: 'add-vendor',
+      kind: null,
+      detail: {
+        before: { name: null, status: null, answers: null },
+        after: {
+          name: 'Walk-in Wares',
+          status: 'reviewer_approved',
+          answers: { status: 'Student' },
+        },
+      },
+    });
+
+    expect(entryChanges(added, {}, IntakeMode.Form, [], '', fields).changed).toEqual([
+      { field: 'Name', before: 'none', after: 'Walk-in Wares' },
+      { field: 'Status', before: 'none', after: 'Approved' },
+      { field: 'Student or staff?', before: 'none', after: 'Student' },
+    ]);
+  });
+});
+
 describe('how a before and after is drawn', () => {
   it('drops the Before column when every Before is none, naming an applicant’s answers so', () => {
     const rows = (...befores: string[]) =>

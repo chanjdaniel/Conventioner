@@ -13,9 +13,10 @@ any one market's form is named here (Q14).
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 import api.applications as ApplicationsApi
+import essential_fields as EssentialFields
 from datatypes import (
-    FORM_FIELD_KEY_PATTERN, PRICING_CURRENCIES, Market, MarketTableRow, PriceGroup, PricingObject,
-    SetupObject, TierPrice,
+    FORM_FIELD_KEY_PATTERN, PRICING_CURRENCIES, FormField, Market, MarketTableRow, PriceGroup,
+    PricingObject, SetupObject, TierPrice,
 )
 from rejection_rules import Rulebook
 
@@ -81,12 +82,23 @@ class Groups:
         self.pricing = market.setup_object.pricing if market.setup_object else None
         self.list: List[PriceGroup] = self.pricing.groups if self.pricing else []
         self.book = Rulebook(market)
+        self.form_fields = sorted(
+            market.application_form.fields if market.application_form else [],
+            key=lambda field: field.order)
 
     def keys(self) -> List[str]:
         """The questions the groups read, once each: only whole conditions', whose keys are the
         form's own, so a key the form never had never reaches the answers' projection."""
         return list(dict.fromkeys(c.key for group in self.list for c in group.conditions
                                   if not self.book.broken(c)))
+
+    def fields(self) -> List[FormField]:
+        """The form's own questions the groups read, in the form's order: what a vendor added by
+        hand is asked, so they are priced like any other (E43/F01/S03). An essential choice a group
+        may read, the table choice or the dates, is the assignment's, and is not among them."""
+        read = set(self.keys())
+        return [field for field in self.form_fields if field.key in read
+                and not field.key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX)]
 
     def broken(self) -> List[str]:
         """The names of the groups with a broken condition, in the card's order."""

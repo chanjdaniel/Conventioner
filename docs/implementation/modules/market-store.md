@@ -65,7 +65,7 @@ Each control asks the row of the action it takes:
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | Vendors | Check Discord | Connect Discord and give roles |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
-| The drawer | Update info | Update a vendor's info, and, for an answer the assignment reads, Update info the assignment or price reads |
+| The drawer | Update info | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
 | The drawer | History | Read the market's history |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |

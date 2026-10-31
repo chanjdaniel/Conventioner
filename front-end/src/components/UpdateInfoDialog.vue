@@ -9,7 +9,8 @@
  *
  * The essential questions are asked as the form asks them (E41/F01/S02). The answers the assignment
  * reads are the row "Update info the assignment or price reads", Admin by default, and show
- * read-only to whoever it refuses; the names and the request are any other answer's.
+ * read-only to whoever it refuses; the names and the request are any other answer's. So are the
+ * answers a price group reads, among the market's own questions (E43/F01/S03).
  */
 import { computed, ref, watch } from 'vue';
 import type {
@@ -62,8 +63,11 @@ const props = defineProps<{
   form: ApplicationForm | null | undefined;
   /** What the essential questions offer on this market, as the form asks them. */
   options: EssentialFormOptions;
-  /** Why this person may not update an answer the assignment reads, or null when they may. */
+  /** Why this person may not update an answer the assignment or a price reads, or null when they
+   *  may. */
   assignmentRefusal: string | null;
+  /** The questions the price groups read (`priceReads` on the market). */
+  priceReads?: readonly string[];
 }>();
 const emit = defineEmits<{ close: []; saved: [application: Application] }>();
 
@@ -93,7 +97,12 @@ const fields = computed<FormField[]>(() =>
   ),
 );
 
-const locked = computed<readonly string[]>(() => (props.assignmentRefusal ? ASSIGNMENT_READS : []));
+const locked = computed<readonly string[]>(() =>
+  props.assignmentRefusal ? [...ASSIGNMENT_READS, ...(props.priceReads ?? [])] : [],
+);
+
+/** Whether a question of the market's own is shown read-only here, as one a price group reads. */
+const priceLocked = computed(() => fields.value.some((field) => locked.value.includes(field.key)));
 
 /** Every answer as it reads now, and as the vendor wrote it, as the form asks for them. */
 const now = computed(() => inPlanOrder(asAsked(props.application?.formData ?? {}), props.options));
@@ -274,6 +283,9 @@ async function save(): Promise<void> {
     </p>
 
     <div v-if="fields.length" class="update-info-fields">
+      <p v-if="priceLocked" class="update-info-meta" data-testid="update-info-price-note">
+        {{ assignmentRefusal }}
+      </p>
       <div
         v-for="field in fields"
         :key="field.key"
@@ -283,11 +295,13 @@ async function save(): Promise<void> {
         <ApplicationFormFields
           :modelValue="draft"
           :fields="[field]"
+          :locked="locked"
           prefix="update-info"
           @update:modelValue="answered(field, $event)"
         />
         <UpdateInfoTheirs
           :question="field.key"
+          :locked="locked.includes(field.key)"
           :differs="differsFromTheirs(field.key)"
           :theyWrote="theyWroteText(field.key)"
           :goesBack="goesBack(field.key)"

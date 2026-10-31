@@ -1104,6 +1104,30 @@ export function entryChanges(
       recorded: [],
     };
   }
+  // A vendor added by hand: their name and status, then the answers the price groups read, each
+  // question as the form asks it (E43/F01/S03).
+  if (entry.action === 'add-vendor') {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const beforeAnswers = asDetail(before.answers);
+    const afterAnswers = asDetail(after.answers);
+    const answers = inFormOrder(Object.keys(afterAnswers), fields).map((key) => ({
+      field: answerLabel(key, fields),
+      before: essentialAnswerText(key, beforeAnswers[key]).trim() || 'none',
+      after: essentialAnswerText(key, afterAnswers[key]).trim() || 'none',
+    }));
+    return {
+      changed: [
+        ...changedFields(
+          { name: before.name, status: before.status },
+          { name: after.name, status: after.status },
+          path,
+        ),
+        ...answers,
+      ],
+      recorded: recordedFields(entry, detail, path, true),
+    };
+  }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
     // One address a line, so no address is broken across two.
     const team = (side: unknown) => valueText(addresses(asDetail(side).reviewers).join('\n'));

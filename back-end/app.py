@@ -1126,7 +1126,8 @@ def add_vendor(market_id: str) -> Response:
     """Add a vendor who never applied (E36/F03/S01). Asks ``Actions.ADD_VENDOR``, in assignment and
     market days.
 
-    Body: { "name": "...", "email": "..." }
+    Body: { "name": "...", "email": "...", "answers": { question key: answer } }, the answers to
+    the form's own questions the price groups read, each required (E43/F01/S03).
     """
     data = json_object(required=True)
     requesting_user = authenticated_email()
@@ -1593,7 +1594,7 @@ def reassign_follow_up(market_id: str, application_id: str) -> Response:
 def update_vendor_info(market_id: str, application_id: str) -> Response:
     """Update a vendor's answers, kept beside their own (E41/F01/S01). Asks
     ``Actions.UPDATE_VENDOR_INFO``, and ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` for an answer
-    the assignment reads.
+    the assignment or a price group reads.
 
     Body: { "answers": { "business_name": "Ember Ceramics" } }. An answer set back to what the
     vendor wrote takes its update away.
