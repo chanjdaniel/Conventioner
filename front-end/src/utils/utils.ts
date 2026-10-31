@@ -138,11 +138,16 @@ export function getTimestampDate(iso: string | null | undefined): string {
  * No seconds. A check-in confirmation read "9/15/2026, 7:20:18 AM", which is a machine's idea of
  * a time; nobody says the seconds out loud, and offering them invites reading precision into a
  * number that has none.
+ *
+ * The space before "AM" is a no-break space, whatever space the browser's own formatting gives, so
+ * a line that wraps never leaves "AM" alone on the next (a verdict's giver in the All view did).
  */
 export function getTimestampTime(iso: string | null | undefined): string {
   const at = instant(iso);
   if (!at) return iso ? String(iso) : '';
-  return at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return at
+    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    .replace(/\s+(?=[AP]M$)/, '\u00a0');
 }
 
 /** An instant in full: "Nov 21, 2026 at 7:20 AM". */
