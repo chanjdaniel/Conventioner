@@ -272,7 +272,8 @@ watch(
   gap: var(--space-4);
 }
 
-/* Wraps where the window is narrower than the buttons, as a phone is beside three (T142). */
+/* Wraps when its buttons are wider than the window, as on a phone: a row that cannot wrap ran out
+   past the window's left edge, where nothing scrolls to it. */
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
