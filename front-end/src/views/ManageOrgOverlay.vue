@@ -518,6 +518,18 @@ function handleDeleted() {
   overflow-wrap: anywhere;
 }
 
+/* On a phone a person's address takes a line of its own, with the role and Remove beneath it, as on
+   Manage market: beside them, a long address was squeezed into a column a few letters wide. */
+@media (width <= 640px) {
+  .user-card {
+    flex-wrap: wrap;
+  }
+
+  .user-email {
+    flex-basis: 100%;
+  }
+}
+
 .role-badge {
   display: inline-block;
   padding: var(--space-hairline) var(--space-2);
@@ -561,6 +573,20 @@ function handleDeleted() {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+}
+
+/* On a phone an add row's email field takes the row, with Add and Cancel beneath it at its end:
+   beside them it was squeezed to 141px, too narrow to read the address being typed. The rename row
+   stays one row. */
+@media (width <= 640px) {
+  .add-org-row {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .add-org-row .field {
+    flex-basis: 100%;
+  }
 }
 
 .form-error {

@@ -66,6 +66,8 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
+      // Signing in lands here, so it is the way to the door from a phone (T148), and fits one.
+      meta: { fitsAPhone: true },
     },
     {
       path: '/markets',
@@ -78,6 +80,8 @@ const router = createRouter({
       path: '/organizations',
       name: 'organizations',
       component: () => import('@/views/OrganizationsView.vue'),
+      // The dashboard's other place, on the way to the door from a phone (T148), so it fits one.
+      meta: { fitsAPhone: true },
     },
     // A market's own address lands on the page it is worked on in its phase (E22/F04/S02).
     {

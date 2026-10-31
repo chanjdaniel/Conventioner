@@ -3,6 +3,7 @@ import { approvedVendorApplication, insertApplications } from './seedApplication
 import { seedDraftMarket } from './seedDraftMarket';
 import { transitionMarket } from './seedPhaseMarket';
 import {
+  ensureOrganizationAdmin,
   ensureTestOrgAuthenticated,
   loginViaApi,
   marketNameToSlug,
@@ -60,6 +61,11 @@ export interface TheScreensSeed {
   csvDraft: SeededMarket;
   /** An applicant of `open`, who signs in to their dashboard (`signIn` in `screens.ts`). */
   applicant: { email: string };
+  /**
+   * An organization of the organizer's own, holding no market, its name long and its admin's and
+   * member's addresses long (T148), so Manage organization draws its people.
+   */
+  organization: { name: string };
 }
 
 export const MARKET_DATES = ['2099-08-01', '2099-08-08', '2099-08-15', '2099-08-22'];
@@ -265,6 +271,46 @@ async function dealtMarket(
   return { ...market, reviewer: DEALT_REVIEWER };
 }
 
+/** The screens' own organization (T148), fixture data. */
+const ORGANIZATION_NAME =
+  'The Harbour Makers and Artisans Collective of the Old Cannery Waterfront';
+const ORGANIZATION_MEMBER = 'e2e-screens-organization-member@example.com';
+const ORGANIZATION_MEMBER_PASSWORD = 'e2epassword123';
+
+/**
+ * An organization `email` owns, with `DEALT_REVIEWER` its admin and `ORGANIZATION_MEMBER` its
+ * member, found by name on a later run. It is not the organization the markets are made in, which
+ * would make its admin an Admin on every one of them and change their people in every other state.
+ */
+async function organizationWithPeople(
+  api: APIRequestContext,
+  backend: string,
+): Promise<{ name: string }> {
+  ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
+  ensureVerifiedUser(ORGANIZATION_MEMBER, ORGANIZATION_MEMBER_PASSWORD);
+  type Listed = { id: string; name: string; userRole?: string; memberEmails?: string[] };
+  const mine = async () => {
+    const res = await api.get(`${backend}/organizations`);
+    if (!res.ok()) throw new Error(`Organization list failed: ${res.status()} ${await res.text()}`);
+    const { organizations = [] } = (await res.json()) as { organizations?: Listed[] };
+    return organizations.find((o) => o.name === ORGANIZATION_NAME && o.userRole === 'owner');
+  };
+  let org = await mine();
+  if (!org) {
+    const made = await api.post(`${backend}/organizations`, { data: { name: ORGANIZATION_NAME } });
+    if (!made.ok()) throw new Error(`Organization failed: ${made.status()} ${await made.text()}`);
+    org = (await mine())!;
+  }
+  await ensureOrganizationAdmin(api, backend, org.id, DEALT_REVIEWER);
+  if (!org.memberEmails?.includes(ORGANIZATION_MEMBER)) {
+    const member = await api.post(`${backend}/organizations/${org.id}/members`, {
+      data: { user_email: ORGANIZATION_MEMBER },
+    });
+    if (!member.ok()) throw new Error(`Member failed: ${member.status()} ${await member.text()}`);
+  }
+  return { name: ORGANIZATION_NAME };
+}
+
 /** 40 applications, in every review state, with a verdict's giver where a reviewer gave one. */
 function applicationsInEveryState(marketId: string, reviewer: string, dates: string[]) {
   const statuses = [
@@ -424,6 +470,7 @@ export async function seedTheScreens(
 
   // The first applicant of `open`; each sign-in plants its own code, since a code is used once.
   const applicant = { email: 'applicant0@example.com' };
+  const organization = await organizationWithPeople(api, backend);
 
   return {
     draft,
@@ -438,5 +485,6 @@ export async function seedTheScreens(
     csv,
     csvDraft,
     applicant,
+    organization,
   };
 }

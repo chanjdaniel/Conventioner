@@ -219,6 +219,10 @@ const handleSignOut = async () => {
   height: 100%;
   width: 100%;
   margin: 0;
+  /* The column keeps a gutter at each side wherever the window is narrower than it, as `/markets`
+     does; at 680px its card and tiles touched the window's edges. A desk's 716px column is centred
+     well inside it (T148). */
+  padding-inline: var(--space-4);
 }
 
 .main-buttons {
@@ -226,6 +230,10 @@ const handleSignOut = async () => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-6);
+  /* The column: a desk's 716px, or the window's width less the view's gutter where that is
+     narrower (T148). */
+  width: 100%;
+  max-width: 716px;
 }
 
 .last-market-section {
@@ -235,15 +243,15 @@ const handleSignOut = async () => {
   justify-content: center;
   gap: var(--space-2);
   /* Holds the space the answer will fill. Without it the section is empty until the markets
-     request returns and then shoves the whole centred column down as it appears. 119px is the
-     height of both states a returning organizer sees - the remembered card and the count - so
-     neither settles. The welcome card is taller, but it is only ever the first thing drawn. */
+     request returns and then shoves the whole centred column down as it appears. 119px is a
+     desk's height of both states a returning organizer sees - the remembered card and the count -
+     so neither settles; a phone's is below. The welcome card is taller, but it is only ever the first thing drawn. */
   min-height: 119px;
-  width: 716px;
+  width: 100%;
 }
 
 .last-market-label {
-  width: 716px;
+  width: 100%;
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--mm-text-muted);
@@ -253,6 +261,7 @@ const handleSignOut = async () => {
   display: flex;
   flex-direction: row;
   gap: var(--space-6);
+  width: 100%;
 }
 
 .button {
@@ -278,18 +287,14 @@ const handleSignOut = async () => {
   box-shadow: var(--focus-halo), var(--shadow-card);
 }
 
-.button-full {
-  width: 716px;
-  height: 95px;
-}
-
+/* Markets and Organizations share the row equally: 346px each in a desk's 716px column. */
 .button-half {
-  width: 346px;
+  flex: 1;
   height: 95px;
 }
 
 .last-market-card {
-  width: 716px;
+  width: 100%;
   padding: var(--space-4) var(--space-6);
   border: 1.5px solid var(--mm-border);
   border-radius: var(--radius-card);
@@ -314,7 +319,7 @@ const handleSignOut = async () => {
 
 /* The dashboard shows one row at the width of the two buttons beside it, not the full page. */
 .last-market-row {
-  width: 716px;
+  width: 100%;
 }
 
 .last-market-card--welcome {
@@ -342,6 +347,8 @@ const handleSignOut = async () => {
   cursor: pointer;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
+  /* A thumb's 44px on a phone; a desk's padding is taller than its target already. */
+  min-height: var(--target-min);
 }
 
 .welcome-action:hover {
@@ -354,6 +361,8 @@ const handleSignOut = async () => {
   width: auto;
   height: auto;
   padding: var(--space-1) var(--space-3);
+  /* A thumb's 44px on a phone; a desk's padding is taller than its target already. */
+  min-height: var(--target-min);
   background: none;
   box-shadow: none;
   border-radius: var(--radius-control);
@@ -396,6 +405,24 @@ h4 {
   gap: var(--space-6);
   align-items: center;
   justify-content: center;
-  width: 716px;
+  width: 100%;
+  max-width: 716px;
+}
+
+/* On a phone the tiles' gap and the sentence card's padding narrow with the column (T148). */
+@media (width <= 640px) {
+  .button-row {
+    gap: var(--space-4);
+  }
+
+  .last-market-card--welcome {
+    padding: var(--space-4);
+  }
+
+  /* The remembered card stacks its facts under its name here, so it is the taller of a returning
+     organizer's two states: its label and card measured 173.2px at 390px, the count's card 111px. */
+  .last-market-section {
+    min-height: 174px;
+  }
 }
 </style>

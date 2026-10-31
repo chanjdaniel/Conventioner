@@ -190,9 +190,19 @@ function handleManageChanged() {
   padding: var(--space-8);
 }
 
+@media (width <= 640px) {
+  .organizations-view {
+    padding: var(--space-4);
+  }
+}
+
+/* "New organization" keeps its label on one line, wrapping under the title only when the two cannot
+   share the row (T148: at 390px its label broke onto two lines). */
 .header {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   justify-content: space-between;
   align-items: center;
   padding-bottom: var(--space-6);
@@ -216,6 +226,8 @@ function handleManageChanged() {
   font-size: var(--text-sm);
   font-weight: 400;
   box-shadow: var(--shadow-card);
+  white-space: nowrap;
+  min-height: var(--target-min);
 }
 
 /* Its resting shadow outranks the primitives' focus rule, so it says its halo itself. */

@@ -43,10 +43,11 @@ export const PHONE: Size = { width: 390, height: 844 };
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
- * A route with `meta.fitsAPhone`: an organizer's that works on a phone too. Five places do: the door
- * (E29/F01), Tools, the Discord return page, and `/markets` and the Assignments page with their
- * dialogs and the vendor drawer over them (T142), so "Change assignment" at the door lands on a
- * page that fits the phone it was tapped on.
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too. The door (E29/F01),
+ * Tools, the Discord return page, and `/markets` and the Assignments page with their dialogs and
+ * the vendor drawer over them (T142), so "Change assignment" at the door lands on a page that fits
+ * the phone it was tapped on; and the dashboard sign-in lands on, and Organizations with its
+ * dialogs (T148).
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -127,6 +128,24 @@ const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheS
   await visible(page, 'manage-market-window');
 };
 
+/**
+ * Manage organization on the screens' own organization (T148), its admin's and member's long
+ * addresses drawn and both its add rows open.
+ */
+const managingTheOrganization = async (page: Page, seed: TheScreensSeed) => {
+  await page.goto('/organizations');
+  await page
+    .getByTestId('organization-card')
+    .filter({ hasText: seed.organization.name })
+    .getByTestId('organizations-manage-button')
+    .click();
+  await visible(page, 'manage-org-member-email');
+  await page.getByTestId('manage-org-add-admin-button').click();
+  await visible(page, 'manage-org-add-admin-input');
+  await page.getByTestId('manage-org-add-member-button').click();
+  await visible(page, 'manage-org-add-member-input');
+};
+
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
 /** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
@@ -188,19 +207,19 @@ export const SCREENS: Screen[] = [
   {
     name: 'the dashboard',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/dashboard'), 'dashboard-has-markets'),
   },
   {
     name: 'the dashboard, remembering a long-named draft',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: dashboardRemembering('draft'),
   },
   {
     name: 'the dashboard, remembering a market in market days',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: dashboardRemembering('big'),
   },
   {
@@ -276,14 +295,14 @@ export const SCREENS: Screen[] = [
   {
     name: 'the organizations',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
     // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
     name: 'the manage-organization dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/organizations'),
       'organization-card',
@@ -296,7 +315,7 @@ export const SCREENS: Screen[] = [
     // the seeded organization's market, created in it.
     name: "the manage-organization dialog's history, an entry open",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/organizations'),
       'organization-card',
@@ -304,6 +323,35 @@ export const SCREENS: Screen[] = [
       ['manage-org-history-toggle', 'org-history-entry'],
       ['org-history-toggle', 'org-history-changes'],
     ),
+  },
+  {
+    name: 'the new-organization dialog',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(fixed('/organizations'), 'organization-card', [
+      'organizations-create-button',
+      'organizations-create-name-input',
+    ]),
+  },
+  {
+    // On the organization the seed's markets are made in: markets under way stop it, and it names
+    // them. Never confirmed.
+    name: 'the delete-organization dialog, refused while markets are under way',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      fixed('/organizations'),
+      'organization-card',
+      ['organizations-manage-button', 'manage-org-window'],
+      ['manage-org-delete-button', 'delete-org-blocked'],
+    ),
+  },
+  {
+    // An admin and a member whose addresses are long (T148), and both add rows open.
+    name: 'the manage-organization dialog, its people and both add rows',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: managingTheOrganization,
   },
   {
     name: 'the start page',
@@ -891,7 +939,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the dashboard, with no market',
     who: 'no organization',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/dashboard'), 'dashboard-no-market-yet'),
   },
   {
