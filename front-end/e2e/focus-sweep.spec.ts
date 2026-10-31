@@ -350,6 +350,9 @@ async function windowsFocused(page: Page, state: string): Promise<string[]> {
   return page.evaluate((state) => {
     const failures: string[] = [];
     for (const win of document.querySelectorAll<HTMLElement>("[role='dialog'][tabindex='-1']")) {
+      // A window behind another dialog is inert and takes no focus, as Manage organization's
+      // behind Delete organization.
+      if (win.closest('[inert]')) continue;
       win.focus();
       if (!win.matches(':focus-visible')) {
         failures.push(`${state}: a dialog window was focused, but not as a keyboard user's`);
