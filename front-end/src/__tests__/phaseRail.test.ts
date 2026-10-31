@@ -5,7 +5,7 @@
  * white on a white page, and drew every transition as an advance - including the one
  * unambiguously backwards edge in the machine.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
@@ -279,6 +279,51 @@ describe('the check-in URL', () => {
 
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/riverside-market/check-in'));
     vi.unstubAllGlobals();
+  });
+});
+
+describe('an address on a phone (T142)', () => {
+  /** A window that answers the phone break's media query as `phone` says. */
+  function windowOf(phone: boolean) {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: phone && query === '(width <= 640px)',
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  const running = { slug: 'riverside-market', intakeMode: 'form' } as Partial<Market>;
+
+  it('names each address as its link, which carries the whole address', () => {
+    windowOf(true);
+    const rail = railFor(MarketPhase.MarketDays, running);
+
+    for (const [testId, name, end] of [
+      ['phase-rail-apply', 'Application page', '/riverside-market/apply'],
+      ['phase-rail-checkin', 'Check-in page', '/riverside-market/check-in'],
+    ]) {
+      const chip = rail.get(`[data-testid="${testId}"]`);
+      const links = chip.findAll('a');
+      expect(links.map((link) => link.text())).toEqual([name]);
+      expect(links[0].attributes('href')).toMatch(new RegExp(`${end}$`));
+      expect(links[0].attributes('title')).toBe(links[0].attributes('href'));
+      expect(chip.text()).not.toContain('riverside-market');
+      expect(chip.get(`[data-testid="${testId}-copy"]`).text()).toBe('Copy');
+    }
+  });
+
+  it('shows the address itself past the break', () => {
+    windowOf(false);
+    const chip = railFor(MarketPhase.MarketDays, running).get('[data-testid="phase-rail-checkin"]');
+
+    expect(chip.get('a').text()).toMatch(/\/riverside-market\/check-in$/);
+    expect(chip.text()).toContain('Check-in page');
   });
 });
 

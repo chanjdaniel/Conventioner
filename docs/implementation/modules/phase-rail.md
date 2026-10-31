@@ -84,13 +84,19 @@ An archived market's frozen stage is the furthest phase in `phasesReached`, the 
 Without a complete record (`phaseRecordComplete: false`) the rail says only what is proven and strikes nothing through.
 
 **The addresses give way, and the rail's end travels as one piece.**
-An address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
-**The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself and its actions wrap onto a second line, so a draft's three (Pick market dates, Open Applications, More) stay inside the window; see [the design language](../../design-system.md#layout).
-While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
+**The rail is one row at the workspace width, and on a phone it is laid out for one** (T142), at the app's phone break (`width <= 640px`); see [the design language](../../design-system.md#layout).
+On a phone its rows are, in order: the spine, on one line that scrolls sideways inside itself; the rail's end, one wrapping row group with the address chips at its start and the actions, as one group, at its end, where nothing shrinks below its content: a chip or the actions that do not fit beside what is before them take a row of their own, and the actions wrap at the row's end; the sentence, with its link on a line of its own; then the frozen note, an error or the 409's panel.
+A chip on a phone draws its name ("Application page", "Check-in page") as the link, with the whole address as its `title`, and Copy, and no address text: squeezed beside the actions it showed one character of the address in a 171x148px box.
+Which chip shape draws is decided in the script (`onAPhone`, `useMediaQuery` on the same break), since the link's text is what changes; so one chip holds one link at any width, and a spec reading the link at a phone reads its `href` or `title`.
+Each chip is one line, 46px (a 44px Copy in its border); the step link is `--target-min` (44px) tall, and the buttons are through `.btn`.
+At the door in market days on a form market, both chips and More…, the door starts at 317px of 844 on first paint, under the 340px `phase-rail.spec.ts` holds; it started at 409px.
+While the spine scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
 Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
+The layout sweep walks the rail on Attendance at 390 in every phase the screens seed holds, both intake paths among them, so a squeezed chip, an overlap or a control past the window fails it; a link drawn on a line of its own is a tap target to it, and only a link inside a run of text is exempt.
 
 **Crowding is measured between labels, never by overflow.**
 The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.

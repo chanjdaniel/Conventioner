@@ -599,6 +599,24 @@ export const SCREENS: Screen[] = [
       await expect(page.locator('.rail-menu-item').first()).toBeVisible();
     },
   },
+  // The rail on a phone in every phase the seed holds, on both intake paths (T142): market days is
+  // the attendance above. Each phase draws its own chips and actions, and a squeezed address chip, an
+  // overlapping More… (T139) or an action past the window (T104) showed in one phase only.
+  ...(
+    [
+      ['in draft', 'draft'],
+      ['taking applications on its own page', 'open'],
+      ['in review, from a Google Form', 'review'],
+      ['in assignment', 'assignment'],
+      ['archived', 'archived'],
+    ] as const
+  ).map(([phase, market]): Screen => ({
+    name: `the rail at the door, ${phase}`,
+    who: 'organizer',
+    sizes: [PHONE],
+    // Before publishing the door is a note, so the rail is what the state waits on.
+    open: at(screen(market, 'attendance'), 'phase-rail-current'),
+  })),
   {
     name: 'the floorplan',
     who: 'organizer',

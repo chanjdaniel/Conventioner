@@ -15,6 +15,7 @@ sources:
   - bug/11
   - E38/F04/S01
   - E38/F04/S02
+  - T142
 ---
 
 # Taking applications
@@ -36,7 +37,7 @@ A verdict can be given from the first application ([review](review.md)); Begin A
 
 1. Rail: "Open Applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
 2. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
-3. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11); it stays there in every phase after Draft until the market is archived.
+3. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
 4. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`.
