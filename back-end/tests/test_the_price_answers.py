@@ -89,8 +89,8 @@ class TestAddingAVendorAsksThePriceAnswers:
     @pytest.mark.parametrize("answers, missing", [
         ({}, "Are you an Example College student or alumni?"),
         ({"clubs": ["Art Club"]}, "Are you an Example College student or alumni?"),
-        ({"affiliation": [ALUMNI]}, "Which clubs are you a member of?"),
-        ({"affiliation": [ALUMNI], "clubs": []}, "Which clubs are you a member of?"),
+        ({"affiliation": [ALUMNI]}, "Do you belong to any of these clubs?"),
+        ({"affiliation": [ALUMNI], "clubs": []}, "Do you belong to any of these clubs?"),
     ])
     def test_each_question_a_group_reads_is_required(self, adding, answers, missing):
         """Though the form leaves it optional: an added vendor is priced by it."""

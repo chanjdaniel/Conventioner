@@ -50,7 +50,7 @@ const FORM: ApplicationForm = {
     },
     {
       key: 'clubs',
-      label: 'Which clubs are you a member of?',
+      label: 'Do you belong to any of these clubs?',
       type: 'select',
       required: false,
       options: ['Art Club', 'None'],

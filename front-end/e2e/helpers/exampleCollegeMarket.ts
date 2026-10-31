@@ -40,7 +40,7 @@ export const FORM = {
     },
     {
       key: 'clubs',
-      label: 'Which clubs are you a member of?',
+      label: 'Do you belong to any of these clubs?',
       type: 'multi_select',
       required: false,
       options: [...CLUBS, NO_CLUB],
