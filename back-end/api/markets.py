@@ -1463,6 +1463,10 @@ _HISTORY_GROUPS_LEFT_OUT = frozenset({"Reading"})
 #: A row no entry is recorded under: who may be chosen as a reviewer changes nothing itself, the
 #: choice is Choose reviewers' and a chosen reviewer's verdicts are Give verdicts' (E38/F07/S03).
 _HISTORY_ROWS_LEFT_OUT = frozenset({Actions.REVIEW_WHEN_CHOSEN})
+#: Entries recorded under another group's row that a group reads too, as (action, kind): a free's
+#: $0 taken back as the day is seated again is recorded under Assign, the row the seating asked,
+#: and it undoes a change to what is owed, so Payments reads it beside that change (E44/F01/S02).
+_HISTORY_GROUP_ALSO_READS = {"Payments": ((Actions.ASSIGN.id, History.OWED_TAKEN_BACK),)}
 
 
 def history_groups() -> List[Dict[str, Any]]:
@@ -1531,6 +1535,7 @@ def get_history(
 
     entries, after = History.entries_page(
         market_id, before=before or None, actor=args.get("actor") or None, actions=actions,
+        kinds=_HISTORY_GROUP_ALSO_READS.get(group, ()),
         vendor=args.get("vendor") or None, since=since, until=until,
     )
     body: Dict[str, Any] = {
