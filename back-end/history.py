@@ -386,14 +386,16 @@ def _before_clause(before: Tuple[str, str]) -> Dict[str, Any]:
 def entries_page(
     market_id: str, *, before: Optional[Union[str, Tuple[str, str]]] = None,
     limit: int = PAGE_SIZE, actor: Optional[str] = None, actions: Optional[List[str]] = None,
+    kinds: Iterable[Tuple[str, str]] = (),
     vendor: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """One page of the market's history, newest first, and the cursor to the page after it, or
     None when it is the last.
 
     Narrowed to one ``actor``, to entries whose action is one of ``actions`` (a group of the
-    table), to the entries naming one ``vendor``, and to ``since <= at < until`` (instants in this
-    module's ``at`` format). Never more than ``PAGE_SIZE`` entries: a market's history has no
+    table) or whose action and kind are one of the ``kinds`` pairs beside them, to the entries
+    naming one ``vendor``, and to ``since <= at < until`` (instants in this module's ``at``
+    format). Never more than ``PAGE_SIZE`` entries: a market's history has no
     limit, and its reader asks again for more.
 
     Until a database has run the move from ``placement_history``, its older placements are read
@@ -409,8 +411,13 @@ def entries_page(
     def page_of(collection, narrowed):
         return list(collection.find(narrowed, _ENTRY_PROJECTION).sort(_NEWEST_FIRST).limit(wanted))
 
-    entries = page_of(
-        history_collection, {"$and": [query, {"action": {"$in": actions}}]} if actions else query)
+    if actions:
+        named = [{"action": {"$in": actions}},
+                 *({"action": action, "kind": kind} for action, kind in kinds)]
+        narrowed = {"$and": [query, named[0] if len(named) == 1 else {"$or": named}]}
+    else:
+        narrowed = query
+    entries = page_of(history_collection, narrowed)
     if actions is None or ASSIGN.id in actions:
         moved_ids = {entry.get("id") for entry in entries}
         for old in page_of(legacy_placement_collection, query):
