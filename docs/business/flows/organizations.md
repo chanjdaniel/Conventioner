@@ -1,6 +1,8 @@
 ---
 layer: business
 kind: flow
+describes:
+  - front-end/src/views/OrganizationsView.vue
 verified: 2026-10-31
 sources:
   - E26/F06/S02
@@ -12,6 +14,7 @@ sources:
   - E40/F02/S01
   - E39/F02/S01
   - T148
+  - E38/F12/S01
 ---
 
 # Organizations
@@ -43,10 +46,10 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 
 **Status:** Works (walked live); a Viewer's market pages draw no control they cannot use (bug 37).
 
-1. On an organization card, "Manage".
+1. On an organization card, "Manage"; or Manage market's "Manage organization", under its "Users with access" ([L3](ending-and-managing-a-market.md#l3-manage-who-has-access)), which opens `/organizations?manage=<id>`: the page ([`OrganizationsView.vue`](../../../front-end/src/views/OrganizationsView.vue)) opens that organization's Manage organization once its list holds it, and drops the key when the dialog closes, or at once when it names none of the reader's organizations, so a refresh or Back does not open it again.
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
 3. Expect the person listed and the dialog still open (closing is not saving).
-4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer.
+4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer; each market's Manage market lists them as "Admin, through <organization>" or "Viewer, through <organization>".
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
 Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market").

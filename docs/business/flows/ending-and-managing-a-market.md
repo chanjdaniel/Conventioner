@@ -3,6 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
+  - front-end/src/utils/peopleWithAccess.ts
+  - front-end/e2e/everyone-with-access.spec.ts
   - front-end/src/components/MarketPermissions.vue
   - front-end/src/components/PermissionRows.vue
   - front-end/src/components/PermissionChanges.vue
@@ -28,6 +30,7 @@ sources:
   - E39/F01/S04
   - E39/F02/S01
   - T142
+  - E38/F12/S01
 ---
 
 # Ending and managing a market
@@ -39,7 +42,7 @@ sources:
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
 Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 It opens from `/markets`, which fits a phone (T142), so on a phone it opens inside the window like every [dialog](../../implementation/conventions/dialogs.md), and its history's before-and-after table wraps its cells within the dialog's width rather than widening it.
-On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column.
+On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column; a market role the organization's makes add nothing takes a line of its own beneath those, with its own Remove.
 The "Add user" row does the same: its email field takes the row, with the role at the start of a row beneath it and "Add" and "Cancel" at that row's end; beside them the field and the role were 66px each, reading "User e" and "Edi" (T142).
 
 ## P6. Ending early, or not at all
@@ -73,17 +76,22 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 
 ## L3. Manage who has access
 
-**Status:** Works (walked live; the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix).
+**Status:** Works (the owner's row and the refusals read from the code as of E20/F01/S03 and bug 43's fix; the organization's people as of E38/F12/S01, driven by `everyone-with-access.spec.ts`).
 
-1. "Manage" opens "Manage market"; "Users with access" lists each person with an explicit role.
-2. A role the reader may change is a dropdown of the roles they may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
-3. "Remove" beside each person the reader may remove; never the owner.
-4. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
+1. "Manage" opens "Manage market"; "Users with access" lists everyone with a role on the market, by its own roles or through its organization, each once at the role that counts: the owner first, then Admin, Editor and Viewer, then by address, so someone just added takes their place in that order, never the top.
+   The market read serves the list in that order as `peopleWithAccess` ([one market, from the server](../../implementation/conventions/one-market-from-the-server.md)), and the dialog words each row with [`peopleWithAccess.ts`](../../../front-end/src/utils/peopleWithAccess.ts).
+   The organization's people are listed only to a reader who belongs to the organization or may give and take Editor and Viewer roles here; anyone else reads the market's own roles alone ([what each role may do](../rules/what-each-role-may-do.md)).
+2. A role that comes from the organization says where: "Admin, through <organization>" for its owner and admins, "Viewer, through <organization>" for a member, with no select and no Remove, since only Manage organization changes it.
+   A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
+3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
+4. "Remove" beside each such person the reader may remove; never the owner.
+5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
+6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
-5. A refused change is said beneath that person's row, which keeps the role they hold.
+7. A refused change is said beneath that person's row, which keeps the role they hold.
 
-The organization line says "Belongs to <organization>. Its members can view it."
-Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`.
+The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
+Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target).
 
 ## L3a. Set who may do what
 

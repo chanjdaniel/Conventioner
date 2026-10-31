@@ -955,12 +955,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     may_give_roles = Actions.role_refusal(
         Actions.MANAGE_EDITORS_AND_VIEWERS, user_role, market.permissions) is None
     market_dict['peopleWithAccess'] = [
-        {"userId": person.user_id, "email": account.email, "role": person.role.value,
+        {"userId": person.user_id, "email": person.email, "role": person.role.value,
          "marketRole": person.market_role.value if person.market_role else None,
-         "organizationRole": person.organization_role}
+         "organizationRole": person.organization_role,
+         "fromOrganization": person.from_organization}
         for person in PermissionsApi.people_with_access(
-            market, context.organization, in_organization or may_give_roles)
-        if (account := accounts.of(person.user_id))
+            market, context.organization, in_organization or may_give_roles, accounts.email_of)
     ]
     # Whether this reader may open Manage organization, which the list points to.
     market_dict['inOrganization'] = in_organization
@@ -1015,6 +1015,11 @@ class _Accounts:
         if user_id not in self._by_id:
             self._by_id[user_id] = UsersApi.get_user_by_id(user_id)
         return self._by_id[user_id]
+
+    def email_of(self, user_id: str) -> Optional[str]:
+        """The address of the account with this id, or None when there is none."""
+        account = self.of(user_id)
+        return account.email if account else None
 
 
 class _SummaryLookups:

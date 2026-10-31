@@ -44,27 +44,29 @@ ORGANIZATION = Organization(
 )
 
 
-def _person(user_id, role, market_role, organization_role):
+def _person(user_id, role, market_role, organization_role, from_organization=False):
     return {"userId": user_id, "email": EMAILS[user_id], "role": role,
-            "marketRole": market_role, "organizationRole": organization_role}
+            "marketRole": market_role, "organizationRole": organization_role,
+            "fromOrganization": from_organization}
 
 
+# In the order the list shows them: the owner first, then by the role that counts, then by address.
 EVERYONE = [
     _person("user-1", "owner", "owner", None),
     _person("user-admin", "admin", "admin", None),
+    _person("org-admin", "admin", "editor", "admin", True),
+    _person("org-owner", "admin", None, "admin", True),
     _person("user-editor", "editor", "editor", None),
+    _person("org-member", "viewer", None, "member", True),
     _person("user-viewer", "viewer", "viewer", None),
-    _person("org-admin", "admin", "editor", "admin"),
-    _person("org-owner", "admin", None, "admin"),
-    _person("org-member", "viewer", None, "member"),
 ]
 # The market's own roles, as someone outside the organization who may not give roles reads them.
 THE_MARKETS_OWN = [
     _person("user-1", "owner", "owner", None),
     _person("user-admin", "admin", "admin", None),
     _person("user-editor", "editor", "editor", None),
-    _person("user-viewer", "viewer", "viewer", None),
     _person("org-admin", "editor", "editor", None),
+    _person("user-viewer", "viewer", "viewer", None),
 ]
 
 
@@ -106,15 +108,11 @@ def _served(reader):
     return MarketsApi.get_market_for_user(reader, "market-123")
 
 
-def _by_id(people):
-    return sorted(people, key=lambda person: person["userId"])
-
-
 @pytest.mark.parametrize("reader", ["org-owner@org.test", "org-admin@org.test", "org-member@org.test"])
 def test_someone_in_the_organization_reads_everyone_with_access(lookups, reader):
     served = _served(reader)
 
-    assert _by_id(served["peopleWithAccess"]) == _by_id(EVERYONE)
+    assert served["peopleWithAccess"] == EVERYONE
     assert served["inOrganization"] is True
 
 
@@ -124,7 +122,7 @@ def test_someone_who_may_give_roles_reads_everyone_with_access(lookups, reader):
     an Admin's by default, lets them in."""
     served = _served(reader)
 
-    assert _by_id(served["peopleWithAccess"]) == _by_id(EVERYONE)
+    assert served["peopleWithAccess"] == EVERYONE
     assert served["inOrganization"] is False
 
 
@@ -135,14 +133,14 @@ def test_the_row_decides_who_may_give_roles(monkeypatch, lookups):
 
     served = _served("editor@market.test")
 
-    assert _by_id(served["peopleWithAccess"]) == _by_id(EVERYONE)
+    assert served["peopleWithAccess"] == EVERYONE
 
 
 @pytest.mark.parametrize("reader", ["viewer@market.test", "editor@market.test"])
 def test_someone_outside_the_organization_reads_the_markets_own_roles(lookups, reader):
     served = _served(reader)
 
-    assert _by_id(served["peopleWithAccess"]) == _by_id(THE_MARKETS_OWN)
+    assert served["peopleWithAccess"] == THE_MARKETS_OWN
     addresses = {person["email"] for person in served["peopleWithAccess"]}
     assert not addresses & {"org-owner@org.test", "org-member@org.test"}
     assert served["inOrganization"] is False
@@ -155,7 +153,7 @@ def test_a_market_of_no_organization_serves_its_own_roles(monkeypatch, lookups):
 
     served = _served("owner@market.test")
 
-    assert _by_id(served["peopleWithAccess"]) == _by_id(THE_MARKETS_OWN)
+    assert served["peopleWithAccess"] == THE_MARKETS_OWN
     assert served["inOrganization"] is False
 
 
@@ -163,7 +161,34 @@ def test_someone_in_both_is_listed_once_at_the_higher_role(lookups):
     served = _served("org-owner@org.test")
 
     rows = [person for person in served["peopleWithAccess"] if person["userId"] == "org-admin"]
-    assert rows == [_person("org-admin", "admin", "editor", "admin")]
+    assert rows == [_person("org-admin", "admin", "editor", "admin", True)]
+
+
+@pytest.mark.parametrize(("market_role", "organization", "served_as"), [
+    # A tie: the market's Admin adds nothing to the organization's, so the organization counts.
+    ("admin", ORGANIZATION, _person("org-admin", "admin", "admin", "admin", True)),
+    ("viewer", ORGANIZATION.model_copy(update={"admins": [], "members": ["org-admin"]}),
+     _person("org-admin", "viewer", "viewer", "member", True)),
+    # The market's role is the higher: it counts, and the place is still named.
+    ("editor", ORGANIZATION.model_copy(update={"admins": [], "members": ["org-admin"]}),
+     _person("org-admin", "editor", "editor", "member", False)),
+])
+def test_the_organization_counts_when_its_role_reaches_the_markets(
+        monkeypatch, lookups, market_role, organization, served_as):
+    monkeypatch.setattr(OrgsApi, "get_organization", lambda _org_id: organization.model_dump())
+    _store(monkeypatch, roles={**MARKET_ROLES, "org-admin": market_role})
+
+    served = _served("owner@market.test")
+
+    assert served_as in served["peopleWithAccess"]
+
+
+def test_an_account_that_is_gone_is_left_out(monkeypatch, lookups):
+    _store(monkeypatch, roles={**MARKET_ROLES, "user-gone": "editor"})
+
+    served = _served("owner@market.test")
+
+    assert "user-gone" not in {person["userId"] for person in served["peopleWithAccess"]}
 
 
 @pytest.mark.parametrize("reader", [

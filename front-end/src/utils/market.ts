@@ -83,7 +83,6 @@ export function parseMarketFromApi(market: any): Market {
       roles[userId] = r as MarketRole;
     }
   }
-  const roleEmails = market.roleEmails ?? market.role_emails ?? {};
   const phaseRaw = market.phase;
   const applicationForm = market.applicationForm ?? market.application_form;
   return {
@@ -96,7 +95,6 @@ export function parseMarketFromApi(market: any): Market {
     slug: market.slug ?? undefined,
     creationDate,
     roles,
-    roleEmails,
     organizationId: market.organizationId ?? market.organization_id ?? undefined,
     organizationName: market.organizationName ?? market.organization_name ?? market.organization,
     theme: market.theme,
