@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py
   - back-end/assignment/vendor_input.py
   - back-end/assignment/csv_output.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02
@@ -18,6 +18,7 @@ sources:
   - T65
   - T77
   - E41/F01/S02
+  - T139
 ---
 
 # The assignment solver
@@ -31,7 +32,8 @@ Storing a run, and every hand edit to one, is [placements](placements.md); what 
 - `assign_market(market, vendors=None, held=None)`: runs the solver over the market's own approved applications and returns the market with its `assignmentObject` filled; it stores nothing.
   A caller may pass the vendors in (the behavioural suite does, to describe a scenario with no database), but no caller has to fetch anything first.
 - `solver_vendors_for(market)`: the vendors the approved applications describe, or `IncompleteApplicationsError` naming every applicant whose answers are missing ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)).
-- `describe_stored_assignment(market)`: seats the stored rows and derives statistics without running `assign()`; every read-only view goes through it ([placements](placements.md#what-a-read-shows)).
+- `vendors_to_show(market)`: the same vendors for a read of the stored assignment, each approved application read as it stands, so a missing answer refuses nothing (`approved_solver_vendors(..., lenient=True)`).
+- `describe_stored_assignment(market, vendors=None)`: seats the stored rows and derives statistics without running `assign()`, over `vendors_to_show` when no vendors are passed; every read-only view goes through it ([placements](placements.md#what-a-read-shows)).
 - `SolverVendor` (`vendor_input.py`): one vendor as the solver sees them, a frozen dataclass of what they asked for; `Vendor` (`assignment.py`) wraps it with one run's working state.
 
 ## Sharp edges

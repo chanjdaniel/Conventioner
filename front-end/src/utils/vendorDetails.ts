@@ -194,9 +194,10 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
    * The applications, and where each vendor sits, read side by side but standing apart (T123).
    *
    * One `Promise.all` once emptied all three on any refusal: an approved application with
-   * incomplete answers makes the server refuse the two assignment reads, and the drawer then said a
-   * market with questions "asks no questions of its own". A refused placement read now leaves the
-   * applications standing, with the server's reason in `loadError` and `placementsRead` false.
+   * incomplete answers made the server refuse the two assignment reads, until T139, and the drawer
+   * then said a market with questions "asks no questions of its own". A failed placement read now
+   * leaves the applications standing, with the server's reason in `loadError` and `placementsRead`
+   * false.
    */
   async function load(): Promise<void> {
     const id = marketId.value;
