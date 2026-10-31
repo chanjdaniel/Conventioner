@@ -661,7 +661,14 @@ async function decideSelection() {
               >{{ holderOf(opened) }}</span
             >
           </p>
-          <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
+          <p
+            v-if="verdictMessage"
+            class="drawer-message"
+            role="alert"
+            data-testid="applications-all-verdict-message"
+          >
+            {{ verdictMessage }}
+          </p>
           <p
             v-if="decides && !decidesOpened"
             class="all-meta change-reason"
