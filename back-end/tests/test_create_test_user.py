@@ -42,6 +42,19 @@ def test_a_database_the_environment_does_not_name_gets_no_account(monkeypatch):
     assert users.inserted == []
 
 
+def test_the_primary_stack_s_database_gets_no_account_from_a_stale_host(monkeypatch):
+    users = _database(monkeypatch)
+    for name in ("MONGODB_URI", "ALLOW_PRIMARY_STACK"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MONGODB_HOST", "localhost")
+    monkeypatch.setenv("MONGODB_PORT", "27017")
+
+    with pytest.raises(SystemExit) as refused:
+        Script.create_test_user("e2e@example.com", "e2epassword123")
+    assert "primary checkout's stack" in str(refused.value)
+    assert users.inserted == []
+
+
 def test_the_named_stack_gets_a_verified_account(monkeypatch):
     users = _database(monkeypatch)
     monkeypatch.delenv("MONGODB_URI", raising=False)

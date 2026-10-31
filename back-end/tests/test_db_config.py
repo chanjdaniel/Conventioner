@@ -7,6 +7,7 @@ for the life of the process. Most API modules called ``get_database()`` once at 
 leaked one.
 """
 import db_config
+import pytest
 
 
 class TestTheDefaultClientIsMadeOnce:
@@ -64,3 +65,54 @@ class TestTheDefaultClientIsMadeOnce:
         db_config.get_database()
 
         assert made == [3000, None]
+
+
+class TestAFixtureScriptReachesOnlyTheDatabaseItIsTold:
+    """``require_named_database``: a script that resets or seeds test data never reaches the primary
+    checkout's stack, 127.0.0.1:27017 on a developer's machine, by default or by a stale value."""
+
+    VARIABLES = ("MONGODB_URI", "MONGODB_HOST", "MONGODB_PORT", "ALLOW_PRIMARY_STACK")
+
+    def _environment(self, monkeypatch, **values):
+        for name in self.VARIABLES:
+            monkeypatch.delenv(name, raising=False)
+        for name, value in values.items():
+            monkeypatch.setenv(name, value)
+
+    def test_nothing_named_is_refused(self, monkeypatch):
+        import pytest
+
+        self._environment(monkeypatch)
+        with pytest.raises(SystemExit) as refused:
+            db_config.require_named_database()
+        assert "MONGODB_HOST" in str(refused.value)
+
+    @pytest.mark.parametrize("values", [
+        {"MONGODB_HOST": "127.0.0.1"},
+        {"MONGODB_HOST": "127.0.0.1", "MONGODB_PORT": "27017"},
+        {"MONGODB_HOST": "localhost"},
+        {"MONGODB_HOST": "localhost", "MONGODB_PORT": "27017"},
+        {"MONGODB_HOST": "::1"},
+        {"MONGODB_URI": "mongodb://admin:secret@127.0.0.1:27017/admin"},
+        {"MONGODB_URI": "mongodb://localhost/conventioner"},
+    ], ids=["loopback", "loopback-27017", "localhost", "localhost-27017", "ipv6-loopback", "uri-27017", "uri-default-port"])
+    def test_the_primary_stack_s_mongodb_is_refused(self, monkeypatch, values):
+        import pytest
+
+        self._environment(monkeypatch, **values)
+        with pytest.raises(SystemExit) as refused:
+            db_config.require_named_database()
+        assert "primary checkout's stack" in str(refused.value)
+        assert "ALLOW_PRIMARY_STACK" in str(refused.value)
+
+    @pytest.mark.parametrize("values", [
+        {"MONGODB_HOST": "mongodb"},
+        {"MONGODB_HOST": "mongodb", "MONGODB_PORT": "27017"},
+        {"MONGODB_HOST": "127.0.0.1", "MONGODB_PORT": "27037"},
+        {"MONGODB_URI": "mongodb://admin:secret@127.0.0.1:27037/admin"},
+        {"MONGODB_URI": "mongodb+srv://someone:secret@cluster.example.net"},
+        {"MONGODB_HOST": "127.0.0.1", "ALLOW_PRIMARY_STACK": "true"},
+    ], ids=["container", "container-27017", "slot-2", "uri-slot-2", "hosted", "opted-in"])
+    def test_a_named_database_passes(self, monkeypatch, values):
+        self._environment(monkeypatch, **values)
+        db_config.require_named_database()

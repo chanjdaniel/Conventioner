@@ -14,7 +14,7 @@ NO_ORG_PASSWORD="${NO_ORG_PASSWORD:-e2enoorg123}"
 # This resets the stack's database before it seeds it, so it seeds only a stack it was told:
 #   1) COMPOSE_PROJECT_NAME and the three TH_*_PORT variables, as `th-compose.sh ports` exports them
 #   2) the treehouse slot this script's checkout sits in
-#   3) --primary, the default stack: the primary checkout's, or CI's one stack
+#   3) --primary, the default stack: the primary checkout's, or CI's one stack, never from a slot
 # and otherwise refuses. It used to fall back to the primary stack's defaults, so a run outside a
 # slot that had not exported its own stack yet wiped the primary checkout's local database.
 refuse() {
@@ -22,7 +22,8 @@ refuse() {
   echo "  For a stack th-compose.sh started: eval \"\$(scripts/th-compose.sh ports)\" first, which exports" >&2
   echo "    COMPOSE_PROJECT_NAME, TH_MONGO_PORT, TH_BACKEND_PORT and TH_FRONTEND_PORT." >&2
   echo "  In a treehouse worktree: run this checkout's own scripts/seed_fixture.sh, with none of them set." >&2
-  echo "  For the default stack (the primary checkout's, or CI's): pass --primary, with none of them set." >&2
+  echo "  For the default stack (the primary checkout's, or CI's): pass --primary, from that checkout," >&2
+  echo "    never a treehouse slot, with none of them set." >&2
   exit 2
 }
 
@@ -47,6 +48,10 @@ SLOT="$(printf '%s' "$PROJECT_DIR" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*
 if [ "$PRIMARY" = true ]; then
   if [ "${#SET_VARS[@]}" -gt 0 ]; then
     refuse "--primary, but ${SET_VARS[*]} names another stack"
+  fi
+  # In a slot, plain `docker compose` names the project after the directory, the primary's.
+  if [[ "$SLOT" =~ ^[0-9]+$ ]]; then
+    refuse "--primary, but $PROJECT_DIR is in treehouse slot $SLOT, which names another stack"
   fi
   DOCKER_CMD=(docker compose)
   BACKEND_PORT=5001

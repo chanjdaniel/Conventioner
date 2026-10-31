@@ -61,7 +61,8 @@ def reset_database():
     Production is reached through MONGODB_URI and the local stack and CI through MONGODB_HOST, so
     a URI in the environment means this would erase a real market. It refuses, with no override:
     a hosted database is emptied, if ever, by hand in Atlas, not by a script typed in a hurry.
-    It refuses too when MONGODB_HOST is unset, which would reach the primary checkout's stack.
+    It refuses too when the environment names no database, or the primary checkout's stack's
+    (``require_named_database``).
     """
     if os.getenv("MONGODB_URI"):
         raise SystemExit(HOSTED_REFUSAL)

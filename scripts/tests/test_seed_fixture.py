@@ -66,6 +66,16 @@ def test_primary_with_another_stack_named_is_refused(tmp_path, variables):
     assert "--primary" in result.stderr
 
 
+def test_primary_in_a_slot_is_refused(tmp_path):
+    # In a slot, plain `docker compose` names the project after the directory, `Conventioner`, so
+    # --primary would reset the primary checkout's database from the slot's code.
+    result, calls = run_seed(slot_path(tmp_path, 3), tmp_path, "--primary")
+
+    assert result.returncode != 0
+    assert calls == []
+    assert "treehouse slot" in result.stderr
+
+
 def test_an_unknown_argument_is_refused(tmp_path):
     result, calls = run_seed(outside_a_slot(tmp_path), tmp_path, "--primry")
 

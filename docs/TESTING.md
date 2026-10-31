@@ -33,7 +33,7 @@ The fastest way to get a working test environment:
 
 The script empties the stack's database first (`back-end/reset_database.py`), so it seeds only a stack it is told, and otherwise refuses before it touches anything.
 It takes, in order, `COMPOSE_PROJECT_NAME` with `TH_MONGO_PORT`, `TH_BACKEND_PORT` and `TH_FRONTEND_PORT` (as `eval "$(scripts/th-compose.sh ports)"` exports them), then the treehouse slot its checkout sits in, and the default stack (the primary checkout's, or CI's one stack) only with `--primary`.
-It refuses when only some of those variables are set, and `--primary` with any of them set.
+It refuses when only some of those variables are set, and `--primary` with any of them set or from a treehouse slot, where plain `docker compose` names the project after the directory, the primary checkout's.
 It used to fall back to the primary stack's defaults, so a run outside a slot that had not yet exported its own stack wiped the primary checkout's local database.
 
 This brings up the Docker stack, creates the test users, creates an organization

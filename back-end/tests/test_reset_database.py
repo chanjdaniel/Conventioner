@@ -93,3 +93,22 @@ def test_a_database_the_environment_does_not_name_is_never_reset(monkeypatch):
         Reset.reset_database()
     assert "MONGODB_HOST" in str(refused.value)
     assert database.deleted == []
+
+
+def test_the_primary_stack_s_database_is_never_reset_by_a_stale_host(monkeypatch):
+    # A shell that once exported back-end/.env.example's MONGODB_HOST=127.0.0.1 names the primary
+    # checkout's MongoDB, whatever stack the reset was run for.
+    import reset_database as Reset
+
+    database = _Database()
+    monkeypatch.setattr(Reset, "get_database", lambda: database)
+    for name in ("MONGODB_URI", "MONGODB_PORT", "ALLOW_PRIMARY_STACK"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MONGODB_HOST", "127.0.0.1")
+
+    import pytest
+
+    with pytest.raises(SystemExit) as refused:
+        Reset.reset_database()
+    assert "primary checkout's stack" in str(refused.value)
+    assert database.deleted == []

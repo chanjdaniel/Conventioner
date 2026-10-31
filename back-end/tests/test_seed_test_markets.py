@@ -85,3 +85,16 @@ def test_anything_else_is_a_bug_and_escapes(monkeypatch):
 
     with pytest.raises(ValueError):
         seeder.main(["--owner", "owner@example.test"])
+
+
+def test_a_database_the_environment_does_not_name_gets_no_market(monkeypatch):
+    """Unnamed, the client would fall back to the primary checkout's stack, 127.0.0.1:27017."""
+    seeded = []
+    monkeypatch.setattr(seeder, "seed_test_markets", seeded.append)
+    for name in ("MONGODB_URI", "MONGODB_HOST", "MONGODB_PORT", "ALLOW_PRIMARY_STACK"):
+        monkeypatch.delenv(name, raising=False)
+
+    with pytest.raises(SystemExit) as refused:
+        seeder.main(["--owner", "owner@example.test"])
+    assert "MONGODB_HOST" in str(refused.value)
+    assert seeded == []
