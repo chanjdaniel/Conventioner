@@ -4,18 +4,51 @@
  *
  * A name and an address, and the market records an application saying who added it and when. They
  * are then seated by hand on the Assignments page, like anyone; the run never places them.
+ *
+ * They are asked every question of the form's own that a price group reads, each required though the
+ * form may leave it optional, so they are priced like any other (E43/F01/S03); a market whose card
+ * has no group asks nothing more.
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
+import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
+import { sortedFormFields } from '@/utils/applicationForm';
 
-const props = defineProps<{ open: boolean; marketId: string }>();
+const props = defineProps<{
+  open: boolean;
+  marketId: string;
+  form: ApplicationForm | null | undefined;
+  /** The questions the price groups read (`priceReads` on the market). */
+  priceReads: readonly string[];
+}>();
 const emit = defineEmits<{ close: []; added: [email: string] }>();
 
 const name = ref('');
 const email = ref('');
+const answers = ref<Record<string, unknown>>({});
 const error = ref('');
 const busy = ref(false);
+
+/** The form's own questions a price group reads, in the form's order; a checkbox left unticked
+ *  is its "not ticked" answer, so only it is not required. */
+const asked = computed<FormField[]>(() =>
+  sortedFormFields(props.form?.fields ?? [])
+    .filter((field) => props.priceReads.includes(field.key))
+    .map((field) => ({ ...field, required: field.type !== 'checkbox' })),
+);
+
+function answered(field: FormField): boolean {
+  const value = answers.value[field.key];
+  if (!field.required) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  return typeof value === 'string' ? value.trim() !== '' : value != null;
+}
+
+const ready = computed(
+  () => !!name.value.trim() && !!email.value.trim() && asked.value.every(answered),
+);
 
 watch(
   () => props.open,
@@ -23,18 +56,28 @@ watch(
     if (!open) return;
     name.value = '';
     email.value = '';
+    answers.value = {};
     error.value = '';
   },
 );
 
 async function add(): Promise<void> {
-  if (busy.value || !name.value.trim() || !email.value.trim()) return;
+  if (busy.value || !ready.value) return;
   busy.value = true;
   error.value = '';
   try {
     const response = await api.post<{ application: { applicantEmail: string } }>(
       `/markets/${encodeURIComponent(props.marketId)}/vendors`,
-      { name: name.value, email: email.value },
+      {
+        name: name.value,
+        email: email.value,
+        answers: Object.fromEntries(
+          asked.value.map((field) => [
+            field.key,
+            answers.value[field.key] ?? (field.type === 'checkbox' ? false : undefined),
+          ]),
+        ),
+      },
     );
     emit('added', response.data.application.applicantEmail);
   } catch (err: unknown) {
@@ -51,7 +94,7 @@ async function add(): Promise<void> {
     title="Add a vendor"
     testid="add-vendor"
     :confirm-label="busy ? 'Adding…' : 'Add vendor'"
-    :confirm-disabled="busy || !name.trim() || !email.trim()"
+    :confirm-disabled="busy || !ready"
     :error="error"
     @close="emit('close')"
     @submit="add"
@@ -78,6 +121,14 @@ async function add(): Promise<void> {
       class="field"
       data-testid="add-vendor-email-input"
     />
+    <template v-if="asked.length">
+      <p class="add-vendor-note" data-testid="add-vendor-price-note">
+        Their price is set by these answers.
+      </p>
+      <div class="add-vendor-answers">
+        <ApplicationFormFields v-model="answers" :fields="asked" prefix="add-vendor" />
+      </div>
+    </template>
   </AppDialog>
 </template>
 
@@ -90,5 +141,11 @@ async function add(): Promise<void> {
 
 .field-label + .field {
   margin-bottom: var(--space-3);
+}
+
+.add-vendor-answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 </style>

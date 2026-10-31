@@ -976,6 +976,34 @@ export function entryChanges(
     }
     return { changed, recorded: recordedFields(entry, detail, path, true) };
   }
+  // A vendor added by hand: their name and status, then the answers the price groups read, each
+  // question as the form asks it (E43/F01/S03).
+  if (entry.action === 'add-vendor') {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const own = ['name', 'status'];
+    const pick = (side: Detail, keep: (key: string) => boolean) =>
+      Object.fromEntries(Object.entries(side).filter(([key]) => keep(key)));
+    const answers = inFormOrder(
+      Object.keys(after).filter((key) => !own.includes(key)),
+      fields,
+    ).map((key) => ({
+      field: answerLabel(key, fields),
+      before: essentialAnswerText(key, before[key]).trim() || 'none',
+      after: essentialAnswerText(key, after[key]).trim() || 'none',
+    }));
+    return {
+      changed: [
+        ...changedFields(
+          pick(before, (key) => own.includes(key)),
+          pick(after, (key) => own.includes(key)),
+          path,
+        ),
+        ...answers,
+      ],
+      recorded: recordedFields(entry, detail, path, true),
+    };
+  }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
     // One address a line, so no address is broken across two.
     const team = (side: unknown) => valueText(addresses(asDetail(side).reviewers).join('\n'));

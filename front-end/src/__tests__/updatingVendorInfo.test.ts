@@ -93,11 +93,15 @@ const THU = '2026-11-19';
 const FRI = '2026-11-20';
 const OPTIONS = { dates: [THU, FRI], tiers: ['Gold', 'Silver'], sections: [], tableTypes: [] };
 const ONLY_AN_ADMIN =
-  "Only an Admin or the owner may update the answers this market's assignment reads.";
+  "Only an Admin or the owner may update the answers this market's assignment or prices read.";
 
 function dialog(
   app: Application = application(),
-  { options = OPTIONS, assignmentRefusal = null as string | null } = {},
+  {
+    options = OPTIONS,
+    assignmentRefusal = null as string | null,
+    priceReads = [] as string[],
+  } = {},
 ) {
   return mount(UpdateInfoDialog, {
     props: {
@@ -107,6 +111,7 @@ function dialog(
       form: FORM,
       options,
       assignmentRefusal,
+      priceReads,
     },
     attachTo: document.body,
   });
@@ -592,5 +597,57 @@ describe('two answers alike', () => {
 
   it('tells a list from its reordering', () => {
     expect(sameAnswer(['Prints', 'Cards'], ['Cards', 'Prints'])).toBe(false);
+  });
+});
+
+describe('the answers a price group reads, in the Update info dialog (E43/F01/S03)', () => {
+  it('shows them read-only to whoever the row refuses, and says who may', async () => {
+    const wrapper = dialog(
+      application({ formData: { ...application().formData, student: 'Yes' } }),
+      {
+        assignmentRefusal: ONLY_AN_ADMIN,
+        priceReads: ['student'],
+      },
+    );
+
+    expect(wrapper.get(testid('update-info-price-note')).text()).toBe(ONLY_AN_ADMIN);
+    expect(wrapper.get(testid('update-info-input-student')).attributes('disabled')).toBeDefined();
+    // A question no group reads is any other answer's.
+    const shop = wrapper.get(testid('update-info-input-shop'));
+    expect(shop.attributes('disabled')).toBeUndefined();
+    await shop.setValue('Ember Ceramics');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(sent[0].body).toEqual({ answers: { shop: 'Ember Ceramics' } });
+    wrapper.unmount();
+  });
+
+  it('offers no way to put back an update someone else made', () => {
+    const wrapper = dialog(
+      application({
+        formData: { ...application().formData, student: 'Yes' },
+        answerUpdates: {
+          student: { ...UPDATE, value: 'Yes', over: 'No', theyWrote: 'No' },
+        },
+      }),
+      { assignmentRefusal: ONLY_AN_ADMIN, priceReads: ['student'] },
+    );
+
+    expect(wrapper.get(testid('update-info-theirs-student')).text()).toContain('They wrote: No');
+    expect(wrapper.find(testid('update-info-use-theirs-student')).exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('leaves them to whoever the row allows', async () => {
+    const wrapper = dialog(application(), { priceReads: ['student'] });
+
+    expect(wrapper.find(testid('update-info-price-note')).exists()).toBe(false);
+    await wrapper.get(testid('update-info-input-student')).setValue('Yes');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(sent[0].body).toEqual({ answers: { student: 'Yes' } });
+    wrapper.unmount();
   });
 });
