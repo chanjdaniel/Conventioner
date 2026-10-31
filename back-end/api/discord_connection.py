@@ -94,6 +94,14 @@ NOT_FOUND = "not_found"
 NO_USERNAME = "no_username"
 STATES = (HAS_ROLE, IN_SERVER, NOT_FOUND, NO_USERNAME)
 
+#: Each state as the Vendors page says it (`discordCheck.ts`), and the export writes it.
+STATE_LABELS = {
+    HAS_ROLE: "Has the role",
+    IN_SERVER: "In the server",
+    NOT_FOUND: "Not found",
+    NO_USERNAME: "No username",
+}
+
 #: An old Discord tag, "name#1234", from before usernames were unique: its number is not part of
 #: the username a member now has.
 _OLD_TAG = re.compile(r"#\d{4}$")

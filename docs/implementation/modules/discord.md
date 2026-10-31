@@ -18,6 +18,7 @@ sources:
   - E46/F01/S01
   - E46/F01/S02
   - E46/F01/S03
+  - E42/F01/S05
 ---
 
 # The Discord connection
@@ -89,6 +90,7 @@ They are about that server, so connecting to another server forgets them as it f
 The market read serves them to every reader, so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
 
 **The Vendors page shows them** once a check has run: a Discord chip on each vendor's row, a "Discord" filter of every state with how many are in it, in the address as `discord` (`?discord=not_found`) so a filter is a link, and "Checked 5 minutes ago", ageing as the page sits.
+The vendor export reads them too: a Discord state filter and a "Discord state" column, beside the username and the invite link ([export the vendors](../../business/flows/vendors.md#j15-export-the-vendors-to-a-csv), [`vendor_export.py`](../../../back-end/api/vendor_export.py)), the states in the page's words (`STATE_LABELS`).
 After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
 
 ## The values, and a deployment without them

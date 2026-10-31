@@ -221,6 +221,7 @@ function openExport(): void {
     shown: shown.value,
     filters: filters.value,
     search: filterText.value,
+    discord: discordShown.value,
   });
   exporting.value = true;
 }

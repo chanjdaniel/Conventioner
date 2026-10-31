@@ -4,7 +4,8 @@
  * from the Vendors page or the Applications tab's All view (S03).
  *
  * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
- * under their headings, where they sit on each date under "Assignment" (S02), and the ticked ones
+ * under their headings, where they sit on each date under "Assignment" (S02) and the Discord
+ * username, state and invite link under "Discord" (S05), and the ticked ones
  * are put in order beneath, by dragging or with each row's move buttons. Before the download it
  * says how many vendors and columns the file holds and shows its first rows, which the server
  * builds from the same filters as the file.
@@ -52,6 +53,7 @@ function copyOf(seed: ExportFilters): ExportFilters {
   return {
     ...seed,
     statuses: [...seed.statuses],
+    discord: [...seed.discord],
     answers: Object.fromEntries(Object.entries(seed.answers).map(([k, v]) => [k, [...v]])),
   };
 }
@@ -290,6 +292,27 @@ async function download(): Promise<void> {
               </select>
             </div>
           </template>
+
+          <!-- Who is in the Discord server, once a check has run (S05). -->
+          <fieldset
+            v-if="offered.discordStates.length"
+            class="export-field export-field--wide export-choices"
+            data-testid="vendor-export-discord"
+          >
+            <legend class="field-label">
+              Discord <span class="export-hint">(none ticked: any state)</span>
+            </legend>
+            <label v-for="state in offered.discordStates" :key="state.id" class="export-check">
+              <input
+                v-model="filters.discord"
+                type="checkbox"
+                name="vendor-export-discord"
+                :value="state.id"
+                :data-testid="`vendor-export-discord-${state.id}`"
+              />
+              {{ state.label }}
+            </label>
+          </fieldset>
 
           <fieldset
             v-for="question in offered.questions"

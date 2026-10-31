@@ -1,6 +1,7 @@
 /**
- * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02), from the
- * Vendors page or the Applications tab's All view (S03).
+ * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02) and what
+ * the market knows of them on Discord (S05), from the Vendors page or the Applications tab's All
+ * view (S03).
  *
  * The export dialog opens on what a page shows, so the file holds the vendors the organizer was
  * looking at; the server builds the file and its preview from the filters the dialog sends
@@ -8,6 +9,7 @@
  */
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import type { DiscordState } from '@/utils/discordCheck';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { hasPlaceFilter, type ResultFilters, type VendorsShown } from '@/utils/resultFilters';
 import type { AllViewFilter } from '@/utils/reviewQueue';
@@ -31,6 +33,8 @@ export interface ExportFilters {
   answers: Record<string, string[]>;
   /** Only the follow-ups the one exporting owns, as the All view's Mine. */
   mine: boolean;
+  /** Any of these states the last Discord check found; none is any state. */
+  discord: DiscordState[];
 }
 
 export const NO_FILTERS: ExportFilters = Object.freeze({
@@ -43,19 +47,25 @@ export const NO_FILTERS: ExportFilters = Object.freeze({
   search: '',
   answers: {},
   mine: false,
+  discord: [],
 }) as ExportFilters;
 
 /**
  * The Vendors page's filters as the export's. "Unassigned only" is the approved vendors and those
  * added by hand with no seat (E38/F08/S02), on the date when one is chosen; where they are placed
- * is the vendors placed there.
+ * is the vendors placed there; the Discord state the page lists is the vendors in it (S05).
  */
 export function vendorsPageSeed(page: {
   shown: VendorsShown;
   filters: ResultFilters;
   search: string;
+  discord?: DiscordState | null;
 }): ExportFilters {
-  const seed: ExportFilters = { ...NO_FILTERS, search: page.search.trim() };
+  const seed: ExportFilters = {
+    ...NO_FILTERS,
+    search: page.search.trim(),
+    discord: page.discord ? [page.discord] : [],
+  };
   if (page.shown === 'unassigned') {
     return {
       ...seed,
@@ -91,7 +101,7 @@ export function applicationsAllSeed(view: { filter: AllViewFilter; mine: boolean
 }
 
 /** Which heading the dialog lists a column under. */
-export type ExportGroupId = 'vendor' | 'answers' | 'assignment';
+export type ExportGroupId = 'vendor' | 'answers' | 'assignment' | 'discord';
 
 export interface ExportColumn {
   id: string;
@@ -110,6 +120,8 @@ export interface ExportOffered {
   sections: string[];
   tiers: string[];
   questions: { key: string; label: string; options: string[] }[];
+  /** The Discord states to filter by, once a check has run; none before. */
+  discordStates: { id: DiscordState; label: string }[];
 }
 
 export interface ExportPreview {
@@ -126,8 +138,8 @@ export interface ColumnGroup {
 }
 
 /**
- * The columns under their headings, in the market's order: who the vendor is, their answers, then
- * where they sit. A heading with no column under it, as a form with no question of its own, is
+ * The columns under their headings, in the market's order: who the vendor is, their answers, where
+ * they sit, then Discord. A heading with no column under it, as a form with no question of its own, is
  * left out.
  */
 export function columnGroups(offered: Pick<ExportOffered, 'columns' | 'groups'>): ColumnGroup[] {
