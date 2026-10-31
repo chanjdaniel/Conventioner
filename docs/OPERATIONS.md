@@ -222,9 +222,9 @@ A configuration refusal, not a database one: set each variable it names ([RELEAS
 
 ### Scripts never to run against production
 
-- `reset_database.py` empties every collection. It refuses whenever `MONGODB_URI` is set, so it cannot reach production by accident.
+- `reset_database.py` empties every collection. It refuses whenever `MONGODB_URI` is set, so it cannot reach production by accident, and whenever `MONGODB_HOST` is unset, so a run on the host cannot reach the primary checkout's stack by default.
 - `migrations/cleanup_unverified_users.py` deletes every unverified account (use `--dry-run` first, or `--email` for one).
-- `create_test_user.py` makes a fixture account and prints its password.
+- `create_test_user.py` makes a fixture account and prints its password. It refuses when neither `MONGODB_HOST` nor `MONGODB_URI` names a database.
 
 ## Deploying, releasing, and branch rules
 

@@ -27,8 +27,14 @@ Before a merge, Playwright runs only in CI's four required `e2e` shards: on the 
 The fastest way to get a working test environment:
 
 ```bash
-./scripts/seed_fixture.sh
+./scripts/seed_fixture.sh            # in a treehouse worktree: the slot's stack
+./scripts/seed_fixture.sh --primary  # the primary checkout's stack
 ```
+
+The script empties the stack's database first (`back-end/reset_database.py`), so it seeds only a stack it is told, and otherwise refuses before it touches anything.
+It takes, in order, `COMPOSE_PROJECT_NAME` with `TH_MONGO_PORT`, `TH_BACKEND_PORT` and `TH_FRONTEND_PORT` (as `eval "$(scripts/th-compose.sh ports)"` exports them), then the treehouse slot its checkout sits in, and the default stack (the primary checkout's, or CI's one stack) only with `--primary`.
+It refuses when only some of those variables are set, and `--primary` with any of them set.
+It used to fall back to the primary stack's defaults, so a run outside a slot that had not yet exported its own stack wiped the primary checkout's local database.
 
 This brings up the Docker stack, creates the test users, creates an organization
 (`Seed Test Org`, reused if the user already has one), and creates a market in it.
@@ -187,7 +193,7 @@ CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit
 ## End-to-End (E2E) Tests
 
 ```bash
-# Start the Docker stack and seed test data
+# Start the Docker stack and seed test data (--primary in the primary checkout)
 cd .. && ./scripts/seed_fixture.sh
 
 # Run E2E tests

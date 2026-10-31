@@ -273,7 +273,7 @@ jobs:
           done
           exit 1
       - run: docker compose up -d
-      - run: ./scripts/seed_fixture.sh
+      - run: ./scripts/seed_fixture.sh --primary
       - name: Run Playwright tests
         working-directory: front-end
         env:

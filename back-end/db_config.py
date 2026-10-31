@@ -33,6 +33,26 @@ def get_mongodb_client(server_selection_timeout_ms=None):
     connection_string = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}/{mongodb_auth_db}"
     return MongoClient(connection_string, **options)
 
+UNNAMED_DATABASE_REFUSAL = (
+    "Refusing: neither MONGODB_HOST nor MONGODB_URI is set, so this would use 127.0.0.1:27017, "
+    "which on a developer's machine is the primary checkout's stack. Run it in the back-end container "
+    "of the stack you mean, which sets MONGODB_HOST (scripts/th-compose.sh exec backend python "
+    "/app/<script>, or docker compose exec for the primary stack), or set MONGODB_HOST and "
+    "MONGODB_PORT to that stack's MongoDB."
+)
+
+
+def require_named_database():
+    """Refuse, for a script that resets or seeds test data, unless the environment names its database.
+
+    Unnamed, ``get_mongodb_client`` falls back to 127.0.0.1:27017, the primary checkout's stack on a
+    developer's machine, so such a script run on the host would reset or seed that stack whatever
+    stack it was run for. Every stack's back-end container sets MONGODB_HOST.
+    """
+    if not (os.getenv('MONGODB_URI') or os.getenv('MONGODB_HOST')):
+        raise SystemExit(UNNAMED_DATABASE_REFUSAL)
+
+
 _default_clients = {}
 _default_clients_lock = threading.Lock()
 

@@ -69,7 +69,27 @@ def test_the_local_stack_database_is_reset(monkeypatch):
     database = _Database()
     monkeypatch.setattr(Reset, "get_database", lambda: database)
     monkeypatch.delenv("MONGODB_URI", raising=False)
+    # As every stack's back-end container sets it.
+    monkeypatch.setenv("MONGODB_HOST", "mongodb")
 
     Reset.reset_database()
 
     assert "markets" in database.deleted and "users" in database.deleted
+
+
+def test_a_database_the_environment_does_not_name_is_never_reset(monkeypatch):
+    # Unnamed, the client falls back to 127.0.0.1:27017: on a developer's machine, the primary
+    # checkout's stack, whatever stack the script was run for.
+    import reset_database as Reset
+
+    database = _Database()
+    monkeypatch.setattr(Reset, "get_database", lambda: database)
+    monkeypatch.delenv("MONGODB_URI", raising=False)
+    monkeypatch.delenv("MONGODB_HOST", raising=False)
+
+    import pytest
+
+    with pytest.raises(SystemExit) as refused:
+        Reset.reset_database()
+    assert "MONGODB_HOST" in str(refused.value)
+    assert database.deleted == []

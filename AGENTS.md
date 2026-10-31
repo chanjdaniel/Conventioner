@@ -51,6 +51,7 @@ This file holds what nearly every session needs; everything else is in the knowl
   Every stack listens on `127.0.0.1` only, so dial it there, never at `localhost` ([why](docs/TESTING.md#testing-gotchas)).
   A worktree's stack and ports come from its treehouse slot: [`scripts/README-treehouse.md`](scripts/README-treehouse.md).
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
+  The seed empties the stack's database, so it refuses unless it is told the stack: the slot it sits in, the exported `th-compose.sh ports`, or `--primary` for the primary stack ([why](docs/TESTING.md#quick-start-seed-fixture)).
   Playwright config auto-detects worktree port via `stack().frontendPort`.
 - Back end: `cd back-end && python -m pytest tests/ -v`, with both `requirements.txt` and `requirements-dev.txt` installed.
   Front-end unit tests: `cd front-end && npm run test:unit`.

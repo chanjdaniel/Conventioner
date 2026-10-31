@@ -3,7 +3,7 @@
 Script to create a test user directly in MongoDB.
 This bypasses the API and creates a user with a properly hashed password.
 
-Usage:
+Usage, in the back-end container of the stack to seed, which sets MONGODB_HOST:
     python create_test_user.py <email> <password>
     
 Example:
@@ -13,7 +13,7 @@ Example:
 import sys
 from datetime import datetime, timezone
 from flask_bcrypt import Bcrypt
-from db_config import get_database
+from db_config import get_database, require_named_database
 from utils.email_address import normalized_email
 
 def create_test_user(email: str, password: str, organizations=None, markets=None):
@@ -23,6 +23,7 @@ def create_test_user(email: str, password: str, organizations=None, markets=None
     if markets is None:
         markets = []
     
+    require_named_database()
     # Stored as every writer stores it (E32/F03/S04): the unique index is over this form.
     email = normalized_email(email)
     db = get_database()
