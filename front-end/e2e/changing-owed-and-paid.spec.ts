@@ -4,6 +4,8 @@ import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { withUser } from './helpers/withUser';
 import { TablesPage } from './pages/TablesPage';
 
 /**
@@ -15,6 +17,7 @@ import { TablesPage } from './pages/TablesPage';
  */
 const SUNDAY = '2099-05-08';
 const ALICE = 'alice@example.com';
+const EDITOR = { email: 'e2e-changing-owed-editor@example.com', password: 'e2epassword123' };
 const GOLD = { id: 1, name: 'Gold' };
 const SILVER = { id: 2, name: 'Silver' };
 
@@ -96,13 +99,20 @@ async function paymentTab(page: Page, marketId: string) {
   return tab;
 }
 
-/** Free Alice's Sunday seat from the Result page, ticking the deduction or not. */
-async function freeSunday(page: Page, marketId: string, deduct: boolean) {
+/** Open Alice's Sunday seat's placement dialog on the Assignments page. */
+async function openSunday(page: Page, marketId: string): Promise<TablesPage> {
   const tables = new TablesPage(page);
   await tables.gotoWithFilters(marketId, { date: SUNDAY, search: ALICE });
   const seat = tables.row('Landing 1').locator(`[data-vendor-email="${ALICE}"]`);
   await expect(seat).toBeVisible({ timeout: 15000 });
   await tables.change(seat);
+  await expect(tables.dialog).toBeVisible();
+  return tables;
+}
+
+/** Free Alice's Sunday seat from the Result page, ticking the deduction or not. */
+async function freeSunday(page: Page, marketId: string, deduct: boolean) {
+  const tables = await openSunday(page, marketId);
   const box = tables.dialog.getByLabel(/Also remove its \$15 from what .* owes\?/);
   await expect(box).not.toBeChecked();
   if (deduct) await box.check();
@@ -208,19 +218,11 @@ test.describe('changing what is owed and paid', () => {
     request,
   }) => {
     const marketId = await alicePaidInFull(request);
-    const tables = new TablesPage(page);
-    const openSunday = async () => {
-      await tables.gotoWithFilters(marketId, { date: SUNDAY, search: ALICE });
-      const seat = tables.row('Landing 1').locator(`[data-vendor-email="${ALICE}"]`);
-      await expect(seat).toBeVisible({ timeout: 15000 });
-      await tables.change(seat);
-      await expect(tables.dialog).toBeVisible();
-    };
 
     await call(request, 'put', `/markets/${marketId}/payments/${ALICE}/owed/${SUNDAY}`, {
       cents: 1000,
     });
-    await openSunday();
+    let tables = await openSunday(page, marketId);
     await expect(
       tables.dialog.getByLabel(/Also remove its \$10 from what .* owes\?/),
     ).toBeVisible();
@@ -229,8 +231,40 @@ test.describe('changing what is owed and paid', () => {
     await call(request, 'put', `/markets/${marketId}/payments/${ALICE}/owed/${SUNDAY}`, {
       cents: 0,
     });
-    await openSunday();
+    tables = await openSunday(page, marketId);
     await expect(tables.dialog.getByTestId('placement-dialog-free')).toBeVisible();
     await expect(tables.dialog.getByTestId('placement-dialog-deduct')).toHaveCount(0);
+  });
+
+  test('an Editor freeing an owed seat is not asked, never reads the account, and the line stays owed', async ({
+    browser,
+    request,
+  }) => {
+    const marketId = await alicePaidInFull(request);
+    ensureVerifiedUser(EDITOR.email, EDITOR.password);
+    await call(request, 'post', `/markets/${marketId}/roles`, {
+      user_email: EDITOR.email,
+      role: 'editor',
+    });
+
+    await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+      const accountReads: string[] = [];
+      page.on('request', (sent) => {
+        if (new URL(sent.url()).pathname.includes('/payments/')) accountReads.push(sent.url());
+      });
+      const tables = await openSunday(page, marketId);
+      await expect(tables.dialog.getByTestId('placement-dialog-free')).toBeVisible();
+      await expect(tables.dialog.getByTestId('placement-dialog-deduct')).toHaveCount(0);
+
+      await tables.dialog.getByTestId('placement-dialog-free').click();
+      await expect(tables.dialog).toBeHidden();
+      expect(accountReads).toEqual([]);
+    });
+
+    // Freed by someone who may not change the amount owed: it stays owed, for an Admin to decide.
+    const res = await request.get(`${BACKEND_URL}/markets/${marketId}/payments/${ALICE}`);
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const sunday = (await res.json()).lines.find((line: { date: string }) => line.date === SUNDAY);
+    expect(sunday.owedCents).toBe(1500);
   });
 });
