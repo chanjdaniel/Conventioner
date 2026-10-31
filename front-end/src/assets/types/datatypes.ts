@@ -293,6 +293,10 @@ export interface Market {
   rejectionQuestions?: RejectionQuestion[];
   /** Why the automatic rejections can no longer change, or null while they can. */
   rejectionRulesLockReason?: string | null;
+  /** The questions the price groups read (E43/F01/S03): adding a vendor asks the form's own of
+   *  them, and updating any of them is the row "Update info the assignment or price reads".
+   *  Served; empty on a card with no group. */
+  priceReads?: string[];
   /**
    * Why the application form cannot be edited, or null when it can (E21/F02/S03). Computed by the
    * server on every read of ONE market from the D9 rule - the phase, and whether an application

@@ -106,7 +106,7 @@ The applicant never reads a status: their page reads "Submitted" until results a
 Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
 Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 
-A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
+A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name and their answers to the questions the price groups read in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).
 
 **Each verdict or follow-up a person gives, each follow-up handed on, each vendor added, each update of a vendor's answers and each change an applicant makes to their own application records into [the market's history](history.md)**: the verdict fields here stay the state the review reads, and the history keeps every verdict a person gives, not only the latest.
