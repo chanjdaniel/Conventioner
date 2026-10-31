@@ -41,12 +41,14 @@ sources:
   - E44/F01/S01
   - E44/F01/S02
   - T139
+  - T142
 ---
 
 # Placements
 
 Who sits where, stored once on the market and written by one module.
 [`back-end/api/placements.py`](../../../back-end/api/placements.py) is the only writer of `assignmentObject` ([the market document](../data/market-document.md)), the stored assignment that check-in reads at the door and the organizer edits one seat at a time.
+The organizer edits it on the Assignments page, which fits a phone (`meta.fitsAPhone`, [the design language](../../design-system.md#layout)): the vendor drawer's "Change assignment" at the door leads there, so a seat can be changed on the phone it was tapped on (T142).
 Its routes are in [`back-end/app.py`](../../../back-end/app.py).
 
 ## The four doors

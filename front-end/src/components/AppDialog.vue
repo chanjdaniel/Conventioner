@@ -234,8 +234,9 @@ watch(
 }
 
 /*
- * Sized by content within a readable band, not by a percentage of the viewport. `width: 25%` gave
- * the create-market dialog 480px on a wide screen and 320px on a laptop, for the same two controls.
+ * One width, 26rem (38rem when `wide`), never wider than the window less a gutter at each side;
+ * never a percentage of the viewport. `width: 25%` gave the create-market dialog 480px on a wide
+ * screen and 320px on a laptop, for the same two controls.
  */
 .dialog-window {
   position: relative;

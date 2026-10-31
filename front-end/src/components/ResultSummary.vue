@@ -168,7 +168,10 @@ async function downloadCsv(): Promise<void> {
         :to="{ path: marketPath(market.id, 'vendors'), query: { show: 'unassigned' } }"
         data-testid="result-unassigned-link"
       >
-        <strong>{{ unassignedCount }}</strong> unassigned
+        <span>
+          <strong>{{ unassignedCount }}</strong>
+          unassigned
+        </span>
       </RouterLink>
       <span class="result-figure">
         <strong data-testid="assignment-satisfaction-score">{{ satisfaction }}</strong>
@@ -268,5 +271,32 @@ async function downloadCsv(): Promise<void> {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
+}
+
+/*
+ * A phone (T142): the figures stack, one to a row a thumb's target tall, so the unassigned link is
+ * a target among rows of its own height; its words stay on one baseline inside the span. The
+ * actions wrap under them.
+ */
+@media (width <= 640px) {
+  .result-strip {
+    display: grid;
+    grid-auto-rows: minmax(var(--target-min), auto);
+    align-items: center;
+    row-gap: 0;
+  }
+
+  .result-link {
+    align-self: stretch;
+    justify-self: start;
+    display: flex;
+    align-items: center;
+  }
+
+  .result-actions {
+    flex-wrap: wrap;
+    margin-left: 0;
+    padding-block: var(--space-2);
+  }
 }
 </style>

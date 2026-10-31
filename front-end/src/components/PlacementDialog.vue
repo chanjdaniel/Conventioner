@@ -418,6 +418,13 @@ function findsToSwap(option: PickerOption, words: string): boolean {
   color: var(--mm-black);
 }
 
+/* A phone (T142): each choice a thumb's target, its label included. */
+@media (width <= 640px) {
+  .placement-radio {
+    min-height: var(--target-min);
+  }
+}
+
 /* Two lines in the drawer's width: the box stays beside the first. */
 .placement-deduct {
   align-items: flex-start;

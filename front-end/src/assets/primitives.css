@@ -86,6 +86,12 @@
   opacity: 0.9;
 }
 
+/* Pressed, a step past hover: on a touch screen it is what shows the tap, since the browser's own
+   tap highlight is off (`base.css`). */
+.btn:active:not(:disabled) {
+  opacity: 0.8;
+}
+
 /*
  * A toggle that is on (E25/F01/S01): any `.btn` with `aria-pressed="true"`. A state rather than a
  * fourth intent, because the toggle's intent does not change when it is pressed - the markets

@@ -618,80 +618,90 @@ function cancelPending() {
             data-testid="phase-rail-fix"
             >{{ fix.label }}</RouterLink
           >
-          <!-- While its fix is offered, the move waits beside it, disabled, as the step after. -->
-          <button
-            v-if="forwardTransition"
-            type="button"
-            class="btn"
-            :class="fix ? 'btn--secondary' : 'btn--primary rail-button--forward'"
-            :disabled="transitioning || !!firstBlocker(forwardTransition)"
-            :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
-            :data-testid="`phase-transition-${forwardTransition}`"
-            @click="handleTransitionClick(forwardTransition)"
+          <!-- The move and More… travel together, so More… never stands alone on a phone's row
+               where three actions do not fit (T142). -->
+          <div
+            v-if="forwardTransition || otherTransitions.length || actions.length"
+            class="phase-rail-tail"
           >
-            {{ transitionLabel(forwardTransition) }}
-          </button>
-
-          <div v-if="otherTransitions.length || actions.length" class="rail-menu">
+            <!-- While its fix is offered, the move waits beside it, disabled, as the step
+                 after. -->
             <button
-              id="phase-rail-menu-button"
-              ref="menuButton"
+              v-if="forwardTransition"
               type="button"
-              class="btn btn--secondary"
-              aria-haspopup="menu"
-              aria-controls="phase-rail-menu"
-              :aria-expanded="menuOpen"
-              data-testid="phase-rail-menu-button"
-              @click="menuOpen = !menuOpen"
+              class="btn"
+              :class="fix ? 'btn--secondary' : 'btn--primary rail-button--forward'"
+              :disabled="transitioning || !!firstBlocker(forwardTransition)"
+              :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
+              :data-testid="`phase-transition-${forwardTransition}`"
+              @click="handleTransitionClick(forwardTransition)"
             >
-              More…
+              {{ transitionLabel(forwardTransition) }}
             </button>
-            <div
-              v-if="menuOpen"
-              id="phase-rail-menu"
-              ref="menuList"
-              class="rail-menu-list"
-              role="menu"
-              aria-labelledby="phase-rail-menu-button"
-              data-testid="phase-rail-menu"
-              @keydown="onMenuKey"
-            >
+
+            <div v-if="otherTransitions.length || actions.length" class="rail-menu">
               <button
-                v-for="action in actions"
-                :key="action.id"
+                id="phase-rail-menu-button"
+                ref="menuButton"
                 type="button"
-                role="menuitem"
-                tabindex="-1"
-                class="rail-menu-item"
-                :aria-disabled="transitioning"
-                :data-testid="`phase-rail-action-${action.id}`"
-                @click="!transitioning && handleAction(action)"
+                class="btn btn--secondary"
+                aria-haspopup="menu"
+                aria-controls="phase-rail-menu"
+                :aria-expanded="menuOpen"
+                data-testid="phase-rail-menu-button"
+                @click="menuOpen = !menuOpen"
               >
-                {{ action.label }}
+                More…
               </button>
-              <button
-                v-for="toPhase in otherTransitions"
-                :key="toPhase"
-                type="button"
-                role="menuitem"
-                tabindex="-1"
-                class="rail-menu-item"
-                :class="`rail-menu-item--${directionOf(toPhase)}`"
-                :aria-disabled="transitioning || !!firstBlocker(toPhase)"
-                :data-direction="directionOf(toPhase)"
-                :data-testid="`phase-transition-${toPhase}`"
-                @click="!firstBlocker(toPhase) && !transitioning && handleTransitionClick(toPhase)"
+              <div
+                v-if="menuOpen"
+                id="phase-rail-menu"
+                ref="menuList"
+                class="rail-menu-list"
+                role="menu"
+                aria-labelledby="phase-rail-menu-button"
+                data-testid="phase-rail-menu"
+                @keydown="onMenuKey"
               >
-                {{ transitionLabel(toPhase) }}
-                <!-- Why not, said in the menu itself: "Reopen for Editing" was offered with sixteen
-                     applications in and refused only after the click (E31/F02/S01). -->
-                <span
-                  v-if="firstBlocker(toPhase)"
-                  class="rail-menu-item-reason"
-                  data-testid="phase-transition-reason"
-                  >{{ firstBlocker(toPhase)!.message }}</span
+                <button
+                  v-for="action in actions"
+                  :key="action.id"
+                  type="button"
+                  role="menuitem"
+                  tabindex="-1"
+                  class="rail-menu-item"
+                  :aria-disabled="transitioning"
+                  :data-testid="`phase-rail-action-${action.id}`"
+                  @click="!transitioning && handleAction(action)"
                 >
-              </button>
+                  {{ action.label }}
+                </button>
+                <button
+                  v-for="toPhase in otherTransitions"
+                  :key="toPhase"
+                  type="button"
+                  role="menuitem"
+                  tabindex="-1"
+                  class="rail-menu-item"
+                  :class="`rail-menu-item--${directionOf(toPhase)}`"
+                  :aria-disabled="transitioning || !!firstBlocker(toPhase)"
+                  :data-direction="directionOf(toPhase)"
+                  :data-testid="`phase-transition-${toPhase}`"
+                  @click="
+                    !firstBlocker(toPhase) && !transitioning && handleTransitionClick(toPhase)
+                  "
+                >
+                  {{ transitionLabel(toPhase) }}
+                  <!-- Why not, said in the menu itself: "Reopen for Editing" was offered with
+                     sixteen applications in and refused only after the click (E31/F02/S01). -->
+                  <span
+                    v-if="firstBlocker(toPhase)"
+                    class="rail-menu-item-reason"
+                    data-testid="phase-transition-reason"
+                    >{{ firstBlocker(toPhase)!.message }}</span
+                  >
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -806,6 +816,9 @@ function cancelPending() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* Its own width decides how its end lays out between a phone and a desk (below), since the
+     routes that lift the desktop floor reach every width between. */
+  container: phase-rail / inline-size;
 }
 
 .phase-rail-row {
@@ -941,6 +954,35 @@ function cancelPending() {
   flex-wrap: wrap;
 }
 
+/* Both addresses share the end's row with the actions, each shortening alike to make room and
+   never past its floor: as wide as its whole address they took a row each, with More… alone beside
+   an empty band at 1920 (T142). Above the phone break only, as is the tablet's rule within it: a
+   phone's rail is under 45rem too, and the phone's own rule below is the one that sizes its chips. */
+@media (width > 640px) {
+  .phase-rail-end--both .url-chip {
+    flex: 1 1 18rem;
+    max-width: max-content;
+  }
+
+  /* Narrower than both floors, the gaps and More… (about 703px of rail), as the door, Tools and
+     the Assignments page are on a tablet, a chip takes a row of its own and More… stands beside the
+     second: the two filled the first row and left More… alone on the next (T142). */
+  @container phase-rail (width < 45rem) {
+    .phase-rail-end--both {
+      row-gap: var(--space-2);
+    }
+
+    /* As tall as More… beside the second, so the two read as a pair: alone, the first was 5px
+       less. */
+    .phase-rail-end--both .url-chip {
+      flex-basis: calc(50% + var(--space-6));
+      max-width: none;
+      min-height: var(--control-height);
+      justify-content: space-between;
+    }
+  }
+}
+
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
 .url-chip {
   display: flex;
@@ -975,13 +1017,19 @@ function cancelPending() {
   .phase-rail-end {
     flex: 1 1 100%;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--space-2);
     min-width: 0;
   }
 
+  /* A chip takes what its row leaves, its name at its start and Copy at its end, so a row starts
+     with an address and ends with an action. It asks for over half the row, so two chips never
+     share one: side by side at a 326px rail they left More… alone on the row beneath, where the
+     second chip has room for it beside. */
   .url-chip {
-    flex: none;
-    min-width: 0;
+    flex: 1 0 calc(50% + var(--space-2));
+    justify-content: space-between;
+    min-width: min-content;
     align-self: center;
   }
 }
@@ -1000,13 +1048,14 @@ function cancelPending() {
   line-height: var(--target-min);
   /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
      character rather than the whole address. The rail's end measures its own narrowest to decide
-     whether it fits beside the spine, and an unbreakable address made it never fit. */
+     whether it fits beside the spine, and an unbreakable address made it never fit. Anywhere, not
+     only where nothing else breaks: a line cut at the slug's last hyphen left a gap before Copy. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
   line-clamp: 1;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 /* The chip's name as its link, on a phone: a line `--target-min` tall, as the address is on a desk. */
@@ -1044,14 +1093,22 @@ function cancelPending() {
   margin-left: auto;
 }
 
-/* On a phone the actions take what the row leaves, and wrap at its end: a draft's Pick market dates,
-   Open Applications and More… ran 33px past a 390px window on one line. */
+/* On a phone each action wraps on its own (the move with More…, below), beside the addresses where
+   it fits and at the row's end: a draft's Pick market dates, Open Applications and More… ran 33px
+   past a 390px window on one line, and wrapped as one group they left More… alone under two
+   buttons that had room beside the application page (T142). */
 @media (width <= 640px) {
   .phase-rail-actions {
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: contents;
   }
+}
+
+/* The move and More…, one box that does not break: three actions do not fit a phone's row, and
+   wrapping one by one left More… alone on the next (T142). */
+.phase-rail-tail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /*

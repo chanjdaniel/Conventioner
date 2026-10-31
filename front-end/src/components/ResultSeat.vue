@@ -212,4 +212,16 @@ const emit = defineEmits<{ open: []; view: [] }>();
 .seat--held:focus-within .seat-button-hint {
   opacity: 1;
 }
+
+/* A phone (T142): Change is a thumb's target, and the seat's own corner holds it. On a desk the
+   word alone is the target, inside the seat's box. */
+@media (width <= 640px) {
+  .seat-change {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
+}
 </style>

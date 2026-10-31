@@ -65,6 +65,55 @@ test('its controls are the product size, and adding someone is one row with its 
   await expect(manage.addUserButton).toBeVisible();
 });
 
+test('on a phone, the email field takes the add row, with the role, Add and Cancel beneath it', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // Beside the role, Add and Cancel at 390, the field and the role were squeezed to 66px each,
+  // "User e" and "Edi" (T142).
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { marketName } = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const manage = await openManage(page, marketName);
+  await manage.clickAddUser();
+
+  const box = async (locator: Locator) => {
+    const b = await locator.boundingBox();
+    if (!b) throw new Error('not rendered');
+    return b;
+  };
+  const form = await box(page.locator('form').filter({ has: manage.addUserInput }));
+  const field = await box(manage.addUserInput);
+  expect(field.width, 'the field takes the row').toBeGreaterThanOrEqual(form.width - 1);
+
+  const role = page.getByTestId('manage-market-add-user-select');
+  const cancel = page.getByTestId('manage-market-add-user-cancel');
+  const beneath = [await box(role), await box(manage.addUserSubmit), await box(cancel)];
+  for (const b of beneath) {
+    expect(b.y, 'beneath the field').toBeGreaterThanOrEqual(field.y + field.height);
+    expect(b.y, 'on one row').toBe(beneath[0].y);
+    expect(b.height, 'a 44px target').toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, 'inside the window').toBeLessThanOrEqual(390);
+  }
+
+  // The role reads whole: its name fits inside the select, beside its arrow.
+  const fits = await role.evaluate((el) => {
+    const select = el as HTMLSelectElement;
+    const style = getComputedStyle(select);
+    const context = document.createElement('canvas').getContext('2d')!;
+    context.font = style.font;
+    const text = context.measureText(select.selectedOptions[0]?.text ?? '').width;
+    const room =
+      select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return { text, room };
+  });
+  expect(fits.text, 'the role is not cut').toBeLessThanOrEqual(fits.room);
+});
+
 test("a refused change is said beneath the person's row, which keeps the role they hold", async ({
   authenticatedPage: page,
   request,

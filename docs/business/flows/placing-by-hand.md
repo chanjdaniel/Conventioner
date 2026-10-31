@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
@@ -26,6 +26,7 @@ sources:
   - E38/F08/S03
   - E38/F09/S01
   - E44/F01/S02
+  - T142
 ---
 
 # Placing by hand
@@ -45,6 +46,7 @@ A vendor fits a seat when placing them overrides nothing, and a sharing vendor f
 Both of the dialog's vendor lists are searched by typing ([`SearchPicker.vue`](../../../front-end/src/components/SearchPicker.vue), E38/F08/S03): part of a name, a business or an address narrows them, by the same terms as the Assignments page's search, and "Swap them with" by the partner's table too, its code or its section.
 The keyboard works them alone: the arrow keys move through the list, Enter takes the active vendor, Escape closes the list and leaves the dialog open.
 The dialog is the wide size, since a real name and address with a table and a side did not fit the standard one.
+On a phone the page and the dialog fit the window (T142): a held seat's "Change" and each "Which seat" choice are thumb's targets, and the dialog's buttons wrap onto a second row where three do not fit on one.
 
 Every change goes through [the one writer of placements](../../implementation/modules/placements.md), and each is recorded in [the market's history](../../implementation/data/history.md).
 

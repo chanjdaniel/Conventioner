@@ -941,25 +941,31 @@ function swapSeats(withEmail: string): void {
   font-size: var(--text-sm);
 }
 
-@media (max-width: 720px) {
-  .tables-view {
-    padding: var(--space-4) var(--space-3);
-  }
-
+/*
+ * A phone (T142): the vendor drawer's "Change assignment" at the door leads here, so the page fits
+ * the phone it was tapped on (`meta.fitsAPhone`). The gutter is the door's; the filters stand in
+ * the page's flow, since four rows of them pinned would take back the half of the window the frame
+ * gave up; each count is a thumb's target, its type grown with it; and a half table's two seats
+ * stand one under the other, each the row's width, rather than squeezing a name into a column a
+ * word wide.
+ */
+@media (width <= 640px) {
   .tables-body {
     padding: var(--space-4);
   }
 
-  .date-heading {
-    font-size: var(--text-lg);
+  .filter-band {
+    position: static;
   }
 
-  .table-row-head {
-    gap: var(--space-2);
+  .count-badge {
+    min-height: var(--target-min);
+    padding-inline: var(--space-3);
+    font-size: var(--text-sm);
   }
 
-  .table-code {
-    font-size: var(--text-lg);
+  .half-slot {
+    flex-basis: 100%;
   }
 }
 </style>
