@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-29
+verified: 2026-10-31
 sources:
   - wayfinding/the-order-of-the-work/11
   - E18/F02/S03
@@ -16,6 +16,7 @@ sources:
   - E38/F04/S01
   - E38/F04/S02
   - T142
+  - E38/F07/S02
 ---
 
 # Taking applications
@@ -33,14 +34,19 @@ A verdict can be given from the first application ([review](review.md)); Begin A
 
 ## H1. Open applications
 
-**Status:** Works (walked live; where the move lands, and its refusal before the click, read from the code as of E32/F01/S01, E31/F02 and E38/F04/S01: `front-end/src/utils/marketGuide.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`).
+**Status:** Works (walked live; where the move lands, and its refusal before the click, read from the code as of E32/F01/S01, E31/F02 and E38/F04/S01: `front-end/src/utils/marketGuide.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`; the reviewers offered with it as of E38/F07/S02: `open-applications-offers-the-reviewers.spec.ts`).
 
 1. Rail: "Open Applications", the main button in Draft once the setup is complete ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)); until then it is disabled and the rail names the first thing missing.
-2. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
-3. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
-4. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
+2. For someone who may choose reviewers (an Admin or the owner, by default), it opens a dialog, "Open applications", with a checkbox for each person they may choose, none ticked (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
+   Its "Open Applications" saves the reviewers when the choice differs from the ones stored, then makes the move; with no one ticked and none chosen before it opens as before, and every application that arrives once reviewers are chosen is dealt to the next in turn.
+   A save that is refused keeps the dialog open with its error and makes no move; a move refused after the save shows its blockers on the rail, and the reviewers stay chosen.
+   Cancel or Escape closes it and saves nothing.
+   Anyone else who may move the market gets the move at once, with no dialog.
+3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
+4. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
+5. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
 
-Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`.
+Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `openApplicationsOffersTheReviewers.test.ts`.
 
 ## H1a. Refused: the form asks nothing
 

@@ -61,6 +61,10 @@ export class CsvImportPage {
   readonly returningNote: Locator;
   readonly repeatNote: Locator;
 
+  // Who reviews what the first import writes (E38/F07/S02)
+  readonly reviewers: Locator;
+  readonly reviewersError: Locator;
+
   // The write, and what it did
   readonly confirmButton: Locator;
   readonly resultSummary: Locator;
@@ -109,6 +113,9 @@ export class CsvImportPage {
     this.absentNote = page.getByTestId('import-absent-note');
     this.returningNote = page.getByTestId('import-returning-note');
     this.repeatNote = page.getByTestId('import-repeat-note');
+
+    this.reviewers = page.getByTestId('import-reviewers');
+    this.reviewersError = page.getByTestId('import-reviewers-error');
 
     this.confirmButton = page.getByTestId('import-confirm-button');
     this.resultSummary = page.getByTestId('import-result-summary');
@@ -190,6 +197,11 @@ export class CsvImportPage {
   /** The select holding a decision already made about a value - restored, or made earlier. */
   decision(value: string): Locator {
     return this.page.getByTestId(`import-decided-fix-${value}`);
+  }
+
+  /** A person's box in the preview step's reviewer picker. */
+  reviewer(email: string): Locator {
+    return this.reviewers.getByTestId(`reviewer-picker-${email}`);
   }
 
   /** Ask for the dry run. Writes nothing. */

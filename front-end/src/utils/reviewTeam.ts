@@ -34,6 +34,13 @@ export function pickerChoices(candidates: readonly string[], current: readonly s
   return [...seen.keys()].sort().map((key) => seen.get(key) as string);
 }
 
+/** Whether a choice is the stored team: the same addresses, in any order and any case. */
+export function sameTeam(chosen: readonly string[], stored: readonly string[]): boolean {
+  const key = (addresses: readonly string[]) =>
+    [...new Set(addresses.map((address) => address.trim().toLowerCase()))].sort().join('\n');
+  return key(chosen) === key(stored);
+}
+
 /** Choose the market's reviewers, the whole team; none removes every one. Answers how many the
  * choice dealt. */
 export async function chooseReviewers(marketId: string, reviewers: string[]): Promise<number> {

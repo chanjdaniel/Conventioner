@@ -201,6 +201,10 @@ ARCHIVED_STILL_TAKES = frozenset({
 
 #: The rows that read the market rather than change it.
 READING_ROWS = frozenset({Actions.READ, Actions.READ_HISTORY, Actions.EXPORT_CSV})
+#: The rows a person may hold and still change nothing: the reading rows, and who may be chosen as a
+#: reviewer, which changes nothing until someone is chosen and then lets them give verdicts by the
+#: giving row (E38/F07/S03).
+CHANGING_NOTHING = READING_ROWS | {Actions.REVIEW_WHEN_CHOSEN}
 
 
 def _answers(
@@ -216,7 +220,7 @@ def _answers(
 
 
 def role_action_refusals(
-    role: Optional[MarketRole], phase: MarketPhase, rows: Mapping[str, Any],
+    role: Optional[MarketRole], phase: MarketPhase, rows: Mapping[str, Any], chosen: bool = False,
 ) -> Dict[str, Optional[str]]:
     """What a person holding ``role`` is told of every action on a market in ``phase`` holding
     ``rows`` of the table, by row id (E39/F01/S02, S03).
@@ -225,9 +229,10 @@ def role_action_refusals(
     writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
     markets list from the documents it holds. Served as ``actionRefusals``, so every screen offers
     a control on the answer of the action it takes. The rules of a market's life other than the
-    archived one are each served on their own.
+    archived one are each served on their own. ``chosen`` says whether the person is one of the
+    market's chosen reviewers (``Actions.is_chosen``), who may take the giving row by it.
     """
-    return _answers(phase, lambda row: Actions.role_refusal(row, role, rows))
+    return _answers(phase, lambda row: Actions.role_refusal(row, role, rows, chosen))
 
 
 def deprecated_screen_reasons(
@@ -260,7 +265,7 @@ def read_only_reason(market: Market, refusals: Dict[str, Optional[str]]) -> Opti
         return archived
     if any(
         refusals[row.id] is None
-        for row in Actions.ACTIONS.values() if row not in READING_ROWS
+        for row in Actions.ACTIONS.values() if row not in CHANGING_NOTHING
     ):
         return None
     return VIEWER_REFUSAL
@@ -842,8 +847,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market = context.market
     org_dict = context.organization_dict
 
-    # The person's role, resolved once: every answer below is asked of it (E39/F01/S02).
+    # The person's role, resolved once: every answer below is asked of it (E39/F01/S02), and of
+    # whether they are a chosen reviewer, which lets them give verdicts (E38/F07/S03).
     user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
+    chosen = Actions.is_chosen(user_email, market)
     if Actions.role_refusal(Actions.READ, user_role, market.permissions):
         return None
 
@@ -896,7 +903,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # What this person is told of every action here, by row (E39/F01/S02), and why they may change
     # nothing at all (E26/F06/S01, T15): asked of the role resolved above by the ranking every
     # write asks, served so each screen offers no control the server would refuse.
-    refusals = role_action_refusals(user_role, market.phase, market.permissions)
+    refusals = role_action_refusals(user_role, market.phase, market.permissions, chosen)
     market_dict['actionRefusals'] = refusals
     market_dict['readOnlyReason'] = read_only_reason(market, refusals)
     # And the table itself, for Manage market to show every row's role and where it came from
@@ -937,10 +944,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
     # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
-    # and so name one (the table's verdicts row): the organization's people too, if the reader is
-    # one.
+    # and so name one (the table's verdicts row, a chosen reviewer's too): the organization's
+    # people too, if the reader is one.
     may_give_verdicts = Actions.role_refusal(
-        Actions.GIVE_VERDICTS, user_role, market.permissions) is None
+        Actions.GIVE_VERDICTS, user_role, market.permissions, chosen) is None
     reader = UsersApi.get_user(user_email) if may_give_verdicts else None
     ids = (
         PermissionsApi.follow_up_owners_for(
@@ -961,8 +968,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # Who reviews which application (E38/F07/S02): the chosen reviewers to every reader, never the
     # turn, which the stored team is served over, and whom this reader may choose from, served only
     # to someone who may choose them while the review is open, when the panel offers the choice.
-    # They are the people a follow-up may be handed to, already read above for someone who gives
-    # verdicts, so the read looks nobody up twice.
+    # They are the people a follow-up may be handed to whose role the table lets be chosen, already
+    # read above for someone who gives verdicts, so the read looks nobody up twice.
     market_dict['reviewTeam'] = ReviewTeam.served(
         ReviewTeam.team_of(market), market, context.organization)
     may_choose = review_is_open(market.phase) and Actions.role_refusal(
@@ -970,7 +977,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     if not may_choose:
         candidates: List[str] = []
     elif may_give_verdicts:
-        candidates = list(email_by_user_id.values())
+        candidates = [
+            email for uid, email in email_by_user_id.items()
+            if Actions.may_be_chosen(uid, market, context.organization)]
     else:
         candidates = [person.email for person in reviewer_candidates(
             market, context.organization, UsersApi.get_user(user_email))]
@@ -1451,6 +1460,9 @@ def get_placement_history(market_id: str, requesting_user: str) -> tuple[Dict[st
 #: narrowed by. An applicant's own change (``History.APPLY``), which no row asks, is an
 #: application's.
 _HISTORY_GROUPS_LEFT_OUT = frozenset({"Reading"})
+#: A row no entry is recorded under: who may be chosen as a reviewer changes nothing itself, the
+#: choice is Choose reviewers' and a chosen reviewer's verdicts are Give verdicts' (E38/F07/S03).
+_HISTORY_ROWS_LEFT_OUT = frozenset({Actions.REVIEW_WHEN_CHOSEN})
 
 
 def history_groups() -> List[Dict[str, Any]]:
@@ -1458,7 +1470,7 @@ def history_groups() -> List[Dict[str, Any]]:
     labels, for the screen's kind filter."""
     groups: Dict[str, List[Dict[str, str]]] = {}
     for row in Actions.ACTIONS.values():
-        if row.group not in _HISTORY_GROUPS_LEFT_OUT:
+        if row.group not in _HISTORY_GROUPS_LEFT_OUT and row not in _HISTORY_ROWS_LEFT_OUT:
             groups.setdefault(row.group, []).append({"id": row.id, "label": row.label})
     groups.setdefault("Applications", []).append(
         {"id": History.APPLY, "label": "Apply, or change one's own application"})
@@ -2510,15 +2522,26 @@ def reviewer_candidates(
     market: Market, organization: Optional[Organization], chooser: Any,
 ) -> List[MarketPerson]:
     """Whom this person may choose as a reviewer (E38/F07/S02): everyone they may hand a follow-up
-    to (``follow_up_owners_for``), so someone outside the market's organization is never offered
-    its people."""
+    to, so someone outside the market's organization is never offered its people, whose role the
+    table's ``review-when-chosen`` row lets be chosen (``reviewer_candidate_ids``)."""
     people = []
-    for user_id in PermissionsApi.follow_up_owners_for(
-            market, organization, chooser.id if chooser else None):
+    for user_id in reviewer_candidate_ids(market, organization, chooser):
         user = UsersApi.get_user_by_id(user_id)
         if user:
             people.append(MarketPerson(user_id=user.id, email=user.email))
     return people
+
+
+def reviewer_candidate_ids(
+    market: Market, organization: Optional[Organization], chooser: Any,
+) -> List[str]:
+    """The user ids ``reviewer_candidates`` offers, looking nobody up: those this person may hand
+    a follow-up to (``follow_up_owners_for``) whom ``Actions.may_be_chosen`` lets be chosen."""
+    return [
+        user_id for user_id in PermissionsApi.follow_up_owners_for(
+            market, organization, chooser.id if chooser else None)
+        if Actions.may_be_chosen(user_id, market, organization)
+    ]
 
 
 REVIEWERS_SETTLED = (
@@ -2543,8 +2566,7 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
         raise BadRequestError(REVIEWERS_SETTLED)
     organization = _load_organization(market.organization_id)
     chooser = UsersApi.get_user(requesting_user)
-    offered = set(PermissionsApi.follow_up_owners_for(
-        market, organization, chooser.id if chooser else None))
+    offered = set(reviewer_candidate_ids(market, organization, chooser))
     current = {
         normalized_email(person.email): person for person in ReviewTeam.team_of(market).reviewers}
     chosen = []

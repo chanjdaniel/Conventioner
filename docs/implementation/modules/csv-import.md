@@ -94,6 +94,7 @@ An organizer's own column mapped to "From your sheet" replaces each imported ven
 
 **An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
 Then, with reviewers chosen, the route deals every row the import left open and undealt to the next reviewer in turn (`deal_arrivals` in [`back-end/review_team.py`](../../../back-end/review_team.py)), after the rules have judged and a first import has taken the market into Review, and records that as one `dealt` entry ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+A first import's reviewers are chosen on its preview step, whose confirm, when they changed, writes them through `PUT /markets/:id/reviewers` before it posts the import, so its rows are dealt this way from the first ([the import](../../business/flows/import.md#h2a-first-import-everything-maps)).
 
 ## Superseded
 

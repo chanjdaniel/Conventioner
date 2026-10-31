@@ -85,7 +85,8 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
 /**
  * Create a published market in the `applications` phase with an application
  * form and an Application document for the test applicant. A Google Form
- * market (`intakeMode: 'csv'`) is left a draft, ready for its first import.
+ * market (`intakeMode: 'csv'`) is left a draft, ready for its first import,
+ * and so is one asked for as a `draft`, ready to be opened from the rail.
  *
  * This is the minimum setup needed for the applicant login flow: the market
  * must be past `draft` so the public login endpoint can resolve it, and an
@@ -104,6 +105,7 @@ export async function seedApplicantMarket(
     setupObject?: Record<string, unknown>;
     intakeMode?: 'csv' | 'form';
     fields?: Record<string, unknown>[];
+    draft?: boolean;
   } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
@@ -144,7 +146,7 @@ export async function seedApplicantMarket(
 
   // A Google Form market stays a draft, ready for its first import, which is its way into Review
   // (E38/F04/S01); a market whose vendors apply on its page opens applications.
-  if ((options.intakeMode ?? 'form') === 'csv') {
+  if ((options.intakeMode ?? 'form') === 'csv' || options.draft) {
     return { marketId, marketName, marketSlug: marketNameToSlug(marketName), orgId };
   }
 

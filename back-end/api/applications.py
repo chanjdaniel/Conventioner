@@ -24,6 +24,7 @@ from datatypes import (
 )
 from db_config import get_database
 import essential_fields as EssentialFields
+from utils.email_address import normalized_email
 
 logger = logging.getLogger(__name__)
 
@@ -617,26 +618,36 @@ def holder_of(doc: Dict[str, Any], now: Optional[datetime] = None) -> Optional[D
 
 def claim_next_for_review(
     market_id: str, person: MarketPerson, after: Optional[str], include_follow_ups: bool,
-    now: Optional[datetime] = None, want: Optional[str] = None,
+    now: Optional[datetime] = None, want: Optional[str] = None, chosen: bool = False,
+    mine_only: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Hand ``person`` the next card to review, claimed for them, or None when every one left is
     held by someone else (E34/F03/S02).
 
     The next undecided application in arrival order after ``after`` - the one they move on from,
-    which comes round last - that nobody else holds. ``want`` is one they asked for by name (a link
-    to it), tried first. Taking it is conditioned on the claim it read, so two reviewers asking at
-    once are handed different cards. Their other claims are let go.
+    which comes round last, and keeps its place once a verdict takes it out of the queue - that
+    nobody else holds. For a ``chosen`` reviewer, their share (ADR 0020: those dealt to them, and
+    the follow-ups they own) comes first, each part in that order, and with ``mine_only`` nothing
+    else (E38/F07/S04); for anyone else ``mine_only`` means nothing. ``want`` is one they asked for
+    by name (a link to it), tried first. Taking it is conditioned on the claim it read, so two
+    reviewers asking at once are handed different cards. Their other claims are let go.
     """
     now = _now(now)
     statuses = UNDECIDED_STATUSES + (
         (ApplicationStatus.NEEDS_FOLLOW_UP.value,) if include_follow_ups else ())
     docs = list_applications_for_market(market_id)
-    queue = _in_arrival_order([doc for doc in docs if doc.get("status") in statuses])
-    ids = [doc["id"] for doc in queue]
-    start = ids.index(after) + 1 if after in ids else 0
-    order = queue[start:] + queue[:start]
-    if want in ids:
-        order = [queue[ids.index(want)]] + [doc for doc in order if doc["id"] != want]
+    arrived = _in_arrival_order(docs)
+    every = [doc["id"] for doc in arrived]
+    start = every.index(after) + 1 if after in every else 0
+    queue = [doc for doc in arrived[start:] + arrived[:start] if doc.get("status") in statuses]
+    order = queue
+    if chosen:
+        share = [doc for doc in queue if _in_share_of(doc, person)]
+        order = share if mine_only else share + [
+            doc for doc in queue if not _in_share_of(doc, person)]
+    wanted = [doc for doc in queue if doc["id"] == want]
+    if wanted:
+        order = wanted + [doc for doc in order if doc["id"] != want]
     mine = person.model_dump()
     for doc in order:
         holder = holder_of(doc, now)
@@ -654,6 +665,16 @@ def claim_next_for_review(
                 release_claim(other["id"], person)
         return find_application_by_id(doc["id"])
     return None
+
+
+def _in_share_of(doc: Dict[str, Any], person: MarketPerson) -> bool:
+    """Whether an application is in this person's share (ADR 0020), by address: dealt to them, or
+    a follow-up they own, wherever it was dealt, since a follow-up stays with whoever holds it."""
+    address = normalized_email(person.email)
+    if normalized_email((doc.get("reviewer") or {}).get("email") or "") == address:
+        return True
+    return (doc.get("status") == ApplicationStatus.NEEDS_FOLLOW_UP.value
+            and normalized_email((doc.get("follow_up_owner") or {}).get("email") or "") == address)
 
 
 def renew_claim(app_id: str, person: MarketPerson, now: Optional[datetime] = None) -> bool:

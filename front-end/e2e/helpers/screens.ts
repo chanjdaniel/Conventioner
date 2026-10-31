@@ -292,6 +292,16 @@ export const SCREENS: Screen[] = [
     open: at(setup('draft', 'applications'), 'market-tab-note'),
   },
   {
+    // Opening applications offers the reviewers in the same step (E38/F07/S02).
+    name: 'opening applications, choosing reviewers',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('draft', 'setup'), 'setup-dates-date-display-0', [
+      'phase-transition-applications',
+      'open-applications-window',
+    ]),
+  },
+  {
     name: 'a CSV draft, starting from a Google Form',
     who: 'organizer',
     sizes: ORGANIZER,
@@ -338,6 +348,39 @@ export const SCREENS: Screen[] = [
     open: at(setup('open', 'applications'), 'applications-all-tick', [
       'reviewers-change',
       'reviewers-dialog-window',
+    ]),
+  },
+  // The review divided between the organizer and another reviewer (E38/F07): the organizer lands
+  // on their share, which is all decided, and helps with the other's.
+  {
+    name: 'the review divided, my share at once',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('dealt', 'applications'), 'applications-all-assigned-to'),
+  },
+  {
+    name: "the review divided, another's application in the drawer",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      (seed) =>
+        `${setup('dealt', 'applications')(seed)}?reviewer=anyone&vendor=applicant0@example.com`,
+      'applications-all-drawer-dealt-warning',
+    ),
+  },
+  {
+    name: 'the review divided, my share done',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(oneByOne('dealt'), 'app-monitor-share-done'),
+  },
+  {
+    name: "the review divided, helping with another's share",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(oneByOne('dealt'), 'app-monitor-share-done', [
+      'app-monitor-help-others',
+      'app-monitor-dealt-warning',
     ]),
   },
   {

@@ -5,6 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
+  - front-end/src/components/market/OpenApplicationsDialog.vue
 verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/07
@@ -27,6 +28,7 @@ sources:
   - E38/F04
   - E38/F01/S01
   - T142
+  - E38/F07/S02
 ---
 
 # The phase rail
@@ -71,6 +73,9 @@ Only the one forward step is on the rail; every other move is in the "More…" m
 Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.
+"Open Applications" out of an own-form draft, for someone the table's Choose reviewers row lets choose (`offersReviewers`), opens [`OpenApplicationsDialog.vue`](../../../front-end/src/components/market/OpenApplicationsDialog.vue) instead: the reviewer picker, whose confirm saves the reviewers when the choice differs from the stored team (`sameTeam` in [`reviewTeam.ts`](../../../front-end/src/utils/reviewTeam.ts), which the first import's preview step uses alike) and then hands the move back to the rail ([taking applications](../../business/flows/taking-applications.md#h1-open-applications), [the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
+A save the server refuses keeps that dialog open with its error and makes no move; a move refused after a save re-reads the market, so the rail and a second try show the reviewers chosen.
+A Google Form market's way into the stage is its first import, so its rail offers no picker, and nor does it to someone who may move the phase but not choose reviewers.
 Someone the table's Move the phase row refuses (`mayTake(market, MarketAction.MovePhase)`, E39/F01/S02) is offered no move at all, and the rail still says where the market stands ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **A move lands on the guide's page for the phase entered**, in any direction (`landingPage`), and the router starts a new page at its top.

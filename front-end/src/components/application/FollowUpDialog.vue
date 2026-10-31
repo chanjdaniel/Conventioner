@@ -5,7 +5,8 @@
  * Who will reach out - the reviewer, unless they name someone else with a role on the market,
  * explicit or through its organization - and, if they like, what is needed. That is the vendor's
  * notes, where every surface reads them, so the box opens on the note already there: the reviewer
- * adds to it, and never writes over it unseen.
+ * adds to it, and never writes over it unseen. The box is offered only to someone the table lets
+ * write vendor notes: a chosen Viewer marks the follow-up without it (E38/F07/S03).
  * Nothing is sent to the owner.
  */
 import { ref, watch } from 'vue';
@@ -20,10 +21,13 @@ const props = defineProps<{
   me: string;
   /** The vendor's note as it stands, which the box opens on. */
   note?: string;
+  /** Whether this person may write the vendor's notes: the box is offered only then. */
+  writesNotes: boolean;
   error?: string;
 }>();
 
-const emit = defineEmits<{ close: []; confirm: [{ ownerEmail: string; note: string }] }>();
+/** What is needed rides along only when the box was offered. */
+const emit = defineEmits<{ close: []; confirm: [{ ownerEmail: string; note?: string }] }>();
 
 const owner = ref(props.me);
 const needed = ref('');
@@ -47,7 +51,12 @@ watch(
     confirm-label="Mark for follow-up"
     :error="error"
     @close="emit('close')"
-    @submit="emit('confirm', { ownerEmail: owner, note: needed.trim() })"
+    @submit="
+      emit(
+        'confirm',
+        writesNotes ? { ownerEmail: owner, note: needed.trim() } : { ownerEmail: owner },
+      )
+    "
   >
     <p class="follow-up-who">{{ applicantEmail }}'s application waits until someone reaches out.</p>
     <label class="follow-up-label" for="follow-up-owner">Who will follow up</label>
@@ -61,17 +70,19 @@ watch(
         {{ person === me ? `${person} (you)` : person }}
       </option>
     </select>
-    <label class="follow-up-label" for="follow-up-note"
-      >Their notes: what is needed (optional)</label
-    >
-    <textarea
-      id="follow-up-note"
-      v-model="needed"
-      class="field"
-      rows="3"
-      data-testid="follow-up-note"
-      placeholder="Kept in their notes"
-    ></textarea>
+    <template v-if="writesNotes">
+      <label class="follow-up-label" for="follow-up-note"
+        >Their notes: what is needed (optional)</label
+      >
+      <textarea
+        id="follow-up-note"
+        v-model="needed"
+        class="field"
+        rows="3"
+        data-testid="follow-up-note"
+        placeholder="Kept in their notes"
+      ></textarea>
+    </template>
   </AppDialog>
 </template>
 

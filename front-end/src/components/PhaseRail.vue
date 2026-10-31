@@ -38,6 +38,7 @@ import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useScrollsSideways } from '@/utils/useScrollsSideways';
 import AppDialog from '@/components/AppDialog.vue';
+import OpenApplicationsDialog from '@/components/market/OpenApplicationsDialog.vue';
 import { marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
@@ -386,6 +387,18 @@ function directionOf(toPhase: string): string {
 
 const showingArchiveConfirm = ref(false);
 const showingPublishConfirm = ref(false);
+/**
+ * Opening applications on a market whose vendors apply on its own page offers the reviewers first
+ * (E38/F07/S02), to someone who may choose them. A Google Form market's way into the stage is its
+ * first import, which offers them there, so its rail is unchanged.
+ */
+const showingOpenApplications = ref(false);
+const offersReviewers = computed(
+  () =>
+    currentPhase.value === MarketPhase.Draft &&
+    path.value === IntakeMode.Form &&
+    mayTake(props.market, MarketAction.ChooseReviewers),
+);
 
 /**
  * Modal: the page behind goes out of the tab order, not just out of reach of the mouse.
@@ -399,8 +412,9 @@ const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
 const transitioning = ref(false);
 
-async function doTransition(toPhase: string) {
-  if (!props.market) return;
+/** Answers whether the server made the move. */
+async function doTransition(toPhase: string): Promise<boolean> {
+  if (!props.market) return false;
   transitioning.value = true;
   transitionError.value = '';
   transitionBlockers.value = [];
@@ -430,7 +444,7 @@ async function doTransition(toPhase: string) {
     } else {
       transitionError.value = response?.data?.error || 'Failed to advance market phase.';
     }
-    return;
+    return false;
   } finally {
     transitioning.value = false;
   }
@@ -446,6 +460,7 @@ async function doTransition(toPhase: string) {
   await router.push(
     marketPath(props.market.id, landingPage(toPhase, hasAssignment(moved), path.value)),
   );
+  return true;
 }
 
 /**
@@ -485,6 +500,10 @@ function handleTransitionClick(toPhase: string) {
   // to whatever held it as it opened.
   if (menuOpen.value) menuButton.value?.focus();
   menuOpen.value = false;
+  if (toPhase === MarketPhase.Applications && offersReviewers.value) {
+    showingOpenApplications.value = true;
+    return;
+  }
   if (!transitionNeedsConfirmation(toPhase)) {
     doTransition(toPhase);
     return;
@@ -498,6 +517,16 @@ function confirmPending() {
   showingPublishConfirm.value = false;
   showingArchiveConfirm.value = false;
   doTransition(pendingPhase.value);
+}
+
+/**
+ * The reviewers are as ticked, so the move goes ahead. One refused after a write leaves them chosen,
+ * and the market is read again so the rail and a second try show them.
+ */
+async function openApplications(wrote: boolean) {
+  showingOpenApplications.value = false;
+  const moved = await doTransition(MarketPhase.Applications);
+  if (!moved && wrote) await marketStore.refresh();
 }
 
 function cancelPending() {
@@ -706,6 +735,14 @@ function cancelPending() {
   </div>
 
   <Teleport to="body">
+    <OpenApplicationsDialog
+      :open="showingOpenApplications"
+      :market="market"
+      :moving="transitioning"
+      @close="showingOpenApplications = false"
+      @chosen="openApplications"
+    />
+
     <!-- Publishing. It asked "Begin Market Days? No offers are pending", counted from an endpoint
          whose answer is always 0 because offers are out of MVP scope: a dialog answering a
          question the organizer never asked, about a feature the product does not have. -->

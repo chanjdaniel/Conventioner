@@ -3,6 +3,7 @@ import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/see
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
+import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
 
 /**
  * Every market screen shows the market as the server last reported it (E21/F02).
@@ -91,7 +92,8 @@ test.describe('One market, from the server', () => {
     await expect(addField).toBeEnabled({ timeout: 15000 });
     await expect(lockBanner).toHaveCount(0);
 
-    await page.getByTestId('phase-transition-applications').click();
+    // Opening offers the reviewers first (E38/F07/S02); no one chosen opens as before.
+    await new OpenApplicationsDialog(page).openWith();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });

@@ -21,6 +21,7 @@ export const MarketAction = {
   GiveVerdicts: 'give-verdicts',
   ChangeVerdicts: 'change-verdicts',
   ChooseReviewers: 'choose-reviewers',
+  ReviewWhenChosen: 'review-when-chosen',
   MovePhase: 'move-phase',
   StopApplications: 'stop-applications',
   PublishResults: 'publish-results',

@@ -14,6 +14,9 @@
  * what is on screen, since the approved set is the solver's entire input (`assign_market` reads
  * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
+ * With reviewers chosen, the card names whose share it is, and deciding someone else's says so above
+ * the verdicts (E38/F07/S03). A chosen reviewer is handed their own share first, and once it is done
+ * is offered the rest (E38/F07/S04).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -40,6 +43,14 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
+import {
+  dealtElsewhere,
+  dealtWarning,
+  isChosen,
+  myShare,
+  othersLeftLine,
+  reviewerLine,
+} from '@/utils/reviewers';
 import { useMarketStore } from '@/stores/market';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
@@ -99,10 +110,15 @@ const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.
  * on - it may have left the queue, and the reviewer is owed the sight of what happened to it.
  */
 const refusedOn = ref<string | null>(null);
+/**
+ * The last hand-out answered with nothing (E34/F03/S02): no card is up for a reviewer, and the card
+ * area says why - every one left is open with someone else, or their share is done (E38/F07/S04).
+ */
+const handedNothing = ref(false);
 const current = computed<Application | undefined>(
   () =>
     (refusedOn.value ? applications.value.find((a) => a.id === refusedOn.value) : undefined) ??
-    undecided.value[cursor.value],
+    (handedNothing.value && decides.value ? undefined : undecided.value[cursor.value]),
 );
 /**
  * Changed from HERE, not only from the form builder (E19/F03/S02).
@@ -192,6 +208,49 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, adopt } = verdicts;
+/** Whose share the card is, while reviewers are chosen (E38/F07/S03). */
+const currentReviewer = computed(() =>
+  current.value ? reviewerLine(current.value, me.value, props.market) : null,
+);
+/** The reviewer an undecided card is dealt to, when not this person, for someone who decides it. */
+const currentDealtElsewhere = computed(() =>
+  current.value && decidesCurrent.value
+    ? dealtElsewhere(current.value, me.value, props.market)
+    : null,
+);
+/**
+ * A chosen reviewer who decides is handed their own share first (E38/F07/S04): what is left of it,
+ * and the rest of the queue. Anyone else, or everyone with nobody chosen, walks the whole queue.
+ */
+const sharing = computed(() => decides.value && isChosen(me.value, props.market));
+const share = computed(() =>
+  sharing.value ? myShare(undecided.value, me.value, props.market) : [],
+);
+const others = computed(() => undecided.value.filter((app) => !share.value.includes(app)));
+/** Pressed "Help with the others": the hand-out goes on past their share. Entering forgets it. */
+const helping = ref(false);
+/** Asking for the share alone, until the reviewer chooses to help with the rest. */
+const mineOnly = computed(() => sharing.value && !helping.value);
+/** What the reviewer walks now: their share, or the whole queue. */
+const walked = computed(() => (mineOnly.value ? share.value : undecided.value));
+/** Their share has nothing left to decide and others' do: said so, with the offer to help. */
+const shareDone = computed(
+  () => mineOnly.value && handedNothing.value && !share.value.length && others.value.length > 0,
+);
+/** Where the card up is in what the reviewer walks, or how many are left with none up. */
+const progress = computed(() => {
+  const card = current.value;
+  if (!undecided.value.length) return null;
+  if (!card && mineOnly.value && share.value.length) return `${share.value.length} in your share`;
+  if (!card) return `${undecided.value.length} to review`;
+  const inShare = share.value.findIndex((app) => app.id === card.id);
+  if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
+  const inRest = others.value.findIndex((app) => app.id === card.id);
+  return inRest >= 0
+    ? `${inRest + 1} of ${others.value.length} to review`
+    : `${cursor.value + 1} of ${undecided.value.length} to review`;
+});
+
 /**
  * Whom the card's "Followed up by" offers: the people a follow-up can be handed to, led by its
  * recorded owner when they are not among them (T15). An Editor from outside the organization is
@@ -208,12 +267,22 @@ const ownerChoices = computed(() => {
  * cards. Someone who may only read walks the queue here, as before, holding nothing.
  */
 const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
-/** Every card left is open with another reviewer: there is nothing to hand out right now. */
-const allHeldElsewhere = ref(false);
+/** Every card left - of their share, while on it - is open with another reviewer. */
+const allHeldElsewhere = computed(
+  () => handedNothing.value && !shareDone.value && walked.value.length > 0,
+);
 /** Who holds the cards nobody can be handed, for the line that says so. */
 const holders = computed(() => [
-  ...new Set(undecided.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
+  ...new Set(walked.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
 ]);
+// Taking the follow-ups into the walk, or leaving them out, changes what can be handed out: with no
+// card up, or the one held left out of the queue, the reviewer is handed the next.
+watch(includeFollowUps, () => {
+  const held = claims.held.value;
+  const heldLeftOut = held !== null && !undecided.value.some((app) => app.id === held);
+  if (decides.value && (handedNothing.value || heldLeftOut)) void takeNext(held);
+});
+
 /** Someone else has the card on screen open: a reader's walk passes cards being decided. */
 const heldByOther = computed(() => {
   const holder = current.value?.heldBy?.email;
@@ -231,10 +300,12 @@ let handing = 0;
 let loads = 0;
 
 // Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
-// re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
-// and reloading on each would put the reviewer back on the first card mid-queue.
+// re-reads this one. It re-reads after every write now (E21/F02/S02), a verdict and a highlight
+// toggle included, and reloading on each would put the reviewer back on the first card mid-queue.
+// Two sources, each compared on its own: one getter answering a new array each time would fire on
+// every re-read.
 watch(
-  () => [props.visible, props.market?.id] as const,
+  [() => props.visible, () => props.market?.id],
   async ([visible]) => {
     if (visible && props.market) await loadApplications();
     // Leaving the review lets the held card go at once, not five minutes later.
@@ -272,14 +343,14 @@ async function takeNext(after: string | null, want: string | null = null) {
   }
   const mine = ++handing;
   try {
-    const app = await claims.next(after, includeFollowUps.value, want);
+    const app = await claims.next(after, includeFollowUps.value, want, mineOnly.value);
     // Overtaken by a later hand-out, or the review was left: its card is not the one to put up.
     if (app === undefined) return;
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else await read();
     if (mine !== handing) return;
-    allHeldElsewhere.value = !app && undecided.value.length > 0;
+    handedNothing.value = !app;
     cursor.value = app
       ? Math.max(
           undecided.value.findIndex((a) => a.id === app.id),
@@ -290,6 +361,12 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
   }
+}
+
+/** "Help with the others": on past the reviewer's done share, through the rest (E38/F07/S04). */
+function helpOthers() {
+  helping.value = true;
+  void takeNext(null);
 }
 
 /**
@@ -311,6 +388,7 @@ async function loadApplications() {
   const mine = ++loads;
   loading.value = true;
   errorMessage.value = '';
+  helping.value = false;
   try {
     await read();
     if (mine !== loads) return;
@@ -359,12 +437,13 @@ async function refresh() {
 /**
  * After a verdict, a follow-up or a refusal: what the card does next. Only the card on screen moves
  * the queue on - correcting a past verdict in the reviewed list leaves the reviewer where they were.
+ * Whether it was on the card is read before the verdict is written: the answer leaves the queue,
+ * and the card up moves with it.
  *
  * The local list is kept in step with the answer rather than refetched: a refetch per verdict is 232
  * fetches of 232 applications across one review session.
  */
-async function settle(app: Application, outcome: VerdictOutcome) {
-  const onCard = app.id === current.value?.id || app.id === refusedOn.value;
+async function settle(app: Application, outcome: VerdictOutcome, onCard: boolean) {
   if (outcome.kind === 'failed') {
     errorMessage.value = outcome.message;
     return;
@@ -385,12 +464,18 @@ async function settle(app: Application, outcome: VerdictOutcome) {
   }
 }
 
+/** Whether this application is the card on screen, or the one a verdict was refused for. */
+function isUp(app: Application): boolean {
+  return app.id === current.value?.id || app.id === refusedOn.value;
+}
+
 async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
   saving.value = true;
   errorMessage.value = '';
+  const onCard = isUp(app);
   try {
-    await settle(app, await verdicts.give(app, status));
+    await settle(app, await verdicts.give(app, status), onCard);
   } finally {
     saving.value = false;
   }
@@ -412,7 +497,7 @@ function next() {
     void takeNext(after);
     return;
   }
-  if (undecided.value.length === 0 && !allHeldElsewhere.value) return;
+  if (undecided.value.length === 0 && !handedNothing.value) return;
   void takeNext(current.value?.id ?? null);
 }
 
@@ -424,11 +509,12 @@ function next() {
 const followUpOpen = ref(false);
 const followUpError = ref('');
 
-async function markFollowUp(choice: { ownerEmail: string; note: string }) {
+async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const app = current.value;
   if (!app || saving.value) return;
   followUpError.value = '';
   saving.value = true;
+  const onCard = isUp(app);
   try {
     const outcome = await verdicts.markFollowUp(
       app,
@@ -441,7 +527,7 @@ async function markFollowUp(choice: { ownerEmail: string; note: string }) {
       return;
     }
     followUpOpen.value = false;
-    await settle(app, outcome);
+    await settle(app, outcome, onCard);
   } finally {
     saving.value = false;
   }
@@ -539,9 +625,7 @@ function submittedOn(app: Application): string {
     <template v-else>
       <div class="progress-row">
         <span class="progress" data-testid="app-monitor-progress">
-          <template v-if="undecided.length">
-            {{ cursor + 1 }} of {{ undecided.length }} to review
-          </template>
+          <template v-if="progress">{{ progress }}</template>
           <template v-else-if="followingUp.length">Nothing else waiting</template>
           <template v-else>All {{ applications.length }} reviewed</template>
         </span>
@@ -582,6 +666,9 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
+        <p v-if="currentReviewer" class="card-reviewer" data-testid="app-monitor-reviewer">
+          {{ currentReviewer }}
+        </p>
         <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
         <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
           {{ heldByOther }} is looking at this.
@@ -698,6 +785,14 @@ function submittedOn(app: Application): string {
         >
           {{ changeRefusal }}
         </p>
+        <!-- On every such card, never a dialog to click through: a helper reads whose each one is. -->
+        <p
+          v-if="currentDealtElsewhere"
+          class="dealt-warning"
+          data-testid="app-monitor-dealt-warning"
+        >
+          {{ dealtWarning(currentDealtElsewhere) }}
+        </p>
         <div class="card-actions">
           <button
             v-if="decidesCurrent"
@@ -719,7 +814,7 @@ function submittedOn(app: Application): string {
           </button>
           <button
             class="btn btn--secondary"
-            :disabled="saving || (!refusedOn && undecided.length < 2)"
+            :disabled="saving || (!refusedOn && walked.length < 2)"
             @click="next"
             data-testid="app-monitor-next-button"
           >
@@ -737,11 +832,25 @@ function submittedOn(app: Application): string {
         </div>
       </div>
 
+      <!-- The reviewer's share is decided: the rest are others', theirs to help with (E38/F07/S04). -->
+      <div v-else-if="shareDone" class="done-state" data-testid="app-monitor-share-done">
+        <p class="share-done">Your share is done.</p>
+        <p data-testid="app-monitor-share-done-others">{{ othersLeftLine(others.length) }}</p>
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="app-monitor-help-others"
+          @click="helpOthers"
+        >
+          Help with the others
+        </button>
+      </div>
+
       <!-- Nothing to hand out: every card left is open with someone else (E34/F03/S02). -->
       <div v-else-if="allHeldElsewhere" class="done-state" data-testid="app-monitor-all-held">
         <p>
-          Every application left is open with another reviewer<template v-if="holders.length"
-            >: {{ holders.join(', ') }}</template
+          Every application left{{ mineOnly ? ' in your share' : '' }} is open with another
+          reviewer<template v-if="holders.length">: {{ holders.join(', ') }}</template
           >.
         </p>
         <button
@@ -768,6 +877,7 @@ function submittedOn(app: Application): string {
         :people="people"
         :me="me"
         :note="current ? (entryFor(current.applicantEmail)?.note ?? '') : ''"
+        :writesNotes="writesNotes"
         :error="followUpError"
         @close="followUpOpen = false"
         @confirm="markFollowUp"
@@ -865,6 +975,17 @@ function submittedOn(app: Application): string {
   font-size: var(--text-sm);
 }
 
+/* A state that offers something to do: its lines, then the button, set apart. */
+.done-state .btn {
+  margin-top: var(--space-4);
+}
+
+/* What the reviewer has finished, said first and plainly; what is left reads under it. */
+.share-done {
+  color: var(--mm-black);
+  font-weight: 600;
+}
+
 .error-state {
   color: var(--mm-red);
   font-size: var(--text-sm);
@@ -942,6 +1063,26 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-yellow-on-tint);
 }
 
+/* Whose share the card is (E38/F07/S03): a quiet fact under its status. */
+.card-reviewer {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+  overflow-wrap: anywhere;
+}
+
+/* Deciding someone else's share (E38/F07/S03): a notice right above the verdicts. */
+.dealt-warning {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  font-size: var(--text-sm);
+  color: var(--mm-text-yellow-on-tint);
+  overflow-wrap: anywhere;
+}
+
 .changed-since .verdict-giver {
   color: inherit;
 }
@@ -964,10 +1105,12 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-muted-on-beige);
 }
 
+/* Beside the tally, so it stays put whatever the progress line says. */
 .include-follow-ups {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto;
   font-size: var(--text-xs);
   color: var(--mm-black);
 }
