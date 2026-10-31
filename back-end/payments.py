@@ -332,7 +332,7 @@ def market_summary(
     A payment is a vendor's, never a day's, so what a vendor paid is shared across their table-days
     in proportion to what each owes, or evenly where they owe nothing, and each day's share counts
     toward its tier and its date; what a vendor with no line paid is counted apart, under neither
-    (``None``). A vendor's days are all owing or all paid more, so the still owed and the paid more
+    (``None``), and only where it is not nothing. A vendor's days are all owing or all paid more, so the still owed and the paid more
     of every breakdown add up to the market's, which are each vendor's own, summed.
     """
     vendors: List[Dict[str, Any]] = []
@@ -353,7 +353,9 @@ def market_summary(
         add(totals, held["owedCents"], held["paidCents"])
         owed = [line["owedCents"] or 0 for line in held["lines"]]
         if not owed:
-            parts = [(None, None, 0, held["paidCents"])]
+            # A vendor with no line whose payments came to nothing (one removed, or a refund
+            # matching it) is listed, but adds no "No table" row of noughts to the breakdowns.
+            parts = [(None, None, 0, held["paidCents"])] if held["paidCents"] else []
         else:
             paid = shares(held["paidCents"], owed if sum(owed) else [1] * len(owed))
             parts = [((line["tier"] or "").strip() or None, line["date"], cents, share)

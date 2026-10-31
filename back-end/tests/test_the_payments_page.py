@@ -127,6 +127,18 @@ class TestTheTotals:
             (None, 0, 1000, 0, 1000),
         ]
 
+    def test_a_vendor_with_no_table_whose_payment_was_removed_adds_no_row(
+            self, market, market_records):
+        # Dee is still listed, owing and paying nothing, but a "No table" row of four $0 figures
+        # would be noise in both breakdowns.
+        entry = next(doc for doc in market_records.payments.documents if doc["vendor_email"] == DEE)
+        PaymentsApi.remove_payment(MARKET, entry["id"], EDITOR)
+
+        got = page()
+        assert DEE in [v["email"] for v in got["vendors"]]
+        assert [row["tier"] for row in got["byTier"]] == ["Gold", "Silver"]
+        assert [row["date"] for row in got["byDate"]] == [SAT, SUN]
+
     def test_each_breakdown_adds_up_to_the_totals(self, market):
         got = page()
         for breakdown in ("byTier", "byDate"):
