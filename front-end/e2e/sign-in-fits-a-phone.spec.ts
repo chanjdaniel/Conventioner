@@ -175,9 +175,11 @@ test.describe('signing in on a phone', () => {
   }) => {
     const release = await signInHolding(page);
     const before = await marketsTile(page);
+    const count = page.getByTestId('dashboard-has-markets');
+    // The answer is held: were it not, the boxes would match without testing anything.
+    await expect(count, 'the count waits for the held answer').toBeHidden();
     release();
 
-    const count = page.getByTestId('dashboard-has-markets');
     await expect(count).toBeVisible();
     expect(await marketsTile(page), 'the tiles hold still as the count arrives').toEqual(before);
     await expectTheDashboardFits(page, count, 'the count');
@@ -199,9 +201,10 @@ test.describe('signing in on a phone', () => {
 
     const release = await signInHolding(page);
     const before = await marketsTile(page);
+    const card = page.getByTestId('dashboard-last-market-card');
+    await expect(card, 'the card waits for the held answer').toBeHidden();
     release();
 
-    const card = page.getByTestId('dashboard-last-market-card');
     await expect(card).toBeVisible();
     expect(await marketsTile(page), 'the tiles hold still as the card arrives').toEqual(before);
     await expectTheDashboardFits(page, card, "the remembered market's card");
@@ -209,15 +212,35 @@ test.describe('signing in on a phone', () => {
 });
 
 // Between a phone and a desk, the dashboard's column narrows with the window rather than holding
-// a desk's width (T148).
+// a desk's width, and keeps a gutter at each side: at 680px its card and tiles touched the window's
+// edges (T148).
 test('the dashboard fits a window between a phone and a desk', async ({
   authenticatedPage: page,
 }) => {
-  await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto('/dashboard');
-  await expect(page.getByTestId('dashboard-has-markets')).toBeVisible();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow, 'the dashboard scrolls sideways at 768px').toBeLessThanOrEqual(0);
+  const count = page.getByTestId('dashboard-has-markets');
+  for (const { width, height } of [
+    { width: 768, height: 1024 },
+    { width: 700, height: 900 },
+  ]) {
+    await page.setViewportSize({ width, height });
+    await expect(count).toBeVisible();
+    const window = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      `the dashboard scrolls sideways at ${width}px`,
+    ).toBeLessThanOrEqual(window);
+    for (const [testid, what] of [
+      ['dashboard-has-markets', 'the count'],
+      ['dashboard-markets-button', 'the Markets tile'],
+      ['dashboard-organizations-button', 'the Organizations tile'],
+    ]) {
+      const box = (await page.getByTestId(testid).boundingBox())!;
+      expect(box.x, `at ${width}px ${what} keeps a gutter at its left`).toBeGreaterThanOrEqual(16);
+      expect(
+        box.x + box.width,
+        `at ${width}px ${what} keeps a gutter at its right`,
+      ).toBeLessThanOrEqual(window - 16);
+    }
+  }
 });

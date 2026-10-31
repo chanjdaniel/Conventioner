@@ -219,6 +219,10 @@ const handleSignOut = async () => {
   height: 100%;
   width: 100%;
   margin: 0;
+  /* The column keeps a gutter at each side wherever the window is narrower than it, as `/markets`
+     does; at 680px its card and tiles touched the window's edges. A desk's 716px column is centred
+     well inside it (T148). */
+  padding-inline: var(--space-4);
 }
 
 .main-buttons {
@@ -226,7 +230,8 @@ const handleSignOut = async () => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-6);
-  /* The column: a desk's 716px, or the window's width where that is narrower (T148). */
+  /* The column: a desk's 716px, or the window's width less the view's gutter where that is
+     narrower (T148). */
   width: 100%;
   max-width: 716px;
 }
@@ -404,13 +409,8 @@ h4 {
   max-width: 716px;
 }
 
-/* On a phone the column keeps a gutter at each side, as `/markets` does, and the tiles' gap and the
-   sentence card's padding narrow with it (T148). */
+/* On a phone the tiles' gap and the sentence card's padding narrow with the column (T148). */
 @media (width <= 640px) {
-  .dashboard-view {
-    padding-inline: var(--space-4);
-  }
-
   .button-row {
     gap: var(--space-4);
   }
