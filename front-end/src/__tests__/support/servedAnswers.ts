@@ -14,13 +14,14 @@ export function answersRefusing(...refused: MarketAction[]): Record<string, stri
   );
 }
 
-/** What a Viewer is served by the built-in table: reading and exporting, nothing else. */
+/** What a Viewer is served by the built-in table: reading, exporting and being chosen as a reviewer. */
 export const VIEWER_ANSWERS = answersRefusing(
   ...Object.values(MarketAction).filter(
     (action) =>
       action !== MarketAction.Read &&
       action !== MarketAction.ReadHistory &&
-      action !== MarketAction.ExportCsv,
+      action !== MarketAction.ExportCsv &&
+      action !== MarketAction.ReviewWhenChosen,
   ),
 );
 
