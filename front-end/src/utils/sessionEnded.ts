@@ -8,7 +8,8 @@ import { loginAddress } from '@/utils/signInNext';
  * signing in returns there (E38/F11/S01). `ended` says the session ended under the organizer, which
  * the sign-in page tells them.
  *
- * What is forgotten is what signing out forgets: the stored user and the open market.
+ * What is forgotten is what signing out forgets: `localStorage`, the stored user with it, and the
+ * open market.
  */
 export function endSession(router: Router, { ended }: { ended: boolean }): void {
   const here = router.currentRoute.value;

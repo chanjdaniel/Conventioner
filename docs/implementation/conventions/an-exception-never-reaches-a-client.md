@@ -243,7 +243,7 @@ What breaks it: a route `except` that answers what it caught, a library's messag
 ## What the organizer reads
 
 The client half: the generic 500 body is for the log and for support, and never reaches a screen (E38/F11/S01).
-Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err, fallback)` in [`front-end/src/utils/api.ts`](../../../front-end/src/utils/api.ts), which every screen's catch calls with its own fallback.
+Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err, fallback)` in [`front-end/src/utils/api.ts`](../../../front-end/src/utils/api.ts), which the organizer's screens call with a fallback of their own; a line that says something narrower, such as a refresh that keeps the list it had, words itself.
 
 | The failure | What the screen says |
 | --- | --- |
@@ -265,7 +265,7 @@ Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.
 It clears `localStorage` and the market store, as signing out does, and goes to `/login?next=<the page's full path>&ended=1`, where the sign-in page says "Your session has ended. Sign in again.".
-It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, the same way) and from any `/public/...` request, since the applicant's and the door's pages have their own sign-in, and any 401 while the page is public.
+It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself: it goes to sign in carrying the page, with `ended=1` on a 401) and from any `/public/...` request, which carries no organizer session (the applicant signs in on their own pages, and the door's check-in needs no sign-in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
 
 **A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/dashboard`; so does a signed-in visit to `/login?next=`.

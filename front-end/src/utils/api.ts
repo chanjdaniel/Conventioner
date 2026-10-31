@@ -73,7 +73,7 @@ export function getApiErrorStatus(err: unknown): number | null {
 /**
  * The requests whose 401 is not a session that ended: signing in, whose 401 is a wrong password or
  * code; the shell's session probe, which answers for itself; and every applicant and door request
- * (`/public/...`), whose pages have their own sign-in.
+ * (`/public/...`), which carries no organizer session: the applicant signs in on their own pages.
  */
 const SIGN_IN_PATHS = new Set(['/login', '/login-otp', '/request-otp', '/register', '/logout']);
 const SESSION_PROBE_PATH = '/check-session';
