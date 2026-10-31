@@ -152,7 +152,7 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.
    A reader who decides nothing sees the reviewer's name only, and with no reviewers chosen none of it shows.
 8. Each chosen reviewer lands on their own share: the All view opens on "Assigned to: Me", and anyone else's share, or everyone's, is a choice of the same filter away ([the All view](#the-all-view)).
-9. One by one hands a chosen reviewer who decides their own share first, in arrival order, and once it is empty says so and offers the rest with "Help with the others" (I1); when what is left of it is open with someone else, it says that instead.
+9. One by one hands a chosen reviewer who decides their own share first, in arrival order, and once it is empty says so and offers the rest with "Help with the others" (I1); when what is left of it is open with someone else, it says that instead, under "N in your share": "Every application left in your share is open with another reviewer: …".
    Anyone else, or everyone with no reviewers chosen, walks the whole queue.
 
 ## I3. Choose what leads the card

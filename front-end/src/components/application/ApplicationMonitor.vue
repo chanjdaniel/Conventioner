@@ -241,6 +241,7 @@ const shareDone = computed(
 const progress = computed(() => {
   const card = current.value;
   if (!undecided.value.length) return null;
+  if (!card && mineOnly.value && share.value.length) return `${share.value.length} in your share`;
   if (!card) return `${undecided.value.length} to review`;
   const inShare = share.value.findIndex((app) => app.id === card.id);
   if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
@@ -848,8 +849,8 @@ function submittedOn(app: Application): string {
       <!-- Nothing to hand out: every card left is open with someone else (E34/F03/S02). -->
       <div v-else-if="allHeldElsewhere" class="done-state" data-testid="app-monitor-all-held">
         <p>
-          Every application left is open with another reviewer<template v-if="holders.length"
-            >: {{ holders.join(', ') }}</template
+          Every application left{{ mineOnly ? ' in your share' : '' }} is open with another
+          reviewer<template v-if="holders.length">: {{ holders.join(', ') }}</template
           >.
         </p>
         <button
@@ -1104,10 +1105,12 @@ function submittedOn(app: Application): string {
   color: var(--mm-text-muted-on-beige);
 }
 
+/* Beside the tally, so it stays put whatever the progress line says. */
 .include-follow-ups {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto;
   font-size: var(--text-xs);
   color: var(--mm-black);
 }

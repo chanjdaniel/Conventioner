@@ -220,8 +220,9 @@ describe('a chosen reviewer', () => {
 
     expect(wrapper.find('[data-testid="app-monitor-card"]').exists()).toBe(false);
     expect(text(wrapper, 'app-monitor-all-held')).toContain(
-      `Every application left is open with another reviewer: ${SAM}.`,
+      `Every application left in your share is open with another reviewer: ${SAM}.`,
     );
+    expect(text(wrapper, 'app-monitor-progress')).toBe('1 in your share');
     expect(wrapper.find('[data-testid="app-monitor-share-done"]').exists()).toBe(false);
   });
 
