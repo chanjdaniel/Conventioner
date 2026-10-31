@@ -15,7 +15,7 @@ describes:
   - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E21/F02/S02
   - E22/F04/S02
@@ -29,6 +29,7 @@ sources:
   - T75
   - E38/F05/S01
   - T121
+  - T161
 ---
 
 # E2E patterns
@@ -42,6 +43,7 @@ How to run the suite is [TESTING.md](../../TESTING.md#end-to-end-e2e-tests); the
 Adding a `data-testid` changes no behaviour; a view gains them as specs need them.
 
 **A page object wraps one screen** ([`front-end/e2e/pages/`](../../../front-end/e2e/pages/)): it holds `getByTestId()` locators and exposes action methods, and a spec calls those methods rather than reaching for locators of its own.
+`LoginPage.login` opens a bare `/login` first; `signIn` signs in on the page as it stands, so a spec about where signing in returns to keeps the address's `next`.
 A new page follows the existing ones (`LoginPage`, `MarketsPage`, `NewMarketPage`, `MarketSetupPage`, `ResultPage`, `OrganizationsPage`, `ManageMarketPage`); TESTING.md lists them all.
 `MarketSetupPage` holds more than the plan: the market's tabs and the phase rail are there too, because every market page stands in the same frame.
 
@@ -96,6 +98,9 @@ That, the self-signed certificate and the other suite-wide traps are TESTING.md'
 A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
 `global-setup.ts` waits until the host's newest container interface (`veth`, `br-` or `docker`, aged by its `/sys/class/net` entry) is 20 seconds old ([`networkSettles.ts`](../../../front-end/e2e/helpers/networkSettles.ts)), and prints how long; a settled host, or one with no such interface, waits for nothing.
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
+
+**A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
+`context.clearCookies()` did not end it: the requests after it still answered 200 ([`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts)).
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
