@@ -204,6 +204,9 @@ class TestUpdatingAPriceAnswerIsAnAdmins:
         {"affiliation": [STUDENT]},
         {"clubs": CLUBS},
         {"affiliation": [STUDENT], "business": "Ember & Co"},
+        # Refused before it is judged: told the row, not what is wrong with the answer.
+        {"affiliation": ["Visiting scholar"]},
+        {"business": "Ember & Co", "clubs": "not a list"},
     ])
     def test_an_editor_is_refused_with_the_rows_sentence(self, updating, answers, market_records):
         applications = updating(MarketRole.EDITOR)

@@ -13,7 +13,7 @@ reader does, so the next run uses it, and an assignment already made reads as ou
 answer a price group reads asks the same row (E43/F01/S03), and the prices read the update too.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import api.applicants as ApplicantsApi
 import api.applications as ApplicationsApi
@@ -53,6 +53,8 @@ def update_vendor_info(
                                              if market.application_form else [])}
     theirs = doc.get("form_data") or {}
     before = ApplicationsApi.effective_answers(doc)
+    _assert_may_update_what_the_assignment_or_prices_read(
+        market, [str(key) for key in answers], updater)
     essential: Dict[str, Any] = {}
     values: Dict[str, Any] = {}
     for key, raw in answers.items():
@@ -67,7 +69,6 @@ def update_vendor_info(
         if error:
             raise BadRequestError(error)
         values[key] = value
-    _assert_may_update_what_the_assignment_or_prices_read(market, essential, values, updater)
     if essential:
         error, stored = EssentialFields.validated_essential_update(
             before, essential, EssentialFields.effective_essential_options_for_market(market),
@@ -137,15 +138,15 @@ def update_vendor_info(
 
 
 def _assert_may_update_what_the_assignment_or_prices_read(
-    market: Market, essential: Dict[str, Any], values: Dict[str, Any], updater: MarketPerson,
+    market: Market, asked: List[str], updater: MarketPerson,
 ) -> None:
-    """An answer the assignment or a price group reads asks its own row as well, before an
-    essential answer is judged: whoever may not update it is told so rather than what is wrong with
-    the answer."""
-    written = {key for question in essential
-               for key in EssentialFields.UPDATABLE_ESSENTIAL_QUESTIONS[question]}
+    """An answer the assignment or a price group reads asks its own row as well, decided from the
+    questions asked before any answer is judged: whoever may not update it is told so rather than
+    what is wrong with the answer."""
+    written = {key for question in asked
+               for key in EssentialFields.UPDATABLE_ESSENTIAL_QUESTIONS.get(question, ())}
     if not (written & set(EssentialFields.SOLVER_RELEVANT_KEYS)
-            or values.keys() & set(Pricing.Groups(market).keys())):
+            or set(asked) & set(Pricing.Groups(market).keys())):
         return
     refused = Actions.refusal(
         Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO, updater.email, market,
