@@ -8,7 +8,7 @@ describes:
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01
@@ -27,12 +27,13 @@ sources:
   - E38/F01/S01
   - E38/F08/S01
   - E46/F01/S02
+  - T142
 ---
 
 # The market frame
 
-Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app banner while the page scrolls.
-Three layers are pinned, the app banner, the bar and the rail, about 150px at 1920x1080, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
+Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app banner while the page scrolls on a desk; on a phone only the bar does.
+On a desk three layers are pinned, the app banner, the bar and the rail, about 150px at 1920x1080, a cost accepted for always seeing where the market is; and every screen that carries the rail carries the frame, since a frame pinned on one market screen and scrolling away on the next is the inconsistency it exists to remove.
 The import, floorplan and start-from-CSV flows stand in it too.
 A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
 
@@ -44,7 +45,7 @@ A screen hands it the market from [the market store](market-store.md) and render
   A CSV market's form tab is called "Questions".
 - **The rail**, under the bar, once the market is in hand.
 - **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments and Vendors.
-- **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
+- **A `pinned` slot** for a screen's own control that must stay in view with the frame on a desk, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
 - **Why the person looking may change nothing**, the market read's `readOnlyReason`, once, under the rail and above the page, on every page of the market ([what each role may do](../../business/rules/what-each-role-may-do.md)).
@@ -71,9 +72,16 @@ A screen that pads itself or renders its own arrival is how one market's pages c
 A page inside the card insets its content `--space-6`, the rail's inset, so what the frame says above a page (`market-read-only`) lines up with it; Market Setup's tabs were 40px in until T15.
 
 **Sticky, never a scroller.**
-The bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the banner's height as a token.
+On a desk the bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the banner's height as a token.
 Never give a frame screen an `overflow` scroller of its own: a sticky element inside an `overflow` ancestor silently stops sticking.
-The pinned block's height is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
+The height of what is pinned under the banner is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`: the frame's block on a desk, the bar on a phone.
+
+**On a phone only the bar pins.**
+At 640px and below the frame's wrapper gives up its box (`display: contents`) and the bar takes `position: sticky` at `top: var(--banner-h)` itself, since a sticky element sticks only inside its parent and the bar must stick against the card.
+The rail, the page row and the `pinned` slot are then the card's own children, in the page's flow, and scroll away with it; what the rail grows grows in that flow, under the rail.
+The observer cannot measure a box-less element, so on a phone it measures the bar.
+The layout sweep fails on any phone market screen whose banner and pinned bar reach lower than 150px of the window ([the design language](../../design-system.md#what-keeps-this-true)); at 390x844 the banner and the bar end at 138px, against 409 at the door when the whole block pinned.
+Above 640px, a tablet included, the frame is the desk's.
 The card is at least the height of the window under the banner, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
@@ -91,7 +99,11 @@ A focused tab wears the white halo for the dark bar, drawn inside the tab there,
 
 ## Why
 
-The bar and the whole rail pin as one block, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
+The bar and the whole rail pin as one block on a desk, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
+
+On a phone the same block cost half the screen: at 390x844 the banner and the pinned frame took 409px at the door and on Tools in market days, 442 with an application page on the rail and 280 in draft, so the check-in list scrolled in the lower half of the window (T142).
+Pinning the rail costs a desk 150px for always seeing where the market is; a phone keeps that through the bar's dot, which says where the market is worked on, and the rail is one scroll up.
+Letting the rail scroll away loses neither of what the condensed rails lost, the spine or a still frame: it only moves the rail into the page.
 
 Four tabs, with the Assignment tab's pages in a row under the rail, won over two other navigations prototyped on every market screen: a flat bar of six tabs put Vendors and Attendance on it with nothing to show before an assignment, and only just fit beside a long name at 1280; the market's screens listed down the frame's left side cost 200px of every market screen and looked like nothing else in the product.
 The bar holds seven tabs since Attendance stayed on it for the market's whole life (E31/F03/S02), Stats joined it (E45/F01/S01) and Tools joined it (E46/F01/S02), while Vendors stays a page of the Assignment tab; Stats is a tab rather than a page under Applications because the figures planned for it, seats and money among them, would sit oddly under the applications (Daniel's choice in T92's planning).

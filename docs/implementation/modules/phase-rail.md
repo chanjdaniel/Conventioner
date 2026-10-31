@@ -31,7 +31,7 @@ sources:
 
 # The phase rail
 
-[`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it.
+[`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it on a desk and scrolling away with the page on a phone.
 It replaced `PhaseControlPanel`, which floated above the card.
 It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the application page for a form market once it leaves draft, the check-in page once it is published, each with Copy).
 What it says comes from [the market guide](market-guide.md); which moves exist and whether each is refused comes from the server.
