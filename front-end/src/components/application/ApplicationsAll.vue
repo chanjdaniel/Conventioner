@@ -809,9 +809,13 @@ async function decideSelection() {
   white-space: nowrap;
 }
 
-/* As tall as the compact status buttons beside it, so the filter row is one height. */
+/*
+ * As tall as the compact status buttons beside it, so the filter row is one height; as wide as the
+ * choice it shows, not its longest address, so "Me" is not a wide empty box.
+ */
 .all-assigned-select {
   height: var(--control-height-compact);
+  field-sizing: content;
 }
 
 .all-count {
