@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ResultSummary.vue
   - front-end/src/components/application/PublishResults.vue
   - front-end/src/utils/download.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#16
   - brain-dump/2026-10-19#18
@@ -36,6 +36,7 @@ sources:
   - E38/F08/S01
   - E38/F08/S02
   - E38/F05/S01
+  - T139
 ---
 
 # The assignment and its result
@@ -92,7 +93,8 @@ Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `untiered-plan
 
 **Status:** Works (walked live; the links read from the code as of bug 42's fix).
 The whole run is refused: "N approved applications cannot be assigned until their answers are complete:", naming each applicant, each name a link to their application ([an incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md)).
-Covered by: `a-refused-run-says-who-and-where.spec.ts`.
+Only the run is: an assignment already stored still shows on Assignments, its summary and grid, and each vendor's drawer, and before one exists the drawer reads nobody placed (T139).
+Covered by: `a-refused-run-says-who-and-where.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
 
 ### J3b. Refused outside the Assignment phase
 

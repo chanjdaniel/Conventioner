@@ -114,7 +114,7 @@ def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
     )
     # The vendors are read once and handed to both the solver and the reason derivation
     # (E12/F01/S01), so the two can never disagree about who applied.
-    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda market: [])
+    monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda market: [])
     monkeypatch.setattr(MarketsApi, "describe_stored_assignment", lambda market, vendors: assigned_market)
     monkeypatch.setattr(
         MarketsApi,
@@ -248,7 +248,7 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
     monkeypatch.setattr(MarketsApi, "assign_market", lambda market, vendors=None: SimpleNamespace())
-    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+    monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",
@@ -318,7 +318,7 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
         section_ranking=(),
         table_type_ranking=(),
     )
-    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [vendor])
+    monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [vendor])
     monkeypatch.setattr(MarketsApi, "outside_solver_vendors", lambda *_args: [])
 
     result, status = MarketsApi.get_market_tables("market-123", "viewer@example.com")
@@ -350,7 +350,7 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
     monkeypatch.setattr(MarketsApi, "derive_market_table_rows", lambda assigned_market: [])
     monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
-    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+    monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
     rejected = SolverVendor(
         application_id="app-2", email="dev@example.com", available_dates=frozenset({"2026-01-01"}),
         max_dates=None, accepted_tiers_by_date={}, table_choice=None, table_share_email=None,
@@ -541,7 +541,7 @@ def _a_fresh_draft(monkeypatch):
     """A market as the create dialog leaves it: a name and an organization, no plan (E30/F01/S01)."""
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+    monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
     monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
 
 
