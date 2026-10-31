@@ -9,7 +9,7 @@ describes:
   - back-end/api/applications.py#deal_follow_up
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#21

@@ -5,7 +5,7 @@ describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -26,6 +26,7 @@ sources:
   - T82
   - E38/F04
   - E38/F01/S01
+  - T142
 ---
 
 # The phase rail
@@ -43,6 +44,12 @@ A refused move is drawn disabled, with its first blocker as its reason: in the m
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
+
+**A remedy or a step is offered only to someone who may take it** (T142).
+The fix is drawn only for someone who may move the phase and may take the blocker's `resolutionAction`, the row of [the market's actions](market-actions.md) table its remedy takes; the sentence's link (`phase-rail-next-link`) only for someone who may take the step's `action` ([the market guide](market-guide.md)'s `NextStep`), the blocker's when the step is a blocker's remedy, else the guide row's.
+The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)) draws a blocker's link on the same answer, and still says the blocker.
+A missing action, as from an older server, withholds them all, as `mayTake` withholds anything unanswered.
+So a Viewer reads where the market stands and is led nowhere, an Editor on a draft missing its dates is still led to "Pick market dates", and an Admin whose table refuses the setup is offered no fix; the sentence is the same for everyone ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **Both paths draw the same five stages, named by the path.**
 The rail's moves are the keys of `transitionBlockers`, and the browser keeps no copy of them.

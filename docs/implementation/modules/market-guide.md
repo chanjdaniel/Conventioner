@@ -3,7 +3,7 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/utils/marketGuide.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map
@@ -15,6 +15,7 @@ sources:
   - E33/F01/S02
   - E33/F01/S01
   - E38/F04
+  - T142
 ---
 
 # The market guide
@@ -32,6 +33,22 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
   When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, except before an assignment is run, when running it is the step.
+- **The action a step takes** (`NextStep.action`): the row of [the market's actions](market-actions.md) table the step's work takes, so [the phase rail](phase-rail.md) links the sentence only for someone who may take it ([what each role may do](../../business/rules/what-each-role-may-do.md)).
+  A step read off a blocker takes the blocker's `resolutionAction`, served by [the guards](guards.md); a step read off the guide's row takes the row's `action`:
+
+  | Phase, standing | Page | Action |
+  | - | - | - |
+  | draft | setup | `change-setup` |
+  | applications | applications | `give-verdicts` |
+  | assignment, not assigned | settings | `assign` |
+  | assignment, assigned, results not published | assignments | `assign` |
+  | assignment, results published | assignments | `move-phase` |
+  | offers | assignments or settings | `assign` |
+  | market days, a date to come | attendance | `check-in` |
+  | market days, every date over | attendance | `move-phase` |
+  | archived | none | none: the sentence leads nowhere |
+
+  A row with no action is one whose sentence links nowhere; a blocker with none, as from an older server, gives the step none.
 - **The step onward** (`forwardFrom`): read off the spine; once every date of a running market has passed, the step onward is archiving it, and before then archiving stays in the menu.
 - **The moves open to the market** (`movesOf`): the keys of `transitionBlockers` as the read served them; the browser keeps no copy of which moves a path has.
 - **The spine a market is drawn on** (`spineFor`): the lifecycle, with a phase it leaves out, such as `offers`, put where the table places it when the market is actually in it.
