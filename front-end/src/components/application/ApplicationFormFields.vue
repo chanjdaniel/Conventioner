@@ -9,6 +9,9 @@
  * is required the applicant is blocked from saving by an error they have no control to clear. A
  * field type added to the builder must reach the applicant everywhere at once, so it is added
  * here, once.
+ *
+ * Updating a vendor's info asks the same questions (E43/F01/S03): `locked` shows the answers this
+ * person may not update, read-only.
  */
 import { computed } from 'vue';
 import type { FormField } from '@/assets/types/datatypes';
@@ -20,8 +23,9 @@ const props = withDefaults(
     modelValue: Record<string, unknown>;
     errors?: Record<string, string>;
     prefix?: string;
+    locked?: readonly string[];
   }>(),
-  { errors: () => ({}), prefix: 'apply' },
+  { errors: () => ({}), prefix: 'apply', locked: () => [] },
 );
 
 const emit = defineEmits<{
@@ -30,6 +34,10 @@ const emit = defineEmits<{
 }>();
 
 const fields = computed(() => sortedFormFields(props.fields));
+
+function isLocked(field: FormField): boolean {
+  return props.locked.includes(field.key);
+}
 
 function errorFor(field: FormField): string {
   return props.errors[field.key] || '';
@@ -76,6 +84,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
       :type="field.type === 'email' ? 'email' : 'text'"
       :value="(modelValue[field.key] as string) ?? ''"
       @input="onFieldChange(field, ($event.target as HTMLInputElement).value)"
+      :disabled="isLocked(field)"
       :data-testid="`${prefix}-input-${field.key}`"
     />
 
@@ -88,6 +97,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
       type="number"
       :value="(modelValue[field.key] as number | string) ?? ''"
       @input="onFieldChange(field, ($event.target as HTMLInputElement).value)"
+      :disabled="isLocked(field)"
       :data-testid="`${prefix}-input-${field.key}`"
     />
 
@@ -100,6 +110,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
       type="date"
       :value="(modelValue[field.key] as string) ?? ''"
       @input="onFieldChange(field, ($event.target as HTMLInputElement).value)"
+      :disabled="isLocked(field)"
       :data-testid="`${prefix}-input-${field.key}`"
     />
 
@@ -112,6 +123,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
         type="checkbox"
         :checked="!!modelValue[field.key]"
         @change="onFieldChange(field, ($event.target as HTMLInputElement).checked)"
+        :disabled="isLocked(field)"
         :data-testid="`${prefix}-input-${field.key}`"
       />
       <span>Yes</span>
@@ -125,6 +137,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
       :class="{ error: errorFor(field) }"
       :value="(modelValue[field.key] as string) ?? ''"
       @change="onFieldChange(field, ($event.target as HTMLSelectElement).value)"
+      :disabled="isLocked(field)"
       :data-testid="`${prefix}-input-${field.key}`"
     >
       <option value="">-- Select --</option>
@@ -146,6 +159,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
           type="checkbox"
           :checked="((modelValue[field.key] as string[]) || []).includes(opt)"
           @change="toggleOption(field, opt, ($event.target as HTMLInputElement).checked)"
+          :disabled="isLocked(field)"
           :data-testid="`${prefix}-input-${field.key}-${opt}`"
         />
         <span>{{ opt }}</span>
@@ -200,6 +214,21 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 
 .form-input.error {
   border-color: var(--mm-red);
+}
+
+/* A locked answer reads as the `.field` primitive's one disabled state: beige, muted, not taken. */
+.form-input:disabled,
+.form-multiselect:has(input:disabled) {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  cursor: not-allowed;
+}
+
+.form-multiselect:has(input:disabled) .form-checkbox-label,
+.form-checkbox-label:has(input:disabled),
+.form-checkbox-label input:disabled {
+  color: var(--mm-text-muted-on-beige);
+  cursor: not-allowed;
 }
 
 .form-checkbox-label {

@@ -119,7 +119,7 @@ UPDATE_VENDOR_INFO = action(
     "update this market's vendors' info")
 UPDATE_ASSIGNMENT_OR_PRICE_INFO = action(
     "update-assignment-or-price-info", "Vendors", "Update info the assignment or price reads",
-    MarketRole.ADMIN, "update the answers this market's assignment reads")
+    MarketRole.ADMIN, "update the answers this market's assignment or prices read")
 ASSIGN = action(
     "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
     MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")

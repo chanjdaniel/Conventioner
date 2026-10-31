@@ -5,7 +5,6 @@ describes:
   - back-end/api/market_actions.py
   - back-end/api/permissions.py#user_has_permission
   - back-end/api/permissions.py#role_reaches
-  - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_every_check_names_an_action.py
   - back-end/api/markets.py#role_action_refusals
   - back-end/api/markets.py#ARCHIVED_STILL_TAKES
@@ -18,6 +17,7 @@ describes:
   - back-end/api/markets.py#copy_organization_default
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_the_organizations_default.py
+  - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
 verified: 2026-10-31
 sources:
@@ -35,8 +35,9 @@ sources:
   - E41/F01/S02
   - E38/F06/S01
   - E38/F07/S02
-  - E38/F07/S03
   - E46/F01/S02
+  - E38/F07/S03
+  - E43/F01/S03
 ---
 
 # The market's actions
@@ -98,7 +99,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
 | Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase |
-| Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
+| Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
 | Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)) |

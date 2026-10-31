@@ -329,7 +329,7 @@ class TestWhoMay:
             _update({**answers, "shop": "Ember & Co"})
 
         assert str(refused.value) == (
-            "Only an Admin or the owner may update the answers this market's assignment reads.")
+            "Only an Admin or the owner may update the answers this market's assignment or prices read.")
         assert not _stored(applications).get("answer_updates")
         assert market_records.history.documents == []
 
