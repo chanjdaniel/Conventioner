@@ -3,9 +3,9 @@ import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import { withoutQueryKey } from '@/utils/routeQuery';
 
 /** The vendor drawer's tabs (E35/F01/S01). */
-export type VendorTab = 'application' | 'assignments' | 'history';
+export type VendorTab = 'application' | 'assignments' | 'payment' | 'history';
 
-const TABS: readonly VendorTab[] = ['application', 'assignments', 'history'];
+const TABS: readonly VendorTab[] = ['application', 'assignments', 'payment', 'history'];
 
 /**
  * Which vendor's drawer is open, and on which tab, as part of the page's address (E35/F01/S01):

@@ -523,6 +523,56 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // What the vendor owes and paid (E44/F01/S01).
+    name: "the vendor drawer's Payment tab",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-tab'],
+    ),
+  },
+  {
+    name: 'the record-payment dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-record'],
+      ['payment-record', 'record-payment-window'],
+    ),
+  },
+  {
+    // A table-day's "..." menu, and the dialog it opens (E44/F01/S02).
+    name: "a Payment tab line's menu",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-line-menu-button'],
+      ['payment-line-menu-button', 'payment-line-menu'],
+    ),
+  },
+  {
+    name: 'the change-owed dialog',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendor-drawer-tab-payment', 'payment-line-menu-button'],
+      ['payment-line-menu-button', 'payment-line-menu'],
+      ['payment-line-menu-owed', 'change-owed-window'],
+    ),
+  },
+  {
     name: 'the add-vendor dialog',
     who: 'organizer',
     sizes: ORGANIZER,
