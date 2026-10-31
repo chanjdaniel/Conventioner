@@ -327,7 +327,7 @@ const QUESTIONS: RejectionQuestion[] = [
   },
   {
     key: 'clubs',
-    label: 'Which clubs are you a member of?',
+    label: 'Do you belong to any of these clubs?',
     answers: ['Art Club', 'Craft Club', 'No club'].map((a) => ({ value: a, label: a })),
   },
 ];
