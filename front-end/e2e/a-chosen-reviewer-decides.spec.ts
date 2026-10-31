@@ -75,7 +75,8 @@ test('a chosen Viewer approves, marks a follow-up without notes, and changes no 
     await expect(review.changeButton('reject', 'cleo@fern.test')).toHaveCount(0);
 
     const all = new ApplicationsAllPage(page);
-    await all.goto(marketId);
+    // Every application: the one approved before the deal is nobody's share.
+    await all.goto(marketId, 'anyone');
     await expect(all.statusOf('ben@ember.test')).toHaveText('Needs follow-up');
     await all.open('cleo@fern.test');
     await expect(all.drawerChangeReason).toHaveText(CHANGE_REFUSED);

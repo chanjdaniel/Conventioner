@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
-import { dealtElsewhere, dealtWarning, reviewerLine, selectionDealtLine } from '@/utils/reviewers';
+import {
+  assignedAddress,
+  assignedTo,
+  assignedToOptions,
+  dealtElsewhere,
+  dealtWarning,
+  reviewerLine,
+  selectionDealtLine,
+} from '@/utils/reviewers';
 
 /**
  * Whose share an application is, for the reader, and the warning on deciding someone else's
@@ -113,5 +121,63 @@ describe('the warning’s words', () => {
 
   it('says nothing when no ticked row is dealt to someone else', () => {
     expect(selectionDealtLine(0)).toBeNull();
+  });
+});
+
+describe('the "Assigned to" filter (E38/F07/S04)', () => {
+  const BEN = 'ben@example.com';
+
+  it('offers Me to a chosen reviewer, then Anyone and each other reviewer by address', () => {
+    expect(assignedToOptions(ANA, chosen)).toEqual([
+      { value: 'me', label: 'Me' },
+      { value: 'anyone', label: 'Anyone' },
+      { value: SAM, label: SAM },
+    ]);
+  });
+
+  it('offers Anyone and every reviewer to someone not chosen', () => {
+    expect(assignedToOptions(BEN, chosen)).toEqual([
+      { value: 'anyone', label: 'Anyone' },
+      { value: ANA, label: ANA },
+      { value: SAM, label: SAM },
+    ]);
+  });
+
+  it('is absent with no reviewers chosen', () => {
+    expect(assignedToOptions(ANA, noneChosen)).toEqual([]);
+    expect(assignedTo(undefined, ANA, noneChosen)).toBeNull();
+    expect(assignedTo('anyone', ANA, noneChosen)).toBeNull();
+    expect(assignedTo(SAM, ANA, null)).toBeNull();
+  });
+
+  it('opens on Me for a chosen reviewer and on Anyone for anyone else', () => {
+    expect(assignedTo(undefined, ANA, chosen)).toBe('me');
+    expect(assignedTo(undefined, 'Ana@Example.com', chosen)).toBe('me');
+    expect(assignedTo(undefined, BEN, chosen)).toBe('anyone');
+  });
+
+  it('reads what the address names', () => {
+    expect(assignedTo('anyone', ANA, chosen)).toBe('anyone');
+    expect(assignedTo('me', ANA, chosen)).toBe('me');
+    expect(assignedTo(SAM, ANA, chosen)).toBe(SAM);
+    expect(assignedTo('Sam@Example.COM', BEN, chosen)).toBe(SAM);
+  });
+
+  it('reads the reader’s own address as Me', () => {
+    expect(assignedTo(ANA, ANA, chosen)).toBe('me');
+  });
+
+  it('reads an address naming nobody chosen, or Me for someone not chosen, as the default', () => {
+    expect(assignedTo(BEN, ANA, chosen)).toBe('me');
+    expect(assignedTo('nonsense', BEN, chosen)).toBe('anyone');
+    expect(assignedTo('me', BEN, chosen)).toBe('anyone');
+    expect(assignedTo(['me'], ANA, chosen)).toBe('me');
+  });
+
+  it('narrows to the reader for Me, to nobody for Anyone, and to the reviewer named', () => {
+    expect(assignedAddress('me', ANA)).toBe(ANA);
+    expect(assignedAddress('anyone', ANA)).toBeNull();
+    expect(assignedAddress(null, ANA)).toBeNull();
+    expect(assignedAddress(SAM, ANA)).toBe(SAM);
   });
 });

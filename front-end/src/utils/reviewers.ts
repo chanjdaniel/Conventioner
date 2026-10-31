@@ -60,3 +60,50 @@ export function selectionDealtLine(count: number): string | null {
     ? '1 of them is dealt to another reviewer; its history will say you decided it.'
     : `${count} of them are dealt to other reviewers; their history will say you decided them.`;
 }
+
+/**
+ * The All view's "Assigned to" filter (E38/F07/S04): whose share the rows show, as the address
+ * names it (`?reviewer=`) - the reader's own (`me`), everyone's (`anyone`), or a chosen reviewer's
+ * address.
+ */
+export type AssignedTo = 'me' | 'anyone' | (string & {});
+
+/**
+ * What the filter offers the reader: "Me" only to a chosen reviewer, "Anyone", and each other
+ * reviewer by address, the reader's own being "Me". None with no reviewers chosen: the filter is
+ * not there.
+ */
+export function assignedToOptions(
+  reader: string,
+  market: Team,
+): Array<{ value: AssignedTo; label: string }> {
+  const reviewers = reviewerAddresses(market);
+  if (!reviewers.length) return [];
+  const chosen = reviewers.some((address) => same(address, reader));
+  return [
+    ...(chosen ? [{ value: 'me', label: 'Me' }] : []),
+    { value: 'anyone', label: 'Anyone' },
+    ...reviewers
+      .filter((address) => !same(address, reader))
+      .map((address) => ({ value: address, label: address })),
+  ];
+}
+
+/**
+ * What the filter is set to, or null with no reviewers chosen. With nothing in the address it is
+ * "Me" for a chosen reviewer, who lands on their own work, and "Anyone" for everyone else, an Admin
+ * overseeing the review among them; an address naming nobody it offers reads as that default.
+ */
+export function assignedTo(asked: unknown, reader: string, market: Team): AssignedTo | null {
+  const options = assignedToOptions(reader, market);
+  if (!options.length) return null;
+  const value = typeof asked === 'string' ? asked : '';
+  if (value && same(value, reader) && options[0].value === 'me') return 'me';
+  return (options.find((option) => same(option.value, value)) ?? options[0]).value;
+}
+
+/** The address the rows narrow to: the reader's for "Me", the reviewer's named, none for Anyone. */
+export function assignedAddress(choice: AssignedTo | null, reader: string): string | null {
+  if (!choice || choice === 'anyone') return null;
+  return choice === 'me' ? reader : choice;
+}

@@ -8,7 +8,8 @@
  * follow-up while the market is still deciding, each written only on what the reviewer saw. Export
  * opens the vendor export on the filter and Mine (E42/F01/S03), so the review's lists leave as a CSV.
  * With reviewers chosen, a row names whose share it is, and deciding someone else's says so in the
- * drawer and in a selection's confirmation (E38/F07/S03).
+ * drawer and in a selection's confirmation (E38/F07/S03); "Assigned to" narrows the rows to one
+ * reviewer's share, and a chosen reviewer lands on their own (E38/F07/S04).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
@@ -31,7 +32,15 @@ import {
   reviewAnswers,
   selectAll,
 } from '@/utils/reviewQueue';
-import { dealtElsewhere, dealtWarning, reviewerLine, selectionDealtLine } from '@/utils/reviewers';
+import {
+  assignedAddress,
+  assignedTo as assignedToIn,
+  assignedToOptions,
+  dealtElsewhere,
+  dealtWarning,
+  reviewerLine,
+  selectionDealtLine,
+} from '@/utils/reviewers';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
@@ -150,8 +159,21 @@ function setQuery(change: Record<string, string | null>) {
   void router.replace({ query });
 }
 
+/**
+ * Whose share the rows show, in the address too, offered only with reviewers chosen: with none
+ * named, a chosen reviewer's own and everyone's for anyone else (E38/F07/S04).
+ */
+const assignedOptions = computed(() => assignedToOptions(me.value, props.market));
+const assignedTo = computed(() => assignedToIn(route.query.reviewer, me.value, props.market));
+
 const shown = computed(() =>
-  allViewApplications(applications.value, filter.value, mine.value, me.value),
+  allViewApplications(
+    applications.value,
+    filter.value,
+    mine.value,
+    me.value,
+    assignedAddress(assignedTo.value, me.value),
+  ),
 );
 
 function nameOf(app: Application): string {
@@ -334,7 +356,7 @@ function clearSelection() {
   forgetSkipped();
 }
 // Another filter is another set of rows: what Select all skipped was said of the last one.
-watch([filter, mine], forgetSkipped);
+watch([filter, mine, assignedTo], forgetSkipped);
 // A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
 // A row decided since it was ticked is a change now, which leaves the selection as it leaves the
 // ticks for someone who may not change a verdict (E38/F06/S01).
@@ -432,6 +454,20 @@ async function decideSelection() {
             @change="setQuery({ mine: ($event.target as HTMLInputElement).checked ? '1' : null })"
           />
           Mine: the follow-ups I own
+        </label>
+        <label v-if="assignedTo" class="all-assigned">
+          <span class="all-assigned-label">Assigned to</span>
+          <select
+            class="field field--select"
+            :value="assignedTo"
+            name="applications-all-assigned-to"
+            data-testid="applications-all-assigned-to"
+            @change="setQuery({ reviewer: ($event.target as HTMLSelectElement).value })"
+          >
+            <option v-for="option in assignedOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
         </label>
         <span class="all-count" data-testid="applications-all-count">
           {{ shown.length }} of {{ applications.length }}
@@ -758,6 +794,19 @@ async function decideSelection() {
   gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+.all-assigned {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.all-assigned-label {
+  white-space: nowrap;
 }
 
 .all-count {

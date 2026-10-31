@@ -123,7 +123,11 @@ function reviewerOf(wrapper: Awaited<ReturnType<typeof allView>>, id: string) {
 }
 
 describe('the All view’s rows', () => {
-  beforeEach(() => fetchMarketApplications.mockResolvedValue(ROWS));
+  beforeEach(() => {
+    fetchMarketApplications.mockResolvedValue(ROWS);
+    // Every share, not the one the reader lands on (E38/F07/S04).
+    route.query = { reviewer: 'anyone' };
+  });
 
   it('name the reviewer, "you" for the reader’s own, and nothing on one never dealt', async () => {
     const wrapper = await allView({ market: market() });
@@ -203,7 +207,10 @@ describe('the All view’s drawer', () => {
 });
 
 describe('a selection’s confirmation', () => {
-  beforeEach(() => fetchMarketApplications.mockResolvedValue(ROWS));
+  beforeEach(() => {
+    fetchMarketApplications.mockResolvedValue(ROWS);
+    route.query = { reviewer: 'anyone' };
+  });
 
   async function confirming(ids: string[], options = {}) {
     const wrapper = await allView({ market: market(options) });

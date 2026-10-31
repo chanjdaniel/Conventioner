@@ -52,7 +52,8 @@ test.describe('rows name their reviewer', () => {
   }) => {
     const marketId = await reviewedByTheOwnerAndAna(request);
     const all = new ApplicationsAllPage(page);
-    await all.goto(marketId);
+    // Everyone's rows, not the owner's share alone, which they would land on (E38/F07/S04).
+    await all.goto(marketId, 'anyone');
 
     await expect(all.reviewerOf(ANAS_FIRST)).toHaveText(`Reviewer: ${ANA}`);
     await expect(all.reviewerOf(MY_FIRST)).toHaveText('Reviewer: you');
@@ -90,7 +91,7 @@ test.describe('rows name their reviewer', () => {
   }) => {
     const marketId = await reviewedByTheOwnerAndAna(request);
     const all = new ApplicationsAllPage(page);
-    await all.goto(marketId);
+    await all.goto(marketId, 'anyone');
 
     await all.tickOf(MY_FIRST).check();
     await all.tickOf(MY_SECOND).check();
