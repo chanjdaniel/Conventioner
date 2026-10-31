@@ -219,7 +219,9 @@ Market Setup's four tabs each padded themselves 40px, so there the frame's note 
 **The rail is one row at the workspace width.**
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
-On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, the chips and the actions wrap onto rows of their own, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
+Both addresses share that row with the actions, each shortening alike and never below 18rem: as wide as each whole address they took a row each, with More… beside an empty band at 1920 (T142).
+An address breaks at any character, so its ellipsis meets Copy rather than stopping at the slug's last hyphen.
+On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, each chip and each action wraps onto the next row only where it does not fit, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
 
 **Columns are sized by need, not by count.**
 Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
@@ -346,6 +348,7 @@ Measured, the green glow is 1.58:1 against white and 1.50:1 against beige, below
 
 **A selected row is the on toggle's look**, so selection and focus never read alike (T123).
 A toggle that is on (`.btn[aria-pressed='true']` in `primitives.css`) is the one selected state the language had: a `--mm-chip-positive` ground inside a `--mm-green` border.
+**A tap shows on the control, never as the browser's box** (T142): `base.css` turns off the tap highlight, which flashed a square light-blue box over a tapped control whatever its shape, and a `.btn` shows its press itself, `opacity: 0.8` under `:active`, a step past its hover's 0.9.
 The [Vendors page](business/flows/vendors.md)'s open vendor takes the same pair (`.vendor-row--open` in [`VendorsView.vue`](../front-end/src/views/VendorsView.vue)), where it drew a 2px black outline beside the halo; its row keeps its own ink, and a focused row keeps its white ground and wears the halo.
 The tint is a chip's own ground, so inside a selected row a chip keeps its ink on white, and its muted lines, the address under a name and the date count, take `--mm-text-muted-on-beige`, since `--mm-text-muted` is 4.27:1 on the tint; `contrast.test.ts` holds the row's text, its muted lines and its 3.75:1 border to the tint.
 
