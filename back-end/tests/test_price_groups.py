@@ -438,7 +438,7 @@ class TestTheTablesRead:
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(stored_market(
             phase=MarketPhase.ASSIGNMENT, setupObject=plan, applicationForm={"fields": FIELDS})))
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
-        monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
         monkeypatch.setattr(MarketsApi, "assignment_to_show", lambda market, vendors: market)
         monkeypatch.setattr(MarketsApi, "derive_market_table_rows", lambda _market: rows)
         monkeypatch.setattr(MarketsApi, "outside_solver_vendors", lambda *_a: [])

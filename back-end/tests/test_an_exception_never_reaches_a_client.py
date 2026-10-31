@@ -1627,7 +1627,9 @@ class TestAnUnexpectedFailure:
 
     def test_inside_the_api_function_answers_the_same(self, client, monkeypatch, caplog):
         """What the four API functions caught and echoed now reaches the handler unanswered."""
+        # The preview reads the vendors as a run does, and the other three as a read does.
         monkeypatch.setattr(MarketsApi, "solver_vendors_for", fail_with(KeyError(SECRET)))
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", fail_with(KeyError(SECRET)))
 
         with caplog.at_level(logging.ERROR):
             responses = [client.get(path) for path, _function in ASSIGNMENT_READS]
@@ -1639,7 +1641,7 @@ class TestAnUnexpectedFailure:
         assert len([r for r in caplog.records if r.name == "client_errors"]) == len(responses)
 
     def test_in_the_csv_writer_is_not_echoed(self, client, monkeypatch):
-        monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
         monkeypatch.setattr(
             MarketsApi, "market_csv_to_string", fail_with(ValueError(SECRET)),
         )

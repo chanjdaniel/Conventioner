@@ -3,10 +3,11 @@
  * T119's review).
  *
  * `useVendorDetails` reads the applications, the assignment's statistics and the tables together.
- * One refusal emptied all three: an approved application with incomplete answers makes the server
- * refuse the two assignment reads, and the vendor drawer then said "This market asks no questions of
- * its own." of a market that asks some, the refusal shown nowhere in it. The applications stand on
- * their own read now, and the drawer says why the placements are missing.
+ * One refusal emptied all three: an approved application with incomplete answers made the server
+ * refuse the two assignment reads, until T139, and the vendor drawer then said "This market asks no
+ * questions of its own." of a market that asks some, the refusal shown nowhere in it. The
+ * applications stand on their own read now, and the drawer says why the placements are missing,
+ * whatever made the read fail.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -22,8 +23,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return { ...actual, api };
 });
 
-const REFUSAL =
-  '1 approved application cannot be assigned until its answers are complete: alice@example.com (Available dates)';
+const REFUSAL = 'Where the vendors sit could not be read just now.';
 
 const MARKET = {
   id: 'market-1',

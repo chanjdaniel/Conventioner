@@ -201,7 +201,7 @@ def statistics_of(monkeypatch):
         ]
         monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(document))
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
-        monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _m: [_vendor("ana@example.com")])
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _m: [_vendor("ana@example.com")])
         monkeypatch.setattr(MarketsApi, "outside_solver_vendors", lambda *_a: outside)
         monkeypatch.setattr(
             "assignment.assignment.held_solver_vendors",
