@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#needs_a_table
   - back-end/api/markets.py#count_added_vendors
   - back-end/assignment/vendor_input.py#approved_solver_vendors
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/rejection-visibility/02
   - E36/F03/S01
