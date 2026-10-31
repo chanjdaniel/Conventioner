@@ -94,7 +94,7 @@ When the server would refuse that step, the sentence is its first blocker instea
 Every tab stays on the bar from Draft to the end, on both paths.
 A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Responses arrive here with your first import, which begins review."), and Attendance until the market is published ("Opens when the market is published.").
 The note stands in for the tab's pages only, never for a flow it holds, so the first import opens from Draft.
-Assignments and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
+Assignments, Vendors and Payments say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
 The setup, the form and the assignment rules each say they are settled where they are edited, in the server's own words.
 
 ## What refuses a move

@@ -46,7 +46,7 @@ sources:
 **Where they start:** the Assignment tab, which [Begin Assignment](review.md#i5-begin-assignment) lands on.
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
-The Assignment tab holds three pages: Settings (the rules and the run, headed "Assignment settings", [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Assignments (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
+The Assignment tab holds four pages: Settings (the rules and the run, headed "Assignment settings", [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Assignments (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)), Vendors (by vendor, [vendors](vendors.md)) and Payments (what the seats are owed and who has paid, [payments](payments.md)).
 Before a run the rail says "Set the rules and allocate tables."; after it, "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone."
 **Setting the rules and running them is one page; reading and changing what they produced is another.**
 The tab is called Assignment because that is the organizers' word for the whole job, and its pages are named for what they hold: Settings sets the assignment rules, and what the solver produces is the table allocation, read on Assignments as assignments ([Assignment](../concepts/assignment.md)).
@@ -55,7 +55,7 @@ An organizer's result is who sits where, which is the tables; so Assignments is 
 Assignments fits a phone, since the vendor drawer's "Change assignment" at the door leads there: its figures stack, its filters wrap, a half table's two seats stand one under the other, and every seat's control is a thumb's target (T142).
 Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
-Before the first run Assignments and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+Before the first run Assignments, Vendors and Payments say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
 
 How the solver assigns vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
