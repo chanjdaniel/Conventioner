@@ -27,6 +27,7 @@ sources:
   - E38/F06/S01
   - E38/F07/S02
   - T123
+  - T139
 ---
 
 # The vendor drawer
@@ -63,8 +64,8 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
-The applications stand on their own read: when the server refuses where vendors sit, as it does while an approved application's answers are incomplete, the drawer still shows the answers, says the server's reason in red on every tab, and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
-Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
+The applications stand on their own read: when the server cannot say where vendors sit, the drawer still shows the answers, says the server's reason in red on every tab, and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
+Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
 
 ## The rules it obeys
 
