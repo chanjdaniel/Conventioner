@@ -944,8 +944,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # "Possible match" and "Check again" are worked out here, once, against the applications as
     # the organizer reads them now, so the Vendors page, the drawer and the export agree. Read
     # only once a check has run.
-    from api.discord_connection import shown_vendors
+    from api.discord_connection import leave_out_what_is_not_served, shown_vendors
     market_dict['discordVendors'] = [vendor.served() for vendor in shown_vendors(market).values()]
+    leave_out_what_is_not_served(market_dict)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and
@@ -1031,6 +1032,9 @@ def _decorate_market_summary(
     whether it was served by the list endpoint or by ``get_market_for_user``.
     """
     market['_id'] = str(market['_id'])
+    # A Discord check's stored inputs, which no list entry serves, as no market read does.
+    from api.discord_connection import leave_out_what_is_not_served
+    leave_out_what_is_not_served(market)
     # Deprecated, as the market read's: an old bundle's card offers Manage on it.
     market['user_role'] = user_role
     phase = phase_from_market_document(market)

@@ -611,10 +611,11 @@ class TestCheckingWhoIsInTheServer:
 
         _check(client)
 
+        assert _stored(world)["checkedAt"] == "2026-10-31T12:00:00+00:00"
+        assert _stored(world)["vendorStates"] == [
+            {"applicationId": maple, "state": "not_found", "answer": "maple"}]
         served = client.get(f"/markets/{MARKET}").get_json()["market"]["discord"]
         assert served["checkedAt"] == "2026-10-31T12:00:00+00:00"
-        assert served["vendorStates"] == [
-            {"applicationId": maple, "state": "not_found", "answer": "maple"}]
 
     def test_a_check_keeps_the_cards_choices(self, client, world):
         world.market(discord={**CONNECTED, "roleId": "r-vendor", "roleName": "Vendor Test",
@@ -1328,3 +1329,27 @@ class TestWhatThePageShows:
         world.applicant("fern@example.com", "Fern Studio")
 
         assert _shown(client) == {}
+
+    def test_the_market_serves_the_vendors_once_as_the_page_shows_them(
+        self, client, world,
+    ):
+        """What the check stored and what was declined are the rule's inputs, never served beside
+        it (T156 rereview note 8): ``discordVendors`` is the one copy a page or the export reads,
+        on the market's own read and on the Markets list alike."""
+        world.market(_id="mongo-market-123", roles={"user-1": "owner", "user-admin": "admin"},
+                     **WITH_THE_FORM,
+                     discord={**_kept({"applicationId": "app-fern", "state": "not_found",
+                                       "answer": "Fern Studio"}),
+                              "declinedMatches": {"app-fern": ["fern_studio_42"]}})
+        world.patch.setattr(OrgsApi, "get_organizations_for_user", lambda _email: [])
+        world.applicant("fern@example.com", "Fern Studio")
+
+        read = client.get(f"/markets/{MARKET}").get_json()["market"]
+        [listed] = client.get("/markets").get_json()["markets"]
+
+        for served in (read["discord"], listed["discord"]):
+            assert served["checkedAt"] == "2026-10-31T12:00:00+00:00"
+            assert "vendorStates" not in served
+            assert "declinedMatches" not in served
+        assert [vendor["shown"] for vendor in read["discordVendors"]] == ["not_found"]
+        assert world.markets.doc["discord"]["declinedMatches"] == {"app-fern": ["fern_studio_42"]}

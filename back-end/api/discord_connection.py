@@ -357,6 +357,22 @@ class ShownVendor:
         }
 
 
+#: What a check and a decline store as ``shown_vendors``'s inputs, which a market read never serves:
+#: ``discordVendors`` is the one copy a page or the export reads (T156 rereview note 8).
+NOT_SERVED = ("vendor_states", "declined_matches")
+
+
+def leave_out_what_is_not_served(market_document: Dict[str, Any]) -> None:
+    """Serve a raw market document's connection without ``NOT_SERVED``, as a copy, so the
+    document it was read from keeps them."""
+    key = market_doc_key("discord")
+    connection = market_document.get(key)
+    if isinstance(connection, dict):
+        left_out = {market_doc_key(field) for field in NOT_SERVED}
+        market_document[key] = {
+            field: value for field, value in connection.items() if field not in left_out}
+
+
 def shown_vendors(
     market: Market, applications: Optional[Iterable[Dict[str, Any]]] = None,
 ) -> Dict[str, ShownVendor]:
