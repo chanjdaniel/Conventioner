@@ -19,6 +19,9 @@ the command line, never in ``back-end/.env``. The owner is an existing account
 (``create_account.py`` makes one):
 
     MONGODB_URI='mongodb+srv://...' .venv/bin/python seed_test_markets.py --owner you@example.com
+
+It refuses a database the environment does not name, and the primary checkout's local MongoDB
+unless ``ALLOW_PRIMARY_STACK=true`` (``require_named_database``).
 """
 import argparse
 import sys
@@ -31,6 +34,7 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 from client_errors import ClientError
 from datatypes import IntakeMode, MarketPhase, User, market_name_slug
+from db_config import require_named_database
 from market_documents import market_doc_field, market_doc_filter
 
 TEST_ORGANIZATION = "Conventioner Test Organization"
@@ -182,6 +186,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--owner", required=True, help="the existing account that owns them")
     args = parser.parse_args(argv)
+    require_named_database()
     try:
         for line in seed_test_markets(args.owner):
             print(line)

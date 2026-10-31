@@ -12,13 +12,13 @@ leftovers were orphans - their market ids pointed at documents that no longer ex
 they outlived every reset, so a "clean" database still answered with 1,367 applications
 belonging to nothing.
 
-Usage:
+Usage, in the back-end container of the stack to reset, which sets MONGODB_HOST:
     python reset_database.py
 """
 
 import os
 
-from db_config import get_database
+from db_config import get_database, require_named_database
 
 # Every collection the application writes. `schema_migrations` is deliberately absent.
 APP_COLLECTIONS = (
@@ -61,9 +61,12 @@ def reset_database():
     Production is reached through MONGODB_URI and the local stack and CI through MONGODB_HOST, so
     a URI in the environment means this would erase a real market. It refuses, with no override:
     a hosted database is emptied, if ever, by hand in Atlas, not by a script typed in a hurry.
+    It refuses too when the environment names no database, or the primary checkout's stack's
+    (``require_named_database``).
     """
     if os.getenv("MONGODB_URI"):
         raise SystemExit(HOSTED_REFUSAL)
+    require_named_database()
     db = get_database()
 
     names = set(db.list_collection_names())
