@@ -92,7 +92,7 @@ The floorplan flow stands in for its wizard on either reason and says only the s
 A screen in the frame sets no width of its own, or moving between a market's screens makes the frame jump.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not; the tabs never give way to it.
 
-**On a phone the tabs scroll inside the bar.**
+**Where the bar is too narrow for the tabs, they scroll inside it.**
 Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only Attendance, Tools and the Assignments page reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
 It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-door-on-a-phone.spec.ts` holds the three routes at 720 and 768.
 The page row there scrolls away with the rail, each page's link a 44px target by its line's height, so its current mark keeps its place.

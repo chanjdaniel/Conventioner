@@ -85,7 +85,7 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `th
 5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door.
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
-It works at a phone's width, as only the Tools tab among the other organizer market screens does, and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
+It works at a phone's width, as only Tools and the Assignments page among the other organizer market screens do, and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
 Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `checkin.spec.ts`.
 
 ## The rules it obeys

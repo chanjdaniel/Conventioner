@@ -77,8 +77,8 @@ A write there answers 409 with "This market has ended, so check-in is closed."; 
 An archived market that never ran has no check-in page.
 Check-in is open to every market that runs, whatever its intake mode: how a vendor entered has no bearing on whether they can scan in on the day ([intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md)); the applicant surface is a lookup of its own ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
 
-**The door works on a phone, and so does the Tools tab.**
-The product is built for a laptop, and the other organizer market screens need not work below a laptop's width; the door is the carve-out among them, the one someone may hold in their hand, and the Tools tab the second, since an organizer may connect Discord from a phone (Daniel, T113).
+**The door, Tools and the Assignments page work on a phone.**
+The product is built for a laptop, and the other organizer market screens need not work below a laptop's width; the door is one carve-out among them, the one someone may hold in their hand, and the Tools tab another, since an organizer may connect Discord from a phone (Daniel, T113).
 The account pages on the way in fit a phone too ([the design language](../../design-system.md#layout)).
 The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the rail's spine scrolls sideways inside itself, and below about a 990px window the market bar's tabs do ([the market frame](market-frame.md)).
