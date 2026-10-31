@@ -49,7 +49,7 @@ Override credentials:
 ```bash
 TEST_EMAIL=myuser@example.com TEST_PASSWORD=mypass \
   NO_ORG_EMAIL=mynoorguser@example.com NO_ORG_PASSWORD=mynoorgpass \
-  ./scripts/seed_fixture.sh
+  ./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
 ```
 
 ## Back-End Tests
@@ -193,8 +193,8 @@ CI and `scripts/nm-test.sh` run it; what it measures, and how to raise the limit
 ## End-to-End (E2E) Tests
 
 ```bash
-# Start the Docker stack and seed test data (--primary in the primary checkout)
-cd .. && ./scripts/seed_fixture.sh
+# Start the Docker stack and seed test data
+cd .. && ./scripts/seed_fixture.sh --primary  # omit --primary in a treehouse worktree
 
 # Run E2E tests
 cd front-end
