@@ -97,7 +97,9 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 **Where the bar is too narrow for the tabs, they scroll inside it.**
 Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only Attendance, Tools and the Assignments page reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
 It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-door-on-a-phone.spec.ts` holds the three routes at 720 and 768.
-The page row there scrolls away with the rail, each page's link a 44px target by its line's height, so its current mark keeps its place.
+The page row there scrolls away with the rail, each page's link a one-line 44px target by its line's height, so its current mark keeps its place.
+On a phone (640px and below) the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
+The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.
 A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
 

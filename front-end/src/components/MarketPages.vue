@@ -92,10 +92,24 @@ function linkTo(marketId: string, page: MarketPage) {
 }
 
 /* A phone (T142): a thumb's target, by the line's height so the current mark keeps its place on it.
-   The row scrolls away with the rail there (the market frame). */
+   The row scrolls away with the rail there (the market frame). Each link stays one whole line: the
+   fourth page ran past the card at 390 and squeezed Assignments onto two lines (E44/F02/S01). So
+   the links touch, and each label stands on the phone's 16px gutter with its pill reaching into
+   it, which fits all four at 390; a narrower phone scrolls the row sideways inside itself, as the
+   bar's tabs do, never the page. The row's own padding keeps a link's halo inside the scroller. */
 @media (width <= 640px) {
+  .market-pages {
+    gap: 0;
+    padding: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
   .market-page {
+    flex: none;
+    padding: var(--space-1) var(--space-2);
     line-height: calc(var(--target-min) - 2 * var(--space-1));
+    white-space: nowrap;
   }
 }
 
