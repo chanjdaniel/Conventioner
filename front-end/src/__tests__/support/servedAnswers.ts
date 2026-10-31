@@ -17,7 +17,10 @@ export function answersRefusing(...refused: MarketAction[]): Record<string, stri
 /** What a Viewer is served by the built-in table: reading and exporting, nothing else. */
 export const VIEWER_ANSWERS = answersRefusing(
   ...Object.values(MarketAction).filter(
-    (action) => action !== MarketAction.Read && action !== MarketAction.ExportCsv,
+    (action) =>
+      action !== MarketAction.Read &&
+      action !== MarketAction.ReadHistory &&
+      action !== MarketAction.ExportCsv,
   ),
 );
 
@@ -30,6 +33,8 @@ export const EDITOR_ANSWERS = answersRefusing(
   MarketAction.StopApplications,
   MarketAction.PublishResults,
   MarketAction.UpdateAssignmentOrPriceInfo,
+  MarketAction.ChangeOwed,
+  MarketAction.AdjustPaid,
   MarketAction.ConnectDiscord,
   MarketAction.ManageEditorsAndViewers,
   MarketAction.ManageAdmins,
