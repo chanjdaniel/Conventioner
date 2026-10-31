@@ -107,6 +107,9 @@ watch(isLogin, (newValue) => {
       <RouterView class="router-view" />
     </main>
 
+    <!-- Dismissed, the scrim is gone at once for the pointer: its visibility waits for the fade
+         out, and one that swallows clicks for that 0.3s eats the click that follows a menu item,
+         such as Try again on the page whose navigation just failed (E38/F11/S01). -->
     <div
       v-if="!isPublicPage"
       ref="navScrim"
@@ -114,6 +117,7 @@ watch(isLogin, (newValue) => {
       :style="{
         opacity: navOpen ? '100%' : '0%',
         visibility: navOpen ? 'visible' : 'hidden',
+        'pointer-events': navOpen ? 'auto' : 'none',
       }"
       @click="navOpen = false"
     ></div>
