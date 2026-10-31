@@ -177,6 +177,7 @@ EACH_LOAD_ASKS = [
     (lambda: DiscordConnectionApi.disconnect("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
     (lambda: DiscordConnectionApi.save("market-123", {}, "u@x.test"), Actions.CONNECT_DISCORD),
     (lambda: DiscordConnectionApi.roles("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
+    (lambda: DiscordConnectionApi.check("market-123", "u@x.test"), Actions.CONNECT_DISCORD),
 ]
 
 

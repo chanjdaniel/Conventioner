@@ -485,6 +485,16 @@ def _discord_choice(client, world):
     return client.put(f"/markets/{MARKET}/discord", json={"roleId": "r-vendor"})
 
 
+def _check_discord(client, world):
+    _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username")
+    world.patch(Discord, "server_members", lambda *_a: [])
+    world.markets.doc["applicationForm"] = {"fields": [
+        {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, form_data={"discord_username": "maple"}))
+    return client.post(f"/markets/{MARKET}/discord/check")
+
+
 def _disconnect_discord(client, world):
     _discord(world, **DISCORD_SERVER)
     return client.delete(f"/markets/{MARKET}/discord/connection")
@@ -621,6 +631,9 @@ WRITES = [
           History.DISCORD_CONNECTED, _connect_discord),
     Write("a Discord choice", "PUT", f"{M}/discord", Actions.CONNECT_DISCORD,
           History.DISCORD_SETTINGS, _discord_choice),
+    Write("who is in the Discord server", "POST", f"{M}/discord/check", Actions.CONNECT_DISCORD,
+          History.DISCORD_CHECKED, _check_discord, vendors=(VENDOR,),
+          subject={"application_ids": ["app-1"]}, detail_keys=("counts",)),
     Write("Discord disconnected", "DELETE", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
           History.DISCORD_DISCONNECTED, _disconnect_discord),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,

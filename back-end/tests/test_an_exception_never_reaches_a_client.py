@@ -1367,6 +1367,8 @@ READS_NO_BODY = [
      [(DiscordConnectionApi, "start", {"url": "https://discord.com/oauth2/authorize"})]),
     ("delete", "/markets/<market_id>/discord/connection",
      [(DiscordConnectionApi, "disconnect", None)]),
+    ("post", "/markets/<market_id>/discord/check",
+     [(DiscordConnectionApi, "check", {"counts": {}, "checkedAt": "2026-10-31T00:00:00+00:00"})]),
 ]
 # Each write route in app.py with a body another module reads: the view hands `request` to the
 # account API in api/users.py, or the applicant sign-in in api/applicant_auth.py reads it for its

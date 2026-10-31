@@ -39,12 +39,17 @@ export interface MarketSchema {
   };
   creationDate: string;
   discord?: {
+    checkedAt?: string;
     guildId?: string;
     guildName?: string;
     inviteLink?: string;
     roleId?: string;
     roleName?: string;
     usernameQuestion?: string;
+    vendorStates?: {
+      applicationId: string;
+      state: string;
+    }[];
   };
   exampleColumns?: {
     headers?: string[];

@@ -22,6 +22,12 @@ import {
   inFormOrder,
 } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
+import {
+  DISCORD_STATES,
+  discordStateFrom,
+  discordStateLabel,
+  type DiscordState,
+} from '@/utils/discordCheck';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
 import {
@@ -285,6 +291,59 @@ function placementParts(
   ];
 }
 
+/**
+ * The Discord card's fields as the history names them (E46/F01/S02), each by the name it was
+ * recorded with: the server's and the role's names and the question's label, never Discord's ids
+ * or the question's key (T127 review 6 note 30). Each id is recorded beside its name, and left out.
+ */
+const DISCORD_FIELDS: Array<[string, string]> = [
+  ['guild_name', 'server'],
+  ['role_name', 'role'],
+  ['username_question', 'username question'],
+  ['invite_link', 'invite link'],
+];
+
+/** The card's fields an entry changed, in the card's order: a question by its key or its label. */
+function discordFields(...sides: Detail[]): Array<[string, string]> {
+  const keys = new Set(sides.flatMap((side) => Object.keys(side)));
+  return DISCORD_FIELDS.filter(
+    ([key]) => keys.has(key) || (key === 'username_question' && keys.has(`${key}_label`)),
+  );
+}
+
+/** A side's username question as the form names it: its recorded label, else the form's label for
+ * its key, else the key and that the form no longer has it. */
+function discordQuestion(side: Detail, fields: readonly FormField[]): string {
+  const label = str(side.username_question_label);
+  if (label) return label;
+  const key = str(side.username_question);
+  if (!key) return 'none';
+  const question = fields.find((field) => field.key === key);
+  return question ? question.label : `“${key}” (no longer on the form)`;
+}
+
+/** One vendor a Discord check changed: their address, and their state before and after. */
+interface CheckedVendor {
+  vendor: string;
+  before: DiscordState | null;
+  after: DiscordState | null;
+}
+
+/** The vendors a check changed, in the entry's order, each by their application's id. */
+function checkedVendors(entry: MarketHistoryEntry): CheckedVendor[] {
+  const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+  const detail = asDetail(entry.detail);
+  return ids.map((id, index) => ({
+    vendor: str(entry.vendors[index]),
+    before: discordStateFrom(asDetail(detail.before)[str(id)]),
+    after: discordStateFrom(asDetail(detail.after)[str(id)]),
+  }));
+}
+
+function checkedState(state: DiscordState | null): string {
+  return state ? discordStateLabel(state) : 'not checked';
+}
+
 /** One application a deal moved: its vendor, and whom it was dealt to before and after. */
 interface DealtShare {
   vendor: string;
@@ -425,6 +484,36 @@ export function entryParts(
   }
 
   switch (`${entry.action}/${entry.kind ?? ''}`) {
+    case 'connect-discord/discord_connected':
+      return [actor, text(`connected the market to the Discord server “${str(after.guild_name)}”`)];
+    case 'connect-discord/discord_disconnected':
+      return [
+        actor,
+        text(`disconnected the market from the Discord server “${str(before.guild_name)}”`),
+      ];
+    case 'connect-discord/discord': {
+      const fields = discordFields(before, after).map(([, words]) => words);
+      return [actor, text(`changed the Discord card${fields.length ? `: ${listed(fields)}` : ''}`)];
+    }
+    case 'connect-discord/discord_checked': {
+      const vendor = own.trim().toLowerCase();
+      const mine = vendor
+        ? checkedVendors(entry).find((each) => each.vendor.toLowerCase() === vendor)
+        : undefined;
+      if (mine) {
+        return [actor, text(`checked who is in the Discord server: ${checkedState(mine.after)}`)];
+      }
+      const counts = asDetail(detail.counts);
+      const found = DISCORD_STATES.filter((state) => Number(counts[state] ?? 0) > 0).map(
+        (state) => `${Number(counts[state])} ${discordStateLabel(state).toLowerCase()}`,
+      );
+      return [
+        actor,
+        text(
+          `checked who is in the Discord server: ${found.length ? found.join(', ') : 'no vendors'}`,
+        ),
+      ];
+    }
     case 'assign/rules':
       return [actor, text('changed the assignment rules')];
     case 'change-setup/renamed':
@@ -975,6 +1064,40 @@ export function entryChanges(
       if (row.before !== row.after) changed.push(row);
     }
     return { changed, recorded: recordedFields(entry, detail, path, true) };
+  }
+  if (entry.action === 'connect-discord' && entry.kind === 'discord_checked') {
+    const vendor = own.trim().toLowerCase();
+    const vendors = checkedVendors(entry);
+    const mine = vendor ? vendors.find((each) => each.vendor.toLowerCase() === vendor) : undefined;
+    const row = (each: CheckedVendor, field: string) => ({
+      field,
+      before: checkedState(each.before),
+      after: checkedState(each.after),
+    });
+    const counts = asDetail(detail.counts);
+    return {
+      changed: mine ? [row(mine, 'Discord')] : vendors.map((each) => row(each, each.vendor)),
+      recorded: mine
+        ? []
+        : DISCORD_STATES.filter((state) => state in counts).map((state) => ({
+            field: discordStateLabel(state),
+            value: str(counts[state]),
+          })),
+    };
+  }
+  if (entry.action === 'connect-discord') {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const value = (side: Detail, key: string) =>
+      key === 'username_question' ? discordQuestion(side, fields) : valueText(side[key]);
+    return {
+      changed: discordFields(before, after).map(([key, words]) => ({
+        field: fieldName(words),
+        before: value(before, key),
+        after: value(after, key),
+      })),
+      recorded: [],
+    };
   }
   if (entry.action === 'choose-reviewers' && entry.kind === 'reviewers') {
     // One address a line, so no address is broken across two.
