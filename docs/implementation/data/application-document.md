@@ -11,7 +11,7 @@ describes:
   - back-end/datatypes.py#AnswerUpdate
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01
@@ -105,6 +105,7 @@ The applicant never reads a status: their page reads "Submitted" until results a
 `update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
 Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
 Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+An undo of a verdict just given (E38/F10/S01) is this same write, back to `open` or `needs_follow_up` (`UNDONE_TO`), conditioned on the status and the verdict's time alone, and only by the person `verdict_by` names within `UNDO_WINDOW` of `verdict_at` (`undoable_by`); back to `open` it clears the giver, and back to `needs_follow_up` it writes the person undoing as the giver, beside the owner it had ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
 
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name and their answers to the questions the price groups read in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).

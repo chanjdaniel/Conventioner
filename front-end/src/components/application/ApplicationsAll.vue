@@ -10,6 +10,8 @@
  * With reviewers chosen, a row names whose share it is, and deciding someone else's says so in the
  * drawer and in a selection's confirmation (E38/F07/S03); "Assigned to" narrows the rows to one
  * reviewer's share, and a chosen reviewer lands on their own (E38/F07/S04).
+ * A verdict just given, a row's or a selection's, offers its giver Undo for the window the server
+ * gives, until their next verdict (E38/F10/S01).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
@@ -44,7 +46,9 @@ import {
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
-import { useVerdictActions } from '@/utils/verdictActions';
+import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
+import { undoneTo, useVerdictUndo, type UndoOutcome } from '@/utils/verdictUndo';
+import VerdictUndoLine from '@/components/application/VerdictUndoLine.vue';
 import { applicationsAllSeed, NO_FILTERS, type ExportFilters } from '@/utils/vendorExport';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
@@ -149,6 +153,23 @@ const verdicts = useVerdictActions(
   applications,
 );
 const { me, people, writesNotes } = verdicts;
+/**
+ * The undo of the verdict just given (E38/F10/S01): a row's, said in its drawer while it is open and
+ * over the list once it is closed, or a selection's, on its done line.
+ */
+const undo = useVerdictUndo(
+  computed(() => props.market),
+  verdicts.adopt,
+);
+const { offered: undoOffered, refusal: undoRefusal, undoing } = undo;
+const undoFrom = ref<'row' | 'selection' | null>(null);
+/** The row whose verdict is on offer to undo, when its drawer is the one open. */
+const undoInDrawer = computed(
+  () =>
+    undoFrom.value === 'row' &&
+    !!opened.value &&
+    undoOffered.value?.items[0]?.application.id === opened.value.id,
+);
 
 function setQuery(change: Record<string, string | null>) {
   const query: LocationQuery = { ...route.query };
@@ -264,13 +285,22 @@ const noteBefore = computed(() =>
   opened.value ? (drawerPanel.value?.entryFor(opened.value.applicantEmail)?.note ?? '') : '',
 );
 
+/** A row's verdict written offers its undo, replacing any on offer (E38/F10/S01). */
+function offerRowUndo(before: Application, outcome: VerdictOutcome, status: ApplicationStatus) {
+  if (outcome.kind !== 'written') return;
+  undoFrom.value = 'row';
+  undo.offerOne(before, outcome.application, status, outcome.undoSeconds);
+}
+
 async function give(status: ApplicationStatus) {
   const app = opened.value;
   if (!app || saving.value) return;
   saving.value = true;
   verdictMessage.value = '';
+  const before = { ...app };
   try {
     const outcome = await verdicts.give(app, status);
+    offerRowUndo(before, outcome, status);
     // Someone decided it first (E34/F03/S01): the drawer shows what is really there, and who.
     if (outcome.kind !== 'written') verdictMessage.value = outcome.message;
     else void details.load();
@@ -284,8 +314,10 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   if (!app || saving.value) return;
   saving.value = true;
   followUpError.value = '';
+  const before = { ...app };
   try {
     const outcome = await verdicts.markFollowUp(app, choice, noteBefore.value);
+    offerRowUndo(before, outcome, ApplicationStatus.NeedsFollowUp);
     void drawerPanel.value?.loadNotes();
     if (outcome.kind === 'failed') {
       followUpError.value = outcome.message;
@@ -396,17 +428,50 @@ const askingDealtLine = computed(() =>
   ),
 );
 
+/**
+ * A selection's verdict offers the undo of everything it wrote, as the list now reads each one, on
+ * its done line (E38/F10/S01); none when any of it changed a verdict already given.
+ */
+function offerSelectionUndo(written: string[], before: Map<string, Application>, seconds: number) {
+  undoFrom.value = 'selection';
+  undo.offer(
+    written.map((id) => {
+      const was = before.get(id);
+      const now = applications.value.find((app) => app.id === id);
+      const to = was ? undoneTo(was) : null;
+      return to && now ? { application: now, ...to } : null;
+    }),
+    '',
+    seconds,
+  );
+}
+
+/** Undo the verdict on offer, a row's or a selection's; a selection's says what it skipped. */
+async function undoLast() {
+  const from = undoFrom.value;
+  const outcome: UndoOutcome = await undo.undo();
+  if (outcome.kind !== 'undone') return;
+  if (from === 'selection') {
+    const written = outcome.result?.written ?? outcome.applications.map((app) => app.id);
+    result.value = { written, skipped: outcome.result?.skipped ?? [], done: 'undone' };
+  }
+  await load();
+  void details.load();
+}
+
 async function decideSelection() {
   const status = asking.value;
   if (!status || !props.market) return;
   selectionError.value = '';
   try {
     const picked = applications.value.filter((a) => selected.value.has(a.id));
+    const before = new Map(picked.map((app) => [app.id, { ...app }] as const));
     const answer = await reviewSelection(props.market.id, picked, status);
     result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
     asking.value = null;
     clearSelection();
     await load();
+    offerSelectionUndo(answer.written, before, answer.undoSeconds ?? 0);
     void details.load();
     void marketStore.refresh();
   } catch (err) {
@@ -556,11 +621,38 @@ async function decideSelection() {
       </button>
     </div>
 
+    <!-- A row's verdict just given, once its drawer is closed (E38/F10/S01). -->
+    <VerdictUndoLine
+      v-if="undoOffered && undoFrom === 'row' && !undoInDrawer"
+      :line="undoOffered.line"
+      :refusal="undoRefusal"
+      :busy="undoing || saving"
+      testid="applications-all-undo"
+      @undo="undoLast"
+    />
+
     <div v-if="result" class="all-result" data-testid="applications-all-result" role="status">
-      <p>
-        {{ plural(result.written.length) }} {{ result.done
-        }}<template v-if="result.skipped.length">; {{ result.skipped.length }} skipped:</template
-        ><template v-else>.</template>
+      <p class="all-result-line">
+        <span
+          >{{ plural(result.written.length) }} {{ result.done
+          }}<template v-if="result.skipped.length">; {{ result.skipped.length }} skipped:</template
+          ><template v-else>.</template></span
+        >
+        <template v-if="undoOffered && undoFrom === 'selection'">
+          <span v-if="undoRefusal" class="all-meta" data-testid="applications-all-result-refusal">{{
+            undoRefusal
+          }}</span>
+          <button
+            v-else
+            type="button"
+            class="btn btn--secondary btn--compact"
+            :disabled="undoing"
+            data-testid="applications-all-result-undo"
+            @click="undoLast"
+          >
+            Undo
+          </button>
+        </template>
       </p>
       <ul v-if="result.skipped.length">
         <li v-for="skip in result.skipped" :key="skip.id" data-testid="applications-all-skipped">
@@ -661,6 +753,14 @@ async function decideSelection() {
             >
           </p>
           <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
+          <VerdictUndoLine
+            v-if="undoInDrawer && undoOffered"
+            :line="undoOffered.line"
+            :refusal="undoRefusal"
+            :busy="undoing || saving"
+            testid="applications-all-drawer-undo"
+            @undo="undoLast"
+          />
           <p
             v-if="decides && !decidesOpened"
             class="all-meta change-reason"
@@ -860,6 +960,14 @@ async function decideSelection() {
 .all-result p,
 .all-result ul {
   margin: 0;
+}
+
+/* What a selection did, and its Undo beside it while it may be undone (E38/F10/S01). */
+.all-result-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
 }
 
 .all-result ul {

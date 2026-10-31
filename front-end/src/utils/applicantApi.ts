@@ -1,5 +1,5 @@
 import { api, getApiErrorMessage } from '@/utils/api';
-import type { Application } from '@/assets/types/datatypes';
+import type { Application, ApplicationStatus } from '@/assets/types/datatypes';
 
 /**
  * Request a login code for the applicant's email.
@@ -121,6 +121,15 @@ function seenOf(application: Application) {
 }
 
 /**
+ * What a verdict wrote: the application as it now stands, and how many seconds its giver may undo it
+ * for (E38/F10/S01), the server's window, so the client keeps no second copy of it.
+ */
+export interface VerdictWritten {
+  application: Application;
+  undoSeconds: number;
+}
+
+/**
  * Record a review verdict on an application (organizer only).
  * PUT /markets/<id>/applications/<app_id>/review
  */
@@ -131,13 +140,47 @@ export async function reviewApplication(
   status: string,
   /** A follow-up's owner, when not the reviewer (E34/F02/S01). */
   ownerEmail?: string,
-): Promise<Application> {
+): Promise<VerdictWritten> {
   const { data } = await api.put(`/markets/${marketId}/applications/${application.id}/review`, {
     status,
     seen: seenOf(application),
     ...(ownerEmail ? { ownerEmail } : {}),
   });
+  return { application: data.application as Application, undoSeconds: data.undoSeconds ?? 0 };
+}
+
+/**
+ * A verdict to undo (E38/F10/S01): the application as the verdict left it, and what to return it to -
+ * open, or needs follow-up with the owner it had.
+ */
+export interface UndoItem {
+  application: Application;
+  back: ApplicationStatus;
+  ownerEmail?: string;
+}
+
+function undoBody({ application, back, ownerEmail }: UndoItem) {
+  return { seen: seenOf(application), back, ...(ownerEmail ? { ownerEmail } : {}) };
+}
+
+/**
+ * Undo the verdict the signed-in reviewer just gave (E38/F10/S01): theirs, within the window.
+ * POST /markets/<id>/applications/<app_id>/review/undo
+ */
+export async function undoVerdict(marketId: string, item: UndoItem): Promise<Application> {
+  const { data } = await api.post(
+    `/markets/${marketId}/applications/${item.application.id}/review/undo`,
+    undoBody(item),
+  );
   return data.application as Application;
+}
+
+/** Undo what a selection's verdict wrote, each as one is undone, saying what it skipped and why. */
+export async function undoSelection(marketId: string, items: UndoItem[]): Promise<SelectionResult> {
+  const { data } = await api.post(`/markets/${marketId}/applications/verdicts/undo`, {
+    applications: items.map((item) => ({ id: item.application.id, ...undoBody(item) })),
+  });
+  return data as SelectionResult;
 }
 
 /**
@@ -160,6 +203,8 @@ export function changedSinceSeen(
 export interface SelectionResult {
   written: string[];
   skipped: { id: string; email: string | null; reason: string }[];
+  /** How many seconds what it wrote may be undone for, when it wrote any (E38/F10/S01). */
+  undoSeconds?: number;
 }
 
 /** One verdict for a ticked selection, each written only on what the reviewer saw. */

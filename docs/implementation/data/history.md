@@ -13,7 +13,7 @@ describes:
   - back-end/api/organizations.py#get_history
   - back-end/tests/test_the_organizations_history.py
   - back-end/api/organizations.py#get_default_permission_history
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/readable-journey/08
   - E40/F01/S01
@@ -28,6 +28,7 @@ sources:
   - E38/F06/S01
   - E38/F07/S02
   - E38/F07/S03
+  - E38/F10/S01
   - E39/F02/S01
   - E46/F01/S02
   - E46/F01/S03
@@ -94,6 +95,8 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one; and `dealt_to`, the address of the reviewer it was dealt to, when it has one ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)) |
 | `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
 | `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after; and `dealt_to` by application id for those that have a reviewer |
+| `give-verdicts` | `verdict_undone` | its giver taking back their own verdict, or follow-up, within the window ([what each role may do](../../business/rules/what-each-role-may-do.md#why), E38/F10/S01); the verdict keeps its own entry | the applicant | `application_id` | as a verdict: `status`, and `follow_up_owner` while there is one, before and after, and `dealt_to` |
+| `give-verdicts` | `verdicts_undone` | a selection's verdict taken back, one entry for what it undid | each applicant undone | `application_ids` | as a selection's verdict |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
 | `choose-reviewers` | `reviewers` | [choosing or changing the reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md), only when the set changed | - | - | `reviewers`: their addresses, in the order they are dealt to |
 | `choose-reviewers` | `dealt` | the deal a change of reviewers made, one entry, only when it moved any application | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: reviewers_changed`; by application id, its `reviewer` (an address, null when undealt), and a removed reviewer's follow-up's `follow_up_owner` beside it, before and after |
@@ -120,6 +123,7 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-the-table` | `permission_table_copied` | the market's owner copying its organization's default again, one entry for the one act | - | - | by row id, every row it changed, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
 
+An undo reads "<actor> undid their verdict on <vendor>: Rejected back to Open", a selection's "undid their verdicts on N applications: …".
 A verdict on someone else's share reads "…, dealt to <address>", and nothing is added when its reviewer decided it or it was never dealt; an entry written before reviewers existed reads as it always did.
 A `dealt` entry is worded by its kind, whichever action dealt it (an applicant's own arrival as their application dealt, never as their deal), and its vendors and application ids are in the same order, so one vendor's History tab reads that vendor's own line of a deal of many.
 
