@@ -291,6 +291,10 @@ describe('the focus halo measures what its comment says', () => {
   it('the inset halo on a phone is the same colour as the dark halo', () => {
     expect(haloColour('--focus-halo-on-dark-inset')).toEqual(darkGlow);
   });
+
+  it('the inset green halo is the same colour as the green halo', () => {
+    expect(haloColour('--focus-halo-inset')).toEqual(glow);
+  });
 });
 
 /**

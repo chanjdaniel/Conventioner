@@ -369,6 +369,13 @@ export async function seedTheScreens(
   });
   if (!stop.ok()) throw new Error(`Stopping failed: ${stop.status()} ${await stop.text()}`);
   const review = await withApplications('Harbour Review Market', 'csv');
+  // Its cards lead with two answers and fold the rest behind "N more answers" (E19/F03/S01).
+  const highlights = await api.put(`${backend}/markets/${review.marketId}/review-highlights`, {
+    data: { keys: ['business_name', 'category'] },
+  });
+  if (!highlights.ok()) {
+    throw new Error(`Marking highlights failed: ${highlights.status()} ${await highlights.text()}`);
+  }
   const dealt = await dealtMarket(api, backend, email, two);
 
   const assignment = await createMarket(api, backend, email, uniqueMarketName('Winter Lantern'), {

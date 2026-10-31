@@ -119,6 +119,8 @@ defineSlots<{
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* As wide as its words, so its focus halo hugs them rather than the card. */
+  width: fit-content;
 }
 
 .answers-rest summary::-webkit-details-marker {
