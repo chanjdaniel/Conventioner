@@ -6,7 +6,7 @@ describes:
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
   - front-end/src/components/market/OpenApplicationsDialog.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01

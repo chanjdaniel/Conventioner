@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/the-vendor-drawer-gives-focus-back.spec.ts
   - front-end/e2e/dialog-idiom.spec.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
