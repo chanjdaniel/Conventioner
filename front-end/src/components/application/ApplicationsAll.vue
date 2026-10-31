@@ -470,8 +470,10 @@ async function decideSelection() {
             </option>
           </select>
         </label>
+        <!-- Nothing read is not none: under a failed read there is nothing to count. The box stays,
+             so Export keeps its place at the row's end. -->
         <span class="all-count" data-testid="applications-all-count">
-          {{ shown.length }} of {{ applications.length }}
+          <template v-if="!errorMessage">{{ shown.length }} of {{ applications.length }}</template>
         </span>
         <button
           v-if="mayExport"
