@@ -387,6 +387,9 @@ A stack that is OOM-killed shows `OOMKilled: true` in `docker inspect`; raise it
   `net::ERR_NETWORK_CHANGED`. `lsof ~/.local/state/conventioner/e2e.lock` lists the holder and
   every waiting run; [CI and the gate](implementation/testing/ci-and-the-gate.md#the-no-mistakes-gate)
   has the lock's rules. A dev stack or a hand-run Playwright takes no turn and can still meet it.
+  A stack's own start no longer reaches its first spec: Playwright's global setup waits until the
+  host's newest container interface is 20 seconds old, and says how long it waits
+  ([E2E patterns](implementation/testing/e2e-patterns.md)).
 - **An agent or `nm-test.sh` stack never restarts by itself**: every stack started through
   `scripts/th-compose.sh` has `restart: "no"`, so after a reboot, a Docker restart or a crash it
   stays down until you bring it up again; the primary stack (plain `docker compose`) still restarts.

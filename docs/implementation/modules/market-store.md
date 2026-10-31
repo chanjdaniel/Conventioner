@@ -65,6 +65,10 @@ Each control asks the row of the action it takes:
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
 | The drawer | Update info | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
+| The drawer's Payment tab | Record payment | Record a payment |
+| The drawer's Payment tab | Change the amount owed, Use the calculated price | Change the amount owed |
+| The drawer's Payment tab | Record refund, Edit, Remove | Adjust the amount paid |
+| Assignments, and the drawer's link to it | "Also remove its $15…" beside Free this seat | Change the amount owed, besides the Assignment row the free itself asks |
 | The drawer | History | Read the market's history |
 | Attendance | Check in, Undo | Check vendors in, in market days |
 | Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |

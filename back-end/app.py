@@ -12,6 +12,7 @@ import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.added_vendors as AddedVendorsApi
 import api.vendor_info as VendorInfoApi
+import api.payments as PaymentsApi
 import api.vendor_export as VendorExportApi
 import api.discord_connection as DiscordConnectionApi
 import csv_import as CsvImport
@@ -837,6 +838,76 @@ def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
     return jsonify({"message": "Saved"}), 200
 
 
+@app.route('/markets/<market_id>/payments/<path:vendor_email>', methods=['GET'])
+@login_required
+def get_vendor_account(market_id: str, vendor_email: str) -> Response:
+    """What one vendor owes for each table-day, and the payments recorded (E44/F01/S01). Asks
+    ``Actions.READ``."""
+    return jsonify(PaymentsApi.vendor_account(market_id, vendor_email, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>', methods=['POST'])
+@login_required
+def record_payment(market_id: str, vendor_email: str) -> Response:
+    """Record one payment a vendor made, and answer their account. Asks
+    ``Actions.RECORD_PAYMENT``.
+
+    Body: { "cents": 3500, "method": "e-transfer", "paidOn": "2026-11-01", "note": "" }
+    """
+    data = json_object(required=True)
+    return jsonify(PaymentsApi.record_payment(
+        market_id, vendor_email, data, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>/refunds', methods=['POST'])
+@login_required
+def record_refund(market_id: str, vendor_email: str) -> Response:
+    """Record money given back to a vendor, kept as a negative entry (E44/F01/S02). Asks
+    ``Actions.ADJUST_PAID``. Body: as a payment's."""
+    data = json_object(required=True)
+    return jsonify(PaymentsApi.record_refund(
+        market_id, vendor_email, data, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>/owed/<date>', methods=['PUT'])
+@login_required
+def set_amount_owed(market_id: str, vendor_email: str, date: str) -> Response:
+    """Set what a vendor owes for one table-day. Asks ``Actions.CHANGE_OWED``.
+
+    Body: { "cents": 0 }, $0 being how a fee is waived.
+    """
+    data = json_object(required=True)
+    return jsonify(PaymentsApi.set_amount_owed(
+        market_id, vendor_email, date, data, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payments/<path:vendor_email>/owed/<date>', methods=['DELETE'])
+@login_required
+def use_calculated_price(market_id: str, vendor_email: str, date: str) -> Response:
+    """Take back an amount set by hand: the table-day owes its calculated price again. Asks
+    ``Actions.CHANGE_OWED``."""
+    return jsonify(PaymentsApi.use_calculated_price(
+        market_id, vendor_email, date, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payment-entries/<payment_id>', methods=['PUT'])
+@login_required
+def edit_payment(market_id: str, payment_id: str) -> Response:
+    """Change a payment or a refund, kept with what it read before. Asks
+    ``Actions.ADJUST_PAID``. Body: as a payment's."""
+    data = json_object(required=True)
+    return jsonify(PaymentsApi.edit_payment(
+        market_id, payment_id, data, authenticated_email())), 200
+
+
+@app.route('/markets/<market_id>/payment-entries/<payment_id>', methods=['DELETE'])
+@login_required
+def remove_payment(market_id: str, payment_id: str) -> Response:
+    """Take a payment or a refund out of the amount paid, kept and marked removed. Asks
+    ``Actions.ADJUST_PAID``."""
+    return jsonify(PaymentsApi.remove_payment(market_id, payment_id, authenticated_email())), 200
+
+
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
 @login_required
 def save_review_highlights(market_id: str) -> Response:
@@ -1202,6 +1273,7 @@ def remove_placement(market_id: str) -> Response:
         str(data.get("email") or ""),
         str(data.get("date") or ""),
         authenticated_email(),
+        deduct_owed=data.get("deductOwed") is True,
     )
     return jsonify(result), status_code
 

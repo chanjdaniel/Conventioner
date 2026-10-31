@@ -326,10 +326,10 @@ describe('what an entry says', () => {
   it('names a change it has no words for by its row of the table', () => {
     expect(
       sentence(
-        { action: 'record-payment', kind: null, vendors: ['ben@ember.test'] },
-        { 'record-payment': 'Record a payment' },
+        { action: 'give-roles', kind: null, vendors: ['ben@ember.test'] },
+        { 'give-roles': 'Connect Discord and give roles' },
       ),
-    ).toBe('dana@ember.test made a change: Record a payment, about [Ben Okafor]');
+    ).toBe('dana@ember.test made a change: Connect Discord and give roles, about [Ben Okafor]');
   });
 
   it('words an update of a vendor’s info by who updated whose', () => {
@@ -344,10 +344,10 @@ describe('what an entry says', () => {
   });
 
   it('says a change it has no words and no row label for is a change, never its id', () => {
-    expect(sentence({ action: 'record-payment', kind: null, vendors: ['ben@ember.test'] })).toBe(
+    expect(sentence({ action: 'give-roles', kind: null, vendors: ['ben@ember.test'] })).toBe(
       'dana@ember.test made a change, about [Ben Okafor]',
     );
-    expect(sentence({ action: 'record-payment', kind: null, vendors: [] })).toBe(
+    expect(sentence({ action: 'give-roles', kind: null, vendors: [] })).toBe(
       'dana@ember.test made a change',
     );
   });
@@ -1396,6 +1396,125 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
     expect(priced({ before: { everyone_else: null }, after: { everyone_else: [] } })).toEqual([
       { field: '"Everyone else"', before: 'none', after: 'none' },
     ]);
+  });
+});
+
+describe("a vendor's payments, as the drawer's History and Manage market's say them (E44/F01)", () => {
+  const CAD = { currency: 'CAD' };
+  const fields = { cents: 3500, method: 'cash', paid_on: '2099-04-01', note: 'At the desk' };
+  const none = { cents: null, method: null, paid_on: null, note: null };
+
+  it('words a payment, a refund, an edit and a removal, the vendor named', () => {
+    expect(
+      sentence({
+        action: 'record-payment',
+        kind: null,
+        subject: { payment_id: 'p1', ...CAD },
+        detail: { before: none, after: fields },
+      }),
+    ).toBe('dana@ember.test recorded a payment of $35 from [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'refund_recorded',
+        subject: { payment_id: 'p2', ...CAD },
+        detail: { before: none, after: { ...fields, cents: -1500 } },
+      }),
+    ).toBe('dana@ember.test recorded a refund of $15 to [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_edited',
+        subject: { payment_id: 'p1', payment_kind: 'payment', ...CAD },
+        detail: { before: { cents: 3000 }, after: { cents: 3500 } },
+      }),
+    ).toBe('dana@ember.test changed a payment from [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_removed',
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
+        detail: { before: { ...fields, cents: -1500 }, after: none },
+      }),
+    ).toBe('dana@ember.test removed a refund to [Ana Rivera]');
+  });
+
+  it('says an edited refund is a refund when only its note changed (review 2, note 8)', () => {
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_edited',
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
+        detail: { before: { note: null }, after: { note: 'Given at the desk' } },
+      }),
+    ).toBe('dana@ember.test changed a refund to [Ana Rivera]');
+  });
+
+  it('words an amount owed set, and taken back to the calculated price', () => {
+    expect(
+      sentence({
+        action: 'change-owed',
+        kind: 'owed_set',
+        subject: { date: '2099-05-08', ...CAD },
+        detail: { before: { owed_cents: 1500 }, after: { owed_cents: 0 } },
+      }),
+    ).toBe('dana@ember.test set what [Ana Rivera] owes on May 8, 2099 to $0');
+    expect(
+      sentence({
+        action: 'change-owed',
+        kind: 'owed_calculated',
+        subject: { date: '2099-05-08', ...CAD },
+        detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+      }),
+    ).toBe(
+      'dana@ember.test set what [Ana Rivera] owes on May 8, 2099 back to the calculated price',
+    );
+  });
+
+  it('words a free’s deduction taken back by seating the day again (review, note 18)', () => {
+    const takenBack = entry({
+      action: 'assign',
+      kind: 'owed_taken_back',
+      subject: { date: '2099-05-08', ...CAD },
+      detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+    });
+    expect(said(entryParts(takenBack, NAMES))).toBe(
+      'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0 set when the table was freed',
+    );
+    expect(entryChanges(takenBack).changed).toEqual([
+      { field: 'Amount owed', before: '$0', after: '$15' },
+    ]);
+  });
+
+  it('opens to the fields in the Payment tab’s words and money', () => {
+    const { changed, recorded } = entryChanges(
+      entry({
+        action: 'record-payment',
+        kind: null,
+        subject: { payment_id: 'p1', ...CAD },
+        detail: { before: none, after: fields },
+      }),
+    );
+    expect(changed).toEqual([
+      { field: 'Amount', before: 'none', after: '$35' },
+      { field: 'Paid by', before: 'none', after: 'Cash' },
+      { field: 'Paid on', before: 'none', after: 'Apr 1, 2099' },
+      { field: 'Note', before: 'none', after: 'At the desk' },
+    ]);
+    expect(recorded).toEqual([]);
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-owed',
+          kind: 'owed_set',
+          subject: { date: '2099-05-08', ...CAD },
+          detail: { before: { owed_cents: 1500 }, after: { owed_cents: 0 } },
+        }),
+      ),
+    ).toEqual({
+      changed: [{ field: 'Amount owed', before: '$15', after: '$0' }],
+      recorded: [{ field: 'Date', value: 'May 8, 2099' }],
+    });
   });
 });
 

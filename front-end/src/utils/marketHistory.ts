@@ -625,6 +625,51 @@ export function entryParts(
           after.applications_stopped ? 'stopped taking applications' : 'took applications again',
         ),
       ];
+    // A vendor's payments (E44/F01): the vendor last where a possessive would follow them.
+    case 'record-payment/':
+      return [actor, text(`recorded a payment of ${entryMoney(entry, after.cents)} from `), vendor];
+    case 'adjust-paid/refund_recorded':
+      return [
+        actor,
+        text(`recorded a refund of ${entryMoney(entry, Math.abs(Number(after.cents)))} to `),
+        vendor,
+      ];
+    case 'adjust-paid/payment_edited':
+      return [
+        actor,
+        text(isRefund(entry) ? 'changed a refund to ' : 'changed a payment from '),
+        vendor,
+      ];
+    case 'adjust-paid/payment_removed':
+      return [
+        actor,
+        text(isRefund(entry) ? 'removed a refund to ' : 'removed a payment from '),
+        vendor,
+      ];
+    case 'change-owed/owed_set':
+      return [
+        actor,
+        text('set what '),
+        vendor,
+        text(` owes${onDay(entry.subject.date)} to ${entryMoney(entry, after.owed_cents)}`),
+      ];
+    case 'assign/owed_taken_back':
+      return [
+        actor,
+        text('seated '),
+        vendor,
+        text(
+          ` again${onDay(entry.subject.date)}, taking back the ${entryMoney(entry, before.owed_cents)}` +
+            ' set when the table was freed',
+        ),
+      ];
+    case 'change-owed/owed_calculated':
+      return [
+        actor,
+        text('set what '),
+        vendor,
+        text(` owes${onDay(entry.subject.date)} back to the calculated price`),
+      ];
     case 'change-organization/renamed':
       return [
         actor,
@@ -693,6 +738,37 @@ export function entryParts(
       return parts;
     }
   }
+}
+
+/** An amount of a payment entry, in the currency its subject names: "$35", or "-$15" for a refund. */
+function entryMoney(entry: MarketHistoryEntry, cents: unknown): string {
+  const amount = Number(cents);
+  const money = formatPrice(Math.abs(amount), str(entry.subject.currency) || 'CAD');
+  return amount < 0 ? `-${money}` : money;
+}
+
+/** A payment entry's fields, as the Payment tab names them (E44/F01). */
+const PAYMENT_FIELDS: Record<string, string> = {
+  cents: 'Amount',
+  owed_cents: 'Amount owed',
+  method: 'Paid by',
+  paid_on: 'Paid on',
+  note: 'Note',
+};
+
+/** A payment entry's field as the Payment tab writes it: money, a method, a day, or a note. */
+function paymentValue(entry: MarketHistoryEntry, key: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'none';
+  if (key === 'cents' || key === 'owed_cents') return entryMoney(entry, value);
+  if (key === 'method') return value === 'cash' ? 'Cash' : 'E-transfer';
+  if (key === 'paid_on') return getShortDate(str(value));
+  return valueText(value);
+}
+
+/** Whether an entry is about a refund: its subject says, since an edit records only the fields
+ * it changed, and a refund's note changed alone carries no amount. */
+function isRefund(entry: MarketHistoryEntry): boolean {
+  return entry.subject.payment_kind === 'refund';
 }
 
 /** The row of the permission table a change to it is about, by its label, else by its id. */
@@ -1047,6 +1123,22 @@ export function entryChanges(
             ],
       ),
       recorded: [],
+    };
+  }
+  if (
+    ['record-payment', 'adjust-paid', 'change-owed'].includes(entry.action) ||
+    (entry.action === 'assign' && entry.kind === 'owed_taken_back')
+  ) {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const keys = Object.keys(PAYMENT_FIELDS).filter((key) => key in before || key in after);
+    return {
+      changed: keys.map((key) => ({
+        field: PAYMENT_FIELDS[key],
+        before: paymentValue(entry, key, before[key]),
+        after: paymentValue(entry, key, after[key]),
+      })),
+      recorded: entry.subject.date ? [{ field: 'Date', value: day(entry.subject.date) }] : [],
     };
   }
   if (entry.action === 'assign' && entry.kind === 'placed') {

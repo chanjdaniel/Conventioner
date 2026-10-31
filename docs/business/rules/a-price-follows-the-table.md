@@ -17,6 +17,7 @@ sources:
   - T92
   - E43/F01/S01
   - E43/F01/S02
+  - E44/F01/S01
   - E43/F01/S03
 ---
 
@@ -73,6 +74,7 @@ Changing the prices is part of "Change Market Setup", an Editor's ([what each ro
   A change after draft is refused with the setup's own reason, since `setup_part` includes the prices; and each change is recorded in [the market's history](../../implementation/data/history.md) as a `pricing` entry, before and after.
 - `Groups` in `back-end/pricing.py` prices one vendor's assignment from their answers (`price`) and names the broken groups (`broken`); the tables read (`get_market_tables`) reads the answers the groups ask (`vendor_answers`, through `vendor_answers_for_market` in [`back-end/api/applications.py`](../../../back-end/api/applications.py)) and carries each vendor's price on their table's row as `prices`, `{email, cents, group}`, empty where the table has none; `group` is the group's name, "Everyone else" on a card with groups, and null on a card without.
   The drawer's date cards read it there ("Gold, full table, Example College student + club member, $12", or "Gold, full table, $35" on a card with no groups; `priceLine` in [`front-end/src/utils/pricing.ts`](../../../front-end/src/utils/pricing.ts)).
+- What an assignment costs is what the vendor owes for that table-day by default, on the drawer's Payment tab, where a line follows its seat until someone sets the amount by hand, and a freed table's line stays owed ([payments, and what a vendor owes](../../implementation/data/payments.md)).
 - The card is [`ElementPricing.vue`](../../../front-end/src/components/elements/ElementPricing.vue), on [planning the market](../flows/planning.md#e9-pricing); a group's conditions are drawn by `ChoiceConditions.vue` (`front-end/src/components/application/`), and a broken one is judged on the screen by `brokenCondition` (`front-end/src/utils/choiceConditions.ts`) as the server judges it.
   A tier renamed in Tier Setup keeps its price in every row, and a removed tier's prices go with it (`pricingAfterTierChange`); a group with no name or another's holds the plan's autosave until it is fixed (`groupNameProblem`); a cell or the share holding text that is no value keeps the value from before it, no price for a cell that had none, and holds the plan's autosave (`held`, `planHeld` in `MarketSetupView.vue`) until it is fixed.
   That text moves with its tier's rename and goes with its tier, and the share's goes with the last tier, so no hold outlives its field.

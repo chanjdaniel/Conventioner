@@ -198,6 +198,7 @@ describe('the drawer’s History tab', () => {
     expect(drawer.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
       'Application',
       'Assignments',
+      'Payment',
       'History',
     ]);
     expect(historyRead()).toEqual(['/markets/market-1/history?vendor=ana%40ember.test']);
@@ -214,6 +215,7 @@ describe('the drawer’s History tab', () => {
     expect(drawer.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
       'Application',
       'Assignments',
+      'Payment',
     ]);
     // A link to the History tab opens on the Application tab rather than on a refusal.
     expect(drawer.find('[data-testid="vendor-drawer-panel-history"]').exists()).toBe(false);
@@ -226,10 +228,11 @@ describe('the drawer’s History tab', () => {
 
   it('steps with the arrow keys over the tabs it holds', async () => {
     serve({ entries: [], next: null });
-    const drawer = await openDrawer('assignments', [MarketAction.ReadHistory]);
+    const drawer = await openDrawer('application', [MarketAction.ReadHistory]);
 
-    await drawer.get('[role="tablist"]').trigger('keydown', { key: 'ArrowRight' });
+    // Left from the first tab wraps to the last one held: Payment, the History tab not held.
+    await drawer.get('[role="tablist"]').trigger('keydown', { key: 'ArrowLeft' });
 
-    expect(drawer.emitted('update:tab')).toEqual([['application']]);
+    expect(drawer.emitted('update:tab')).toEqual([['payment']]);
   });
 });
