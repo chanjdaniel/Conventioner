@@ -46,11 +46,10 @@ The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-e
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 It still gets the scrim, window, close, Escape, backdrop and inert behaviour, without the single-form footer.
-The footer's actions row wraps when its buttons are wider than the window, as on a phone, where a row that could not wrap ran out past the window's left edge.
 
 **A dialog is 26rem wide, or 38rem when `wide`, and never wider than the window less a 16px gutter at each side**; taller than the window, it scrolls within itself.
 So a dialog on a route that fits a phone opens inside a 390px window; Manage market and the create-market dialog do on `/markets`, and the placement dialog and the assignment history on the Assignments page (T142).
-The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone.
+The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone; a row that could not wrap ran out past the window's left edge, where nothing scrolls to it.
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 
