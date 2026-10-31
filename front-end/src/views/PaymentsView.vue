@@ -514,9 +514,11 @@ const nobodyShown = computed(() => {
   font-variant-numeric: tabular-nums;
 }
 
+/* Side by side where each has room for a date and its four headings on one line; at the 1000px
+   floor they wrapped onto two, so there one stands under the other. */
 .payments-breakdowns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr));
   align-items: start;
   gap: var(--space-4);
 }
@@ -566,6 +568,17 @@ const nobodyShown = computed(() => {
   text-align: right;
 }
 
+/* The vendor takes the spare width, so Owed, Paid and the Difference stand together at the right,
+   each a figure's width plus a gap, rather than spread across a wide window: at 1440 Paid and the
+   Difference stood 500px apart. */
+.payments-table--vendors th:first-child {
+  width: 100%;
+}
+
+.payments-table--vendors .payments-amount {
+  padding-left: var(--space-8);
+}
+
 .payments-sort {
   display: inline-flex;
   align-items: center;
@@ -604,9 +617,12 @@ const nobodyShown = computed(() => {
   color: var(--mm-text-muted-on-beige);
 }
 
+/* As wide as the vendor's name or address, so its halo hugs the words in the wide Vendor column;
+   a click on the rest of the row opens the drawer as well. */
 .payments-row-open {
   display: block;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: none;
