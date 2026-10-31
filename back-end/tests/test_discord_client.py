@@ -328,6 +328,36 @@ class TestTheServersMembers:
 
         assert str(refused.value) == Discord.BOT_NOT_IN_SERVER
 
+    def test_a_page_asked_with_a_deadline_waits_no_longer_than_the_time_left(
+        self, set_up, clock, monkeypatch,
+    ):
+        sent = []
+        clock.now += 4.5
+        monkeypatch.setattr(Discord.requests, "request",
+                            lambda method, url, **kwargs: (sent.append(
+                                SimpleNamespace(method=method, url=url, **kwargs)),
+                                _answer(200, []))[1])
+
+        members = Discord.server_members(Discord.credentials(), GUILD, deadline=clock() + 1.5)
+
+        assert members == []
+        assert sent[0].timeout == pytest.approx(1.5)
+
+    def test_a_page_asked_past_the_deadline_is_out_of_time(self, set_up, clock):
+        with pytest.raises(Discord.OutOfTime):
+            Discord.server_members(Discord.credentials(), GUILD, deadline=clock() - 1)
+
+    def test_without_a_deadline_a_page_waits_the_full_time(self, set_up, clock, monkeypatch):
+        sent = []
+        monkeypatch.setattr(Discord.requests, "request",
+                            lambda method, url, **kwargs: (sent.append(
+                                SimpleNamespace(method=method, url=url, **kwargs)),
+                                _answer(200, []))[1])
+
+        Discord.server_members(Discord.credentials(), GUILD)
+
+        assert sent[0].timeout == Discord.TIMEOUT_SECONDS
+
 
 ROLE = "2909267986263573001"
 MEMBER = "1001"

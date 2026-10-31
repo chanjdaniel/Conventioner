@@ -261,17 +261,21 @@ def server_roles(values: Credentials, guild_id: str) -> List[Role]:
     ]
 
 
-def server_members(values: Credentials, guild_id: str) -> List[Member]:
+def server_members(values: Credentials, guild_id: str,
+                   deadline: Optional[float] = None) -> List[Member]:
     """Every member of the server, a page of 1000 at a time, each page after the last member read.
 
     Needs the ``GUILD_MEMBERS`` privileged intent, switched on for the application in the Developer
     Portal; Discord refuses the list without it.
+
+    With a ``deadline`` (a ``clock()`` reading), each page is asked, waited for and waited on no
+    longer than that time: ``OutOfTime``.
     """
     members: List[Member] = []
     after = "0"
     while True:
         page = _bot(values, "GET", f"/guilds/{guild_id}/members",
-                    params={"limit": MEMBERS_PAGE, "after": after})
+                    params={"limit": MEMBERS_PAGE, "after": after}, deadline=deadline)
         page = page if isinstance(page, list) else []
         for member in page:
             user = member.get("user") or {}

@@ -117,6 +117,7 @@ NOT_GIVEN_YET = (
     "A run asks Discord for a few seconds at most, and Discord was still pacing it. "
     "Give roles again to finish."
 )
+MEMBERS_TOO_SLOW = "Discord was slow to list the server's members. Give roles again."
 #: The run's grants as the server's audit log names them, so its moderators can tell them from a
 #: role given by hand.
 AUDIT_REASON = "Conventioner: Give roles for {market}"
@@ -283,7 +284,9 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
     Discord to give the role only to an assigned vendor whose username a member has and who does
     not hold it yet. A refusal of one member (they left meanwhile) is theirs alone; any other
     refusal would refuse every grant alike, so the run stops asking and the rest fail with it.
-    When its ``ROLE_RUN_SECONDS`` end, it stops asking too, and the rest are not given yet.
+    When its ``ROLE_RUN_SECONDS`` end, it stops asking too, and the rest are not given yet. The
+    members are read within that time as well: a read that runs out gives nobody the role and
+    answers ``MEMBERS_TOO_SLOW``.
 
     Its states are written whatever a check wrote while it asked: its grants are newer than the
     members that check read.
@@ -296,7 +299,10 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
     question = _username_question(market, before)
     values = Discord.required_credentials()
 
-    members = _members_by_username(before)
+    try:
+        members = _members_by_username(before, deadline=deadline)
+    except Discord.OutOfTime:
+        raise Discord.DiscordUnavailable(MEMBERS_TOO_SLOW)
     vendors = _vendors_usernames(market_id, question)
     states = {vendor.application_id: vendor
               for vendor in _states(vendors, members, before.role_id)}
@@ -372,10 +378,12 @@ def _username_question(market: Market, connection: DiscordConnection) -> str:
     return question
 
 
-def _members_by_username(connection: DiscordConnection) -> Dict[str, Discord.Member]:
+def _members_by_username(connection: DiscordConnection,
+                         deadline: Optional[float] = None) -> Dict[str, Discord.Member]:
     """The server's members by their username, tidied as a vendor's is."""
     members: Dict[str, Discord.Member] = {}
-    for member in Discord.server_members(Discord.required_credentials(), connection.guild_id):
+    for member in Discord.server_members(Discord.required_credentials(), connection.guild_id,
+                                         deadline=deadline):
         members.setdefault(tidied_username(member.username), member)
     return members
 

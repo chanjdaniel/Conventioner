@@ -70,7 +70,7 @@ def world(monkeypatch, market_records, applications):
     monkeypatch.setattr(Discord, "connected_server", connected_server)
     monkeypatch.setattr(Discord, "server_roles", lambda _values, _guild: discord.roles)
 
-    def server_members(_values, guild):
+    def server_members(_values, guild, deadline=None):
         discord.listed.append(guild)
         return discord.members
 
@@ -652,7 +652,7 @@ class TestCheckingWhoIsInTheServer:
     def _changed_while_listing(self, world, connection):
         """The card written by another request while the members are read, which on a large
         server, or under a 429, takes seconds."""
-        def server_members(_values, guild):
+        def server_members(_values, guild, deadline=None):
             world.discord.listed.append(guild)
             world.markets.doc["discord"] = connection
             return world.discord.members
@@ -1136,6 +1136,32 @@ class TestGivingTheRole:
         assert response.status_code == 400
         assert response.get_json()["error"] == DiscordConnection.NOT_CONNECTED
 
+    def test_a_members_read_that_runs_out_gives_nobody_the_role(self, client, world):
+        """The members are read within the run's time too: a read that runs out answers
+        ``MEMBERS_TOO_SLOW``, with no grant, no write and no history."""
+        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "ana")
+        clock = SimpleNamespace(now=1000.0, puts=[])
+        world.patch.setattr(Discord, "clock", lambda: clock.now)
+
+        def request(method, url, **kwargs):
+            if method == "GET":
+                clock.now += DiscordConnection.ROLE_RUN_SECONDS + 1
+                raise Discord.requests.Timeout()
+            clock.puts.append(url)
+            return SimpleNamespace(status_code=204, ok=True, headers={}, json=lambda: None)
+
+        world.patch.setattr(Discord.requests, "request", request)
+
+        response = _give(client)
+
+        assert response.status_code == Discord.DiscordUnavailable.status
+        assert response.get_json()["error"] == DiscordConnection.MEMBERS_TOO_SLOW
+        assert clock.puts == []
+        assert _stored(world) == WITH_THE_ROLE
+        assert world.history.documents == []
+
     @pytest.mark.parametrize("role", [MarketRole.EDITOR, MarketRole.VIEWER])
     def test_below_an_admin_is_refused(self, client, world, role):
         world.market(role=role, discord=WITH_THE_ROLE, **WITH_THE_FORM,
@@ -1353,7 +1379,7 @@ class TestACheckAndARunTogether:
         runs = []
         reads = []
 
-        def server_members(_values, _guild):
+        def server_members(_values, _guild, deadline=None):
             reads.append(_guild)
             members = list(world.discord.members)
             if len(reads) == 1:
