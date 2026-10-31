@@ -375,10 +375,37 @@ summary:focus-visible,
   box-shadow: var(--focus-halo);
 }
 
-/* A text link has no corners of its own, so its halo would be a hard rectangle around the words.
-   `:where` keeps this below any link that sets a radius, so a styled link keeps its shape. */
-:where(a):focus-visible {
+/* A menu's item fills a box that clips it to its rounded corners (the phase rail's, a row's), so
+   its halo is drawn inside its edge, where the box cannot cut it off. */
+[role='menuitem']:focus-visible {
+  box-shadow: var(--focus-halo-inset);
+}
+
+/* Any other keyboard stop: a scroller the browser makes one because nothing inside it takes focus,
+   as a table too wide for a phone's dialog does. Fields and what only a script focuses are not
+   controls, and `:where` keeps this below every rule above. */
+:where(:focus-visible:not(input, textarea, select, [tabindex='-1'])) {
+  outline: none;
+  box-shadow: var(--focus-halo);
+}
+
+/* A text link or a text button has no corners of its own, so its halo would be a hard rectangle
+   around the words. `:where` keeps this below any control that sets a radius, so it keeps its shape. */
+:where(a, button, summary, [role='button'], [tabindex='0']):focus-visible {
   border-radius: var(--radius-control);
+}
+
+/* Room for the halo when focus scrolls a control into view, so the edge of the scroller it sits in
+   does not cut the halo off: a dialog's window brings its last control only just into view. */
+:where(a, button, summary, [role='button'], [tabindex]) {
+  scroll-margin: var(--space-2);
+}
+
+/* What a script focuses and Tab never reaches (`tabindex="-1"`) is not a control: AppDialog's
+   window, which takes focus when no control in it is ready. It draws nothing, not even the
+   browser's own ring. A control among them, such as a menu item, still wears a halo. */
+:where([tabindex='-1']):focus {
+  outline: none;
 }
 
 /* ============================================================================================

@@ -32,6 +32,7 @@ The fixture is [`front-end/e2e/fixtures/test-floorplan.png`](../../../front-end/
 A template the suite seeds belongs to the user, not the market, and the suite shares one user, so Load Template's list grows with every run: a spec seeds its own with `seedFloorplanTemplate()` ([E2E seeds](e2e-seeds.md)) and finds it by the unique name that returns.
 The table-type fields are native inputs, found by their test ids.
 The sweeps walk the wizard through `floorplanAt()` in [`e2e/helpers/screens.ts`](../../../front-end/e2e/helpers/screens.ts), with the same page object: calibrating, adding a table type, the sections listed, ready to save and the save dialog, on the screens seed's draft, saving nothing ([the design language](../../design-system.md#what-keeps-this-true)).
+Those steps are marked `deskOnly`, since at a phone's width the calibration field is off the screen, so the focus sweep's phone walk passes them by.
 
 ## Which canvas steps are real gestures
 
