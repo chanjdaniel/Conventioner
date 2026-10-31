@@ -714,6 +714,25 @@ export const SCREENS: Screen[] = [
       'vendors-detail-email',
     ]),
   },
+  // Its other tabs, each read on the phone in the organizer's hand (T142, T82 re-check note 8):
+  // "Change assignment" on the Assignments tab is the way from the door to the Assignments page.
+  ...(
+    [
+      ['assignments', 'vendors-detail-assignment-item'],
+      ['payment', 'payment-tab'],
+      ['history', 'market-history'],
+    ] as const
+  ).map(([tab, ready]): Screen => ({
+    name: `the vendor drawer's ${tab}, at the door`,
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(
+      screen('big', 'attendance'),
+      'attendance-row',
+      ['attendance-vendor', 'vendors-detail-email'],
+      [`vendor-drawer-tab-${tab}`, ready],
+    ),
+  })),
   {
     name: 'the archive confirmation, at the door',
     who: 'organizer',

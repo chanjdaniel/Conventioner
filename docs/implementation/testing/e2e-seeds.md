@@ -22,7 +22,7 @@ describes:
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
   - front-end/e2e/helpers/exampleCollegeMarket.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E02
   - E11/F01/S01
@@ -35,6 +35,7 @@ sources:
   - T79
   - E41/F01/S01
   - E43/F01/S03
+  - T142
 ---
 
 # E2E seeds
@@ -70,7 +71,7 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedPhaseMarket()`, `seedFormlessPhaseMarket()` ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts)) | a draft that may open applications: a complete plan, and a two-field form or none | does not move the phase; `transitionMarket()` and `seedApplicationWithStatus()` beside them |
 | `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo; `dates` gives it more than the one date; a CSV market unless `intakeMode` says `form` |
 | `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each; `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish |
-| `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
+| `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first; `vendors` seeds others than alice and bob, a table each |
 | `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications`, or a `csv` one left a draft for its first import, or a `form` one left a draft with `draft: true`, to be opened from the rail | `fields` gives its form its own questions; it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedExampleMarket()` ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts)) | a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions | the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share; `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |

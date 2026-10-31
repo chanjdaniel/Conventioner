@@ -1,6 +1,10 @@
 import type { APIRequestContext } from '@playwright/test';
 import { savePlan } from './savePlan';
-import { seedApprovedVendor } from './seedApplication';
+import {
+  approvedVendorApplication,
+  insertApplications,
+  seedApprovedVendor,
+} from './seedApplication';
 import { uniqueMarketName } from './uniqueName';
 
 /**
@@ -317,9 +321,12 @@ export async function seedPublishedMarketWithAssignments(
   password: string,
   // The one market date, still to come unless a spec names another.
   // `intakeMode` as the market is created; absent, it is a CSV market, as it always was here.
-  options: { marketDate?: string; intakeMode?: 'csv' | 'form' } = {},
+  // `vendors`, the approved vendors, each given a table: alice and bob unless a spec needs more,
+  // a door long enough to scroll, say.
+  options: { marketDate?: string; intakeMode?: 'csv' | 'form'; vendors?: string[] } = {},
 ): Promise<PublishedSeedResult> {
   const marketDate = options.marketDate ?? SEED_MARKET_DATE;
+  const vendors = options.vendors ?? ['alice@example.com', 'bob@example.com'];
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
@@ -358,9 +365,11 @@ export async function seedPublishedMarketWithAssignments(
 
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.
-  for (const applicant of ['alice@example.com', 'bob@example.com']) {
-    seedApprovedVendor(marketId, applicant, { dates: [marketDate], tiers: ['Gold'] });
-  }
+  insertApplications(
+    vendors.map((applicant) =>
+      approvedVendorApplication(marketId, applicant, { dates: [marketDate], tiers: ['Gold'] }),
+    ),
+  );
 
   // Step 4: Put the setupObject directly. A market date is now just a date: it carried a
   // spreadsheet column name only so the solver could look the answer up by heading.
@@ -374,7 +383,7 @@ export async function seedPublishedMarketWithAssignments(
         name: 'A',
         location: { name: 'Main Hall' },
         tier: { id: 0, name: 'Gold' },
-        count: 3,
+        count: Math.max(3, vendors.length),
       },
     ],
     assignmentOptions: {
