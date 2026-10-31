@@ -154,3 +154,36 @@ describe('two hand-outs in flight', () => {
     wrapper.unmount();
   });
 });
+
+describe('a verdict on the card', () => {
+  it('asks the server for the next card, after the one decided, and puts that one up', async () => {
+    const wrapper = mount(ApplicationMonitor, { props: { market, visible: true } });
+    await flushPromises();
+    api.put.mockResolvedValueOnce({
+      data: { application: { ...AMY, status: ApplicationStatus.ReviewerApproved } },
+    });
+    // The server hands out Cal, not Ben, who is next in the list: someone else may hold Ben.
+    api.post.mockResolvedValueOnce({ data: { application: CAL } });
+
+    await wrapper.get('[data-testid="app-monitor-approve-button"]').trigger('click');
+    await flushPromises();
+
+    expect(handOuts()).toHaveLength(2);
+    expect(handOuts()[1][1]).toMatchObject({ after: 'amy' });
+    expect(shown(wrapper)).toBe('cal@example.com');
+    wrapper.unmount();
+  });
+
+  it('reloads nothing when the market is read again after it', async () => {
+    const wrapper = mount(ApplicationMonitor, { props: { market, visible: true } });
+    await flushPromises();
+
+    // The store re-reads the market after every write: the same market, a new object.
+    await wrapper.setProps({ market: { ...market } });
+    await flushPromises();
+
+    expect(fetchMarketApplications).toHaveBeenCalledTimes(1);
+    expect(handOuts()).toHaveLength(1);
+    wrapper.unmount();
+  });
+});

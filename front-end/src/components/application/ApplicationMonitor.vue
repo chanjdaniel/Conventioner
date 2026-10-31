@@ -244,10 +244,12 @@ let handing = 0;
 let loads = 0;
 
 // Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
-// re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
-// and reloading on each would put the reviewer back on the first card mid-queue.
+// re-reads this one. It re-reads after every write now (E21/F02/S02), a verdict and a highlight
+// toggle included, and reloading on each would put the reviewer back on the first card mid-queue.
+// Two sources, each compared on its own: one getter answering a new array each time would fire on
+// every re-read.
 watch(
-  () => [props.visible, props.market?.id] as const,
+  [() => props.visible, () => props.market?.id],
   async ([visible]) => {
     if (visible && props.market) await loadApplications();
     // Leaving the review lets the held card go at once, not five minutes later.
@@ -372,12 +374,13 @@ async function refresh() {
 /**
  * After a verdict, a follow-up or a refusal: what the card does next. Only the card on screen moves
  * the queue on - correcting a past verdict in the reviewed list leaves the reviewer where they were.
+ * Whether it was on the card is read before the verdict is written: the answer leaves the queue,
+ * and the card up moves with it.
  *
  * The local list is kept in step with the answer rather than refetched: a refetch per verdict is 232
  * fetches of 232 applications across one review session.
  */
-async function settle(app: Application, outcome: VerdictOutcome) {
-  const onCard = app.id === current.value?.id || app.id === refusedOn.value;
+async function settle(app: Application, outcome: VerdictOutcome, onCard: boolean) {
   if (outcome.kind === 'failed') {
     errorMessage.value = outcome.message;
     return;
@@ -398,12 +401,18 @@ async function settle(app: Application, outcome: VerdictOutcome) {
   }
 }
 
+/** Whether this application is the card on screen, or the one a verdict was refused for. */
+function isUp(app: Application): boolean {
+  return app.id === current.value?.id || app.id === refusedOn.value;
+}
+
 async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
   saving.value = true;
   errorMessage.value = '';
+  const onCard = isUp(app);
   try {
-    await settle(app, await verdicts.give(app, status));
+    await settle(app, await verdicts.give(app, status), onCard);
   } finally {
     saving.value = false;
   }
@@ -442,6 +451,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   if (!app || saving.value) return;
   followUpError.value = '';
   saving.value = true;
+  const onCard = isUp(app);
   try {
     const outcome = await verdicts.markFollowUp(
       app,
@@ -454,7 +464,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
       return;
     }
     followUpOpen.value = false;
-    await settle(app, outcome);
+    await settle(app, outcome, onCard);
   } finally {
     saving.value = false;
   }

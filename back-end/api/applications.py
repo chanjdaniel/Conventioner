@@ -623,7 +623,8 @@ def claim_next_for_review(
     held by someone else (E34/F03/S02).
 
     The next undecided application in arrival order after ``after`` - the one they move on from,
-    which comes round last - that nobody else holds. ``want`` is one they asked for by name (a link
+    which comes round last, and keeps its place once a verdict takes it out of the queue - that
+    nobody else holds. ``want`` is one they asked for by name (a link
     to it), tried first. Taking it is conditioned on the claim it read, so two reviewers asking at
     once are handed different cards. Their other claims are let go.
     """
@@ -631,12 +632,14 @@ def claim_next_for_review(
     statuses = UNDECIDED_STATUSES + (
         (ApplicationStatus.NEEDS_FOLLOW_UP.value,) if include_follow_ups else ())
     docs = list_applications_for_market(market_id)
-    queue = _in_arrival_order([doc for doc in docs if doc.get("status") in statuses])
-    ids = [doc["id"] for doc in queue]
-    start = ids.index(after) + 1 if after in ids else 0
-    order = queue[start:] + queue[:start]
-    if want in ids:
-        order = [queue[ids.index(want)]] + [doc for doc in order if doc["id"] != want]
+    arrived = _in_arrival_order(docs)
+    every = [doc["id"] for doc in arrived]
+    start = every.index(after) + 1 if after in every else 0
+    queue = [doc for doc in arrived[start:] + arrived[:start] if doc.get("status") in statuses]
+    order = queue
+    wanted = [doc for doc in queue if doc["id"] == want]
+    if wanted:
+        order = wanted + [doc for doc in order if doc["id"] != want]
     mine = person.model_dump()
     for doc in order:
         holder = holder_of(doc, now)
