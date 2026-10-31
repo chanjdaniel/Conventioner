@@ -9,15 +9,17 @@ import {
   seedPublishedMarketWithAssignments,
 } from './seeds';
 import { uniqueMarketName } from './uniqueName';
+import { ensureVerifiedUser } from './verifiedUser';
 
 /**
  * The markets the sweeps walk (`screens.ts`): one in every phase, and each as full as a real one.
  *
  * A layout holds on a market of three short names and breaks on a real one, so this is a stress
- * seed: names of about 70 characters, 40 applications in every review state, 36 vendors over four
- * dates and three sections, a long question label, long links and settled priority rules. The
- * trial that chose it (T67) found a squeezed date column only once the walk reached a dashboard
- * that remembered a market, so every market here is one a screen can be opened on.
+ * seed: names of about 70 characters, 40 applications in every review state, a review divided
+ * between two reviewers, 36 vendors over four dates and three sections, a long question label, long
+ * links and settled priority rules. The trial that chose it (T67) found a squeezed date column only
+ * once the walk reached a dashboard that remembered a market, so every market here is one a screen
+ * can be opened on.
  *
  * Applications are written in one `insertMany` per market: a container round trip each would cost
  * the sweep more than walking the screens it seeds.
@@ -38,6 +40,12 @@ export interface TheScreensSeed {
   closed: SeededMarket;
   /** A Google Form market in Review, the same applications. */
   review: SeededMarket;
+  /**
+   * Taking applications with the review divided (E38/F07): the organizer and `reviewer` chosen,
+   * the organizer's share all decided and every open application dealt to `reviewer`, so the
+   * organizer's One by one reads that their share is done.
+   */
+  dealt: SeededMarket & { reviewer: string };
   /** In Assignment, with open priority rules and no run yet. */
   assignment: SeededMarket;
   /** Market days: 36 vendors placed over four dates and three sections, results published. */
@@ -210,6 +218,53 @@ async function walk(
 
 const UP_TO_ASSIGNMENT = ['applications', 'assignment'];
 
+/** The other reviewer of `dealt`, a Viewer on that market only; fixture data. */
+const DEALT_REVIEWER = 'e2e-screens-reviewer@example.com';
+const DEALT_REVIEWER_PASSWORD = 'e2epassword123';
+const UNDECIDED = ['open', 'under_review'];
+
+/**
+ * A market whose review is divided between `email` and `DEALT_REVIEWER`: chosen in the draft, so
+ * no deal runs, and its applications go in already dealt, every open one to the other reviewer and
+ * the decided ones alternately, so both shares have rows and the organizer's has nothing to hand
+ * out.
+ */
+async function dealtMarket(
+  api: APIRequestContext,
+  backend: string,
+  email: string,
+  dates: string[],
+): Promise<SeededMarket & { reviewer: string }> {
+  ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
+  const market = await createMarket(
+    api,
+    backend,
+    email,
+    uniqueMarketName('Harbour Divided Market'),
+    plan(dates),
+  );
+  const at = `${backend}/markets/${market.marketId}`;
+  const role = await api.post(`${at}/roles`, {
+    data: { user_email: DEALT_REVIEWER, role: 'viewer' },
+  });
+  if (!role.ok()) throw new Error(`Role failed: ${role.status()} ${await role.text()}`);
+  const chosen = await api.put(`${at}/reviewers`, {
+    data: { reviewers: [email, DEALT_REVIEWER] },
+  });
+  if (!chosen.ok()) throw new Error(`Choosing failed: ${chosen.status()} ${await chosen.text()}`);
+  insertApplications(
+    applicationsInEveryState(market.marketId, email, dates).map((application, i) => ({
+      ...application,
+      reviewer: {
+        user_id: null,
+        email: UNDECIDED.includes(application.status) || i % 2 ? DEALT_REVIEWER : email,
+      },
+    })),
+  );
+  await walk(api, backend, email, market.marketId, ['applications']);
+  return { ...market, reviewer: DEALT_REVIEWER };
+}
+
 /** 40 applications, in every review state, with a verdict's giver where a reviewer gave one. */
 function applicationsInEveryState(marketId: string, reviewer: string, dates: string[]) {
   const statuses = [
@@ -321,6 +376,7 @@ export async function seedTheScreens(
   if (!highlights.ok()) {
     throw new Error(`Marking highlights failed: ${highlights.status()} ${await highlights.text()}`);
   }
+  const dealt = await dealtMarket(api, backend, email, two);
 
   const assignment = await createMarket(api, backend, email, uniqueMarketName('Winter Lantern'), {
     ...plan(two),
@@ -374,6 +430,7 @@ export async function seedTheScreens(
     open,
     closed,
     review,
+    dealt,
     assignment,
     big,
     rules,

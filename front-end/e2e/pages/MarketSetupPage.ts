@@ -116,6 +116,15 @@ export class MarketSetupPage {
 
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
     await this.clickTransition(toPhase);
+    const arrived = this.page.getByTestId('phase-rail-current').filter({ hasText: expectedLabel });
+
+    // Opening applications on a market whose vendors apply on its page offers the reviewers first,
+    // to someone who may choose them (E38/F07/S02); this opens as before, with no one chosen.
+    if (toPhase === 'applications') {
+      const opening = this.page.getByTestId('open-applications-submit-button');
+      await opening.or(arrived).first().waitFor({ timeout: 10000 });
+      if (await opening.isVisible()) await opening.click();
+    }
 
     // Publishing confirms, because it is one of the two edges with no route back: it puts a
     // public check-in page on the air.
@@ -125,10 +134,7 @@ export class MarketSetupPage {
     }
 
     await this.page.getByTestId('phase-rail-current').waitFor({ state: 'visible' });
-    await this.page
-      .getByTestId('phase-rail-current')
-      .filter({ hasText: expectedLabel })
-      .waitFor({ timeout: 10000 });
+    await arrived.waitFor({ timeout: 10000 });
   }
 
   /**

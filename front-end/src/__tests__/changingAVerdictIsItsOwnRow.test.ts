@@ -19,7 +19,19 @@ const reviewApplication = vi.fn();
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
   const answered = () => Promise.resolve({ data: {} });
-  return { ...actual, api: { get: answered, post: answered, put: answered, delete: answered } };
+  // A hand-out answers the first card still to decide, as the server would with nobody else here:
+  // a follow-up only when follow-ups are asked for.
+  const post = async (url: string, body: { includeFollowUps?: boolean }) => {
+    if (!url.endsWith('/review/next')) return { data: {} };
+    const apps: Application[] = await fetchMarketApplications('m1');
+    const handed = apps.find(
+      (app) =>
+        !isDecided(app) &&
+        (body.includeFollowUps || app.status !== ApplicationStatus.NeedsFollowUp),
+    );
+    return { data: { application: handed ?? null } };
+  };
+  return { ...actual, api: { get: answered, post, put: answered, delete: answered } };
 });
 
 vi.mock('@/utils/applicantApi', async (importOriginal) => {

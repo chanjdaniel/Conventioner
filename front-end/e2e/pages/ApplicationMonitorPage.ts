@@ -35,6 +35,12 @@ export class ApplicationMonitorPage {
   readonly decidedEmails: Locator;
   /** Why a verdict already given is not this reviewer's to change (E38/F06/S01). */
   readonly decidedReason: Locator;
+  /** A chosen reviewer's share is done, and the rest is offered (E38/F07/S04). */
+  readonly shareDone: Locator;
+  readonly shareDoneOthers: Locator;
+  readonly helpOthersButton: Locator;
+  /** The card is dealt to another reviewer (E38/F07/S03). */
+  readonly dealtWarning: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -56,6 +62,10 @@ export class ApplicationMonitorPage {
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
     this.decidedReason = page.getByTestId('app-monitor-decided-reason');
+    this.shareDone = page.getByTestId('app-monitor-share-done');
+    this.shareDoneOthers = page.getByTestId('app-monitor-share-done-others');
+    this.helpOthersButton = page.getByTestId('app-monitor-help-others');
+    this.dealtWarning = this.card.getByTestId('app-monitor-dealt-warning');
   }
 
   /** A row of the reviewed list, by its applicant. */
@@ -93,10 +103,13 @@ export class ApplicationMonitorPage {
     await expect(this.loading).toHaveCount(0);
   }
 
-  /** How many still await a verdict, read off the progress line the organizer reads. */
+  /**
+   * How many are left in what the reviewer walks, read off the progress line the organizer reads:
+   * the queue, or a chosen reviewer's share (E38/F07/S04).
+   */
   async remaining(): Promise<number> {
     const text = (await this.progress.textContent()) ?? '';
-    return Number(text.match(/of (\d+) to review/)?.[1] ?? 0);
+    return Number(text.match(/of (\d+) (?:to review|in your share)/)?.[1] ?? 0);
   }
 
   /**
@@ -165,9 +178,12 @@ export class ApplicationMonitorPage {
     before: number,
   ): Promise<void> {
     if (before > 1) {
-      await expect(this.progress).toContainText(`of ${before - 1} to review`);
+      await expect(this.progress).toContainText(
+        new RegExp(`of ${before - 1} (?:to review|in your share)`),
+      );
     } else {
-      await expect(this.done).toBeVisible();
+      // The last of the queue, or of a chosen reviewer's share while others' are left.
+      await expect(this.done.or(this.shareDone)).toBeVisible();
     }
     await this.openDecided();
     await expect(this.decidedStatusOf(applicantEmail)).toHaveText(verdict);

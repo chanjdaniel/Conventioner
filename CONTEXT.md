@@ -94,7 +94,7 @@ _Avoid_: Assignee (an assignment is a table), the reviewer for whoever happens t
 See [The review is dealt among chosen reviewers](docs/business/rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 **Share**:
-The applications dealt to one reviewer. An application stays in the share it was dealt to after it is decided, as the record of whose it was.
+The applications dealt to one reviewer, and the follow-ups they own wherever those were dealt. An application stays in the share it was dealt to after it is decided, as the record of whose it was.
 
 **Deal**:
 Handing the open applications out among the reviewers, round robin in the order they arrived. Any change of reviewers deals the open applications again; a decided application stays where it is, and so does a follow-up, unless its owner is a reviewer the change removed.

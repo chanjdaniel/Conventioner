@@ -12,9 +12,9 @@
  * scannable: the eye goes to the exceptions. Designs built around the act of assigning opened
  * with nothing left to assign.
  */
-import { MarketAction, actionRefusal } from '@/utils/marketActions';
+import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { whoMayTake } from '@/utils/permissionTable';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -33,6 +33,8 @@ import {
 } from '@/utils/importPreview';
 import { reviewAnswers } from '@/utils/reviewQueue';
 import ImportRowList, { type ImportRow } from '@/components/csvImport/ImportRowList.vue';
+import ReviewerPicker from '@/components/market/ReviewerPicker.vue';
+import { chooseReviewers, reviewerAddresses, sameTeam } from '@/utils/reviewTeam';
 import {
   MarketPhase,
   type ApplicationForm,
@@ -146,6 +148,27 @@ const takingApplications = computed(() => Boolean(market.value) && !phaseRefusal
 const firstImport = computed(() => marketPhase.value === MarketPhase.Draft);
 /** The market entered Review with this import: the done step says where it now stands. */
 const enteredReview = ref(false);
+
+/**
+ * The first import is where a Google Form market's review begins, so its preview step offers the
+ * reviewers, as "Open Applications" does on a market's own form (E38/F07/S02): chosen before the
+ * rows are written, the server deals them as they arrive. A redo import offers nothing: by then the
+ * reviewers are the Reviewers panel's.
+ */
+const offersReviewers = computed(
+  () => firstImport.value && mayTake(market.value, MarketAction.ChooseReviewers),
+);
+/** The reviewers ticked: none, or whoever was chosen in draft before. */
+const reviewers = ref<string[]>([]);
+watch(
+  () => market.value?.id,
+  () => {
+    reviewers.value = reviewerAddresses(market.value);
+  },
+  { immediate: true },
+);
+/** Why the reviewers could not be written; nothing is imported then. */
+const reviewersError = ref('');
 
 const step = ref<Step>('upload');
 
@@ -743,9 +766,31 @@ async function readValues(advance: boolean) {
   if (advance && unmatched.value.length === 0) step.value = 'preview';
 }
 
+/**
+ * The confirm: the reviewers first, when the choice differs from the stored team, then the import.
+ * A refused reviewers write imports nothing. Once written they stay chosen, so an import that fails
+ * after them is tried again without writing them twice.
+ */
+async function confirmImport() {
+  if (offersReviewers.value && !sameTeam(reviewers.value, reviewerAddresses(market.value))) {
+    busy.value = true;
+    reviewersError.value = '';
+    try {
+      await chooseReviewers(marketId.value, reviewers.value);
+    } catch (err) {
+      reviewersError.value = getApiErrorMessage(err, 'Could not save the reviewers.');
+      busy.value = false;
+      return;
+    }
+    await refreshMarket();
+  }
+  await runImport();
+}
+
 async function runImport() {
   busy.value = true;
   error.value = '';
+  reviewersError.value = '';
   try {
     const { data } = await api.post(`/markets/${marketId.value}/applications/import`, {
       csvContent: csvContent.value,
@@ -1309,6 +1354,29 @@ function startOver() {
             <span data-testid="import-preview-source">{{ sourceLabelFor(target.key) }}</span>
           </li>
         </ul>
+
+        <!-- Last, so it sits right above the confirm that writes it. -->
+        <section
+          v-if="offersReviewers"
+          class="preview-reviewers"
+          aria-label="Reviewers"
+          data-testid="import-reviewers"
+        >
+          <ReviewerPicker
+            v-model="reviewers"
+            :candidates="market?.reviewerCandidates ?? []"
+            :current="reviewerAddresses(market)"
+            :disabled="busy"
+          />
+          <p
+            v-if="reviewersError"
+            class="import-error"
+            role="alert"
+            data-testid="import-reviewers-error"
+          >
+            {{ reviewersError }}
+          </p>
+        </section>
       </section>
 
       <!-- 4. Done -->
@@ -1381,7 +1449,7 @@ function startOver() {
           class="button-primary"
           :disabled="busy || validRows === 0"
           data-testid="import-confirm-button"
-          @click="runImport"
+          @click="confirmImport"
         >
           <!-- Still offered with nothing to write: the import saves the mapping, and judges. -->
           <template v-if="writingRows"
@@ -1807,6 +1875,21 @@ function startOver() {
 
 .preview-mapping-heading {
   margin-top: var(--space-6);
+}
+
+/* Set apart from the mapping above it as the samples are, and sitting right above the confirm. The
+   picker's legend is this section's heading, so it reads as the preview's other headings do. */
+.preview-reviewers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+.preview-reviewers :deep(legend) {
+  font-family: 'Merge One', sans-serif;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .preview-mapping {

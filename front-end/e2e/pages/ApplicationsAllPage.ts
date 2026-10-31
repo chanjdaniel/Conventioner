@@ -29,6 +29,15 @@ export class ApplicationsAllPage {
   readonly changeReason: Locator;
   /** Why the drawer of a decided application offers no verdict (E38/F06/S01). */
   readonly drawerChangeReason: Locator;
+  /** Whose share the opened application is, and the warning on deciding another's (E38/F07/S03). */
+  readonly drawerReviewer: Locator;
+  readonly drawerDealtWarning: Locator;
+  /** What a selection's confirmation says of the ticked rows dealt to others (E38/F07/S03). */
+  readonly confirmDealt: Locator;
+  /** Whose share the rows show, with reviewers chosen (E38/F07/S04). */
+  readonly assignedTo: Locator;
+  /** "N of M": how many rows show of every application. */
+  readonly count: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -47,11 +56,25 @@ export class ApplicationsAllPage {
     this.exportButton = page.getByTestId('applications-all-export-button');
     this.changeReason = page.getByTestId('applications-all-change-reason');
     this.drawerChangeReason = page.getByTestId('applications-all-drawer-change-reason');
+    this.drawerReviewer = page.getByTestId('applications-all-drawer-reviewer');
+    this.drawerDealtWarning = page.getByTestId('applications-all-drawer-dealt-warning');
+    this.confirmDealt = page.getByTestId('applications-all-confirm-dealt');
+    this.assignedTo = page.getByLabel('Assigned to');
+    this.count = page.getByTestId('applications-all-count');
   }
 
-  /** Straight to the All view by a saved address, which still names it (E38/F05/S01). */
-  async goto(marketId: string): Promise<void> {
-    await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
+  /**
+   * Straight to the All view by a saved address, which still names it (E38/F05/S01), and with a
+   * `reviewer`, at that share or everyone's (`anyone`) rather than the one the reader lands on.
+   */
+  async goto(marketId: string, reviewer?: string): Promise<void> {
+    const share = reviewer ? `&reviewer=${encodeURIComponent(reviewer)}` : '';
+    await this.page.goto(`${marketScreenPath(marketId, 'applications')}?view=all${share}`);
+  }
+
+  /** Choose whose share the rows show, by the option's words ("Me", "Anyone" or an address). */
+  async assignTo(label: string): Promise<void> {
+    await this.assignedTo.selectOption({ label });
   }
 
   /** Back from the one-by-one review, by its switch. */
@@ -69,6 +92,10 @@ export class ApplicationsAllPage {
 
   giverOf(email: string): Locator {
     return this.row(email).getByTestId('applications-all-giver');
+  }
+
+  reviewerOf(email: string): Locator {
+    return this.row(email).getByTestId('applications-all-reviewer');
   }
 
   ownerOf(email: string): Locator {

@@ -1612,17 +1612,20 @@ def next_for_review(market_id: str) -> Response:
     """The next card to review, claimed for the reviewer (E34/F03/S02).
 
     Body: { "after": "<the application moved on from>", "includeFollowUps": false,
-            "want": "<an application asked for by name, tried first>" }
+            "want": "<an application asked for by name, tried first>", "mineOnly": false }
+    A chosen reviewer is handed their own share first, and with ``mineOnly`` nothing else
+    (E38/F07/S04); for anyone else ``mineOnly`` is ignored.
     Answers { "application": ... } or { "application": null } when every one left is held by
-    someone else.
+    someone else, or under ``mineOnly`` when their share has nothing left to hand out.
     """
-    person, _context, refused = _reviewer_on(market_id)
+    person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
     data = json_object(required=False)
     doc = ApplicationsApi.claim_next_for_review(
         market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
-        want=data.get('want'))
+        want=data.get('want'), chosen=Actions.is_chosen(person.email, context.market),
+        mine_only=data.get('mineOnly') is True)
     return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None}), 200
 
 

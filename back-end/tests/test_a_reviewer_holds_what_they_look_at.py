@@ -67,6 +67,13 @@ class TestTwoReviewersWalkDifferentCards:
         assert _next(ALEX, after="first") == "third"
         assert _next(ALEX, after="third") == "first"
 
+    def test_a_card_decided_on_moving_on_keeps_its_place_in_the_walk(self, stored):
+        _next(ALEX)
+        _next(ALEX, after="first")        # second
+        stored["second"]["status"] = "reviewer_approved"
+
+        assert _next(ALEX, after="second") == "third"
+
     def test_nothing_is_handed_out_when_every_card_is_held(self, stored):
         _next(ALEX)
         _next(SAM)

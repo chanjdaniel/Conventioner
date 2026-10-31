@@ -55,7 +55,6 @@ def get_user_market_role(user_email: str, market: Market, organization: Optional
         return None
     user_id = user.id
 
-    through_organization = None
     if market.organization_id:
         if organization is None:
             org_dict = organizations_collection.find_one({"id": market.organization_id})
@@ -66,12 +65,23 @@ def get_user_market_role(user_email: str, market: Market, organization: Optional
                 except Exception:
                     organization = None
 
-        if organization and organization.id == market.organization_id:
-            through_organization = organization_market_role(
-                user_id, organization.owner, organization.admins, organization.members
-            )
+    return market_role_of(user_id, market, organization)
 
-    return higher_role(market.roles.get(user_id), through_organization)
+
+def market_role_of(
+    user_id: Optional[str], market: Market, organization: Optional[Organization],
+) -> Optional[MarketRole]:
+    """``get_user_market_role`` for someone already known by id, with the market's organization
+    already loaded: the higher of their role on the market and what their place in the
+    organization gives. ``organization`` None, or not the market's, counts the market's roles
+    alone, as ``people_with_market_role`` does."""
+    if not user_id:
+        return None
+    through_organization = None
+    if organization is not None and organization.id == market.organization_id:
+        through_organization = organization_market_role(
+            user_id, organization.owner, organization.admins, organization.members)
+    return higher_role((market.roles or {}).get(user_id), through_organization)
 
 
 def people_with_market_role(market: Market, organization: Optional[Organization]) -> List[str]:
@@ -87,8 +97,7 @@ def people_with_market_role(market: Market, organization: Optional[Organization]
     candidates = [*roles, organization.owner, *organization.admins, *organization.members]
     return [
         user_id for user_id in dict.fromkeys(candidates)
-        if user_id and higher_role(roles.get(user_id), organization_market_role(
-            user_id, organization.owner, organization.admins, organization.members))
+        if market_role_of(user_id, market, organization)
     ]
 
 

@@ -72,14 +72,15 @@ describe('who applied', () => {
     }
   });
 
-  it('opens the All view on that filter from each status', () => {
+  it('opens the All view on that filter from each status, on every reviewer’s share', () => {
+    // The count is everyone's, so a chosen reviewer is not landed on their own share (E38/F07/S04).
     expect(row('Needs follow-up').to).toEqual({
       path: '/markets/m1/applications',
-      query: { view: 'all', status: 'needs_follow_up' },
+      query: { view: 'all', status: 'needs_follow_up', reviewer: 'anyone' },
     });
     expect(row('Open').to).toEqual({
       path: '/markets/m1/applications',
-      query: { view: 'all', status: 'undecided' },
+      query: { view: 'all', status: 'undecided', reviewer: 'anyone' },
     });
   });
 

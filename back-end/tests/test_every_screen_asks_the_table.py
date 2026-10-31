@@ -81,7 +81,7 @@ def test_an_answer_is_none_where_the_person_may_and_the_rows_sentence_where_not(
 def test_the_read_asks_the_rows_themselves(read, monkeypatch):
     """A row changed later (E39/F01/S03) reaches the screens: the read asks ``role_refusal`` of
     the role it resolved, as ``refusal`` does."""
-    monkeypatch.setattr(Actions, "role_refusal", lambda row, _role, _rows: (
+    monkeypatch.setattr(Actions, "role_refusal", lambda row, *_asked: (
         None if row is Actions.CHECK_IN or row is Actions.READ else "No."))
 
     served = read(MarketRole.VIEWER)["actionRefusals"]
@@ -137,14 +137,20 @@ class TestTheReadOnlyLine:
         assert read(role, MarketPhase.ARCHIVED)["readOnlyReason"] == MarketsApi.ARCHIVED_REFUSAL
 
     def test_one_changing_row_is_enough(self, read, monkeypatch):
-        monkeypatch.setattr(Actions, "role_refusal", lambda row, _role, _rows: (
+        monkeypatch.setattr(Actions, "role_refusal", lambda row, *_asked: (
             None if row in (Actions.READ, Actions.CHECK_IN) else "No."))
 
         assert read(MarketRole.VIEWER)["readOnlyReason"] is None
 
     def test_reading_and_exporting_change_nothing(self, read, monkeypatch):
-        monkeypatch.setattr(Actions, "role_refusal", lambda row, _role, _rows: (
+        monkeypatch.setattr(Actions, "role_refusal", lambda row, *_asked: (
             None if row in (Actions.READ, Actions.EXPORT_CSV) else "No."))
+
+        assert read(MarketRole.VIEWER)["readOnlyReason"] == MarketsApi.VIEWER_REFUSAL
+
+    def test_who_may_be_chosen_as_a_reviewer_changes_nothing(self, read, monkeypatch):
+        monkeypatch.setattr(Actions, "role_refusal", lambda row, *_asked: (
+            None if row in (Actions.READ, Actions.REVIEW_WHEN_CHOSEN) else "No."))
 
         assert read(MarketRole.VIEWER)["readOnlyReason"] == MarketsApi.VIEWER_REFUSAL
 
