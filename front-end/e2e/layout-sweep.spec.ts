@@ -58,7 +58,6 @@ async function measureBar(page: Page, state: string): Promise<void> {
   if (!bars.has(width)) bars.set(width, new Map());
   bars.get(width)!.set(state, [Math.round(box.x), Math.round(box.width)]);
   if (width <= PHONE_MAX_WIDTH) pinned.set(state, await page.evaluate(pinnedBottom));
-  if (width <= PHONE_MAX_WIDTH) console.log('PINNED', state, JSON.stringify(pinned.get(state)));
 }
 
 /** Measures each organizer screen at each of its sizes no wider than `upTo` that the walk missed. */

@@ -139,6 +139,21 @@ test.describe('The layout detectors', () => {
     ]);
   });
 
+  test('a link in a sentence is exempt, and one drawn on a line of its own is a target', async ({
+    page,
+  }) => {
+    // WCAG 2.5.8 exempts a target in a run of text; a link drawn as a block of its own under the
+    // sentence is not in one, wherever it stands in the markup (the rail's next step, T142).
+    const found = await findingsOn(
+      page,
+      `<p style="margin: 0">Pick the dates first. <a href="#" data-testid="inline">Go there</a></p>
+       <p style="margin: 0">Pick the dates first.
+         <a href="#" data-testid="own" style="display: flex; width: fit-content">Go there</a></p>`,
+      390,
+    );
+    expect(of(found, 'small-target').map((f) => f.el)).toEqual(['p > a[own]']);
+  });
+
   test('a page that only looks broken raises nothing', async ({ page }) => {
     const found = await findingsOn(
       page,
