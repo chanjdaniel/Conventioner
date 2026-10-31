@@ -25,6 +25,22 @@ CURRENCIES = PRICING_CURRENCIES
 #: The card's fixed last row, for a vendor in no group; no group may take its name.
 EVERYONE_ELSE = "Everyone else"
 
+#: Each currency's sign as the screen writes it (``Intl.NumberFormat`` in en-CA, ``formatPrice``
+#: in ``front-end/src/utils/pricing.ts``), so an amount reads the same in a file as on screen.
+CURRENCY_SIGNS = {"CAD": "$", "USD": "US$", "EUR": "€", "GBP": "£", "AUD": "A$", "NZD": "NZ$"}
+
+#: The currency an amount is written in where the market names none: the card's own default.
+DEFAULT_CURRENCY = "CAD"
+
+
+def money_text(cents: int, currency: Optional[str]) -> str:
+    """An amount as the Payment tab writes it: "$35", "$15.01" where there are cents,
+    "$1,234,567.50", and "-$15" below zero (``money`` in ``front-end/src/utils/payments.ts``)."""
+    sign = CURRENCY_SIGNS[currency or DEFAULT_CURRENCY]
+    whole, part = divmod(abs(cents), 100)
+    amount = f"{whole:,}" + (f".{part:02d}" if part else "")
+    return f"{'-' if cents < 0 else ''}{sign}{amount}"
+
 
 def half_price(cents: int, percent: int) -> int:
     """``percent`` of ``cents``, rounded half up to the cent: 50% of $30.01 is $15.01.

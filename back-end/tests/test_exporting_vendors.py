@@ -561,11 +561,16 @@ class TestThePreview:
                                     ("tier", "tier"), ("size", "half or full"))
             ),
             {"id": "datesPlaced", "label": "Dates assigned", "group": "assignment"},
+            {"id": "priceGroup", "label": "Price group", "group": "payment"},
+            {"id": "owed", "label": "Amount owed", "group": "payment"},
+            {"id": "paid", "label": "Amount paid", "group": "payment"},
+            {"id": "stillOwed", "label": "Still owed", "group": "payment"},
         ]
         assert offered["groups"] == [
             {"id": "vendor", "label": "Vendor"},
             {"id": "answers", "label": "Answers"},
             {"id": "assignment", "label": "Assignment"},
+            {"id": "payment", "label": "Payment"},
         ]
         assert offered["defaultColumns"] == ["name", "email", "status"]
         assert offered["statuses"] == [
