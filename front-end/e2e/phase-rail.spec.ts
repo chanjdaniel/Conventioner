@@ -241,6 +241,20 @@ test.describe('The phase rail on a phone', () => {
     }
   });
 
+  test("sizes both address chips by the phone's own rule", async ({ authenticatedPage: page }) => {
+    // Each asks for just over half its row, so two never share one. The tablet's rule, for a rail
+    // under 45rem, matched a phone's rail too and set its own basis on both chips, so a change to
+    // the phone's rule never reached them; both lay out alike here, so only the basis tells.
+    await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+    for (const testId of ['phase-rail-apply', 'phase-rail-checkin']) {
+      const chip = page.getByTestId(testId);
+      await expect(chip).toBeVisible({ timeout: 15000 });
+      expect(await chip.evaluate((el) => getComputedStyle(el).flexBasis), testId).toBe(
+        'calc(50% + 8px)',
+      );
+    }
+  });
+
   test('puts the addresses first and the actions at the end, none over another', async ({
     authenticatedPage: page,
   }) => {

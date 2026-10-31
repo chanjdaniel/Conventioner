@@ -226,7 +226,7 @@ Its public address is the one part that gives way: it shortens, and the link, it
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
 Both addresses share that row with the actions, each shortening alike and never below 18rem: as wide as each whole address they took a row each, with More… beside an empty band at 1920 (T142).
 An address breaks at any character, so its ellipsis meets Copy rather than stopping at the slug's last hyphen.
-On a rail narrower than both addresses at that floor beside More… (under 45rem, a tablet's door), each address takes a row, with More… beside the second, never alone under them.
+On a rail narrower than both addresses at that floor beside More… (under 45rem and above the phone break, a tablet's door), each address takes a row, with More… beside the second, never alone under them.
 On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, each chip takes a row with the actions that fit beside it, and each action wraps onto the next row only where it does not fit, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
 
 **Columns are sized by need, not by count.**

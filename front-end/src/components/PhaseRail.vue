@@ -956,29 +956,30 @@ function cancelPending() {
 
 /* Both addresses share the end's row with the actions, each shortening alike to make room and
    never past its floor: as wide as its whole address they took a row each, with More… alone beside
-   an empty band at 1920 (T142). */
+   an empty band at 1920 (T142). Above the phone break only, as is the tablet's rule within it: a
+   phone's rail is under 45rem too, and the phone's own rule below is the one that sizes its chips. */
 @media (width > 640px) {
   .phase-rail-end--both .url-chip {
     flex: 1 1 18rem;
     max-width: max-content;
   }
-}
 
-/* Narrower than both floors, the gaps and More… (about 703px of rail), as the door, Tools and the
-   Assignments page are on a tablet, a chip takes a row of its own and More… stands beside the
-   second: the two filled the first row and left More… alone on the next (T142). */
-@container phase-rail (width < 45rem) {
-  .phase-rail-end--both {
-    row-gap: var(--space-2);
-  }
+  /* Narrower than both floors, the gaps and More… (about 703px of rail), as the door, Tools and
+     the Assignments page are on a tablet, a chip takes a row of its own and More… stands beside the
+     second: the two filled the first row and left More… alone on the next (T142). */
+  @container phase-rail (width < 45rem) {
+    .phase-rail-end--both {
+      row-gap: var(--space-2);
+    }
 
-  /* As tall as More… beside the second, so the two read as a pair: alone, the first was 5px
-     less. */
-  .phase-rail-end--both .url-chip {
-    flex-basis: calc(50% + var(--space-6));
-    max-width: none;
-    min-height: var(--control-height);
-    justify-content: space-between;
+    /* As tall as More… beside the second, so the two read as a pair: alone, the first was 5px
+       less. */
+    .phase-rail-end--both .url-chip {
+      flex-basis: calc(50% + var(--space-6));
+      max-width: none;
+      min-height: var(--control-height);
+      justify-content: space-between;
+    }
   }
 }
 
