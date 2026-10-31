@@ -183,11 +183,9 @@ def test_someone_in_the_organization_reads_everyone_who_may_own_one(market, requ
     served = MarketsApi.get_market_for_user(requester, "market-123")
 
     assert sorted(served["peopleOnMarket"]) == sorted([*MARKET_PEOPLE, *ORGANIZATION_PEOPLE])
-    # Manage market keeps listing the roles on the market, and only those.
-    assert served["role_emails"] == {
-        "user-1": "owner@market.test", "user-sam": "sam@market.test",
-        "user-editor": "editor@market.test", "org-member": "org-member@org.test",
-    }
+    # Manage market lists everyone with access, the organization's people too (E38/F12/S01).
+    assert sorted(person["email"] for person in served["peopleWithAccess"]) == sorted(
+        [*MARKET_PEOPLE, *ORGANIZATION_PEOPLE])
 
 
 @pytest.mark.parametrize("requester", OUTSIDE_THE_ORGANIZATION)
@@ -203,10 +201,9 @@ def test_a_viewer_not_in_the_organization_reads_no_people(market):
     served = MarketsApi.get_market_for_user("sam@market.test", "market-123")
 
     assert served["peopleOnMarket"] == []
-    assert served["role_emails"] == {
-        "user-1": "owner@market.test", "user-sam": "sam@market.test",
-        "user-editor": "editor@market.test", "org-member": "org-member@org.test",
-    }
+    # Manage market lists the market's own roles to them, and no organization address.
+    assert sorted(person["email"] for person in served["peopleWithAccess"]) == sorted(
+        [*MARKET_PEOPLE, "org-member@org.test"])
 
 
 def test_someone_on_the_market_and_in_its_organization_is_served_once(monkeypatch, market):

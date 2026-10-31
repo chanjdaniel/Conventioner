@@ -273,6 +273,15 @@ export const SCREENS: Screen[] = [
     open: managing('dealt'),
   },
   {
+    // A market of an organization with an admin and a member, the admin also Editor on it
+    // (E38/F12/S01): rows "through" the organization, the line beneath a market role that adds
+    // nothing, and the note that links to Manage organization.
+    name: "the manage-market dialog, an organization's people",
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: managing('organizationMarket'),
+  },
+  {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
     name: "the manage-market dialog's history, an entry open",
     who: 'organizer',

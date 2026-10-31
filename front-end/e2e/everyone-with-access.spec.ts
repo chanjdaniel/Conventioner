@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 import { loginViaApi } from './helpers/seeds';
@@ -174,5 +174,11 @@ test.describe('Users with access on a phone', () => {
       expect(box?.height, 'a 44px target').toBeGreaterThanOrEqual(44);
       expect((box?.x ?? 0) + (box?.width ?? 0), 'inside the screen').toBeLessThanOrEqual(390);
     }
+    // One edge: the Also line's Remove starts its line where a market role's select starts its
+    // own, beneath the address; it sat at the far end of the row.
+    const left = async (locator: Locator) => Math.round((await locator.boundingBox())?.x ?? -1);
+    expect(
+      await left(person(page, ORG_ADMIN.email).getByTestId('manage-market-remove-user-button')),
+    ).toBe(await left(person(page, ADDED.email).getByTestId('manage-market-role-select')));
   });
 });
