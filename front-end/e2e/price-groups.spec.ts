@@ -46,7 +46,7 @@ const FORM = {
     },
     {
       key: 'clubs',
-      label: 'Which clubs are you a member of?',
+      label: 'Do you belong to any of these clubs?',
       type: 'multi_select',
       required: false,
       options: [...CLUBS, NO_CLUB],
@@ -195,7 +195,7 @@ test.describe('price groups', () => {
     await expect(after).toHaveText(
       'Gold $25, Silver $22\n' +
         'when “Are you an Example College student or alumni?” includes “Example College alumni/staff”\n' +
-        'and “Which clubs are you a member of?” includes “Art Club” or “Craft Club”',
+        'and “Do you belong to any of these clubs?” includes “Art Club” or “Craft Club”',
       { useInnerText: true },
     );
     await expect(after).toHaveCSS('white-space', 'pre-line');

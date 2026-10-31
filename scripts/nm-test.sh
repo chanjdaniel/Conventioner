@@ -45,10 +45,13 @@ fi
 # ── Real data (before anything else) ─────────────────────────────────────────
 
 # The gate pushes the branch to GitHub, and the repository is public, so the branch's commits are
-# checked for a real person's details before anything runs (the git hooks run the same check).
+# checked for a real person's details before anything runs (the git hooks run the same check), and
+# then the whole tree at HEAD, so a name listed since a file was committed is found too.
 cd "$REPO_ROOT"
 echo "nm-test: checking the branch's commits since origin/dev for real data..."
 "$PYTHON" "$SCRIPT_DIR/real_data_check.py" commits HEAD --not origin/dev
+echo "nm-test: checking the whole tree for real data..."
+"$PYTHON" "$SCRIPT_DIR/real_data_check.py" tree
 echo "Real data: OK"
 
 # ── Stack identity ───────────────────────────────────────────────────────────
