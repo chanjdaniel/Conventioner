@@ -99,8 +99,9 @@ def require_named_database():
     Unnamed, ``get_mongodb_client`` falls back to 127.0.0.1:27017, the primary checkout's stack on a
     developer's machine, so such a script run on the host would reset or seed that stack whatever
     stack it was run for; and a MONGODB_HOST left over from running the back end on the host names
-    the same database. So a loopback host on the default port is refused too, unless the caller
-    opts in with ALLOW_PRIMARY_STACK. Every stack's back-end container sets MONGODB_HOST=mongodb.
+    the same database. So a loopback or unspecified host on the default port is refused too, unless
+    the caller opts in with ALLOW_PRIMARY_STACK. Every stack's back-end container sets
+    MONGODB_HOST=mongodb.
     """
     if not (os.getenv('MONGODB_URI') or os.getenv('MONGODB_HOST')):
         raise SystemExit(UNNAMED_DATABASE_REFUSAL)

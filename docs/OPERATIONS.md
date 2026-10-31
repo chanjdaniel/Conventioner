@@ -228,7 +228,7 @@ A configuration refusal, not a database one: set each variable it names ([RELEAS
 - `migrations/cleanup_unverified_users.py` deletes every unverified account (use `--dry-run` first, or `--email` for one).
 - `create_test_user.py` makes a fixture account and prints its password.
 
-`reset_database.py`, `create_test_user.py` and `seed_test_markets.py` refuse, too, a database the environment does not name (neither `MONGODB_HOST` nor `MONGODB_URI` set), which would be `127.0.0.1:27017`, and that same target named outright: a loopback host (`127.0.0.1`, `localhost`, `::1`) on port 27017, or with no port, is on a developer's machine the primary checkout's stack's MongoDB, and a `MONGODB_HOST` left over from running the back end on the host names it as easily as a meant one.
+`reset_database.py`, `create_test_user.py` and `seed_test_markets.py` refuse, too, a database the environment does not name (neither `MONGODB_HOST` nor `MONGODB_URI` set), which would be `127.0.0.1:27017`, and that same target named outright: a loopback or unspecified host (`127.0.0.1`, `localhost`, `::1`, `0.0.0.0`, `::`) on port 27017, or with no port, is on a developer's machine the primary checkout's stack's MongoDB, and a `MONGODB_HOST` left over from running the back end on the host names it as easily as a meant one.
 Every stack's back-end container sets `MONGODB_HOST=mongodb`, so `scripts/th-compose.sh exec backend python /app/<script>` (or `docker compose exec` for the primary stack) passes; a slot's MongoDB on the host is port `27017 + slot * 10`; and `ALLOW_PRIMARY_STACK=true` opts in to the primary stack's MongoDB from the host.
 
 ## Deploying, releasing, and branch rules
