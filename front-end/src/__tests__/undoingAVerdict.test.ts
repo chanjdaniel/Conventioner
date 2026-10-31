@@ -12,7 +12,7 @@ import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue'
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { isDecided } from '@/utils/verdicts';
 import { newestVerdictFirst, reviewed } from '@/utils/reviewQueue';
-import { nameAndEmail, undoLine, undoneTo } from '@/utils/verdictUndo';
+import { nameAndEmail, undoLine } from '@/utils/verdictUndo';
 
 const fetchMarketApplications = vi.fn();
 const reviewApplication = vi.fn();
@@ -66,30 +66,6 @@ const MARKET = {
   applicationForm: { fields: [{ key: 'shop', label: 'Shop', type: 'text' }] },
   actionRefusals: { 'give-verdicts': null, 'change-verdicts': 'Only an Admin may.' },
 } as unknown as Market;
-
-describe('what an undo returns an application to', () => {
-  it('is open for an undecided one, and needs follow-up with its owner for a follow-up', () => {
-    expect(undoneTo(application('a', ApplicationStatus.Open))).toEqual({
-      back: ApplicationStatus.Open,
-    });
-    expect(undoneTo(application('a', ApplicationStatus.UnderReview))).toEqual({
-      back: ApplicationStatus.Open,
-    });
-    const followUp = application('a', ApplicationStatus.NeedsFollowUp, {
-      followUpOwner: { email: 'kai@example.com' },
-    });
-    expect(undoneTo(followUp)).toEqual({
-      back: ApplicationStatus.NeedsFollowUp,
-      ownerEmail: 'kai@example.com',
-    });
-  });
-
-  it('is nothing for a verdict that changed one: that is never undone here', () => {
-    expect(undoneTo(application('a', ApplicationStatus.ReviewerApproved))).toBeNull();
-    expect(undoneTo(application('a', ApplicationStatus.ReviewerRejected))).toBeNull();
-    expect(undoneTo(application('a', ApplicationStatus.Assigned))).toBeNull();
-  });
-});
 
 describe('the undo line', () => {
   it('names the applicant then their address, or the address alone', () => {
@@ -212,15 +188,29 @@ describe('one by one', () => {
     wrapper.unmount();
   });
 
+  it('keeps the line over the reviewed list, so opening the list never pushes it down', async () => {
+    const wrapper = await monitor();
+    await press('r');
+
+    await wrapper.get('[data-testid="app-monitor-decided-toggle"]').trigger('click');
+
+    const line = wrapper.get('[data-testid="app-monitor-undo"]').element;
+    const list = wrapper.get('[data-testid="app-monitor-decided-list"]').element;
+    const card = wrapper.get('[data-testid="app-monitor-card"]').element;
+    expect(line.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    wrapper.unmount();
+  });
+
   it('undoes by Z: the application is put back up as the card, at what it was', async () => {
     const wrapper = await monitor();
     await press('r');
 
     await press('z');
 
+    // What it returns to is the server's, kept by the verdict: the client names only what it saw.
     expect(undoVerdict).toHaveBeenCalledWith('m1', {
       application: expect.objectContaining({ id: 'jane', status: 'reviewer_rejected' }),
-      back: ApplicationStatus.Open,
     });
     expect(handedOut).toHaveBeenLastCalledWith('jane');
     expect(wrapper.get('[data-testid="app-monitor-email"]').text()).toBe('jane@example.com');

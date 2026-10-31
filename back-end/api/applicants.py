@@ -21,7 +21,7 @@ Publication gate (captain ruling 2026-07-13):
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from client_errors import parse_failure_detail
 from application_write import record_application_answers, validate_application_answers
@@ -567,9 +567,10 @@ def review_application(
     if change_refused and ApplicationsApi.is_decided(seen or app_doc):
         return {"error": change_refused}, 403
 
+    kept = ApplicationsApi.undo_to_of(app_doc)
     written = ApplicationsApi.update_application_status(
         application_id, new_status, by=by, owner=owner, if_unchanged_since=seen,
-        unless_decided=bool(change_refused))
+        unless_decided=bool(change_refused), kept_for_undo=kept)
     if not written:
         now = ApplicationsApi.find_application_by_id(application_id)
         if now is None:
@@ -587,7 +588,8 @@ def review_application(
                         **_dealt_to(app_doc)},
     )
     app = Application(**stored)
-    return {"application": _application_response_organizer(app), **undo_window()}, 200
+    return {"application": _application_response_organizer(app),
+            **(undo_window() if kept is not None else {})}, 200
 
 
 def _verdict_row(before: List[Dict[str, Any]]) -> "Actions.Action":
@@ -668,9 +670,10 @@ def review_selection(
             skipped.append({"id": app_id, "email": doc.get("applicant_email"),
                             "reason": change_refused})
             continue
-        if ApplicationsApi.update_application_status(app_id, new_status, by=by,
-                                                     if_unchanged_since=seen,
-                                                     unless_decided=bool(change_refused)):
+        if ApplicationsApi.update_application_status(
+                app_id, new_status, by=by, if_unchanged_since=seen,
+                unless_decided=bool(change_refused),
+                kept_for_undo=ApplicationsApi.undo_to_of(doc)):
             written.append(app_id)
             was[app_id] = doc
         else:
@@ -693,7 +696,9 @@ def review_selection(
                 **_each_dealt_to(was[app_id] for app_id in written),
             },
         )
-    return {"written": written, "skipped": skipped, **(undo_window() if written else {})}, 200
+    # Undone only as a whole, so offered only when every one it wrote kept what it was.
+    undoable = written and all(ApplicationsApi.undo_to_of(was[app_id]) for app_id in written)
+    return {"written": written, "skipped": skipped, **(undo_window() if undoable else {})}, 200
 
 
 #: Why an undo is refused when its verdict is not the reviewer's own any longer, or the window has
@@ -703,26 +708,31 @@ UNDO_REFUSED = "This verdict can no longer be undone here. An Admin or the owner
 
 def undo_window() -> Dict[str, int]:
     """How long a verdict just written may be undone by its giver, for its answer: the client times
-    its Undo from this, so the window is kept in one place (E38/F10/S01)."""
+    its Undo from this, so the window is kept in one place (E38/F10/S01). Answered only for a
+    verdict that kept what the application was, so the client offers Undo only where it may."""
     return {"undoSeconds": int(ApplicationsApi.UNDO_WINDOW.total_seconds())}
 
 
-#: What a reviewer asks to undo: the application, as they saw it once their verdict was written,
-#: and what to return it to - with its follow-up's owner when that is a follow-up.
-UndoAsked = Tuple[str, Optional[Dict[str, Any]], ApplicationStatus, Optional[MarketPerson]]
+#: What a reviewer asks to undo: the application, and how they saw it once their verdict was written.
+UndoAsked = Tuple[str, Optional[Dict[str, Any]]]
+#: Why a follow-up may not come back owned by this address, or None while it may: the review
+#: route's own check of an owner, asked of the market the caller read.
+OwnerRefusal = Callable[[str], Optional[str]]
 
 
 def _undo_one(
-    market_id: str, asked: UndoAsked, by: VerdictGiver,
+    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_refusal: OwnerRefusal,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Tuple[str, int]]]:
     """Undo one verdict: the application as it was and as it is now, or why not and its status.
 
     Asked in this order: an application of another market is not there; one changed since the
     reviewer's verdict is stale, never written over; one that is not their own verdict within the
-    window is refused. The write is conditional on the status and the verdict's time the reviewer
-    saw, so a verdict landing between this read and the write is the stale answer too.
+    window, or kept nothing to return to, is refused; a follow-up whose owner may no longer own it
+    is refused with why. It returns to what the verdict kept (``undo_to``), never to what a request
+    names. The write is conditional on the status and the verdict's time the reviewer saw, so a
+    verdict landing between this read and the write is the stale answer too.
     """
-    app_id, seen, back, owner = asked
+    app_id, seen = asked
     doc = ApplicationsApi.find_application_by_id(app_id)
     if doc is None or doc.get("market_id") != market_id:
         return None, None, ("Not an application here.", 404)
@@ -732,26 +742,31 @@ def _undo_one(
         return doc, None, (_changed_since_seen(doc, seen), 409)
     if not ApplicationsApi.undoable_by(doc, by.user_id):
         return doc, None, (UNDO_REFUSED, 403)
-    marker = by if back is ApplicationStatus.NEEDS_FOLLOW_UP else None
-    if not ApplicationsApi.update_application_status(
-            app_id, back, by=marker, owner=owner, if_unchanged_since=pinned):
+    undo_to = doc["undo_to"]
+    owner = (undo_to.get("follow_up_owner") or {}).get("email")
+    refused = owner_refusal(owner) if owner else None
+    if refused:
+        return doc, None, (refused, 400)
+    if not ApplicationsApi.restore_before_verdict(app_id, undo_to, pinned):
         now = ApplicationsApi.find_application_by_id(app_id) or doc
         return now, None, (_changed_since_seen(now, seen), 409)
     return doc, ApplicationsApi.find_application_by_id(app_id), None
 
 
 def undo_verdict(
-    market_id: str, asked: UndoAsked, by: VerdictGiver,
+    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_refusal: OwnerRefusal,
 ) -> Tuple[Dict[str, Any], int]:
     """Undo the verdict, or the follow-up, this reviewer gave an application (E38/F10/S01).
 
     Theirs alone, within ``UNDO_WINDOW``, while they may still give verdicts (the caller asks
     ``verdict_refusal``) - giving, taken back, so never the change row. It returns the application to
-    ``back``, open or needs follow-up with its owner, and leaves whom it was dealt to as it is.
-    Refused with ``UNDO_REFUSED`` (403) once it is not theirs to undo, and with the stale-verdict
-    sentence and the application as it stands (409) when someone wrote over it since.
+    what the verdict found it as, open, or needs follow-up marked and owned as it was, and leaves
+    whom it was dealt to as it is. Refused with ``UNDO_REFUSED`` (403) once it is not theirs to
+    undo, with ``owner_refusal``'s sentence (400) for a follow-up whose owner lost their place, and
+    with the stale-verdict sentence and the application as it stands (409) when someone wrote over
+    it since.
     """
-    was, now, refused = _undo_one(market_id, asked, by)
+    was, now, refused = _undo_one(market_id, asked, by, owner_refusal)
     if refused:
         reason, status = refused
         if status == 409 and was is not None:
@@ -768,7 +783,7 @@ def undo_verdict(
 
 
 def undo_selection(
-    market_id: str, selection: List[UndoAsked], by: VerdictGiver,
+    market_id: str, selection: List[UndoAsked], by: VerdictGiver, owner_refusal: OwnerRefusal,
 ) -> Tuple[Dict[str, Any], int]:
     """Undo what a selection's verdict wrote (E38/F10/S01), each as ``undo_verdict`` undoes one,
     answering which were written and, for each skipped, why - as ``review_selection`` answers."""
@@ -777,7 +792,7 @@ def undo_selection(
     now: Dict[str, Dict[str, Any]] = {}
     skipped: List[Dict[str, Any]] = []
     for asked in selection:
-        before, after, refused = _undo_one(market_id, asked, by)
+        before, after, refused = _undo_one(market_id, asked, by, owner_refusal)
         if refused:
             skipped.append({"id": asked[0], "email": (before or {}).get("applicant_email"),
                             "reason": refused[0]})

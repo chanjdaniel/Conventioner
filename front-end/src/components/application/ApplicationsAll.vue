@@ -47,7 +47,7 @@ import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
-import { undoneTo, useVerdictUndo, type UndoOutcome } from '@/utils/verdictUndo';
+import { useVerdictUndo, type UndoOutcome } from '@/utils/verdictUndo';
 import VerdictUndoLine from '@/components/application/VerdictUndoLine.vue';
 import { applicationsAllSeed, NO_FILTERS, type ExportFilters } from '@/utils/vendorExport';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
@@ -285,9 +285,17 @@ const noteBefore = computed(() =>
   opened.value ? (drawerPanel.value?.entryFor(opened.value.applicantEmail)?.note ?? '') : '',
 );
 
-/** A row's verdict written offers its undo, replacing any on offer (E38/F10/S01). */
-function offerRowUndo(before: Application, outcome: VerdictOutcome, status: ApplicationStatus) {
+/**
+ * A row's verdict written is the last action: it takes away a selection's answer, which spoke of an
+ * older one, and offers its own undo, replacing any on offer (E38/F10/S01).
+ */
+function rowVerdictWritten(
+  before: Application,
+  outcome: VerdictOutcome,
+  status: ApplicationStatus,
+) {
   if (outcome.kind !== 'written') return;
+  result.value = null;
   undoFrom.value = 'row';
   undo.offerOne(before, outcome.application, status, outcome.undoSeconds);
 }
@@ -300,7 +308,7 @@ async function give(status: ApplicationStatus) {
   const before = { ...app };
   try {
     const outcome = await verdicts.give(app, status);
-    offerRowUndo(before, outcome, status);
+    rowVerdictWritten(before, outcome, status);
     // Someone decided it first (E34/F03/S01): the drawer shows what is really there, and who.
     if (outcome.kind !== 'written') verdictMessage.value = outcome.message;
     else void details.load();
@@ -317,7 +325,7 @@ async function markFollowUp(choice: { ownerEmail: string; note?: string }) {
   const before = { ...app };
   try {
     const outcome = await verdicts.markFollowUp(app, choice, noteBefore.value);
-    offerRowUndo(before, outcome, ApplicationStatus.NeedsFollowUp);
+    rowVerdictWritten(before, outcome, ApplicationStatus.NeedsFollowUp);
     void drawerPanel.value?.loadNotes();
     if (outcome.kind === 'failed') {
       followUpError.value = outcome.message;
@@ -430,16 +438,15 @@ const askingDealtLine = computed(() =>
 
 /**
  * A selection's verdict offers the undo of everything it wrote, as the list now reads each one, on
- * its done line (E38/F10/S01); none when any of it changed a verdict already given.
+ * its done line (E38/F10/S01); the server gives no window when any of it changed a verdict already
+ * given.
  */
-function offerSelectionUndo(written: string[], before: Map<string, Application>, seconds: number) {
+function offerSelectionUndo(written: string[], seconds: number) {
   undoFrom.value = 'selection';
   undo.offer(
     written.map((id) => {
-      const was = before.get(id);
       const now = applications.value.find((app) => app.id === id);
-      const to = was ? undoneTo(was) : null;
-      return to && now ? { application: now, ...to } : null;
+      return now ? { application: now } : null;
     }),
     '',
     seconds,
@@ -465,13 +472,12 @@ async function decideSelection() {
   selectionError.value = '';
   try {
     const picked = applications.value.filter((a) => selected.value.has(a.id));
-    const before = new Map(picked.map((app) => [app.id, { ...app }] as const));
     const answer = await reviewSelection(props.market.id, picked, status);
     result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
     asking.value = null;
     clearSelection();
     await load();
-    offerSelectionUndo(answer.written, before, answer.undoSeconds ?? 0);
+    offerSelectionUndo(answer.written, answer.undoSeconds ?? 0);
     void details.load();
     void marketStore.refresh();
   } catch (err) {

@@ -1,5 +1,5 @@
 import { api, getApiErrorMessage } from '@/utils/api';
-import type { Application, ApplicationStatus } from '@/assets/types/datatypes';
+import type { Application } from '@/assets/types/datatypes';
 
 /**
  * Request a login code for the applicant's email.
@@ -122,7 +122,8 @@ function seenOf(application: Application) {
 
 /**
  * What a verdict wrote: the application as it now stands, and how many seconds its giver may undo it
- * for (E38/F10/S01), the server's window, so the client keeps no second copy of it.
+ * for (E38/F10/S01), the server's window, so the client keeps no second copy of it; 0 for a verdict
+ * that changed one, which is never undone.
  */
 export interface VerdictWritten {
   application: Application;
@@ -150,17 +151,15 @@ export async function reviewApplication(
 }
 
 /**
- * A verdict to undo (E38/F10/S01): the application as the verdict left it, and what to return it to -
- * open, or needs follow-up with the owner it had.
+ * A verdict to undo (E38/F10/S01): the application as the verdict left it. What it returns to is the
+ * server's, kept by the verdict, so the client names only what it saw.
  */
 export interface UndoItem {
   application: Application;
-  back: ApplicationStatus;
-  ownerEmail?: string;
 }
 
-function undoBody({ application, back, ownerEmail }: UndoItem) {
-  return { seen: seenOf(application), back, ...(ownerEmail ? { ownerEmail } : {}) };
+function undoBody({ application }: UndoItem) {
+  return { seen: seenOf(application) };
 }
 
 /**
@@ -203,7 +202,10 @@ export function changedSinceSeen(
 export interface SelectionResult {
   written: string[];
   skipped: { id: string; email: string | null; reason: string }[];
-  /** How many seconds what it wrote may be undone for, when it wrote any (E38/F10/S01). */
+  /**
+   * How many seconds what it wrote may be undone for (E38/F10/S01): only when it wrote any, and each
+   * on an application still awaiting a verdict.
+   */
   undoSeconds?: number;
 }
 

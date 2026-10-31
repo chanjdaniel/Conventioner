@@ -87,7 +87,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
    With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
-   After a verdict or a follow-up on an open application or a follow-up, a line above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
+   After a verdict or a follow-up on an open application or a follow-up, a line under the counts and above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
    Above them, on an open application or a follow-up dealt to another reviewer, someone who may decide it reads "This application is dealt to <email>. If you decide it, its history will say you decided it for them."
 4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and, to someone who may write vendor notes, "Their notes: what is needed (optional)"; "Mark for follow-up".
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
@@ -111,12 +111,14 @@ Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-rev
 The rule is [what each role may do](../rules/what-each-role-may-do.md#why): whoever gave a verdict takes it back within 2 minutes, whatever their role, while they may still give verdicts.
 Both views offer it through one composable, [`front-end/src/utils/verdictUndo.ts`](../../../front-end/src/utils/verdictUndo.ts), and a row's and One by one's line is [`VerdictUndoLine.vue`](../../../front-end/src/components/application/VerdictUndoLine.vue).
 
-1. One by one: the line above the next card is a polite live region, "<Approved|Rejected> <name> (<email>)." or "Marked <name> (<email>) for follow-up." (the email alone when they gave no name), with "Undo" and its key, Z.
+1. One by one: the line under the counts, above the reviewed list when it is open and above the next card, is a polite live region, "<Approved|Rejected> <name> (<email>)." or "Marked <name> (<email>) for follow-up." (the email alone when they gave no name), with "Undo" and its key, Z.
    It stays for the window the server's answer gives (`undoSeconds`), or until the next verdict, which offers its own; a change from the reviewed list offers none.
-2. "Undo" returns the application to what it was, open, or needs follow-up with the owner it had, still dealt to whom it was dealt, and puts it up as the card, held for the reviewer.
+2. "Undo" returns the application to what the server kept of it when the verdict landed, open, or needs follow-up marked and owned as it was, still dealt to whom it was dealt, and puts it up as the card, held for the reviewer.
+   A follow-up whose owner has lost their role since is not brought back: "A follow-up's owner must have a role on this market." on the line.
 3. A refused undo says why on the line in place of the button: "This verdict can no longer be undone here. An Admin or the owner can change it." past the window or on someone else's verdict, or who changed it since ("<email> approved this application since you opened it.").
 4. The All view offers the same: a row's verdict in its drawer, on the line above its verdicts, and over the list once the drawer is closed; a selection's on its answer, "N applications approved." with "Undo", which reads "N applications undone; K skipped:" and each skipped one with why.
-   A selection that changed any verdict already given offers no undo.
+   A selection that changed any verdict already given offers no undo: the server answers no window for it.
+   The screen reads the last action only: a row's verdict takes a selection's answer away.
 5. The market's history records the undo as its own entry, after the verdict's: "<email> undid their verdict on <vendor>: Rejected back to Open" ([reading the market's history](reading-the-markets-history.md)).
 
 The screens offer no undo after the window, and none of someone else's verdict: [I2](#i2-change-a-decision) is the way, for whoever the change row lets change one.

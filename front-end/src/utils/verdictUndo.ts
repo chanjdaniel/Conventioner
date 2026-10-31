@@ -9,7 +9,6 @@ import {
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { applicantName } from '@/utils/essentialFields';
-import { isDecided } from '@/utils/verdicts';
 import { useMarketStore } from '@/stores/market';
 
 /**
@@ -17,29 +16,11 @@ import { useMarketStore } from '@/stores/market';
  *
  * A verdict was one click or one key with no way back for whoever gave it. Now its giver reads what
  * they decided and an Undo, for the window the server's answer gave (`undoSeconds`) or until their
- * next verdict, whichever is first; the server checks again that it is still theirs to undo. Only a
- * verdict on an application not yet approved or rejected is offered: one that changed a verdict is
- * the change row's, whose "instead" buttons put it right.
+ * next verdict, whichever is first; the server checks again that it is still theirs to undo, and
+ * returns the application to what it kept of it. The server gives a window only for a verdict on an
+ * application awaiting one: one that changed a verdict is the change row's, whose "instead" buttons
+ * put it right.
  */
-
-/** What an undo returns an application to: open, or needs follow-up with the owner it had. */
-export type UndoneTo = Pick<UndoItem, 'back' | 'ownerEmail'>;
-
-/** Awaiting a verdict: an undo puts these back to open, the one undecided status written now. */
-const UNDECIDED: readonly string[] = [ApplicationStatus.Open, ApplicationStatus.UnderReview];
-
-/**
- * What undoing a verdict on this application, as it was before the verdict, returns it to; null when
- * the verdict changed one already given, or the application had moved on past the review.
- */
-export function undoneTo(before: Application): UndoneTo | null {
-  if (isDecided(before)) return null;
-  if (before.status === ApplicationStatus.NeedsFollowUp) {
-    const owner = before.followUpOwner?.email;
-    return { back: ApplicationStatus.NeedsFollowUp, ...(owner ? { ownerEmail: owner } : {}) };
-  }
-  return UNDECIDED.includes(before.status) ? { back: ApplicationStatus.Open } : null;
-}
 
 /**
  * The applicant as the review names them: the name their answers give, then their address; the
@@ -95,7 +76,8 @@ export function useVerdictUndo(
 
   /**
    * Offer the undo of what a verdict wrote, replacing any on offer: the screen offers the last
-   * verdict only. Nothing is offered for no seconds, or when any of it changed a verdict.
+   * verdict only. Nothing is offered for no seconds - the server gives none for a verdict that
+   * changed one - or when the list no longer holds any of it.
    */
   function offer(items: (UndoItem | null)[], line: string, seconds: number) {
     withdraw();
@@ -111,8 +93,7 @@ export function useVerdictUndo(
     status: ApplicationStatus,
     seconds: number,
   ) {
-    const to = undoneTo(before);
-    offer([to && { application: after, ...to }], undoLine(status, before), seconds);
+    offer([{ application: after }], undoLine(status, before), seconds);
   }
 
   async function undo(): Promise<UndoOutcome> {

@@ -1606,25 +1606,27 @@ def review_selection(market_id: str) -> Response:
     return jsonify(result), status_code
 
 
-def _undo_asked(context: MarketsApi.MarketContext, person: MarketPerson, application_id: str,
-                item: Dict[str, Any]) -> ApplicantsApi.UndoAsked:
-    """What one undo asks, from its request: the application, what the reviewer saw once their
-    verdict was written, and what to return it to - with a follow-up's owner, checked as the
-    review route checks ``ownerEmail``. Raises ``BadRequestError`` for a request naming no
-    ``seen`` or nothing an undo may return to."""
-    back = _named_status(item.get('back'))
-    if back not in ApplicationsApi.UNDONE_TO:
-        raise BadRequestError("An undo returns an application to open or needs follow-up.")
+def _undo_asked(application_id: str, item: Dict[str, Any]) -> ApplicantsApi.UndoAsked:
+    """What one undo asks, from its request: the application, and what the reviewer saw once their
+    verdict was written. What it returns to is the server's, kept by the verdict, so a request
+    names none. Raises ``BadRequestError`` for a request naming no ``seen``."""
     seen = ApplicantsApi.seen_from(item.get('seen'))
     if seen is None:
         raise BadRequestError("Say what the application was once your verdict was written.")
-    if seen.get('status') == back.value:
-        raise BadRequestError("The application is already at what the undo returns it to.")
-    owner = None
-    if back is ApplicationStatus.NEEDS_FOLLOW_UP and item.get('ownerEmail'):
-        owner = MarketsApi.follow_up_owner(
-            context.market, context.organization, person, item['ownerEmail'])
-    return application_id, seen, back, owner
+    return application_id, seen
+
+
+def _owner_refusal(context: MarketsApi.MarketContext,
+                   person: MarketPerson) -> ApplicantsApi.OwnerRefusal:
+    """Why a follow-up an undo brings back may not be owned by an address, asked as the review route
+    asks of ``ownerEmail``: its owner may have lost their role since the verdict."""
+    def refusal(email: str) -> Optional[str]:
+        try:
+            MarketsApi.follow_up_owner(context.market, context.organization, person, email)
+        except BadRequestError as refused:
+            return refused.message
+        return None
+    return refusal
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/review/undo', methods=['POST'])
@@ -1632,15 +1634,16 @@ def _undo_asked(context: MarketsApi.MarketContext, person: MarketPerson, applica
 def undo_review(market_id: str, application_id: str) -> Response:
     """Undo the verdict, or the follow-up, the signed-in reviewer just gave (E38/F10/S01).
 
-    Body: { "seen": { "status": "reviewer_rejected", "verdictAt": "..." }, "back": "open",
-            "ownerEmail": "..." }  - ``ownerEmail`` for a follow-up returned to its owner.
+    Body: { "seen": { "status": "reviewer_rejected", "verdictAt": "..." } }. It returns the
+    application to what the verdict found it as, never to what a request names.
     Their own, within ``UNDO_WINDOW``, while they may give verdicts: never the change row.
     """
     person, context, refused = _reviewer_on(market_id)
     if refused:
         return refused
-    asked = _undo_asked(context, person, application_id, json_object(required=True))
-    result, status_code = ApplicantsApi.undo_verdict(market_id, asked, by=person.as_giver())
+    asked = _undo_asked(application_id, json_object(required=True))
+    result, status_code = ApplicantsApi.undo_verdict(
+        market_id, asked, by=person.as_giver(), owner_refusal=_owner_refusal(context, person))
     return jsonify(result), status_code
 
 
@@ -1649,7 +1652,7 @@ def undo_review(market_id: str, application_id: str) -> Response:
 def undo_selection(market_id: str) -> Response:
     """Undo what a selection's verdict wrote (E38/F10/S01).
 
-    Body: { "applications": [{ "id", "seen", "back", "ownerEmail" }] }, each as the single undo's.
+    Body: { "applications": [{ "id", "seen" }] }, each as the single undo's.
     Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
     """
     person, context, refused = _reviewer_on(market_id)
@@ -1662,8 +1665,9 @@ def undo_selection(market_id: str) -> Response:
     asked = []
     for item in selection:
         item = item if isinstance(item, dict) else {}
-        asked.append(_undo_asked(context, person, str(item.get('id') or ''), item))
-    result, status_code = ApplicantsApi.undo_selection(market_id, asked, by=person.as_giver())
+        asked.append(_undo_asked(str(item.get('id') or ''), item))
+    result, status_code = ApplicantsApi.undo_selection(
+        market_id, asked, by=person.as_giver(), owner_refusal=_owner_refusal(context, person))
     return jsonify(result), status_code
 
 

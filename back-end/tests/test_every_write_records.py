@@ -363,10 +363,13 @@ def _changed_verdict(client, world):
 
 
 def _just_given(app_id, email):
-    """An application the signed-in owner rejected a moment ago, theirs to undo (E38/F10/S01)."""
+    """An application the signed-in owner rejected a moment ago, theirs to undo (E38/F10/S01): the
+    verdict kept that it was open."""
     return _application(app_id, email, status="reviewer_rejected",
                         verdict_at=datetime.now(timezone.utc).isoformat(),
-                        verdict_by={"kind": "person", "user_id": "user-owner", "email": OWNER})
+                        verdict_by={"kind": "person", "user_id": "user-owner", "email": OWNER},
+                        undo_to={"status": "open", "verdict_by": None, "verdict_at": None,
+                                 "follow_up_owner": None})
 
 
 def _undone_verdict(client, world):
@@ -374,7 +377,7 @@ def _undone_verdict(client, world):
     doc = _just_given("app-1", VENDOR)
     world.applications.insert_one(doc)
     return client.post(f"/markets/{MARKET}/applications/app-1/review/undo", json={
-        "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]}, "back": "open"})
+        "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]}})
 
 
 def _undone_verdicts(client, world):
@@ -383,8 +386,8 @@ def _undone_verdicts(client, world):
     for doc in docs:
         world.applications.insert_one(doc)
     return client.post(f"/markets/{MARKET}/applications/verdicts/undo", json={"applications": [
-        {"id": doc["id"], "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]},
-         "back": "open"} for doc in docs]})
+        {"id": doc["id"], "seen": {"status": doc["status"], "verdictAt": doc["verdict_at"]}}
+        for doc in docs]})
 
 
 def _follow_up_owner(client, world):

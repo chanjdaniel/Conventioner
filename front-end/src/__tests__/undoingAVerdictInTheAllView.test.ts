@@ -10,6 +10,7 @@ import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import { answersRefusing } from './support/servedAnswers';
+import { isDecided } from '@/utils/verdicts';
 
 const ME = 'ana@example.com';
 
@@ -76,21 +77,24 @@ beforeEach(() => {
   ];
   fetchMarketApplications.mockReset().mockImplementation(async () => stored.map((a) => ({ ...a })));
   for (const call of Object.values(api)) call.mockReset().mockResolvedValue({ data: {} });
+  // The server offers an undo only of a verdict on an application awaiting one, as it keeps what
+  // that was; a verdict that changed one answers no window.
+  const awaiting = (id: string) => !isDecided(stored.find((app) => app.id === id)!);
   api.put.mockImplementation(async (url: string, body: { status: string }) => {
     const id = url.split('/applications/')[1]!.split('/')[0]!;
-    return {
-      data: { application: setStatus(id, body.status, VERDICT_AT), undoSeconds: 120 },
-    };
+    const window = awaiting(id) ? { undoSeconds: 120 } : {};
+    return { data: { application: setStatus(id, body.status, VERDICT_AT), ...window } };
   });
   api.post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
     if (url.endsWith('/applications/verdicts')) {
       const ids = (body.applications as { id: string }[]).map((a) => a.id);
+      const window = ids.every(awaiting) ? { undoSeconds: 120 } : {};
       ids.forEach((id) => setStatus(id, body.status as string, VERDICT_AT));
-      return { data: { written: ids, skipped: [], undoSeconds: 120 } };
+      return { data: { written: ids, skipped: [], ...window } };
     }
     if (url.endsWith('/verdicts/undo')) {
-      const [first, ...rest] = (body.applications as { id: string; back: string }[]).map((a) => a);
-      setStatus(first!.id, first!.back, null);
+      const [first, ...rest] = body.applications as { id: string }[];
+      setStatus(first!.id, ApplicationStatus.Open, null);
       return {
         data: {
           written: [first!.id],
@@ -104,7 +108,7 @@ beforeEach(() => {
     }
     if (url.endsWith('/review/undo')) {
       const id = url.split('/applications/')[1]!.split('/')[0]!;
-      return { data: { application: setStatus(id, (body as { back: string }).back, null) } };
+      return { data: { application: setStatus(id, ApplicationStatus.Open, null) } };
     }
     return { data: {} };
   });
@@ -150,7 +154,6 @@ describe('a row’s verdict', () => {
 
     expect(api.post).toHaveBeenCalledWith('/markets/m1/applications/jo/review/undo', {
       seen: expect.objectContaining({ status: 'reviewer_rejected', verdictAt: VERDICT_AT }),
-      back: 'open',
     });
     expect(wrapper.find('[data-testid="applications-all-drawer-undo"]').exists()).toBe(false);
     expect(stored.find((a) => a.id === 'jo')!.status).toBe('open');
@@ -194,8 +197,8 @@ describe('a selection’s verdict', () => {
     const undone = api.post.mock.calls.find(([url]) => url.endsWith('/verdicts/undo'))!;
     expect(undone[1]).toEqual({
       applications: [
-        expect.objectContaining({ id: 'jo', back: 'open' }),
-        expect.objectContaining({ id: 'al', back: 'open' }),
+        { id: 'jo', seen: expect.objectContaining({ status: 'reviewer_approved' }) },
+        { id: 'al', seen: expect.objectContaining({ status: 'reviewer_approved' }) },
       ],
     });
     const result = wrapper.get('[data-testid="applications-all-result"]');
@@ -221,6 +224,24 @@ describe('a selection’s verdict', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="applications-all-result-undo"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="applications-all-drawer-undo"]').text()).toContain(
+      'Rejected al@vendor.test.',
+    );
+  });
+
+  it('takes its answer away at a row’s verdict, so the screen reads the last action only', async () => {
+    route.query = { vendor: 'al@vendor.test' };
+    const wrapper = await approveTicked(['jo']);
+    await wrapper.get('[data-testid="applications-all-result-undo"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="applications-all-result"]').text()).toContain(
+      '1 application undone.',
+    );
+
+    await wrapper.get('[data-testid="applications-all-reject"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="applications-all-result"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="applications-all-drawer-undo"]').text()).toContain(
       'Rejected al@vendor.test.',
     );

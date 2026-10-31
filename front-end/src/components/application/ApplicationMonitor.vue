@@ -732,6 +732,19 @@ function submittedOn(app: Application): string {
         </span>
       </div>
 
+      <!-- The verdict just given, and its Undo, under the counts and over the next card
+           (E38/F10/S01): over the reviewed list too, so opening the list never pushes it down. -->
+      <VerdictUndoLine
+        v-if="undoOffered"
+        class="monitor-undo"
+        :line="undoOffered.line"
+        :refusal="undoRefusal"
+        :busy="undoing || saving"
+        shortcut="Z"
+        testid="app-monitor-undo"
+        @undo="undoLast"
+      />
+
       <!-- Decided applications, newest verdict first, so a verdict can be read back, and changed
            one at a time by whoever the change row lets change one (E38/F06/S01). -->
       <div v-if="showDecided && decided.length" class="decided">
@@ -802,18 +815,6 @@ function submittedOn(app: Application): string {
              construction and right by accident (E21/F02/S03). -->
         The form is frozen for this market, so nothing can be added to it now.
       </p>
-
-      <!-- The verdict just given, and its Undo, above the next card (E38/F10/S01). -->
-      <VerdictUndoLine
-        v-if="undoOffered"
-        class="monitor-undo"
-        :line="undoOffered.line"
-        :refusal="undoRefusal"
-        :busy="undoing || saving"
-        shortcut="Z"
-        testid="app-monitor-undo"
-        @undo="undoLast"
-      />
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
         <div class="card-head">

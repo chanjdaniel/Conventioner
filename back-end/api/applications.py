@@ -370,16 +370,28 @@ def is_decided(doc: Dict[str, Any]) -> bool:
 #: (E38/F10/S01): long enough to notice a slip while reading the next card, short enough that
 #: nobody else has acted on it. After it, changing a verdict is the change row's (E38/F06/S01).
 UNDO_WINDOW = timedelta(minutes=2)
-#: What an undo may return an application to: what it was before a verdict could be given on it.
-#: Never a verdict, so an undo is never a change of one; whoever's own verdict changed one may
-#: change verdicts anyway.
-UNDONE_TO = (ApplicationStatus.OPEN, ApplicationStatus.NEEDS_FOLLOW_UP)
+#: What an undo returns an application to, kept on it by the verdict that left it (``undo_to``): its
+#: status, giver, time and follow-up owner as they were, while it was awaiting a verdict. Kept by the
+#: server, so an undo never returns an application to what a request names; a verdict that changed
+#: one keeps nothing, since an undo is never a change of a verdict.
+UNDO_KEEPS = ("status", "verdict_by", "verdict_at", "follow_up_owner")
+
+
+def undo_to_of(doc: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """What undoing a verdict given on this application, as read, would return it to (E38/F10/S01):
+    its ``UNDO_KEEPS`` while it awaits a verdict - undecided or needing a follow-up - else None."""
+    if doc.get("status") not in UNDECIDED_STATUSES + (ApplicationStatus.NEEDS_FOLLOW_UP.value,):
+        return None
+    return {key: doc.get(key) for key in UNDO_KEEPS}
 
 
 def undoable_by(doc: Dict[str, Any], user_id: Optional[str]) -> bool:
     """Whether this person may still undo what they marked on this application: a verdict or a
-    follow-up that they gave, by user id, within ``UNDO_WINDOW`` of it (E38/F10/S01)."""
+    follow-up that they gave, by user id, within ``UNDO_WINDOW`` of it, which kept what the
+    application was before it (``undo_to``, E38/F10/S01)."""
     if doc.get("status") not in {status.value for status in MARKED_STATUSES} or not user_id:
+        return False
+    if not isinstance(doc.get("undo_to"), dict):
         return False
     by = doc.get("verdict_by") or {}
     if by.get("kind") != "person" or by.get("user_id") != user_id:
@@ -397,6 +409,7 @@ def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
     reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
     owner: Optional[MarketPerson] = None, unless_decided: bool = False,
+    kept_for_undo: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Set a new status on an application. Returns whether it was written.
 
@@ -416,6 +429,11 @@ def update_application_status(
     ``unless_decided`` writes only on an application that carries no verdict, for a reviewer who
     gives verdicts but may not change one (E38/F06/S01): asked in the write itself, so a verdict
     landing between the caller's read and this is never written over.
+
+    ``kept_for_undo`` is what ``undo_to_of`` made of the application as a person giving a verdict
+    read it (E38/F10/S01): kept on it as ``undo_to``, and the write lands only while the status, the
+    verdict's time and the follow-up's owner are still those, so what is kept is what was there.
+    Any other write clears it, so only the verdict that kept it can be undone.
     """
     if status in MARKED_STATUSES and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")
@@ -444,9 +462,40 @@ def update_application_status(
         query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
         if if_unchanged_since.get("updated_at"):
             query["updated_at"] = if_unchanged_since["updated_at"]
+    if kept_for_undo is not None and by is not None and by.kind == "person":
+        pins = {"status": kept_for_undo.get("status"),
+                "verdict_at": kept_for_undo.get("verdict_at") or {"$in": [None]},
+                "follow_up_owner": kept_for_undo.get("follow_up_owner")}
+        if any(key in query and query[key] != value for key, value in pins.items()):
+            return False  # what the caller saw is not what it read: it cannot be both
+        query.update(pins)
+        update["$set"]["undo_to"] = kept_for_undo
+    else:
+        update["$unset"]["undo_to"] = ""
     if unless_decided:
         query["$nor"] = [{"status": {"$in": list(VERDICT_STATUSES)}}]
     result = applications_collection.update_one(query, update)
+    return result.matched_count > 0
+
+
+def restore_before_verdict(app_id: str, undo_to: Dict[str, Any],
+                           if_unchanged_since: Dict[str, Any]) -> bool:
+    """Return an application to what a verdict found it as (``undo_to``, E38/F10/S01): its status,
+    giver, time and follow-up owner as they were, so a follow-up comes back marked by whoever
+    marked it. Written only while the status and the verdict's time are those the undoer saw, which
+    are the verdict's that kept ``undo_to``. Returns whether it was written.
+    """
+    ensure_application_indexes()
+    kept = {key: undo_to.get(key) for key in UNDO_KEEPS}
+    update: Dict[str, Any] = {
+        "$set": {key: value for key, value in kept.items() if value is not None},
+        "$unset": {**{key: "" for key, value in kept.items() if value is None},
+                   "undo_to": "", "verdict_reason": "", **_CLAIM_UNSET},
+    }
+    result = applications_collection.update_one({
+        "id": app_id, "status": if_unchanged_since.get("status"),
+        "verdict_at": if_unchanged_since.get("verdict_at") or {"$in": [None]},
+    }, update)
     return result.matched_count > 0
 
 

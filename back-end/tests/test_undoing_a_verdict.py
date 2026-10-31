@@ -19,9 +19,10 @@ from test_choosing_reviewers_deals_the_open_applications import (  # noqa: F401 
 
 import api.applications as ApplicationsApi
 import history as History
-from datatypes import MarketPhase
+from datatypes import ApplicationStatus, MarketPhase, VerdictGiver
 
 UNDO_REFUSED = "This verdict can no longer be undone here. An Admin or the owner can change it."
+OWNER_GONE = "A follow-up's owner must have a role on this market."
 
 
 def _doc(world, app_id):
@@ -39,9 +40,9 @@ def _give(who, app_id, status, owner=None):
     return response.get_json()["application"]
 
 
-def _undo(who, app_id, seen, back="open", owner=None):
-    body = {"seen": seen, "back": back, **({"ownerEmail": owner} if owner else {})}
-    return _client(who).post(f"/markets/{MARKET}/applications/{app_id}/review/undo", json=body)
+def _undo(who, app_id, seen):
+    return _client(who).post(f"/markets/{MARKET}/applications/{app_id}/review/undo",
+                             json={"seen": seen})
 
 
 def _undo_selection(who, items):
@@ -96,8 +97,7 @@ class TestTheGiverUndoes:
     def test_a_follow_ups_verdict_comes_back_with_its_owner(self, world):
         given = _give(EDITOR, "app-follow-up", "reviewer_approved")
 
-        response = _undo(EDITOR, "app-follow-up", _seen_of(given), back="needs_follow_up",
-                         owner=EDITOR)
+        response = _undo(EDITOR, "app-follow-up", _seen_of(given))
 
         assert response.status_code == 200, response.get_json()
         doc = _doc(world, "app-follow-up")
@@ -109,8 +109,7 @@ class TestTheGiverUndoes:
                                                            "email": ADMIN}
         given = _give(EDITOR, "app-follow-up", "reviewer_rejected")
 
-        response = _undo(EDITOR, "app-follow-up", _seen_of(given), back="needs_follow_up",
-                         owner=ADMIN)
+        response = _undo(EDITOR, "app-follow-up", _seen_of(given))
 
         assert response.status_code == 200, response.get_json()
         assert _doc(world, "app-follow-up")["follow_up_owner"]["email"] == ADMIN
@@ -181,7 +180,7 @@ class TestRefused:
         assert _undo(EDITOR, "app-v1", _seen(doc)).status_code == 403
 
     def test_on_an_application_with_no_verdict(self, world):
-        response = _undo(EDITOR, "app-v1", _seen(_doc(world, "app-v1")), back="needs_follow_up")
+        response = _undo(EDITOR, "app-v1", _seen(_doc(world, "app-v1")))
 
         assert response.status_code == 403
         assert response.get_json() == {"error": UNDO_REFUSED}
@@ -223,27 +222,11 @@ class TestRefused:
         assert response.status_code == 403
         assert _doc(world, "app-v1")["status"] == "reviewer_rejected"
 
-    @pytest.mark.parametrize("back", ["reviewer_approved", "assigned", "", None])
-    def test_back_to_anything_but_open_or_a_follow_up(self, world, back):
-        given = _give(EDITOR, "app-v1", "reviewer_rejected")
-
-        response = _undo(EDITOR, "app-v1", _seen_of(given), back=back)
-
-        assert response.status_code == 400
-        assert _doc(world, "app-v1")["status"] == "reviewer_rejected"
-
-    def test_back_to_what_it_is_now(self, world):
-        given = _give(EDITOR, "app-v1", "needs_follow_up")
-
-        response = _undo(EDITOR, "app-v1", _seen_of(given), back="needs_follow_up")
-
-        assert response.status_code == 400
-
     def test_without_saying_what_they_saw(self, world):
         _give(EDITOR, "app-v1", "reviewer_rejected")
 
         response = _client(EDITOR).post(
-            f"/markets/{MARKET}/applications/app-v1/review/undo", json={"back": "open"})
+            f"/markets/{MARKET}/applications/app-v1/review/undo", json={})
 
         assert response.status_code == 400
 
@@ -254,6 +237,116 @@ class TestRefused:
         response = _undo(EDITOR, "app-v1", _seen_of(given))
 
         assert response.status_code == 404
+
+
+class TestWhatItComesBackTo:
+    """The server keeps what the application was when the verdict was written, and the undo
+    returns it to that: never what the request names (the review's finding 1)."""
+
+    def test_a_follow_up_comes_back_a_follow_up_whatever_the_request_names(self, world):
+        given = _give(EDITOR, "app-follow-up", "reviewer_approved")
+
+        response = _client(EDITOR).post(
+            f"/markets/{MARKET}/applications/app-follow-up/review/undo",
+            json={"seen": _seen_of(given), "back": "open"})
+
+        assert response.status_code == 200, response.get_json()
+        doc = _doc(world, "app-follow-up")
+        assert doc["status"] == "needs_follow_up"
+        assert doc["follow_up_owner"] == {"user_id": "user-editor", "email": EDITOR}
+
+    def test_a_follow_up_comes_back_with_its_marker_and_time(self, world):
+        doc = _doc(world, "app-follow-up")
+        doc["verdict_by"] = {"kind": "person", "user_id": "user-admin", "email": ADMIN}
+        doc["follow_up_owner"] = {"user_id": "user-admin", "email": ADMIN}
+        given = _give(EDITOR, "app-follow-up", "reviewer_rejected")
+
+        assert _undo(EDITOR, "app-follow-up", _seen_of(given)).status_code == 200
+
+        doc = _doc(world, "app-follow-up")
+        assert doc["verdict_by"] == {"kind": "person", "user_id": "user-admin", "email": ADMIN}
+        assert doc["verdict_at"] == "2026-10-09T00:00:00+00:00"
+        assert "undo_to" not in doc
+
+    def test_a_follow_up_brought_back_is_not_undone_again(self, world):
+        given = _give(EDITOR, "app-follow-up", "reviewer_approved")
+        undone = _undo(EDITOR, "app-follow-up", _seen_of(given)).get_json()["application"]
+
+        response = _undo(EDITOR, "app-follow-up", _seen_of(undone))
+
+        assert response.status_code == 403
+        assert _doc(world, "app-follow-up")["status"] == "needs_follow_up"
+
+    def test_what_is_kept_is_what_was_there_when_the_verdict_landed(self, world):
+        # A follow-up handed on between the reviewer's read and their verdict's write: the write
+        # does not land, rather than keep an owner the follow-up no longer had.
+        read = dict(_doc(world, "app-follow-up"))
+        _doc(world, "app-follow-up")["follow_up_owner"] = {"user_id": "user-admin",
+                                                           "email": ADMIN}
+        giver = VerdictGiver(kind="person", user_id="user-editor", email=EDITOR)
+
+        written = ApplicationsApi.update_application_status(
+            "app-follow-up", ApplicationStatus.REVIEWER_APPROVED, by=giver,
+            kept_for_undo=ApplicationsApi.undo_to_of(read))
+
+        assert written is False
+        assert _doc(world, "app-follow-up")["status"] == "needs_follow_up"
+
+    def test_any_other_write_clears_what_was_kept(self, world):
+        _give(EDITOR, "app-v1", "reviewer_rejected")
+        assert _doc(world, "app-v1")["undo_to"]["status"] == "open"
+
+        ApplicationsApi.update_application_status(
+            "app-v1", ApplicationStatus.REVIEWER_REJECTED,
+            by=VerdictGiver(kind="rule", rule="x"), reason="r")
+
+        assert "undo_to" not in _doc(world, "app-v1")
+
+    def test_a_verdict_that_kept_nothing_is_not_undone(self, world):
+        doc = _doc(world, "app-v1")
+        doc.update(status="reviewer_rejected", verdict_at=_ago(0),
+                   verdict_by={"kind": "person", "user_id": "user-editor", "email": EDITOR})
+
+        assert _undo(EDITOR, "app-v1", _seen(doc)).status_code == 403
+        assert _doc(world, "app-v1")["status"] == "reviewer_rejected"
+
+    def test_a_verdict_that_changed_one_is_not_undone(self, world):
+        _give(EDITOR, "app-v1", "reviewer_rejected")
+        changed = _give(ADMIN, "app-v1", "reviewer_approved")
+
+        response = _undo(ADMIN, "app-v1", _seen_of(changed))
+
+        assert response.status_code == 403
+        assert response.get_json() == {"error": UNDO_REFUSED}
+        assert _doc(world, "app-v1")["status"] == "reviewer_approved"
+
+    def test_a_verdict_that_changed_one_offers_no_undo(self, world):
+        _give(EDITOR, "app-v1", "reviewer_rejected")
+
+        response = _client(ADMIN).put(f"/markets/{MARKET}/applications/app-v1/review",
+                                      json={"status": "reviewer_approved"})
+
+        assert "undoSeconds" not in response.get_json()
+
+    def test_a_selection_that_changed_one_offers_no_undo(self, world):
+        response = _client(ADMIN).post(f"/markets/{MARKET}/applications/verdicts", json={
+            "status": "reviewer_rejected",
+            "applications": [{"id": "app-v1"}, {"id": "app-decided"}]})
+
+        assert response.get_json()["written"] == ["app-v1", "app-decided"]
+        assert "undoSeconds" not in response.get_json()
+
+    def test_a_follow_up_whose_owner_lost_their_role_is_not_brought_back(self, world):
+        _doc(world, "app-follow-up")["follow_up_owner"] = {"user_id": "user-admin",
+                                                           "email": ADMIN}
+        given = _give(EDITOR, "app-follow-up", "reviewer_approved")
+        del world.markets.doc["roles"]["user-admin"]
+
+        response = _undo(EDITOR, "app-follow-up", _seen_of(given))
+
+        assert response.status_code == 400
+        assert response.get_json() == {"error": OWNER_GONE}
+        assert _doc(world, "app-follow-up")["status"] == "reviewer_approved"
 
 
 class TestTheHistory:
@@ -296,10 +389,9 @@ class TestASelection:
         _give(ADMIN, "app-v2", "reviewer_rejected")
 
         response = _undo_selection(EDITOR, [
-            {"id": "app-v1", "seen": seen["app-v1"], "back": "open"},
-            {"id": "app-v2", "seen": seen["app-v2"], "back": "open"},
-            {"id": "app-follow-up", "seen": seen["app-follow-up"], "back": "needs_follow_up",
-             "ownerEmail": EDITOR},
+            {"id": "app-v1", "seen": seen["app-v1"]},
+            {"id": "app-v2", "seen": seen["app-v2"]},
+            {"id": "app-follow-up", "seen": seen["app-follow-up"]},
         ])
 
         assert response.status_code == 200, response.get_json()
@@ -319,9 +411,9 @@ class TestASelection:
         theirs = _decide(world, ADMIN, ["app-v2"])
 
         body = _undo_selection(EDITOR, [
-            {"id": "app-v1", "seen": seen["app-v1"], "back": "open"},
-            {"id": "app-v2", "seen": theirs["app-v2"], "back": "open"},
-            {"id": "app-nowhere", "seen": seen["app-v1"], "back": "open"},
+            {"id": "app-v1", "seen": seen["app-v1"]},
+            {"id": "app-v2", "seen": theirs["app-v2"]},
+            {"id": "app-nowhere", "seen": seen["app-v1"]},
         ]).get_json()
 
         assert body["written"] == []
@@ -332,12 +424,31 @@ class TestASelection:
         ]
         assert _entries(world, History.VERDICTS_UNDONE) == []
 
+    def test_skips_a_follow_up_whose_owner_lost_their_role(self, world):
+        _doc(world, "app-follow-up")["follow_up_owner"] = {"user_id": "user-admin",
+                                                           "email": ADMIN}
+        seen = _decide(world, EDITOR, ["app-v1", "app-follow-up"])
+        del world.markets.doc["roles"]["user-admin"]
+
+        response = _undo_selection(EDITOR, [
+            {"id": "app-v1", "seen": seen["app-v1"]},
+            {"id": "app-follow-up", "seen": seen["app-follow-up"]},
+        ])
+
+        assert response.status_code == 200, response.get_json()
+        body = response.get_json()
+        assert body["written"] == ["app-v1"]
+        assert body["skipped"] == [
+            {"id": "app-follow-up", "email": "follow-up@vendor.test", "reason": OWNER_GONE}]
+        assert _doc(world, "app-v1")["status"] == "open"
+        assert _doc(world, "app-follow-up")["status"] == "reviewer_approved"
+
     def test_a_chosen_viewer_undoes_their_selection(self, world):
         assert _choose([VIEWER]).status_code == 200
         seen = _decide(world, VIEWER, ["app-v1", "app-v2"], "reviewer_rejected")
 
         body = _undo_selection(VIEWER, [
-            {"id": app_id, "seen": seen[app_id], "back": "open"} for app_id in seen]).get_json()
+            {"id": app_id, "seen": seen[app_id]} for app_id in seen]).get_json()
 
         assert body["written"] == ["app-v1", "app-v2"]
 
@@ -345,7 +456,7 @@ class TestASelection:
         seen = _decide(world, EDITOR, ["app-v1", "app-v2"])
 
         _undo_selection(EDITOR, [
-            {"id": app_id, "seen": seen[app_id], "back": "open"} for app_id in seen])
+            {"id": app_id, "seen": seen[app_id]} for app_id in seen])
 
         [entry] = _entries(world, History.VERDICTS_UNDONE)
         assert (entry["actor"], entry["action"]) == (EDITOR, "give-verdicts")
@@ -359,11 +470,10 @@ class TestASelection:
         seen = _decide(world, EDITOR, ["app-v1"])
         world.markets.doc["phase"] = MarketPhase.ASSIGNMENT.value
 
-        response = _undo_selection(EDITOR, [{"id": "app-v1", "seen": seen["app-v1"],
-                                             "back": "open"}])
+        response = _undo_selection(EDITOR, [{"id": "app-v1", "seen": seen["app-v1"]}])
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("items", [[], None, [{"id": "app-v1", "back": "assigned"}]])
+    @pytest.mark.parametrize("items", [[], None, [{"id": "app-v1"}]])
     def test_refuses_a_request_naming_nothing_to_undo(self, world, items):
         assert _undo_selection(EDITOR, items).status_code == 400
