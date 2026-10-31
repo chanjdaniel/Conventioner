@@ -22,6 +22,7 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
+import { alsoWords, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -85,14 +86,22 @@ async function fetchMarket(showLoading = true) {
   }
 }
 
-function getUserList(): Array<{ userId: string; email: string; role: MarketRole }> {
-  if (!marketData.value?.roles) return [];
-  return Object.entries(marketData.value.roles).map(([userId, role]) => ({
-    userId,
-    email: marketData.value!.roleEmails?.[userId] ?? userId,
-    role: role as MarketRole,
-  }));
-}
+/**
+ * Everyone with access, in the order the read serves them (E38/F12/S01): the owner first, then by
+ * the role that counts, then by address, so someone just added takes their place, never the top.
+ */
+const accessList = computed(() =>
+  (marketData.value?.peopleWithAccess ?? []).map((person) => ({
+    ...person,
+    addingNothing: roleAddingNothing(person),
+  })),
+);
+
+/** The organization a row's role comes through, by name. */
+const organizationLabel = computed(() => marketData.value?.organizationName ?? 'its organization');
+
+/** Whether any row's role comes from the organization, which Manage organization changes. */
+const anyThroughOrganization = computed(() => accessList.value.some((row) => row.fromOrganization));
 
 /** What this caller could change the given role TO. Empty means it is not theirs to change. */
 function changeableRoles(role: MarketRole): MarketRole[] {
@@ -277,58 +286,94 @@ async function closeAddUser() {
       <section class="section">
         <h3>Users with access</h3>
         <div class="users-list">
-          <div v-for="{ userId, email, role } in getUserList()" :key="userId" class="user-entry">
+          <div
+            v-for="row in accessList"
+            :key="row.userId"
+            class="user-entry"
+            data-testid="manage-market-person"
+          >
             <div class="user-card">
-              <span class="user-email">{{ email }}</span>
+              <span class="user-email">{{ row.email }}</span>
               <!--
               A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
               rendered a select whose only option was "Owner" - a control that looks like a
-              decision and is not one, which is the same thing S01 settled for the org picker.
+              decision and is not one, which is the same thing S01 settled for the org picker. A
+              role the organization gives is stated too: only Manage organization changes it.
             -->
               <span
-                v-if="!changeableRoles(role).length"
+                v-if="row.fromOrganization || !changeableRoles(row.role).length"
                 class="role-badge"
-                :class="`role-${(role as string).toLowerCase()}`"
+                :class="`role-${row.role}`"
+                data-testid="manage-market-role"
               >
-                {{ getRoleDisplayName(role) }}
+                {{ roleWords(row, organizationLabel) }}
               </span>
               <select
                 v-else
-                :value="role"
-                :name="`role-${userId}`"
-                :aria-label="`${email}'s role`"
+                :value="row.role"
+                :name="`role-${row.userId}`"
+                :aria-label="`${row.email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
-                @change="handleRoleChange(userId, role, $event.target as HTMLSelectElement)"
+                @change="handleRoleChange(row.userId, row.role, $event.target as HTMLSelectElement)"
               >
-                <option :value="role">{{ getRoleDisplayName(role) }}</option>
-                <option v-for="r in changeableRoles(role)" :key="r" :value="r">
+                <option :value="row.role">{{ getRoleDisplayName(row.role) }}</option>
+                <option v-for="r in changeableRoles(row.role)" :key="r" :value="r">
                   {{ getRoleDisplayName(r) }}
                 </option>
               </select>
               <button
-                v-if="canManageRoles(marketData, role)"
+                v-if="!row.fromOrganization && canManageRoles(marketData, row.role)"
                 type="button"
                 class="btn btn--destructive"
                 title="Remove user"
                 data-testid="manage-market-remove-user-button"
-                @click="handleRemoveUser(userId)"
+                @click="handleRemoveUser(row.userId)"
               >
                 Remove
               </button>
+              <!-- A market role the organization's reaches changes nothing; its Remove tidies it
+                   away and leaves the organization's role (the walk's admin added as Editor). -->
+              <div v-if="row.addingNothing" class="user-also">
+                <p class="user-also-text" data-testid="manage-market-also">
+                  {{ alsoWords(row, organizationLabel) }}
+                </p>
+                <button
+                  v-if="canManageRoles(marketData, row.addingNothing)"
+                  type="button"
+                  class="btn btn--destructive"
+                  data-testid="manage-market-remove-user-button"
+                  @click="handleRemoveUser(row.userId)"
+                >
+                  Remove<span class="visually-hidden">
+                    {{ getRoleDisplayName(row.addingNothing) }} on this market</span
+                  >
+                </button>
+              </div>
             </div>
             <!-- Beneath the row that caused it: a refused change used to be reported at the foot of
                  the dialog, far from the select that made it (bug 43). -->
             <p
-              v-if="userError?.userId === userId"
+              v-if="userError?.userId === row.userId"
               class="form-error"
               data-testid="manage-market-user-error"
             >
               {{ userError.message }}
             </p>
           </div>
-          <p v-if="getUserList().length === 0" class="empty-state">No users with explicit access</p>
         </div>
+        <p
+          v-if="anyThroughOrganization"
+          class="form-hint organization-people"
+          data-testid="manage-market-organization-people"
+        >
+          Organization admins and members are managed in
+          <RouterLink
+            v-if="marketData.inOrganization && marketData.organizationId"
+            :to="{ name: 'organizations', query: { manage: marketData.organizationId } }"
+            >Manage organization</RouterLink
+          ><template v-else>Manage organization</template>.
+        </p>
         <!-- Opens the row it adds; that row carries its own Cancel. The button used to turn into a
              Cancel of its own, left alone above the row it cancelled (bug 43). -->
         <button
@@ -418,7 +463,7 @@ async function closeAddUser() {
         <p class="org-line" data-testid="manage-market-organization">
           <template v-if="marketData.organizationName">
             Belongs to <strong>{{ marketData.organizationName }}</strong
-            >. Its members can view it.
+            >. Its admins run it; its members can view it.
           </template>
           <template v-else>Belongs to no organization you can see.</template>
         </p>
@@ -533,6 +578,7 @@ async function closeAddUser() {
 
 .user-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -541,8 +587,11 @@ async function closeAddUser() {
   background: var(--mm-beige);
 }
 
+/* A floor, so a long role beside it (a long organization's name) takes a line of its own rather
+   than squeezing the address into a sliver. */
 .user-email {
   flex: 1;
+  min-width: min(100%, 12rem);
   font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
@@ -551,22 +600,48 @@ async function closeAddUser() {
 /* On a phone a member's address takes a line of its own, with the role and Remove beneath it:
    beside them, a long address was squeezed into a column a few letters wide, over four lines. */
 @media (width <= 640px) {
-  .user-card {
-    flex-wrap: wrap;
-  }
-
   .user-email {
     flex-basis: 100%;
   }
 }
 
+/* A market role the organization's outranks: its own line beneath the address and the role. */
+.user-also {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* On the card's beige, the muted ink that reaches AA there (4.23:1 for --mm-text-muted). */
+.user-also-text {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+}
+
+/* On a phone the line takes the row and its Remove goes beneath it, at the start, where every
+   other row's Remove sits beside its role. */
+@media (width <= 640px) {
+  .user-also {
+    flex-wrap: wrap;
+  }
+
+  .user-also-text {
+    flex-basis: 100%;
+  }
+}
+
+/* A role "through" a long organization name wraps inside the card rather than running past it. */
 .role-badge {
   display: inline-block;
+  min-width: 0;
   padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-control);
   font-weight: 400;
   font-size: var(--text-xs);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* A role the caller may change is a select, not a badge pretending to be one. It used to be a
@@ -647,6 +722,17 @@ async function closeAddUser() {
   margin: 0;
   color: var(--mm-text-muted);
   font-size: var(--text-xs);
+}
+
+/* After `.form-hint`, whose margin it overrides: the note keeps its distance from "Add user". */
+.organization-people {
+  margin-bottom: var(--space-3);
+}
+
+/* Underlined, as `.note a` is: told from its sentence by more than colour (WCAG 1.4.1). */
+.organization-people a {
+  color: var(--mm-text-link);
+  text-decoration: underline;
 }
 
 .danger-section {

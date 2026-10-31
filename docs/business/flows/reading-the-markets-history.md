@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E40/F01/S03
   - E40/F01/S04

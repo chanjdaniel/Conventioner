@@ -86,11 +86,9 @@ async function seedAHistory(request: APIRequestContext) {
     .get(`${BACKEND_URL}/markets/${seed.marketId}`)
     .then(async (response) => {
       const { market } = (await response.json()) as {
-        market: { role_emails: Record<string, string> };
+        market: { peopleWithAccess: Array<{ userId: string; email: string }> };
       };
-      return Object.keys(market.role_emails).find(
-        (id) => market.role_emails[id] === COLLEAGUE.email,
-      );
+      return market.peopleWithAccess.find((person) => person.email === COLLEAGUE.email)?.userId;
     });
   await ok(
     await request.put(`${BACKEND_URL}/markets/${seed.marketId}/roles/${colleagueId}`, {

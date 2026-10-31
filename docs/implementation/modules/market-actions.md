@@ -40,6 +40,7 @@ sources:
   - E38/F07/S03
   - E44/F01/S01
   - E44/F01/S02
+  - E38/F12/S01
 ---
 
 # The market's actions
@@ -108,7 +109,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`) | Admin | `POST /markets/:id/payments/<email>/refunds`, `PUT` and `DELETE /markets/:id/payment-entries/<id>` |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check` |
-| Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
+| Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer; and whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01) |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
 | Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
@@ -165,6 +166,7 @@ The markets list serves the same answers, through the same function, for each en
 **The rules of a market's life the rows carried are served on their own**: `verdictsSettledReason` (the review has closed), `addingVendorsReason` (a vendor is added from the assignment on) and `publishWaitsReason` (results wait for the allocation); a screen offers the action when neither its row nor its rule refuses.
 The role-shaped reasons the screens read before (`adminActionsReason`, `verdictLockReason`, `addVendorReason`, `publishResultsReason`) and the person's `user_role` are deprecated: no screen reads them, but the back end deploys before the front end and a tab keeps its bundle until it reloads, and an old bundle takes a missing reason for "allowed".
 So the read serves them for one more release, each its row's answer and then the rule it carried (`deprecated_screen_reasons`; `adminActionsReason` is the Import applications row's, since the old bundle says its words only on the import screens), and the next release removes them; `change_refusal`, `admin_actions_refusal` and `add_vendor_refusal` are gone.
+`role_emails`, the addresses of the market's own roles, is deprecated the same way: no screen reads it now, but an old bundle's Manage market lists the market's roles by it, so the read serves it one more release and the next removes it (E38/F12/S01).
 
 **A screen asks through [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts)**: `MarketAction` names every row by its id, `actionRefusal(market, action)` is the answer and `mayTake(market, action)` the same as a bool, and a missing answer refuses, so a read that predates a row offers nothing.
 `test_the_screens_name_exactly_the_tables_rows` in [`back-end/tests/test_every_screen_asks_the_table.py`](../../../back-end/tests/test_every_screen_asks_the_table.py), which pins every answer the read serves, fails when the front end's ids and the table's differ, and `noScreenComparesARole.test.ts` when a source file compares or ranks a market role, or reads the role the person holds.

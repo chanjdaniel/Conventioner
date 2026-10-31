@@ -36,6 +36,7 @@ sources:
   - E44/F01/S02
   - T142
   - E38/F07/S03
+  - E38/F12/S01
 ---
 
 # What each role may do
@@ -78,6 +79,7 @@ Whoever creates a market is its owner, and a market has exactly one.
 **An organization's owner and admins are Admin on every market it holds, and a member is Viewer.**
 A market may also give a person a role of its own; both are held, and the higher one counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
 So an organization admin once given Viewer on one market is still Admin there, and a member given Editor on one market edits it.
+Manage market lists each person once at the role that counts and says when it comes from the organization ("Admin, through <organization>"); the organization's people are named only to a reader who belongs to it or may give and take Editor and Viewer roles there, and anyone else reads the market's own roles ([managing who has access](../flows/ending-and-managing-a-market.md#l3-manage-who-has-access), E38/F12/S01).
 **Nobody is a market's Owner through its organization**: deleting a market and managing its admins stay with the one person who owns it.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market).
 **An organization's owner and admins do not change a market's own rows**: they hold Admin there, and the table is its owner's.

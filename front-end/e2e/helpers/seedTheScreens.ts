@@ -62,10 +62,15 @@ export interface TheScreensSeed {
   /** An applicant of `open`, who signs in to their dashboard (`signIn` in `screens.ts`). */
   applicant: { email: string };
   /**
-   * An organization of the organizer's own, holding no market, its name long and its admin's and
-   * member's addresses long (T148), so Manage organization draws its people.
+   * An organization of the organizer's own, its name long and its admin's and member's addresses
+   * long (T148), so Manage organization draws its people.
    */
   organization: { name: string };
+  /**
+   * The one market `organization` holds, a draft, its admin also given Editor on it (E38/F12/S01),
+   * so Manage market draws an organization's people and a market role that adds nothing.
+   */
+  organizationMarket: SeededMarket;
 }
 
 export const MARKET_DATES = ['2099-08-01', '2099-08-08', '2099-08-15', '2099-08-22'];
@@ -187,8 +192,9 @@ async function createMarket(
   name: string,
   setupObject: Record<string, unknown>,
   intakeMode: 'csv' | 'form' = 'form',
+  organizationId?: string,
 ): Promise<SeededMarket> {
-  const orgId = await ensureTestOrgAuthenticated(api, backend, email);
+  const orgId = organizationId ?? (await ensureTestOrgAuthenticated(api, backend, email));
   const res = await api.post(`${backend}/markets`, {
     headers: { 'Content-Type': 'application/json' },
     data: {
@@ -279,13 +285,14 @@ const ORGANIZATION_MEMBER_PASSWORD = 'e2epassword123';
 
 /**
  * An organization `email` owns, with `DEALT_REVIEWER` its admin and `ORGANIZATION_MEMBER` its
- * member, found by name on a later run. It is not the organization the markets are made in, which
- * would make its admin an Admin on every one of them and change their people in every other state.
+ * member, found by name on a later run. It is not the organization the other markets are made in,
+ * which would make its admin an Admin on every one of them and change their people in every other
+ * state.
  */
 async function organizationWithPeople(
   api: APIRequestContext,
   backend: string,
-): Promise<{ name: string }> {
+): Promise<{ id: string; name: string }> {
   ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
   ensureVerifiedUser(ORGANIZATION_MEMBER, ORGANIZATION_MEMBER_PASSWORD);
   type Listed = { id: string; name: string; userRole?: string; memberEmails?: string[] };
@@ -308,7 +315,34 @@ async function organizationWithPeople(
     });
     if (!member.ok()) throw new Error(`Member failed: ${member.status()} ${await member.text()}`);
   }
-  return { name: ORGANIZATION_NAME };
+  return { id: org.id, name: ORGANIZATION_NAME };
+}
+
+/**
+ * A draft in `organization`, the walk's case (E38/F12/S01): its admin, `DEALT_REVIEWER`, also
+ * given Editor on it. Its one date is the latest of any seeded market, so a list sorted by date
+ * keeps it after every market another state opens first.
+ */
+async function organizationMarket(
+  api: APIRequestContext,
+  backend: string,
+  email: string,
+  organizationId: string,
+): Promise<SeededMarket> {
+  const market = await createMarket(
+    api,
+    backend,
+    email,
+    uniqueMarketName('Waterfront Market'),
+    plan(['2099-12-31']),
+    'form',
+    organizationId,
+  );
+  const given = await api.post(`${backend}/markets/${market.marketId}/roles`, {
+    data: { user_email: DEALT_REVIEWER, role: 'editor' },
+  });
+  if (!given.ok()) throw new Error(`Role failed: ${given.status()} ${await given.text()}`);
+  return market;
 }
 
 /** 40 applications, in every review state, with a verdict's giver where a reviewer gave one. */
@@ -470,7 +504,8 @@ export async function seedTheScreens(
 
   // The first applicant of `open`; each sign-in plants its own code, since a code is used once.
   const applicant = { email: 'applicant0@example.com' };
-  const organization = await organizationWithPeople(api, backend);
+  const { id: organizationId, ...organization } = await organizationWithPeople(api, backend);
+  const ofTheOrganization = await organizationMarket(api, backend, email, organizationId);
 
   return {
     draft,
@@ -486,5 +521,6 @@ export async function seedTheScreens(
     csvDraft,
     applicant,
     organization,
+    organizationMarket: ofTheOrganization,
   };
 }
