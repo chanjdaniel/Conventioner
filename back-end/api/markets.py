@@ -849,7 +849,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     # The person's role, resolved once: every answer below is asked of it (E39/F01/S02), and of
     # whether they are a chosen reviewer, which lets them give verdicts (E38/F07/S03).
-    user_role = PermissionsApi.get_user_market_role(user_email, market, context.organization)
+    # The reader's account is read here once, and every account the read names through ``accounts``,
+    # so each person is looked up once however many of the lists below name them (E38/F12/S01).
+    reader = UsersApi.get_user(user_email)
+    accounts = _Accounts(reader)
+    user_role = PermissionsApi.get_user_market_role(
+        user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
     if Actions.role_refusal(Actions.READ, user_role, market.permissions):
         return None
@@ -942,47 +947,53 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['discordSetUp'] = DiscordClient.credentials() is not None
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
-    # The roles on the market itself, which Manage market lists, served to every reader; and
-    # whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
+    # Everyone with access, at the role that counts and where it comes from, which Manage market
+    # lists (E38/F12/S01). The organization's people are named only to a reader who belongs to it or
+    # may give and take roles here (the table's row); anyone else reads the market's own roles.
+    reader_id = reader.id if reader else None
+    in_organization = PermissionsApi.in_market_organization(market, context.organization, reader_id)
+    may_give_roles = Actions.role_refusal(
+        Actions.MANAGE_EDITORS_AND_VIEWERS, user_role, market.permissions) is None
+    market_dict['peopleWithAccess'] = [
+        {"userId": person.user_id, "email": account.email, "role": person.role.value,
+         "marketRole": person.market_role.value if person.market_role else None,
+         "organizationRole": person.organization_role}
+        for person in PermissionsApi.people_with_access(
+            market, context.organization, in_organization or may_give_roles)
+        if (account := accounts.of(person.user_id))
+    ]
+    # Whether this reader may open Manage organization, which the list points to.
+    market_dict['inOrganization'] = in_organization
+    # Deprecated, for a tab on the old bundle, whose Manage market lists the market's own roles by
+    # it; the next release removes it.
+    market_dict['role_emails'] = {
+        uid: account.email
+        for uid in (market_dict.get('roles') or {}) if (account := accounts.of(uid))
+    }
+    # Whom this reader may hand a follow-up to (T15), served only to someone who may give a verdict
     # and so name one (the table's verdicts row, a chosen reviewer's too): the organization's
     # people too, if the reader is one.
     may_give_verdicts = Actions.role_refusal(
         Actions.GIVE_VERDICTS, user_role, market.permissions, chosen) is None
-    reader = UsersApi.get_user(user_email) if may_give_verdicts else None
-    ids = (
-        PermissionsApi.follow_up_owners_for(
-            market, context.organization, reader.id if reader else None)
-        if may_give_verdicts
-        else list((market_dict.get('roles') or {}).keys())
-    )
-    email_by_user_id = {}
-    for uid in ids:
-        user = UsersApi.get_user_by_id(uid)
-        if user:
-            email_by_user_id[uid] = user.email
-    market_dict['role_emails'] = {
-        uid: email_by_user_id[uid]
-        for uid in (market_dict.get('roles') or {}) if uid in email_by_user_id
-    }
-    market_dict['peopleOnMarket'] = list(email_by_user_id.values()) if may_give_verdicts else []
+    follow_up_owners = [
+        account for uid in PermissionsApi.follow_up_owners_for(
+            market, context.organization, reader_id)
+        if (account := accounts.of(uid))
+    ] if may_give_verdicts else []
+    market_dict['peopleOnMarket'] = [account.email for account in follow_up_owners]
     # Who reviews which application (E38/F07/S02): the chosen reviewers to every reader, never the
     # turn, which the stored team is served over, and whom this reader may choose from, served only
-    # to someone who may choose them while the review is open, when the panel offers the choice.
-    # They are the people a follow-up may be handed to whose role the table lets be chosen, already
-    # read above for someone who gives verdicts, so the read looks nobody up twice.
+    # to someone who may choose them while the review is open, when the panel offers the choice:
+    # those they may hand a follow-up to whose role the table lets be chosen.
     market_dict['reviewTeam'] = ReviewTeam.served(
         ReviewTeam.team_of(market), market, context.organization)
     may_choose = review_is_open(market.phase) and Actions.role_refusal(
         Actions.CHOOSE_REVIEWERS, user_role, market.permissions) is None
-    if not may_choose:
-        candidates: List[str] = []
-    elif may_give_verdicts:
-        candidates = [
-            email for uid, email in email_by_user_id.items()
-            if Actions.may_be_chosen(uid, market, context.organization)]
-    else:
-        candidates = [person.email for person in reviewer_candidates(
-            market, context.organization, UsersApi.get_user(user_email))]
+    candidates = [
+        account.email
+        for uid in reviewer_candidate_ids(market, context.organization, reader)
+        if (account := accounts.of(uid))
+    ] if may_choose else []
     market_dict['reviewerCandidates'] = sorted(candidates)
     return market_dict
 
@@ -992,28 +1003,36 @@ def get_markets_by_owner_email(owner_email: str) -> List[Dict[str, Any]]:
     return list(markets_collection.find({f"roles.{owner_email}": MarketRole.OWNER.value}))
 
 
-class _SummaryLookups:
-    """Memo for the organization and user reads a market list makes.
+class _Accounts:
+    """Memo for the accounts the read of one market names, by user id: the reader's, already read
+    by address, and each other one read once, however many of its lists name them."""
 
-    Decorating one market costs an organization read plus a user read per role entry, and a
-    list repeats the same few organizations and the same few members across every entry. The
-    organizations the caller already fetched seed the memo, so the common case - every market
-    belonging to an organization the user is a member of - costs no organization read at all.
+    def __init__(self, reader: Any) -> None:
+        self._by_id: Dict[str, Any] = {reader.id: reader} if reader else {}
+
+    def of(self, user_id: str) -> Any:
+        """The account with this id, or None when there is none."""
+        if user_id not in self._by_id:
+            self._by_id[user_id] = UsersApi.get_user_by_id(user_id)
+        return self._by_id[user_id]
+
+
+class _SummaryLookups:
+    """Memo for the organization reads a market list makes.
+
+    Decorating one market costs an organization read, and a list repeats the same few
+    organizations across every entry. The organizations the caller already fetched seed the memo,
+    so the common case - every market belonging to an organization the user is a member of -
+    costs no organization read at all.
     """
 
     def __init__(self, organizations: Optional[List[Dict[str, Any]]] = None) -> None:
         self._organizations: Dict[str, Any] = {org['id']: org for org in (organizations or [])}
-        self._users: Dict[str, Any] = {}
 
     def organization(self, org_id: str) -> Optional[Dict[str, Any]]:
         if org_id not in self._organizations:
             self._organizations[org_id] = OrgsApi.get_organization(org_id)
         return self._organizations[org_id]
-
-    def user(self, user_id: str) -> Any:
-        if user_id not in self._users:
-            self._users[user_id] = UsersApi.get_user_by_id(user_id)
-        return self._users[user_id]
 
 
 def _decorate_market_summary(
@@ -1038,12 +1057,6 @@ def _decorate_market_summary(
         org = lookups.organization(organization_id)
         if org:
             market['organization_name'] = org.get('name')
-    role_emails = {}
-    for uid in (market_doc_field(market, 'roles') or {}).keys():
-        u = lookups.user(uid)
-        if u:
-            role_emails[uid] = u.email
-    market['role_emails'] = role_emails
     return market
 
 
@@ -2518,25 +2531,12 @@ def follow_up_owner(
     raise BadRequestError("A follow-up's owner must have a role on this market.")
 
 
-def reviewer_candidates(
-    market: Market, organization: Optional[Organization], chooser: Any,
-) -> List[MarketPerson]:
-    """Whom this person may choose as a reviewer (E38/F07/S02): everyone they may hand a follow-up
-    to, so someone outside the market's organization is never offered its people, whose role the
-    table's ``review-when-chosen`` row lets be chosen (``reviewer_candidate_ids``)."""
-    people = []
-    for user_id in reviewer_candidate_ids(market, organization, chooser):
-        user = UsersApi.get_user_by_id(user_id)
-        if user:
-            people.append(MarketPerson(user_id=user.id, email=user.email))
-    return people
-
-
 def reviewer_candidate_ids(
     market: Market, organization: Optional[Organization], chooser: Any,
 ) -> List[str]:
-    """The user ids ``reviewer_candidates`` offers, looking nobody up: those this person may hand
-    a follow-up to (``follow_up_owners_for``) whom ``Actions.may_be_chosen`` lets be chosen."""
+    """Whom this person may choose as a reviewer (E38/F07/S02), by user id: everyone they may hand
+    a follow-up to (``follow_up_owners_for``), so someone outside the market's organization is
+    never offered its people, whom ``Actions.may_be_chosen`` lets be chosen."""
     return [
         user_id for user_id in PermissionsApi.follow_up_owners_for(
             market, organization, chooser.id if chooser else None)
@@ -2556,7 +2556,7 @@ def choose_reviewers(market_id: str, addresses: Any, requesting_user: str) -> Di
 
     ``addresses`` is the whole team, in any case and order; an empty list removes every reviewer.
     Refused on an archived market, once the review has closed, and for an address the chooser is
-    not offered (``reviewer_candidates``, asked of the same list), which the refusal names; a
+    not offered (``reviewer_candidate_ids``, asked of the same list), which the refusal names; a
     current reviewer they are not offered may stay. Answers the team as the market read serves it, and how many it dealt.
     """
     if not isinstance(addresses, list) or not all(isinstance(a, str) for a in addresses):

@@ -257,7 +257,8 @@ def test_deleting_an_org_deletes_the_markets_it_holds(org_delete):
 
 
 def test_market_list_reads_each_org_and_member_once(collection, monkeypatch):
-    """A list of N markets must not cost N organization reads and N member reads."""
+    """A list of N markets must not cost N organization reads, and costs no member read: an
+    entry names no one but the reader's own role (E38/F12/S01 dropped its ``role_emails``)."""
     org_reads, user_reads = [], []
     monkeypatch.setattr(
         OrgsApi, "get_organization",
@@ -275,9 +276,9 @@ def test_market_list_reads_each_org_and_member_once(collection, monkeypatch):
 
     assert len(listed) == 5
     assert all(m["organization_name"] == "Test Org" for m in listed)
-    assert all(m["role_emails"] == {USER_ID: USER_EMAIL} for m in listed)
+    assert all("role_emails" not in m for m in listed)
     assert org_reads == [], "the org was already fetched to resolve the user's memberships"
-    assert user_reads == [USER_ID]
+    assert user_reads == []
 
 
 class TestStartupCheck:

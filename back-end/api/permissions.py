@@ -1,7 +1,7 @@
 """
 Permission resolution and access control functions.
 """
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, NamedTuple, Optional
 from datatypes import Market, MarketRole, Organization
 from db_config import get_database
 import api.users as UsersApi
@@ -44,13 +44,18 @@ def higher_role(*roles: Optional[MarketRole]) -> Optional[MarketRole]:
     return max(held, key=ROLE_RANK.__getitem__) if held else None
 
 
-def get_user_market_role(user_email: str, market: Market, organization: Optional[Organization] = None) -> Optional[MarketRole]:
+def get_user_market_role(
+    user_email: str, market: Market, organization: Optional[Organization] = None, user: Any = None,
+) -> Optional[MarketRole]:
     """
     Get user's effective role for a market: the higher of their role on the market itself
     (``market.roles``, keyed by user id) and what their place in its organization gives
     (``organization_market_role``). Returns None if user has no access.
+
+    ``user`` is their account when the caller already holds it, so it is not read again.
     """
-    user = UsersApi.get_user(user_email)
+    if user is None:
+        user = UsersApi.get_user(user_email)
     if not user:
         return None
     user_id = user.id
@@ -99,6 +104,50 @@ def people_with_market_role(market: Market, organization: Optional[Organization]
         user_id for user_id in dict.fromkeys(candidates)
         if market_role_of(user_id, market, organization)
     ]
+
+
+def organization_place(user_id: Optional[str], organization: Optional[Organization]) -> Optional[str]:
+    """A person's place in an organization, as Manage market names it: ``admin`` for its owner and
+    its admins, who run its markets, ``member`` for a member, who reads them, or None."""
+    if not user_id or organization is None:
+        return None
+    gives = organization_market_role(
+        user_id, organization.owner, organization.admins, organization.members)
+    return _PLACE_BY_ROLE.get(gives)
+
+
+_PLACE_BY_ROLE = {MarketRole.ADMIN: "admin", MarketRole.VIEWER: "member"}
+
+
+class Access(NamedTuple):
+    """One person with access to a market: the role that counts, the market's own role (or None),
+    and their place in its organization (``organization_place``, or None)."""
+    user_id: str
+    role: MarketRole
+    market_role: Optional[MarketRole]
+    organization_role: Optional[str]
+
+
+def people_with_access(
+    market: Market, organization: Optional[Organization], with_organization: bool,
+) -> List[Access]:
+    """Everyone with a role on the market, each once, at the role that counts (E38/F12/S01).
+
+    ``with_organization`` takes in the market's organization: its owner, admins and members, by
+    ``people_with_market_role``, each at the higher of the two roles and with their place in it.
+    Without it, the market's own roles alone, each as held and with no place named, so a reader
+    who may not see the organization's people learns nothing of them.
+    """
+    roles = market.roles or {}
+    if not with_organization or organization is None or organization.id != market.organization_id:
+        return [Access(user_id, role, role, None) for user_id, role in roles.items()]
+    people = []
+    for user_id in people_with_market_role(market, organization):
+        role = market_role_of(user_id, market, organization)
+        if role is not None:
+            people.append(Access(
+                user_id, role, roles.get(user_id), organization_place(user_id, organization)))
+    return people
 
 
 def in_market_organization(
