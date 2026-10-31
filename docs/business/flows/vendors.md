@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ExportVendorsDialog.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -24,6 +24,7 @@ sources:
   - E42/F01/S03
   - E41/F01/S01
   - E38/F08/S02
+  - T139
 ---
 
 # Vendors
