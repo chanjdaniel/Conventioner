@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
   width: 8rem;
 }
 
-/* Wide enough for a name like "Student + club member" whole. */
+/* A floor, so a group's name of a few words shows whole in a narrow card; a longer one scrolls in its field. */
 .pricing-name {
   width: 100%;
   min-width: 15rem;

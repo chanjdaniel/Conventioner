@@ -12,7 +12,7 @@ describes:
   - back-end/api/markets.py#get_market_tables
   - front-end/src/components/elements/ElementPricing.vue
   - front-end/src/utils/pricing.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T92
   - E43/F01/S01

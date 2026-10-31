@@ -17,3 +17,4 @@ One line per node, sorted by file name.
 - [MVP re-walk after E26, 2026-10-03](MVP_TEST_RUN_2026-10-03.md) - the three intake paths walked again after E26; bugs 48 to 53
 - [Rehearsal of the November 2026 market, 2026-10-09](MVP_TEST_RUN_2026-10-09.md) - the real market rehearsed on a stand-in plan
 - [Final dry run of the November 2026 market, 2026-10-18](MVP_TEST_RUN_2026-10-18.md) - the real market walked on its real room the day it went to production
+- [Inventory of the test data, 2026-10-31](TEST_DATA_INVENTORY_2026-10-31.md) - every test-data source, its verdict and what was changed so none names or copies anything real

@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
-"""Refuse a real person's contact details in what is about to leave this machine.
+"""Refuse a real person's contact details, or a listed real name, in what is about to leave this
+machine.
 
     python scripts/real_data_check.py staged
     python scripts/real_data_check.py commits REV... [--not REV...]
     python scripts/real_data_check.py pre-push REMOTE [URL] < refs
+    python scripts/real_data_check.py tree [REV]
+    python scripts/real_data_check.py add-term < names
 
 `staged` reads what `git commit` would record (the pre-commit hook); `commits` reads each commit a
 rev-list range names, its message too (the gate and CI); `pre-push` reads the commits a push sends,
-from the refs git gives the pre-push hook on its stdin. Only added lines count: an email address
+from the refs git gives the pre-push hook on its stdin; these judge only added lines. `tree` reads
+every line of every file a revision's tree holds (HEAD by default), so a name listed since a file
+was committed is found wherever it still stands (the gate and CI). Each refuses an email address
 outside the fixture domains, a phone number shaped like a real one, a MongoDB Atlas host other than
 a placeholder, and, where `.scratch/examples/` holds real exports, an exact email, phone or
-applicant's name from them. Conventioner is public, so a pushed branch is public the moment it
-lands: this runs before anything leaves the PC.
+applicant's name from them, and words copied from their questions: a run of eight of a header
+cell's words in order, or a link or social handle a header holds. Conventioner is public, so a
+pushed branch is public the moment it lands: this runs before anything leaves the PC.
+
+A line or message may not name a real organization, market, place or group whose name is listed,
+as a SHA-256 hash, in `scripts/real_data_terms.txt`, outside the files where the real market may be
+named (the README, the changelog, `docs/records/` and the list), which may also quote the exports'
+questions. `add-term` lists a name from standard input, one per line, and prints only how many the
+list holds; it lists none, and exits 1, when a line is empty, listed already or longer than the six
+words a name is matched by.
 
 A spreadsheet is read for its text, whatever git makes of it: an Excel or OpenDocument workbook's
 cells and shared strings, a CSV or TSV in UTF-8, UTF-16 or Windows-1252 with any common delimiter,
@@ -25,10 +38,12 @@ finding, 2 when git fails. Standard library only, Python 3.8+.
 
 import codecs
 import csv
+import hashlib
 import io
 import re
 import subprocess
 import sys
+import unicodedata
 import zipfile
 import zlib
 from pathlib import Path
@@ -59,6 +74,7 @@ OPAQUE_SHEETS = (".xls", ".xlsb", ".numbers", ".et", ".sxc")
 # A zip is read for the spreadsheets inside it; the other archives cannot be, so are refused.
 ARCHIVES = (".zip",)
 OPAQUE_ARCHIVES = (".gz", ".tgz", ".bz2", ".xz", ".zst", ".7z", ".rar", ".tar")
+SHEETS_AND_ARCHIVES = TEXT_SHEETS + ZIPPED_SHEETS + OPAQUE_SHEETS + ARCHIVES + OPAQUE_ARCHIVES
 # A text sheet's first record is split on each; the one that gives the most columns is its own.
 DELIMITERS = (",", ";", "\t", "|")
 # Where a spreadsheet or archive this check cannot read may still be committed: the tests' inputs.
@@ -83,6 +99,9 @@ ATLAS_PLACEHOLDER_ID = "example"
 # Any run that may spell a phone number, however it is punctuated: only compared with the exports.
 DIGIT_RUN = re.compile(r"(?<![\w.])\+?\d[\d ().-]{8,}\d(?![\w.])")
 WORD = re.compile(r"[^\W\d_]+(?:['’.-][^\W\d_]+)*")
+# A word of a real name: a run of letters, so a name matches however it is cased, spaced or
+# punctuated (a handle's dots, a slug's hyphens, a possessive), but never inside a longer word.
+LETTERS = re.compile(r"[^\W\d_]+")
 
 # ── The real exports ─────────────────────────────────────────────────────────
 
@@ -94,18 +113,28 @@ FIRST_NAME = re.compile(r"(?i)\bfirst\b.*\bname\b")
 LAST_NAME = re.compile(r"(?i)\b(?:last|sur|family)\b.*\bname\b|\bsurname\b")
 # A name that this many applicants gave identifies none of them ("Not Applicable").
 SHARED_BY = 3
+# A run this long of a question's words is copied wording, not a phrase any form might use.
+QUESTION_RUN = 8
+# A link or a social handle in a question's text: the organizer's own pages and accounts.
+LINK = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"'()\[\]{}]+")
+HANDLE = re.compile(r"(?<![\w.@/])@[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?")
 
 
 class RealValues:
-    """The exact emails, phones and applicants' names of the exports, held in memory only."""
+    """The exact emails, phones and applicants' names of the exports, and the word runs, links and
+    handles of their header rows, held in memory only."""
 
     def __init__(self):
         self.emails = set()
         self.phones = set()
         self.names = set()
+        self.question_runs = set()
+        self.links = set()
+        self.handles = set()
+        self.marks = None  # one pattern for every link and handle, once all are read
 
     def __bool__(self):
-        return bool(self.emails or self.phones or self.names)
+        return bool(self.emails or self.phones or self.names or self.question_runs or self.marks)
 
     @classmethod
     def read(cls, folders):
@@ -119,6 +148,7 @@ class RealValues:
                 ):
                     unread.append(path.suffix.lower() or "no extension")
         values.names = {name for name, people in givers.items() if len(people) < SHARED_BY}
+        values.marks = marks_pattern(values.links, values.handles)
         if unread:
             # By kind only: a file's name may be an applicant's.
             print(
@@ -163,6 +193,8 @@ class RealValues:
 
     def _add_export(self, rows, givers):
         header = rows[0]
+        for cell in header:
+            self._add_question(cell)
         name_columns = [
             i for i, h in enumerate(header) if PERSON_NAME.search(h) and not NOT_A_PERSON.search(h)
         ]
@@ -183,6 +215,46 @@ class RealValues:
                 if 2 <= len(name) <= 5 and len(" ".join(name)) >= 5:
                     givers.setdefault(name, set()).add(min(emails))
 
+    def _add_question(self, cell):
+        """A header cell's links and handles, and every run of QUESTION_RUN words of the text
+        between them: a link's words are no part of the question's."""
+        self.links |= {body for body in map(link_body, LINK.findall(cell)) if body}
+        self.handles |= {handle[1:].lower() for handle in HANDLE.findall(cell)}
+        for text in re.split(f"{LINK.pattern}|{HANDLE.pattern}", cell):
+            words = term_words(text)
+            self.question_runs |= {
+                tuple(words[start:start + QUESTION_RUN]) for start in range(len(words) - QUESTION_RUN + 1)
+            }
+
+
+def link_body(link):
+    """A link without its scheme, `www.`, query, fragment, trailing slash or the punctuation of the
+    sentence it ends, lower-cased: what any spelling of the same page holds."""
+    body = re.sub(r"(?i)^(?:https?://)?(?:www\.)?", "", link.rstrip(".,;:!?"))
+    return re.split(r"[?#]", body, maxsplit=1)[0].rstrip("/").lower()
+
+
+def marks_pattern(links, handles):
+    """One pattern for a line holding any of the links, at a link's bounds, or any of the handles,
+    written with its @ or as a link's path; None when there are none."""
+    parts = [rf"(?<![\w.-])(?:www\.)?{re.escape(body)}(?![\w-])" for body in sorted(links)]
+    parts += [rf"(?:(?<![\w.@/])@|\.[a-z]{{2,}}/@?){re.escape(handle)}(?!\w|\.\w)" for handle in sorted(handles)]
+    return re.compile("|".join(parts), re.IGNORECASE) if parts else None
+
+
+def copies_a_question(line, real):
+    """Whether a line holds a link or handle of a real export's header, or QUESTION_RUN words of its
+    questions in their order, however the line cases or punctuates them."""
+    if real.marks and real.marks.search(line):
+        return True
+    if not real.question_runs:
+        return False
+    words = term_words(line)
+    return any(
+        tuple(words[start:start + QUESTION_RUN]) in real.question_runs
+        for start in range(len(words) - QUESTION_RUN + 1)
+    )
+
 
 def phone_numbers(text):
     """Every ten-digit North American number the text spells, however punctuated."""
@@ -194,6 +266,80 @@ def phone_numbers(text):
         if len(digits) == 10 and digits[0] in "23456789" and digits[3] in "23456789":
             numbers.add(digits)
     return numbers
+
+
+# ── The real names ───────────────────────────────────────────────────────────
+
+# The SHA-256 of each real name no test data may hold. Hashing keeps the list from reading as a
+# directory of them; it hides nothing from anyone who guesses a short name.
+TERMS = Path(__file__).with_name("real_data_terms.txt")
+TERMS_PATH = "scripts/real_data_terms.txt"
+# Where the real market may be named: the README's account of the market the product first
+# serves, the changelog release-please writes, the records of real usage runs, and the list.
+NAMES_ALLOWED_IN = ("README.md", "CHANGELOG.md", TERMS_PATH)
+NAMES_ALLOWED_UNDER = ("docs/records/",)
+MAX_TERM_WORDS = 6
+
+
+def term_words(text):
+    return LETTERS.findall(unicodedata.normalize("NFKC", text).lower())
+
+
+def term_hash(words):
+    return hashlib.sha256(" ".join(words).encode("utf-8")).hexdigest()
+
+
+def read_terms(path=TERMS):
+    """The listed hashes: every line but a blank or a `#` comment."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return frozenset()
+    return frozenset(line.strip() for line in lines if line.strip() and not line.startswith("#"))
+
+
+def names_a_term(line, terms):
+    words = term_words(line)
+    return any(
+        term_hash(words[start:start + size]) in terms
+        for size in range(1, MAX_TERM_WORDS + 1)
+        for start in range(len(words) - size + 1)
+    )
+
+
+def may_name_the_market(path):
+    """Whether a file may name the real market; a commit message (no path) never may."""
+    return path is not None and (path in NAMES_ALLOWED_IN or path.startswith(NAMES_ALLOWED_UNDER))
+
+
+def add_terms(text, path=TERMS):
+    """List each line of `text` by its hash, or none of them, saying why by line number only."""
+    listed = set(read_terms(path))
+    lines = text.splitlines()
+    if not lines:
+        print("real-data-check: no name on standard input", file=sys.stderr)
+        return 1
+    new, refused = [], []
+    for number, line in enumerate(lines, 1):
+        words = term_words(line)
+        digest = term_hash(words)
+        if not words:
+            refused.append(f"line {number} has no words")
+        elif len(words) > MAX_TERM_WORDS:
+            refused.append(f"line {number} has more than {MAX_TERM_WORDS} words, so it could never match")
+        elif digest in listed:
+            refused.append(f"line {number} is listed already")
+        else:
+            listed.add(digest)
+            new.append(digest)
+    if refused:
+        print("\n".join(f"real-data-check: {why}; nothing was listed" for why in refused), file=sys.stderr)
+        return 1
+    with path.open("a", encoding="utf-8") as terms:
+        terms.write("".join(f"{digest}\n" for digest in new))
+    count = len(listed)
+    print(f"real-data-check: the list holds {count} name{'' if count == 1 else 's'}")
+    return 0
 
 
 # ── Spreadsheets ─────────────────────────────────────────────────────────────
@@ -430,9 +576,14 @@ def masked_email(address):
     return f"{local[0]}***@{domain[0]}***{domain[domain.rfind('.'):]}"
 
 
-def findings(line, real):
-    """What is wrong with one added line, each said without its value."""
+def findings(line, real, terms=frozenset(), names_the_market=False):
+    """What is wrong with one added line, each said without its value. A line of a file where the
+    real market may be named may name it, and quote the real exports' questions."""
     found = []
+    if not names_the_market and terms and names_a_term(line, terms):
+        found.append(f"a real organization's, market's, place's or group's name (listed in {TERMS_PATH})")
+    if not names_the_market and copies_a_question(line, real):
+        found.append("words copied from a real export's questions in .scratch/examples/")
     for match in EMAIL.finditer(line):
         address, domain = match.group(0), match.group(1)
         if NOT_A_DOMAIN.search(domain):
@@ -543,26 +694,68 @@ def blob(spec):
 
 
 def staged_lines():
+    """(path, where, text) of each added line, a spreadsheet's cells as lines."""
     for path, number, text in added_lines(git("diff", "--cached", *DIFF_OPTIONS)):
         if number is None:
-            yield from spreadsheet_lines(path, blob(f":{path}"))
+            for where, found in spreadsheet_lines(path, blob(f":{path}")):
+                yield path, where, found
         else:
-            yield f"{path}:{number}", text
+            yield path, f"{path}:{number}", text
 
 
 def commit_lines(revisions):
-    """Each commit's message and added lines, the commit a value came in by named with it."""
+    """Each commit's message and added lines, the commit a value came in by named with it, as
+    (path, where, text); a message's path is None."""
     # NUL separates the fields: git treats a file holding one as binary, and a message cannot.
     log = git("log", "--cc", *DIFF_OPTIONS, "--format=%x00%H%x00%B%x00", *revisions, "--").split("\0")
     for sha, message, diff in zip(log[1::3], log[2::3], log[3::3]):
         for number, text in enumerate(message.split("\n"), 1):
-            yield f"{sha[:12]} message:{number}", text
+            yield None, f"{sha[:12]} message:{number}", text
         for path, number, text in added_lines(diff):
             if number is None:
                 for where, found in spreadsheet_lines(path, blob(f"{sha}:{path}")):
-                    yield f"{sha[:12]} {where}", found
+                    yield path, f"{sha[:12]} {where}", found
             else:
-                yield f"{sha[:12]} {path}:{number}", text
+                yield path, f"{sha[:12]} {path}:{number}", text
+
+
+def blobs(names):
+    """The bytes of each blob named, read through one `git cat-file --batch`."""
+    result = subprocess.run(["git", "cat-file", "--batch"], input="".join(f"{name}\n" for name in names).encode(),
+                            capture_output=True)
+    if result.returncode != 0:
+        raise GitFailed(f"git cat-file --batch: {result.stderr.decode('utf-8', 'replace').strip()}")
+    out, at = result.stdout, 0
+    for _ in names:
+        end = out.index(b"\n", at)
+        size = int(out[at:end].split()[2])
+        yield out[end + 1:end + 1 + size]
+        at = end + 1 + size + 1
+
+
+# What git reads as binary: a NUL in a file's first 8000 bytes.
+BINARY_SNIFF = 8000
+
+
+def tree_lines(revision):
+    """(path, where, text) of every line of every file a revision's tree holds, a spreadsheet's or
+    zip's text as lines; other binaries, the generated lockfiles and submodules are not read."""
+    tree = git("rev-parse", "--verify", "--end-of-options", f"{revision}^{{tree}}").strip()
+    files = []
+    for entry in git("ls-tree", "-r", "-z", "--full-tree", tree).split("\0"):
+        info, _, path = entry.partition("\t")
+        if path and info.split()[1] == "blob" and not path.endswith(UNREAD_FILES):
+            files.append((path, info.split()[2]))
+    for (path, _), data in zip(files, blobs([name for _, name in files])):
+        if path.lower().endswith(SHEETS_AND_ARCHIVES) or b"\0" in data[:BINARY_SNIFF]:
+            for where, text in spreadsheet_lines(path, data):
+                yield path, where, text
+            continue
+        lines = data.split(b"\n")
+        if lines[-1] == b"":
+            lines.pop()
+        for number, line in enumerate(lines, 1):
+            yield path, f"{path}:{number}", text_of(line)
 
 
 def pushed_revisions(refs):
@@ -587,6 +780,9 @@ real-data-check: refused. Conventioner is public: anything pushed is published t
   Use an address at example.com or a .test domain, and a phone number from 555-0100 to 555-0199.
   A database host is written <cluster>.<id>.mongodb.net: the real one stays in the deployment's
   environment.
+  Name an invented organization, market, place or group on the "Example" pattern (Example College,
+  Example Makers Fair, Example Hall): docs/implementation/testing/test-data.md says where test data
+  lives and the rule for adding more.
   A real export never becomes test data in any form: the Google Form corpus changes only through
   back-end/tests/fixtures/synthetic_form_exports.py, never by editing a committed file.
   The fixture domains are listed in scripts/real_data_check.py; never skip the hooks to get past this."""
@@ -600,6 +796,10 @@ def main(argv=None):
             lines = staged_lines()
         elif mode == "commits" and args:
             lines = commit_lines(args)
+        elif mode == "tree" and len(args) <= 1:
+            lines = tree_lines(args[0] if args else "HEAD")
+        elif mode == "add-term" and not args:
+            return add_terms(sys.stdin.read())
         elif mode == "pre-push" and 1 <= len(args) <= 2:
             revisions = pushed_revisions(sys.stdin.read())
             lines = commit_lines(revisions) if revisions else iter(())
@@ -607,10 +807,14 @@ def main(argv=None):
             print(__doc__.split("\n\n")[1], file=sys.stderr)
             return 2
         real = RealValues.read(export_folders())
+        terms = read_terms()
         found = [
             f"real-data-check: {where}: {what}"
-            for where, text in lines
-            for what in ([text] if isinstance(text, Refusal) else findings(text, real))
+            for path, where, text in lines
+            for what in (
+                [text] if isinstance(text, Refusal)
+                else findings(text, real, terms, may_name_the_market(path))
+            )
         ]
     except GitFailed as error:
         print(f"real-data-check: {error}", file=sys.stderr)

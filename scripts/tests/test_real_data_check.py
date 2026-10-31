@@ -3,6 +3,7 @@ test's own, on fake data only. The "real export" here is a CSV the test writes i
 repository's ignored .scratch/examples/."""
 
 import csv
+import hashlib
 import importlib.util
 import io
 import re
@@ -29,14 +30,21 @@ def at(local, domain):
 GMAIL = at("jordan.vance88", "gmail.com")
 REAL_PHONE = ("604", "382", "7719")
 
+# An invented organizer's question, link and handle, as a form's header holds them.
+QUESTION = "Which winter evenings of the Quillmoor Lantern Walk would your stall join this season?"
+FORM_LINK = "https://docs.quillmoor.test/d/9QxRk2LmPz7v/edit"
+FORM_HANDLE = "@quillmoorwalk"
+
 # A fake export in the shape of a Google Form's: one applicant who looks entirely like a fixture,
-# so only the exact-value check can catch them, and three who share a placeholder name.
-FAKE_EXPORT = """\
-Timestamp,Email Address,Full name,Business name,Phone number
-9/27/2025 9:04:01,wren.okafor@example.com,Wren Okafor,Ember Kiln Pottery,(604) 555-0142
-9/27/2025 9:05:12,a@example.org,Not Applicable,Shop A,
-9/27/2025 9:06:40,b@example.org,Not Applicable,Shop B,
-9/27/2025 9:07:03,c@example.org,Not Applicable,Shop C,
+# so only the exact-value check can catch them, and three who share a placeholder name. Its last
+# question runs over two lines, as a Google Form's header cell may.
+FAKE_EXPORT = f"""\
+Timestamp,Email Address,Full name,Business name,Phone number,"{QUESTION}
+Rules: {FORM_LINK} (questions to {FORM_HANDLE})"
+9/27/2025 9:04:01,wren.okafor@example.com,Wren Okafor,Ember Kiln Pottery,(604) 555-0142,Friday
+9/27/2025 9:05:12,a@example.org,Not Applicable,Shop A,,Friday
+9/27/2025 9:06:40,b@example.org,Not Applicable,Shop B,,Saturday
+9/27/2025 9:07:03,c@example.org,Not Applicable,Shop C,,Friday
 """
 
 
@@ -386,7 +394,7 @@ def test_a_forced_add_of_the_export_itself_fails(repo):
     result = check(repo, "staged")
 
     assert result.returncode == 1
-    assert ".scratch/examples/responses.csv:2:" in result.stdout
+    assert ".scratch/examples/responses.csv:3:" in result.stdout  # the first row, under a two-line header
 
 
 def test_a_worktree_reads_the_primary_checkouts_exports(repo, tmp_path):
@@ -403,7 +411,7 @@ def test_a_worktree_reads_the_primary_checkouts_exports(repo, tmp_path):
 
 def test_nothing_is_written_while_reading_the_exports(repo):
     with_fake_export(repo)
-    stage(repo, "notes.md", "wren.okafor@example.com\n")
+    stage(repo, "notes.md", f"wren.okafor@example.com\n{QUESTION}\n")
     before = sorted(p for p in repo.rglob("*") if ".git" not in p.parts)
 
     check(repo, "staged")
@@ -701,6 +709,178 @@ def test_an_accented_name_is_not_matched_by_a_part_of_it(repo):
     assert check(repo, "staged").returncode == 0
 
 
+# --- The copied wording ------------------------------------------------------------------------
+
+COPIED = "words copied from a real export's questions in .scratch/examples/"
+
+
+def says_no_words(result):
+    out = (result.stdout + result.stderr).lower()
+    return all(word not in out for word in ("quillmoor", "lantern", "evenings", "9qxrk2lmpz7v"))
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "label = 'winter evenings of the Quillmoor Lantern Walk would'",
+        "WINTER EVENINGS of the quillmoor-lantern walk, would",
+        f"# {QUESTION}",
+        "Walk would your stall join this season? Rules:",  # the cell's second line continues it
+    ],
+)
+def test_eight_words_of_a_real_exports_question_are_refused_without_being_said(repo, line):
+    with_fake_export(repo)
+    stage(repo, "back-end/tests/test_form.py", f"first\n{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/test_form.py:2: {COPIED}" in result.stdout
+    assert says_no_words(result)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "winter evenings of the Quillmoor Lantern Walk",  # seven words
+        "evenings of the Quillmoor Lantern Walk and would your stall",  # a word between
+        "Walk would your stall join this season",  # seven, from further along
+        "season? Rules: docs quillmoor test",  # a link is no part of a question's words
+    ],
+)
+def test_seven_words_of_a_real_exports_question_pass(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"[the rules]({FORM_LINK})",
+        "see docs.quillmoor.test/d/9QxRk2LmPz7v/edit.",
+        "http://www.docs.quillmoor.test/d/9qxrk2lmpz7v/edit?usp=sharing",
+        "https://docs.quillmoor.test/d/9QxRk2LmPz7v/edit/",
+        f"ask {FORM_HANDLE}",
+        "Instagram: @QuillmoorWalk.",
+        "https://instagram.com/quillmoorwalk",
+    ],
+)
+def test_a_handle_or_link_from_a_real_exports_header_is_refused(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"notes.md:1: {COPIED}" in result.stdout
+    assert says_no_words(result) and "quillmoorwalk" not in result.stdout.lower()
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "https://docs.quillmoor.test/d/9QxRk2LmPz7vX/edit",  # another document
+        "https://docs.quillmoor.test/d/",
+        "@quillmoorwalks",  # another handle
+        "quillmoorwalk",  # the bare word, not a handle
+        at("quillmoorwalk", "quillmoor.test"),  # an address
+    ],
+)
+def test_another_link_or_handle_passes(repo, line):
+    with_fake_export(repo)
+    stage(repo, "notes.md", f"{line}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_copied_wording_is_refused_in_a_range_its_messages_a_push_and_the_tree(repo):
+    with_fake_export(repo)
+    base = git(repo, "rev-parse", "HEAD").stdout.strip()
+    sha = commit(repo, "notes.md", f"{QUESTION}\n", message=f"test: ask {FORM_HANDLE}")
+
+    ranged = check(repo, "commits", "HEAD", "--not", base)
+    pushed = check(repo, "pre-push", "origin", stdin=f"HEAD {sha} refs/heads/feature {'0' * 40}\n")
+    tree = check(repo, "tree")
+
+    assert ranged.returncode == pushed.returncode == tree.returncode == 1
+    assert f"{sha[:12]} notes.md:1: {COPIED}" in ranged.stdout
+    assert f"{sha[:12]} message:1: {COPIED}" in ranged.stdout
+    assert f"{sha[:12]} notes.md:1: {COPIED}" in pushed.stdout
+    assert f"notes.md:1: {COPIED}" in tree.stdout
+    assert all(says_no_words(result) for result in (ranged, pushed, tree))
+
+
+def test_copied_wording_in_a_spreadsheets_cell_is_refused(repo):
+    with_fake_export(repo)
+    stage_bytes(repo, "back-end/tests/test_data/form.xlsx", xlsx([[QUESTION], ["Friday"]]))
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"form.xlsx [sheet 1, row 1, column 1]: {COPIED}" in result.stdout
+
+
+@pytest.mark.parametrize("kind", ["xlsx", "ods", "zip"])
+def test_a_spreadsheet_exports_header_is_read_for_its_wording(repo, kind):
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    data = {"xlsx": lambda: xlsx(FAKE_ROWS), "ods": lambda: ods(FAKE_ROWS),
+            "zip": lambda: zipped({"Form (Responses).csv": FAKE_EXPORT})}[kind]()
+    (examples / f"responses.{kind}").write_bytes(data)
+    stage(repo, "notes.md", f"{QUESTION}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"notes.md:1: {COPIED}" in result.stdout
+
+
+@pytest.mark.parametrize("name", ["README.md", "CHANGELOG.md", "docs/records/MVP_BUGS.md"])
+def test_copied_wording_passes_where_the_real_market_may_be_named(repo, name):
+    """A record of a real run may quote the form it ran on, as it may name the market."""
+    with_fake_export(repo)
+    stage(repo, name, f"{QUESTION}\n{FORM_LINK}\n")
+
+    assert check(repo, "staged").returncode == 0
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: a record")
+    assert check(repo, "tree").returncode == 0
+
+
+@pytest.mark.parametrize("name", ["docs/README.md", "records/notes.md"])
+def test_copied_wording_is_refused_in_any_other_readme_or_records_folder(repo, name):
+    with_fake_export(repo)
+    stage(repo, name, f"{QUESTION}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert f"{name}:1: {COPIED}" in result.stdout
+
+
+def test_an_answer_is_not_a_question(repo):
+    """Only the header row is held: a long answer in a row is an applicant's, and the exact-value
+    rules judge those."""
+    examples = repo / ".scratch" / "examples"
+    examples.mkdir(parents=True)
+    answer = "We bring hand bound journals and small prints of the harbour at dusk"
+    (examples / "responses.csv").write_text(f"Timestamp,Tell us about your stall\n9/27/2025 9:04:01,{answer}\n")
+    stage(repo, "notes.md", f"{answer}\n")
+
+    assert check(repo, "staged").returncode == 0
+
+
+def test_without_exports_the_copied_wording_passes(repo):
+    stage(repo, "notes.md", f"{QUESTION}\n{FORM_LINK}\n{FORM_HANDLE}\n")
+
+    assert check(repo, "staged").returncode == 0
+
+
 # --- The generator's output --------------------------------------------------------------------
 
 
@@ -726,6 +906,208 @@ def test_a_refusal_sends_a_fixture_to_the_generator_never_to_a_real_export(repo)
     assert result.returncode == 1
     assert "A real export never becomes test data in any form" in result.stdout
     assert "back-end/tests/fixtures/synthetic_form_exports.py" in result.stdout
+
+
+def test_a_refusal_names_the_fictional_vocabulary_and_the_rule_for_test_data(repo):
+    stage(repo, "fixture.csv", f"Email Address\n{GMAIL}\n")
+
+    result = check(repo, "staged")
+
+    assert result.returncode == 1
+    assert 'on the "Example" pattern' in result.stdout
+    assert "docs/implementation/testing/test-data.md" in result.stdout
+    assert (REPO / "docs" / "implementation" / "testing" / "test-data.md").is_file()
+
+
+# --- The real names ----------------------------------------------------------------------------
+
+# Invented, in place of the real names the committed list holds.
+LISTED = "Brindlewick Lantern Guild"
+LISTED_HASH = hashlib.sha256(b"brindlewick lantern guild").hexdigest()
+TERMS = "scripts/real_data_terms.txt"
+NAMED = f"a real organization's, market's, place's or group's name (listed in {TERMS})"
+
+
+def own_check(repo, *args, stdin=None):
+    """The checker copied into the test's repository, so it reads the list beside it there."""
+    return subprocess.run(
+        [sys.executable, str(repo / "scripts" / "real_data_check.py"), *args],
+        cwd=repo,
+        input=stdin,
+        text=True,
+        capture_output=True,
+    )
+
+
+def with_own_checker(repo):
+    (repo / "scripts").mkdir(exist_ok=True)
+    shutil.copy2(CHECKER, repo / "scripts" / "real_data_check.py")
+
+
+@pytest.fixture
+def listed(repo):
+    """The test's repository with the checker and a list of its own, which holds LISTED."""
+    with_own_checker(repo)
+    added = own_check(repo, "add-term", stdin=f"{LISTED}\n")
+    assert added.returncode == 0, added.stdout + added.stderr
+    git(repo, "add", "scripts")
+    git(repo, "commit", "-q", "--no-verify", "-m", "chore: the checker and its list")
+    return repo
+
+
+def says_no_name(result):
+    return "brindlewick" not in (result.stdout + result.stderr).lower()
+
+
+def test_a_listed_name_in_a_staged_line_is_refused_without_being_said(listed):
+    stage(listed, "back-end/tests/test_market.py", f'first\nMARKET = "the {LISTED} spring fair"\n')
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/test_market.py:2: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+def test_a_listed_name_is_refused_in_a_range_its_lines_and_its_messages(listed):
+    base = git(listed, "rev-parse", "HEAD").stdout.strip()
+    sha = commit(listed, "notes.md", f"{LISTED}\n", message=f"test: add the {LISTED} fixture")
+
+    result = own_check(listed, "commits", "HEAD", "--not", base)
+
+    assert result.returncode == 1
+    assert f"{sha[:12]} notes.md:1: {NAMED}" in result.stdout
+    assert f"{sha[:12]} message:1: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+def test_a_listed_name_is_refused_in_a_push(listed):
+    head = commit(listed, "notes.md", f"fine\n{LISTED}\n")
+
+    result = own_check(listed, "pre-push", "origin", stdin=f"HEAD {head} refs/heads/feature {'0' * 40}\n")
+
+    assert result.returncode == 1
+    assert f"{head[:12]} notes.md:2: {NAMED}" in result.stdout
+
+
+def test_a_listed_name_in_a_spreadsheets_cell_is_refused(listed):
+    stage_bytes(listed, "back-end/tests/test_data/form.xlsx", xlsx([["Club"], [f"{LISTED} members"]]))
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 1
+    assert f"form.xlsx [sheet 1, row 2, column 1]: {NAMED}" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "name", ["README.md", "CHANGELOG.md", "docs/records/MVP_TEST_RUN_2026-11-01.md", TERMS]
+)
+def test_a_listed_name_passes_where_the_real_market_may_be_named(listed, name):
+    stage(listed, name, f"{LISTED}\n")
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("name", ["back-end/tests/test_data/README.md", "docs/README.md", "records/notes.md"])
+def test_a_listed_name_is_refused_in_any_other_readme_or_records_folder(listed, name):
+    stage(listed, name, f"{LISTED}\n")
+
+    assert own_check(listed, "staged").returncode == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "BRINDLEWICK LANTERN GUILD",
+        "brindlewick  lantern\tguild",
+        "the brindlewick-lantern-guild handle",
+        "@brindlewick.lantern_guild",
+        "Brindlewick Lantern Guild's table",
+        "Brindlewick, Lantern, Guild",
+        "Ｂrindlewick Lantern Guild",  # a fullwidth letter, which NFKC makes plain
+        "Brindlewick Lantern Guild2026",
+    ],
+)
+def test_a_listed_name_matches_however_it_is_cased_spaced_or_punctuated(listed, line):
+    stage(listed, "notes.md", f"{line}\n")
+
+    assert own_check(listed, "staged").returncode == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Brindlewick Lanterns Guild",
+        "Brindlewick Lantern",
+        "BrindlewickLanternGuild",
+        "Brindlewick Lantern Guildhall",
+        "Brindlewick Lantern Market Guild",
+    ],
+)
+def test_a_listed_names_words_inside_longer_words_or_apart_pass(listed, line):
+    stage(listed, "notes.md", f"{line}\n")
+
+    result = own_check(listed, "staged")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_add_term_lists_a_name_by_its_hash_and_prints_only_the_count(repo):
+    with_own_checker(repo)
+
+    result = own_check(repo, "add-term", stdin=f"{LISTED}\nBrindlewick Gardens\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == "real-data-check: the list holds 2 names\n"
+    assert says_no_name(result)
+    written = (repo / TERMS).read_text()
+    assert LISTED_HASH in written.split()
+    assert "brindlewick" not in written.lower()
+
+
+def test_add_term_keeps_the_lists_comments_and_counts_only_hashes(repo):
+    with_own_checker(repo)
+    (repo / TERMS).write_text("# What the list is.\n\n")
+
+    result = own_check(repo, "add-term", stdin=f"{LISTED}\n")
+
+    assert result.stdout == "real-data-check: the list holds 1 name\n"
+    assert (repo / TERMS).read_text() == f"# What the list is.\n\n{LISTED_HASH}\n"
+
+
+@pytest.mark.parametrize(
+    "stdin, why",
+    [
+        (f"{LISTED.upper()}\n", "line 1 is listed already"),
+        (f"Brindlewick Gardens\n{LISTED}\n", "line 2 is listed already"),
+        ("Brindlewick Gardens\nbrindlewick, gardens\n", "line 2 is listed already"),
+        ("", "no name on standard input"),
+        ("Brindlewick Gardens\n\n", "line 2 has no words"),
+        ("--- 2026 ---\n", "line 1 has no words"),
+        ("one two three four five six seven\n", "line 1 has more than 6 words"),
+    ],
+)
+def test_add_term_refuses_a_listed_empty_or_long_name_and_adds_nothing(listed, stdin, why):
+    before = (listed / TERMS).read_text()
+
+    result = own_check(listed, "add-term", stdin=stdin)
+
+    assert result.returncode == 1
+    assert why in result.stderr
+    assert says_no_name(result) and "gardens" not in result.stdout + result.stderr
+    assert (listed / TERMS).read_text() == before
+
+
+def test_the_committed_list_holds_only_hashes_and_comments():
+    lines = (REPO / TERMS).read_text().splitlines()
+
+    hashes = [line for line in lines if line.strip() and not line.startswith("#")]
+
+    assert hashes, "the list holds no name"
+    assert all(re.fullmatch(r"[0-9a-f]{64}", line) for line in hashes)
+    assert len(set(hashes)) == len(hashes)
 
 
 # --- Commits -----------------------------------------------------------------------------------
@@ -786,6 +1168,162 @@ def test_a_bad_revision_is_an_error_not_a_pass(repo):
     result = check(repo, "commits", "HEAD", "--not", "origin/nowhere")
 
     assert result.returncode == 2
+
+
+# --- The whole tree ----------------------------------------------------------------------------
+
+
+def phone(area, exchange, line):
+    return f"({area}) {exchange}-{line}"
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [GMAIL, phone(*REAL_PHONE)],
+    ids=["an address outside the fixture domains", "a real-shaped phone"],
+)
+def test_the_tree_fails_on_a_real_looking_row_inside_a_committed_csv(repo, cell):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", f"Email Address,Phone number\nvendor@example.com,\n{cell},\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "real-data-check: back-end/tests/fixtures/vendors.csv:3:" in result.stdout
+    assert GMAIL not in result.stdout and REAL_PHONE[1] not in result.stdout
+
+
+def test_a_clean_tree_passes(repo):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", "Email Address,Phone number\nvendor@example.com,(604) 555-0123\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_tree_judges_every_line_of_a_file_however_long_ago_it_was_committed(repo):
+    commit(repo, "notes.md", f"first\n{GMAIL}\n")
+    commit(repo, "other.md", "fine\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "notes.md:2:" in result.stdout
+
+
+def test_the_tree_is_what_is_committed_not_what_was(repo):
+    commit(repo, "notes.md", f"{GMAIL}\n")
+    commit(repo, "notes.md", "vendor@example.com\n")
+
+    assert check(repo, "tree").returncode == 0
+
+
+def test_the_tree_is_head_by_default_or_the_revision_given(repo):
+    planted = commit(repo, "notes.md", f"{GMAIL}\n")
+    commit(repo, "notes.md", "vendor@example.com\n")
+    stage(repo, "staged.md", f"{GMAIL}\n")  # not committed: the hooks judge it, not the tree
+
+    assert check(repo, "tree").returncode == 0
+    result = check(repo, "tree", planted)
+    assert result.returncode == 1
+    assert "notes.md:1:" in result.stdout
+
+
+def test_a_name_listed_later_is_found_wherever_it_still_stands(listed):
+    commit(listed, "back-end/tests/test_market.py", "MARKET = 'Old Mill Night Fair'\n")
+    commit(listed, "notes.md", "fine\n")
+    assert own_check(listed, "tree").returncode == 0
+
+    added = own_check(listed, "add-term", stdin="Old Mill Night Fair\n")
+    assert added.returncode == 0, added.stderr
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 1
+    assert f"real-data-check: back-end/tests/test_market.py:1: {NAMED}" in result.stdout
+    assert "mill" not in result.stdout.lower()
+
+
+def test_the_tree_fails_on_a_listed_name_inside_a_committed_csv(listed):
+    commit(listed, "back-end/tests/fixtures/form.csv", f"Timestamp,Which club?\n9/27/2025 9:04:01,{LISTED}\n")
+
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 1
+    assert f"back-end/tests/fixtures/form.csv:2: {NAMED}" in result.stdout
+    assert says_no_name(result)
+
+
+@pytest.mark.parametrize(
+    "name", ["README.md", "CHANGELOG.md", "docs/records/MVP_TEST_RUN_2026-11-01.md", TERMS]
+)
+def test_the_tree_lets_a_listed_name_stand_where_the_real_market_may_be_named(listed, name):
+    path = listed / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as file:
+        file.write(f"{LISTED}\n")
+    git(listed, "add", "-f", name)
+    git(listed, "commit", "-q", "--no-verify", "-m", "docs: name it")
+
+    result = own_check(listed, "tree")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_tree_reads_a_committed_workbook_and_a_zipped_export(repo):
+    stage_bytes(repo, "vendors.xlsx", xlsx([["Email Address"], [GMAIL]]))
+    stage_bytes(repo, "downloads/responses.zip", zipped({"responses.csv": f"Email Address\n{GMAIL}\n"}))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "vendors.xlsx [sheet 1, row 2, column 1]:" in result.stdout
+    assert "downloads/responses.zip > responses.csv:2:" in result.stdout
+
+
+def test_the_tree_reads_a_utf16_csv_as_text(repo):
+    stage_bytes(repo, "export.csv", f"Email Address\n{GMAIL}\n".encode("utf-16"))
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: export")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "export.csv:2:" in result.stdout
+
+
+def test_the_tree_refuses_a_spreadsheet_it_cannot_read_outside_the_fixtures(repo):
+    stage_bytes(repo, "vendors.xls", b"\xd0\xcf\x11\xe0 not really")
+    stage_bytes(repo, "back-end/tests/fixtures/legacy.xls", b"\xd0\xcf\x11\xe0 not really")
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: vendors")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "vendors.xls: a spreadsheet this check cannot read (.xls)" in result.stdout
+    assert "legacy.xls" not in result.stdout
+
+
+def test_the_tree_skips_other_binaries_and_the_lockfile(repo):
+    stage_bytes(repo, "front-end/public/logo.png", b"\x89PNG\r\n\x1a\n\x00\x00" + GMAIL.encode())
+    stage(repo, "front-end/package-lock.json", f'{{"author": "{GMAIL}"}}\n')
+    git(repo, "commit", "-q", "--no-verify", "-m", "chore: assets")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_the_tree_fails_on_an_exact_value_from_a_real_export(repo):
+    with_fake_export(repo)
+    commit(repo, "back-end/tests/test_vendors.py", "first\nNAME = 'Wren Okafor'\n")
+
+    result = check(repo, "tree")
+
+    assert result.returncode == 1
+    assert "back-end/tests/test_vendors.py:2: an applicant's name from a real export" in result.stdout
+
+
+def test_the_tree_of_a_bad_revision_is_an_error_not_a_pass(repo):
+    assert check(repo, "tree", "no-such-revision").returncode == 2
 
 
 # --- The hooks and the setup step --------------------------------------------------------------
@@ -874,6 +1412,20 @@ def test_a_hook_in_the_git_directory_still_runs(hooked):
     assert marker.exists()
 
 
+def test_the_pre_commit_hook_refuses_a_listed_name(hooked):
+    added = own_check(hooked, "add-term", stdin=f"{LISTED}\n")
+    assert added.returncode == 0, added.stdout + added.stderr
+    git(hooked, "add", TERMS)
+    git(hooked, "commit", "-q", "-m", "chore: list a name")
+    stage(hooked, "notes.md", f"{LISTED}\n")
+
+    result = git(hooked, "commit", "-m", "docs: notes", check=False)
+
+    assert result.returncode != 0
+    assert f"notes.md:1: {NAMED}" in result.stdout + result.stderr
+    assert git(hooked, "log", "-1", "--format=%s").stdout.strip() == "chore: list a name"
+
+
 @pytest.mark.parametrize("code", [0, 1])
 def test_a_pre_push_hook_in_the_git_directory_gets_the_refs_and_decides(hooked, code):
     got = hooked / "got"
@@ -912,6 +1464,46 @@ def test_the_ci_jobs_command_fails_a_pr_adding_a_real_shaped_address(repo, addre
     head = commit(repo, "notes.md", f"{address}\n")
     git(repo, "checkout", "-q", "--detach", "origin/dev")  # CI checks out the PR's merge, not its head
     command = ci_step("No real data in the PR's commits")
+    assert command.startswith("python scripts/real_data_check.py ")
+    command = command.replace("python scripts/real_data_check.py", f"{sys.executable} {CHECKER}", 1)
+
+    result = subprocess.run(
+        [BASH, "-c", command],
+        cwd=repo,
+        env={"PATH": "/usr/bin:/bin", "BASE_REF": "dev", "HEAD_SHA": head},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == code, result.stdout + result.stderr
+
+
+def test_the_ci_jobs_command_fails_a_pr_adding_a_listed_name(listed):
+    git(listed, "update-ref", "refs/remotes/origin/dev", "HEAD")
+    head = commit(listed, "notes.md", "fine\n", message=f"test: the {LISTED} fixture")
+    git(listed, "checkout", "-q", "--detach", "origin/dev")
+    command = ci_step("No real data in the PR's commits").replace(
+        "python scripts/real_data_check.py", f"{sys.executable} scripts/real_data_check.py", 1
+    )
+
+    result = subprocess.run(
+        [BASH, "-c", command],
+        cwd=listed,
+        env={"PATH": "/usr/bin:/bin", "BASE_REF": "dev", "HEAD_SHA": head},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"{head[:12]} message:1: {NAMED}" in result.stdout
+
+
+@pytest.mark.parametrize("address, code", [(GMAIL, 1), ("vendor@example.com", 0)])
+def test_the_ci_jobs_tree_step_fails_on_real_data_already_on_the_base_branch(repo, address, code):
+    commit(repo, "back-end/tests/fixtures/vendors.csv", f"Email Address\n{address}\n")
+    git(repo, "update-ref", "refs/remotes/origin/dev", "HEAD")
+    head = commit(repo, "notes.md", "fine\n")  # the PR adds nothing real: its commits pass
+    command = ci_step("No real data anywhere in the tree")
     assert command.startswith("python scripts/real_data_check.py ")
     command = command.replace("python scripts/real_data_check.py", f"{sys.executable} {CHECKER}", 1)
 

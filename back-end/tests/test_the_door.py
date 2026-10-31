@@ -18,7 +18,7 @@ import api.permissions as PermissionsApi
 from client_errors import ForbiddenError
 from datatypes import MarketPhase, MarketRole
 
-D1, D2 = "2026-11-18", "2026-11-19"
+D1, D2 = "2026-06-10", "2026-06-11"
 
 
 def seat(email, date, table_code, table_choice="Full Table", section="A", location="North Wing"):
@@ -28,7 +28,7 @@ def seat(email, date, table_code, table_choice="Full Table", section="A", locati
         "tableCode": table_code,
         "tableChoice": table_choice,
         "section": section,
-        "tier": "Gold",
+        "tier": "Platinum",
         "location": location,
     }
 
@@ -40,13 +40,13 @@ def market(phase=MarketPhase.MARKET_DAYS, seats=()):
             "priority": [],
             # Out of order on purpose: the roster lists them as a calendar does.
             "marketDates": [{"date": D2}, {"date": D1}],
-            "tiers": [{"id": 0, "name": "Gold"}, {"id": 1, "name": "Silver"}],
+            "tiers": [{"id": 0, "name": "Platinum"}, {"id": 1, "name": "Bronze"}],
             "locations": [{"name": "North Wing"}, {"name": "South Wing"}],
             "sections": [
                 {"name": "A", "location": {"name": "North Wing"},
-                 "tier": {"id": 0, "name": "Gold"}, "count": 31},
+                 "tier": {"id": 0, "name": "Platinum"}, "count": 12},
                 {"name": "B", "location": {"name": "South Wing"},
-                 "tier": {"id": 1, "name": "Silver"}, "count": 28},
+                 "tier": {"id": 1, "name": "Bronze"}, "count": 9},
             ],
             "assignmentOptions": {
                 "maxAssignmentsPerVendor": None, "maxHalfTableProportionPerSection": None,
