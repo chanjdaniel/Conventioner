@@ -4,11 +4,12 @@
  * organizer about this vendor.
  *
  * A vendor not found is offered the members whose name looks like the username on file, each as
- * "Possible match: confirm?". Confirming opens a dialog with what the vendor wrote and the member's
- * username, and saves that username as an update of their answer, the ordinary one (E41/F01/S01):
- * who, when, and their own answer kept beside it, so the next check matches them. Nothing is
- * applied without that confirmation (Daniel, T92 Q19). "Not them" declines the member, who is never
- * offered to this vendor again, and the vendor stays "Not found".
+ * "Possible match: <name> @<username>" with "Confirm…" and "Not them". Confirming opens a dialog
+ * with what the vendor wrote and the member's username, and saves that username as an update of
+ * their answer, the ordinary one (E41/F01/S01): who, when, and their own answer kept beside it, so
+ * the next check matches them. Nothing is applied without that confirmation (Daniel, T92 Q19).
+ * "Not them" declines the member, who is never offered to this vendor again, and the vendor stays
+ * "Not found".
  *
  * A vendor whose username was updated after the check is told to check again, since the state was
  * read for the answer before.

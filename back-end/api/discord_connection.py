@@ -25,11 +25,12 @@ with when it was checked. A check is one entry in the history, naming each vendo
 changed.
 
 **A vendor "Not found" is offered possible matches** (E46/F01/S05): the members whose username,
-display name or server nickname looks like the username on file, shown as "Possible match:
-confirm?". The check only offers them; confirming is the ordinary update of the vendor's answer,
-saving the member's username (``api.vendor_info``, the row "Update a vendor's info"), so the next
-check matches them, and declining keeps the member from being offered to that vendor again. Never
-applied by the check itself (Daniel, Q19: never by a display name alone).
+display name or server nickname looks like the username on file, each shown in the vendor's
+drawer as "Possible match: <name> @<username>". The check only offers them; confirming is the
+ordinary update of the vendor's answer, saving the member's username (``api.vendor_info``, the row
+"Update a vendor's info"), so the next check matches them, and declining keeps the member from
+being offered to that vendor again. Never applied by the check itself (Daniel, Q19: never by a
+display name alone).
 """
 import hmac
 import re
@@ -105,7 +106,7 @@ NOT_FOUND = "not_found"
 NO_USERNAME = "no_username"
 STATES = (HAS_ROLE, IN_SERVER, NOT_FOUND, NO_USERNAME)
 
-#: How many members a vendor is offered at most as possible matches, the likeliest first.
+#: How many members a vendor is offered at most as possible matches, in username order.
 POSSIBLE_MATCHES_OFFERED = 5
 NOT_OFFERED = (
     "That member is not offered as a possible match for this vendor. Check Discord again."
