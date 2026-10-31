@@ -83,11 +83,12 @@ The check reads every member of the server, a page of 1000 at a time after the l
 **The username question is checked again when the check runs**, since it is checked only when the card saves it and a form changed since may have lost it: none chosen says "Choose the username question on the Discord card first", and one no longer a text question of the form says "Choose the username question again" (T113 rereview note 10); neither calls Discord.
 
 **What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, written whole by each check; a vendor who applied since has no state until the next.
+**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take seconds to read, and up to three waits under a 429, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
 They are about that server, so connecting to another server forgets them as it forgets the role, and disconnecting forgets them; connecting again to the same server keeps them.
 The market read serves them to every reader, so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
 
 **The Vendors page shows them** once a check has run: a Discord chip on each vendor's row, a "Discord" filter of every state with how many are in it, in the address as `discord` (`?discord=not_found`) so a filter is a link, and "Checked 5 minutes ago", ageing as the page sits.
-After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)); a refusal is said under the button in the server's words.
+After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
 
 ## The values, and a deployment without them
 
@@ -128,7 +129,7 @@ A 403 or 404 from List Guild Members says "can no longer reach this server", as 
 **The market document's `discord` field is `DiscordConnection`** in [`back-end/datatypes.py`](../../../back-end/datatypes.py), stored camelCase ([the market document](../data/market-document.md)).
 
 **Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`), the username question's label beside its key; who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
-**A check is one entry** (`discord_checked`), as a run is, naming each vendor whose state it changed, with their states before and after by application id and how many it found in each; one that changed nobody still records who checked and when.
+**A check is one entry** (`discord_checked`), as a run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
 The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts)).
 
 ## Why
