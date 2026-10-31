@@ -388,6 +388,10 @@ export interface DiscordConnection {
   /** The key of the form's text question that holds each vendor's Discord username. */
   usernameQuestion?: string;
   inviteLink?: string;
+  /** When "Check Discord" last read the server's members (E46/F01/S03). */
+  checkedAt?: string;
+  /** Each vendor as that check found them, by application (`discordCheck.ts` reads the states). */
+  vendorStates?: { applicationId: string; state: string }[];
 }
 
 /** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */

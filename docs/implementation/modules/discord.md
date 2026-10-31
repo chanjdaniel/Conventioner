@@ -9,20 +9,22 @@ describes:
   - front-end/src/views/DiscordConnectedView.vue
   - front-end/src/utils/discordConnected.ts
   - front-end/src/utils/discordQuestion.ts
+  - front-end/src/utils/discordCheck.ts
   - scripts/discord_rest_proof.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T92
   - E46
   - E46/F01/S01
   - E46/F01/S02
+  - E46/F01/S03
 ---
 
 # The Discord connection
 
 A market is connected to one Discord server, so that a later run can give the market's vendors a role there (E46).
 One Discord application, Conventioner's, is added to each organizer's server through Discord's own approval screen (Daniel, T92 Q11: "one bot").
-[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, and disconnecting.
+[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, disconnecting, and checking who is in the server.
 
 ## The Discord card
 
@@ -67,6 +69,28 @@ Discord's OAuth2 page describes the bot-only flow without the setting as needing
 Connecting again to the same server keeps the role and the invite link; connecting to another server forgets them.
 **Disconnecting** (`DELETE /markets/:id/discord/connection`, after a confirmation) forgets the server, its role and its invite link, and keeps the username question, which is about the form; the bot stays in the server until someone removes it there, since another market may use it.
 
+## Who is in the server
+
+**"Check Discord" on the Vendors page** ([the Vendors page](../../business/flows/vendors.md)) reads who is in the connected server and keeps each vendor's state with when it was checked (`POST /markets/:id/discord/check`, `check`).
+It asks the same row as the card, and is offered on a market connected to a server, with a username question chosen, on a Conventioner with Discord's values ([`discordCheck.ts`](../../../front-end/src/utils/discordCheck.ts), `mayCheckDiscord`); an archived market refuses it, as every write.
+The check reads every member of the server, a page of 1000 at a time after the last member read (`server_members`), and matches each vendor to them:
+
+- **The vendors** are the market's main applications, one each, whatever their status; a waitlist application is not one.
+- **The username** is the answer to the card's username question as the organizer reads it, an organizer's update in its place (`effective_answers`, [the application document](../data/application-document.md#an-organizers-update-of-an-answer)), tidied: lowercased, trimmed, a leading `@` dropped and an old `#1234` tag dropped (`tidied_username`).
+- **A member matches by their username alone**, tidied the same way, never their display name or their server nickname, which anyone may set to anything (Daniel, T92 Q19).
+- **The states**: `has_role` (a member, holding the card's role), `in_server` (a member, without the role or with no role chosen), `not_found` (no member has the username: not joined yet, or the username is wrong, which cannot be told apart) and `no_username` (the question has no answer); the page says them "Has the role", "In the server", "Not found" and "No username".
+
+**The username question is checked again when the check runs**, since it is checked only when the card saves it and a form changed since may have lost it: none chosen says "Choose the username question on the Discord card first", and one no longer a text question of the form says "Choose the username question again" (T113 rereview note 10); neither calls Discord.
+
+**What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, written whole by each check; a vendor who applied since has no state until the next.
+**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take seconds to read, and up to three waits under a 429, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
+**The card's writes set only their own fields too**: saving a choice, and connecting to the same server, `$set` only the fields they change, so a check finishing meanwhile is not undone, and their history still records the card's fields before and after as it always did.
+They are about that server, so connecting to another server forgets them as it forgets the role, and disconnecting forgets them, even when a check finished after the connection was read; connecting again to the same server keeps them.
+The market read serves them to every reader, so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
+
+**The Vendors page shows them** once a check has run: a Discord chip on each vendor's row, a "Discord" filter of every state with how many are in it, in the address as `discord` (`?discord=not_found`) so a filter is a link, and "Checked 5 minutes ago", ageing as the page sits.
+After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
+
 ## The values, and a deployment without them
 
 **`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` are optional, and never a boot requirement.**
@@ -96,7 +120,8 @@ None of these endpoints says a gateway connection is required.
 ## Sharp edges
 
 **A failure is answered in Conventioner's words, never Discord's, and never with a value sent**: a 400 from the exchange asks to connect again, a 401 from the exchange or the bot says Discord refused this Conventioner's Discord settings and logs the 401 (the client secret or the bot token is wrong or revoked, which only whoever runs the deployment can fix), a 403 or 404 from the bot says it can no longer reach the server, a 429 asks to wait, and anything else is "could not reach Discord"; a log line names the status and what was asked, never a value.
-Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits (50 requests a second per bot, 429 with `retry_after`, [rate limits](https://docs.discord.com/developers/topics/rate-limits)) and handle them there.
+**A 429 is waited out**: every request waits the `retry_after` it names (its body's, else the `Retry-After` header) and asks again, up to three waits of at most 10 seconds each ([rate limits](https://docs.discord.com/developers/topics/rate-limits): 50 requests a second per bot, 429 with `retry_after`); a longer wait, or a fourth 429, is answered as asking to slow down, so one request never holds the back end for long and a run never keeps asking a limit that holds, since 10,000 refused requests in 10 minutes block the address.
+A 403 or 404 from List Guild Members says "can no longer reach this server", as from any other call; the list also needs the application's `GUILD_MEMBERS` intent, so a deployment whose intent is off is refused there, in whatever words Discord's status then maps to (unverified against a real server with the intent off).
 
 **Every request names itself** as `DiscordBot (https://conventioner.io, 1.0)`, the shape Discord asks of an HTTP client.
 
@@ -104,11 +129,15 @@ Nothing retries yet; the runs of E46/F01/S03 and S04 meet Discord's rate limits 
 
 **The market document's `discord` field is `DiscordConnection`** in [`back-end/datatypes.py`](../../../back-end/datatypes.py), stored camelCase ([the market document](../data/market-document.md)).
 
-**Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`); who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
+**Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`), the username question's label beside its key; who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
+**A check is one entry** (`discord_checked`), as a run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
+The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts)).
 
 ## Why
 
 - [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup, which settle on leaving draft as this card does not.
 - [Building the application form](../../business/flows/form-tab.md): the one-click Discord username question this card picks up.
 - [What each role may do](../../business/rules/what-each-role-may-do.md): connecting and giving the role are an Admin's and the owner's (Q19).
+- [The Vendors page](../../business/flows/vendors.md): where the check runs and its states show.
+- [Reading the market's history](../../business/flows/reading-the-markets-history.md): the card's changes and the check, in words.
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the rule this card is the stated exception to.

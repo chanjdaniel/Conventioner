@@ -101,6 +101,8 @@ PERMISSION_TABLE_COPIED = "permission_table_copied"
 DISCORD_CONNECTED = "discord_connected"
 DISCORD_SETTINGS = "discord"
 DISCORD_DISCONNECTED = "discord_disconnected"
+#: "Check Discord" read who is in the server (E46/F01/S03): one entry a check, as a run is.
+DISCORD_CHECKED = "discord_checked"
 
 
 def _now() -> str:

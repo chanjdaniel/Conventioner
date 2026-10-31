@@ -24,8 +24,9 @@ sources:
   - E42/F01/S03
   - E41/F01/S01
   - E38/F08/S02
-  - E43/F01/S03
   - T139
+  - E46/F01/S03
+  - E43/F01/S03
 ---
 
 # Vendors
@@ -84,6 +85,19 @@ An answer an organizer updated is exported, and filtered on, as updated ([an upd
 Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
 No column set is saved between exports yet.
 Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
+
+## J16. See who is in the Discord server
+
+**Status:** Works against a mocked Discord (E46/F01/S03, `who-is-in-the-discord-server.spec.ts`); not yet walked against a real server.
+On a market connected to a Discord server with a username question chosen ([the Discord connection](../../implementation/modules/discord.md#who-is-in-the-server)), the organizer finds who has joined, so they can ask the rest, by email, to join or to correct their username (T92 Q10).
+
+1. "Check Discord", above the list, for an Admin or the owner (the table's "Connect Discord and give roles" row), reads the server's members and matches each vendor's username to theirs, by username alone, never a display name; it reads "Checking Discord…" while it runs.
+2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username".
+3. The "Discord" filter lists the vendors in one state, each state with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email.
+4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
+
+A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, or the bot is no longer in the server.
+Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## Superseded
 
