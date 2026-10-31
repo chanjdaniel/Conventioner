@@ -4,10 +4,10 @@
  * Every market page has its own address, and the market's bar - rendered once, by `MarketFrame` -
  * reaches every one of them the same way. The bar carries Market Setup, Application Form,
  * Applications, Assignment, Attendance, Tools and Stats in every phase. The Assignment tab holds
- * three pages: Settings (the rules and the run), Assignments (the assignment by table, read and
- * changed) and Vendors (the assignment by vendor); they were Assignment, Result and Vendors until
- * E38/F08/S01. Import and Floorplan are flows entered from a tab rather than places to go, so they
- * stand under that tab.
+ * four pages: Settings (the rules and the run), Assignments (the assignment by table, read and
+ * changed), Vendors (the assignment by vendor) and Payments (the money the assignment is owed,
+ * E44/F02/S01); the first two were Assignment and Result until E38/F08/S01. Import and Floorplan
+ * are flows entered from a tab rather than places to go, so they stand under that tab.
  *
  * A tab opens the page the market is worked on in its phase - the one carrying the dot - so the
  * bar and the rail beneath it say the same thing about where the market is. This replaced
@@ -22,6 +22,7 @@ export type MarketPage =
   | 'settings'
   | 'assignments'
   | 'vendors'
+  | 'payments'
   | 'attendance'
   | 'tools'
   | 'stats';
@@ -39,6 +40,7 @@ export const MARKET_PAGES: MarketPage[] = [
   'settings',
   'assignments',
   'vendors',
+  'payments',
   'attendance',
   'tools',
   'stats',
@@ -66,7 +68,7 @@ export const TAB_PAGES: Record<MarketTab, MarketPage[]> = {
   setup: ['setup'],
   form: ['form'],
   applications: ['applications'],
-  assignment: ['settings', 'assignments', 'vendors'],
+  assignment: ['settings', 'assignments', 'vendors', 'payments'],
   attendance: ['attendance'],
   tools: ['tools'],
   stats: ['stats'],
@@ -89,6 +91,7 @@ export const PAGE_LABELS: Record<MarketPage, string> = {
   settings: 'Settings',
   assignments: 'Assignments',
   vendors: 'Vendors',
+  payments: 'Payments',
   attendance: 'Attendance',
   tools: 'Tools',
   stats: 'Stats',
@@ -140,6 +143,8 @@ export function pageOfRoute(
       return 'assignments';
     case 'vendors':
       return 'vendors';
+    case 'market-payments':
+      return 'payments';
     case 'attendance-status':
       return 'attendance';
     case 'market-tools':

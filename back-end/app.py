@@ -846,6 +846,14 @@ def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
     return jsonify({"message": "Saved"}), 200
 
 
+@app.route('/markets/<market_id>/payments', methods=['GET'])
+@login_required
+def get_market_payments(market_id: str) -> Response:
+    """The Payments page (E44/F02/S01): every vendor with a line or a payment, and the market's
+    totals, by tier and by date. Asks ``Actions.READ``."""
+    return jsonify(PaymentsApi.market_payments(market_id, authenticated_email())), 200
+
+
 @app.route('/markets/<market_id>/payments/<path:vendor_email>', methods=['GET'])
 @login_required
 def get_vendor_account(market_id: str, vendor_email: str) -> Response:

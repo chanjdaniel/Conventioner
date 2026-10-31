@@ -8,6 +8,7 @@ describes:
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
+  - front-end/src/views/PaymentsView.vue
 verified: 2026-10-31
 sources:
   - wayfinding/the-market-frame/map
@@ -28,6 +29,7 @@ sources:
   - E38/F08/S01
   - E46/F01/S02
   - T142
+  - E44/F02/S01
 ---
 
 # The market frame
@@ -44,7 +46,7 @@ A screen hands it the market from [the market store](market-store.md) and render
   The underline is the tab being looked at, and the dot the tab the market is worked on in its phase; a tab opens the page carrying the dot when it holds it, else its first page.
   A CSV market's form tab is called "Questions".
 - **The rail**, under the bar, once the market is in hand.
-- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments and Vendors.
+- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments, Vendors and Payments ([`PaymentsView.vue`](../../../front-end/src/views/PaymentsView.vue), [payments](../../business/flows/payments.md)).
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame on a desk, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
@@ -95,7 +97,9 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 **Where the bar is too narrow for the tabs, they scroll inside it.**
 Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only Attendance, Tools and the Assignments page reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
 It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-door-on-a-phone.spec.ts` holds the three routes at 720 and 768.
-The page row there scrolls away with the rail, each page's link a 44px target by its line's height, so its current mark keeps its place.
+The page row there scrolls away with the rail, each page's link a one-line 44px target by its line's height, so its current mark keeps its place.
+On a phone (640px and below) the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
+The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.
 A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.
 
@@ -111,7 +115,7 @@ Four tabs, with the Assignment tab's pages in a row under the rail, won over two
 The bar holds seven tabs since Attendance stayed on it for the market's whole life (E31/F03/S02), Stats joined it (E45/F01/S01) and Tools joined it (E46/F01/S02), while Vendors stays a page of the Assignment tab; Stats is a tab rather than a page under Applications because the figures planned for it, seats and money among them, would sit oddly under the applications (Daniel's choice in T92's planning).
 Seven tabs still fit beside a long name at 1280 because the name, never the tabs, gives way.
 Tools is a tab of its own, immediately left of Stats, by Daniel's hand walk of E46/F01/S02: a tool runs in any phase, while the plan it used to stand beneath settles on leaving draft.
-The page row names each page for what it holds: Settings the rules and the run, headed "Assignment settings" so it is not taken for the market's own settings on Market Setup, and Assignments and Vendors beside each other the assignment by table and by vendor.
+The page row names each page for what it holds: Settings the rules and the run, headed "Assignment settings" so it is not taken for the market's own settings on Market Setup, Assignments and Vendors beside each other the assignment by table and by vendor, and Payments the money the seats are owed, beside the seats it is for rather than on Stats, which reads and does not chase (Daniel, T92 Q16; E44/F02/S01).
 
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
 Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).

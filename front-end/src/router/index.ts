@@ -143,6 +143,12 @@ const router = createRouter({
       component: () => import('@/views/VendorsView.vue'),
     },
     { path: '/vendors', redirect: '/markets' },
+    // The market's money at a glance, and who has yet to pay (E44/F02/S01).
+    {
+      path: '/markets/:marketId/payments',
+      name: 'market-payments',
+      component: () => import('@/views/PaymentsView.vue'),
+    },
     {
       path: '/markets/:marketId/attendance',
       name: 'attendance-status',

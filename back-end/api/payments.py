@@ -67,6 +67,27 @@ def vendor_account(market_id: str, vendor_email: str, requesting_user: str) -> D
     return _account(market, vendor_email)
 
 
+def market_payments(market_id: str, requesting_user: str) -> Dict[str, Any]:
+    """The Payments page (E44/F02/S01): every vendor with a table-day line or a payment, with what
+    they owe and paid, and the market's figures, also by tier and by date
+    (``Payments.market_summary``). Each vendor's account is the one their Payment tab reads, from
+    the same seats and the same records, read once for the whole market. Asks ``Actions.READ``."""
+    market = MarketsApi._load_market_for(market_id, requesting_user, Actions.READ)
+    setup = market.setup_object
+    currency = setup.pricing.currency if setup and setup.pricing else None
+    seats = seats_by_vendor(market)
+    kept = Payments.amounts_owed_by_vendor(market.id)
+    paid = Payments.payments_by_vendor(market.id)
+    accounts = {
+        address: Payments.account(currency,
+                                  Payments.lines(seats.get(address, {}), kept.get(address, {})),
+                                  paid.get(address, []))
+        for address in {*seats, *kept, *paid} if address
+    }
+    tiers = [tier.name.strip() for tier in (setup.tiers if setup else [])]
+    return {"currency": currency, **Payments.market_summary(accounts, tiers)}
+
+
 def _entry(body: Any, what: str) -> PaymentEntry:
     """A request body as an entry, or a refusal naming each field it gets wrong."""
     try:

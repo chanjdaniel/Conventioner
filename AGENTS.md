@@ -111,7 +111,7 @@ The assignment:
 - Before changing the floorplan beta or Auto-Place, read [floorplan placement](docs/implementation/modules/floorplan-placement.md).
 - Before changing the Discord card, the bot or what it asks of Discord, read [the Discord connection](docs/implementation/modules/discord.md).
 - Before changing the Pricing card or what an assignment costs, read [a price follows the table](docs/business/rules/a-price-follows-the-table.md).
-- Before changing what a vendor owes or a payment, read [payments, and what a vendor owes](docs/implementation/data/payments.md).
+- Before changing what a vendor owes or a payment, read [payments, and what a vendor owes](docs/implementation/data/payments.md); before changing the Payments page or what it totals, also [payments](docs/business/flows/payments.md).
 
 The data and the back end:
 

@@ -124,8 +124,8 @@ onBeforeUnmount(() => observer?.disconnect());
         />
         <template v-if="market">
           <PhaseRail :market="market" :beforeTransition="beforeTransition" />
-          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors
-               (E22/F04/S03). -->
+          <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors and
+               Payments (E22/F04/S03; E44/F02/S01). -->
           <MarketPages :market="market" />
           <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned
                with the frame rather than sticking on its own, because it could only guess the

@@ -225,8 +225,8 @@ test.describe('The frame stays put', () => {
   }) => {
     const screens = [
       ...['setup', 'form', 'applications', 'settings'].map((tab) => marketSetupPath(marketId, tab)),
-      ...(['assignments', 'attendance', 'vendors', 'tools', 'stats'] as const).map((s) =>
-        marketScreenPath(marketId, s),
+      ...(['assignments', 'attendance', 'vendors', 'payments', 'tools', 'stats'] as const).map(
+        (s) => marketScreenPath(marketId, s),
       ),
     ];
     for (const size of [
@@ -268,8 +268,8 @@ test.describe('The frame stays put', () => {
     const screens = [
       marketSetupPath(marketId, 'setup'),
       marketSetupPath(marketId, 'settings'),
-      ...(['assignments', 'attendance', 'vendors', 'tools', 'stats'] as const).map((s) =>
-        marketScreenPath(marketId, s),
+      ...(['assignments', 'attendance', 'vendors', 'payments', 'tools', 'stats'] as const).map(
+        (s) => marketScreenPath(marketId, s),
       ),
     ];
     for (const size of [

@@ -3,8 +3,9 @@
  * The pages of the open tab, when it has more than one (E22/F04/S03).
  *
  * Only the Assignment tab does: Settings (the rules and the run), Assignments (the assignment by
- * table) and Vendors (the assignment by vendor), named for what they hold (E38/F08/S01): the first
- * two read "Assignment" and "Result" until the 2026-10-29 walk. The row sits under the rail and is
+ * table), Vendors (the assignment by vendor) and Payments (the money it is owed, E44/F02/S01), named
+ * for what they hold (E38/F08/S01): the first two read "Assignment" and "Result" until the
+ * 2026-10-29 walk. The row sits under the rail and is
  * pinned with the frame. The dot marks the page the market is worked on in its phase, as the bar's
  * does for tabs.
  */
@@ -91,10 +92,24 @@ function linkTo(marketId: string, page: MarketPage) {
 }
 
 /* A phone (T142): a thumb's target, by the line's height so the current mark keeps its place on it.
-   The row scrolls away with the rail there (the market frame). */
+   The row scrolls away with the rail there (the market frame). Each link stays one whole line: the
+   fourth page ran past the card at 390 and squeezed Assignments onto two lines (E44/F02/S01). So
+   the links touch, and each label stands on the phone's 16px gutter with its pill reaching into
+   it, which fits all four at 390; a narrower phone scrolls the row sideways inside itself, as the
+   bar's tabs do, never the page. The row's own padding keeps a link's halo inside the scroller. */
 @media (width <= 640px) {
+  .market-pages {
+    gap: 0;
+    padding: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
   .market-page {
+    flex: none;
+    padding: var(--space-1) var(--space-2);
     line-height: calc(var(--target-min) - 2 * var(--space-1));
+    white-space: nowrap;
   }
 }
 

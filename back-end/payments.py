@@ -147,6 +147,14 @@ def payments_for(market_id: str, vendor_email: str) -> List[Dict[str, Any]]:
     return sorted(found, key=lambda doc: doc.get("recorded_at") or "", reverse=True)
 
 
+def payments_by_vendor(market_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Every vendor's entries on the market, removed ones too, by vendor, in one read."""
+    found: Dict[str, List[Dict[str, Any]]] = {}
+    for doc in payments_collection.find({MARKET_ID_FIELD: market_id}):
+        found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", []).append(doc)
+    return found
+
+
 # --- The amount owed ------------------------------------------------------------------------------
 
 def _owed_key(market_id: str, vendor_email: str, date: str) -> Dict[str, str]:
@@ -217,6 +225,14 @@ def amounts_owed_for(market_id: str, vendor_email: str) -> Dict[str, Dict[str, A
     }
 
 
+def amounts_owed_by_vendor(market_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """What is kept of every vendor's table-days on the market, by vendor and date, in one read."""
+    found: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
+        found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", {})[doc["date"]] = doc
+    return found
+
+
 def lines(
     seats: Mapping[str, Seat], kept: Mapping[str, Mapping[str, Any]],
 ) -> List[Dict[str, Any]]:
@@ -282,6 +298,83 @@ def account(
         "payments": [_payment(doc) for doc in paid],
         "owedCents": sum(line["owedCents"] or 0 for line in day_lines),
         "paidCents": sum(doc.get("cents") or 0 for doc in paid if not doc.get("removed_at")),
+    }
+
+
+# --- The market's money (E44/F02/S01) -------------------------------------------------------------
+
+def _figures(owed: int, paid: int) -> Dict[str, int]:
+    """What the Payments page counts, for a vendor, a day, a tier, a date or the market."""
+    return {"owedCents": owed, "paidCents": paid,
+            "stillOwedCents": max(owed - paid, 0), "paidMoreCents": max(paid - owed, 0)}
+
+
+def shares(cents: int, weights: List[int]) -> List[int]:
+    """``cents`` split across ``weights`` in proportion, to the cent: each takes its whole share,
+    and the cents left over go to the largest remainders, the earlier first, so nothing is lost.
+    Every weight is at least 0 and one at least is above it."""
+    total = sum(weights)
+    whole = abs(cents)
+    exact = [whole * weight for weight in weights]
+    split = [part // total for part in exact]
+    left = whole - sum(split)
+    for i in sorted(range(len(weights)), key=lambda i: (-(exact[i] % total), i))[:left]:
+        split[i] += 1
+    return [-part for part in split] if cents < 0 else split
+
+
+def market_summary(
+    accounts: Mapping[str, Mapping[str, Any]], tier_order: List[str],
+) -> Dict[str, Any]:
+    """The Payments page from every vendor's account: each vendor with a line or a payment, by
+    address, and the market's figures, also by tier and by date.
+
+    A payment is a vendor's, never a day's, so what a vendor paid is shared across their table-days
+    in proportion to what each owes, or evenly where they owe nothing, and each day's share counts
+    toward its tier and its date; what a vendor with no line paid is counted apart, under neither
+    (``None``). A vendor's days are all owing or all paid more, so the still owed and the paid more
+    of every breakdown add up to the market's, which are each vendor's own, summed.
+    """
+    vendors: List[Dict[str, Any]] = []
+    totals = _figures(0, 0)
+    by_tier: Dict[Optional[str], Dict[str, int]] = {}
+    by_date: Dict[Optional[str], Dict[str, int]] = {}
+
+    def add(into: Dict[str, int], owed: int, paid: int) -> None:
+        for key, value in _figures(owed, paid).items():
+            into[key] += value
+
+    for email in sorted(accounts):
+        held = accounts[email]
+        if not held["lines"] and not held["payments"]:
+            continue
+        vendors.append({"email": email, "owedCents": held["owedCents"],
+                        "paidCents": held["paidCents"]})
+        add(totals, held["owedCents"], held["paidCents"])
+        owed = [line["owedCents"] or 0 for line in held["lines"]]
+        if not owed:
+            parts = [(None, None, 0, held["paidCents"])]
+        else:
+            paid = shares(held["paidCents"], owed if sum(owed) else [1] * len(owed))
+            parts = [((line["tier"] or "").strip() or None, line["date"], cents, share)
+                     for line, cents, share in zip(held["lines"], owed, paid)]
+        for tier, date, cents, share in parts:
+            add(by_tier.setdefault(tier, _figures(0, 0)), cents, share)
+            add(by_date.setdefault(date, _figures(0, 0)), cents, share)
+
+    def tier_place(tier: Optional[str]) -> Tuple[int, int, str]:
+        if tier is None:
+            return (2, 0, "")
+        if tier in tier_order:
+            return (0, tier_order.index(tier), tier)
+        return (1, 0, tier)
+
+    return {
+        "vendors": vendors,
+        "totals": totals,
+        "byTier": [{"tier": tier, **by_tier[tier]} for tier in sorted(by_tier, key=tier_place)],
+        "byDate": [{"date": date, **by_date[date]}
+                   for date in sorted(by_date, key=lambda date: (date is None, date or ""))],
     }
 
 
