@@ -96,6 +96,15 @@ describe('adding a vendor on a market with price groups', () => {
     wrapper.unmount();
   });
 
+  it('marks the name and the address required, as the questions under them are', () => {
+    const wrapper = dialog(['affiliation']);
+
+    for (const id of ['add-vendor-name', 'add-vendor-email']) {
+      expect(wrapper.get(`label[for="${id}"] .add-vendor-required`).text()).toBe('*');
+    }
+    wrapper.unmount();
+  });
+
   it('refuses to add until each is answered, then sends them', async () => {
     const wrapper = dialog(['affiliation', 'clubs']);
     const add = wrapper.get(testid('add-vendor-submit-button'));

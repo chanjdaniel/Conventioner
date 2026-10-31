@@ -104,7 +104,9 @@ async function add(): Promise<void> {
       Assignments page.
     </p>
     <div class="add-vendor-field">
-      <label class="add-vendor-label" for="add-vendor-name">Name</label>
+      <label class="add-vendor-label" for="add-vendor-name">
+        Name <span class="add-vendor-required">*</span>
+      </label>
       <input
         id="add-vendor-name"
         v-model="name"
@@ -115,7 +117,9 @@ async function add(): Promise<void> {
       />
     </div>
     <div class="add-vendor-field">
-      <label class="add-vendor-label" for="add-vendor-email">Email</label>
+      <label class="add-vendor-label" for="add-vendor-email">
+        Email <span class="add-vendor-required">*</span>
+      </label>
       <input
         id="add-vendor-email"
         v-model="email"
@@ -154,5 +158,10 @@ async function add(): Promise<void> {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--mm-black);
+}
+
+/* Both are required, and marked as a required question is (`.form-required`). */
+.add-vendor-required {
+  color: var(--mm-red);
 }
 </style>
