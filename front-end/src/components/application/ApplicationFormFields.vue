@@ -216,6 +216,21 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   border-color: var(--mm-red);
 }
 
+/* A locked answer reads as the `.field` primitive's one disabled state: beige, muted, not taken. */
+.form-input:disabled,
+.form-multiselect:has(input:disabled) {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  cursor: not-allowed;
+}
+
+.form-multiselect:has(input:disabled) .form-checkbox-label,
+.form-checkbox-label:has(input:disabled),
+.form-checkbox-label input:disabled {
+  color: var(--mm-text-muted-on-beige);
+  cursor: not-allowed;
+}
+
 .form-checkbox-label {
   display: flex;
   flex-direction: row;

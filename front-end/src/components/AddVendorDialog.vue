@@ -103,49 +103,56 @@ async function add(): Promise<void> {
       For someone who never applied. They are added as approved, and you assign them on the
       Assignments page.
     </p>
-    <label class="field-label" for="add-vendor-name">Name</label>
-    <input
-      id="add-vendor-name"
-      v-model="name"
-      type="text"
-      autocomplete="off"
-      class="field"
-      data-testid="add-vendor-name-input"
-    />
-    <label class="field-label" for="add-vendor-email">Email</label>
-    <input
-      id="add-vendor-email"
-      v-model="email"
-      type="email"
-      autocomplete="off"
-      class="field"
-      data-testid="add-vendor-email-input"
-    />
+    <div class="add-vendor-field">
+      <label class="add-vendor-label" for="add-vendor-name">Name</label>
+      <input
+        id="add-vendor-name"
+        v-model="name"
+        type="text"
+        autocomplete="off"
+        class="field"
+        data-testid="add-vendor-name-input"
+      />
+    </div>
+    <div class="add-vendor-field">
+      <label class="add-vendor-label" for="add-vendor-email">Email</label>
+      <input
+        id="add-vendor-email"
+        v-model="email"
+        type="email"
+        autocomplete="off"
+        class="field"
+        data-testid="add-vendor-email-input"
+      />
+    </div>
     <template v-if="asked.length">
       <p class="add-vendor-note" data-testid="add-vendor-price-note">
         Their price is set by these answers.
       </p>
-      <div class="add-vendor-answers">
-        <ApplicationFormFields v-model="answers" :fields="asked" prefix="add-vendor" />
-      </div>
+      <ApplicationFormFields v-model="answers" :fields="asked" prefix="add-vendor" />
     </template>
   </AppDialog>
 </template>
 
 <style scoped>
 .add-vendor-note {
-  margin: 0 0 var(--space-3);
+  margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
-.field-label + .field {
-  margin-bottom: var(--space-3);
-}
-
-.add-vendor-answers {
+/* A label over its input, as each question is over its answer (`.form-field`); the dialog's body
+   spaces one field from the next. */
+.add-vendor-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-1);
+}
+
+/* Named as the questions under them are, so the dialog asks in one voice (`.form-label`). */
+.add-vendor-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mm-black);
 }
 </style>
