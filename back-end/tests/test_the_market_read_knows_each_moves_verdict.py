@@ -36,7 +36,7 @@ def test_the_read_serves_them_camel_cased(serve):
 
     blockers = market["transitionBlockers"]["applications"]
     assert blockers, "an empty draft cannot open applications"
-    assert {"id", "passed", "message", "resolutionLink"} <= set(blockers[0])
+    assert {"id", "passed", "message", "resolutionLink", "resolutionAction"} <= set(blockers[0])
     assert market["transitionBlockers"]["archived"] == []
 
 
@@ -52,6 +52,9 @@ def test_a_google_form_draft_waits_on_its_import(serve):
 
     assert moves["applications"][-1]["id"] == "responses_imported"
     assert moves["applications"][-1]["resolutionLink"] == "import"
+    # With the row of the table the import takes, so the rail offers it only to whom that row lets
+    # import (T142).
+    assert moves["applications"][-1]["resolutionAction"] == "import-applications"
 
 
 def test_the_read_serves_whether_applications_are_stopped(serve):
