@@ -786,6 +786,23 @@ class DiscordConnection(BaseModel):
     #: The key of the form's text question that holds each vendor's Discord username.
     username_question: Optional[str] = None
     invite_link: Optional[str] = None
+    #: When "Check Discord" last read the server's members (E46/F01/S03), and what it found of each
+    #: vendor then. About this server, so connecting to another one or disconnecting forgets them.
+    checked_at: Optional[str] = None
+    vendor_states: Optional[List["DiscordVendorState"]] = None
+
+
+class DiscordVendorState(BaseModel):
+    """One vendor as "Check Discord" found them (E46/F01/S03), by their application.
+
+    ``state`` is ``has_role`` (in the server, holding the market's role), ``in_server``,
+    ``not_found`` (no member has the username: not joined yet, or the username is wrong, which
+    Discord cannot tell apart) or ``no_username`` (the form's question has no answer). A plain
+    string, so a state a later build adds never fails an older one's parse.
+    """
+
+    application_id: str
+    state: str
 
 
 class MarketPermission(BaseModel):
@@ -1194,8 +1211,14 @@ class ServedReviewTeamContract(ContractModel):
     reviewers: List[ServedReviewerContract]
 
 
+class DiscordVendorStateContract(DiscordVendorState, ContractModel):
+    """Camel-cased contract view of one vendor as "Check Discord" found them."""
+
+
 class DiscordConnectionContract(DiscordConnection, ContractModel):
     """Camel-cased contract view of a market's Discord connection."""
+
+    vendor_states: Optional[List[DiscordVendorStateContract]] = None
 
 
 class MarketSchemaContract(ContractModel):

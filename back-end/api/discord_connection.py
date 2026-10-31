@@ -17,21 +17,30 @@ stays editable in every phase until the market is archived, unlike Market Setup'
 write asks the table's "Connect Discord and give roles" row (Admin by default, Q19: "admins only"),
 loads through ``_load_market_to_change`` so an archived market refuses it, and records its change
 in the market's history, the fields before and after.
+
+**"Check Discord" reads who is in the server** (E46/F01/S03), from the Vendors page, under the same
+row: it lists the server's members and matches each vendor's username, as the organizer reads it,
+against their usernames alone, never a display name (Daniel, Q19), then keeps each vendor's state
+with when it was checked. A check is one entry in the history, naming each vendor whose state it
+changed.
 """
 import hmac
+import re
 import secrets
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from flask import session
 
+import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import discord_client as Discord
 import history as History
 from assignment.utils import convert_keys_to_camel_case
-from client_errors import BadRequestError
-from datatypes import DiscordConnection, Market
+from client_errors import BadRequestError, ConflictError
+from datatypes import ApplicationType, DiscordConnection, DiscordVendorState, Market
 from market_documents import market_doc_filter, market_doc_key
 from utils.email import frontend_url
 from utils.request_body import string_field
@@ -54,12 +63,40 @@ NOT_A_TEXT_QUESTION = "The username question must be one of the form's text ques
 INVITE_LINK_LIMIT = 200
 NOT_AN_INVITE_LINK = "An invite link is a web address starting https://, like https://discord.gg/abc123."
 
-#: What a server's connection is, and what is forgotten when the market connects to another one.
+NO_USERNAME_QUESTION = (
+    "Choose the username question on the Discord card first, on the market's Tools tab."
+)
+USERNAME_QUESTION_GONE = (
+    "The username question is no longer on the application form. "
+    "Choose the username question again on the Discord card, on the market's Tools tab."
+)
+
+#: What a server's connection is, and what is forgotten when the market connects to another one:
+#: the card's choices for that server, and what its check found there.
 SERVER_FIELDS = ("guild_id", "guild_name")
-SERVER_CHOICES = ("role_id", "role_name", "invite_link")
-#: What the history records of a connection: the card's fields, never who connected it or when,
-#: which the entry's actor and time already say.
-RECORDED_FIELDS = (*SERVER_FIELDS, *SERVER_CHOICES, "username_question")
+SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states")
+#: What the history records of a change to the card: its fields, never who connected it or when,
+#: which the entry's actor and time already say, and never a check, which records its own entry.
+RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_link",
+                   "username_question")
+
+#: What a check's states are read against: a card that changes any of them while the members are
+#: read refuses the check's write rather than be undone by it, or carry states read for another.
+CHECKED_AGAINST = ("guild_id", "role_id", "username_question")
+CHANGED_WHILE_CHECKING = (
+    "The Discord card changed while Discord was being checked. Check Discord again."
+)
+
+#: Each vendor as a check finds them, in the order the Vendors page counts them.
+HAS_ROLE = "has_role"
+IN_SERVER = "in_server"
+NOT_FOUND = "not_found"
+NO_USERNAME = "no_username"
+STATES = (HAS_ROLE, IN_SERVER, NOT_FOUND, NO_USERNAME)
+
+#: An old Discord tag, "name#1234", from before usernames were unique: its number is not part of
+#: the username a member now has.
+_OLD_TAG = re.compile(r"#\d{4}$")
 
 
 def redirect_uri() -> str:
@@ -159,6 +196,103 @@ def save(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
            requesting_user)
 
 
+def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
+    """Read who is in the server, keep each vendor's state with when it was checked, and answer
+    how many are in each.
+
+    Every main application of the market is a vendor checked, by its username as the organizer
+    reads it (an update in its place, ``effective_answers``). The username question is checked
+    again here, since it is checked only when the card saves it and the form may have lost it
+    since.
+    """
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
+    before = _connection(market)
+    question = before.username_question
+    if not question:
+        raise BadRequestError(NO_USERNAME_QUESTION)
+    if question not in _text_questions(market):
+        raise BadRequestError(USERNAME_QUESTION_GONE)
+
+    members = Discord.server_members(Discord.required_credentials(), before.guild_id)
+    roles_by_username: Dict[str, set] = {}
+    for member in members:
+        roles_by_username.setdefault(tidied_username(member.username), set()).update(member.roles)
+
+    vendors = _vendors_usernames(market_id, question)
+    states = [
+        DiscordVendorState(application_id=app_id, state=_state(
+            username, roles_by_username, before.role_id))
+        for app_id, _email, username in vendors
+    ]
+    after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
+    # Only the check's own fields, and only while the card still names what the states were read
+    # against: the members take seconds to read, and a card saved meanwhile is not undone.
+    discord = market_doc_key("discord")
+    stored = convert_keys_to_camel_case(after.model_dump(include={"checked_at", "vendor_states"}))
+    unchanged = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
+                 for field in CHECKED_AGAINST}
+    written = MarketsApi.markets_collection.update_one(
+        {**market_doc_filter("id", market.id), **unchanged},
+        {"$set": {f"{discord}.{key}": value for key, value in stored.items()}})
+    if written.matched_count == 0:
+        raise ConflictError(CHANGED_WHILE_CHECKING)
+
+    counts = {state: 0 for state in STATES}
+    for vendor in states:
+        counts[vendor.state] = counts.get(vendor.state, 0) + 1
+    was = {vendor.application_id: vendor.state for vendor in before.vendor_states or []}
+    changed = [(app_id, email) for (app_id, email, _), now in zip(vendors, states)
+               if was.get(app_id) != now.state]
+    now_by_id = {vendor.application_id: vendor.state for vendor in states}
+    History.record(
+        market.id, requesting_user, Actions.CONNECT_DISCORD, kind=History.DISCORD_CHECKED,
+        vendors=[email for _, email in changed],
+        subject={"application_ids": [app_id for app_id, _ in changed]},
+        # Each vendor's address beside their state, by application id: ``vendors`` leaves out an
+        # application with no address, so it does not pair with the ids by position.
+        detail={
+            "before": {app_id: was.get(app_id) for app_id, _ in changed},
+            "after": {app_id: now_by_id[app_id] for app_id, _ in changed},
+            "addresses": {app_id: email for app_id, email in changed},
+            "counts": counts,
+        })
+    return {"counts": counts, "checkedAt": after.checked_at}
+
+
+def tidied_username(written: str) -> str:
+    """A username as a vendor may have written it, as Discord's own: lowercase, trimmed, with no
+    leading ``@`` and no old ``#1234`` tag."""
+    username = written.strip().lower().lstrip("@").strip()
+    return _OLD_TAG.sub("", username).strip()
+
+
+def _state(username: str, roles_by_username: Dict[str, set], role_id: Optional[str]) -> str:
+    if not username:
+        return NO_USERNAME
+    roles = roles_by_username.get(username)
+    if roles is None:
+        return NOT_FOUND
+    return HAS_ROLE if role_id and role_id in roles else IN_SERVER
+
+
+def _vendors_usernames(market_id: str, question: str) -> List[tuple]:
+    """Each vendor's application id, address and tidied username, in the order the market's
+    applications are read: one main application each."""
+    vendors = []
+    for doc in ApplicationsApi.list_applications_for_market(market_id):
+        if doc.get(ApplicationsApi.APPLICATION_TYPE_FIELD) != ApplicationType.MAIN.value:
+            continue
+        answer = ApplicationsApi.effective_answers(doc).get(question)
+        username = tidied_username(answer) if isinstance(answer, str) else ""
+        email = str(doc.get(ApplicationsApi.APPLICANT_EMAIL_FIELD) or "").strip().lower()
+        vendors.append((str(doc.get("id")), email, username))
+    return vendors
+
+
+def _checked_at() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def disconnect(market_id: str, requesting_user: str) -> None:
     """Forget the server, its role and its invite link; keep the username question, which is about
     the market's form. The bot stays in the server until someone removes it there: another market
@@ -226,13 +360,39 @@ def _write(
     market: Market, before: DiscordConnection, after: DiscordConnection, kind: str,
     requesting_user: str,
 ) -> None:
-    stored = after.model_dump(exclude_none=True)
-    if stored:
-        update = {"$set": {market_doc_key("discord"): convert_keys_to_camel_case(stored)}}
+    if market.discord is None:
+        # A market the product creates stores ``discord: null``, and Mongo cannot create a field
+        # under an explicit null parent: the first connection writes the whole sub-document.
+        stored = convert_keys_to_camel_case(after.model_dump(exclude_none=True))
+        update = ({"$set": {market_doc_key("discord"): stored}} if stored
+                  else {"$unset": {market_doc_key("discord"): ""}})
+        MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
     else:
-        update = {"$unset": {market_doc_key("discord"): ""}}
-    MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
+        before_fields = before.model_dump()
+        # A change of server forgets what was about the old one, whatever ``before`` read of it:
+        # a check may have written its fields after ``before`` was loaded.
+        forgotten = SERVER_CHOICES if after.guild_id != before.guild_id else ()
+        update: Dict[str, Any] = {}
+        for field, value in after.model_dump().items():
+            if value == before_fields[field] and field not in forgotten:
+                continue
+            key = f"{market_doc_key('discord')}.{market_doc_key(field)}"
+            if value is None:
+                update.setdefault("$unset", {})[key] = ""
+            else:
+                update.setdefault("$set", {})[key] = convert_keys_to_camel_case(value)
+        if update:
+            MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
     History.record(market.id, requesting_user, Actions.CONNECT_DISCORD, kind=kind,
-                   detail=lambda: History.changes(
-                       {field: getattr(before, field) for field in RECORDED_FIELDS},
-                       {field: getattr(after, field) for field in RECORDED_FIELDS}))
+                   detail=lambda: History.changes(_recorded(market, before),
+                                                  _recorded(market, after)))
+
+
+def _recorded(market: Market, connection: DiscordConnection) -> Dict[str, Any]:
+    """The card's fields as the history keeps them: the question by its label as well as its key,
+    since the history reads it by its label and the form may lose the question later."""
+    labels = {field.key: field.label for field in (
+        market.application_form.fields if market.application_form else [])}
+    recorded = {field: getattr(connection, field) for field in RECORDED_FIELDS}
+    recorded["username_question_label"] = labels.get(connection.username_question or "")
+    return recorded

@@ -807,6 +807,14 @@ def discord_roles(market_id: str) -> Response:
     return jsonify({"roles": DiscordConnectionApi.roles(market_id, authenticated_email())}), 200
 
 
+@app.route('/markets/<market_id>/discord/check', methods=['POST'])
+@login_required
+def check_discord(market_id: str) -> Response:
+    """Read who is in the connected server and keep each vendor's state (E46/F01/S03): answers
+    how many are in each, and when. Asks ``Actions.CONNECT_DISCORD``."""
+    return jsonify(DiscordConnectionApi.check(market_id, authenticated_email())), 200
+
+
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
 @login_required
 def get_vendor_notes(market_id: str) -> Response:

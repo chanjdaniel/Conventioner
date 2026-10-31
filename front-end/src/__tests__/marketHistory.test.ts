@@ -1407,3 +1407,126 @@ describe('a date range', () => {
     expect([to.getDate(), to.getHours()]).toEqual([20, 0]);
   });
 });
+
+describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
+  const discord = (kind: string, detail: Record<string, unknown>, extra = {}) =>
+    entry({ action: 'connect-discord', kind, vendors: [], detail, ...extra });
+  const SERVER = { guild_id: '2909267986263572999', guild_name: 'Market Vendors' };
+  const NONE = { guild_id: null, guild_name: null };
+  const FORM = [
+    { key: 'discord_username', label: 'Discord Username', type: 'text' },
+  ] as unknown as FormField[];
+
+  it('words connecting and disconnecting by the server’s name, never its id', () => {
+    expect(
+      said(entryParts(discord('discord_connected', { before: NONE, after: SERVER }), NAMES)),
+    ).toBe('dana@ember.test connected the market to the Discord server “Market Vendors”');
+    expect(
+      said(entryParts(discord('discord_disconnected', { before: SERVER, after: NONE }), NAMES)),
+    ).toBe('dana@ember.test disconnected the market from the Discord server “Market Vendors”');
+  });
+
+  it('words a choice on the card by what it changed', () => {
+    const detail = {
+      before: { role_id: null, role_name: null, invite_link: null },
+      after: { role_id: 'r-vendor', role_name: 'Vendor', invite_link: 'https://discord.gg/abc' },
+    };
+    expect(said(entryParts(discord('discord', detail), NAMES))).toBe(
+      'dana@ember.test changed the Discord card: role and invite link',
+    );
+  });
+
+  it('opens to the names and the question’s label, never an id or a key', () => {
+    const detail = {
+      before: { ...NONE, role_id: null, role_name: null, username_question: null },
+      after: {
+        ...SERVER,
+        role_id: 'r-vendor',
+        role_name: 'Vendor',
+        username_question: 'discord_username',
+        username_question_label: 'Discord Username',
+      },
+    };
+    expect(entryChanges(discord('discord_connected', detail))).toEqual({
+      changed: [
+        { field: 'Server', before: 'none', after: 'Market Vendors' },
+        { field: 'Role', before: 'none', after: 'Vendor' },
+        { field: 'Username question', before: 'none', after: 'Discord Username' },
+      ],
+      recorded: [],
+    });
+  });
+
+  it('names a question recorded without its label by the form, or says it left the form', () => {
+    const detail = (key: string) => ({
+      before: { username_question: null },
+      after: { username_question: key },
+    });
+    const question = (key: string) =>
+      entryChanges(discord('discord', detail(key)), {}, IntakeMode.Csv, [], '', FORM).changed;
+    expect(question('discord_username')).toEqual([
+      { field: 'Username question', before: 'none', after: 'Discord Username' },
+    ]);
+    expect(question('old_key')).toEqual([
+      { field: 'Username question', before: 'none', after: '“old_key” (no longer on the form)' },
+    ]);
+  });
+
+  const check = entry({
+    action: 'connect-discord',
+    kind: 'discord_checked',
+    vendors: ['ana@ember.test', 'ben@ember.test'],
+    subject: { application_ids: ['app-ana', 'app-ben'] },
+    detail: {
+      before: { 'app-ana': null, 'app-ben': 'in_server' },
+      after: { 'app-ana': 'not_found', 'app-ben': 'has_role' },
+      addresses: { 'app-ana': 'ana@ember.test', 'app-ben': 'ben@ember.test' },
+      counts: { has_role: 1, in_server: 2, not_found: 1, no_username: 0 },
+    },
+  });
+
+  it('words a check by how many it found in each state', () => {
+    expect(said(entryParts(check, NAMES))).toBe(
+      'dana@ember.test checked who is in the Discord server: 1 has the role, 2 in the server, 1 not found',
+    );
+  });
+
+  it('words a check as the vendor’s own line in their own history', () => {
+    expect(said(entryParts(check, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      'dana@ember.test checked who is in the Discord server: Has the role',
+    );
+    expect(entryChanges(check, {}, IntakeMode.Csv, [], 'Ana@ember.test').changed).toEqual([
+      { field: 'Discord', before: 'not checked', after: 'Not found' },
+    ]);
+  });
+
+  it('reads each vendor’s address by id, so one with no address shifts no other', () => {
+    const withoutAnAddress = entry({
+      ...check,
+      vendors: ['ben@ember.test'],
+      detail: { ...check.detail, addresses: { 'app-ana': '', 'app-ben': 'ben@ember.test' } },
+    });
+    expect(
+      entryChanges(withoutAnAddress, {}, IntakeMode.Csv, [], 'ben@ember.test').changed,
+    ).toEqual([{ field: 'Discord', before: 'In the server', after: 'Has the role' }]);
+    expect(entryChanges(withoutAnAddress).changed).toEqual([
+      { field: 'A vendor with no address', before: 'not checked', after: 'Not found' },
+      { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
+    ]);
+  });
+
+  it('opens a check to each vendor whose state changed, and the counts', () => {
+    expect(entryChanges(check)).toEqual({
+      changed: [
+        { field: 'ana@ember.test', before: 'not checked', after: 'Not found' },
+        { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
+      ],
+      recorded: [
+        { field: 'Has the role', value: '1' },
+        { field: 'In the server', value: '2' },
+        { field: 'Not found', value: '1' },
+        { field: 'No username', value: '0' },
+      ],
+    });
+  });
+});
