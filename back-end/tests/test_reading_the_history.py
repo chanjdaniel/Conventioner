@@ -210,6 +210,18 @@ class TestTheFilters:
 
         assert ids(page) == ["e-00002"]
 
+    def test_a_group_also_reads_the_kinds_of_another_rows_entries_it_names(self, history):
+        """An entry filed under one row but about another group's change: a free's $0 taken back
+        is recorded under Assign, the row the seating asked, and undoes a Payments change."""
+        entry(history, 1, action="change-owed", kind="owed_set")
+        entry(history, 2, action="assign", kind="owed_taken_back")
+        entry(history, 3, action="assign", kind="placed")
+
+        page, _after = History.entries_page(
+            MARKET, actions=["change-owed"], kinds=[("assign", "owed_taken_back")])
+
+        assert ids(page) == ["e-00002", "e-00001"]
+
     def test_a_vendor_narrows_to_the_entries_naming_them(self, history):
         entry(history, 1, vendors=["ana@x.test"])
         entry(history, 2, vendors=["ben@x.test", "ana@x.test"])
@@ -415,6 +427,27 @@ class TestTheEndpoint:
 
         assert status == 200
         assert ids(body["entries"]) == ["e-00001"]
+
+    def test_payments_reads_a_frees_deduction_taken_back_beside_the_change_it_undoes(
+            self, market, history, monkeypatch):
+        """T121 rereview-2 note 21: the $0 taken back is filed under Assign, the row the seating
+        asked, so it reads under Assignment, and under Payments beside the $0 it undoes."""
+        _as(monkeypatch, MarketRole.VIEWER)
+        entry(history, 1, action="change-owed", kind="owed_set")
+        entry(history, 2, action="assign", kind="owed_taken_back")
+        entry(history, 3, action="assign", kind="placed")
+        entry(history, 4, action="record-payment", kind=None)
+
+        payments, _status = MarketsApi.get_history(MARKET, "viewer@x.test", {"group": "Payments"})
+        assignment, _status = MarketsApi.get_history(
+            MARKET, "viewer@x.test", {"group": "Assignment"})
+
+        assert ids(payments["entries"]) == ["e-00004", "e-00002", "e-00001"]
+        assert ids(assignment["entries"]) == ["e-00003", "e-00002"]
+        # The group's actions stay its own rows, which the screen names each action by.
+        groups = {group["group"]: [a["id"] for a in group["actions"]]
+                  for group in payments["groups"]}
+        assert groups["Payments"] == ["record-payment", "change-owed", "adjust-paid"]
 
     @pytest.mark.parametrize("args", [
         {"group": "Not a group"},
