@@ -606,6 +606,24 @@ async function closeAddUser() {
   gap: var(--space-2);
 }
 
+/* On a phone the email field takes the add row, with the role at the start of a row beneath it
+   and Add and Cancel at that row's end: beside them at 390 the field and the role were squeezed to
+   66px each, reading "User e" and "Edi" (T142). */
+@media (width <= 640px) {
+  .add-user-form .add-org-row {
+    flex-wrap: wrap;
+  }
+
+  .add-user-form input.field {
+    flex-basis: 100%;
+  }
+
+  .add-user-form .field--select {
+    width: auto;
+    margin-right: auto;
+  }
+}
+
 .org-line {
   margin: 0;
   font-size: var(--text-sm);

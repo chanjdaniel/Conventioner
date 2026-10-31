@@ -40,6 +40,7 @@ A market ends by being archived, after its market days or before it ever runs, o
 Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 It opens from `/markets`, which fits a phone (T142), so on a phone it opens inside the window like every [dialog](../../implementation/conventions/dialogs.md), and its history's before-and-after table wraps its cells within the dialog's width rather than widening it.
 On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column.
+The "Add user" row does the same: its email field takes the row, with the role at the start of a row beneath it and "Add" and "Cancel" at that row's end; beside them the field and the role were 66px each, reading "User e" and "Edi" (T142).
 
 ## P6. Ending early, or not at all
 
@@ -77,7 +78,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 1. "Manage" opens "Manage market"; "Users with access" lists each person with an explicit role.
 2. A role the reader may change is a dropdown of the roles they may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
 3. "Remove" beside each person the reader may remove; never the owner.
-4. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row.
+4. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
 5. A refused change is said beneath that person's row, which keeps the role they hold.
 

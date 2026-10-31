@@ -233,6 +233,19 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // Its "Add user" row open (T142): on a phone the row squeezed its email field and its role
+    // to 66px each beside Add and Cancel, and no state opened it.
+    name: 'the manage-market dialog, adding a user',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      fixed('/markets'),
+      'markets-result-count',
+      ['market-card-manage-button', 'manage-market-window'],
+      ['manage-market-add-user-button', 'manage-market-add-user-input'],
+    ),
+  },
+  {
     // A second member whose address is long (T142): the row gives it its own line rather than
     // squeezing it into a column a few letters wide.
     name: 'the manage-market dialog, a member with a long address',
