@@ -165,8 +165,8 @@ affordance when read-only), and `marketSetupForm.test.ts` (the `MarketSetupView`
 the builder stays read-only until the server reports the lock state, never offers to edit
 a locked form even for a frame, and keeps auto-derived keys auto-derived across a save).
 `BlockerPanel.test.ts` covers the panel that renders a blocked phase transition: it lists
-every blocker the server returned, links to the guard's `resolutionLink` when there is one,
-and renders nothing when there are no blockers - all without a line of guard-specific
+every blocker the server returned, links to the guard's `resolutionLink` when there is one
+and the person may take its `resolutionAction`, and renders nothing when there are no blockers - all without a line of guard-specific
 logic, which is the point of the guard registry ([`back-end/guards.py`](../back-end/guards.py)).
 Add more component tests in `front-end/src/__tests__/`.
 
