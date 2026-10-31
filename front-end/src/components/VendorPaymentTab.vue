@@ -47,8 +47,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  /** A write changed their account: a screen that shows it, the Payments page, reads it again. */
-  changed: [account: VendorAccount];
+  /** A write changed their account: a screen that shows it, the Payments page, reads it again,
+   * since one vendor's change moves the market's totals too. */
+  changed: [];
 }>();
 
 const account = ref<VendorAccount | null>(null);
@@ -90,7 +91,7 @@ function show(dialog: Open): void {
 function saved(updated: VendorAccount): void {
   account.value = updated;
   open.value = null;
-  emit('changed', updated);
+  emit('changed');
 }
 
 const entryDialog = computed(() => {
