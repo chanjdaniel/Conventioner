@@ -99,6 +99,18 @@ defineEmits<{ select: [] }>();
   }
 }
 
+/* With an action beside them the three columns need its width too, and between the two widths
+   Manage ran past the card's edge (T148, at 768px). 45rem is 37.5rem, a gap and Manage. A card
+   with no action (the dashboard's) keeps its columns down to 37.5rem. */
+@container (width < 45rem) {
+  .summary-card-body:has(> .summary-card-actions:not(:empty)) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+}
+
 .summary-card--selectable {
   cursor: pointer;
   transition:

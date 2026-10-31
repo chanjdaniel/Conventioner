@@ -31,6 +31,7 @@ sources:
   - T15
   - T82
   - T142
+  - T148
 ---
 
 # Attendance and the door
@@ -82,7 +83,7 @@ The product is built for a laptop, and the other organizer market screens need n
 The account pages on the way in fit a phone too ([the design language](../../design-system.md#layout)).
 The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
-Of the organizer market screens Attendance has it, because the door is sometimes a person standing up, and so does Tools; off the market, `/markets` has it, since that is where an organizer on a phone finds the market the door is for (T142).
+Of the organizer market screens Attendance has it, because the door is sometimes a person standing up, and so does Tools; off the market, `/markets` has it, since that is where an organizer on a phone finds the market the door is for (T142), and so do the dashboard sign-in lands on and Organizations, the ways there (T148).
 At that width only the banner and the market bar stay pinned, 138px of an 844px window, and the rail scrolls away with the page ([the market frame](market-frame.md)); the rail is laid out for a phone, its addresses named as chips and its actions wrapping beside them, so on a form market in market days the door starts at 319px of 844 on first paint rather than 409px, and `phase-rail.spec.ts` holds it within the top 340px ([the phase rail](phase-rail.md)).
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, vendor drawer, rail menu and archive confirmation, and the check-in page before and after a lookup at 390px, and fails on a target under 44px (T82).
