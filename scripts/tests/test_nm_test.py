@@ -122,6 +122,28 @@ def test_a_branch_adding_real_data_fails_the_run_before_anything_else(tmp_path):
     assert not list(tmp_path.glob("nmtest-*"))
 
 
+def test_real_data_already_on_dev_fails_the_run_before_anything_else(tmp_path):
+    root = repo_with_scripts(tmp_path)
+    (root / "fixture.csv").write_text("Email Address\njordan.vance88@" + "gmail.com\n")
+    for args in (
+        ["add", "fixture.csv"],
+        ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "--no-verify", "-m", "test: fixture"],
+        ["update-ref", "refs/remotes/origin/dev", "HEAD"],
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COMPOSE_", "TH_", "TEAM_"))}
+    env.update(PYTHON_CMD=sys.executable, TMPDIR=str(tmp_path))
+
+    result = subprocess.run(
+        [BASH, str(root / "scripts" / "nm-test.sh")], env=env, capture_output=True, text=True, timeout=60
+    )
+
+    assert result.returncode != 0
+    assert "fixture.csv:2:" in result.stdout
+    assert "jordan.vance88" not in result.stdout + result.stderr
+    assert "venv" not in result.stdout + result.stderr
+
+
 @pytest.fixture
 def stubbed(tmp_path):
     """Runs nm-test.sh to its end with every suite, the stack's scripts, npm, npx and docker stubbed,

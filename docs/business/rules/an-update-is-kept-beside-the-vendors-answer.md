@@ -7,11 +7,12 @@ describes:
   - front-end/src/components/UpdateInfoTheirs.vue
   - front-end/src/components/AnswerUpdateNote.vue
   - front-end/src/utils/answerUpdates.ts
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E41/F01/S01
   - E41/F01/S02
   - E38/F06/S01
+  - E43/F01/S03
 ---
 
 # An update is kept beside the vendor's answer
@@ -33,10 +34,10 @@ Every update is confirmed before it is kept (Q13: "confirmation required for all
 
 The row "Update a vendor's info", an Editor by default ([what each role may do](what-each-role-may-do.md)), in any phase until the market is archived ([an archived market is read-only](an-archived-market-is-read-only.md)).
 An answer the assignment reads (the dates, how many of them, the tiers on each, the table choice, the table-share partner and the rankings, [essential fields](../../implementation/modules/essential-fields.md)) asks a row of its own as well, "Update info the assignment or price reads", an Admin by default (Q13: "fields assignment reads require admin privileges").
-The dialog shows those answers read-only to whoever that row refuses, with its sentence: what the vendor wrote and who updated it still show, with no "Use their answer" and no offer to keep the update; the server refuses them before judging them.
+So does an answer to one of the market's own questions that a [price group](a-price-follows-the-table.md) reads (Q14: "student and club answers require admin"): the market read serves those questions as `priceReads`, the ones `Groups.keys` in [`back-end/pricing.py`](../../../back-end/pricing.py) names, and a market whose card has no group puts none of its own questions behind the row.
+The dialog shows those answers read-only to whoever that row refuses, with its sentence ("Only an Admin or the owner may update the answers this market's assignment or prices read."), above the market's own questions when one of them is locked and under the essential questions' heading: what the vendor wrote and who updated it still show, with no "Use their answer" and no offer to keep the update; the server refuses them before judging them.
 "Number of dates you want" is marked required only where the answer as it reads and the vendor's own answer both hold a number; where either is empty an empty answer is accepted, so an update of a number over an imported no-limit row can be taken away.
 The names and the request are [essential questions](../concepts/essential-question.md) the assignment never reads, and are any other answer's.
-The row is named for the prices too, but no answer a price reads is behind it yet: that comes with the price groups (E43/F01/S03).
 
 ## How it works
 
@@ -47,6 +48,7 @@ The row is named for the prices too, but no answer a price reads is behind it ye
 - An answer is held to what the form holds the vendor's to, with the form's own message: a day ticked with no tiers is refused, judged with the answers the update leaves.
   Only what the update touches is judged, so an answer the vendor gave that the form would now refuse never blocks an update of another; the full name and the preferred name are judged apart, so updating one never demands the other.
 - The [assignment solver](../../implementation/modules/assignment-solver.md) reads the answers as updated, so the next run places the vendor by them, and an assignment already made reads as [out of date](an-assignment-knows-when-it-is-out-of-date.md); the placement warnings, the empty-tier check, the [table-share notice](table-share-pairing.md) and the vendor's request beside the notes read them too.
+- The price groups read them as updated as well, so a vendor's price follows an update of the answers it is set by.
 - While the review is open, the [automatic rejections](automatic-rejections.md) judge the answers as updated, as they judge a vendor's own save: an update past a rule returns the application to undecided, but only for someone who may overturn an automatic rejection (an Admin or the owner by default, E38/F06/S01; for anyone else the rejection stands), and one that meets a rule rejects it.
   From assignment on, the rules have settled with the verdicts ([verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md)), so an update stands and the verdict stays.
 - The drawer and the review card say "Updated by <address>, <when>; they wrote <their answer>" under an updated answer ([`AnswerUpdateNote.vue`](../../../front-end/src/components/AnswerUpdateNote.vue)).
@@ -57,4 +59,4 @@ The row is named for the prices too, but no answer a price reads is behind it ye
 The write is [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py), sent by the drawer through `updateVendorInfo` in [`answerUpdates.ts`](../../../front-end/src/utils/answerUpdates.ts), which also holds the words above.
 How an update is stored and the one reader of the answers: [the application document](../../implementation/data/application-document.md#an-organizers-update-of-an-answer).
 What it records: [the market's history](../../implementation/data/history.md#what-each-write-records).
-`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts` and `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` pin it.
+`back-end/tests/test_updating_vendor_info.py`, `back-end/tests/test_updating_answers_the_assignment_reads.py`, `back-end/tests/test_the_price_answers.py`, `front-end/src/__tests__/updatingVendorInfo.test.ts`, `front-end/e2e/updating-vendor-info.spec.ts`, `front-end/e2e/updating-answers-the-assignment-reads.spec.ts` and `front-end/e2e/the-price-answers.spec.ts` pin it.

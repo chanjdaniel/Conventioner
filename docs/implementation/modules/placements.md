@@ -19,7 +19,8 @@ describes:
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
-verified: 2026-10-30
+  - back-end/assignment/assignment.py#vendors_to_show
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
@@ -39,6 +40,7 @@ sources:
   - E30/F01/S01
   - E44/F01/S01
   - E44/F01/S02
+  - T139
 ---
 
 # Placements
@@ -101,6 +103,8 @@ The solver keeps an orphaned pin's vendor on the date it claimed, at that pin an
 **Read-only views describe the stored assignment, and only that.**
 `assignment_to_show` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is `describe_stored_assignment`, which seats the stored rows and derives statistics without running the solver.
 The statistics, the tables grid and the CSV all go through it, which is what keeps them describing the same market.
+They read the approved applications with `vendors_to_show`, never the run's `solver_vendors_for`: a read places nobody, so an approved application missing an answer refuses nothing, and is counted and seated as stored (T139).
+Only a run, and the preview below, refuse it ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)).
 A market with nothing stored is shown nobody placed, never the run it would get (E31/F03/S05): that preview once read "197 of 197 vendors assigned" before anyone pressed Assign.
 `GET /markets/:id/assignment` is the one preview: VIEWER, it computes a run over the approved applications and stores nothing, with the stored rows (and so the pins) left out.
 That it recomputes while every other read serves the stored assignment is deliberate: a preview answers "what would Assign give me", and the point of `assignment_to_show` is that nothing else recomputes.

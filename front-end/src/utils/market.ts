@@ -130,7 +130,8 @@ export function parseMarketFromApi(market: any): Market {
       assignmentStatistics: null,
     },
     applicationForm: applicationForm ? (applicationForm as ApplicationForm) : undefined,
-    reviewConfig: market.reviewConfig ?? market.review_config ?? undefined,
+    // Who reviews it (E38/F07/S02): a read that carries none, a list's, reads as none chosen.
+    reviewTeam: market.reviewTeam ?? { reviewers: [] },
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],

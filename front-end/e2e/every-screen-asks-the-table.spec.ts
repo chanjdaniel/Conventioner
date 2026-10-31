@@ -151,7 +151,7 @@ for (const role of Object.keys(PEOPLE) as Role[]) {
         await expect(dialog.essentialsNote).toHaveText(
           administers
             ? /the next run places them by what you save here/
-            : "Only an Admin or the owner may update the answers this market's assignment reads.",
+            : "Only an Admin or the owner may update the answers this market's assignment or prices read.",
         );
         await dialog.cancelButton.click();
       }

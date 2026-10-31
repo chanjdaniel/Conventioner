@@ -87,6 +87,11 @@ CHANGE_VERDICTS = action(
     "change-verdicts", "Applications", "Change a verdict, or overturn an automatic rejection",
     MarketRole.ADMIN, "change a verdict or overturn an automatic rejection on this market",
     on_top_of=GIVE_VERDICTS)
+#: Who reviews which application: choosing the reviewers deals the open applications among them
+#: (E38/F07/S02, ADR 0020).
+CHOOSE_REVIEWERS = action(
+    "choose-reviewers", "Applications", "Choose reviewers", MarketRole.ADMIN,
+    "choose this market's reviewers")
 MOVE_PHASE = action(
     "move-phase", "Lifecycle", "Move the phase", MarketRole.ADMIN, "move this market's phase")
 STOP_APPLICATIONS = action(
@@ -106,7 +111,7 @@ UPDATE_VENDOR_INFO = action(
     "update this market's vendors' info")
 UPDATE_ASSIGNMENT_OR_PRICE_INFO = action(
     "update-assignment-or-price-info", "Vendors", "Update info the assignment or price reads",
-    MarketRole.ADMIN, "update the answers this market's assignment reads")
+    MarketRole.ADMIN, "update the answers this market's assignment or prices read")
 ASSIGN = action(
     "assign", "Assignment", "Allocate tables, change the assignment rules, and assign, swap or free seats",
     MarketRole.EDITOR, "allocate this market's tables, change its assignment rules or assign its vendors")

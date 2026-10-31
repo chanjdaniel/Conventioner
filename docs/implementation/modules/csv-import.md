@@ -27,6 +27,7 @@ sources:
   - E38/F04/S01
   - E38/F03/S02
   - E38/F06/S01
+  - E38/F07/S03
 ---
 
 # The CSV import
@@ -92,6 +93,7 @@ The preview judges the file first, writing nothing (`_rule_rejections`): each ro
 An organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
 **An import records one entry in [the market's history](../data/history.md)**, `imported` with its counts, however many rows it wrote: `import_applications` in `app.py`, the route that asks the table's row, records it once the import answers 200.
+Then, with reviewers chosen, the route deals every row the import left open and undealt to the next reviewer in turn (`deal_arrivals` in [`back-end/review_team.py`](../../../back-end/review_team.py)), after the rules have judged and a first import has taken the market into Review, and records that as one `dealt` entry ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)).
 
 ## Superseded
 

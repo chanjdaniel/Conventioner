@@ -1,10 +1,18 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
-import { SEED_MARKET_DATE, ensureTestOrgAuthenticated, loginViaApi } from './helpers/seeds';
+import { SEED_MARKET_DATE } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
-import { uniqueMarketName } from './helpers/uniqueName';
+import {
+  ALUMNI,
+  EXAMPLE_GROUPS,
+  NO_CLUB,
+  PLAN,
+  SECOND_DATE,
+  STUDENT,
+  seedExampleMarket,
+} from './helpers/exampleCollegeMarket';
 import { ManageMarketPage } from './pages/ManageMarketPage';
 
 /**
@@ -14,100 +22,8 @@ import { ManageMarketPage } from './pages/ManageMarketPage';
  * pays the cheapest group they are in, and "Everyone else" when they are in none. The fixture is the
  * Example College table: three groups and "Everyone else", Gold and Silver, one configuration of a general card.
  */
-const SECOND_DATE = '2099-05-08';
-const GOLD = { id: 1, name: 'Gold' };
-const SILVER = { id: 2, name: 'Silver' };
-const STUDENT = 'Current Example College student';
-const ALUMNI = 'Example College alumni/staff';
-const CLUBS = ['Art Club', 'Craft Club'];
-const NO_CLUB = 'Not in any of these clubs';
-
-const PLAN = {
-  priority: [],
-  marketDates: [{ date: SEED_MARKET_DATE }, { date: SECOND_DATE }],
-  tiers: [GOLD, SILVER],
-  locations: [{ name: 'Main Hall' }],
-  sections: [
-    { name: 'North Wing', location: { name: 'Main Hall' }, tier: GOLD, count: 2 },
-    { name: 'Landing', location: { name: 'Main Hall' }, tier: SILVER, count: 2 },
-  ],
-  assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
-};
-
-const FORM = {
-  fields: [
-    {
-      key: 'affiliation',
-      label: 'Are you an Example College student or alumni?',
-      type: 'multi_select',
-      required: false,
-      options: [STUDENT, ALUMNI],
-      order: 0,
-    },
-    {
-      key: 'clubs',
-      label: 'Which clubs are you a member of?',
-      type: 'multi_select',
-      required: false,
-      options: [...CLUBS, NO_CLUB],
-      order: 1,
-    },
-  ],
-};
-
-const EXAMPLE_GROUPS = [
-  {
-    name: 'Example College student + club member',
-    conditions: [
-      { key: 'affiliation', answers: [STUDENT] },
-      { key: 'clubs', answers: CLUBS },
-    ],
-    prices: ['12', '10'],
-  },
-  {
-    name: 'Example College student only',
-    conditions: [{ key: 'affiliation', answers: [STUDENT] }],
-    prices: ['15', '13'],
-  },
-  {
-    name: 'Example College alumni + club member',
-    conditions: [
-      { key: 'affiliation', answers: [ALUMNI] },
-      { key: 'clubs', answers: CLUBS },
-    ],
-    prices: ['25', '22'],
-  },
-];
-
 async function ok(res: Awaited<ReturnType<APIRequestContext['get']>>, what: string) {
   expect(res.ok(), `${what}: ${await res.text()}`).toBeTruthy();
-}
-
-/** A draft market on the vendors' own page, with Gold and Silver and the Example College form's questions. */
-async function seedExampleMarket(request: APIRequestContext) {
-  const userId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
-  const name = uniqueMarketName('E2E Price Groups');
-  const created = await request.post(`${BACKEND_URL}/markets`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: {
-      name,
-      creationDate: new Date().toISOString(),
-      organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
-      setupObject: PLAN,
-      intakeMode: 'form',
-    },
-  });
-  await ok(created, 'create the market');
-  const { market_id: marketId } = (await created.json()) as { market_id: string };
-  await ok(
-    await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, { data: FORM }),
-    'write the form',
-  );
-  return { marketId, name };
 }
 
 /** Add a group on the card, as an organizer does: its name, its conditions, its prices. */
@@ -144,7 +60,12 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const { marketId, name: marketName } = await seedExampleMarket(request);
+    const { marketId, name: marketName } = await seedExampleMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
 
     await page.goto(marketSetupPath(marketId, 'setup'));
     const card = page.getByTestId('plan-card-pricing');
@@ -195,7 +116,7 @@ test.describe('price groups', () => {
     await expect(after).toHaveText(
       'Gold $25, Silver $22\n' +
         'when “Are you an Example College student or alumni?” includes “Example College alumni/staff”\n' +
-        'and “Which clubs are you a member of?” includes “Art Club” or “Craft Club”',
+        'and “Do you belong to any of these clubs?” includes “Art Club” or “Craft Club”',
       { useInnerText: true },
     );
     await expect(after).toHaveCSS('white-space', 'pre-line');
@@ -260,7 +181,12 @@ test.describe('price groups', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const { marketId } = await seedExampleMarket(request);
+    const { marketId } = await seedExampleMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
     await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
       ...PLAN,
       pricing: {

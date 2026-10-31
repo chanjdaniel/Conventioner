@@ -432,6 +432,141 @@ def reassign_follow_up_owner(app_id: str, owner: MarketPerson) -> bool:
     return result.matched_count > 0
 
 
+# --- Whose share it is (E38/F07/S02, ADR 0020) -----------------------------------------------------
+
+def undecided_in_arrival_order(
+    market_id: str, follow_ups_of: Iterable[str] = (),
+) -> List[Dict[str, Any]]:
+    """A market's open applications, the ones a deal hands out, earliest arrival first; and with
+    them the follow-ups owned by any of the addresses ``follow_ups_of`` (a removed reviewer's)."""
+    owners = {str(address).strip().lower() for address in follow_ups_of}
+
+    def dealable(doc: Dict[str, Any]) -> bool:
+        if doc.get(STATUS_FIELD) in UNDECIDED_STATUSES:
+            return True
+        owner = str((doc.get("follow_up_owner") or {}).get("email") or "").strip().lower()
+        return doc.get(STATUS_FIELD) == ApplicationStatus.NEEDS_FOLLOW_UP.value and owner in owners
+
+    return _in_arrival_order([doc for doc in list_applications_for_market(market_id)
+                              if dealable(doc)])
+
+
+def deal(app_id: str, reviewer: Optional[MarketPerson], was: Optional[Dict[str, Any]]) -> bool:
+    """Deal an application to ``reviewer``, or back to first come, first served with None.
+
+    Written only while it is still open and still dealt to whom the caller read (``was``), so a
+    verdict landing mid-deal is never touched and no other deal is written over. Only
+    ``review_team.py`` calls it.
+    """
+    ensure_application_indexes()
+    # Dealt, it is no longer an arrival waiting for a deal (``mark_arriving``).
+    update: Dict[str, Any] = (
+        {"$set": {"reviewer": reviewer.model_dump()}, "$unset": {ARRIVING_FIELD: ""}} if reviewer
+        else {"$unset": {"reviewer": ""}}
+    )
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         # Null or absent alike, as a verdict's condition reads them.
+         "reviewer": was if was else {"$in": [None]}},
+        update,
+    )
+    return result.matched_count > 0
+
+
+#: An application waiting to be dealt as it arrived (E38/F07/S03): ``{actor, action}``, the write it
+#: arrived by, for the deal's history entry. Set by ``mark_arriving``, cleared as it is dealt.
+ARRIVING_FIELD = "arriving"
+
+
+def mark_arriving(app_id: str, actor: Optional[str], action: str) -> bool:
+    """Mark an open, undealt application as waiting to be dealt as it arrived, by ``action`` of
+    ``actor``; one already waiting keeps the write it first arrived by. Only ``review_team.py``
+    calls it, and whichever deal next holds the market deals it."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": False}},
+        {"$set": {ARRIVING_FIELD: {"actor": actor, "action": action}}},
+    )
+    return result.matched_count > 0
+
+
+def mark_all_arriving(market_id: str, actor: Optional[str], action: str) -> int:
+    """Mark every open, undealt application of a market as waiting to be dealt as it arrived, by
+    ``action`` of ``actor``; one already waiting keeps the write it first arrived by. Only
+    ``review_team.py`` calls it, and whichever deal next holds the market deals them. The ids are
+    read as a projection of ``id`` alone, never every application's answers."""
+    ensure_application_indexes()
+    ids = applications_collection.find(
+        {MARKET_ID_FIELD: market_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+         "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": False}},
+        {"_id": 0, "id": 1},
+    )
+    marked = 0
+    for doc in ids:
+        if mark_arriving(doc["id"], actor, action):
+            marked += 1
+    return marked
+
+
+#: What a deal reads of an application waiting as it arrived: enough to order, deal and record it.
+_ARRIVING_PROJECTION = {"_id": 0, "id": 1, "applicant_email": 1, "submitted_at": 1,
+                        ARRIVING_FIELD: 1}
+
+
+def _waiting_filter(market_id: str) -> Dict[str, Any]:
+    """The applications of a market waiting to be dealt: ``arriving`` is an object, which the
+    ``market_id, arriving`` index serves with tight bounds, as it cannot an ``$exists`` (a regular
+    index stores a missing field as null)."""
+    return {MARKET_ID_FIELD: market_id, ARRIVING_FIELD: {"$type": "object"}}
+
+
+def arriving_in_arrival_order(market_id: str) -> List[Dict[str, Any]]:
+    """The market's applications waiting to be dealt as they arrived, earliest arrival first:
+    those alone, and only what a deal reads of them, since it reads them while holding the market
+    (the ``market_id, arriving`` lookup index)."""
+    ensure_application_indexes()
+    return _in_arrival_order(list(applications_collection.find(
+        _waiting_filter(market_id), _ARRIVING_PROJECTION)))
+
+
+def any_arriving(market_id: str) -> bool:
+    """Whether any application of the market waits to be dealt as it arrived."""
+    return applications_collection.find_one(
+        _waiting_filter(market_id)) is not None
+
+
+def deal_arrival(app_id: str, reviewer: Optional[MarketPerson]) -> bool:
+    """Deal an application waiting as it arrived to ``reviewer``, or with None let it go undealt:
+    either way it waits no longer. The reviewer is written only while it is still open and undealt,
+    so one decided meanwhile is let go with its verdict alone."""
+    ensure_application_indexes()
+    if reviewer is not None:
+        result = applications_collection.update_one(
+            {"id": app_id, STATUS_FIELD: {"$in": list(UNDECIDED_STATUSES)},
+             "reviewer": {"$in": [None]}, ARRIVING_FIELD: {"$exists": True}},
+            {"$set": {"reviewer": reviewer.model_dump()}, "$unset": {ARRIVING_FIELD: ""}},
+        )
+        if result.matched_count > 0:
+            return True
+    applications_collection.update_one({"id": app_id}, {"$unset": {ARRIVING_FIELD: ""}})
+    return False
+
+
+def deal_follow_up(app_id: str, reviewer: MarketPerson, owner_was: Dict[str, Any]) -> bool:
+    """Hand a removed reviewer's follow-up to the reviewer it is dealt to: its owner and its
+    reviewer both become them, and it keeps its status. Written only while it still needs a
+    follow-up from ``owner_was``, so one taken on or decided meanwhile is left as it is. Only
+    ``review_team.py`` calls it."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id, STATUS_FIELD: ApplicationStatus.NEEDS_FOLLOW_UP.value,
+         "follow_up_owner": owner_was},
+        {"$set": {"follow_up_owner": reviewer.model_dump(), "reviewer": reviewer.model_dump()}},
+    )
+    return result.matched_count > 0
+
+
 # --- Who is looking at it (E34/F03/S02) ------------------------------------------------------------
 
 #: How long a claim holds without being renewed.

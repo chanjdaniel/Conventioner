@@ -89,10 +89,11 @@ describes:
   - back-end/api/placements.py#AssignPhaseError
   - back-end/csv_start.py#ConfirmRefused
   - back-end/seed_test_markets.py#main
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T74
   - E41/F01/S01
+  - T139
 ---
 
 # An exception never reaches a client
@@ -148,7 +149,7 @@ Its own types are client errors too: `MarketNotFoundError` 404, `MarketArchivedE
 - [Placements](../modules/placements.md): `PlacementError` is a `BadRequestError`, `SeatTakenError` one with status 409, and `AssignPhaseError` a `ConflictError`.
 - `AddVendorInvalid` is a `BadRequestError` and `AddVendorRefused` a `ConflictError`, in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py) ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 - The vendor export's `ExportInvalid` is a `BadRequestError`, in [`back-end/api/vendor_export.py`](../../../back-end/api/vendor_export.py).
-- Updating a vendor's info refuses with `BadRequestError` (an answer the form refuses, a question it does not ask), `ForbiddenError` (an answer the assignment reads, to whoever the row "Update info the assignment or price reads" refuses, before the answer is judged) and `NotFoundError` (an application not on the market), in [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).
+- Updating a vendor's info refuses with `BadRequestError` (an answer the form refuses, a question it does not ask), `ForbiddenError` (an answer the assignment or a price group reads, to whoever the row "Update info the assignment or price reads" refuses, before the answer is judged) and `NotFoundError` (an application not on the market), in [`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py).
 - `ConfirmRefused`, a [CSV start](../modules/csv-proposal-and-start.md) the request cannot write, is a `ConflictError`.
 - `Rulebook.prepared` refuses a rule with `BadRequestError` ([automatic rejections](../../business/rules/automatic-rejections.md)), and so does the [floorplan placement](../modules/floorplan-placement.md) for walls that enclose no room, though its route's own catch-all still answers that 500 until the floorplan routes stop catching.
 - [The Discord connection](../modules/discord.md): `DiscordNotSetUp` is a 503 when the deployment has no Discord values, `DiscordRefused` a 400, and `DiscordUnavailable` a 502 for a 401 from Discord (the deployment's settings), a 429, a 5xx or an unreachable host, each in Conventioner's words and never Discord's.
@@ -167,7 +168,7 @@ What stays a builtin is a bug if it escapes: the room with neither walls nor a s
 **The log line** names the method, `request.endpoint`, and the view argument `market_id`, `market_slug` or `org_id` when the route has one, with the traceback.
 It never names the path, the query string, the body or the view argument `vendor_email`, since each can hold an applicant's address.
 
-The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still their 400 with its own message, and anything else reaches the handler.
+The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_assignment_csv` and `get_market_tables`, in `app.py` and in `api/markets.py`) answer this way: an `IncompleteApplicationsError` is still the preview's (`get_assigned_market`) 400 with its own message, the other three never raise it ([placements](../modules/placements.md#what-a-read-shows)), and anything else reaches the handler.
 
 So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).

@@ -609,7 +609,10 @@ class Market(BaseModel):
     assignment_object: AssignmentObject
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
-    review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
+    # Who reviews this market's applications, and whose turn the next arrival is (E38/F07/S02,
+    # ADR 0020). Server-owned: only ``review_team.py`` writes it, never a market update body. Absent
+    # is no reviewers chosen: first come, first served, as before it existed.
+    review_team: Optional["ReviewTeam"] = None
     # Which answers a reviewer reads first (E19/F03/S01).
     #
     # ON THE MARKET, never on the form. The form freezes at the first application, and an organizer
@@ -885,6 +888,17 @@ class MarketPerson(BaseModel):
         return {"userId": self.user_id, "email": self.email}
 
 
+class ReviewTeam(BaseModel):
+    """The reviewers chosen for a market's review, and how far the deal has gone (E38/F07/S02).
+
+    ``reviewers`` in the order they are dealt to, by address, so the deal is the same whoever chose
+    them; ``turn`` counts the applications dealt since they last changed, so the next arrival goes
+    to ``reviewers[turn % len(reviewers)]``. Stored camelCase on the market as ``reviewTeam``.
+    """
+    reviewers: List[MarketPerson] = Field(default_factory=list)
+    turn: int = 0
+
+
 class AnswerUpdate(BaseModel):
     """An organizer's update of one of a vendor's answers (E41/F01/S01), kept beside the answer the
     vendor gave, which is never written over: the value, who made it, when, and the vendor's answer
@@ -905,7 +919,10 @@ class Application(BaseModel):
     main_application_id: Optional[str] = None  # FK for waitlist prefill (D11)
     submitted_at: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    assigned_reviewer_id: Optional[str] = None
+    # Whose share it was dealt to (E38/F07/S02, ADR 0020): written only by ``review_team.py``, and
+    # never cleared by a verdict, so it stays the record of whose share it was. Absent when it was
+    # never dealt. Not who is looking at it now: that is ``held_by``.
+    reviewer: Optional[MarketPerson] = None
     # Who gave the verdict, and when (E34/F01/S01). Absent on an application stored before verdicts
     # recorded it, and on one with no verdict: a status that is none clears them.
     verdict_by: Optional[VerdictGiver] = None
@@ -1196,6 +1213,17 @@ class ExampleColumnContract(ExampleColumn, ContractModel):
     options: ExampleOptionsContract = Field(default_factory=ExampleOptionsContract)
 
 
+class ServedReviewerContract(ContractModel):
+    """A chosen reviewer as the market read serves one: whether they may still review here."""
+    email: str
+    able: bool
+
+
+class ServedReviewTeamContract(ContractModel):
+    """The market's reviewers as every reader is served them; the turn is never served."""
+    reviewers: List[ServedReviewerContract]
+
+
 class DiscordConnectionContract(DiscordConnection, ContractModel):
     """Camel-cased contract view of a market's Discord connection."""
 
@@ -1214,8 +1242,8 @@ class MarketSchemaContract(ContractModel):
     name: str
     organization_id: Optional[str] = None
     phase: Optional[str] = None
-    review_config: Optional[Dict[str, Any]] = None
     review_highlights: Optional[List[str]] = None
+    review_team: Optional[ServedReviewTeamContract] = None
     rejection_rules: Optional[List[RejectionRule]] = None
     roles: Dict[str, str]
     permissions: Optional[Dict[str, MarketPermission]] = None

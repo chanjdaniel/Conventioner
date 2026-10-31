@@ -81,9 +81,13 @@ export interface MarketSchema {
     answers?: string[];
     key: string;
   }[];
-  reviewConfig?: {
-  };
   reviewHighlights?: string[];
+  reviewTeam?: {
+    reviewers: {
+      able: boolean;
+      email: string;
+    }[];
+  };
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {

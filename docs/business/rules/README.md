@@ -16,13 +16,13 @@ One line per node, sorted by file name.
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
 - [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
-- [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from Assignment on, added by name and address, approved, assigned by hand, never in the table allocation
+- [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from Assignment on, added by name, address and the answers its prices read, approved, assigned by hand, never in the table allocation
 - [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
 - [An archived market is read-only](an-archived-market-is-read-only.md) - nobody changes a finished market's record; roles and deletion are not changes
 - [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its check-in page stays up, marked ended, and takes no check-in
 - [An assignment knows when it is out of date](an-assignment-knows-when-it-is-out-of-date.md) - the result says which of the rules, the plan and the approved applications changed since it ran
 - [An imported email is asserted](an-imported-email-is-asserted.md) - an imported applicant's address is the organizer's word, an online one's proven by a code; settled before any other mail
-- [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the assignment, naming the applicants
+- [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the run, naming the applicants
 - [An update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md) - an organizer's update reads in the answer's place, says who, when and what they wrote, and outlasts a re-import
 - [Assign runs only in assignment](assign-runs-only-in-assignment.md) - the run is refused in every other phase, and once results are published
 - [Automatic rejections](automatic-rejections.md) - answers the organizer names reject an undecided application, with the reason; a person's verdict is never touched
@@ -39,6 +39,7 @@ One line per node, sorted by file name.
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)
+- [The review is dealt among chosen reviewers](the-review-is-dealt-among-chosen-reviewers.md) - chosen reviewers each get a share of the open applications, round robin in arrival order; any change deals them again
 - [The setup settles on leaving draft](the-setup-settles-on-leaving-draft.md) - Market Setup is fixed after draft, so leaving draft asks for dates, a location and tables at every tier
 - [Tier filters, section prefers](tier-filters-section-prefers.md) - never a tier a vendor refused, because it sets the price; section is only a preference
 - [Vendor notes](vendor-notes.md) - the vendor's request and the organizer's note, two kinds kept apart; the vendor never sees the organizer's

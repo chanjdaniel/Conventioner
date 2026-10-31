@@ -8,7 +8,7 @@ describes:
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/v0-1-0/map
@@ -36,7 +36,7 @@ sources:
 
 The essential questions are the ones every application form asks whatever else the organizer builds, because the solver reads their answers.
 [`back-end/essential_fields.py`](../../../back-end/essential_fields.py) is the single owner of that contract: the reserved `essential_*` answer keys in `Application.form_data`, what each question offers, the validation of an applicant's answers, and the freeze.
-[`front-end/src/utils/essentialFields.ts`](../../../front-end/src/utils/essentialFields.ts) is its front-end mirror (the keys, the labels, the offering, the answer rows a reviewer reads) and must stay in step with it.
+[`front-end/src/utils/essentialFields.ts`](../../../front-end/src/utils/essentialFields.ts) is its front-end mirror (the keys, the labels, the offering, the answer rows a reviewer reads) and must stay in step with it; the market's history reads a vendor's recorded answers through it too (`answerLabel`, `answerReading`, `inFormOrder`), so they read as the Application tab does.
 Why the set is exactly what it is: [essential fields are exactly what the solver reads](../../adr/0001-essential-fields-are-the-solver-contract.md).
 
 ## The questions

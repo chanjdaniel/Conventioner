@@ -6,7 +6,7 @@ describes:
   - front-end/src/components/ExportVendorsDialog.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -24,6 +24,8 @@ sources:
   - E42/F01/S03
   - E41/F01/S01
   - E38/F08/S02
+  - E43/F01/S03
+  - T139
 ---
 
 # Vendors
@@ -44,15 +46,15 @@ The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.v
 4. "Unassigned only" lists the vendors who need a table and hold none, and with a date chosen those with none that day, a vendor added by hand included (E38/F08/S02); it and "Rejected only", shown when anyone was rejected, narrow the list, each cleared with its "×"; the Assignments page's filters (Date, Section, Tier, Table) narrow it to where vendors are placed, and are kept across the two pages.
 5. The Assignments page's "N unassigned" link opens this list filtered, as "Unassigned only", and counts the same vendors.
 
-When the server refuses where vendors sit, as it does while an approved application's answers are incomplete, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
+When the server cannot say where vendors sit, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 
 Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, and the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
 
 **Adding a vendor who never applied.**
-From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email; "Add vendor".
+From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
 They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
-Covered by: `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`.
+Covered by: `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`, `the-price-answers.spec.ts`.
 
 ## J12. Find out why a vendor was not placed
 

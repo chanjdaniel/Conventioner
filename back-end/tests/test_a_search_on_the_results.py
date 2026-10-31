@@ -133,7 +133,7 @@ def test_the_vendors_the_place_dialog_offers_are_served_too(monkeypatch):
     )])
     monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
     monkeypatch.setattr(
-        MarketsApi, "solver_vendors_for",
+        MarketsApi, "vendors_to_show",
         lambda _market: [vendor("ana@example.com"), vendor("ben@example.com")])
     monkeypatch.setattr(
         MarketsApi, "outside_solver_vendors",

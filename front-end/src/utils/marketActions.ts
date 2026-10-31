@@ -20,6 +20,7 @@ export const MarketAction = {
   ImportApplications: 'import-applications',
   GiveVerdicts: 'give-verdicts',
   ChangeVerdicts: 'change-verdicts',
+  ChooseReviewers: 'choose-reviewers',
   MovePhase: 'move-phase',
   StopApplications: 'stop-applications',
   PublishResults: 'publish-results',

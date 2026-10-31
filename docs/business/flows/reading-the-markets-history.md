@@ -12,11 +12,13 @@ verified: 2026-10-31
 sources:
   - E40/F01/S03
   - E40/F01/S04
-  - E44/F01/S02
   - T92
   - E41/F01/S02
   - E38/F06/S01
   - E39/F02/S01
+  - E44/F01/S02
+  - E38/F07/S02
+  - E38/F07/S03
 ---
 
 # Reading the market's history
@@ -37,9 +39,12 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    A placement reads as [the assignment history](placing-by-hand.md#j13-assignment-history) says it, after who made it and before the day it is for, so the two never differ: a move names the table left and the table taken, "e2e@example.com moved Ana Rivera from A3 to B7 (Full Table) on Nov 19, 2026", and allocating tables reads "allocated tables: 40 assignments written, 3 pins preserved".
    An organizer's update of a vendor's answers reads "e2e@example.com updated the info of Ana Rivera", and a save that only kept updates over answers the vendor changed since reads "e2e@example.com kept their update to the info of Ana Rivera", opening to each answer kept under its question's label.
    A vendor's money reads in the market's currency ([payments](../../implementation/data/payments.md)): "e2e@example.com recorded a payment of $50 from Ana Rivera", "… recorded a refund of $15 to Ana Rivera", "… changed a payment from Ana Rivera", "… removed a refund to Ana Rivera", "… set what Ana Rivera owes on May 8, 2099 to $0" and "… back to the calculated price", "… seated Ana Rivera again on May 8, 2099, taking back the $0 set when the table was freed", each opening to its amount, how it was paid, the day and the note, or the amount owed, in the Payment tab's words.
+   A vendor added by hand reads "e2e@example.com added Walk-in Wares as a vendor", opening to the name and status given and then each price answer under its question's label, in the form's order (the answers sit under `answers` in the detail, so a question keyed `name` or `status` never collides with them).
+   Both "applied" and an update of the info open to each answer under its question as the form asks it, in the form's order (the essential questions first, then the organizer's own), each read as the Application tab reads it, dates and tiers in words, the table-share question as one answer in the vendor's words, and an answer that reads the same on both sides left out.
    A change the screen has no sentence for yet reads through the deliberate fallback "made a change: <row label>, about <vendor>"; one whose action no row of the table names reads "made a change", never the action's id.
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
 4. "Before and after" under a change opens a table of each field it changed, as it was and as it is, and what else it recorded (a count, a date, where it was made); a phase reads as that market's other screens name it, a status and a role as the screens name them, an essential question's answer as the review card shows it, under the question's label; the table-share answer reads as one row, in the vendor's own words ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)), and where a permission row came from as "Built in", "The organization's default" or "This market"; a reset of the whole table opens to each row it returned, and a copy of the organization's defaults to each row it changed, by its label, as its role and where it came from ("Admin, This market" to "Editor, Built in").
+   The Field column is one width down the whole list, as wide as the widest name of any table open, the column, its padding and border included, at most a third of the table (a longer name wraps), so Before and After, halves of the rest, line up from one change to the next; a change whose every Before is "none" draws one column instead, "Answer" for an applicant's own answers and "After" for anything else, an arrival's reviewer included; an address breaks, where a column is too narrow for it, only before its "@", and a team of reviewers reads one address a line.
 5. "Load more", under the list while older changes remain, adds the next 10 beneath, in the open dialog.
    A change made in the dialog (a person given, changed or taken a role, a rename, a row of the permission table) reads the first page again, under the filters as they are, so it shows without reopening the dialog.
 6. The filters above the list narrow it, and stay set while the dialog is open: "Who" (anyone who changed something as an organizer), "Kind of change" (the table's groups: Market Setup, Applications, Lifecycle, Vendors, Assignment, Payments, The door, Discord, People), "Vendor" (a name or part of an address, offering the market's vendors who gave a name and every address a loaded change names; while it matches several it says "2 vendors match. Keep typing, or choose one.", and a name or address that matches nobody narrows the list to nothing), and "From" and "To" (calendar days in the reader's timezone, both kept).
@@ -52,6 +57,7 @@ An archived market's history is still read: reading it is not a change ([an arch
 ## One vendor's history
 
 A vendor's drawer reads the same history narrowed to that vendor on its History tab: the same component given the vendor, so the same sentences, "Before and after" and "Load more", with no filters, and the vendor named by name alone ([the vendor drawer](vendor-drawer.md)).
+A deal of many applications ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)) reads there as that vendor's own line, "dealt the application to <address>", and opens to their reviewer alone, before and after; in the market's History it reads "chose the reviewers: …", "changed the reviewers: added …, removed …" or "removed every reviewer", and "dealt N open applications among M reviewers", or "dealt the application of <vendor> to <address>" when it moved one, and a removed reviewer's follow-up "dealt the follow-up of <vendor> from <address> to <address>"; a verdict on someone else's share ends ", dealt to <address>", and in a selection's sentence each such vendor is followed by "(dealt to <address>)"; an applicant's own arrival reads "The application of <vendor> was dealt to <address> as it arrived", in their drawer "The application was dealt to <address> as it arrived".
 The server narrows it to the changes that name the vendor, so a run of the assignment, which names nobody, is in no vendor's list.
 Someone below the row is shown no History tab, as no History section.
 

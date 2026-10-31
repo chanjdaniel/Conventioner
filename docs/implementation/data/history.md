@@ -30,6 +30,8 @@ sources:
   - E46/F01/S02
   - E44/F01/S01
   - E44/F01/S02
+  - E38/F07/S02
+  - E38/F07/S03
 ---
 
 # The market's history
@@ -88,14 +90,17 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-form` | `rejection_rules` | the [automatic rejections](../../business/rules/automatic-rejections.md) | - | - | `rejection_rules`, and `rejected`, `returned`: how many applications the rules rejected, and returned to undecided, as they were saved |
 | `import-applications` | `imported` | an import, one entry however many rows; a draft's first import, which takes the market into Review, records that move too, as `move-phase` under the importer | - | - | `row_count`, `created`, `updated`, `unchanged`, `skipped`, `returned_to_review`, `rejected_by_rules`, `returned_by_rules` |
 | `import-applications` | `started` | the start from a CSV | - | - | `row_count`, `column_count`, `question_count` |
-| `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one |
+| `give-verdicts` | `verdict` | one verdict, or a follow-up, on an application not yet approved or rejected | the applicant | `application_id` | `status`, and `follow_up_owner` (an address) while there is one; and `dealt_to`, the address of the reviewer it was dealt to, when it has one ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)) |
 | `change-verdicts` | `verdict` | one verdict, or a follow-up, on an application already approved or rejected, a rule's rejection included (E38/F06/S01) | the applicant | `application_id` | as above |
-| `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after |
+| `give-verdicts` | `verdicts` | a selection's verdict, one entry; `change-verdicts` when any application it wrote was already approved or rejected | each applicant decided | `application_ids` | by application id, its `status`, and its `follow_up_owner` while there is one, before and after; and `dealt_to` by application id for those that have a reviewer |
 | `give-verdicts` | `follow_up_owner` | handing a follow-up on | the applicant | `application_id` | `follow_up_owner` |
+| `choose-reviewers` | `reviewers` | [choosing or changing the reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md), only when the set changed | - | - | `reviewers`: their addresses, in the order they are dealt to |
+| `choose-reviewers` | `dealt` | the deal a change of reviewers made, one entry, only when it moved any application | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: reviewers_changed`; by application id, its `reviewer` (an address, null when undealt), and a removed reviewer's follow-up's `follow_up_owner` beside it, before and after |
+| `apply`, `import-applications`, `change-form`, `update-vendor-info` | `dealt` | the arrivals a write dealt, after that write's own entry, one entry per write and only when it dealt any: an applicant's save (the applicant its actor, their own application alone), an import, and saving the rules or the form, or updating a vendor's info, when the rules returned an application to open | each applicant dealt, in the order of `application_ids` | `application_ids` | `cause: arrived`; by application id, its `reviewer` before (null) and after |
 | `move-phase` | null | a phase move, by whoever made it | - | - | `phase`, and `swept` on the move from offers to market days: how many unanswered offers it turned to refusals; the [phase record](../modules/phase-record.md) stays the state the guards read |
 | `stop-applications` | null | [stopping applications, or taking them again](../../business/flows/taking-applications.md), only when it changed whether they are taken | - | - | `applications_stopped` |
 | `publish-results` | null | [publishing results](../../business/rules/publish-results-waits-for-the-allocation.md) | - | - | `results_published` |
-| `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name` and `status`, null before |
+| `add-vendor` | null | [adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md) | the vendor | `application_id` | `name`, `status` and `answers`, the price answers given as `{question key: answer}`, null before |
 | `update-vendor-info` | null, or `kept` when the save only kept updates | [updating a vendor's info](../../business/rules/an-update-is-kept-beside-the-vendors-answer.md), one entry however many answers | the vendor | `application_id` | the answers it changed by form field key, an essential one by its stored key (the table-share answer's words and the addresses read out of them), as the organizer read them before and after; `kept`, the updates saved as they stood over an answer the vendor changed since, by key with their value; `matched`, the updates taken away because the answer the vendor changed to is the update itself, by key with that value; and `rejected_by_rules`, `returned_by_rules`, as for `apply` |
 | `write-vendor-notes` | `note` | the organizer's [note](../../business/rules/vendor-notes.md) | the vendor | - | `note` |
 | `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
@@ -112,6 +117,9 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `change-the-table` | `permission_table_reset` | the market's owner returning every row it holds to its built-in default, one entry for the one act | - | - | by row id, every row it returned, each its `role` and `source` before and after |
 | `change-the-table` | `permission_table_copied` | the market's owner copying its organization's default again, one entry for the one act | - | - | by row id, every row it changed, each its `role` and `source` before and after |
 | `apply` | `submitted`, `edited` | an applicant's own application ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)) | the applicant | `application_id` | the answers that changed, with their values; `rejected_by_rules` and `returned_by_rules`: whether the rules rejected it, or returned it to undecided, as it landed |
+
+A verdict on someone else's share reads "…, dealt to <address>", and nothing is added when its reviewer decided it or it was never dealt; an entry written before reviewers existed reads as it always did.
+A `dealt` entry is worded by its kind, whichever action dealt it (an applicant's own arrival as their application dealt, never as their deal), and its vendors and application ids are in the same order, so one vendor's History tab reads that vendor's own line of a deal of many.
 
 ### What an organization records
 

@@ -553,6 +553,7 @@ MARKET_SETUP_ROUTES = [
     ("put", "/markets/market-123/review-highlights", {"keys": ["business_name"]},
      "save_review_highlights"),
     ("put", "/markets/market-123/rejection-rules", {"rules": []}, "save_rejection_rules"),
+    ("put", "/markets/market-123/reviewers", {"reviewers": []}, "choose_reviewers"),
     ("put", "/markets/market-123/permissions/check-in", {"role": "admin"}, "set_permission"),
     ("delete", "/markets/market-123/permissions/check-in", None, "reset_permission"),
     ("delete", "/markets/market-123/permissions", None, "reset_permissions"),
@@ -1319,6 +1320,7 @@ OPTIONAL_BODIES = [
     ("put", "/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled", None),
     ("put", "/markets/<market_id>/review-highlights", None),
     ("put", "/markets/<market_id>/rejection-rules", None),
+    ("put", "/markets/<market_id>/reviewers", None),
     ("put", "/markets/<market_id>/permissions/<action_id>", None),
     ("put", "/organizations/<org_id>/default-permissions/<action_id>", None),
     ("post", "/markets/<market_id>/placements/swap", None),
@@ -1635,7 +1637,9 @@ class TestAnUnexpectedFailure:
 
     def test_inside_the_api_function_answers_the_same(self, client, monkeypatch, caplog):
         """What the four API functions caught and echoed now reaches the handler unanswered."""
+        # The preview reads the vendors as a run does, and the other three as a read does.
         monkeypatch.setattr(MarketsApi, "solver_vendors_for", fail_with(KeyError(SECRET)))
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", fail_with(KeyError(SECRET)))
 
         with caplog.at_level(logging.ERROR):
             responses = [client.get(path) for path, _function in ASSIGNMENT_READS]
@@ -1647,7 +1651,7 @@ class TestAnUnexpectedFailure:
         assert len([r for r in caplog.records if r.name == "client_errors"]) == len(responses)
 
     def test_in_the_csv_writer_is_not_echoed(self, client, monkeypatch):
-        monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+        monkeypatch.setattr(MarketsApi, "vendors_to_show", lambda _market: [])
         monkeypatch.setattr(
             MarketsApi, "market_csv_to_string", fail_with(ValueError(SECRET)),
         )

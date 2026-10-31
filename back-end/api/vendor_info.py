@@ -9,10 +9,11 @@ when what the vendor wrote has changed since.
 
 An answer the assignment reads is updated here too (E41/F01/S02), behind a row of its own, "Update
 info the assignment or price reads", Admin by default; the solver reads the update as every other
-reader does, so the next run uses it, and an assignment already made reads as out of date.
+reader does, so the next run uses it, and an assignment already made reads as out of date. An
+answer a price group reads asks the same row (E43/F01/S03), and the prices read the update too.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import api.applicants as ApplicantsApi
 import api.applications as ApplicationsApi
@@ -20,7 +21,9 @@ import api.market_actions as Actions
 import api.markets as MarketsApi
 import essential_fields as EssentialFields
 import history as History
+import pricing as Pricing
 import rejection_rules as RejectionRules
+import review_team as ReviewTeam
 from application_write import validated_answer
 from client_errors import BadRequestError, ForbiddenError, NotFoundError
 from datatypes import AnswerUpdate, Market, MarketPerson
@@ -36,8 +39,8 @@ def update_vendor_info(
     Each answer is held to what the form holds the vendor's to, and stored as the form stores it.
     One set back to what the vendor wrote takes its update away, so "Use their answer" is an
     answer like any other; one restated as it already reads changes nothing, and keeps who made it.
-    Asks ``Actions.UPDATE_VENDOR_INFO`` in any phase, and an answer the assignment reads asks
-    ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` too; an archived market refuses it.
+    Asks ``Actions.UPDATE_VENDOR_INFO`` in any phase, and an answer the assignment or a price group
+    reads asks ``Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO`` too; an archived market refuses it.
     """
     market = MarketsApi._load_market_to_change(market_id, updater.email, Actions.UPDATE_VENDOR_INFO)
     if not isinstance(answers, dict) or not answers:
@@ -50,6 +53,8 @@ def update_vendor_info(
                                              if market.application_form else [])}
     theirs = doc.get("form_data") or {}
     before = ApplicationsApi.effective_answers(doc)
+    _assert_may_update_what_the_assignment_or_prices_read(
+        market, [str(key) for key in answers], updater)
     essential: Dict[str, Any] = {}
     values: Dict[str, Any] = {}
     for key, raw in answers.items():
@@ -65,7 +70,6 @@ def update_vendor_info(
             raise BadRequestError(error)
         values[key] = value
     if essential:
-        _assert_may_update_what_the_assignment_reads(market, essential, updater)
         error, stored = EssentialFields.validated_essential_update(
             before, essential, EssentialFields.effective_essential_options_for_market(market),
             limit_required=(
@@ -125,19 +129,24 @@ def update_vendor_info(
                             {key: after.get(key) for key in moved}),
             kept, matched, verdicts),
     )
-    if verdicts.rejected or verdicts.returned:
+    # One the rules returned to open is an arrival, dealt to the next reviewer (E38/F07/S03).
+    dealt = ReviewTeam.deal_arrivals(market, updater.email, Actions.UPDATE_VENDOR_INFO) \
+        if verdicts.returned else 0
+    if verdicts.rejected or verdicts.returned or dealt:
         stored = ApplicationsApi.find_application_by_id(application_id) or stored
     return {"application": ApplicantsApi.organizer_view(stored)}, 200
 
 
-def _assert_may_update_what_the_assignment_reads(
-    market: Market, essential: Dict[str, Any], updater: MarketPerson,
+def _assert_may_update_what_the_assignment_or_prices_read(
+    market: Market, asked: List[str], updater: MarketPerson,
 ) -> None:
-    """An answer the assignment reads asks its own row as well, before it is judged: whoever may
-    not update it is told so rather than what is wrong with the answer."""
-    written = {key for question in essential
-               for key in EssentialFields.UPDATABLE_ESSENTIAL_QUESTIONS[question]}
-    if not written & set(EssentialFields.SOLVER_RELEVANT_KEYS):
+    """An answer the assignment or a price group reads asks its own row as well, decided from the
+    questions asked before any answer is judged: whoever may not update it is told so rather than
+    what is wrong with the answer."""
+    written = {key for question in asked
+               for key in EssentialFields.UPDATABLE_ESSENTIAL_QUESTIONS.get(question, ())}
+    if not (written & set(EssentialFields.SOLVER_RELEVANT_KEYS)
+            or set(asked) & set(Pricing.Groups(market).keys())):
         return
     refused = Actions.refusal(
         Actions.UPDATE_ASSIGNMENT_OR_PRICE_INFO, updater.email, market,

@@ -289,8 +289,8 @@ watch(
         class="detail-panel-body"
         :data-testid="`vendor-drawer-panel-${shownTab}`"
       >
-        <!-- What the read could not get, on every tab: the server's reason, such as an approved
-             application whose answers are incomplete refusing where anyone sits (T123). -->
+        <!-- What the read could not get, on every tab: the server's reason when where anyone sits
+             could not be read (T123). -->
         <p
           v-if="details.loadError.value && !details.isLoading.value"
           class="detail-error"
@@ -381,6 +381,7 @@ watch(
             :vendor="email"
             :rowLabels="rowLabels"
             :path="intakeModeOf(market)"
+            :fields="market.applicationForm?.fields ?? []"
           />
         </div>
       </section>
@@ -394,6 +395,7 @@ watch(
     :form="market?.applicationForm"
     :options="marketEssentialOptions(market)"
     :assignmentRefusal="actionRefusal(market, MarketAction.UpdateAssignmentOrPriceInfo)"
+    :priceReads="market?.priceReads ?? []"
     @close="updating = false"
     @saved="infoSaved"
   />

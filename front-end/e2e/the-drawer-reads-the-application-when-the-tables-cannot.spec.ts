@@ -1,6 +1,6 @@
+import type { Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
-import { mongoEval } from './helpers/mongo';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 
 /**
@@ -8,21 +8,30 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
  * (T123, from T119's review).
  *
  * The drawer reads the applications, the assignment's statistics and the tables together, and one
- * refusal emptied all three: an approved application whose answers are incomplete makes the server
- * refuse the two assignment reads, and the drawer then said "This market asks no questions of its
- * own." of a market that asks one, with the refusal shown nowhere, and the Vendors list said where
- * vendors sit from a read it never had.
+ * failure emptied all three: the drawer then said "This market asks no questions of its own." of a
+ * market that asks one, with the failure shown nowhere, and the Vendors list said where vendors sit
+ * from a read it never had. An approved application with incomplete answers no longer makes the
+ * server refuse those reads (T139), so a route stands in for a read that fails.
  */
+const FAILED = 'Where the vendors sit could not be read just now.';
+
+/** The two reads of where vendors sit answer 500, with the server's reason. */
+async function failThePlacementReads(page: Page): Promise<void> {
+  await page.route(/\/markets\/[^/]+\/(assignment-statistics|tables)$/, (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: FAILED }),
+    }),
+  );
+}
+
 test('a vendor drawer shows their answers and why the placements are missing', async ({
   authenticatedPage: page,
   request,
 }) => {
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  // Alice's application loses the dates she can attend, so it can no longer be placed, and the
-  // server refuses to say where anyone is.
-  mongoEval(
-    `db.applications.updateOne({market_id: '${seed.marketId}', applicant_email: 'alice@example.com'}, {$unset: {'form_data.essential_available_dates': ''}})`,
-  );
+  await failThePlacementReads(page);
 
   await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?vendor=bob%40example.com`);
   const panel = page.getByTestId('vendor-drawer-panel-application');
@@ -32,9 +41,7 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   await expect(page.getByRole('heading', { name: 'Bob Example' })).toBeVisible();
   await expect(page.getByTestId('vendors-detail-answer-business_name')).toBeVisible();
   await expect(panel).not.toContainText('asks no questions');
-  await expect(page.getByTestId('vendors-detail-load-error')).toContainText(
-    'cannot be assigned until its answers are complete',
-  );
+  await expect(page.getByTestId('vendors-detail-load-error')).toContainText(FAILED);
 
   // Behind it the page lists both by name, and says nothing of who is placed: no count of the
   // assigned, no date count on a row, no "Unassigned only".
@@ -58,18 +65,15 @@ test('a vendor drawer shows their answers and why the placements are missing', a
   await expect(page.getByTestId('vendor-export-summary')).toContainText('2 vendors');
 });
 
-test('a market before any assignment, refused, still says "N vendors"', async ({
+test('a market before any assignment, its placements unread, still says "N vendors"', async ({
   authenticatedPage: page,
   request,
 }) => {
-  // Stops in the assignment phase with nothing run, so nothing has been assigned yet; the refusal
-  // comes from Alice's incomplete answers, not from anything stored.
+  // Stops in the assignment phase with nothing run, so nothing has been assigned yet.
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
     run: false,
   });
-  mongoEval(
-    `db.applications.updateOne({market_id: '${seed.marketId}', applicant_email: 'alice@example.com'}, {$unset: {'form_data.essential_available_dates': ''}})`,
-  );
+  await failThePlacementReads(page);
 
   await page.goto(marketScreenPath(seed.marketId, 'vendors'));
   const rows = page.getByTestId('vendors-list-item');

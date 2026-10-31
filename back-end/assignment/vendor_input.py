@@ -157,17 +157,18 @@ class IncompleteApplication:
 
 
 def solver_vendors_from_applications(
-    applications: Iterable[Application], options: EssentialFormOptions,
+    applications: Iterable[Application], options: EssentialFormOptions, lenient: bool = False,
 ) -> Tuple[List[SolverVendor], List[IncompleteApplication]]:
     """Translate applications into solver vendors, reporting those that cannot be translated.
 
-    Returns ``(vendors, incomplete)``. Input order is preserved in both lists.
+    Returns ``(vendors, incomplete)``. Input order is preserved in both lists. ``lenient`` reads
+    an application missing an answer as it stands, so ``incomplete`` is then empty.
     """
     vendors: List[SolverVendor] = []
     incomplete: List[IncompleteApplication] = []
 
     for application in applications:
-        vendor, problem = _solver_vendor(application, options)
+        vendor, problem = _solver_vendor(application, options, lenient)
         if vendor is None:
             incomplete.append(problem)
         else:
@@ -177,7 +178,7 @@ def solver_vendors_from_applications(
 
 
 def approved_solver_vendors(
-    market_id: str, options: EssentialFormOptions,
+    market_id: str, options: EssentialFormOptions, lenient: bool = False,
 ) -> Tuple[List[SolverVendor], List[IncompleteApplication]]:
     """Every vendor a market's approved applications describe.
 
@@ -190,6 +191,9 @@ def approved_solver_vendors(
     one person twice. Nothing creates a waitlist application today, so neither behaviour is
     reachable; what a waitlisted applicant's approval should mean to the solver is an open
     question recorded on the v0.1.0 map, not something settled here.
+
+    ``lenient`` is for a read of the stored assignment (T139), which places nobody, so an answer
+    missing refuses nothing there; the run reads them strictly.
     """
     documents = ApplicationsApi.list_applications_with_status(
         market_id,
@@ -201,6 +205,7 @@ def approved_solver_vendors(
     return solver_vendors_from_applications(
         [Application(**document) for document in documents if not document.get("added_by")],
         options,
+        lenient,
     )
 
 

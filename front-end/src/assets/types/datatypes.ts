@@ -266,7 +266,13 @@ export interface Market {
   modificationList: ModificationObject[];
   assignmentObject: AssignmentObject;
   applicationForm?: ApplicationForm;
-  reviewConfig?: Record<string, unknown>;
+  /** Who reviews this market's applications (E38/F07/S02), in the order they are dealt to, each
+   *  with whether they may still review here; none chosen is an empty list. Served to every
+   *  reader. */
+  reviewTeam?: ReviewTeam;
+  /** Whom this reader may choose as a reviewer, sorted: served only to someone who may choose
+   *  them, and empty for anyone else. */
+  reviewerCandidates?: string[];
   resultsPublished?: boolean;
   /** How vendors reach this market. Organizer-settable while draft, frozen by the server after.
    * Absent means `csv`, which is what the server reads too. */
@@ -287,6 +293,10 @@ export interface Market {
   rejectionQuestions?: RejectionQuestion[];
   /** Why the automatic rejections can no longer change, or null while they can. */
   rejectionRulesLockReason?: string | null;
+  /** The questions the price groups read (E43/F01/S03): adding a vendor asks the form's own of
+   *  them, and updating any of them is the row "Update info the assignment or price reads".
+   *  Served; empty on a card with no group. */
+  priceReads?: string[];
   /**
    * Why the application form cannot be edited, or null when it can (E21/F02/S03). Computed by the
    * server on every read of ONE market from the D9 rule - the phase, and whether an application
@@ -519,6 +529,11 @@ export interface AnswerUpdate {
   changedSince: boolean;
 }
 
+/** A market's chosen reviewers, as the market read serves them (E38/F07/S02). */
+export interface ReviewTeam {
+  reviewers: Array<{ email: string; able: boolean }>;
+}
+
 export interface Application {
   id: string;
   marketId: string;
@@ -529,7 +544,8 @@ export interface Application {
   mainApplicationId?: string;
   submittedAt?: string;
   updatedAt: string;
-  assignedReviewerId?: string;
+  /** Organizer's only: whose share it was dealt to (E38/F07/S02); null when it never was. */
+  reviewer?: { userId?: string | null; email: string } | null;
   /** Organizer's list only: set when this applicant's table-share request pairs nobody. */
   tableShareNotice?: TableShareNotice | null;
   /** Organizer's only: who gave the verdict, and when (E34/F01/S01). Null without one. */

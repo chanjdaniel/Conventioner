@@ -13,7 +13,7 @@ describes:
   - back-end/utils/identity.py
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_changing_a_verdict_is_its_own_row.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
@@ -30,9 +30,9 @@ sources:
   - E41/F01/S02
   - E40/F01/S03
   - E38/F06/S01
+  - E39/F02/S01
   - E44/F01/S01
   - E44/F01/S02
-  - E39/F02/S01
 ---
 
 # What each role may do
@@ -61,7 +61,7 @@ An organization's admins run its markets ([the decision of 2026-10-20](../../rec
 | --- | --- |
 | Viewer | read the market: its applications, its result and tables, the statistics and the CSV exports (the assignment's and the vendors'), the floorplan export, attendance, and the market's history, in Manage market, the assignment history and a vendor's drawer, and what each vendor owes and paid |
 | Editor | everything a Viewer may, and the plan and its floorplan ([who may use the floorplan routes](../../implementation/modules/floorplan-placement.md#who-may-use-the-floorplan-routes)), the form, renaming a draft, allocating tables and assigning, swapping or freeing a seat, highlights, automatic rejections, giving verdicts on open applications and follow-ups, marking and handing on follow-ups, vendor notes, [updating a vendor's info](an-update-is-kept-beside-the-vendors-answer.md), [recording a vendor's payment](../../implementation/data/payments.md) (Daniel, T92 Q15: "editors can"), check-ins at the door |
-| Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [updating an answer the assignment reads](an-update-is-kept-beside-the-vendors-answer.md#who-may), changing what a vendor owes and adjusting what they paid (Daniel, T92 Q26: "this number can be changed by the admin"); manage editors and viewers; connect the market to Discord and choose its role ([the Discord connection](../../implementation/modules/discord.md)) |
+| Admin | everything an Editor may, and changing a verdict already given (to the other, or back to needs follow-up) and overturning an [automatic rejection](automatic-rejections.md), phase moves, stopping and taking applications, publishing results, importing, the CSV start, [choosing the reviewers](the-review-is-dealt-among-chosen-reviewers.md), [updating an answer the assignment or a price group reads](an-update-is-kept-beside-the-vendors-answer.md#who-may), changing what a vendor owes and adjusting what they paid (Daniel, T92 Q26: "this number can be changed by the admin"); manage editors and viewers; connect the market to Discord and choose its role ([the Discord connection](../../implementation/modules/discord.md)) |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 Whoever creates a market is its owner, and a market has exactly one.
