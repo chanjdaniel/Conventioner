@@ -207,6 +207,7 @@ Two groups of routes have a body another module reads: the account routes, whose
 A value of the wrong type inside is read as a missing one ([a request value is a string](a-request-value-is-a-string.md)): a market name that is not a string is no name, review highlights that are not a list of strings are no keys, and a ticked review entry that is not an object names no application and is skipped as not one here.
 
 The operator's seeder (`main` in [`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) catches only its own refusals and client errors, saying each as `Not done: <its copy>`, and lets anything else raise with its traceback, which is what the operator needs for a bug.
+Before that it refuses a database the environment does not name, or the primary checkout's local MongoDB, exiting with the refusal's words and no traceback (`require_named_database` in [`back-end/db_config.py`](../../../back-end/db_config.py)).
 
 ## How it is enforced
 

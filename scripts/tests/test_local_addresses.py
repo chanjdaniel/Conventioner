@@ -19,11 +19,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
-from stacks import clean_env, compose_available, slot_path
+from stacks import clean_env, compose_available, run_seed, slot_path
 
 REPO = Path(__file__).resolve().parents[2]
 STACK_TS = REPO / "front-end" / "e2e" / "helpers" / "stack.ts"
-SEED = REPO / "scripts" / "seed_fixture.sh"
 
 # Ports macOS's own services listen on, any of which a default port must stay off.
 MACOS_PORTS = {
@@ -85,46 +84,20 @@ def test_stack_ts_dials_127_0_0_1(tmp_path, where, env):
     assert identity["frontendURL"] == f"http://127.0.0.1:{identity['frontendPort']}"
 
 
-# A stub that logs every call: `docker`/`th-compose.sh` say the back end runs, `curl` answers the
-# readiness probe with 200 and the login with nothing, so the seed stops right after its first login.
-STUB = """#!/usr/bin/env bash
-printf '%s %s\\n' "$(basename "$0")" "$*" >> "$CALL_LOG"
-case "$(basename "$0")" in
-  curl) case " $* " in *" -w "*) echo 200 ;; *) echo '{}' ;; esac ;;
-  *) case " $* " in *" ps "*) echo backend ;; esac ;;
-esac
-exit 0
-"""
-
-
-def seed_dials(checkout, tmp_path):
+def seed_dials(checkout, tmp_path, *args):
     """The URLs `seed_fixture.sh`, copied into `checkout`, dials before its login comes back empty."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    for name in ("docker", "curl"):
-        (bin_dir / name).write_text(STUB)
-        (bin_dir / name).chmod(0o755)
-    scripts = checkout / "scripts"
-    scripts.mkdir(parents=True, exist_ok=True)
-    shutil.copy(SEED, scripts)
-    (scripts / "th-compose.sh").write_text(STUB)
-    (scripts / "th-compose.sh").chmod(0o755)
-    log = tmp_path / "calls.log"
-    result = subprocess.run(
-        [str(scripts / "seed_fixture.sh")],
-        env=clean_env(PATH=f"{bin_dir}:{os.environ['PATH']}", CALL_LOG=str(log)),
-        capture_output=True,
-        text=True,
-    )
+    result, calls = run_seed(checkout, tmp_path, *args)
     assert "Could not extract user ID" in result.stdout, result.stdout + result.stderr
-    calls = [line for line in log.read_text().splitlines() if line.startswith("curl ")]
-    return {match for call in calls for match in re.findall(r"\w+://[^/\s]+", call)}
+    curls = [call for call in calls if call.startswith("curl ")]
+    return {match for call in curls for match in re.findall(r"\w+://[^/\s]+", call)}
 
 
 @pytest.mark.parametrize("where", ["primary", "slot"])
 def test_seed_fixture_dials_127_0_0_1(tmp_path, where):
-    checkout = slot_dir(tmp_path, 3) if where == "slot" else tmp_path / "Conventioner"
-    dialled = seed_dials(checkout, tmp_path)
+    if where == "slot":
+        dialled = seed_dials(slot_dir(tmp_path, 3), tmp_path)
+    else:
+        dialled = seed_dials(tmp_path / "Conventioner", tmp_path, "--primary")
     assert dialled and all(url.startswith("https://127.0.0.1:") for url in dialled), dialled
 
 
@@ -167,7 +140,7 @@ def test_the_clients_dial_the_ports_the_primary_stack_publishes(tmp_path):
     ports = published_ports(*PRIMARY)
     identity = stack_identity(tmp_path, CI="1")
     assert (identity["backendPort"], identity["frontendPort"]) == (ports["backend"][0], ports["frontend"][0])
-    assert seed_dials(tmp_path / "Conventioner", tmp_path) == {f"https://127.0.0.1:{ports['backend'][0]}"}
+    assert seed_dials(tmp_path / "Conventioner", tmp_path, "--primary") == {f"https://127.0.0.1:{ports['backend'][0]}"}
 
 
 @compose

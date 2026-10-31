@@ -299,7 +299,7 @@ The frontend will start on: **[http://127.0.0.1:5173](http://127.0.0.1:5173)** (
 ## Step 6: Testing the Application
 
 > **Automated test suites and a one-command seed fixture are documented in [TESTING.md](./TESTING.md).**
-> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market), run `./scripts/seed_fixture.sh` from the repository root.
+> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market), run `./scripts/seed_fixture.sh --primary` from the repository root (in a treehouse worktree, without `--primary`; the script refuses to guess which stack, see [TESTING.md](./TESTING.md#quick-start-seed-fixture)).
 
 ### Create a Test User
 
@@ -315,7 +315,7 @@ That endpoint does not set `email_verified`, so the account it creates can never
 login failure does not say why.
 `create_test_user.py` sets it, which is why every test fixture goes through that script.
 
-Easier still, `./scripts/seed_fixture.sh` from the repository root creates two verified users, an
+Easier still, `./scripts/seed_fixture.sh --primary` from the repository root creates two verified users, an
 organization and a market in one command.
 
 ### The Full Workflow
