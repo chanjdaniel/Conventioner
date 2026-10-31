@@ -16,6 +16,7 @@ sources:
   - E39/F01/S04
   - E38/F08/S01
   - T142
+  - T148
 ---
 
 # Finding and opening markets
@@ -54,7 +55,8 @@ After sign-in the dashboard shows one of:
 The dashboard says a market is gone once, then forgets it, so the next visit is silent; saying nothing would greet an organizer whose only market is gone with "set up your first market".
 
 "Markets" and "Organizations" lead to those lists.
-Covered by: `dashboard-market-count.spec.ts`.
+The dashboard fits a phone, since sign-in lands there on the way to the door (T148): at 390px nothing scrolls sideways or zooms out, the card or the sentence fills the window less a 16px gutter at each side, Markets and Organizations stand side by side under it, every action is a 44px target, and for a returning organizer the tiles hold still while the markets answer is on its way.
+Covered by: `dashboard-market-count.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
 
 ## C2. The markets list
 

@@ -66,6 +66,8 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
+      // Signing in lands here, so it is the way to the door from a phone (T148), and fits one.
+      meta: { fitsAPhone: true },
     },
     {
       path: '/markets',

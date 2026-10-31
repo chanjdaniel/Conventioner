@@ -44,7 +44,7 @@ const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
  * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01),
- * Tools, and `/markets` with its dialogs (T142).
+ * Tools, `/markets` with its dialogs (T142), and the dashboard sign-in lands on (T148).
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -184,19 +184,19 @@ export const SCREENS: Screen[] = [
   {
     name: 'the dashboard',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/dashboard'), 'dashboard-has-markets'),
   },
   {
     name: 'the dashboard, remembering a long-named draft',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: dashboardRemembering('draft'),
   },
   {
     name: 'the dashboard, remembering a market in market days',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: dashboardRemembering('big'),
   },
   {
@@ -835,7 +835,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the dashboard, with no market',
     who: 'no organization',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/dashboard'), 'dashboard-no-market-yet'),
   },
   {
