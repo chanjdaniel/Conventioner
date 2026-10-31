@@ -13,6 +13,9 @@ import type { Page } from '@playwright/test';
  *   browser's own is left anywhere; a control with no shadow of its own may have a box around it
  *   wear the halo, as a market card does for its name. The halo is `--focus-halo` on a light
  *   ground and `--focus-halo-on-dark` on a dark one (the market bar, the vendor drawer's head).
+ * - The halo hugs what it marks: its corners are rounded, and a text control with no fill or
+ *   border is about as wide as its words, not the row it sits in.
+ * - A dialog's window, which AppDialog focuses when no control in it is ready, draws no outline.
  *
  * It presses Tab rather than calling `focus()`, since `:focus-visible` is what the keyboard gets.
  */
@@ -20,6 +23,9 @@ import type { Page } from '@playwright/test';
 /** The halos' outer colours, as the browser computes `--focus-halo` and `--focus-halo-on-dark`. */
 const HALO = 'rgba(54, 130, 111, 0.35)';
 const HALO_ON_DARK = 'rgba(255, 255, 255, 0.35)';
+
+/** How much wider than its words a text control's box may be: room for a marker before them. */
+const WORDS_SLACK = 24;
 
 /** The most Tab presses one state takes before its walk is cut short. */
 const MOST_PRESSES = 150;
@@ -76,7 +82,7 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
   for (let press = 0; press < MOST_PRESSES; press++) {
     await page.keyboard.press('Tab');
     const verdict = await page.evaluate(
-      ({ halo, haloOnDark }) => {
+      ({ halo, haloOnDark, wordsSlack }) => {
         const look = (window as unknown as { focusSweepLook: (el: Element) => string })
           .focusSweepLook;
         const el = document.activeElement as HTMLElement | null;
@@ -150,10 +156,43 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
         if (!worn) {
           const which = dark ? 'halo for a dark ground' : 'halo';
           problems.push(`a control drew no ${which}: box-shadow ${s.boxShadow}`);
+          return { id, name, problems };
+        }
+
+        // The halo hugs what it marks: rounded, and around a text control's words rather than
+        // the row it sits in.
+        let wearer: Element = el;
+        while (!wears(wearer) && wearer.parentElement) wearer = wearer.parentElement;
+        const w = getComputedStyle(wearer);
+        const corners = [
+          w.borderTopLeftRadius,
+          w.borderTopRightRadius,
+          w.borderBottomRightRadius,
+          w.borderBottomLeftRadius,
+        ];
+        if (corners.some((corner) => parseFloat(corner) === 0)) {
+          problems.push(`a halo with square corners: border-radius ${corners.join(' ')}`);
+        }
+        const unfilled = (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0;
+        const unbordered = ['top', 'right', 'bottom', 'left'].every(
+          (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
+        );
+        if (wearer === el && unfilled && unbordered) {
+          const words = document.createRange();
+          words.selectNodeContents(el);
+          const room =
+            box.width -
+            parseFloat(w.paddingLeft) -
+            parseFloat(w.paddingRight) -
+            words.getBoundingClientRect().width;
+          // A marker drawn before the words, as a disclosure's is, takes about 16px.
+          if (room > wordsSlack) {
+            problems.push(`a text control's halo runs ${Math.round(room)}px past its words`);
+          }
         }
         return { id, name, problems };
       },
-      { halo: HALO, haloOnDark: HALO_ON_DARK },
+      { halo: HALO, haloOnDark: HALO_ON_DARK, wordsSlack: WORDS_SLACK },
     );
     if (!verdict) continue;
     if (seen.has(verdict.id)) break;
@@ -172,11 +211,52 @@ const focusTest = test.extend<{ check: Check }>({
       const { failures, checked } = await walkByTab(page, state);
       // A state that draws keyboard stops and was walked to none of them proves nothing.
       if (stops > 0) expect(checked, `${state}: Tab reached nothing`).toBeGreaterThan(0);
-      expect(failures).toEqual([]);
+      expect([...failures, ...(await windowsFocused(page, state))]).toEqual([]);
     });
   },
 });
 
+/**
+ * Focuses each dialog window the state shows, as AppDialog does when it opens with no control
+ * ready, and says which drew an outline. Focus moved by a script after a Tab is `:focus-visible`,
+ * so the window is focused as a keyboard user's would be.
+ */
+async function windowsFocused(page: Page, state: string): Promise<string[]> {
+  return page.evaluate((state) => {
+    const failures: string[] = [];
+    for (const win of document.querySelectorAll<HTMLElement>("[role='dialog'][tabindex='-1']")) {
+      win.focus();
+      if (!win.matches(':focus-visible')) {
+        failures.push(`${state}: a dialog window was focused, but not as a keyboard user's`);
+        continue;
+      }
+      const s = getComputedStyle(win);
+      if (s.outlineStyle !== 'none' && s.outlineWidth !== '0px') {
+        failures.push(
+          `${state}: a dialog window drew an outline: ${s.outlineStyle} ${s.outlineWidth}`,
+        );
+      }
+    }
+    return failures;
+  }, state);
+}
+
 test.describe('Focus shows on controls only, as the soft halo', () => {
   walkTheScreens(focusTest, { everySize: false });
+
+  // AppDialog focuses its window when no control is ready to take focus, as Manage market's is
+  // not while its market loads; the browser drew its own ring around the whole window.
+  test('a dialog opened from the keyboard draws no ring around its window', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+    const manage = page.getByTestId('market-card-manage-button').first();
+    await manage.waitFor();
+    await manage.focus();
+    await page.keyboard.press('Enter');
+    const win = page.getByTestId('manage-market-window');
+    await expect(win).toBeFocused();
+    expect(await win.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+    await expect(win).toHaveCSS('outline-style', 'none');
+  });
 });

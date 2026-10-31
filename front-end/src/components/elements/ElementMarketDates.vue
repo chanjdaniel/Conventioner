@@ -428,8 +428,8 @@ const indexOf = computed(() => {
   border-radius: 0;
 }
 
+/* As wide as its words, so its focus halo hugs them rather than the line. */
 .dates-month-name {
-  flex: 1;
   padding: 0;
   border: none;
   background: none;

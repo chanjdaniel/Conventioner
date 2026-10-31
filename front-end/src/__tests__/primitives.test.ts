@@ -206,6 +206,22 @@ describe('the primitives exist and own what tokens cannot', () => {
     }
   });
 
+  it("rounds every control's halo, below any radius the control sets", () => {
+    // A text button or link has no corners, so its halo was a hard rectangle around the words.
+    expect(
+      declaration(
+        ":where(a, button, summary, [role='button'], [tabindex='0']):focus-visible",
+        'border-radius',
+      ),
+    ).toBe('var(--radius-control)');
+  });
+
+  it('draws no ring around what only a script focuses, such as a dialog window', () => {
+    // AppDialog focuses its `tabindex="-1"` window when no control is ready, and the browser drew
+    // its own ring around the whole window for a keyboard user.
+    expect(declaration(":where([tabindex='-1']):focus", 'outline')).toBe('none');
+  });
+
   it('owns the add-row control, so five files stop owning a copy of it', () => {
     // `.add-container` was used by four plan cards and styled in none of them - where the plus
     // looked centred, it was centred by accident of a parent flex column. Beside it,

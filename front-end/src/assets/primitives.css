@@ -375,10 +375,17 @@ summary:focus-visible,
   box-shadow: var(--focus-halo);
 }
 
-/* A text link has no corners of its own, so its halo would be a hard rectangle around the words.
-   `:where` keeps this below any link that sets a radius, so a styled link keeps its shape. */
-:where(a):focus-visible {
+/* A text link or a text button has no corners of its own, so its halo would be a hard rectangle
+   around the words. `:where` keeps this below any control that sets a radius, so it keeps its shape. */
+:where(a, button, summary, [role='button'], [tabindex='0']):focus-visible {
   border-radius: var(--radius-control);
+}
+
+/* What a script focuses and Tab never reaches (`tabindex="-1"`) is not a control: AppDialog's
+   window, which takes focus when no control in it is ready. It draws nothing, not even the
+   browser's own ring. A control among them, such as a menu item, still wears the halo above. */
+:where([tabindex='-1']):focus {
+  outline: none;
 }
 
 /* ============================================================================================
