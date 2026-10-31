@@ -7,6 +7,7 @@ describes:
   - front-end/e2e/helpers/mongo.ts
   - front-end/e2e/helpers/marketScreens.ts
   - front-end/e2e/helpers/upcoming.ts
+  - front-end/e2e/helpers/discord.ts
   - front-end/e2e/helpers/settledPlanChanged.ts
   - front-end/e2e/helpers/seeds.ts#SEED_MARKET_DATE
   - front-end/e2e/helpers/seeds.ts#completePlan
@@ -28,6 +29,7 @@ sources:
   - T45
   - T75
   - E38/F05/S01
+  - E42/F01/S05
   - T121
 ---
 
@@ -67,6 +69,8 @@ Specs no longer plant a market in `localStorage`; nothing about a market is stor
 **A spec shells into Mongo through `mongoEval`** ([`helpers/mongo.ts`](../../../front-end/e2e/helpers/mongo.ts)), never its own `docker exec`: the container, the address and the flags were once copied into fifteen files.
 It is for what no endpoint does: a document shaped as an older build wrote it, a token only an email carries, a state a rule now forbids reaching.
 The container name comes from `helpers/containerNames.ts` (`E2E_MONGO_CONTAINER` overrides it), resolved from [the stack's identity](ci-and-the-gate.md#stack-identity).
+
+**Discord stands outside the stack**, which runs without its values, so a spec that needs it mocks it where the browser meets it with [`helpers/discord.ts`](../../../front-end/e2e/helpers/discord.ts): `connectDiscord` writes the card's choices, and `mockDiscordCheck` says Discord is set up and answers "Check Discord", keeping the states on the market as the check does ([the Discord connection](../modules/discord.md#who-is-in-the-server)).
 
 ## Market dates and plans
 

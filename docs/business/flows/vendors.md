@@ -23,6 +23,7 @@ sources:
   - E42/F01/S02
   - E42/F01/S03
   - E41/F01/S01
+  - E42/F01/S05
   - E38/F08/S02
   - T139
   - E46/F01/S03
@@ -66,25 +67,27 @@ Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff scr
 
 ## J15. Export the vendors to a CSV
 
-**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`).
+**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`; the Discord columns E42/F01/S05, `exporting-discord-columns.spec.ts`, against a mocked Discord).
 For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
 
-1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; and the search.
+1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; the page's Discord state as the vendors in it; and the search.
    The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
-2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; and the options of each of the form's choice questions, any of which the vendor chose.
-3. The columns are ticked under three headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none) and "Assignment".
+2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; once a Discord check has run, the Discord state, any of Has the role, In the server, Not found and No username, none ticked being any; and the options of each of the form's choice questions, any of which the vendor chose.
+3. The columns are ticked under four headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions), "Assignment" and "Discord", each heading left out when it has no column.
    Name, Email and Status are ticked to begin with.
 4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates assigned", how many of the market's dates they hold one on.
    The seats are the stored placements the Assignments page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
-5. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
-6. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
-7. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
+5. "Discord" holds what the market knows of each vendor there (E42/F01/S05): "Discord username", the answer to the Discord card's username question as updated, tidied as the check reads it (lowercase, with no leading `@` or old `#1234` tag, so a mail merge never quotes `'@name`), offered while the card names one of the form's text questions, and then listed here rather than under "Answers"; "Discord state", what the last check found, in the page's words, empty for a vendor the last check did not read (one who applied since, or a waitlist application), offered once a check has run; and "Discord invite link", the card's link on every row, offered when it holds one.
+   So "please fix your Discord username" is one export: "Not found" on the page, Export, and tick the username ([who is in the server](../../implementation/modules/discord.md#who-is-in-the-server)).
+6. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
+7. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
+8. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
 
-The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, and a seat is read from the stored placements the Assignments page draws.
+The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, a seat is read from the stored placements the Assignments page draws, and a Discord state from what the last check kept on the market.
 An answer an organizer updated is exported, and filtered on, as updated ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
 No column set is saved between exports yet.
-Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
+Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-discord-columns.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
 
 ## J16. See who is in the Discord server
 
@@ -93,7 +96,7 @@ On a market connected to a Discord server with a username question chosen ([the 
 
 1. "Check Discord", above the list, for an Admin or the owner (the table's "Connect Discord and give roles" row), reads the server's members and matches each vendor's username to theirs, by username alone, never a display name; it reads "Checking Discord…" while it runs.
 2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username".
-3. The "Discord" filter lists the vendors in one state, each state with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email.
+3. The "Discord" filter lists the vendors in one state, each state with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email, and Export opens on it ([J15](#j15-export-the-vendors-to-a-csv)).
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
 A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, or the bot is no longer in the server.

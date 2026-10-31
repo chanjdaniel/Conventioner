@@ -708,6 +708,62 @@ class TestCheckingWhoIsInTheServer:
 
         assert "vendorStates" not in _stored(world) and "checkedAt" not in _stored(world)
 
+    def test_choosing_another_username_question_forgets_the_check(self, client, world):
+        """The states were read against the old question's answers (T157 review note 3)."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+        _check(client)
+
+        response = client.put(f"/markets/{MARKET}/discord", json={"usernameQuestion": "shop"})
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(world)["usernameQuestion"] == "shop"
+        assert "vendorStates" not in _stored(world) and "checkedAt" not in _stored(world)
+
+    def test_restating_the_username_question_keeps_the_check(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/discord",
+                   json={"usernameQuestion": "discord_username", "inviteLink": ""})
+
+        assert _states(world) == {maple: "not_found"}
+
+    def test_a_check_finishing_while_another_question_is_chosen_is_forgotten(self, client, world):
+        """The card's write must forget the check's fields whatever the connection it read held."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple")
+        load = MarketsApi._load_market_to_change
+
+        def loaded_then_checked(*args, **kwargs):
+            market = load(*args, **kwargs)
+            world.markets.doc["discord"] = {
+                **CONNECTED, "checkedAt": "2026-10-31T12:00:00+00:00",
+                "vendorStates": [{"applicationId": maple, "state": "not_found"}]}
+            return market
+
+        world.patch.setattr(MarketsApi, "_load_market_to_change", loaded_then_checked)
+
+        client.put(f"/markets/{MARKET}/discord", json={"usernameQuestion": "shop"})
+
+        assert _stored(world)["usernameQuestion"] == "shop"
+        assert "vendorStates" not in _stored(world) and "checkedAt" not in _stored(world)
+
+    def test_reconnecting_with_the_question_gone_forgets_the_check(self, client, world):
+        """Connecting again to the same server chooses a question afresh when the form lost the
+        old one, and the states read against the old one go with it."""
+        world.market(discord={**CONNECTED, "usernameQuestion": "gone",
+                              "checkedAt": "2026-10-31T12:00:00+00:00",
+                              "vendorStates": [{"applicationId": "app-maple",
+                                                "state": "not_found"}]},
+                     **WITH_THE_FORM)
+
+        assert _connect(client).status_code == 200
+
+        assert _stored(world)["usernameQuestion"] == "discord_username"
+        assert "vendorStates" not in _stored(world) and "checkedAt" not in _stored(world)
+
     def test_disconnecting_forgets_the_check(self, client, world):
         world.market(discord=CONNECTED, **WITH_THE_FORM)
         world.applicant("maple@example.com", "maple")

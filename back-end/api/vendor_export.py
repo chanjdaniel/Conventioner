@@ -1,4 +1,5 @@
-"""The market's vendors, exported to a CSV (E42/F01/S01, its placement columns S02).
+"""The market's vendors, exported to a CSV (E42/F01/S01, its placement columns S02, its Discord
+columns S05).
 
 An organizer exports the vendors a page shows, choosing the columns, as a file for a Google Sheet and
 a mail merge (YAMM). The dialog that asks starts from the page's filters; the file is built here from
@@ -9,6 +10,9 @@ A vendor is an application of the market, one row each, whatever its status: the
 exported as well as the assignment's. Where they sit is read from the stored placements the
 Assignments page draws (``derive_market_table_rows``), pins and seats moved by hand included, so a
 filter on a seat finds what that page shows, and each date's seat columns export it.
+
+Who is in the market's Discord server is read from what the last "Check Discord" kept on the market
+(``api.discord_connection``), so a filter on a state finds the vendors the Vendors page shows in it.
 
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
@@ -22,12 +26,13 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
+import api.discord_connection as DiscordApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
 import essential_fields as EssentialFields
 from assignment.csv_output import as_text_cell
 from client_errors import BadRequestError
-from datatypes import Application, ApplicationStatus, FormField, Market
+from datatypes import Application, ApplicationStatus, DiscordConnection, FormField, Market
 from utils.email_address import normalized_email
 from utils.request_body import string_field
 
@@ -95,6 +100,7 @@ GROUPS: List[Tuple[str, str]] = [
     ("vendor", "Vendor"),
     ("answers", "Answers"),
     ("assignment", "Assignment"),
+    ("discord", "Discord"),
 ]
 
 
@@ -108,10 +114,12 @@ class Column:
 
 @dataclass
 class Vendor:
-    """One application, and where it sits: ``{date: table row}``."""
+    """One application, where it sits (``{date: table row}``), and its Discord state as the last
+    check found it, None when no check has found it."""
 
     application: Application
     seats: Dict[str, Any] = field(default_factory=dict)
+    discord_state: Optional[str] = None
 
     @property
     def email(self) -> str:
@@ -145,12 +153,19 @@ def _answer_values(value: Any) -> List[str]:
 
 def _organizers_questions(market: Market) -> List[FormField]:
     """The form's own questions in the order it asks them: the essential ones are the plan's, and
-    the two names among them are columns of their own."""
+    the two names among them are columns of their own, as is the Discord username's."""
     fields = market.application_form.fields if market.application_form else []
+    username_question = DiscordApi.asked_username_question(market)
     return sorted(
-        (f for f in fields if not f.key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX)),
+        (f for f in fields
+         if not f.key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX)
+         and f.key != username_question),
         key=lambda f: f.order,
     )
+
+
+def _discord(market: Market) -> DiscordConnection:
+    return market.discord or DiscordConnection()
 
 
 def _market_dates(market: Market) -> List[str]:
@@ -205,6 +220,39 @@ def _assignment_columns(market: Market) -> List[Column]:
     ]
 
 
+def _discord_columns(market: Market) -> List[Column]:
+    """What the market knows of its vendors on Discord (E42/F01/S05): the username its card's
+    question holds, as updated and tidied as the check reads it, while the form asks it; the state
+    the last check found, once one has run; and the invite link, when the card holds one, the same
+    on every row."""
+    connection = _discord(market)
+    columns = []
+    question = DiscordApi.asked_username_question(market)
+    if question:
+        columns.append(Column(
+            "discordUsername", "Discord username",
+            lambda vendor: DiscordApi.tidied_username(answer_text(vendor.answers.get(question))),
+            "discord"))
+    if connection.checked_at:
+        columns.append(Column(
+            "discordState", "Discord state",
+            lambda vendor: DiscordApi.STATE_LABELS.get(vendor.discord_state or "", ""),
+            "discord"))
+    if connection.invite_link:
+        link = connection.invite_link
+        columns.append(Column("discordInvite", "Discord invite link", lambda _vendor: link,
+                              "discord"))
+    return columns
+
+
+def offered_discord_states(market: Market) -> List[Dict[str, str]]:
+    """The states a vendor may be filtered by, once a check has found some."""
+    if not _discord(market).checked_at:
+        return []
+    return [{"id": state, "label": DiscordApi.STATE_LABELS[state]}
+            for state in DiscordApi.STATES]
+
+
 def offered_columns(market: Market) -> List[Column]:
     """Every column the market's vendors can be exported with, in the order the dialog lists them."""
     def answer(key: str) -> Callable[[Vendor], str]:
@@ -221,6 +269,7 @@ def offered_columns(market: Market) -> List[Column]:
             for question in _organizers_questions(market)
         ),
         *_assignment_columns(market),
+        *_discord_columns(market),
     ]
 
 
@@ -265,6 +314,7 @@ class Filters:
     and a size describe a seat, so they hold only of the vendors placed, and of the same seat.
     ``answers`` is a choice question's options, any of which the vendor chose. ``follow_ups_of`` is
     Mine, as the Applications tab has it: the follow-ups that address owns, the one exporting's.
+    ``discord`` is any of the states the last Discord check found.
     """
 
     statuses: Tuple[str, ...] = ()
@@ -276,6 +326,7 @@ class Filters:
     search: str = ""
     answers: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
     follow_ups_of: str = ""
+    discord: Tuple[str, ...] = ()
 
 
 def _text(body: Dict[str, Any], key: str, allowed: Optional[Tuple[str, ...]] = None) -> str:
@@ -315,6 +366,10 @@ def read_filters(body: Any, questions: List[Dict[str, Any]], requesting_user: st
             raise ExportInvalid("An answer filtered by is not a choice this market's form asks.")
         answers[key] = _strings(options, "answers")
 
+    discord = _strings(body.get("discord", []), "discord")
+    if any(state not in DiscordApi.STATES for state in discord):
+        raise ExportInvalid("The filter 'discord' is not one the export reads.")
+
     mine = body.get("mine", False)
     if not isinstance(mine, bool):
         raise ExportInvalid("The filter 'mine' is not one the export reads.")
@@ -329,6 +384,7 @@ def read_filters(body: Any, questions: List[Dict[str, Any]], requesting_user: st
         search=_text(body, "search"),
         answers=answers,
         follow_ups_of=normalized_email(requesting_user) if mine else "",
+        discord=discord,
     )
 
 
@@ -378,6 +434,8 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
         return False
     if not _placed_matches(vendor, filters):
         return False
+    if filters.discord and vendor.discord_state not in filters.discord:
+        return False
     for key, options in filters.answers.items():
         if options and not set(_answer_values(vendor.answers.get(key))) & set(options):
             return False
@@ -388,11 +446,14 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
 
 def _vendors(market: Market) -> List[Vendor]:
     """Every application of the market, newest first as the Vendors page lists them (a vendor added
-    by hand, never submitted, last), each with the seats the stored placements give them."""
+    by hand, never submitted, last), each with the seats the stored placements give them and the
+    Discord state the last check kept for it."""
     seats: Dict[str, Dict[str, Any]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
         for email in set(row.assignment):
             seats.setdefault(email.strip().lower(), {})[row.date] = row
+    discord_states = {
+        found.application_id: found.state for found in _discord(market).vendor_states or []}
 
     vendors = []
     for doc in ApplicationsApi.list_applications_for_market(market.id):
@@ -404,6 +465,7 @@ def _vendors(market: Market) -> List[Vendor]:
             continue
         vendor = Vendor(application)
         vendor.seats = seats.get(vendor.email, {})
+        vendor.discord_state = discord_states.get(application.id)
         vendors.append(vendor)
     return vendors
 
@@ -450,6 +512,7 @@ def preview(market_id: str, body: Any, requesting_user: str) -> Tuple[Dict[str, 
             "sections": [section.name for section in setup.sections] if setup else [],
             "tiers": [tier.name for tier in setup.tiers] if setup else [],
             "questions": offered_questions(export.market),
+            "discordStates": offered_discord_states(export.market),
         },
     }, 200
 
