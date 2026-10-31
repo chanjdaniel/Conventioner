@@ -135,7 +135,17 @@ for (const size of SIZES) {
       }
 
       // A vendor checked in at the door.
-      await press(attendance.row(VENDOR).getByTestId('attendance-check-in'));
+      const checkIn = attendance.row(VENDOR).getByTestId('attendance-check-in');
+      // The browser's tap highlight, a square light-blue box over the control, never paints over
+      // the control's own shape: the app's pressed and focus states show the tap. A screenshot
+      // cannot catch it, so its colour is read.
+      expect(
+        await checkIn.evaluate((el) =>
+          getComputedStyle(el).getPropertyValue('-webkit-tap-highlight-color'),
+        ),
+        'no tap highlight',
+      ).toBe('rgba(0, 0, 0, 0)');
+      await press(checkIn);
       await expect(attendance.status(VENDOR)).not.toHaveText('Not yet');
 
       // Their drawer, inside the window, each tab read.

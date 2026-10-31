@@ -221,6 +221,10 @@
  */
 html {
   scrollbar-gutter: stable;
+  /* No browser tap highlight (T142): on a touch screen it flashed a square light-blue box over a
+     tapped control, whatever its shape. It inherits, so it is said once; the control's own hover,
+     pressed (`.btn:active`) and focus states show the tap. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
