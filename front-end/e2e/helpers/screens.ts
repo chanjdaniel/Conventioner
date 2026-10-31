@@ -347,6 +347,39 @@ export const SCREENS: Screen[] = [
       'reviewers-dialog-window',
     ]),
   },
+  // The review divided between the organizer and another reviewer (E38/F07): the organizer lands
+  // on their share, which is all decided, and helps with the other's.
+  {
+    name: 'the review divided, my share at once',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(setup('dealt', 'applications'), 'applications-all-assigned-to'),
+  },
+  {
+    name: "the review divided, another's application in the drawer",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(
+      (seed) =>
+        `${setup('dealt', 'applications')(seed)}?reviewer=anyone&vendor=applicant0@example.com`,
+      'applications-all-drawer-dealt-warning',
+    ),
+  },
+  {
+    name: 'the review divided, my share done',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(oneByOne('dealt'), 'app-monitor-share-done'),
+  },
+  {
+    name: "the review divided, helping with another's share",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(oneByOne('dealt'), 'app-monitor-share-done', [
+      'app-monitor-help-others',
+      'app-monitor-dealt-warning',
+    ]),
+  },
   {
     name: 'applications open, the plan settled',
     who: 'organizer',
