@@ -68,9 +68,9 @@ watch(marketId, () => void loadVendors(), { immediate: true });
  */
 const vendors = computed(() => details.rows.value);
 /**
- * The server refused where vendors sit (T123), as it does while an approved application's answers
- * are incomplete: the applications are listed, and nothing on the page says who is placed or not -
- * no date count, no "Unassigned only", no filter by where they sit, no "N of M assigned".
+ * When the server cannot say where vendors sit (T123): the applications are listed, and nothing on
+ * the page says who is placed or not - no date count, no "Unassigned only", no filter by where they
+ * sit, no "N of M assigned".
  */
 const placementsRefused = computed(() => details.loaded.value && !details.placementsRead.value);
 const tableVendors = computed(() => vendors.value.filter((v) => v.needsATable));
