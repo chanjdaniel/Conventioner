@@ -76,3 +76,23 @@ describe('the organizations list', () => {
     again.resolve([OLD, NEW]);
   });
 });
+
+/** A read that failed says how, and offers to read again (E38/F11/S01). */
+describe('the organizations list, when its read fails', () => {
+  it('says the organizer seems offline, and Try again reads the list again', async () => {
+    fetchOrganizations.mockRejectedValueOnce({ isAxiosError: true, request: {} });
+    const wrapper = mount(OrganizationsView);
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="organizations-read-failed"]').text()).toContain(
+      'You seem to be offline. Check the connection and try again.',
+    );
+
+    fetchOrganizations.mockResolvedValueOnce([OLD]);
+    await wrapper.get('[data-testid="organizations-retry"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="organizations-read-failed"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Riverside Makers');
+  });
+});

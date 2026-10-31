@@ -17,6 +17,7 @@ import {
   viewMarkets,
 } from '@/utils/marketList';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import NewMarketOverlay from './NewMarketOverlay.vue';
 import ManageMarketOverlay from './ManageMarketOverlay.vue';
 
@@ -153,7 +154,12 @@ function handleNewClose() {
       <!-- Only before the first answer: a re-read after a dialog closes keeps the list and the finder
            on screen, rather than unmounting the control the organizer was using. -->
       <p v-if="loading && markets.length === 0" class="empty-state">Loading markets...</p>
-      <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
+      <ReadFailed
+        v-else-if="errorMessage"
+        name="markets"
+        :message="errorMessage"
+        @retry="loadMarkets"
+      />
       <p
         v-else-if="!loading && markets.length === 0"
         class="empty-state"
@@ -342,14 +348,9 @@ function handleNewClose() {
   padding-top: var(--space-6);
 }
 
-.empty-state,
-.error-state {
+.empty-state {
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
-}
-
-.error-state {
-  color: var(--mm-red);
 }
 
 /* The finder: search, organization and sort on one row that wraps when the room runs out, the

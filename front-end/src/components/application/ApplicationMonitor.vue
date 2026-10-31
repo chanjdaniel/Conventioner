@@ -39,6 +39,7 @@ import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
 import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue';
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
@@ -71,6 +72,8 @@ const props = defineProps<{
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
+/** The list's own read that failed, which Try again reads once more (E38/F11/S01). */
+const loadError = ref('');
 /** When the list was last read from the server (E38/F05/S03), and a refresh's own state. */
 const readAt = ref<number | null>(null);
 const refreshing = ref(false);
@@ -393,6 +396,7 @@ async function read(): Promise<string | null> {
   applications.value = fresh;
   readAt.value = Date.now();
   refreshError.value = '';
+  loadError.value = '';
   return up;
 }
 
@@ -401,6 +405,7 @@ async function loadApplications() {
   const mine = ++loads;
   loading.value = true;
   errorMessage.value = '';
+  loadError.value = '';
   helping.value = false;
   try {
     await read();
@@ -410,7 +415,7 @@ async function loadApplications() {
     else if (decides.value) await takeNext(null);
   } catch (err) {
     if (mine === loads) {
-      errorMessage.value = getApiErrorMessage(err, 'The applications could not be loaded.');
+      loadError.value = getApiErrorMessage(err, 'The applications could not be loaded.');
     }
   } finally {
     if (mine === loads) loading.value = false;
@@ -622,6 +627,12 @@ function submittedOn(app: Application): string {
       :failed="refreshError"
       @refresh="refresh"
     />
+    <ReadFailed
+      v-if="loadError"
+      name="applications"
+      :message="loadError"
+      @retry="loadApplications"
+    />
     <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
@@ -630,7 +641,7 @@ function submittedOn(app: Application): string {
 
     <!-- Said of a list that was read: under a failed load there is nothing to say it of. -->
     <template v-else-if="applications.length === 0">
-      <div v-if="!errorMessage" class="empty-state" data-testid="app-monitor-empty">
+      <div v-if="!errorMessage && !loadError" class="empty-state" data-testid="app-monitor-empty">
         No applications received yet.
       </div>
     </template>

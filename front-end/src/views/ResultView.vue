@@ -28,6 +28,7 @@ import { hasAssignment } from '@/utils/marketPage';
 import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
 import {
   FULL_TABLE,
@@ -454,7 +455,7 @@ function swapSeats(withEmail: string): void {
         <!-- The Assignments page (E22/F04/S04): how the assignment came out, then the tables it sits on,
              then who changed what. -->
         <ResultSummary v-if="market" :market="market" />
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+        <ReadFailed v-if="errorMessage" name="tables" :message="errorMessage" @retry="loadTables" />
 
         <template v-if="tablesShown">
           <div v-if="isLoading" class="status-message">Loading tables…</div>
@@ -925,12 +926,6 @@ function swapSeats(withEmail: string): void {
   text-transform: uppercase;
   color: var(--mm-text-muted-on-beige);
   letter-spacing: 0.6px;
-}
-
-.error-text {
-  margin: 0 0 var(--space-3);
-  color: var(--mm-red);
-  font-size: var(--text-sm);
 }
 
 /*

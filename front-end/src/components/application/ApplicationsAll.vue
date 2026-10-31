@@ -52,6 +52,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 
 const props = defineProps<{
   market: Market | null;
@@ -569,7 +570,7 @@ async function decideSelection() {
       </ul>
     </div>
 
-    <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
+    <ReadFailed v-if="errorMessage" name="applications" :message="errorMessage" @retry="load" />
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
     <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
     <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
@@ -824,15 +825,10 @@ async function decideSelection() {
   color: var(--mm-text-muted);
 }
 
-.all-error,
 .all-empty {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-}
-
-.all-error {
-  color: var(--mm-red);
 }
 
 .all-selection {
