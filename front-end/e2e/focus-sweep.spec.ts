@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
-import { walkTheScreens, type Check } from './helpers/screens';
+import { walkTheScreens, signIn, type Check } from './helpers/screens';
+import { marketScreenPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -37,13 +38,54 @@ interface Walk {
   stops: number;
 }
 
-/**
- * Installs the page's half of the sweep: how a box looks, and where a control's halo falls. Then
- * marks every field and the two boxes around it with how they look with nothing focused.
- */
-async function rememberFieldsAtRest(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const sweep = window as unknown as { focusSweepLook: (el: Element) => string };
+/** The page's half of the sweep, installed on `window` by `installTheSweep`. */
+interface SweepInPage {
+  /** How a box looks: its outline, shadow, border colours and fill. */
+  focusSweepLook: (el: Element) => string;
+  /** What cuts off the halo `wearer` draws outside its edge, or null when it is drawn whole. */
+  focusSweepClipper: (wearer: Element) => string | null;
+}
+
+/** Installs the page's half of the sweep: how a box looks, and what clips a control's halo. */
+async function installTheSweep(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const sweep = window as unknown as SweepInPage;
+    sweep.focusSweepClipper = (wearer) => {
+      // How far the halo reaches outside the edge: the widest of its rings not drawn inset.
+      const reach = Math.max(
+        0,
+        ...getComputedStyle(wearer)
+          .boxShadow.split(/,(?![^(]*\))/)
+          .filter((ring) => !ring.includes('inset'))
+          .map((ring) => Number(ring.match(/0px 0px 0px ([\d.]+)px/)?.[1] ?? 0)),
+      );
+      if (reach === 0) return null;
+      const halo = wearer.getBoundingClientRect();
+      // Up the chain of containing blocks: a box only clips what is placed inside it.
+      let child: Element = wearer;
+      for (let box = wearer.parentElement; box && box !== document.body; box = box.parentElement) {
+        const placed = getComputedStyle(child).position;
+        if (placed === 'fixed') return null;
+        const b = getComputedStyle(box);
+        if (placed === 'absolute' && b.position === 'static') continue;
+        child = box;
+        if (b.overflowX === 'visible' && b.overflowY === 'visible') continue;
+        // What `overflow` clips to: the box inside its border.
+        const edge = box.getBoundingClientRect();
+        const cut = [
+          halo.left - reach < edge.left + parseFloat(b.borderLeftWidth) - 0.5,
+          halo.right + reach > edge.right - parseFloat(b.borderRightWidth) + 0.5,
+          halo.top - reach < edge.top + parseFloat(b.borderTopWidth) - 0.5,
+          halo.bottom + reach > edge.bottom - parseFloat(b.borderBottomWidth) + 0.5,
+        ];
+        if (cut.some(Boolean)) {
+          const name = box.tagName.toLowerCase() + (box.className ? `.${box.className}` : '');
+          const sides = ['left', 'right', 'top', 'bottom'].filter((_, i) => cut[i]).join(' ');
+          return `${name} (overflow ${b.overflowX} ${b.overflowY}), at its ${sides}`;
+        }
+      }
+      return null;
+    };
     sweep.focusSweepLook = (el) => {
       const s = getComputedStyle(el);
       return [
@@ -58,6 +100,17 @@ async function rememberFieldsAtRest(page: Page): Promise<number> {
         s.backgroundColor,
       ].join(' | ');
     };
+  });
+}
+
+/**
+ * Marks every field and the two boxes around it with how they look with nothing focused, and
+ * says how many keyboard stops the state draws.
+ */
+async function rememberFieldsAtRest(page: Page): Promise<number> {
+  await installTheSweep(page);
+  return page.evaluate(() => {
+    const sweep = window as unknown as SweepInPage;
     (document.activeElement as HTMLElement | null)?.blur();
     for (const field of document.querySelectorAll('input, textarea, select')) {
       let el: Element | null = field;
@@ -83,8 +136,8 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
     await page.keyboard.press('Tab');
     const verdict = await page.evaluate(
       ({ halo, haloOnDark, wordsSlack }) => {
-        const look = (window as unknown as { focusSweepLook: (el: Element) => string })
-          .focusSweepLook;
+        const { focusSweepLook: look, focusSweepClipper: clipper } =
+          window as unknown as SweepInPage;
         const el = document.activeElement as HTMLElement | null;
         if (!el || el === document.body) return null;
         // Every transition run to its end, so what is read is the focused look, not a frame of it.
@@ -173,6 +226,8 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
         if (corners.some((corner) => parseFloat(corner) === 0)) {
           problems.push(`a halo with square corners: border-radius ${corners.join(' ')}`);
         }
+        const clippedBy = clipper(wearer);
+        if (clippedBy) problems.push(`a halo cut off by ${clippedBy}`);
         const unfilled = (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0;
         const unbordered = ['top', 'right', 'bottom', 'left'].every(
           (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
@@ -242,7 +297,40 @@ async function windowsFocused(page: Page, state: string): Promise<string[]> {
 }
 
 test.describe('Focus shows on controls only, as the soft halo', () => {
-  walkTheScreens(focusTest, { everySize: false });
+  const { seed } = walkTheScreens(focusTest, { everySize: false });
+
+  // The phase rail's menu items are no Tab stop, so the walk never reaches them: the arrow keys
+  // move among them. The menu's own box clips what is drawn past its edge, which hid their halo.
+  test("the phase rail's menu, worked from the keyboard, shows each item's halo whole", async ({
+    page,
+  }) => {
+    await signIn(page, 'organizer', seed());
+    await page.goto(marketScreenPath(seed().review.marketId, 'applications'));
+    const button = page.getByTestId('phase-rail-menu-button');
+    await button.waitFor();
+    await installTheSweep(page);
+    await button.focus();
+    await page.keyboard.press('Enter');
+    const items = page.locator('.rail-menu-item');
+    await expect(items.first()).toBeFocused();
+
+    const failures: string[] = [];
+    const count = await items.count();
+    for (let i = 0; i < count; i++) {
+      const item = items.nth(i);
+      await expect(item).toBeFocused();
+      const verdict = await item.evaluate((el, halo) => {
+        const s = getComputedStyle(el);
+        if (!el.matches(':focus-visible')) return "not focused as a keyboard user's";
+        if (!s.boxShadow.includes(halo)) return `no halo: box-shadow ${s.boxShadow}`;
+        const clippedBy = (window as unknown as SweepInPage).focusSweepClipper(el);
+        return clippedBy && `a halo cut off by ${clippedBy}`;
+      }, HALO);
+      if (verdict) failures.push(`${(await item.textContent())?.trim()}: ${verdict}`);
+      await page.keyboard.press('ArrowDown');
+    }
+    expect(failures).toEqual([]);
+  });
 
   // AppDialog focuses its window when no control is ready to take focus, as Manage market's is
   // not while its market loads; the browser drew its own ring around the whole window.

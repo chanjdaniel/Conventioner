@@ -1028,6 +1028,12 @@ function cancelPending() {
   background: var(--mm-beige);
 }
 
+/* Inside its edge: the menu's box clips its items to its rounded corners, and an item fills the
+   menu's width, so a halo drawn outside it is cut off. */
+.rail-menu-item:focus-visible {
+  box-shadow: var(--focus-halo-inset);
+}
+
 /* Destructive reads as destructive wherever it appears, and going back does not read as going
    on: `Reopen for Editing` was drawn as an advance. */
 .rail-menu-item--end {

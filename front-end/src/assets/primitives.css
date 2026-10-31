@@ -381,9 +381,15 @@ summary:focus-visible,
   border-radius: var(--radius-control);
 }
 
+/* Room for the halo when focus scrolls a control into view, so the edge of the scroller it sits in
+   does not cut the halo off: a dialog's window brings its last control only just into view. */
+:where(a, button, summary, [role='button'], [tabindex]) {
+  scroll-margin: var(--space-2);
+}
+
 /* What a script focuses and Tab never reaches (`tabindex="-1"`) is not a control: AppDialog's
    window, which takes focus when no control in it is ready. It draws nothing, not even the
-   browser's own ring. A control among them, such as a menu item, still wears the halo above. */
+   browser's own ring. A control among them, such as a menu item, still wears a halo. */
 :where([tabindex='-1']):focus {
   outline: none;
 }

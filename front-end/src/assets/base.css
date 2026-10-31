@@ -172,6 +172,9 @@
      longer soft); on the green primary button the white gap is 4.59 against its fill. A field shows
      no focus (primitives.css). `contrast.test.ts` computes each figure here. */
   --focus-halo: 0 0 0 2px white, 0 0 0 5px rgba(54, 130, 111, 0.35);
+  /* The same halo drawn inside the control's edge, for one whose box clips what lies past it: the
+     phase rail's menu items, inside the menu's rounded box. */
+  --focus-halo-inset: inset 0 0 0 2px white, inset 0 0 0 5px rgba(54, 130, 111, 0.35);
   /* The halo on a dark ground (the market bar, the vendor drawer's head): white at 35%, 3.17:1 on
      `--mm-black`. The walk's prototype had 28%, at 2.53; 35% reaches 3:1 with the same look.
      `contrast.test.ts` computes it. */

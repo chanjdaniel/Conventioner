@@ -216,6 +216,14 @@ describe('the primitives exist and own what tokens cannot', () => {
     ).toBe('var(--radius-control)');
   });
 
+  it('leaves room for the halo when focus scrolls a control into view', () => {
+    // A dialog's window scrolled the export's last control only just into view, and cut its
+    // halo's lower edge off.
+    expect(
+      declaration(":where(a, button, summary, [role='button'], [tabindex])", 'scroll-margin'),
+    ).toBe('var(--space-2)');
+  });
+
   it('draws no ring around what only a script focuses, such as a dialog window', () => {
     // AppDialog focuses its `tabindex="-1"` window when no control is ready, and the browser drew
     // its own ring around the whole window for a keyboard user.
