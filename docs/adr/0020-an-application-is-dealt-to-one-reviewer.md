@@ -11,6 +11,7 @@ sources:
   - E38/F07/S01
   - E38/F07/S02
   - E38/F07/S03
+  - E38/F07/S04
 status: accepted
 ---
 
@@ -70,6 +71,7 @@ One application's story is the history narrowed to its vendor, in the vendor dra
 - A chosen reviewer who loses their role on the market, or whose role the table no longer lets be chosen, is skipped by every deal and served as not `able` until an Admin removes them: removing someone is always a person's act, recorded, never a side effect of a role taken away.
 - Being chosen is read off the market's team by address at every check, so removing a reviewer takes their verdicts away at once, with no role to take back.
 - A verdict on someone else's share is not refused: dividing the review is a soft filter, and the warning is the screen's.
+- The share is also the order a chosen reviewer is handed cards in: `review/next` hands them the open applications dealt to them first, and with `mineOnly` nothing else, so One by one can say their share is done before offering the rest (`claim_next_for_review`, E38/F07/S04); for anyone else the hand-out is first come, first served.
 - A change of reviewers can answer 409 ("The reviewers are being dealt applications right now. Try again in a moment.") when another deal holds the market longer than it waits; an arrival never does, since it leaves its application to whoever holds the market.
 
 ## Considered and rejected

@@ -30,6 +30,11 @@ function dealtTo(application: Dealt, market: Team): string | null {
   return application.reviewer?.email || null;
 }
 
+/** Whether the reader is one of the chosen reviewers, able or not. */
+export function isChosen(reader: string, market: Team): boolean {
+  return reviewerAddresses(market).some((address) => same(address, reader));
+}
+
 /** "Reviewer: sam@example.com", or "Reviewer: you" for the reader's own; null when not dealt. */
 export function reviewerLine(application: Dealt, reader: string, market: Team): string | null {
   const reviewer = dealtTo(application, market);
@@ -79,9 +84,8 @@ export function assignedToOptions(
 ): Array<{ value: AssignedTo; label: string }> {
   const reviewers = reviewerAddresses(market);
   if (!reviewers.length) return [];
-  const chosen = reviewers.some((address) => same(address, reader));
   return [
-    ...(chosen ? [{ value: 'me', label: 'Me' }] : []),
+    ...(isChosen(reader, market) ? [{ value: 'me', label: 'Me' }] : []),
     { value: 'anyone', label: 'Anyone' },
     ...reviewers
       .filter((address) => !same(address, reader))
@@ -106,4 +110,20 @@ export function assignedTo(asked: unknown, reader: string, market: Team): Assign
 export function assignedAddress(choice: AssignedTo | null, reader: string): string | null {
   if (!choice || choice === 'anyone') return null;
   return choice === 'me' ? reader : choice;
+}
+
+/**
+ * The reader's share of what One by one walks (E38/F07/S04): the applications dealt to them, while
+ * they are one of the chosen reviewers; none for anyone else, or with nobody chosen.
+ */
+export function myShare<T extends Dealt>(queue: T[], reader: string, market: Team): T[] {
+  if (!isChosen(reader, market)) return [];
+  return queue.filter((app) => same(dealtTo(app, market) ?? '', reader));
+}
+
+/** What One by one says when the reader's share is done, of the open ones dealt to others. */
+export function othersLeftLine(count: number): string {
+  return count === 1
+    ? '1 open application is dealt to another reviewer. You can help with it; its history will say you decided it.'
+    : `${count} open applications are dealt to other reviewers. You can help with them; each one's history will say you decided it.`;
 }

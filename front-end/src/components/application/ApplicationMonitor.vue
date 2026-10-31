@@ -15,7 +15,8 @@
  * `reviewer_approved` and nothing else).
  * The automatic rejections take the clear-cut cases first (E33/F03).
  * With reviewers chosen, the card names whose share it is, and deciding someone else's says so above
- * the verdicts (E38/F07/S03).
+ * the verdicts (E38/F07/S03). A chosen reviewer is handed their own share first, and once it is done
+ * is offered the rest (E38/F07/S04).
  */
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -42,7 +43,14 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
-import { dealtElsewhere, dealtWarning, reviewerLine } from '@/utils/reviewers';
+import {
+  dealtElsewhere,
+  dealtWarning,
+  isChosen,
+  myShare,
+  othersLeftLine,
+  reviewerLine,
+} from '@/utils/reviewers';
 import { useMarketStore } from '@/stores/market';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
@@ -102,10 +110,15 @@ const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.
  * on - it may have left the queue, and the reviewer is owed the sight of what happened to it.
  */
 const refusedOn = ref<string | null>(null);
+/**
+ * The last hand-out answered with nothing (E34/F03/S02): no card is up for a reviewer, and the card
+ * area says why - every one left is open with someone else, or their share is done (E38/F07/S04).
+ */
+const handedNothing = ref(false);
 const current = computed<Application | undefined>(
   () =>
     (refusedOn.value ? applications.value.find((a) => a.id === refusedOn.value) : undefined) ??
-    undecided.value[cursor.value],
+    (handedNothing.value && decides.value ? undefined : undecided.value[cursor.value]),
 );
 /**
  * Changed from HERE, not only from the form builder (E19/F03/S02).
@@ -206,6 +219,38 @@ const currentDealtElsewhere = computed(() =>
     : null,
 );
 /**
+ * A chosen reviewer who decides is handed their own share first (E38/F07/S04): what is left of it,
+ * and the rest of the queue. Anyone else, or everyone with nobody chosen, walks the whole queue.
+ */
+const sharing = computed(() => decides.value && isChosen(me.value, props.market));
+const share = computed(() =>
+  sharing.value ? myShare(undecided.value, me.value, props.market) : [],
+);
+const others = computed(() => undecided.value.filter((app) => !share.value.includes(app)));
+/** Pressed "Help with the others": the hand-out goes on past their share. Entering forgets it. */
+const helping = ref(false);
+/** Asking for the share alone, until the reviewer chooses to help with the rest. */
+const mineOnly = computed(() => sharing.value && !helping.value);
+/** What the reviewer walks now: their share, or the whole queue. */
+const walked = computed(() => (mineOnly.value ? share.value : undecided.value));
+/** Their share has nothing left to decide and others' do: said so, with the offer to help. */
+const shareDone = computed(
+  () => mineOnly.value && handedNothing.value && !share.value.length && others.value.length > 0,
+);
+/** Where the card up is in what the reviewer walks, or how many are left with none up. */
+const progress = computed(() => {
+  const card = current.value;
+  if (!undecided.value.length) return null;
+  if (!card) return `${undecided.value.length} to review`;
+  const inShare = share.value.findIndex((app) => app.id === card.id);
+  if (inShare >= 0) return `${inShare + 1} of ${share.value.length} in your share`;
+  const inRest = others.value.findIndex((app) => app.id === card.id);
+  return inRest >= 0
+    ? `${inRest + 1} of ${others.value.length} to review`
+    : `${cursor.value + 1} of ${undecided.value.length} to review`;
+});
+
+/**
  * Whom the card's "Followed up by" offers: the people a follow-up can be handed to, led by its
  * recorded owner when they are not among them (T15). An Editor from outside the organization is
  * offered only the market's roles, so an organization admin who owns the follow-up would match no
@@ -221,12 +266,22 @@ const ownerChoices = computed(() => {
  * cards. Someone who may only read walks the queue here, as before, holding nothing.
  */
 const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
-/** Every card left is open with another reviewer: there is nothing to hand out right now. */
-const allHeldElsewhere = ref(false);
+/** Every card left - of their share, while on it - is open with another reviewer. */
+const allHeldElsewhere = computed(
+  () => handedNothing.value && !shareDone.value && walked.value.length > 0,
+);
 /** Who holds the cards nobody can be handed, for the line that says so. */
 const holders = computed(() => [
-  ...new Set(undecided.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
+  ...new Set(walked.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
 ]);
+// Taking the follow-ups into the walk, or leaving them out, changes what can be handed out: with no
+// card up, or the one held left out of the queue, the reviewer is handed the next.
+watch(includeFollowUps, () => {
+  const held = claims.held.value;
+  const heldLeftOut = held !== null && !undecided.value.some((app) => app.id === held);
+  if (decides.value && (handedNothing.value || heldLeftOut)) void takeNext(held);
+});
+
 /** Someone else has the card on screen open: a reader's walk passes cards being decided. */
 const heldByOther = computed(() => {
   const holder = current.value?.heldBy?.email;
@@ -287,14 +342,14 @@ async function takeNext(after: string | null, want: string | null = null) {
   }
   const mine = ++handing;
   try {
-    const app = await claims.next(after, includeFollowUps.value, want);
+    const app = await claims.next(after, includeFollowUps.value, want, mineOnly.value);
     // Overtaken by a later hand-out, or the review was left: its card is not the one to put up.
     if (app === undefined) return;
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else await read();
     if (mine !== handing) return;
-    allHeldElsewhere.value = !app && undecided.value.length > 0;
+    handedNothing.value = !app;
     cursor.value = app
       ? Math.max(
           undecided.value.findIndex((a) => a.id === app.id),
@@ -305,6 +360,12 @@ async function takeNext(after: string | null, want: string | null = null) {
     if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
   }
+}
+
+/** "Help with the others": on past the reviewer's done share, through the rest (E38/F07/S04). */
+function helpOthers() {
+  helping.value = true;
+  void takeNext(null);
 }
 
 /**
@@ -326,6 +387,7 @@ async function loadApplications() {
   const mine = ++loads;
   loading.value = true;
   errorMessage.value = '';
+  helping.value = false;
   try {
     await read();
     if (mine !== loads) return;
@@ -434,7 +496,7 @@ function next() {
     void takeNext(after);
     return;
   }
-  if (undecided.value.length === 0 && !allHeldElsewhere.value) return;
+  if (undecided.value.length === 0 && !handedNothing.value) return;
   void takeNext(current.value?.id ?? null);
 }
 
@@ -562,9 +624,7 @@ function submittedOn(app: Application): string {
     <template v-else>
       <div class="progress-row">
         <span class="progress" data-testid="app-monitor-progress">
-          <template v-if="undecided.length">
-            {{ cursor + 1 }} of {{ undecided.length }} to review
-          </template>
+          <template v-if="progress">{{ progress }}</template>
           <template v-else-if="followingUp.length">Nothing else waiting</template>
           <template v-else>All {{ applications.length }} reviewed</template>
         </span>
@@ -753,7 +813,7 @@ function submittedOn(app: Application): string {
           </button>
           <button
             class="btn btn--secondary"
-            :disabled="saving || (!refusedOn && undecided.length < 2)"
+            :disabled="saving || (!refusedOn && walked.length < 2)"
             @click="next"
             data-testid="app-monitor-next-button"
           >
@@ -769,6 +829,20 @@ function submittedOn(app: Application): string {
             Approve <kbd>A</kbd>
           </button>
         </div>
+      </div>
+
+      <!-- The reviewer's share is decided: the rest are others', theirs to help with (E38/F07/S04). -->
+      <div v-else-if="shareDone" class="done-state" data-testid="app-monitor-share-done">
+        <p class="share-done">Your share is done.</p>
+        <p data-testid="app-monitor-share-done-others">{{ othersLeftLine(others.length) }}</p>
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="app-monitor-help-others"
+          @click="helpOthers"
+        >
+          Help with the others
+        </button>
       </div>
 
       <!-- Nothing to hand out: every card left is open with someone else (E34/F03/S02). -->

@@ -187,3 +187,26 @@ describe('a verdict on the card', () => {
     wrapper.unmount();
   });
 });
+
+describe('taking the follow-ups out', () => {
+  it('hands out the next card when the one held leaves the walk', async () => {
+    const fay = { ...application('fay'), status: ApplicationStatus.NeedsFollowUp };
+    fetchMarketApplications.mockResolvedValue([fay, BEN]);
+    api.post.mockResolvedValueOnce({ data: { application: BEN } });
+    const wrapper = mount(ApplicationMonitor, { props: { market, visible: true } });
+    await flushPromises();
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    api.post.mockResolvedValueOnce({ data: { application: fay } });
+    await wrapper.get('[data-testid="app-monitor-next-button"]').trigger('click');
+    await flushPromises();
+    expect(shown(wrapper)).toBe('fay@example.com');
+
+    api.post.mockResolvedValueOnce({ data: { application: BEN } });
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(false);
+    await flushPromises();
+
+    expect(handOuts().at(-1)?.[1]).toMatchObject({ after: 'fay', includeFollowUps: false });
+    expect(shown(wrapper)).toBe('ben@example.com');
+    wrapper.unmount();
+  });
+});

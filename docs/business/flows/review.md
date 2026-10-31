@@ -73,11 +73,12 @@ Every verdict records who gave it and when, and the review shows it: "Approved b
 
 ## I1. Work through the queue
 
-**Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`; the card's reviewer and warning as of E38/F07/S03: `rowsNameTheirReviewer.test.ts`).
+**Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`; the card's reviewer and warning as of E38/F07/S03: `rowsNameTheirReviewer.test.ts`; a chosen reviewer's share first as of E38/F07/S04: `one-by-one-hands-out-my-share-first.spec.ts`).
 
 The queue is triage: one application at a time, carrying every answer it holds, decided from the keyboard, with progress counted, so each verdict is given on a person rather than on a population.
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
+   A chosen reviewer is handed their own share first, counted as "1 of N in your share" ([dividing the review](#dividing-the-review)).
 2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
    With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
@@ -88,14 +89,16 @@ The queue is triage: one application at a time, carrying every answer it holds, 
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
+6. When a chosen reviewer's share is empty and others' are not: "Your share is done.", "N open applications are dealt to other reviewers. You can help with them; each one's history will say you decided it." and "Help with the others", which goes on through the rest of the queue, "1 of N to review", each card carrying the warning; an application dealt to them meanwhile is still handed to them first.
 
 Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
 A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 If they approved or rejected it, the card offers a verdict only to someone who may change one (below), and tells a reviewer it refuses the row's sentence instead.
+A verdict on the card hands out the one after it in arrival order, even when Next had moved the reviewer ahead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 The card on screen is always the one the newest Next, verdict, refresh or load handed over: an answer that comes back late, after a later one was asked for, never puts its card up (the Next race, E38/F07/S04).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
-Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
+Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
 
 ## I2. Change a decision
 
@@ -135,7 +138,7 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 
 ## Dividing the review
 
-**Status:** Works (read from the code as of E38/F07/S04: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`, `the-all-view-opens-on-my-share.spec.ts`).
+**Status:** Works (read from the code as of E38/F07/S04: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`, `the-all-view-opens-on-my-share.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`).
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
@@ -148,6 +151,8 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.
    A reader who decides nothing sees the reviewer's name only, and with no reviewers chosen none of it shows.
 8. Each chosen reviewer lands on their own share: the All view opens on "Assigned to: Me", and anyone else's share, or everyone's, is a choice of the same filter away ([the All view](#the-all-view)).
+9. One by one hands a chosen reviewer who decides their own share first, in arrival order, and once it is empty says so and offers the rest with "Help with the others" (I1); when what is left of it is open with someone else, it says that instead.
+   Anyone else, or everyone with no reviewers chosen, walks the whole queue.
 
 ## I3. Choose what leads the card
 
