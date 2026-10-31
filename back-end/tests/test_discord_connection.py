@@ -219,6 +219,24 @@ class TestConnecting:
         assert _stored(world)["roleId"] == "r-vendor"
         assert _stored(world)["inviteLink"] == "https://discord.gg/abc123"
 
+    def test_a_check_finishing_while_connecting_to_the_same_server_is_kept(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+
+        def connected_server(_values, code, redirect_uri):
+            world.discord.codes.append((code, redirect_uri))
+            world.markets.doc["discord"]["checkedAt"] = "2026-10-31T12:00:00+00:00"
+            world.markets.doc["discord"]["vendorStates"] = [
+                {"applicationId": "app-maple", "state": "in_server"}]
+            return world.discord.server
+
+        world.patch.setattr(Discord, "connected_server", connected_server)
+
+        response = _connect(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(world)["checkedAt"] == "2026-10-31T12:00:00+00:00"
+        assert _stored(world)["vendorStates"] == [{"applicationId": "app-maple", "state": "in_server"}]
+
     def test_connecting_to_another_server_forgets_the_first_servers_role(self, client, world):
         world.market()
         _connect(client)
@@ -242,6 +260,24 @@ class TestTheCardsChoices:
 
         assert response.status_code == 200, response.get_json()
         assert (_stored(world)["roleId"], _stored(world)["roleName"]) == ("r-vendor", "Vendor Test")
+
+    def test_a_check_finishing_while_the_card_saves_is_kept(self, client, world):
+        world.market(discord=CONNECTED)
+
+        def server_roles(_values, guild):
+            world.markets.doc["discord"]["checkedAt"] = "2026-10-31T12:00:00+00:00"
+            world.markets.doc["discord"]["vendorStates"] = [
+                {"applicationId": "app-maple", "state": "in_server"}]
+            return world.discord.roles
+
+        world.patch.setattr(Discord, "server_roles", server_roles)
+
+        response = client.put(f"/markets/{MARKET}/discord", json={"roleId": "r-vendor"})
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(world)["roleId"] == "r-vendor"
+        assert _stored(world)["checkedAt"] == "2026-10-31T12:00:00+00:00"
+        assert _stored(world)["vendorStates"] == [{"applicationId": "app-maple", "state": "in_server"}]
 
     def test_a_role_above_the_bots_may_be_chosen(self, client, world):
         """The organizer decides the role (Q11); the card says to move the bot's role above it."""

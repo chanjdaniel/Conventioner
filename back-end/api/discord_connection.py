@@ -360,12 +360,18 @@ def _write(
     market: Market, before: DiscordConnection, after: DiscordConnection, kind: str,
     requesting_user: str,
 ) -> None:
-    stored = after.model_dump(exclude_none=True)
-    if stored:
-        update = {"$set": {market_doc_key("discord"): convert_keys_to_camel_case(stored)}}
-    else:
-        update = {"$unset": {market_doc_key("discord"): ""}}
-    MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
+    before_fields = before.model_dump()
+    update: Dict[str, Any] = {}
+    for field, value in after.model_dump().items():
+        if value == before_fields[field]:
+            continue
+        key = f"{market_doc_key('discord')}.{market_doc_key(field)}"
+        if value is None:
+            update.setdefault("$unset", {})[key] = ""
+        else:
+            update.setdefault("$set", {})[key] = convert_keys_to_camel_case(value)
+    if update:
+        MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
     History.record(market.id, requesting_user, Actions.CONNECT_DISCORD, kind=kind,
                    detail=lambda: History.changes(_recorded(market, before),
                                                   _recorded(market, after)))
