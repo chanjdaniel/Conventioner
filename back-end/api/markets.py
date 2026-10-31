@@ -45,6 +45,7 @@ from assignment.assignment import (
     assign_market,
     describe_stored_assignment,
     solver_vendors_for,
+    vendors_to_show,
 )
 from assignment.vendor_input import SolverVendor, outside_solver_vendors
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
@@ -1363,15 +1364,11 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
 
     # Keep persisted schema free of assignment statistics, then derive fresh.
     market.assignment_object.assignment_statistics = None
-    try:
-        # The vendors are read once and handed to both: the solver places them, and the
-        # reasons below are computed against the same set, so the two can never disagree
-        # about who applied.
-        vendors = solver_vendors_for(market)
-        assigned_market = assignment_to_show(market, vendors)
-    except IncompleteApplicationsError as incomplete:
-        # The organizer has to go and fix something, so say who.
-        return {"error": incomplete.message()}, 400
+    # The vendors are read once and handed to both: the stored seats are described against
+    # them, and the reasons below are computed against the same set, so the two can never
+    # disagree about who applied.
+    vendors = vendors_to_show(market)
+    assigned_market = assignment_to_show(market, vendors)
     stats = assigned_market.assignment_object.assignment_statistics
     if stats is None:
         return {"error": "The result's statistics could not be counted."}, 500
@@ -1580,12 +1577,8 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         return {"error": "Market has no setup configured"}, 400
 
     market.assignment_object.assignment_statistics = None
-    try:
-        vendors = solver_vendors_for(market)
-        assigned_market = assignment_to_show(market, vendors)
-    except IncompleteApplicationsError as incomplete:
-        # The organizer has to go and fix something, so say who.
-        return {"error": incomplete.message()}, 400
+    vendors = vendors_to_show(market)
+    assigned_market = assignment_to_show(market, vendors)
     assigned_market_dict = assigned_market.model_dump()
 
     csv_content = market_csv_to_string(
@@ -1695,17 +1688,13 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             return {"error": refused}, 403
 
     market.assignment_object.assignment_statistics = None
-    try:
-        vendors = solver_vendors_for(market)
-    except IncompleteApplicationsError as incomplete:
-        # The organizer has to go and fix something, so say who.
-        return {"error": incomplete.message()}, 400
+    vendors = vendors_to_show(market)
 
     # The STORED assignment, when the market has one. This is the screen an organizer edits
     # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
     # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
     # they pressed Assign, and every seat they moved a vendor into would be a seat they had
-    # never actually seen. A market with nothing stored still shows the run it would get.
+    # never actually seen. A market with nothing stored shows nobody placed.
     assigned_market = assignment_to_show(market, vendors)
 
     rows = derive_market_table_rows(assigned_market)
