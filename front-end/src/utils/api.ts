@@ -14,14 +14,54 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+export const OFFLINE_MESSAGE = 'You seem to be offline. Check the connection and try again.';
+export const SERVER_FAULT_MESSAGE = 'Something went wrong on our side. Try again in a moment.';
+export const SESSION_ENDED_MESSAGE = 'Your session has ended. Sign in again.';
+
+/** The sentence a refusal carries, when the server wrote one. */
+function sentenceOf(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const { error, message } = data as { error?: unknown; message?: unknown };
+  if (typeof error === 'string' && error) return error;
+  if (typeof message === 'string' && message) return message;
+  return null;
+}
+
 /**
- * Extract a human-readable message from a caught request error, falling back to
- * the provided default when the error is not an Axios error or carries no message.
+ * What a failed request says, chosen by its kind, and only here (E38/F11/S01).
+ *
+ * - No answer at all: the connection, whatever the screen was doing.
+ * - A 500: the server's fault, whatever its body says. The back end answers every unexpected
+ *   exception `{"error": "Internal server error"}`, 500, which is for logs, never an organizer.
+ * - Another 5xx: its own sentence when the back end wrote one (Discord's 502 and 503, which say
+ *   what is wrong in Conventioner's words), else the server's fault too (a proxy's 502 or 504).
+ * - A 401 with no sentence of its own (Flask-Login's): the session has ended. The response
+ *   interceptor below also takes the organizer to sign in again.
+ * - Any other refusal: its own sentence, a 401's included (the applicant's code check words its
+ *   own), else `fallback`, which a screen words as what did not happen ("The verdict was not
+ *   saved.").
+ *
+ * Anything that is not a request's failure reads as `fallback` too.
  */
 export function getApiErrorMessage(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err)) {
-    return err.response?.data?.error || err.response?.data?.message || fallback;
-  }
+  if (!axios.isAxiosError(err) || axios.isCancel(err)) return fallback;
+  return answerMessage(err.response, fallback);
+}
+
+/**
+ * `getApiErrorMessage` for an answer already in hand: none at all, or its status and its body,
+ * which a download reads out of the blob it asked for.
+ */
+export function answerMessage(
+  response: { status: number; data?: unknown } | undefined,
+  fallback: string,
+): string {
+  if (!response) return OFFLINE_MESSAGE;
+  if (response.status === 500) return SERVER_FAULT_MESSAGE;
+  const sentence = sentenceOf(response.data);
+  if (sentence) return sentence;
+  if (response.status >= 500) return SERVER_FAULT_MESSAGE;
+  if (response.status === 401) return SESSION_ENDED_MESSAGE;
   return fallback;
 }
 

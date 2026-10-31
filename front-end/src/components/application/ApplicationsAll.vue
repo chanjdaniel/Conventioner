@@ -88,7 +88,7 @@ async function load() {
   try {
     await read();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
+    errorMessage.value = getApiErrorMessage(err, 'The applications could not be loaded.');
   } finally {
     loading.value = false;
   }

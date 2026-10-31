@@ -57,7 +57,7 @@ async function loadMarkets() {
     );
     organizationsLoaded.value = loadedOrganizations.ok;
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load markets');
+    errorMessage.value = getApiErrorMessage(err, 'The markets could not be loaded.');
     markets.value = [];
   } finally {
     loading.value = false;

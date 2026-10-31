@@ -56,9 +56,9 @@ async function load(): Promise<void> {
   loadError.value = '';
   try {
     account.value = await loadAccount(props.marketId, props.email);
-  } catch {
+  } catch (err) {
     account.value = null;
-    loadError.value = 'Their payments could not be loaded.';
+    loadError.value = getApiErrorMessage(err, 'Their payments could not be loaded.');
   } finally {
     isLoading.value = false;
   }

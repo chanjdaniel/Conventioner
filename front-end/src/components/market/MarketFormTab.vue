@@ -241,7 +241,7 @@ async function saveApplicationForm() {
     }, 2000);
   } catch (err: unknown) {
     formSaveStatus.value = 'error';
-    formErrorMessage.value = getApiErrorMessage(err, 'Failed to save form');
+    formErrorMessage.value = getApiErrorMessage(err, 'The form was not saved.');
     // A 409 means the server locked the form under us; stop presenting the rejected edits as
     // editable, and put back the form applicants will actually see.
     if (getApiErrorStatus(err) === 409) {

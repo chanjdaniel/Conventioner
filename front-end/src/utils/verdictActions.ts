@@ -67,7 +67,7 @@ export function useVerdictActions(
         adopt(changed.application);
         return { kind: 'changed', application: changed.application, message: changed.message };
       }
-      return { kind: 'failed', message: getApiErrorMessage(err, 'Failed to update application') };
+      return { kind: 'failed', message: getApiErrorMessage(err, 'The verdict was not saved.') };
     }
   }
 

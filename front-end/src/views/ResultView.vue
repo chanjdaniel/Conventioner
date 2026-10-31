@@ -12,7 +12,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import { formatPrice } from '@/utils/pricing';
@@ -231,11 +231,7 @@ async function loadTables(): Promise<void> {
     vendorSearch.value = resp.data?.vendorSearch ?? {};
     vendors.value = Array.isArray(resp.data?.vendors) ? resp.data.vendors : [];
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    errorMessage.value = data?.error || 'Failed to load tables.';
+    errorMessage.value = getApiErrorMessage(err, 'The tables could not be loaded.');
     allRows.value = [];
     vendorNames.value = {};
     vendorSearch.value = {};
@@ -367,11 +363,7 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
       details.loaded.value ? details.load() : Promise.resolve(),
     ]);
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    placementError.value = data?.error || 'That change could not be saved.';
+    placementError.value = getApiErrorMessage(err, 'That change could not be saved.');
   } finally {
     placementBusy.value = false;
   }

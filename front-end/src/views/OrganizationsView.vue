@@ -35,7 +35,7 @@ async function loadOrganizations() {
     organizations.value = read;
   } catch (err) {
     if (thisRead !== latestRead) return;
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load organizations');
+    errorMessage.value = getApiErrorMessage(err, 'The organizations could not be loaded.');
     organizations.value = [];
   } finally {
     if (thisRead === latestRead) loading.value = false;
@@ -64,7 +64,7 @@ async function handleCreateOrg() {
     newOrgName.value = '';
     await loadOrganizations();
   } catch (err) {
-    newOrgError.value = getApiErrorMessage(err, 'Failed to create organization');
+    newOrgError.value = getApiErrorMessage(err, 'The organization was not created.');
   }
 }
 

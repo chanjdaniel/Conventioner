@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, type ComponentPublicInstance } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import AppDialog from '@/components/AppDialog.vue';
 import type { FloorplanTemplate } from '@/assets/types/datatypes';
 import { getTimestampDate } from '@/utils/utils';
@@ -66,8 +66,7 @@ async function saveTemplate() {
     templateName.value = '';
     saveDialog.value = false;
   } catch (_e: unknown) {
-    const e = _e as { response?: { data?: { error?: string } }; message?: string };
-    saveError.value = e.response?.data?.error || 'Failed to save template.';
+    saveError.value = getApiErrorMessage(_e, 'The template was not saved.');
   } finally {
     saving.value = false;
   }
@@ -84,8 +83,7 @@ async function fetchTemplates() {
     const { data } = await api.get('/floorplans/templates', { params });
     templates.value = data.templates ?? data ?? [];
   } catch (_e: unknown) {
-    const e = _e as { response?: { data?: { error?: string } }; message?: string };
-    loadError.value = e.response?.data?.error || 'Failed to load templates.';
+    loadError.value = getApiErrorMessage(_e, 'The templates could not be loaded.');
     templates.value = [];
   } finally {
     loading.value = false;

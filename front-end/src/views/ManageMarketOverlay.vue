@@ -79,7 +79,7 @@ async function fetchMarket(showLoading = true) {
     marketData.value = parseMarketFromApi(m);
     renameValue.value = marketData.value.name;
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load market');
+    errorMessage.value = getApiErrorMessage(err, 'The market could not be loaded.');
   } finally {
     if (showLoading) loading.value = false;
   }
@@ -136,7 +136,7 @@ async function handleAddUser() {
     changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
-    addUserError.value = getApiErrorMessage(err, 'Failed to add user');
+    addUserError.value = getApiErrorMessage(err, 'The person was not added.');
   }
 }
 
@@ -150,7 +150,7 @@ async function handleRemoveUser(userId: string) {
     changesMade.value++;
     await fetchMarket(false);
   } catch (err) {
-    userError.value = { userId, message: getApiErrorMessage(err, 'Failed to remove user') };
+    userError.value = { userId, message: getApiErrorMessage(err, 'The person was not removed.') };
   }
 }
 
@@ -167,7 +167,7 @@ async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSe
     await fetchMarket(false);
   } catch (err) {
     select.value = held;
-    userError.value = { userId, message: getApiErrorMessage(err, 'Failed to update role') };
+    userError.value = { userId, message: getApiErrorMessage(err, 'The role was not changed.') };
   }
 }
 
@@ -192,7 +192,7 @@ async function handleRename() {
     if (store.marketId === marketData.value?.id) void store.refresh();
   } catch (err) {
     // The server's own words: a clash is about the public web address, not only the exact name.
-    renameError.value = getApiErrorMessage(err, 'Failed to rename');
+    renameError.value = getApiErrorMessage(err, 'The name was not changed.');
   }
 }
 
@@ -223,7 +223,7 @@ async function handleDeleteConfirm() {
     deleteConfirming.value = false;
     emit('manageClose');
   } catch (err) {
-    deleteError.value = getApiErrorMessage(err, 'Failed to delete market');
+    deleteError.value = getApiErrorMessage(err, 'The market was not deleted.');
   }
 }
 
