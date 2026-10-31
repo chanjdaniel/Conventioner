@@ -693,11 +693,11 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   gap: var(--space-3);
 }
 
+/* Laid out as the filter bar's pickers below it: the label on the select, as wide as its options. */
 .vendors-discord-filter {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 14rem;
+  min-width: 0;
 }
 
 .vendors-discord-checked {
