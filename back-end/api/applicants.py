@@ -705,6 +705,14 @@ def review_selection(
 #: passed (E38/F10/S01): who may still change it, the change row's default.
 UNDO_REFUSED = "This verdict can no longer be undone here. An Admin or the owner can change it."
 
+#: Why an undo is refused when the follow-up it would bring back is owned by someone the reviewer
+#: may not hand one to now (E38/F10/S01): its own words, since an undo hands it to nobody, and
+#: words that never tell someone outside the organization whether the owner is in it.
+UNDO_OWNER_REFUSED = (
+    "This verdict can no longer be undone here: the follow-up it closed would come back to an "
+    "owner you cannot see on this market. An Admin or the market's owner can change it."
+)
+
 
 def undo_window() -> Dict[str, int]:
     """How long a verdict just written may be undone by its giver, for its answer: the client times
@@ -715,20 +723,20 @@ def undo_window() -> Dict[str, int]:
 
 #: What a reviewer asks to undo: the application, and how they saw it once their verdict was written.
 UndoAsked = Tuple[str, Optional[Dict[str, Any]]]
-#: Why a follow-up may not come back owned by this address, or None while it may: the review
-#: route's own check of an owner, asked of the market the caller read.
-OwnerRefusal = Callable[[str], Optional[str]]
+#: Whether a follow-up may come back owned by this address: the review route's own check of an
+#: owner (``follow_up_owner``), asked of the market the caller read.
+OwnerOffered = Callable[[str], bool]
 
 
 def _undo_one(
-    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_refusal: OwnerRefusal,
+    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_offered: OwnerOffered,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Tuple[str, int]]]:
     """Undo one verdict: the application as it was and as it is now, or why not and its status.
 
     Asked in this order: an application of another market is not there; one changed since the
     reviewer's verdict is stale, never written over; one that is not their own verdict within the
-    window, or kept nothing to return to, is refused; a follow-up whose owner may no longer own it
-    is refused with why. It returns to what the verdict kept (``undo_to``), never to what a request
+    window, or kept nothing to return to, is refused; a follow-up whose owner the reviewer may no
+    longer hand one to is refused in the undo's own words. It returns to what the verdict kept (``undo_to``), never to what a request
     names. The write is conditional on the status and the verdict's time the reviewer saw, so a
     verdict landing between this read and the write is the stale answer too.
     """
@@ -744,9 +752,8 @@ def _undo_one(
         return doc, None, (UNDO_REFUSED, 403)
     undo_to = doc["undo_to"]
     owner = (undo_to.get("follow_up_owner") or {}).get("email")
-    refused = owner_refusal(owner) if owner else None
-    if refused:
-        return doc, None, (refused, 400)
+    if owner and not owner_offered(owner):
+        return doc, None, (UNDO_OWNER_REFUSED, 400)
     if not ApplicationsApi.restore_before_verdict(app_id, undo_to, pinned):
         now = ApplicationsApi.find_application_by_id(app_id) or doc
         return now, None, (_changed_since_seen(now, seen), 409)
@@ -754,7 +761,7 @@ def _undo_one(
 
 
 def undo_verdict(
-    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_refusal: OwnerRefusal,
+    market_id: str, asked: UndoAsked, by: VerdictGiver, owner_offered: OwnerOffered,
 ) -> Tuple[Dict[str, Any], int]:
     """Undo the verdict, or the follow-up, this reviewer gave an application (E38/F10/S01).
 
@@ -762,11 +769,11 @@ def undo_verdict(
     ``verdict_refusal``) - giving, taken back, so never the change row. It returns the application to
     what the verdict found it as, open, or needs follow-up marked and owned as it was, and leaves
     whom it was dealt to as it is. Refused with ``UNDO_REFUSED`` (403) once it is not theirs to
-    undo, with ``owner_refusal``'s sentence (400) for a follow-up whose owner lost their place, and
+    undo, with ``UNDO_OWNER_REFUSED`` (400) for a follow-up whose owner it may no longer hand one to, and
     with the stale-verdict sentence and the application as it stands (409) when someone wrote over
     it since.
     """
-    was, now, refused = _undo_one(market_id, asked, by, owner_refusal)
+    was, now, refused = _undo_one(market_id, asked, by, owner_offered)
     if refused:
         reason, status = refused
         if status == 409 and was is not None:
@@ -783,7 +790,7 @@ def undo_verdict(
 
 
 def undo_selection(
-    market_id: str, selection: List[UndoAsked], by: VerdictGiver, owner_refusal: OwnerRefusal,
+    market_id: str, selection: List[UndoAsked], by: VerdictGiver, owner_offered: OwnerOffered,
 ) -> Tuple[Dict[str, Any], int]:
     """Undo what a selection's verdict wrote (E38/F10/S01), each as ``undo_verdict`` undoes one,
     answering which were written and, for each skipped, why - as ``review_selection`` answers."""
@@ -792,7 +799,7 @@ def undo_selection(
     now: Dict[str, Dict[str, Any]] = {}
     skipped: List[Dict[str, Any]] = []
     for asked in selection:
-        before, after, refused = _undo_one(market_id, asked, by, owner_refusal)
+        before, after, refused = _undo_one(market_id, asked, by, owner_offered)
         if refused:
             skipped.append({"id": asked[0], "email": (before or {}).get("applicant_email"),
                             "reason": refused[0]})

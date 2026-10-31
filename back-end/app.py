@@ -1616,17 +1616,18 @@ def _undo_asked(application_id: str, item: Dict[str, Any]) -> ApplicantsApi.Undo
     return application_id, seen
 
 
-def _owner_refusal(context: MarketsApi.MarketContext,
-                   person: MarketPerson) -> ApplicantsApi.OwnerRefusal:
-    """Why a follow-up an undo brings back may not be owned by an address, asked as the review route
-    asks of ``ownerEmail``: its owner may have lost their role since the verdict."""
-    def refusal(email: str) -> Optional[str]:
+def _owner_offered(context: MarketsApi.MarketContext,
+                   person: MarketPerson) -> ApplicantsApi.OwnerOffered:
+    """Whether a follow-up an undo brings back may be owned by an address, asked as the review route
+    asks of ``ownerEmail``: its owner may have lost their role since the verdict. The undo refuses
+    in its own words, so the route's sentences about handing one never reach it."""
+    def offered(email: str) -> bool:
         try:
             MarketsApi.follow_up_owner(context.market, context.organization, person, email)
-        except BadRequestError as refused:
-            return refused.message
-        return None
-    return refusal
+        except BadRequestError:
+            return False
+        return True
+    return offered
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/review/undo', methods=['POST'])
@@ -1643,7 +1644,7 @@ def undo_review(market_id: str, application_id: str) -> Response:
         return refused
     asked = _undo_asked(application_id, json_object(required=True))
     result, status_code = ApplicantsApi.undo_verdict(
-        market_id, asked, by=person.as_giver(), owner_refusal=_owner_refusal(context, person))
+        market_id, asked, by=person.as_giver(), owner_offered=_owner_offered(context, person))
     return jsonify(result), status_code
 
 
@@ -1667,7 +1668,7 @@ def undo_selection(market_id: str) -> Response:
         item = item if isinstance(item, dict) else {}
         asked.append(_undo_asked(str(item.get('id') or ''), item))
     result, status_code = ApplicantsApi.undo_selection(
-        market_id, asked, by=person.as_giver(), owner_refusal=_owner_refusal(context, person))
+        market_id, asked, by=person.as_giver(), owner_offered=_owner_offered(context, person))
     return jsonify(result), status_code
 
 

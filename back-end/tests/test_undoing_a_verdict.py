@@ -22,7 +22,10 @@ import history as History
 from datatypes import ApplicationStatus, MarketPhase, VerdictGiver
 
 UNDO_REFUSED = "This verdict can no longer be undone here. An Admin or the owner can change it."
-OWNER_GONE = "A follow-up's owner must have a role on this market."
+# Its own sentence, never the review route's: an undo hands a follow-up to nobody (E38/F10/S01).
+OWNER_GONE = (
+    "This verdict can no longer be undone here: the follow-up it closed would come back to an "
+    "owner you cannot see on this market. An Admin or the market's owner can change it.")
 
 
 def _doc(world, app_id):
