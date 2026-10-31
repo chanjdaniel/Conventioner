@@ -106,16 +106,8 @@ def people_with_market_role(market: Market, organization: Optional[Organization]
     ]
 
 
-def organization_place(user_id: Optional[str], organization: Optional[Organization]) -> Optional[str]:
-    """A person's place in an organization, as Manage market names it: ``admin`` for its owner and
-    its admins, who run its markets, ``member`` for a member, who reads them, or None."""
-    if not user_id or organization is None:
-        return None
-    gives = organization_market_role(
-        user_id, organization.owner, organization.admins, organization.members)
-    return _PLACE_BY_ROLE.get(gives)
-
-
+#: A person's place in an organization, as Manage market names it, by the role it gives on its
+#: markets: ``admin`` for its owner and admins, who run them, ``member`` for a member, who reads them.
 _PLACE_BY_ROLE = {MarketRole.ADMIN: "admin", MarketRole.VIEWER: "member"}
 
 
@@ -127,7 +119,7 @@ class Access(NamedTuple):
     role: MarketRole
     #: The role the market itself gives them, or None.
     market_role: Optional[MarketRole]
-    #: Their place in the market's organization (``organization_place``), or None.
+    #: Their place in the market's organization (``_PLACE_BY_ROLE``), or None.
     organization_role: Optional[str]
     #: Whether the role that counts is the organization's: what it gives reaches the market's own,
     #: so a market role beside it, a tie included, adds nothing while they hold their place.
@@ -139,7 +131,7 @@ def people_with_access(
     email_of: Callable[[str], Optional[str]],
 ) -> List[Access]:
     """Everyone with a role on the market, each once, at the role that counts (E38/F12/S01): the
-    owner first, then Admin, Editor and Viewer, then by address, so the list never ranks a role.
+    owner first, then Admin, Editor and Viewer, then by address, so no screen ranks a role.
 
     ``with_organization`` takes in the market's organization: its owner, admins and members, by
     ``people_with_market_role``, each at the higher of the two roles and with their place in it.

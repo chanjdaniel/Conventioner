@@ -256,7 +256,7 @@ def test_deleting_an_org_deletes_the_markets_it_holds(org_delete):
     assert [doc["id"] for doc in org_delete.docs] == []
 
 
-def test_market_list_reads_each_org_and_member_once(collection, monkeypatch):
+def test_market_list_reads_each_org_once_and_no_member(collection, monkeypatch):
     """A list of N markets must not cost N organization reads, and costs no member read: an
     entry names no one but the reader's own role (E38/F12/S01 dropped its ``role_emails``)."""
     org_reads, user_reads = [], []
