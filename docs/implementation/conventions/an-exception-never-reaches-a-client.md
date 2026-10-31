@@ -94,6 +94,7 @@ describes:
   - front-end/src/components/ReadFailed.vue
   - front-end/src/utils/signInNext.ts
   - front-end/src/utils/sessionEnded.ts
+  - front-end/src/utils/pageFailed.ts
   - front-end/e2e/a-failure-says-what-to-do.spec.ts
 verified: 2026-11-01
 sources:
@@ -265,11 +266,21 @@ Its button is a `.btn`, so it is 44px on a phone.
 
 **A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.
 It clears `localStorage` and the market store, as signing out does, and goes to `/login?next=<the page's full path>&ended=1`, where the sign-in page says "Your session has ended. Sign in again.".
-It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself: it goes to sign in carrying the page, with `ended=1` on a 401) and from any `/public/...` request, which carries no organizer session (the applicant signs in on their own pages, and the door's check-in needs no sign-in), and any 401 while the page is public.
+It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, through `keepsTheSession`) and from any `/public/...` request, which carries no organizer session (the applicant signs in on their own pages, and the door's check-in needs no sign-in), and any 401 while the page is public.
 The request still fails as it would have, so the screen's own catch runs too.
+`aSessionThatEnded.test.ts` holds each of those exemptions, the sign-in endpoints' included, though no screen sends them through `api` today.
+
+**The shell's session probe at load ends a session only on an answer that says so.**
+No answer, or a 5xx, says nothing of the session, so `keepsTheSession` keeps the stored user and the page, whose own read says what went wrong; any other failure goes to sign in carrying the page, with `ended=1` on a 401.
+It used to sign the organizer out on any failure, so a dropped connection at load sent them to sign in, saying nothing.
 
 **A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/dashboard`; so does a signed-in visit to `/login?next=`.
-`next` is honoured only when `safeNext` in [`front-end/src/utils/signInNext.ts`](../../../front-end/src/utils/signInNext.ts) finds it a path of this app: one leading `/` (not `//`, not `/\`), no backslash or control character, not `/login` itself, and resolving to this origin; anything else is dropped for `/dashboard`.
+`next` is honoured only when `safeNext` in [`front-end/src/utils/signInNext.ts`](../../../front-end/src/utils/signInNext.ts) finds it a path of this app: one leading `/` (not `//`, not `/\`), no backslash or control character, not the sign-in page itself in any spelling the router matches to it (`/Login`, `/login/`: the router ignores case and one trailing slash), and resolving to this origin; anything else is dropped for `/dashboard`.
+`requireSignIn` tells the sign-in page by its route's name, not its path, for the same reason.
 
-[`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds it end to end: each screen's read and the verdict, selection, plan save, phase move and Manage organization writes under the generic 500 and with no connection, Try again on a route that fails once, a session ended mid-review returning to the same address, a signed-out link by password and by code, and a `next` of another host.
-`api.test.ts` and `signInNext.test.ts` hold each kind and each hostile shape.
+**A page whose code could not be fetched says so**: a screen's code is fetched the first time it is opened, so with no connection, or once a deploy has replaced the files, the navigation fails and the click did nothing.
+`watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the banner: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
+Try again loads the page afresh, which fetches the files a deploy put in their place; the strip goes once a page opens.
+
+[`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds it end to end: each screen's read and the verdict, selection, plan save, phase move and Manage organization writes under the generic 500 and with no connection, Try again on a route that fails once, a session ended mid-review returning to the same address, a signed-out link by password and by code, a `next` of another host, a page whose code could not be fetched (offline and after a deploy), the session probe failing without ending the session, and a request with no cookie answering 401.
+`api.test.ts` and `signInNext.test.ts` hold each kind and each hostile shape, `aPageThatCouldNotOpen.test.ts` the strip's wording.

@@ -10,10 +10,14 @@ import router from './router';
 import { routerSettled } from '@/utils/routerReady';
 import { installApplicantSessionExpiry } from '@/utils/applicantSessionExpiry';
 import { installSessionEnded } from '@/utils/sessionEnded';
+import { PAGE_FAILED, watchPageFailed } from '@/utils/pageFailed';
 
 const app = createApp(App);
 
 app.use(createPinia());
+// Before the router is installed, which starts the first navigation: a page whose code could not
+// be fetched says so, the first one included (E38/F11/S01).
+app.provide(PAGE_FAILED, watchPageFailed(router));
 app.use(router);
 
 installApplicantSessionExpiry(router);

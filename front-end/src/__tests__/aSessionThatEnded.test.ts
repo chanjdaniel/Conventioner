@@ -11,7 +11,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { api } from '@/utils/api';
-import { installSessionEnded } from '@/utils/sessionEnded';
+import { installSessionEnded, keepsTheSession } from '@/utils/sessionEnded';
 
 const Page = { template: '<div />' };
 const PLACE = '/markets/m-1/applications?view=all&status=undecided';
@@ -71,6 +71,26 @@ describe('a session that ended', () => {
     expect(localStorage.getItem('user')).not.toBeNull();
   });
 
+  // No screen sends these through `api` today (signing in and the shell's probe use their own
+  // calls); the exemption is for the day one does, when a wrong password must not read as an
+  // ended session.
+  it.each([
+    ['a wrong password', 'post', '/login'],
+    ['a wrong code', 'post', '/login-otp'],
+    ['a code asked for', 'post', '/request-otp'],
+    ['an account made', 'post', '/register'],
+    ['a sign-out', 'post', '/logout'],
+    ["the shell's session probe", 'get', '/check-session'],
+  ] as const)('leaves the 401 of %s to its caller', async (_name, method, url) => {
+    answer(401);
+
+    await expect(api[method](url)).rejects.toThrow();
+    await flushPromises();
+
+    expect(router.currentRoute.value.fullPath).toBe(PLACE);
+    expect(localStorage.getItem('user')).not.toBeNull();
+  });
+
   it('leaves a 401 on a public page to the page', async () => {
     await router.push('/spring/apply');
     answer(401);
@@ -89,5 +109,44 @@ describe('a session that ended', () => {
 
     expect(router.currentRoute.value.fullPath).toBe(PLACE);
     expect(localStorage.getItem('user')).not.toBeNull();
+  });
+});
+
+describe("the shell's session probe failing", () => {
+  /** The probe's failure: no answer at all when `status` is null. */
+  const failure = (status: number | null) => {
+    const config = { headers: {} } as InternalAxiosRequestConfig;
+    const response =
+      status === null ? undefined : { data: {}, status, statusText: '', headers: {}, config };
+    return new AxiosError('Request failed', 'ERR', config, {}, response);
+  };
+
+  it.each([
+    ['no answer', null],
+    ['a fault on the server', 500],
+    ["a proxy's gateway error", 502],
+  ])('keeps the session on %s, which says nothing of it', async (_name, status) => {
+    expect(keepsTheSession(router, failure(status))).toBe(true);
+    await flushPromises();
+
+    expect(router.currentRoute.value.fullPath).toBe(PLACE);
+    expect(localStorage.getItem('user')).not.toBeNull();
+  });
+
+  it('ends a session the server no longer holds, and says so', async () => {
+    expect(keepsTheSession(router, failure(401))).toBe(false);
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe('/login');
+    expect(router.currentRoute.value.query).toEqual({ next: PLACE, ended: '1' });
+    expect(localStorage.getItem('user')).toBeNull();
+  });
+
+  it('ends the session on any other answer, without saying it ended', async () => {
+    expect(keepsTheSession(router, failure(403))).toBe(false);
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe('/login');
+    expect(router.currentRoute.value.query).toEqual({ next: PLACE });
   });
 });

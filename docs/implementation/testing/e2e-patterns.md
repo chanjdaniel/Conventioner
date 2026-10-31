@@ -100,7 +100,8 @@ A stack's interfaces keep changing for a while after `up` returns: each takes an
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
 
 **A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
-`context.clearCookies()` did not end it: the requests after it still answered 200 ([`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts)).
+`context.clearCookies()` on a page that is loading data does not end it: a read still in flight answers with the session's cookie again, since the server refreshes it on every request, and the browser keeps it.
+A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.

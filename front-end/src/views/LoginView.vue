@@ -703,6 +703,16 @@ const submitOTPLogin = async () => {
   background: transparent;
 }
 
+/* Why they are here, before anything is asked of them: a fact, in the attention chip's tint. */
+.session-ended {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  color: var(--mm-black);
+  font-size: var(--text-sm);
+}
+
 /* Left-aligned with the form it belongs to. It was right-aligned against a left-aligned form,
    so the eye had to hunt for it. `red` is also not a token; var(--mm-red) reaches AA on white. */
 .error-message {
@@ -715,16 +725,6 @@ const submitOTPLogin = async () => {
 
 /* `green` was not a token either, and the keyword renders #008000 - unrelated to anything else
    the product paints. */
-/* Why they are here, before anything is asked of them: a fact, in the attention chip's tint. */
-.session-ended {
-  margin: 0 0 var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background: var(--mm-chip-attention);
-  color: var(--mm-black);
-  font-size: var(--text-sm);
-}
-
 .success-message {
   color: var(--mm-green);
   text-align: left;

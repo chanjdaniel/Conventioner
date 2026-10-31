@@ -13,7 +13,7 @@ const routerUnderGuard = () => {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/login', component: Page, meta: { public: true } },
+      { path: '/login', name: 'login', component: Page, meta: { public: true } },
       { path: '/reset-password', component: Page, meta: { public: true } },
       { path: '/dashboard', component: Page },
       { path: '/markets', component: Page },
@@ -105,6 +105,29 @@ describe('the sign-in guard', () => {
     const router = routerUnderGuard();
 
     await router.push({ path: '/login', query: { next: '//evil.example/markets' } });
+
+    expect(router.currentRoute.value.path).toBe('/dashboard');
+  });
+
+  // The router matches a path whatever its case and with a trailing slash, so each of these is the
+  // sign-in page, and a signed-in user is never shown it again.
+  it.each(['/Login', '/LOGIN', '/login/'])(
+    'sends a signed-in user from the login page spelled %s to the dashboard',
+    async (path) => {
+      signIn();
+      const router = routerUnderGuard();
+
+      await router.push(path);
+
+      expect(router.currentRoute.value.path).toBe('/dashboard');
+    },
+  );
+
+  it('sends a signed-in user to the dashboard when the page carried is the login page again', async () => {
+    signIn();
+    const router = routerUnderGuard();
+
+    await router.push({ path: '/login', query: { next: '/Login' } });
 
     expect(router.currentRoute.value.path).toBe('/dashboard');
   });

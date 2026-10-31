@@ -24,6 +24,9 @@ describe('where signing in continues to', () => {
     ['a relative path', 'markets'],
     ['the sign-in page itself', '/login'],
     ['the sign-in page with a next of its own', '/login?next=/markets'],
+    ['the sign-in page in capitals', '/Login'],
+    ['the sign-in page in capitals with a next of its own', '/LOGIN?next=/markets'],
+    ['the sign-in page with a trailing slash', '/login/'],
     ['nothing', ''],
     ['a tab inside the host', '/\t/evil.example'],
   ])('drops %s', (_name, next) => {

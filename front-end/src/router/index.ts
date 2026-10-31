@@ -264,8 +264,9 @@ export const requireSignIn: NavigationGuard = (to) => {
 
   // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
   // hop, since the shell's session probe clears it and comes back here. The page it carries is
-  // where signing in would have gone (E38/F11/S01).
-  if (user && to.path === '/login') return safeNext(to.query.next) ?? '/dashboard';
+  // where signing in would have gone (E38/F11/S01). By the route, not the path: the router
+  // matches `/Login` and `/login/` to it too.
+  if (user && to.name === 'login') return safeNext(to.query.next) ?? '/dashboard';
 
   if (to.matched.some((record) => record.meta.public === true)) return true;
 

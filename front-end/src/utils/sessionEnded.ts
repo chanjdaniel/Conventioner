@@ -1,6 +1,6 @@
 import type { Router } from 'vue-router';
 import { useMarketStore } from '@/stores/market';
-import { onSessionEnded } from '@/utils/api';
+import { getApiErrorStatus, onSessionEnded } from '@/utils/api';
 import { loginAddress } from '@/utils/signInNext';
 
 /**
@@ -16,6 +16,19 @@ export function endSession(router: Router, { ended }: { ended: boolean }): void 
   localStorage.clear();
   useMarketStore().clear();
   void router.push(loginAddress(here.fullPath, { ended }));
+}
+
+/**
+ * What the shell makes of its session probe at load failing, and whether the session is kept.
+ * No answer, or a fault on the server, says nothing of the session: the organizer stays on the
+ * page, whose own read says what went wrong and offers Try again, and a request that answers 401
+ * later ends the session then. Any other answer ends it, a 401 as a session that ended.
+ */
+export function keepsTheSession(router: Router, err: unknown): boolean {
+  const status = getApiErrorStatus(err);
+  if (status === null || status >= 500) return true;
+  endSession(router, { ended: status === 401 });
+  return false;
 }
 
 /**

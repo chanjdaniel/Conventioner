@@ -357,3 +357,91 @@ test.describe('signing in keeps the place', () => {
     expect(new URL(page.url()).host).not.toBe('evil.example');
   });
 });
+
+test.describe('a page that could not be opened', () => {
+  // A screen's code is fetched the first time it is opened; with no connection the click would do
+  // nothing. The shell says why, and Try again opens the page once the connection is back.
+  test('says the connection, and Try again opens it', async ({ authenticatedPage: page }) => {
+    await page.goto('/markets');
+    await expect(page.getByTestId('markets-read-failed')).toHaveCount(0);
+    const code = /\/src\/views\/OrganizationsView\.vue/;
+    await page.route(code, (route) => route.abort('internetdisconnected'));
+    await page.context().setOffline(true);
+
+    await page.getByTestId('app-menu-button').click();
+    await page.getByRole('link', { name: 'Organizations' }).click();
+
+    await expect(page.getByTestId('page-read-failed')).toContainText(OFFLINE);
+    await expect(page).toHaveURL(/\/markets$/);
+
+    await page.context().setOffline(false);
+    await page.unroute(code);
+    await page.getByTestId('page-retry').click();
+    await page.waitForURL(/\/organizations$/);
+    await expect(page.getByTestId('page-read-failed')).toHaveCount(0);
+  });
+
+  test('says the page could not be opened when its code is gone, as after a deploy', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+    await expect(page.getByTestId('markets-read-failed')).toHaveCount(0);
+    const code = /\/src\/views\/OrganizationsView\.vue/;
+    await page.route(code, (route) => route.fulfill({ status: 404, body: '' }));
+
+    await page.getByTestId('app-menu-button').click();
+    await page.getByRole('link', { name: 'Organizations' }).click();
+
+    await expect(page.getByTestId('page-read-failed')).toContainText(
+      'The page could not be opened. Try again to load it.',
+    );
+    await page.unroute(code);
+    await page.getByTestId('page-retry').click();
+    await page.waitForURL(/\/organizations$/);
+    await expect(page.getByTestId('page-read-failed')).toHaveCount(0);
+  });
+});
+
+test.describe("the shell's session probe", () => {
+  // The probe at load asks whether the session still holds. No answer, or a fault on the server,
+  // says nothing about the session, so the organizer stays where they were, and the screen's own
+  // read says what went wrong.
+  for (const { kind } of KINDS) {
+    test(`keeps the organizer on the page when it fails as ${kind}`, async ({
+      authenticatedPage: page,
+    }) => {
+      await failOnce(page, /\/check-session$/, kind);
+      await page.goto('/markets');
+
+      // The menu names the organizer only once the probe's answer has been read, so this waits
+      // for it: an ended session would have left for the sign-in page, which has no menu.
+      await page.getByTestId('app-menu-button').click();
+      await expect(page.locator('.user-email')).toHaveText(TEST_USER.email);
+      await expect(page).toHaveURL(/\/markets$/);
+      expect(await page.evaluate(() => localStorage.getItem('user'))).toContain(TEST_USER.email);
+    });
+  }
+});
+
+test.describe('a session is its cookie', () => {
+  // The organizer's session is the cookie and nothing else: once the browser holds none, the back
+  // end no longer knows who asks, through the front end's proxy and from a page alike. The probe
+  // runs on a page of the app's origin that runs none of its code, since a read still in flight
+  // when the cookies are cleared answers with the session's cookie again, which the server
+  // refreshes on every request.
+  test('a request without the cookie is not signed in', async ({ authenticatedPage: page }) => {
+    await page.goto('/api/check-session');
+    const context = page.context();
+    expect((await page.request.get('/api/check-session')).status()).toBe(200);
+
+    await context.clearCookies();
+    expect(await context.cookies()).toEqual([]);
+
+    expect((await page.request.get('/api/check-session')).status()).toBe(401);
+    const fromThePage = await page.evaluate(async () => {
+      const answer = await fetch('/api/check-session', { credentials: 'include' });
+      return answer.status;
+    });
+    expect(fromThePage).toBe(401);
+  });
+});
