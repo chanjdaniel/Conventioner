@@ -3,6 +3,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
+import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**
@@ -11,19 +12,11 @@ import { VendorsPage } from './pages/VendorsPage';
  * update of their answer, so the next check finds them "In the server"; declining leaves the vendor
  * "Not found".
  *
- * Discord stands outside the stack, which runs without its values, so it is mocked where the
- * browser meets it, as in `who-is-in-the-discord-server.spec.ts`: the market read says Discord is
- * set up, and the check is answered by a fake server of two members, matched to each vendor's
- * answer as the organizer reads it now (an update in its place), written to the market as the
- * check writes it. Confirming and declining are the stack's own routes. The matching and the offers
- * are the back end's, pinned against a fake of Discord's API in
- * `back-end/tests/test_discord_connection.py`.
+ * Every step is the stack's own: the check runs against a fake Discord server the stack answers for
+ * (`DISCORD_FAKE`, `back-end/discord_fake.py`), through the bot client's real requests, and the
+ * offers, "Check again" and the next check are the back end's.
  */
 const QUESTION = 'discord_username';
-const SERVER = [
-  { username: 'fern_studio_42', displayName: 'Fern Studio' },
-  { username: 'oak_and_co', displayName: 'Oak & Co' },
-];
 
 test('a member offered as a possible match is confirmed into an update, or declined', async ({
   authenticatedPage: page,
@@ -35,75 +28,31 @@ test('a member offered as a possible match is confirmed into an update, or decli
     tiers: ['Gold'],
     extra: { [QUESTION]: 'Fern Studio' },
   });
-  const oak = seedApprovedVendor(seed.marketId, 'e2e-discord-oak@example.com', {
+  seedApprovedVendor(seed.marketId, 'e2e-discord-oak@example.com', {
     dates: [SEED_MARKET_DATE],
     tiers: ['Gold'],
     extra: { [QUESTION]: 'Oak & Co' },
   });
-  const marketFilter = `{ id: ${JSON.stringify(seed.marketId)} }`;
-  const field = { key: QUESTION, label: 'Discord Username', type: 'text', required: false };
-  mongoEval(
-    `const m = db.markets.findOne(${marketFilter}); ` +
-      `const fields = ((m.applicationForm || {}).fields || []).concat([${JSON.stringify(field)}]); ` +
-      `db.markets.updateOne(${marketFilter}, { $set: { 'applicationForm.fields': fields, ` +
-      `discord: ${JSON.stringify({
-        guildId: '2909267986263572999',
-        guildName: 'Riverside Makers',
-        usernameQuestion: QUESTION,
-      })} } })`,
-  );
-
-  await page.route(`**/markets/${seed.marketId}`, async (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
-    const response = await route.fetch();
-    const body = await response.json();
-    body.market.discordSetUp = true;
-    await route.fulfill({ response, json: body });
+  const guildId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    members: [
+      { id: '1001', username: 'fern_studio_42', globalName: 'Fern Studio' },
+      { id: '1002', username: 'oak_and_co', globalName: 'Oak & Co' },
+    ],
   });
-  await page.route(`**/markets/${seed.marketId}/discord/check`, async (route) => {
-    // The fake server: each vendor's answer as the organizer reads it, matched by username, and
-    // a member whose display name is the answer offered.
-    const answers = JSON.parse(
-      mongoEval(
-        `JSON.stringify(db.applications.find({ id: { $in: ${JSON.stringify([fern, oak])} } }).` +
-          `toArray().map((a) => ({ id: a.id, answer: ((a.answer_updates || {})[` +
-          `${JSON.stringify(QUESTION)}] || {}).value ?? a.form_data[${JSON.stringify(QUESTION)}] })))`,
-      ),
-    ) as { id: string; answer: string }[];
-    const declined = JSON.parse(
-      mongoEval(
-        `JSON.stringify((db.markets.findOne(${marketFilter}).discord.declinedMatches) || {})`,
-      ),
-    ) as Record<string, string[]>;
-    const vendorStates = answers.map(({ id, answer }) => {
-      if (SERVER.some((member) => member.username === answer)) {
-        return { applicationId: id, state: 'in_server', answer };
-      }
-      const possibleMatches = SERVER.filter(
-        (member) =>
-          member.displayName === answer && !(declined[id] ?? []).includes(member.username),
-      );
-      return {
-        applicationId: id,
-        state: 'not_found',
-        answer,
-        ...(possibleMatches.length ? { possibleMatches } : {}),
-      };
-    });
-    const checkedAt = new Date().toISOString();
-    mongoEval(
-      `db.markets.updateOne(${marketFilter}, { $set: { 'discord.checkedAt': ${JSON.stringify(
-        checkedAt,
-      )}, 'discord.vendorStates': ${JSON.stringify(vendorStates)} } })`,
-    );
-    await route.fulfill({ json: { counts: {}, checkedAt } });
-  });
+  connectToFakeDiscord(seed.marketId, { guildId, guildName: 'Riverside Makers' });
 
   const vendors = new VendorsPage(page);
   const row = (email: string) => vendors.vendorListItems.filter({ hasText: email });
   const chip = (email: string) => row(email).getByTestId('vendors-list-discord');
   await vendors.goto(seed.marketId);
   await expect(row('e2e-discord-fern@example.com')).toHaveCount(1, { timeout: 15000 });
+  await expect(
+    vendors.checkDiscordButton,
+    'the stack answers for Discord only with DISCORD_FAKE=true (docs/TESTING.md)',
+  ).toBeVisible();
 
   await vendors.checkDiscordButton.click();
 
@@ -157,14 +106,23 @@ test('a member offered as a possible match is confirmed into an update, or decli
   await expect(chip('e2e-discord-fern@example.com')).toHaveText('Discord: In the server');
   await expect(chip('e2e-discord-oak@example.com')).toHaveText('Discord: Not found');
 
-  // Both are in the vendor's own history, with who and when.
+  // Both are in the vendor's own history, with who, beside the checks that changed them.
   await row('e2e-discord-fern@example.com').click();
   await vendors.openTab('history');
-  await expect(vendors.detailHistorySentences.first()).toContainText('updated the info of');
+  await expect(vendors.detailHistorySentences).toHaveText([
+    `${TEST_USER.email} checked who is in the Discord server: In the server`,
+    /updated the info of/,
+    `${TEST_USER.email} checked who is in the Discord server: Not found`,
+  ]);
+  await expect(
+    vendors.detailHistorySentences.filter({ hasText: 'updated the info of' }),
+  ).toContainText(TEST_USER.email);
   await vendors.closeDetail();
   await row('e2e-discord-oak@example.com').click();
   await vendors.openTab('history');
-  await expect(vendors.detailHistorySentences.first()).toContainText(
-    'said the Discord member @oak_and_co is not',
+  await expect(
+    vendors.detailHistorySentences.filter({ hasText: 'said the Discord member' }),
+  ).toHaveText(
+    `${TEST_USER.email} said the Discord member @oak_and_co is not Eediscordoak Example`,
   );
 });

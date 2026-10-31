@@ -84,6 +84,8 @@ services:
     environment:
       # An agent stack has no Resend key, so it sends no email unless asked to.
       - DISABLE_EMAIL=${DISABLE_EMAIL:-true}
+      # Nor Discord's values, so a fake answers for Discord unless asked not to (discord_fake.py).
+      - DISCORD_FAKE=${DISCORD_FAKE:-true}
     volumes: !override
       - type: bind
         source: ./back-end
