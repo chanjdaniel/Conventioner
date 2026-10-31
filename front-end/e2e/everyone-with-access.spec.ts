@@ -27,9 +27,9 @@ test.beforeAll(() => {
  * The walk's case, on an organization of its own: an admin and a member, the admin also given
  * Editor on the market, and someone from outside it added as Viewer, after the organization's people.
  */
-async function seedTheWalksCase(request: APIRequestContext) {
+async function seedTheWalksCase(request: APIRequestContext, orgPrefix = 'Access Org') {
   const ownerId = await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgName = uniqueMarketName('Access Org');
+  const orgName = uniqueMarketName(orgPrefix);
   const org = await request.post(`${BACKEND_URL}/organizations`, { data: { name: orgName } });
   expect(org.ok(), await org.text()).toBeTruthy();
   const orgId = (await org.json()).organization_id as string;
@@ -145,7 +145,11 @@ test.describe('Users with access on a phone', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const { marketName } = await seedTheWalksCase(request);
+    // A long organization's name, which ran the role past the dialog when the role did not wrap.
+    const { marketName } = await seedTheWalksCase(
+      request,
+      'The Riverside Night Market Makers Collective',
+    );
     const manage = await openManage(page, marketName);
     await expect(person(page, ORG_ADMIN.email).getByTestId('manage-market-also')).toBeVisible();
 

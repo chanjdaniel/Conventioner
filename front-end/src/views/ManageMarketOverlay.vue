@@ -587,8 +587,11 @@ async function closeAddUser() {
   background: var(--mm-beige);
 }
 
+/* A floor, so a long role beside it (a long organization's name) takes a line of its own rather
+   than squeezing the address into a sliver. */
 .user-email {
   flex: 1;
+  min-width: min(100%, 12rem);
   font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
@@ -617,17 +620,15 @@ async function closeAddUser() {
   color: var(--mm-text-muted);
 }
 
-.organization-people {
-  margin-bottom: var(--space-3);
-}
-
+/* A role "through" a long organization name wraps inside the card rather than running past it. */
 .role-badge {
   display: inline-block;
+  min-width: 0;
   padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-control);
   font-weight: 400;
   font-size: var(--text-xs);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* A role the caller may change is a select, not a badge pretending to be one. It used to be a
@@ -708,6 +709,15 @@ async function closeAddUser() {
   margin: 0;
   color: var(--mm-text-muted);
   font-size: var(--text-xs);
+}
+
+/* After `.form-hint`, whose margin it overrides: the note keeps its distance from "Add user". */
+.organization-people {
+  margin-bottom: var(--space-3);
+}
+
+.organization-people a {
+  color: var(--mm-text-link);
 }
 
 .danger-section {
