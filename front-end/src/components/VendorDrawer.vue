@@ -381,6 +381,7 @@ watch(
     :form="market?.applicationForm"
     :options="marketEssentialOptions(market)"
     :assignmentRefusal="actionRefusal(market, MarketAction.UpdateAssignmentOrPriceInfo)"
+    :priceReads="market?.priceReads ?? []"
     @close="updating = false"
     @saved="infoSaved"
   />

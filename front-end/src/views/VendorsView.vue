@@ -338,6 +338,8 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
     <AddVendorDialog
       :open="adding"
       :market-id="marketId"
+      :form="market?.applicationForm"
+      :price-reads="market?.priceReads ?? []"
       @close="adding = false"
       @added="vendorAdded"
     />

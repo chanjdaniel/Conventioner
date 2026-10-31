@@ -17,6 +17,7 @@ sources:
   - T92
   - E43/F01/S01
   - E43/F01/S02
+  - E43/F01/S03
 ---
 
 # A price follows the table
@@ -47,6 +48,8 @@ The prices are set on Market Setup's Pricing card, are optional, and settle with
 - **The cheapest group is judged at each table-day's tier**: a group cheaper at Gold and another cheaper at Silver each price the days at their tier, the first on the card of two at one price.
   A group that leaves a tier blank does not price its vendors there: another group they are in does, or "Everyone else", and a group that "Everyone else" undercuts still prices its own vendors: "Everyone else" is for who is in no group, not a cap.
 - A group with no condition, or a condition with no answer ticked, holds nobody yet.
+- **The answers a group reads are asked and guarded** (Q14): a vendor added by hand is asked each of the market's own questions a group reads, required ([adding a vendor who never applied](adding-a-vendor-who-never-applied.md), `Groups.fields`), and updating any question a group reads is the row "Update info the assignment or price reads", an Admin's by default ([an update is kept beside the vendor's answer](an-update-is-kept-beside-the-vendors-answer.md)).
+  Which questions those are is `Groups.keys`, served on the market read as `priceReads`.
 - **A condition on a question the form no longer asks as a choice, or on an answer it no longer offers, is broken**: it is kept and shown broken on the card, holds nobody, and keeps the market in draft with its own blocker line naming the group (`PriceGroupsStandGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md), "Fix the price groups").
   It is kept rather than dropped, as an automatic rejection's rule is, because it decides what a vendor pays; and the form, like the prices, may change only in draft, so draft is where it is fixed.
 

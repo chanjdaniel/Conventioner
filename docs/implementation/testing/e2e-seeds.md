@@ -21,6 +21,7 @@ describes:
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
+  - front-end/e2e/helpers/exampleCollegeMarket.ts
 verified: 2026-10-30
 sources:
   - E02
@@ -33,6 +34,7 @@ sources:
   - T45
   - T79
   - E41/F01/S01
+  - E43/F01/S03
 ---
 
 # E2E seeds
@@ -70,6 +72,7 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each; `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish |
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
 | `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications`, or a `csv` one left a draft for its first import | `fields` gives its form its own questions; it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
+| `seedExampleMarket()` ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts)) | a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions | the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share; `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
 | `seedTheScreens()` ([file](../../../front-end/e2e/helpers/seedTheScreens.ts)) | the stress markets the sweeps walk: one in every phase, names of about 70 characters, 40 applications in every review state, 36 vendors over four dates and three sections, settled rules, an archive and two CSV markets; the review market's cards lead with two answers and fold the rest behind "N more answers" | for the [sweeps](../../design-system.md#what-keeps-this-true); its applications go in with one `insertApplications()` per market |
 | `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned |
