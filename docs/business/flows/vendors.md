@@ -51,7 +51,7 @@ Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, and the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
 
 **Adding a vendor who never applied.**
-From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required; "Add vendor", offered once each is answered.
+From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
 They are listed as "Added" and Unassigned until seated, offered under "Added by hand" in the place dialog ([J6](placing-by-hand.md#j6-place-a-vendor-in-an-empty-seat)), and never placed by a run ([adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md)).
 Covered by: `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`, `the-price-answers.spec.ts`.
 
