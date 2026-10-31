@@ -372,14 +372,28 @@ test.describe("The rail's end wraps only when it must", () => {
   }
 
   test('on a phone, at the door and taking applications', async ({ authenticatedPage: page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    for (const marketId of [doorSeed.marketId, openSeed.marketId]) {
-      await page.goto(marketScreenPath(marketId, 'attendance'));
-      await expectNoNeedlessWrap(page);
-      // More… at the end of its row, where the rail's actions end.
-      const more = await box(page.getByTestId('phase-rail-menu-button'));
-      const { right } = await theEnd(page);
-      expect(Math.abs(more.x + more.width - right)).toBeLessThanOrEqual(1);
+    // Phones from 375 to 430 wide, a classic scrollbar taking 15px of some: at a 326px rail both
+    // chips fitted on one row and More… fell alone under them.
+    for (const width of [375, 390, 405, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const marketId of [doorSeed.marketId, openSeed.marketId]) {
+        await page.goto(marketScreenPath(marketId, 'attendance'));
+        const items = await expectNoNeedlessWrap(page);
+        // More… at the end of its row, where the rail's actions end, and never alone on it.
+        const more = items[items.length - 1];
+        const { right } = await theEnd(page);
+        expect(
+          Math.abs(more.x + more.width - right),
+          `More… ends its row at ${width}`,
+        ).toBeLessThanOrEqual(1);
+        const beside = items.filter(
+          (i) => i !== more && i.y < more.y + more.height && more.y < i.y + i.height,
+        );
+        expect(
+          beside.length,
+          `More… alone on its row at ${width}: ${JSON.stringify(items)}`,
+        ).toBeGreaterThan(0);
+      }
     }
   });
 

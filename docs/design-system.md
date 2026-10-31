@@ -221,7 +221,7 @@ Its public address is the one part that gives way: it shortens, and the link, it
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
 Both addresses share that row with the actions, each shortening alike and never below 18rem: as wide as each whole address they took a row each, with More… beside an empty band at 1920 (T142).
 An address breaks at any character, so its ellipsis meets Copy rather than stopping at the slug's last hyphen.
-On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, each chip and each action wraps onto the next row only where it does not fit, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
+On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, each chip takes a row with the actions that fit beside it, and each action wraps onto the next row only where it does not fit, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
 
 **Columns are sized by need, not by count.**
 Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.

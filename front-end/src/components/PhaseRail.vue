@@ -991,11 +991,13 @@ function cancelPending() {
   }
 
   /* A chip takes what its row leaves, its name at its start and Copy at its end, so a row starts
-     with an address and ends with an action. */
+     with an address and ends with an action. It asks for over half the row, so two chips never
+     share one: side by side at a 326px rail they left More… alone on the row beneath, where the
+     second chip has room for it beside. */
   .url-chip {
-    flex: 1 0 auto;
+    flex: 1 0 calc(50% + var(--space-2));
     justify-content: space-between;
-    min-width: 0;
+    min-width: min-content;
     align-self: center;
   }
 }
