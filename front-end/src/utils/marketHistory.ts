@@ -329,12 +329,15 @@ interface CheckedVendor {
   after: DiscordState | null;
 }
 
-/** The vendors a check changed, in the entry's order, each by their application's id. */
+/**
+ * The vendors a check changed, in the entry's order, each by their application's id: its address
+ * too, since the entry's vendors leave out an application with none and so do not pair by position.
+ */
 function checkedVendors(entry: MarketHistoryEntry): CheckedVendor[] {
   const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
   const detail = asDetail(entry.detail);
-  return ids.map((id, index) => ({
-    vendor: str(entry.vendors[index]),
+  return ids.map((id) => ({
+    vendor: str(asDetail(detail.addresses)[str(id)]),
     before: discordStateFrom(asDetail(detail.before)[str(id)]),
     after: discordStateFrom(asDetail(detail.after)[str(id)]),
   }));
@@ -1076,7 +1079,9 @@ export function entryChanges(
     });
     const counts = asDetail(detail.counts);
     return {
-      changed: mine ? [row(mine, 'Discord')] : vendors.map((each) => row(each, each.vendor)),
+      changed: mine
+        ? [row(mine, 'Discord')]
+        : vendors.map((each) => row(each, each.vendor || 'A vendor with no address')),
       recorded: mine
         ? []
         : DISCORD_STATES.filter((state) => state in counts).map((state) => ({

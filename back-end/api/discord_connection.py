@@ -39,7 +39,7 @@ import api.markets as MarketsApi
 import discord_client as Discord
 import history as History
 from assignment.utils import convert_keys_to_camel_case
-from client_errors import BadRequestError
+from client_errors import BadRequestError, ConflictError
 from datatypes import ApplicationType, DiscordConnection, DiscordVendorState, Market
 from market_documents import market_doc_filter, market_doc_key
 from utils.email import frontend_url
@@ -79,6 +79,13 @@ SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_s
 #: which the entry's actor and time already say, and never a check, which records its own entry.
 RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_link",
                    "username_question")
+
+#: What a check's states are read against: a card that changes any of them while the members are
+#: read refuses the check's write rather than be undone by it, or carry states read for another.
+CHECKED_AGAINST = ("guild_id", "role_id", "username_question")
+CHANGED_WHILE_CHECKING = (
+    "The Discord card changed while Discord was being checked. Check Discord again."
+)
 
 #: Each vendor as a check finds them, in the order the Vendors page counts them.
 HAS_ROLE = "has_role"
@@ -218,9 +225,17 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
         for app_id, _email, username in vendors
     ]
     after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
-    MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), {"$set": {
-        market_doc_key("discord"): convert_keys_to_camel_case(after.model_dump(exclude_none=True)),
-    }})
+    # Only the check's own fields, and only while the card still names what the states were read
+    # against: the members take seconds to read, and a card saved meanwhile is not undone.
+    discord = market_doc_key("discord")
+    stored = convert_keys_to_camel_case(after.model_dump(include={"checked_at", "vendor_states"}))
+    unchanged = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
+                 for field in CHECKED_AGAINST}
+    written = MarketsApi.markets_collection.update_one(
+        {**market_doc_filter("id", market.id), **unchanged},
+        {"$set": {f"{discord}.{key}": value for key, value in stored.items()}})
+    if written.matched_count == 0:
+        raise ConflictError(CHANGED_WHILE_CHECKING)
 
     counts = {state: 0 for state in STATES}
     for vendor in states:
@@ -233,9 +248,12 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
         market.id, requesting_user, Actions.CONNECT_DISCORD, kind=History.DISCORD_CHECKED,
         vendors=[email for _, email in changed],
         subject={"application_ids": [app_id for app_id, _ in changed]},
+        # Each vendor's address beside their state, by application id: ``vendors`` leaves out an
+        # application with no address, so it does not pair with the ids by position.
         detail={
             "before": {app_id: was.get(app_id) for app_id, _ in changed},
             "after": {app_id: now_by_id[app_id] for app_id, _ in changed},
+            "addresses": {app_id: email for app_id, email in changed},
             "counts": counts,
         })
     return {"counts": counts, "checkedAt": after.checked_at}

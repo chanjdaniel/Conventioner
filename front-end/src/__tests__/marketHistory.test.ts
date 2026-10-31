@@ -1425,6 +1425,7 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
     detail: {
       before: { 'app-ana': null, 'app-ben': 'in_server' },
       after: { 'app-ana': 'not_found', 'app-ben': 'has_role' },
+      addresses: { 'app-ana': 'ana@ember.test', 'app-ben': 'ben@ember.test' },
       counts: { has_role: 1, in_server: 2, not_found: 1, no_username: 0 },
     },
   });
@@ -1441,6 +1442,21 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
     );
     expect(entryChanges(check, {}, IntakeMode.Csv, [], 'Ana@ember.test').changed).toEqual([
       { field: 'Discord', before: 'not checked', after: 'Not found' },
+    ]);
+  });
+
+  it('reads each vendor’s address by id, so one with no address shifts no other', () => {
+    const withoutAnAddress = entry({
+      ...check,
+      vendors: ['ben@ember.test'],
+      detail: { ...check.detail, addresses: { 'app-ana': '', 'app-ben': 'ben@ember.test' } },
+    });
+    expect(
+      entryChanges(withoutAnAddress, {}, IntakeMode.Csv, [], 'ben@ember.test').changed,
+    ).toEqual([{ field: 'Discord', before: 'In the server', after: 'Has the role' }]);
+    expect(entryChanges(withoutAnAddress).changed).toEqual([
+      { field: 'A vendor with no address', before: 'not checked', after: 'Not found' },
+      { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
     ]);
   });
 

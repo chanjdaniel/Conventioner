@@ -95,7 +95,8 @@ def world(monkeypatch, market_records, applications):
         return app_id
 
     return SimpleNamespace(market=market, markets=markets, discord=discord, applicant=applicant,
-                           history=market_records.history, patch=monkeypatch)
+                           applications=applications, history=market_records.history,
+                           patch=monkeypatch)
 
 
 @pytest.fixture
@@ -576,6 +577,50 @@ class TestCheckingWhoIsInTheServer:
         assert _stored(world)["roleId"] == "r-vendor"
         assert _stored(world)["inviteLink"] == "https://discord.gg/abc123"
 
+    def _changed_while_listing(self, world, connection):
+        """The card written by another request while the members are read, which on a large
+        server, or under a 429, takes seconds."""
+        def server_members(_values, guild):
+            world.discord.listed.append(guild)
+            world.markets.doc["discord"] = connection
+            return world.discord.members
+
+        world.patch.setattr(Discord, "server_members", server_members)
+
+    @pytest.mark.parametrize("connection", [
+        pytest.param({"usernameQuestion": "discord_username"}, id="disconnected"),
+        pytest.param({**CONNECTED, "roleId": "r-vendor", "roleName": "Vendor Test"},
+                     id="another-role"),
+        pytest.param({**CONNECTED, "guildId": OTHER_GUILD, "guildName": "Another server"},
+                     id="another-server"),
+        pytest.param({**CONNECTED, "usernameQuestion": "shop"}, id="another-question"),
+    ])
+    def test_a_card_changed_while_the_members_are_read_is_kept_and_the_check_refused(
+        self, client, world, connection,
+    ):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+        self._changed_while_listing(world, connection)
+
+        response = _check(client)
+
+        assert response.status_code == 409, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHANGED_WHILE_CHECKING
+        assert _stored(world) == connection
+        assert world.history.documents == []
+
+    def test_an_invite_link_saved_while_the_members_are_read_is_kept(self, client, world):
+        """The states are read against the server, its role and the username question only."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple")
+        self._changed_while_listing(world, {**CONNECTED, "inviteLink": "https://discord.gg/abc123"})
+
+        response = _check(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(world)["inviteLink"] == "https://discord.gg/abc123"
+        assert _states(world) == {maple: "not_found"}
+
     def test_a_market_not_connected_is_refused(self, client, world):
         world.market(**WITH_THE_FORM)
 
@@ -666,8 +711,24 @@ class TestTheChecksHistory:
         assert entry["detail"] == {
             "before": {maple: None, oak: None},
             "after": {maple: "in_server", oak: "not_found"},
+            "addresses": {maple: "maple@example.com", oak: "oak@example.com"},
             "counts": {"has_role": 0, "in_server": 1, "not_found": 1, "no_username": 0},
         }
+
+    def test_each_address_is_kept_by_application_id_when_one_has_none(self, client, world):
+        """The history leaves an empty address out of ``vendors``, so the entry says whose state
+        is whose by id, never by position (T137 review note 4)."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        nobody = world.applicant("nobody@example.com", "nobody")
+        world.applications.documents[-1]["applicant_email"] = ""
+        oak = world.applicant("oak@example.com", "oak")
+
+        _check(client)
+
+        [entry] = world.history.documents
+        assert entry["vendors"] == ["oak@example.com"]
+        assert entry["subject"] == {"application_ids": [nobody, oak]}
+        assert entry["detail"]["addresses"] == {nobody: "", oak: "oak@example.com"}
 
     def test_a_check_again_names_only_the_vendors_it_changed(self, client, world):
         world.market(discord=CONNECTED, **WITH_THE_FORM)
