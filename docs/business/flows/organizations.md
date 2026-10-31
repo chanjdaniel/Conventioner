@@ -11,6 +11,7 @@ sources:
   - decision/2026-10-20
   - E40/F02/S01
   - E39/F02/S01
+  - T148
 ---
 
 # Organizations
@@ -22,6 +23,9 @@ sources:
 A market must belong to an organization, and its organization never changes after creation.
 An organization's people are its Owner, its Admins and its Members; only the owner renames it or adds an admin, the owner or an admin adds a member or changes its default permissions for new markets, and the owner removes anyone but themselves while an admin removes only members ([the organization document, and roles](../../implementation/data/organization-document.md#the-organization)).
 Its owner and admins run every market it holds as the market's Admin does, and a member reads them; a role a market gives someone counts beside that, and the higher one is held ([what each role may do](../rules/what-each-role-may-do.md)).
+
+The list and its dialogs (New organization, Manage organization and Delete organization) fit a phone, as the dashboard that leads here does: nothing scrolls sideways or zooms out, and on Manage organization each person's address takes a line of its own ([the design language](../../design-system.md#layout)).
+Covered by: `organizations-fit-a-phone.spec.ts`, and the [sweeps](../../design-system.md#what-keeps-this-true) at 390px.
 
 ## B1. Create an organization
 

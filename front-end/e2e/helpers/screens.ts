@@ -44,7 +44,8 @@ const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
  * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01),
- * Tools, `/markets` with its dialogs (T142), and the dashboard sign-in lands on (T148).
+ * Tools, `/markets` with its dialogs (T142), the dashboard sign-in lands on, and Organizations with
+ * its dialogs (T148).
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -121,6 +122,24 @@ const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheS
     .getByTestId('market-card-manage-button')
     .click();
   await visible(page, 'manage-market-window');
+};
+
+/**
+ * Manage organization on the screens' own organization (T148), its admin's and member's long
+ * addresses drawn and both its add rows open.
+ */
+const managingTheOrganization = async (page: Page, seed: TheScreensSeed) => {
+  await page.goto('/organizations');
+  await page
+    .getByTestId('organization-card')
+    .filter({ hasText: seed.organization.name })
+    .getByTestId('organizations-manage-button')
+    .click();
+  await visible(page, 'manage-org-member-email');
+  await page.getByTestId('manage-org-add-admin-button').click();
+  await visible(page, 'manage-org-add-admin-input');
+  await page.getByTestId('manage-org-add-member-button').click();
+  await visible(page, 'manage-org-add-member-input');
 };
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
@@ -259,14 +278,14 @@ export const SCREENS: Screen[] = [
   {
     name: 'the organizations',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/organizations'), 'organization-card'),
   },
   {
     // With its default permissions for new markets open, closed until asked for (E39/F02/S01).
     name: 'the manage-organization dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/organizations'),
       'organization-card',
@@ -279,7 +298,7 @@ export const SCREENS: Screen[] = [
     // the seeded organization's market, created in it.
     name: "the manage-organization dialog's history, an entry open",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/organizations'),
       'organization-card',
@@ -287,6 +306,35 @@ export const SCREENS: Screen[] = [
       ['manage-org-history-toggle', 'org-history-entry'],
       ['org-history-toggle', 'org-history-changes'],
     ),
+  },
+  {
+    name: 'the new-organization dialog',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(fixed('/organizations'), 'organization-card', [
+      'organizations-create-button',
+      'organizations-create-name-input',
+    ]),
+  },
+  {
+    // On the organization the seed's markets are made in: markets under way stop it, and it names
+    // them. Never confirmed.
+    name: 'the delete-organization dialog, refused while markets are under way',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      fixed('/organizations'),
+      'organization-card',
+      ['organizations-manage-button', 'manage-org-window'],
+      ['manage-org-delete-button', 'delete-org-blocked'],
+    ),
+  },
+  {
+    // An admin and a member whose addresses are long (T148), and both add rows open.
+    name: 'the manage-organization dialog, its people and both add rows',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: managingTheOrganization,
   },
   {
     name: 'the start page',
