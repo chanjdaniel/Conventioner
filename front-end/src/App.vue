@@ -8,7 +8,8 @@ import { useInertBehind } from '@/utils/useInertBehind';
 import { onMounted, ref, provide, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
-import { useMarketStore } from '@/stores/market';
+import { getApiErrorStatus } from '@/utils/api';
+import { endSession } from '@/utils/sessionEnded';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
@@ -26,8 +27,6 @@ const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
 useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
-// A lost session forgets the open market too, for the reason signing out does.
-const marketStore = useMarketStore();
 const isLogin = computed(() => route.path === '/login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
@@ -67,14 +66,13 @@ onMounted(async () => {
       localStorage.setItem('user', JSON.stringify(user_email));
       setUser(user_email);
     } else {
-      localStorage.clear();
-      marketStore.clear();
-      router.push('/login');
+      endSession(router, { ended: false });
     }
-  } catch {
-    localStorage.clear();
-    marketStore.clear();
-    router.push('/login');
+  } catch (err) {
+    // A lost session forgets the open market too, for the reason signing out does, and signing in
+    // returns to this page (E38/F11/S01). A 401 is a session that ended, and the sign-in page says
+    // so.
+    endSession(router, { ended: getApiErrorStatus(err) === 401 });
   }
 });
 

@@ -9,6 +9,7 @@ import App from './App.vue';
 import router from './router';
 import { routerSettled } from '@/utils/routerReady';
 import { installApplicantSessionExpiry } from '@/utils/applicantSessionExpiry';
+import { installSessionEnded } from '@/utils/sessionEnded';
 
 const app = createApp(App);
 
@@ -16,6 +17,8 @@ app.use(createPinia());
 app.use(router);
 
 installApplicantSessionExpiry(router);
+// A 401 mid-work takes the organizer to sign in again, and back to the page (E38/F11/S01).
+installSessionEnded(router);
 
 // Defer mount until the first navigation settles. The session probe in
 // App.vue and every public-page check both read route metadata, so neither

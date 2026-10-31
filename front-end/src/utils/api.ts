@@ -69,3 +69,38 @@ export function answerMessage(
 export function getApiErrorStatus(err: unknown): number | null {
   return axios.isAxiosError(err) ? (err.response?.status ?? null) : null;
 }
+
+/**
+ * The requests whose 401 is not a session that ended: signing in, whose 401 is a wrong password or
+ * code; the shell's session probe, which answers for itself; and every applicant and door request
+ * (`/public/...`), whose pages have their own sign-in.
+ */
+const SIGN_IN_PATHS = new Set(['/login', '/login-otp', '/request-otp', '/register', '/logout']);
+const SESSION_PROBE_PATH = '/check-session';
+
+function endsTheSession(url: string | undefined): boolean {
+  if (!url) return true;
+  const path = new URL(url, 'http://request.invalid').pathname;
+  if (path.startsWith('/public/')) return false;
+  return !SIGN_IN_PATHS.has(path) && path !== SESSION_PROBE_PATH;
+}
+
+/**
+ * Run `handler` when an organizer's request answers 401: their session has ended (E38/F11/S01).
+ * The request still fails as it would have, so the screen's own catch runs too. A response
+ * interceptor only: nothing is added to a request (see the note on `api`). Answers the function
+ * that removes it.
+ */
+export function onSessionEnded(handler: () => void): () => void {
+  const id = api.interceptors.response.use(undefined, (err: unknown) => {
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.status === 401 &&
+      endsTheSession(err.config?.url)
+    ) {
+      handler();
+    }
+    return Promise.reject(err);
+  });
+  return () => api.interceptors.response.eject(id);
+}
