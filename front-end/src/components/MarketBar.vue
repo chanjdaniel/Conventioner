@@ -45,45 +45,53 @@ function linkFor(tab: MarketTab): string {
 
 <template>
   <div class="market-bar" data-testid="market-bar">
-    <template v-if="market">
-      <!-- The market's own name, whole wherever it fits beside the tabs (E22/F04/S01). -->
-      <h1 class="market-bar-title" data-testid="market-bar-title" :title="market.name">
-        {{ market.name }}
-      </h1>
-      <nav class="market-bar-tabs" aria-label="Market" data-testid="market-bar-tabs">
-        <RouterLink
-          v-for="tab in tabs"
-          :key="tab"
-          :to="linkFor(tab)"
-          class="market-bar-tab"
-          :class="{ active: activeTab === tab, current: tabOf(current) === tab }"
-          :aria-current="tabOf(current) === tab ? 'step' : undefined"
-          :data-testid="`market-bar-tab-${tab}`"
-        >
-          <!-- One inline run, so the dot is raised against the label's capitals in its line rather
-               than centred as a flex item of the tab. -->
-          <span
-            >{{ pathTabLabel(tab, path, TAB_LABELS)
-            }}<span
-              v-if="tabOf(current) === tab"
-              class="current-dot"
-              aria-hidden="true"
-              data-testid="market-bar-current-dot"
-          /></span>
-        </RouterLink>
-      </nav>
-    </template>
-    <!-- Where the name will be, while the market is on its way: an empty black band read as broken
-         (bug 43). The words are below it, in the card. -->
-    <span v-else class="market-bar-loading" data-testid="market-bar-loading" aria-hidden="true" />
+    <div class="market-bar-row">
+      <template v-if="market">
+        <!-- The market's own name, whole wherever it fits beside the tabs (E22/F04/S01). -->
+        <h1 class="market-bar-title" data-testid="market-bar-title" :title="market.name">
+          {{ market.name }}
+        </h1>
+        <nav class="market-bar-tabs" aria-label="Market" data-testid="market-bar-tabs">
+          <RouterLink
+            v-for="tab in tabs"
+            :key="tab"
+            :to="linkFor(tab)"
+            class="market-bar-tab"
+            :class="{ active: activeTab === tab, current: tabOf(current) === tab }"
+            :aria-current="tabOf(current) === tab ? 'step' : undefined"
+            :data-testid="`market-bar-tab-${tab}`"
+          >
+            <!-- One inline run, so the dot is raised against the label's capitals in its line
+               rather than centred as a flex item of the tab. -->
+            <span
+              >{{ pathTabLabel(tab, path, TAB_LABELS)
+              }}<span
+                v-if="tabOf(current) === tab"
+                class="current-dot"
+                aria-hidden="true"
+                data-testid="market-bar-current-dot"
+            /></span>
+          </RouterLink>
+        </nav>
+      </template>
+      <!-- Where the name will be, while the market is on its way: an empty black band read as
+         broken (bug 43). The words are below it, in the card. -->
+      <span v-else class="market-bar-loading" data-testid="market-bar-loading" aria-hidden="true" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .market-bar {
   align-self: stretch;
-  height: 50px;
   background-color: var(--mm-black);
+  /* Its own width decides whether the name and the tabs share a line (below), not the window's:
+     the routes that lift the desktop floor reach every width between a phone and a desk. */
+  container: market-bar / inline-size;
+}
+
+.market-bar-row {
+  height: 50px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -119,35 +127,6 @@ function linkFor(tab: MarketTab): string {
   gap: var(--space-hairline);
 }
 
-/* A phone, which the market screens that fit one reach (the router's `meta.fitsAPhone`: the door,
-   Tools and the Assignments page): the name takes its own line and the tabs scroll sideways inside
-   the bar rather than widening the page. Every other market screen keeps the desktop floor. */
-@media (width <= 640px) {
-  .market-bar {
-    height: auto;
-    flex-wrap: wrap;
-    row-gap: 0;
-    padding: var(--space-2) var(--space-4) 0;
-  }
-
-  .market-bar-title {
-    flex: 1 1 100%;
-    font-size: var(--text-xl);
-  }
-
-  .market-bar-tabs {
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .market-bar-tab {
-    white-space: nowrap;
-  }
-}
-
 .market-bar-tab {
   display: inline-flex;
   align-items: center;
@@ -173,17 +152,57 @@ function linkFor(tab: MarketTab): string {
   box-shadow: var(--focus-halo-on-dark);
 }
 
-/* On a phone the tabs sit on the bar's lower edge in a sideways scroller, which clips anything
-   drawn outside them, so the halo is drawn inside. */
-@media (width <= 640px) {
+.market-bar-tab.active {
+  color: white;
+  border-bottom-color: var(--mm-green);
+}
+
+/*
+ * Too narrow for the tabs (731px) and a readable name beside them, as the market screens that fit
+ * a phone are (the router's `meta.fitsAPhone`: the door, Tools and the Assignments page) on a
+ * phone or a tablet: the name takes its own line and the tabs scroll sideways inside the bar rather
+ * than widening the page. At 768 the name drew 0px wide beside them and the tabs ran past the
+ * window (T142). Every other market screen keeps the desktop floor, where the bar is 968px wide.
+ * In the scroller, which clips anything drawn outside the tabs, the halo is drawn inside.
+ */
+@container market-bar (width < 59rem) {
+  .market-bar-row {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding-top: var(--space-2);
+  }
+
+  .market-bar-title {
+    flex: 1 1 100%;
+  }
+
+  .market-bar-tabs {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .market-bar-tab {
+    white-space: nowrap;
+  }
+
   .market-bar-tab:focus-visible {
     box-shadow: var(--focus-halo-on-dark-inset);
   }
 }
 
-.market-bar-tab.active {
-  color: white;
-  border-bottom-color: var(--mm-green);
+/* A phone: the bar takes the phone's gutter and a smaller name. */
+@media (width <= 640px) {
+  .market-bar-row {
+    padding: var(--space-2) var(--space-4) 0;
+  }
+
+  .market-bar-title {
+    font-size: var(--text-xl);
+  }
 }
 
 /*

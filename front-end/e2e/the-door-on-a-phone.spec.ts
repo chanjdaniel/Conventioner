@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { pinnedBottom, PINNED_MAX } from './helpers/layoutDetectors';
+import { marketScreenPath } from './helpers/marketScreens';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 import { MarketsPage } from './pages/MarketsPage';
@@ -101,6 +102,16 @@ for (const size of SIZES) {
       await markets.searchInput.fill(seed.marketName);
       await markets.expectNames([seed.marketName]);
       await expectFits(page, '/markets');
+
+      // Its Manage market dialog opens inside the window, and closes back to the list.
+      await press(markets.card(seed.marketName).getByTestId('market-card-manage-button'));
+      const manage = page.getByTestId('manage-market-window');
+      await expect(page.getByTestId('manage-market-add-user-button')).toBeVisible();
+      await expectInside(manage, 'Manage market');
+      await expectFits(page, '/markets, Manage market open');
+      await press(page.getByTestId('manage-market-close-button'));
+      await expect(manage).toBeHidden();
+
       await press(markets.card(seed.marketName).getByTestId('market-card-name'));
 
       // A market in market days opens on the door.
@@ -197,3 +208,39 @@ for (const size of SIZES) {
     });
   });
 }
+
+/**
+ * Between a phone and a desk (T142): the door, Tools and the Assignments page lift the desktop
+ * floor, so a tablet lays them out at its own width. At 768 the market's name drew 0px wide and the
+ * tabs ran past the window, so the page scrolled sideways.
+ */
+test.describe('between a phone and a desk', () => {
+  for (const width of [720, 768]) {
+    test(`the door, Tools and the Assignments page keep the window's width at ${width}`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      await page.setViewportSize({ width, height: 1024 });
+      const seed = await seedPublishedMarketWithAssignments(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+        { intakeMode: 'form' },
+      );
+      for (const where of ['attendance', 'tools', 'assignments'] as const) {
+        await page.goto(marketScreenPath(seed.marketId, where));
+        await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+        expect((await widths(page)).sideways, `${where} scrolls sideways`).toBe(0);
+        // The name keeps room to be read, and the tabs stay inside the window.
+        const title = await page.getByTestId('market-bar-title').boundingBox();
+        expect(title!.width, `${where}: the market's name is drawn`).toBeGreaterThanOrEqual(100);
+        const tabs = await page.getByTestId('market-bar-tabs').boundingBox();
+        expect(
+          tabs!.x + tabs!.width,
+          `${where}: the tabs end inside the window`,
+        ).toBeLessThanOrEqual(width);
+      }
+    });
+  }
+});
