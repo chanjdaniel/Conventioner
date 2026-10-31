@@ -20,3 +20,26 @@ export const VIEWER_ANSWERS = answersRefusing(
     (action) => action !== MarketAction.Read && action !== MarketAction.ExportCsv,
   ),
 );
+
+/** What an Editor is served by the built-in table: everything an Admin may do is refused. */
+export const EDITOR_ANSWERS = answersRefusing(
+  MarketAction.ImportApplications,
+  MarketAction.ChangeVerdicts,
+  MarketAction.ChooseReviewers,
+  MarketAction.MovePhase,
+  MarketAction.StopApplications,
+  MarketAction.PublishResults,
+  MarketAction.UpdateAssignmentOrPriceInfo,
+  MarketAction.ConnectDiscord,
+  MarketAction.ManageEditorsAndViewers,
+  MarketAction.ManageAdmins,
+  MarketAction.DeleteMarket,
+  MarketAction.ChangeTheTable,
+);
+
+/** What an Admin is served by the built-in table: only the Owner's rows are refused. */
+export const ADMIN_ANSWERS = answersRefusing(
+  MarketAction.ManageAdmins,
+  MarketAction.DeleteMarket,
+  MarketAction.ChangeTheTable,
+);

@@ -243,8 +243,23 @@ function elsewhere(relative: string | null | undefined): string | null {
   return route?.path === link ? null : link;
 }
 
-/** Where the step is done, unless that is where the organizer already is. */
-const stepLink = computed(() => elsewhere(step.value?.page));
+/**
+ * Whether this person may take the action a remedy or a step leads to (T142). The rail told a
+ * Viewer "Pick market dates", a link to a page where every control was disabled; it now offers a
+ * way somewhere only on the table's answer for what is done there. None named, as from an older
+ * server, offers nothing, as an unanswered action does everywhere.
+ */
+function mayFollow(action: MarketAction | null | undefined): boolean {
+  return action ? mayTake(props.market, action) : false;
+}
+
+/**
+ * Where the step is done, unless that is where the organizer already is, or the work there is not
+ * theirs to do. The sentence is said either way.
+ */
+const stepLink = computed(() =>
+  mayFollow(step.value?.action) ? elsewhere(step.value?.page) : null,
+);
 
 /**
  * The moves this person may make. None when the table's "Move the phase" is not theirs (bug 37,
@@ -274,14 +289,15 @@ const forwardTransition = computed(() => {
 /**
  * The work the step onward waits on, as the rail's main button (E32/F01/S02): named by the guard
  * that refuses it ("Add a location") and leading to the page that resolves it. Only for someone who
- * may make the move, and not on that page itself, where the work is already in front of them. A
- * reason no one page resolves has no fix to offer, and the sentence says it.
+ * may make the move and may take the remedy's action (T142), and not on that page itself, where the
+ * work is already in front of them. A reason no one page resolves has no fix to offer, and the
+ * sentence says it.
  */
 const fix = computed(() => {
   // The move's own first blocker, the one its disabled state is read from - not the sentence's,
   // which before a run says "run the assignment" in its own words and names no blocker.
   const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
-  const to = elsewhere(blocker?.resolutionLink);
+  const to = mayFollow(blocker?.resolutionAction) ? elsewhere(blocker?.resolutionLink) : null;
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
@@ -678,7 +694,7 @@ function cancelPending() {
     <BlockerPanel
       v-if="transitionBlockers.length"
       :blockers="transitionBlockers"
-      :marketId="market.id"
+      :market="market"
       data-testid="phase-rail-blockers"
     />
   </div>
