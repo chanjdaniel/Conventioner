@@ -7,7 +7,7 @@ import { VendorsPage } from './pages/VendorsPage';
  *
  * The notes and the submission sat well; the assignments and the placement history were at the
  * bottom, where nobody found them. The notes are pinned at the top now, and below them Application,
- * Assignments and History, each one click away, the tab kept in the address.
+ * Assignments, Payment (E44/F01/S01) and History, each one click away, the tab kept in the address.
  */
 test('the drawer opens on the application, each tab a click away, the notes on every one', async ({
   authenticatedPage: page,
@@ -19,7 +19,12 @@ test('the drawer opens on the application, each tab a click away, the notes on e
   await vendors.clickVendor(0);
 
   const tabs = page.getByRole('tablist', { name: 'Vendor detail' });
-  await expect(tabs.getByRole('tab')).toHaveText(['Application', 'Assignments', 'History']);
+  await expect(tabs.getByRole('tab')).toHaveText([
+    'Application',
+    'Assignments',
+    'Payment',
+    'History',
+  ]);
   await expect(tabs.getByRole('tab', { name: 'Application' })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -28,6 +33,7 @@ test('the drawer opens on the application, each tab a click away, the notes on e
 
   for (const [tab, panel] of [
     ['Assignments', 'vendors-detail-assignment-item'],
+    ['Payment', 'payment-tab'],
     ['History', 'market-history'],
   ] as const) {
     await tabs.getByRole('tab', { name: tab }).click();

@@ -418,6 +418,36 @@ class PricingObject(BaseModel):
         return value
 
 
+class PaymentEntry(BaseModel):
+    """One payment a vendor made, as an organizer records it (E44/F01/S01): the amount in whole
+    cents of the market's currency, how it was paid, the day it was paid, and an optional note.
+
+    Strict, so an amount sent as text or with a fraction of a cent is refused rather than read; a
+    payment is never zero or negative: money given back is a refund, recorded as its own entry.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cents: int = Field(ge=1, le=10_000_000, strict=True)
+    #: How the organizers take a payment (Daniel, T92 Q7).
+    method: Literal["e-transfer", "cash"]
+    paid_on: str
+    note: str = Field(default="", max_length=500, strict=True)
+
+    @field_validator("paid_on")
+    @classmethod
+    def _a_day(cls, value: str) -> str:
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+        except (TypeError, ValueError):
+            raise ValueError("must be a date, YYYY-MM-DD") from None
+
+    @field_validator("note")
+    @classmethod
+    def _trimmed(cls, value: str) -> str:
+        return value.strip()
+
+
 class SetupObject(BaseModel):
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
@@ -786,6 +816,23 @@ class DiscordConnection(BaseModel):
     #: The key of the form's text question that holds each vendor's Discord username.
     username_question: Optional[str] = None
     invite_link: Optional[str] = None
+    #: When "Check Discord" last read the server's members (E46/F01/S03), and what it found of each
+    #: vendor then. About this server, so connecting to another one or disconnecting forgets them.
+    checked_at: Optional[str] = None
+    vendor_states: Optional[List["DiscordVendorState"]] = None
+
+
+class DiscordVendorState(BaseModel):
+    """One vendor as "Check Discord" found them (E46/F01/S03), by their application.
+
+    ``state`` is ``has_role`` (in the server, holding the market's role), ``in_server``,
+    ``not_found`` (no member has the username: not joined yet, or the username is wrong, which
+    Discord cannot tell apart) or ``no_username`` (the form's question has no answer). A plain
+    string, so a state a later build adds never fails an older one's parse.
+    """
+
+    application_id: str
+    state: str
 
 
 class MarketPermission(BaseModel):
@@ -1194,8 +1241,14 @@ class ServedReviewTeamContract(ContractModel):
     reviewers: List[ServedReviewerContract]
 
 
+class DiscordVendorStateContract(DiscordVendorState, ContractModel):
+    """Camel-cased contract view of one vendor as "Check Discord" found them."""
+
+
 class DiscordConnectionContract(DiscordConnection, ContractModel):
     """Camel-cased contract view of a market's Discord connection."""
+
+    vendor_states: Optional[List[DiscordVendorStateContract]] = None
 
 
 class MarketSchemaContract(ContractModel):

@@ -16,8 +16,9 @@ sent: Discord's message is not the organizer's to read, and a token must not rea
 """
 import logging
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
@@ -45,6 +46,15 @@ BOT_PERMISSIONS = MANAGE_ROLES | CREATE_INSTANT_INVITE
 GUILD_INSTALL = 0
 
 TIMEOUT_SECONDS = 10
+# A 429 says how long to wait before asking again (``retry_after``, in seconds,
+# https://docs.discord.com/developers/topics/rate-limits). A request waits out a few such waits of
+# a few seconds each; a longer one, or more of them, is answered as asking to slow down, so one
+# request never holds the back end for long, and a run never keeps asking a limit that holds:
+# 10,000 refused requests in 10 minutes block the address.
+RATE_LIMIT_WAITS = 3
+LONGEST_RATE_LIMIT_WAIT_SECONDS = 10
+# List Guild Members answers at most 1000 a page (https://docs.discord.com/developers/resources/guild).
+MEMBERS_PAGE = 1000
 # Discord asks every HTTP client to name itself in this shape (https://docs.discord.com/developers/reference).
 USER_AGENT = "DiscordBot (https://conventioner.io, 1.0)"
 
@@ -110,6 +120,16 @@ class Role:
     id: str
     name: str
     below_bot: bool
+
+
+@dataclass(frozen=True)
+class Member:
+    """A member of a server: their user id, their username (never a display name or a server
+    nickname, which anyone may set to anything), and the ids of their roles."""
+
+    id: str
+    username: str
+    roles: Tuple[str, ...]
 
 
 def credentials() -> Optional[Credentials]:
@@ -191,9 +211,32 @@ def server_roles(values: Credentials, guild_id: str) -> List[Role]:
     ]
 
 
-def _bot(values: Credentials, method: str, path: str) -> Any:
+def server_members(values: Credentials, guild_id: str) -> List[Member]:
+    """Every member of the server, a page of 1000 at a time, each page after the last member read.
+
+    Needs the ``GUILD_MEMBERS`` privileged intent, switched on for the application in the Developer
+    Portal; Discord refuses the list without it.
+    """
+    members: List[Member] = []
+    after = "0"
+    while True:
+        page = _bot(values, "GET", f"/guilds/{guild_id}/members",
+                    params={"limit": MEMBERS_PAGE, "after": after})
+        page = page if isinstance(page, list) else []
+        for member in page:
+            user = member.get("user") or {}
+            if user.get("id"):
+                members.append(Member(str(user["id"]), str(user.get("username") or ""),
+                                      tuple(str(role) for role in member.get("roles") or [])))
+        if len(page) < MEMBERS_PAGE or not members:
+            return members
+        after = members[-1].id
+
+
+def _bot(values: Credentials, method: str, path: str, **kwargs: Any) -> Any:
     """One call as the bot, its answer's body, or the refusal it amounts to."""
-    answer = _send(method, API + path, headers={"Authorization": f"Bot {values.bot_token}"})
+    answer = _send(method, API + path, headers={"Authorization": f"Bot {values.bot_token}"},
+                   **kwargs)
     if answer.status_code == 401:
         _refused_settings("the bot's token")
     if answer.status_code in (403, 404):
@@ -213,19 +256,43 @@ def _refused_settings(what: str) -> None:
 
 
 def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any) -> Any:
-    try:
-        answer = requests.request(
-            method, url, timeout=TIMEOUT_SECONDS,
-            headers={"User-Agent": USER_AGENT, **(headers or {})}, **kwargs)
-    except requests.RequestException as e:
-        logger.warning("Could not reach Discord: %s", type(e).__name__)
-        raise DiscordUnavailable(OUT_OF_REACH) from e
-    if answer.status_code == 429:
-        raise DiscordUnavailable(SLOW_DOWN)
+    """One request, asked again after each 429's wait while the waits are short and few."""
+    for waited in range(RATE_LIMIT_WAITS + 1):
+        try:
+            answer = requests.request(
+                method, url, timeout=TIMEOUT_SECONDS,
+                headers={"User-Agent": USER_AGENT, **(headers or {})}, **kwargs)
+        except requests.RequestException as e:
+            logger.warning("Could not reach Discord: %s", type(e).__name__)
+            raise DiscordUnavailable(OUT_OF_REACH) from e
+        if answer.status_code != 429:
+            break
+        wait = _retry_after(answer)
+        if waited == RATE_LIMIT_WAITS or wait is None or wait > LONGEST_RATE_LIMIT_WAIT_SECONDS:
+            logger.warning("Discord answered 429 and asked to wait %s seconds", wait)
+            raise DiscordUnavailable(SLOW_DOWN)
+        _wait(wait)
     if answer.status_code >= 500:
         logger.warning("Discord answered %s", answer.status_code)
         raise DiscordUnavailable(OUT_OF_REACH)
     return answer
+
+
+def _retry_after(answer: Any) -> Optional[float]:
+    """How long a 429 asks to wait, in seconds: its body's ``retry_after``, else its
+    ``Retry-After`` header; None when it says neither."""
+    body = _body(answer)
+    said = body.get("retry_after") if isinstance(body, dict) else None
+    if said is None:
+        said = (getattr(answer, "headers", None) or {}).get("Retry-After")
+    try:
+        return max(float(said), 0.0) if said is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _wait(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 def _body(answer: Any) -> Any:

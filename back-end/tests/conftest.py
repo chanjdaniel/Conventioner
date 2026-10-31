@@ -319,8 +319,9 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     filter is a fake that passes a document Mongo would never have handed back - which is exactly
     how a lookup querying a field no document carries would go unnoticed here and 404 in
     production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
-    lookup is built out of them, ``$gt`` because a deal's lease is, and ``$type: object`` because the
-    applications waiting to be dealt are read by it.
+    lookup is built out of them, ``$gt`` because a deal's lease is, ``$type: object`` because the
+    applications waiting to be dealt are read by it, and a value matching a list that holds it
+    because a vendor's history is.
     """
     for key, condition in (query or {}).items():
         if key == "$nor":
@@ -346,6 +347,10 @@ def mongo_matches(doc: dict, query: dict) -> bool:
         elif condition is None:
             # A null matches a field that is null or absent.
             if doc.get(key) is not None:
+                return False
+        elif present and isinstance(doc[key], list) and not isinstance(condition, list):
+            # A value matches a list holding it, as a vendor's entries are found by ``vendors``.
+            if condition not in doc[key]:
                 return False
         elif not present or doc[key] != condition:
             return False
@@ -496,6 +501,8 @@ class FakeApplicationsCollection:
                 target = target.get(part) if isinstance(target, dict) else None
             if isinstance(target, dict):
                 target.pop(last, None)
+        for key, value in (update.get("$push") or {}).items():
+            doc.setdefault(key, []).append(value)
         return doc
 
     def update_one(self, query, update):
@@ -560,13 +567,17 @@ def market_records(monkeypatch):
     import api.applicant_auth as ApplicantAuth
     import api.attendance as AttendanceApi
     import history as History
+    import payments as Payments
     import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
         history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
-        placement_history=FakeApplicationsCollection(),
+        placement_history=FakeApplicationsCollection(), payments=FakeApplicationsCollection(),
+        amounts_owed=FakeApplicationsCollection(),
     )
+    monkeypatch.setattr(Payments, "payments_collection", fakes.payments)
+    monkeypatch.setattr(Payments, "amounts_owed_collection", fakes.amounts_owed)
     monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)

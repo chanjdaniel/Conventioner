@@ -21,6 +21,7 @@ from api.applications import APPLICATIONS_COLLECTION
 from deletion_trail import DELETION_TRAIL_COLLECTION
 from history import HISTORY_COLLECTION
 from market_documents import MARKETS_COLLECTION, market_doc_key
+from payments import AMOUNTS_OWED_COLLECTION, PAYMENTS_COLLECTION
 from vendor_notes import VENDOR_NOTES_COLLECTION
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,14 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     ],
     # A market's notes, read whole by each page that shows its vendors, and one vendor's written.
     VENDOR_NOTES_COLLECTION: [
+        ("market_id", "vendor_email"),
+    ],
+    # A vendor's payments and what is kept of their table-days, read one vendor at a time by the
+    # drawer's Payment tab and deleted with the market.
+    PAYMENTS_COLLECTION: [
+        ("market_id", "vendor_email"),
+    ],
+    AMOUNTS_OWED_COLLECTION: [
         ("market_id", "vendor_email"),
     ],
     DELETION_TRAIL_COLLECTION: [

@@ -326,10 +326,10 @@ describe('what an entry says', () => {
   it('names a change it has no words for by its row of the table', () => {
     expect(
       sentence(
-        { action: 'record-payment', kind: null, vendors: ['ben@ember.test'] },
-        { 'record-payment': 'Record a payment' },
+        { action: 'give-roles', kind: null, vendors: ['ben@ember.test'] },
+        { 'give-roles': 'Connect Discord and give roles' },
       ),
-    ).toBe('dana@ember.test made a change: Record a payment, about [Ben Okafor]');
+    ).toBe('dana@ember.test made a change: Connect Discord and give roles, about [Ben Okafor]');
   });
 
   it('words an update of a vendor’s info by who updated whose', () => {
@@ -344,10 +344,10 @@ describe('what an entry says', () => {
   });
 
   it('says a change it has no words and no row label for is a change, never its id', () => {
-    expect(sentence({ action: 'record-payment', kind: null, vendors: ['ben@ember.test'] })).toBe(
+    expect(sentence({ action: 'give-roles', kind: null, vendors: ['ben@ember.test'] })).toBe(
       'dana@ember.test made a change, about [Ben Okafor]',
     );
-    expect(sentence({ action: 'record-payment', kind: null, vendors: [] })).toBe(
+    expect(sentence({ action: 'give-roles', kind: null, vendors: [] })).toBe(
       'dana@ember.test made a change',
     );
   });
@@ -1399,11 +1399,253 @@ describe("a change of the prices opens to the card's words and money (E43/F01/S0
   });
 });
 
+describe("a vendor's payments, as the drawer's History and Manage market's say them (E44/F01)", () => {
+  const CAD = { currency: 'CAD' };
+  const fields = { cents: 3500, method: 'cash', paid_on: '2099-04-01', note: 'At the desk' };
+  const none = { cents: null, method: null, paid_on: null, note: null };
+
+  it('words a payment, a refund, an edit and a removal, the vendor named', () => {
+    expect(
+      sentence({
+        action: 'record-payment',
+        kind: null,
+        subject: { payment_id: 'p1', ...CAD },
+        detail: { before: none, after: fields },
+      }),
+    ).toBe('dana@ember.test recorded a payment of $35 from [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'refund_recorded',
+        subject: { payment_id: 'p2', ...CAD },
+        detail: { before: none, after: { ...fields, cents: -1500 } },
+      }),
+    ).toBe('dana@ember.test recorded a refund of $15 to [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_edited',
+        subject: { payment_id: 'p1', payment_kind: 'payment', ...CAD },
+        detail: { before: { cents: 3000 }, after: { cents: 3500 } },
+      }),
+    ).toBe('dana@ember.test changed a payment from [Ana Rivera]');
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_removed',
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
+        detail: { before: { ...fields, cents: -1500 }, after: none },
+      }),
+    ).toBe('dana@ember.test removed a refund to [Ana Rivera]');
+  });
+
+  it('says an edited refund is a refund when only its note changed (review 2, note 8)', () => {
+    expect(
+      sentence({
+        action: 'adjust-paid',
+        kind: 'payment_edited',
+        subject: { payment_id: 'p2', payment_kind: 'refund', ...CAD },
+        detail: { before: { note: null }, after: { note: 'Given at the desk' } },
+      }),
+    ).toBe('dana@ember.test changed a refund to [Ana Rivera]');
+  });
+
+  it('words an amount owed set, and taken back to the calculated price', () => {
+    expect(
+      sentence({
+        action: 'change-owed',
+        kind: 'owed_set',
+        subject: { date: '2099-05-08', ...CAD },
+        detail: { before: { owed_cents: 1500 }, after: { owed_cents: 0 } },
+      }),
+    ).toBe('dana@ember.test set what [Ana Rivera] owes on May 8, 2099 to $0');
+    expect(
+      sentence({
+        action: 'change-owed',
+        kind: 'owed_calculated',
+        subject: { date: '2099-05-08', ...CAD },
+        detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+      }),
+    ).toBe(
+      'dana@ember.test set what [Ana Rivera] owes on May 8, 2099 back to the calculated price',
+    );
+  });
+
+  it('words a free’s deduction taken back by seating the day again (review, note 18)', () => {
+    const takenBack = entry({
+      action: 'assign',
+      kind: 'owed_taken_back',
+      subject: { date: '2099-05-08', ...CAD },
+      detail: { before: { owed_cents: 0 }, after: { owed_cents: 1500 } },
+    });
+    expect(said(entryParts(takenBack, NAMES))).toBe(
+      'dana@ember.test seated [Ana Rivera] again on May 8, 2099, taking back the $0 set when the table was freed',
+    );
+    expect(entryChanges(takenBack).changed).toEqual([
+      { field: 'Amount owed', before: '$0', after: '$15' },
+    ]);
+  });
+
+  it('opens to the fields in the Payment tab’s words and money', () => {
+    const { changed, recorded } = entryChanges(
+      entry({
+        action: 'record-payment',
+        kind: null,
+        subject: { payment_id: 'p1', ...CAD },
+        detail: { before: none, after: fields },
+      }),
+    );
+    expect(changed).toEqual([
+      { field: 'Amount', before: 'none', after: '$35' },
+      { field: 'Paid by', before: 'none', after: 'Cash' },
+      { field: 'Paid on', before: 'none', after: 'Apr 1, 2099' },
+      { field: 'Note', before: 'none', after: 'At the desk' },
+    ]);
+    expect(recorded).toEqual([]);
+    expect(
+      entryChanges(
+        entry({
+          action: 'change-owed',
+          kind: 'owed_set',
+          subject: { date: '2099-05-08', ...CAD },
+          detail: { before: { owed_cents: 1500 }, after: { owed_cents: 0 } },
+        }),
+      ),
+    ).toEqual({
+      changed: [{ field: 'Amount owed', before: '$15', after: '$0' }],
+      recorded: [{ field: 'Date', value: 'May 8, 2099' }],
+    });
+  });
+});
+
 describe('a date range', () => {
   it('runs from the start of the first day to the start of the day after the last', () => {
     const from = new Date(dayStarts('2026-11-19'));
     const to = new Date(dayEnds('2026-11-19'));
     expect([from.getDate(), from.getHours()]).toEqual([19, 0]);
     expect([to.getDate(), to.getHours()]).toEqual([20, 0]);
+  });
+});
+
+describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
+  const discord = (kind: string, detail: Record<string, unknown>, extra = {}) =>
+    entry({ action: 'connect-discord', kind, vendors: [], detail, ...extra });
+  const SERVER = { guild_id: '2909267986263572999', guild_name: 'Market Vendors' };
+  const NONE = { guild_id: null, guild_name: null };
+  const FORM = [
+    { key: 'discord_username', label: 'Discord Username', type: 'text' },
+  ] as unknown as FormField[];
+
+  it('words connecting and disconnecting by the server’s name, never its id', () => {
+    expect(
+      said(entryParts(discord('discord_connected', { before: NONE, after: SERVER }), NAMES)),
+    ).toBe('dana@ember.test connected the market to the Discord server “Market Vendors”');
+    expect(
+      said(entryParts(discord('discord_disconnected', { before: SERVER, after: NONE }), NAMES)),
+    ).toBe('dana@ember.test disconnected the market from the Discord server “Market Vendors”');
+  });
+
+  it('words a choice on the card by what it changed', () => {
+    const detail = {
+      before: { role_id: null, role_name: null, invite_link: null },
+      after: { role_id: 'r-vendor', role_name: 'Vendor', invite_link: 'https://discord.gg/abc' },
+    };
+    expect(said(entryParts(discord('discord', detail), NAMES))).toBe(
+      'dana@ember.test changed the Discord card: role and invite link',
+    );
+  });
+
+  it('opens to the names and the question’s label, never an id or a key', () => {
+    const detail = {
+      before: { ...NONE, role_id: null, role_name: null, username_question: null },
+      after: {
+        ...SERVER,
+        role_id: 'r-vendor',
+        role_name: 'Vendor',
+        username_question: 'discord_username',
+        username_question_label: 'Discord Username',
+      },
+    };
+    expect(entryChanges(discord('discord_connected', detail))).toEqual({
+      changed: [
+        { field: 'Server', before: 'none', after: 'Market Vendors' },
+        { field: 'Role', before: 'none', after: 'Vendor' },
+        { field: 'Username question', before: 'none', after: 'Discord Username' },
+      ],
+      recorded: [],
+    });
+  });
+
+  it('names a question recorded without its label by the form, or says it left the form', () => {
+    const detail = (key: string) => ({
+      before: { username_question: null },
+      after: { username_question: key },
+    });
+    const question = (key: string) =>
+      entryChanges(discord('discord', detail(key)), {}, IntakeMode.Csv, [], '', FORM).changed;
+    expect(question('discord_username')).toEqual([
+      { field: 'Username question', before: 'none', after: 'Discord Username' },
+    ]);
+    expect(question('old_key')).toEqual([
+      { field: 'Username question', before: 'none', after: '“old_key” (no longer on the form)' },
+    ]);
+  });
+
+  const check = entry({
+    action: 'connect-discord',
+    kind: 'discord_checked',
+    vendors: ['ana@ember.test', 'ben@ember.test'],
+    subject: { application_ids: ['app-ana', 'app-ben'] },
+    detail: {
+      before: { 'app-ana': null, 'app-ben': 'in_server' },
+      after: { 'app-ana': 'not_found', 'app-ben': 'has_role' },
+      addresses: { 'app-ana': 'ana@ember.test', 'app-ben': 'ben@ember.test' },
+      counts: { has_role: 1, in_server: 2, not_found: 1, no_username: 0 },
+    },
+  });
+
+  it('words a check by how many it found in each state', () => {
+    expect(said(entryParts(check, NAMES))).toBe(
+      'dana@ember.test checked who is in the Discord server: 1 has the role, 2 in the server, 1 not found',
+    );
+  });
+
+  it('words a check as the vendor’s own line in their own history', () => {
+    expect(said(entryParts(check, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      'dana@ember.test checked who is in the Discord server: Has the role',
+    );
+    expect(entryChanges(check, {}, IntakeMode.Csv, [], 'Ana@ember.test').changed).toEqual([
+      { field: 'Discord', before: 'not checked', after: 'Not found' },
+    ]);
+  });
+
+  it('reads each vendor’s address by id, so one with no address shifts no other', () => {
+    const withoutAnAddress = entry({
+      ...check,
+      vendors: ['ben@ember.test'],
+      detail: { ...check.detail, addresses: { 'app-ana': '', 'app-ben': 'ben@ember.test' } },
+    });
+    expect(
+      entryChanges(withoutAnAddress, {}, IntakeMode.Csv, [], 'ben@ember.test').changed,
+    ).toEqual([{ field: 'Discord', before: 'In the server', after: 'Has the role' }]);
+    expect(entryChanges(withoutAnAddress).changed).toEqual([
+      { field: 'A vendor with no address', before: 'not checked', after: 'Not found' },
+      { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
+    ]);
+  });
+
+  it('opens a check to each vendor whose state changed, and the counts', () => {
+    expect(entryChanges(check)).toEqual({
+      changed: [
+        { field: 'ana@ember.test', before: 'not checked', after: 'Not found' },
+        { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
+      ],
+      recorded: [
+        { field: 'Has the role', value: '1' },
+        { field: 'In the server', value: '2' },
+        { field: 'Not found', value: '1' },
+        { field: 'No username', value: '0' },
+      ],
+    });
   });
 });

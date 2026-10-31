@@ -35,6 +35,8 @@ sources:
   - E38/F07/S02
   - E46/F01/S02
   - E43/F01/S03
+  - E44/F01/S01
+  - E44/F01/S02
 ---
 
 # The market's actions
@@ -74,7 +76,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 | Row (`id`) | Default | Asked by |
 | --- | --- | --- |
-| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, `POST /floorplans/export` |
+| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, a vendor's payments (`GET /markets/:id/payments/<email>`), `POST /floorplans/export` |
 | Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
 | Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
 | Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
@@ -91,8 +93,11 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase |
 | Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
 | Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
+| Record a payment (`record-payment`) | Editor | `POST /markets/:id/payments/<email>` ([payments](../data/payments.md)) |
+| Change the amount owed (`change-owed`) | Admin | `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`, and a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too) |
+| Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`) | Admin | `POST /markets/:id/payments/<email>/refunds`, `PUT` and `DELETE /markets/:id/payment-entries/<id>` |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
-| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)) |
+| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |

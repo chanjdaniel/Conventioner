@@ -22,6 +22,12 @@ import {
   inFormOrder,
 } from '@/utils/essentialFields';
 import { pathPhaseLabel } from '@/utils/marketGuide';
+import {
+  DISCORD_STATES,
+  discordStateFrom,
+  discordStateLabel,
+  type DiscordState,
+} from '@/utils/discordCheck';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
 import {
@@ -285,6 +291,62 @@ function placementParts(
   ];
 }
 
+/**
+ * The Discord card's fields as the history names them (E46/F01/S02), each by the name it was
+ * recorded with: the server's and the role's names and the question's label, never Discord's ids
+ * or the question's key (T127 review 6 note 30). Each id is recorded beside its name, and left out.
+ */
+const DISCORD_FIELDS: Array<[string, string]> = [
+  ['guild_name', 'server'],
+  ['role_name', 'role'],
+  ['username_question', 'username question'],
+  ['invite_link', 'invite link'],
+];
+
+/** The card's fields an entry changed, in the card's order: a question by its key or its label. */
+function discordFields(...sides: Detail[]): Array<[string, string]> {
+  const keys = new Set(sides.flatMap((side) => Object.keys(side)));
+  return DISCORD_FIELDS.filter(
+    ([key]) => keys.has(key) || (key === 'username_question' && keys.has(`${key}_label`)),
+  );
+}
+
+/** A side's username question as the form names it: its recorded label, else the form's label for
+ * its key, else the key and that the form no longer has it. */
+function discordQuestion(side: Detail, fields: readonly FormField[]): string {
+  const label = str(side.username_question_label);
+  if (label) return label;
+  const key = str(side.username_question);
+  if (!key) return 'none';
+  const question = fields.find((field) => field.key === key);
+  return question ? question.label : `“${key}” (no longer on the form)`;
+}
+
+/** One vendor a Discord check changed: their address, and their state before and after. */
+interface CheckedVendor {
+  vendor: string;
+  before: DiscordState | null;
+  after: DiscordState | null;
+}
+
+/**
+ * The vendors a check changed, in the entry's order, each by their application's id: its address
+ * too, since the entry's vendors leave out an application with none and so do not pair by position.
+ */
+function checkedVendors(entry: MarketHistoryEntry): CheckedVendor[] {
+  const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+  const detail = asDetail(entry.detail);
+  return ids.map((id) => ({
+    vendor: str(asDetail(detail.addresses)[str(id)]),
+    before: discordStateFrom(asDetail(detail.before)[str(id)]),
+    after: discordStateFrom(asDetail(detail.after)[str(id)]),
+  }));
+}
+
+function checkedState(state: DiscordState | null): string {
+  return state ? discordStateLabel(state) : 'not checked';
+}
+
 /** One application a deal moved: its vendor, and whom it was dealt to before and after. */
 interface DealtShare {
   vendor: string;
@@ -425,6 +487,36 @@ export function entryParts(
   }
 
   switch (`${entry.action}/${entry.kind ?? ''}`) {
+    case 'connect-discord/discord_connected':
+      return [actor, text(`connected the market to the Discord server “${str(after.guild_name)}”`)];
+    case 'connect-discord/discord_disconnected':
+      return [
+        actor,
+        text(`disconnected the market from the Discord server “${str(before.guild_name)}”`),
+      ];
+    case 'connect-discord/discord': {
+      const fields = discordFields(before, after).map(([, words]) => words);
+      return [actor, text(`changed the Discord card${fields.length ? `: ${listed(fields)}` : ''}`)];
+    }
+    case 'connect-discord/discord_checked': {
+      const vendor = own.trim().toLowerCase();
+      const mine = vendor
+        ? checkedVendors(entry).find((each) => each.vendor.toLowerCase() === vendor)
+        : undefined;
+      if (mine) {
+        return [actor, text(`checked who is in the Discord server: ${checkedState(mine.after)}`)];
+      }
+      const counts = asDetail(detail.counts);
+      const found = DISCORD_STATES.filter((state) => Number(counts[state] ?? 0) > 0).map(
+        (state) => `${Number(counts[state])} ${discordStateLabel(state).toLowerCase()}`,
+      );
+      return [
+        actor,
+        text(
+          `checked who is in the Discord server: ${found.length ? found.join(', ') : 'no vendors'}`,
+        ),
+      ];
+    }
     case 'assign/rules':
       return [actor, text('changed the assignment rules')];
     case 'change-setup/renamed':
@@ -625,6 +717,51 @@ export function entryParts(
           after.applications_stopped ? 'stopped taking applications' : 'took applications again',
         ),
       ];
+    // A vendor's payments (E44/F01): the vendor last where a possessive would follow them.
+    case 'record-payment/':
+      return [actor, text(`recorded a payment of ${entryMoney(entry, after.cents)} from `), vendor];
+    case 'adjust-paid/refund_recorded':
+      return [
+        actor,
+        text(`recorded a refund of ${entryMoney(entry, Math.abs(Number(after.cents)))} to `),
+        vendor,
+      ];
+    case 'adjust-paid/payment_edited':
+      return [
+        actor,
+        text(isRefund(entry) ? 'changed a refund to ' : 'changed a payment from '),
+        vendor,
+      ];
+    case 'adjust-paid/payment_removed':
+      return [
+        actor,
+        text(isRefund(entry) ? 'removed a refund to ' : 'removed a payment from '),
+        vendor,
+      ];
+    case 'change-owed/owed_set':
+      return [
+        actor,
+        text('set what '),
+        vendor,
+        text(` owes${onDay(entry.subject.date)} to ${entryMoney(entry, after.owed_cents)}`),
+      ];
+    case 'assign/owed_taken_back':
+      return [
+        actor,
+        text('seated '),
+        vendor,
+        text(
+          ` again${onDay(entry.subject.date)}, taking back the ${entryMoney(entry, before.owed_cents)}` +
+            ' set when the table was freed',
+        ),
+      ];
+    case 'change-owed/owed_calculated':
+      return [
+        actor,
+        text('set what '),
+        vendor,
+        text(` owes${onDay(entry.subject.date)} back to the calculated price`),
+      ];
     case 'change-organization/renamed':
       return [
         actor,
@@ -693,6 +830,37 @@ export function entryParts(
       return parts;
     }
   }
+}
+
+/** An amount of a payment entry, in the currency its subject names: "$35", or "-$15" for a refund. */
+function entryMoney(entry: MarketHistoryEntry, cents: unknown): string {
+  const amount = Number(cents);
+  const money = formatPrice(Math.abs(amount), str(entry.subject.currency) || 'CAD');
+  return amount < 0 ? `-${money}` : money;
+}
+
+/** A payment entry's fields, as the Payment tab names them (E44/F01). */
+const PAYMENT_FIELDS: Record<string, string> = {
+  cents: 'Amount',
+  owed_cents: 'Amount owed',
+  method: 'Paid by',
+  paid_on: 'Paid on',
+  note: 'Note',
+};
+
+/** A payment entry's field as the Payment tab writes it: money, a method, a day, or a note. */
+function paymentValue(entry: MarketHistoryEntry, key: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'none';
+  if (key === 'cents' || key === 'owed_cents') return entryMoney(entry, value);
+  if (key === 'method') return value === 'cash' ? 'Cash' : 'E-transfer';
+  if (key === 'paid_on') return getShortDate(str(value));
+  return valueText(value);
+}
+
+/** Whether an entry is about a refund: its subject says, since an edit records only the fields
+ * it changed, and a refund's note changed alone carries no amount. */
+function isRefund(entry: MarketHistoryEntry): boolean {
+  return entry.subject.payment_kind === 'refund';
 }
 
 /** The row of the permission table a change to it is about, by its label, else by its id. */
@@ -976,6 +1144,42 @@ export function entryChanges(
     }
     return { changed, recorded: recordedFields(entry, detail, path, true) };
   }
+  if (entry.action === 'connect-discord' && entry.kind === 'discord_checked') {
+    const vendor = own.trim().toLowerCase();
+    const vendors = checkedVendors(entry);
+    const mine = vendor ? vendors.find((each) => each.vendor.toLowerCase() === vendor) : undefined;
+    const row = (each: CheckedVendor, field: string) => ({
+      field,
+      before: checkedState(each.before),
+      after: checkedState(each.after),
+    });
+    const counts = asDetail(detail.counts);
+    return {
+      changed: mine
+        ? [row(mine, 'Discord')]
+        : vendors.map((each) => row(each, each.vendor || 'A vendor with no address')),
+      recorded: mine
+        ? []
+        : DISCORD_STATES.filter((state) => state in counts).map((state) => ({
+            field: discordStateLabel(state),
+            value: str(counts[state]),
+          })),
+    };
+  }
+  if (entry.action === 'connect-discord') {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const value = (side: Detail, key: string) =>
+      key === 'username_question' ? discordQuestion(side, fields) : valueText(side[key]);
+    return {
+      changed: discordFields(before, after).map(([key, words]) => ({
+        field: fieldName(words),
+        before: value(before, key),
+        after: value(after, key),
+      })),
+      recorded: [],
+    };
+  }
   // A vendor added by hand: their name and status, then the answers the price groups read, each
   // question as the form asks it (E43/F01/S03).
   if (entry.action === 'add-vendor') {
@@ -1047,6 +1251,22 @@ export function entryChanges(
             ],
       ),
       recorded: [],
+    };
+  }
+  if (
+    ['record-payment', 'adjust-paid', 'change-owed'].includes(entry.action) ||
+    (entry.action === 'assign' && entry.kind === 'owed_taken_back')
+  ) {
+    const before = asDetail(detail.before);
+    const after = asDetail(detail.after);
+    const keys = Object.keys(PAYMENT_FIELDS).filter((key) => key in before || key in after);
+    return {
+      changed: keys.map((key) => ({
+        field: PAYMENT_FIELDS[key],
+        before: paymentValue(entry, key, before[key]),
+        after: paymentValue(entry, key, after[key]),
+      })),
+      recorded: entry.subject.date ? [{ field: 'Date', value: day(entry.subject.date) }] : [],
     };
   }
   if (entry.action === 'assign' && entry.kind === 'placed') {

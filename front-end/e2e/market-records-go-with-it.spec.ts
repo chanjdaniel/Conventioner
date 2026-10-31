@@ -11,10 +11,18 @@ import { mongoEval } from './helpers/mongo';
  * Deleting a market - on its own, or with its organization - removed the market document and left
  * its applications (each vendor's name, email and answers), its check-ins and its applicant
  * sign-in codes behind for ever, and deleting an organization left the placement trail too: records
- * describing a market nobody can reach any more.
+ * describing a market nobody can reach any more. Its vendors' payments and amounts owed
+ * (E44/F01/S01) go with it too.
  */
 
-const KEPT_WITH_A_MARKET = ['applications', 'attendance', 'history', 'applicant_login_challenges'];
+const KEPT_WITH_A_MARKET = [
+  'applications',
+  'attendance',
+  'history',
+  'applicant_login_challenges',
+  'payments',
+  'amounts_owed',
+];
 
 /** One record of every kind a market keeps beside itself. */
 function seedRecords(marketId: string): void {
@@ -26,6 +34,11 @@ function seedRecords(marketId: string): void {
     db.history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
     db.applicant_login_challenges.insertOne({ market_id: ${JSON.stringify(marketId)},
       email: 'kept@example.test', expires_at: new Date(Date.now() + 3600 * 1000) });
+    db.payments.insertOne({ market_id: ${JSON.stringify(marketId)},
+      vendor_email: 'kept@example.test', cents: 3500, method: 'cash', paid_on: '2099-07-01' });
+    db.amounts_owed.insertOne({ market_id: ${JSON.stringify(marketId)},
+      vendor_email: 'kept@example.test', date: '2099-08-01',
+      set_by_hand: { cents: 0, by: 'org@example.test', at: ${JSON.stringify(at)} } });
   `);
 }
 
