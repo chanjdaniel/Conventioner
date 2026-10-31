@@ -40,6 +40,7 @@ The online path enters the stage by opening applications; the Google Form path b
 The rail offers the one next step as its main button, and every other move behind "More…".
 A move the server would refuse is drawn disabled before the click, with its first blocker as the rail's sentence and beside the move in the menu.
 When that blocker names a page that fixes it, the main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
+The fix is offered only to someone the market's table lets take the remedy's action ([what each role may do](../rules/what-each-role-may-do.md), T142).
 A move that loses a race with another change still answers with a red "Cannot proceed:" panel under the rail.
 Every move lands on the page where the new phase's work is done, forward or back.
 Every rule about moving a market lives with [the guards](../../implementation/modules/guards.md); how the rail draws it is [the phase rail](../../implementation/modules/phase-rail.md).
@@ -77,7 +78,7 @@ Inside the stage, More… also offers what is not a move: "Redo import" on the G
 
 ## What the rail says
 
-One sentence per phase and path names the one next step and links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md)).
+One sentence per phase and path names the one next step and, for someone who may take its action, links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md), [what each role may do](../rules/what-each-role-may-do.md)).
 When the server would refuse that step, the sentence is its first blocker instead, so the organizer reads what is wrong before trying.
 
 | Phase | Online path | Google Form path |

@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/market.ts#resolutionPath
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01

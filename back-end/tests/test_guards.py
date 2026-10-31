@@ -67,20 +67,40 @@ class TestPreconditionResult:
             message="Something is wrong.",
             resolution_link="/fix-it",
             resolution_label="Fix it",
+            resolution_action="change-setup",
         )
         assert r.passed is False
         assert r.message == "Something is wrong."
         assert r.resolution_link == "/fix-it"
         assert r.resolution_label == "Fix it"
+        assert r.resolution_action == "change-setup"
 
     def test_a_link_carries_the_words_for_it(self):
         """The rail draws the fix as its main button (E32/F01/S02), so a link needs a name."""
         with pytest.raises(ValueError, match="resolution_label"):
-            PreconditionResult(id="test", passed=False, message="No.", resolution_link="setup")
+            PreconditionResult(
+                id="test", passed=False, message="No.", resolution_link="setup",
+                resolution_action="change-setup",
+            )
 
     def test_words_without_a_link_lead_nowhere(self):
         with pytest.raises(ValueError, match="resolution_link"):
             PreconditionResult(id="test", passed=False, message="No.", resolution_label="Fix it")
+
+    def test_a_link_names_the_action_it_takes(self):
+        """The rail offers a remedy only to someone the table lets take it (T142), so a link says
+        which row of the table that is."""
+        with pytest.raises(ValueError, match="resolution_action"):
+            PreconditionResult(
+                id="test", passed=False, message="No.", resolution_link="setup",
+                resolution_label="Fix it",
+            )
+
+    def test_an_action_without_a_link_leads_nowhere(self):
+        with pytest.raises(ValueError, match="resolution_link"):
+            PreconditionResult(
+                id="test", passed=False, message="No.", resolution_action="change-setup",
+            )
 
     def test_failed_without_resolution_link(self):
         r = PreconditionResult(
@@ -845,6 +865,70 @@ class TestEveryResolutionLinkPointsAtItsFix:
             if link is not None and link not in self.ALLOWED
         ]
         assert unknown == [], f"unrecognized resolution_link: {sorted(set(unknown))}"
+
+
+
+class TestEveryRemedyNamesTheActionItTakes:
+    """A remedy is offered only to someone who may take it (T142): the rail asks the table's answer
+    for the row the remedy takes, so every guard that leads somewhere names that row.
+
+    Read out of the source as the links are, and for the same reason: a row the table no longer
+    holds would hide the remedy from everyone, and a raise at construction would turn that into a
+    500 for the organizer rather than a red build.
+    """
+
+    #: What each remedy does, by the words it is offered under: the spec's table.
+    ACTION_OF = {
+        "Pick market dates": "change-setup",
+        "Change the dates": "change-setup",
+        "Add a location": "change-setup",
+        "Add tables": "change-setup",
+        "Give every tier tables": "change-setup",
+        "Fix the price groups": "change-setup",
+        "Allocate tables": "assign",
+        "Publish results": "publish-results",
+        "Finish deciding": "give-verdicts",
+        "Import responses": "import-applications",
+    }
+
+    def _remedies(self):
+        """Every ``PreconditionResult(...)`` in the module that leads somewhere, as its keywords."""
+        source = pathlib.Path(guards.__file__).read_text()
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "PreconditionResult"):
+                continue
+            keywords = {kw.arg: kw.value for kw in node.keywords}
+            link = keywords.get("resolution_link")
+            if link is None or (isinstance(link, ast.Constant) and link.value is None):
+                continue
+            found.append(keywords)
+        return found
+
+    def test_the_scan_finds_every_remedy(self):
+        """Guards against the scan silently finding nothing and passing everything below."""
+        assert len(self._remedies()) >= len(self.ACTION_OF)
+
+    def test_every_remedy_names_a_row_of_the_table(self):
+        from api.market_actions import ACTIONS
+
+        unnamed = []
+        for keywords in self._remedies():
+            action = keywords.get("resolution_action")
+            if not (isinstance(action, ast.Constant) and action.value in ACTIONS):
+                unnamed.append(ast.dump(action) if action is not None else None)
+        assert unnamed == [], (
+            "every resolution_link names, as a literal, the row of api/market_actions.py's table "
+            f"that its remedy takes; found {unnamed}"
+        )
+
+    def test_each_remedy_takes_the_action_it_does(self):
+        named = {}
+        for keywords in self._remedies():
+            label, action = keywords["resolution_label"], keywords.get("resolution_action")
+            named.setdefault(label.value, set()).add(getattr(action, "value", None))
+        assert named == {label: {action} for label, action in self.ACTION_OF.items()}
 
 
 def test_no_guard_reads_the_phase():

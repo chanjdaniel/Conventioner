@@ -26,4 +26,9 @@ describe('the table, asked from the market', () => {
     expect(mayTake(null, MarketAction.CheckIn)).toBe(false);
     expect(mayTake(undefined, MarketAction.CheckIn)).toBe(false);
   });
+
+  it('refuses when no action is named, as a remedy from an older server names none (T142)', () => {
+    expect(actionRefusal(market, null)).toBe(UNANSWERED);
+    expect(mayTake(market, undefined)).toBe(false);
+  });
 });

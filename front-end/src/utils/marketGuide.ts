@@ -168,6 +168,12 @@ export interface NextStep {
   page: MarketPage | string | null;
   /** The move it would take, refused for this reason, when it would be. */
   blocker: PreconditionResult | null;
+  /**
+   * The row of the market's actions table the step takes: the blocker's remedy's, else the guide
+   * row's. The rail links the step only for someone the table lets take it (T142). Null where it
+   * leads nowhere, or a blocker names no action.
+   */
+  action: MarketAction | null;
 }
 
 /** What a row of the guide reads off the market, beyond its phase. */
@@ -185,14 +191,21 @@ interface Standing {
   stopped?: boolean;
 }
 
-/** One phase's row: the page it is worked on - the one carrying the dot - and what the rail says. */
+/**
+ * One phase's row: the page it is worked on - the one carrying the dot - what the rail says, and
+ * the action of the table its step takes.
+ */
 interface GuideRow {
   page: MarketPage;
   /** Where a move into the phase lands, when not on `page`: a flow the phase's work is done in. */
   lands?: MarketFlow;
   statement: string;
-  /** False where the statement leads nowhere: an archive is done with. */
-  links?: boolean;
+  /**
+   * The row of the market's actions table the work the statement leads to takes, so the rail links
+   * the statement only for someone who may (T142). Null where it leads nowhere: an archive is done
+   * with.
+   */
+  action: MarketAction | null;
 }
 
 /**
@@ -215,6 +228,7 @@ function stageLead({ path, stopped }: Pick<Standing, 'path' | 'stopped'>): strin
 const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   [MarketPhase.Draft]: ({ path }) => ({
     page: 'setup',
+    action: MarketAction.ChangeSetup,
     statement:
       path === IntakeMode.Form
         ? 'Plan the market and its application form, then open applications.'
@@ -223,29 +237,40 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   // The application page's address is in the rail beside this, under the same name, with Copy.
   [MarketPhase.Applications]: (standing) => ({
     page: 'applications',
+    action: MarketAction.GiveVerdicts,
     statement: `${stageLead(standing)} Every application is decided: Begin Assignment.`,
   }),
-  // Worked on the rules until there are assignments, and on the assignments after.
+  // Worked on the rules until there are assignments, and on the assignments after. Once results
+  // are published the assignments are settled, and what is left is the move.
   [MarketPhase.Assignment]: ({ assigned, published }) =>
     published
       ? {
           page: 'assignments',
+          action: MarketAction.MovePhase,
           statement:
             'Results are published, so the assignments are settled. Publish the market to put the check-in page up; that cannot be undone.',
         }
       : assigned
         ? {
             page: 'assignments',
+            action: MarketAction.Assign,
             statement:
               'Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.',
           }
-        : { page: 'settings', statement: 'Set the rules and allocate tables.' },
+        : {
+            page: 'settings',
+            action: MarketAction.Assign,
+            statement: 'Set the rules and allocate tables.',
+          },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'assignments' : 'settings',
+    action: MarketAction.Assign,
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
   }),
+  // Once it has run, what is left is archiving it.
   [MarketPhase.MarketDays]: ({ ended }) => ({
     page: 'attendance',
+    action: ended ? MarketAction.MovePhase : MarketAction.CheckIn,
     statement: ended
       ? 'The market has run. Archive it to keep it as the record of what happened.'
       : 'Check vendors in at the door.',
@@ -256,7 +281,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement: ran
       ? 'Archived: the record of what happened stays on its check-in page.'
       : 'Archived: this market is the record of what happened.',
-    links: false,
+    action: null,
   }),
 };
 
@@ -271,6 +296,7 @@ function rowFor(phase: string, standing: Standing): GuideRow {
   return (
     GUIDE[phase]?.(standing) ?? {
       page: 'setup',
+      action: MarketAction.ChangeSetup,
       statement: `This market is in ${pathPhaseLabel(phase, standing.path)}.`,
     }
   );
@@ -333,6 +359,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
       text: `${stage ? `${stageLead({ path, stopped })} ` : ''}${ask}: ${blocker.message}`,
       page: blocker.resolutionLink ?? null,
       blocker,
+      action: blocker.resolutionAction ?? null,
     };
   }
   const row = rowFor(phase, {
@@ -345,8 +372,9 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   });
   return {
     text: row.statement,
-    page: row.links === false ? null : landingOf(row),
+    page: row.action ? landingOf(row) : null,
     blocker: null,
+    action: row.action,
   };
 }
 

@@ -2,19 +2,26 @@
 import { computed } from 'vue';
 import { resolutionPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
-import type { PreconditionResult } from '@/assets/types/datatypes';
+import type { Market, PreconditionResult } from '@/assets/types/datatypes';
+import { mayTake } from '@/utils/marketActions';
 
 const props = defineProps<{
   blockers: PreconditionResult[];
-  /** The market the blockers are about; a resolution link names a screen of THIS market. */
-  marketId: string;
+  /**
+   * The market the blockers are about: a resolution link names a screen of THIS market, and is
+   * offered on the table's answer it serves for the person reading.
+   */
+  market: Pick<Market, 'id' | 'actionRefusals'>;
 }>();
 
 const route = useRoute();
 const router = useRouter();
 
 /**
- * Each blocker with its resolution link kept only where following it would go somewhere.
+ * Each blocker with its resolution link kept only where following it would go somewhere, and only
+ * for someone the market's table lets take the action it leads to (T142): a link to work that is
+ * not theirs sends them to a page that refuses it. A blocker that names no action, as from an
+ * older server, offers no link. The blocker is said either way.
  *
  * The rail carries this panel onto every organizer screen, so the same blocker is read from four
  * different places and a link is only useful from three of them. A link to the page holding
@@ -30,9 +37,10 @@ const router = useRouter();
  */
 const rows = computed(() =>
   props.blockers.map((blocker) => {
-    const link = blocker.resolutionLink
-      ? resolutionPath(props.marketId, blocker.resolutionLink)
-      : null;
+    const link =
+      blocker.resolutionLink && mayTake(props.market, blocker.resolutionAction)
+        ? resolutionPath(props.market.id, blocker.resolutionLink)
+        : null;
     return {
       blocker,
       fixLink: link && router.resolve(link).fullPath !== route.fullPath ? link : null,

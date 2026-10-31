@@ -3,10 +3,10 @@ layer: implementation
 kind: module
 describes:
   - front-end/src/components/PhaseRail.vue
-  - front-end/src/components/market/OpenApplicationsDialog.vue
   - front-end/src/utils/phase.ts
   - front-end/src/utils/useScrollsSideways.ts
-verified: 2026-10-30
+  - front-end/src/components/market/OpenApplicationsDialog.vue
+verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01
@@ -27,12 +27,13 @@ sources:
   - T82
   - E38/F04
   - E38/F01/S01
+  - T142
   - E38/F07/S02
 ---
 
 # The phase rail
 
-[`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it.
+[`PhaseRail.vue`](../../../front-end/src/components/PhaseRail.vue) is the market's lifecycle on every market screen, as a band under [the market frame](market-frame.md)'s bar, pinned with it on a desk and scrolling away with the page on a phone.
 It replaced `PhaseControlPanel`, which floated above the card.
 It draws four things: the spine (the lifecycle, with the market's place marked), the next step in one sentence, the moves, and the market's public addresses (the application page for a form market once it leaves draft, the check-in page once it is published, each with Copy).
 What it says comes from [the market guide](market-guide.md); which moves exist and whether each is refused comes from the server.
@@ -45,6 +46,12 @@ A refused move is drawn disabled, with its first blocker as its reason: in the m
 The fix is the move's own first blocker, the one its disabled state is read from, named by the guard that refuses it (`resolutionLabel`), so before a run Publish Market offers "Allocate tables"; on the page that resolves it no fix is drawn, since the work is already in front of the organizer, and the move stays disabled with its reason.
 The 409 from `POST /markets/:id/transition` stays for races and renders its blockers under the rail.
 Never decide a move's verdict on the front end.
+
+**A remedy or a step is offered only to someone who may take it** (T142).
+The fix is drawn only for someone who may move the phase and may take the blocker's `resolutionAction`, the row of [the market's actions](market-actions.md) table its remedy takes; the sentence's link (`phase-rail-next-link`) only for someone who may take the step's `action` ([the market guide](market-guide.md)'s `NextStep`), the blocker's when the step is a blocker's remedy, else the guide row's.
+The 409's panel ([`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue)) draws a blocker's link on the same answer, and still says the blocker.
+A missing action, as from an older server, withholds them all, as `mayTake` withholds anything unanswered.
+So a Viewer reads where the market stands and is led nowhere, an Editor on a draft missing its dates is still led to "Pick market dates", and an Admin whose table refuses the setup is offered no fix; the sentence is the same for everyone ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 
 **Both paths draw the same five stages, named by the path.**
 The rail's moves are the keys of `transitionBlockers`, and the browser keeps no copy of them.
@@ -82,13 +89,19 @@ An archived market's frozen stage is the furthest phase in `phasesReached`, the 
 Without a complete record (`phaseRecordComplete: false`) the rail says only what is proven and strikes nothing through.
 
 **The addresses give way, and the rail's end travels as one piece.**
-An address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
+On a desk an address chip is the one flexible part of the row: it drops the scheme every address shares and ellipses the rest, so the part naming the market shows, while the link, its hover text and Copy keep the whole address.
 The addresses and the moves are one item of the row; where the row cannot hold them beside the spine, they take a second row together, addresses at its start and moves at its end, rather than leaving one button alone beside an empty band.
 Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
-**The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself and its actions wrap onto a second line, so a draft's three (Pick market dates, Open Applications, More) stay inside the window; see [the design language](../../design-system.md#layout).
-While it scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
+**The rail is one row at the workspace width, and on a phone it is laid out for one** (T142), at the app's phone break (`width <= 640px`); see [the design language](../../design-system.md#layout).
+On a phone its rows are, in order: the spine, on one line that scrolls sideways inside itself; the rail's end, one wrapping row group with the address chips at its start and the actions, as one group, at its end, where nothing shrinks below its content: a chip or the actions that do not fit beside what is before them take a row of their own, and the actions wrap at the row's end; the sentence, with its link on a line of its own; then the frozen note, an error or the 409's panel.
+A chip on a phone draws its name ("Application page", "Check-in page") as the link, with the whole address as its `title`, and Copy, and no address text: squeezed beside the actions it showed one character of the address in a 171x148px box.
+Which chip shape draws is decided in the script (`onAPhone`, `useMediaQuery` on the same break), since the link's text is what changes; so one chip holds one link at any width, and a spec reading the link at a phone reads its `href` or `title`.
+Each chip is one line, 50px: a 44px Copy inset by the desk's 2px hairline in the chip's border, since with no inset Copy's border lay on the chip's; the step link is `--target-min` (44px) tall, and the buttons are through `.btn`.
+At the door in market days on a form market, both chips and More…, the door starts at 319px of 844 on first paint, within the top 340px `phase-rail.spec.ts` holds it to; it started at 409px.
+While the spine scrolls it is a keyboard stop named "Phases", so the phases past the window's edge can be reached (axe's `scrollable-region-focusable`); [`useScrollsSideways`](../../../front-end/src/utils/useScrollsSideways.ts) measures it, and on a desk, where it fits, it is no tab stop (T82).
 Focused, it wears the shared halo of every `[tabindex='0']` ([the design language](../../design-system.md#the-primitive-layer)), with no rule of its own.
+The layout sweep walks the rail on Attendance at 390 in every phase the screens seed holds, both intake paths among them, so a squeezed chip, an overlap or a control past the window fails it; a link drawn on a line of its own is a tap target to it, and only a link inside a run of text is exempt.
 
 **Crowding is measured between labels, never by overflow.**
 The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.

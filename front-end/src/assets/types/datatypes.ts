@@ -1,3 +1,5 @@
+import type { MarketAction } from '@/utils/marketActions';
+
 export enum MarketRole {
   Owner = 'owner',
   Admin = 'admin',
@@ -602,6 +604,11 @@ export interface PreconditionResult {
   resolutionLink?: string | null;
   /** What following the link does ("Add a location"); present exactly when the link is. */
   resolutionLabel?: string | null;
+  /**
+   * The row of the market's actions table the remedy takes, present exactly when the link is: the
+   * rail offers the link only to someone the table lets take it (T142).
+   */
+  resolutionAction?: MarketAction | null;
 }
 
 export interface TransitionRequest {

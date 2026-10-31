@@ -56,12 +56,22 @@ class PreconditionResult:
     #: rail draws it as its main button while the move waits on this (E32/F01/S02), so a link always
     #: has one and words never come without a link: both or neither, refused at construction.
     resolution_label: Optional[str] = None
+    #: The row of the market's actions table (``api/market_actions.py``) that the remedy takes
+    #: ("change-setup"). The rail and its panel offer the link only to someone the table lets take
+    #: that action (T142), so a link always names one and an action never comes without a link:
+    #: both or neither, refused at construction. That it is a row of the table is held by a test
+    #: rather than here, for the reason the links are (``TestEveryResolutionLinkPointsAtItsFix``).
+    resolution_action: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.resolution_link and not self.resolution_label:
             raise ValueError(f"{self.id}: a resolution_link needs a resolution_label to name it")
         if self.resolution_label and not self.resolution_link:
             raise ValueError(f"{self.id}: a resolution_label needs a resolution_link to lead to")
+        if self.resolution_link and not self.resolution_action:
+            raise ValueError(f"{self.id}: a resolution_link needs the resolution_action it takes")
+        if self.resolution_action and not self.resolution_link:
+            raise ValueError(f"{self.id}: a resolution_action needs a resolution_link to lead to")
 
     def payload(self) -> Dict[str, Any]:
         """As the wire carries it: the one shape the transition's refusal and the market read's
@@ -166,6 +176,7 @@ class SetupHasDatesGuard:
             return PreconditionResult(
                 id=self.id, passed=False,
                 resolution_link="setup", resolution_label="Pick market dates",
+                resolution_action="change-setup",
                 message="This market has no market dates. Pick them on Market Setup's calendar.",
             )
         earliest = _earliest_calendar_day()
@@ -174,6 +185,7 @@ class SetupHasDatesGuard:
             return PreconditionResult(
                 id=self.id, passed=False,
                 resolution_link="setup", resolution_label="Change the dates",
+                resolution_action="change-setup",
                 message=(
                     f"{len(passed)} of this market's dates "
                     f"{'has' if len(passed) == 1 else 'have'} already passed: "
@@ -196,6 +208,7 @@ class SetupHasALocationGuard:
         return PreconditionResult(
             id=self.id, passed=False,
             resolution_link="setup", resolution_label="Add a location",
+            resolution_action="change-setup",
             message="This market has no location. Add one on Market Setup.",
         )
 
@@ -219,6 +232,7 @@ class EveryTierHasTablesGuard:
             return PreconditionResult(
                 id=self.id, passed=False,
                 resolution_link="setup", resolution_label="Add tables",
+                resolution_action="change-setup",
                 message="This market has no tables yet. Add a section with tables on Market Setup.",
             )
         with_tables = {s.tier.name for s in sections if s.tier and s.tier.name}
@@ -229,6 +243,7 @@ class EveryTierHasTablesGuard:
             return PreconditionResult(
                 id=self.id, passed=False,
                 resolution_link="setup", resolution_label="Give every tier tables",
+                resolution_action="change-setup",
                 message=(
                     f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
                     f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
@@ -259,6 +274,7 @@ class PriceGroupsStandGuard:
         return PreconditionResult(
             id=self.id, passed=False,
             resolution_link="setup", resolution_label="Fix the price groups",
+            resolution_action="change-setup",
             message=(
                 f"The price {'groups' if many else 'group'} {names} "
                 f"{'have' if many else 'has'} a condition on a question or an answer the form no "
@@ -336,6 +352,7 @@ class AssignmentComputedGuard:
                 ),
                 resolution_link="settings",
                 resolution_label="Allocate tables",
+                resolution_action="assign",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -364,6 +381,7 @@ class ResultsPublishedGuard:
             ),
             resolution_link="applications",
             resolution_label="Publish results",
+            resolution_action="publish-results",
         )
 
 
@@ -404,6 +422,7 @@ class AllApplicationsReviewedGuard:
                 ),
                 resolution_link="applications",
                 resolution_label="Finish deciding",
+                resolution_action="give-verdicts",
             )
         if total == 0:
             return PreconditionResult(
@@ -447,6 +466,7 @@ class NoApprovedApplicationsGuard:
                 ),
                 resolution_link="settings",
                 resolution_label="Allocate tables",
+                resolution_action="assign",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -472,6 +492,7 @@ class ResponsesImportedGuard:
         return PreconditionResult(
             id=self.id, passed=False,
             resolution_link="import", resolution_label="Import responses",
+            resolution_action="import-applications",
             message="Nothing has been imported yet. Import your Google Form's responses first.",
         )
 

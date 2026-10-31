@@ -6,7 +6,7 @@ describes:
   - back-end/csv_import.py#first_import_blockers
   - back-end/csv_import.py#enter_review
   - front-end/src/utils/marketGuide.ts#stageActions
-verified: 2026-10-29
+verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#1
   - brain-dump/2026-10-19#4

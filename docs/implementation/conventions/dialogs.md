@@ -13,7 +13,7 @@ describes:
   - front-end/e2e/the-vendor-drawer-gives-focus-back.spec.ts
   - front-end/e2e/dialog-idiom.spec.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map
@@ -28,6 +28,7 @@ sources:
   - E39/F01/S04
   - E38/F08/S03
   - T123
+  - T142
 ---
 
 # Dialogs
@@ -45,6 +46,9 @@ The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-e
 
 **A dialog of several independent actions passes no `confirmLabel`** and hosts its own `<form>`s in its body; Manage organization has three.
 It still gets the scrim, window, close, Escape, backdrop and inert behaviour, without the single-form footer.
+
+**A dialog is 26rem wide, or 38rem when `wide`, and never wider than the window less a 16px gutter at each side**; taller than the window, it scrolls within itself.
+So a dialog on a route that fits a phone opens inside a 390px window with nothing to change; Manage market and the create-market dialog do on `/markets` (T142).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 

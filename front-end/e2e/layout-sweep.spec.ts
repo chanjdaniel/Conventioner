@@ -4,11 +4,16 @@ import {
   gates,
   minTargetAt,
   misplacedBars,
+  PHONE_MAX_WIDTH,
+  PINNED_MAX,
+  pinnedBottom,
   SPACE_SCALE,
   TYPE_SCALE,
   type Finding,
+  type Pinned,
 } from './helpers/layoutDetectors';
 import { openScreen, SCREENS, signIn, walkTheScreens, type Check } from './helpers/screens';
+import type { TheScreensSeed } from './helpers/seedTheScreens';
 import type { Page, TestInfo } from '@playwright/test';
 
 /**
@@ -26,15 +31,21 @@ import type { Page, TestInfo } from '@playwright/test';
  *
  * Then, across screens: the market bar stands at the same x and width on every market screen of one
  * size, which is what no screen can see alone (bug 12: the frame at x 0 on the floorplan, x 16
- * elsewhere).
+ * elsewhere); and on a phone no market screen pins more than `PINNED_MAX` of the window's top
+ * (T142: the door pinned 409px of 844, half the screen).
  */
 
 /** Where each market screen put its market bar, by window width: screen -> [x, width]. */
 const bars = new Map<number, Map<string, [number, number]>>();
+/** On a phone, how much of the window's top each market screen pins: screen -> what. */
+const pinned = new Map<string, Pinned>();
 /** Every screen measured for a bar, by window width, the ones with none among them. */
 const measured = new Map<number, Set<string>>();
 
-/** Records where the open screen put its bar, or that it has none, so it is not opened again. */
+/**
+ * Records where the open screen put its bar, or that it has none, and on a phone what it pins, so
+ * it is not opened again.
+ */
 async function measureBar(page: Page, state: string): Promise<void> {
   const width = page.viewportSize()!.width;
   if (!measured.has(width)) measured.set(width, new Set());
@@ -46,6 +57,22 @@ async function measureBar(page: Page, state: string): Promise<void> {
   if (!box) return;
   if (!bars.has(width)) bars.set(width, new Map());
   bars.get(width)!.set(state, [Math.round(box.x), Math.round(box.width)]);
+  if (width <= PHONE_MAX_WIDTH) pinned.set(state, await page.evaluate(pinnedBottom));
+}
+
+/** Measures each organizer screen at each of its sizes no wider than `upTo` that the walk missed. */
+async function measureTheRest(page: Page, seed: TheScreensSeed, upTo = Infinity): Promise<void> {
+  // The walk measured each screen it passed; a screen it never reached (a failure moves the run to
+  // a new worker, and these maps start empty there) is measured now.
+  await signIn(page, 'organizer', seed);
+  for (const s of SCREENS.filter((x) => x.who === 'organizer')) {
+    for (const size of s.sizes.filter((x) => x.width <= upTo)) {
+      if (measured.get(size.width)?.has(s.name)) continue;
+      await page.setViewportSize(size);
+      await openScreen(page, s, seed);
+      await measureBar(page, s.name);
+    }
+  }
 }
 
 const line = (f: Finding) => `${f.kind} ${f.el}: ${f.detail} (box ${f.box.join(', ')})`;
@@ -91,18 +118,8 @@ layoutTest.describe('No screen is laid out wrong', () => {
   const { seed } = walkTheScreens(layoutTest, { everySize: true });
 
   layoutTest('the market bar stands in one place on every market screen', async ({ page }) => {
-    // The walk measured each screen it passed; a screen it never reached (a failure moves the run
-    // to a new worker, and this map starts empty there) is measured now.
     layoutTest.setTimeout(10 * 60_000);
-    await signIn(page, 'organizer', seed());
-    for (const s of SCREENS.filter((x) => x.who === 'organizer')) {
-      for (const size of s.sizes) {
-        if (measured.get(size.width)?.has(s.name)) continue;
-        await page.setViewportSize(size);
-        await openScreen(page, s, seed());
-        await measureBar(page, s.name);
-      }
-    }
+    await measureTheRest(page, seed());
 
     // A check that measured no bars passes on nothing: a renamed test id would leave it green.
     const most = Math.max(0, ...[...bars.values()].map((screens) => screens.size));
@@ -117,4 +134,23 @@ layoutTest.describe('No screen is laid out wrong', () => {
         .toEqual([]);
     }
   });
+
+  layoutTest(
+    `on a phone no market screen pins more than ${PINNED_MAX}px of the window`,
+    async ({ page }) => {
+      layoutTest.setTimeout(10 * 60_000);
+      await measureTheRest(page, seed());
+
+      // The door, Tools and what opens over them: a check that measured none passes on nothing.
+      expect(pinned.size, 'the pinned area was measured on a phone market screen').toBeGreaterThan(
+        0,
+      );
+      const over = [...pinned]
+        .filter(([, p]) => p.bottom > PINNED_MAX)
+        .map(([state, p]) => `${state}: ${p.bottom}px, to the bottom of ${p.el}`);
+      expect(over, `on a phone a market screen pins at most ${PINNED_MAX}px of the window`).toEqual(
+        [],
+      );
+    },
+  );
 });
