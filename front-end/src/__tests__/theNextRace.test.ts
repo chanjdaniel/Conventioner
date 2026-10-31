@@ -210,3 +210,40 @@ describe('taking the follow-ups out', () => {
     wrapper.unmount();
   });
 });
+
+describe('taking the follow-ups in', () => {
+  /*
+   * Marking the last card a follow-up asks for the next one without the follow-ups. Ticked before
+   * that hand-out answered, the walk changed under it: its "nothing left" answered a question nobody
+   * was asking any more, and the card the reviewer had just taken back in never came up.
+   */
+  it('puts the follow-up up when ticked while the hand-out after marking it is out', async () => {
+    fetchMarketApplications.mockResolvedValue([AMY]);
+    const wrapper = mount(ApplicationMonitor, {
+      props: { market, visible: true },
+      global: { stubs: { teleport: true } },
+    });
+    await flushPromises();
+    expect(shown(wrapper)).toBe('amy@example.com');
+
+    const amyFollowedUp = { ...AMY, status: ApplicationStatus.NeedsFollowUp };
+    api.put.mockResolvedValueOnce({ data: { application: amyFollowedUp } });
+    const afterMarking = handOut();
+    api.post.mockReturnValueOnce(afterMarking.pending);
+    fetchMarketApplications.mockResolvedValue([amyFollowedUp]);
+    await wrapper.get('[data-testid="app-monitor-follow-up-button"]').trigger('click');
+    await wrapper.get('[data-testid="follow-up-window"] form').trigger('submit');
+    await flushPromises();
+    expect(handOuts().at(-1)?.[1]).toMatchObject({ after: 'amy', includeFollowUps: false });
+
+    api.post.mockResolvedValueOnce({ data: { application: amyFollowedUp } });
+    await wrapper.get('[data-testid="app-monitor-include-follow-ups"]').setValue(true);
+    afterMarking.answer(null);
+    await flushPromises();
+
+    expect(handOuts().at(-1)?.[1]).toMatchObject({ after: 'amy', includeFollowUps: true });
+    expect(shown(wrapper)).toBe('amy@example.com');
+    expect(wrapper.find('[data-testid="app-monitor-follow-up-owner"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+});
