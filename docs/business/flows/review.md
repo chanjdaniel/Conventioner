@@ -109,10 +109,13 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 
 ## The All view
 
-**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`; the reviewer and the warning, E38/F07/S03: `rows-name-their-reviewer.spec.ts`).
+**Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`; the reviewer and the warning, E38/F07/S03: `rows-name-their-reviewer.spec.ts`; "Assigned to", E38/F07/S04: `the-all-view-opens-on-my-share.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, with reviewers chosen whose share it is ("Reviewer: <email>", or "Reviewer: you"), "Followed up by <email>" and who has it open.
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
+   With reviewers chosen, "Assigned to" beside them narrows the rows to one reviewer's share, decided applications included: "Me" (offered only to a chosen reviewer), "Anyone", or another reviewer by address, kept in the address as `?reviewer=me`, `anyone` or the address.
+   With none in the address it is "Me" for a chosen reviewer, who lands on their own share, and "Anyone" for everyone else, an Admin overseeing the review among them; an address naming nobody chosen reads as that default, and the reader's own address as "Me".
+   It narrows together with the status filter and Mine, so "N of M", Select all and the ticks follow what it shows; with no reviewers chosen it is not there and every application shows (`assignedTo` in [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)).
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs; on an application already approved or rejected, only for someone who may change a verdict, and a reviewer the change row refuses reads its sentence there instead.
    The drawer names the application's reviewer as its row does, and on an open application or a follow-up dealt to another reviewer warns someone who may decide it above the verdicts, as One by one's card does (I1).
    Its "Update info" updates the vendor's answers, and the list is read again once it saves.
@@ -123,7 +126,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
    A follow-up given to a selection is owned by the reviewer who gave it.
    When any ticked row is an open application or a follow-up dealt to another reviewer, the confirmation adds "K of them are dealt to other reviewers; their history will say you decided them." (or "1 of them is dealt to another reviewer; its history will say you decided it.").
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", who changed it, or the change row's sentence for one already decided).
-6. "Export", after "N of M", opens the vendor export on the filter and Mine ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "Open" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
+6. "Export", after "N of M", opens the vendor export on the filter and Mine, never on "Assigned to" ([J15](vendors.md#j15-export-the-vendors-to-a-csv)), in every phase the view shows: "Open" as Open, a verdict as its status, "Approved" with Added by hand too, since the All view lists a vendor added by hand as approved, and Mine as the follow-ups the one exporting owns.
    So the review's lists (approved, rejected, needs follow-up) leave as a CSV before assignment as well as after.
 
 A selection is only ever the rows ticked, one by one or by Select all, which ticks the rows on screen: each is in front of the reviewer and counted in the confirmation, and nothing past them is decided.
@@ -132,7 +135,7 @@ The list is read again every 30 seconds while the tab is in view, quietly, which
 
 ## Dividing the review
 
-**Status:** Works (read from the code as of E38/F07/S03: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`).
+**Status:** Works (read from the code as of E38/F07/S04: `choosing-reviewers-deals-the-open-applications.spec.ts`, `removing-a-reviewer.spec.ts`, `each-arrival-is-dealt.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `rows-name-their-reviewer.spec.ts`, `the-all-view-opens-on-my-share.spec.ts`).
 The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md).
 
 1. A "Reviewers" panel sits between the line on where the market stands and Publish Results while the review is open, and is gone from Assignment on ([`ReviewersPanel.vue`](../../../front-end/src/components/market/ReviewersPanel.vue)).
@@ -144,6 +147,7 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 6. The same picker is offered as an own-form market opens applications, and in a Google Form market's first import, on its preview step, so the reviewers can be chosen before the first application arrives ([taking applications](taking-applications.md#h1-open-applications), [the import](import.md#h2a-first-import-everything-maps)).
 7. Deciding someone else's share is not refused, to anyone who may give verdicts: every row and card names its reviewer, and an open application or follow-up dealt to someone else carries the warning on its card, in its drawer and in a selection's confirmation, every time and never as a dialog to click through (I1, [the All view](#the-all-view)); the words are [`front-end/src/utils/reviewers.ts`](../../../front-end/src/utils/reviewers.ts)'s.
    A reader who decides nothing sees the reviewer's name only, and with no reviewers chosen none of it shows.
+8. Each chosen reviewer lands on their own share: the All view opens on "Assigned to: Me", and anyone else's share, or everyone's, is a choice of the same filter away ([the All view](#the-all-view)).
 
 ## I3. Choose what leads the card
 
