@@ -1263,25 +1263,39 @@ class ServedReviewTeamContract(ContractModel):
     reviewers: List[ServedReviewerContract]
 
 
-class DiscordVendorStateContract(DiscordVendorState, ContractModel):
-    """Camel-cased contract view of one vendor as "Check Discord" found them."""
-
-    possible_matches: Optional[List["DiscordPossibleMatchContract"]] = None
-
-
 class DiscordPossibleMatchContract(DiscordPossibleMatch, ContractModel):
     """Camel-cased contract view of a member offered as a possible match."""
 
 
-class DiscordConnectionContract(DiscordConnection, ContractModel):
-    """Camel-cased contract view of a market's Discord connection."""
+class ServedDiscordVendorContract(ContractModel):
+    """One vendor as the market read serves them in ``discordVendors`` (E46/F01/S05): the check's
+    state, what the pages show, the members still offered and how many more looked alike."""
 
-    vendor_states: Optional[List[DiscordVendorStateContract]] = None
+    application_id: str
+    state: str
+    shown: str
+    possible_matches: List[DiscordPossibleMatchContract]
+    more_matches: int
+
+
+class DiscordConnectionContract(ContractModel):
+    """Camel-cased contract view of a market's Discord connection as the market read serves it:
+    never the check's stored ``vendor_states`` or the ``declined_matches``, which it leaves out
+    (``leave_out_what_is_not_served``), the vendors being served in ``discordVendors``."""
+
+    guild_id: Optional[str] = None
+    guild_name: Optional[str] = None
+    role_id: Optional[str] = None
+    role_name: Optional[str] = None
+    username_question: Optional[str] = None
+    invite_link: Optional[str] = None
+    checked_at: Optional[str] = None
 
 
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
     discord: Optional[DiscordConnectionContract] = None
+    discord_vendors: Optional[List[ServedDiscordVendorContract]] = None
     example_columns: Optional[List[ExampleColumnContract]] = None
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract

@@ -1353,3 +1353,34 @@ class TestWhatThePageShows:
             assert "declinedMatches" not in served
         assert [vendor["shown"] for vendor in read["discordVendors"]] == ["not_found"]
         assert world.markets.doc["discord"]["declinedMatches"] == {"app-fern": ["fern_studio_42"]}
+
+    def test_the_market_contract_declares_what_the_read_serves(self, client, world):
+        """``docs/schema.d.ts``, generated from ``MarketSchemaContract``, is the market as the front
+        end receives it (T156 rereview note 9): its connection declares no field the read leaves
+        out, and ``discordVendors`` is declared as served."""
+        from datatypes import MarketSchemaContract
+
+        world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
+                                                      "roleName": "Vendor Test",
+                                                      "inviteLink": "https://discord.gg/abc123"},
+                     **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        _check(client)
+        _decline(client, fern, "fern_studio_42")
+        world.discord.members.append(_alike("1002", "fernstudio", nick="Fern Studio"))
+        _check(client)
+        read = client.get(f"/markets/{MARKET}").get_json()["market"]
+
+        def declared(model):
+            return {field.alias or name for name, field in model.model_fields.items()}
+
+        market = MarketSchemaContract.model_fields
+        connection = market["discord"].annotation.__args__[0]
+        assert set(read["discord"]) == declared(connection)
+        [vendor] = read["discordVendors"]
+        served_vendor = market["discord_vendors"].annotation.__args__[0].__args__[0]
+        assert set(vendor) == declared(served_vendor)
+        [match] = vendor["possibleMatches"]
+        assert set(match) == declared(
+            served_vendor.model_fields["possible_matches"].annotation.__args__[0])
