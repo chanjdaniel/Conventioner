@@ -194,8 +194,12 @@ describe('the All view narrowed to a reviewer’s share (E38/F07/S04)', () => {
     );
 
   it('lists only the applications dealt to the reviewer named, decided ones included', () => {
-    expect(shareIds('alex@market.test')).toEqual(['a', 'c', 'e']);
     expect(shareIds('sam@market.test')).toEqual(['b', 'd']);
+  });
+
+  it('counts a follow-up the reader owns in their own share, whoever it was dealt to', () => {
+    expect(shareIds('alex@market.test')).toEqual(['a', 'c', 'd', 'e']);
+    expect(shareIds('ALEX@market.test ')).toEqual(['a', 'c', 'd', 'e']);
   });
 
   it('lists every application for nobody named, those never dealt included', () => {
@@ -205,7 +209,7 @@ describe('the All view narrowed to a reviewer’s share (E38/F07/S04)', () => {
   it('narrows together with the status filter and Mine', () => {
     expect(shareIds('alex@market.test', 'undecided')).toEqual(['a']);
     expect(shareIds('sam@market.test', 'needs_follow_up')).toEqual(['d']);
-    expect(shareIds('alex@market.test', 'all', true)).toEqual(['c']);
+    expect(shareIds('alex@market.test', 'all', true)).toEqual(['c', 'd']);
     expect(shareIds('sam@market.test', 'all', true)).toEqual(['d']);
   });
 

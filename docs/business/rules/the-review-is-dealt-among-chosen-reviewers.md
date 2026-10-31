@@ -64,7 +64,7 @@ The owner raising who may be chosen to Editor takes it from the chosen Viewers o
 **Deciding someone else's share is allowed, after a warning** (E38/F07/S03): the server refuses no one who may give verdicts, chosen or not, and the screen says whose it is.
 With reviewers chosen, every row and card names its reviewer, and an open application or a follow-up dealt to someone other than the reader says so above its verdict buttons, on every such card and never as a dialog to click through, so helping a reviewer who is behind stays easy; a selection's confirmation counts the ticked ones dealt to others.
 
-**Each reviewer lands on their own share** (E38/F07/S04): with reviewers chosen, the All view opens a chosen reviewer on the applications dealt to them, and anyone else, an Admin overseeing the review among them, on every application; anyone's share is a choice of its "Assigned to" filter away ([reviewing applications](../flows/review.md#the-all-view)).
+**Each reviewer lands on their own share** (E38/F07/S04): with reviewers chosen, the All view opens a chosen reviewer on the applications dealt to them and the follow-ups they own, and anyone else, an Admin overseeing the review among them, on every application; anyone's share is a choice of its "Assigned to" filter away ([reviewing applications](../flows/review.md#the-all-view)).
 One by one hands a chosen reviewer their own share first, and once it is done says so and offers to help with the rest; anyone else walks the whole queue, first come, first served ([reviewing applications](../flows/review.md#i1-work-through-the-queue)).
 
 ## Where it is kept

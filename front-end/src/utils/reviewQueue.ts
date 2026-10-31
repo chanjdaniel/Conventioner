@@ -158,7 +158,9 @@ export function allViewLists(filter: AllViewFilter, status: string): boolean {
 /**
  * The applications the All view lists: those with the status asked for - "Open" is every one
  * awaiting a verdict - with Mine, only the follow-ups the viewer owns, and with a reviewer named
- * (E38/F07/S04), only that reviewer's share, decided ones included.
+ * (E38/F07/S04), only that reviewer's share, decided ones included. The viewer's own share counts
+ * the follow-ups they own too, whoever they were dealt to: marking a follow-up never moves the
+ * reviewer, and reaching out is the owner's work.
  */
 export function allViewApplications(
   applications: Application[],
@@ -169,14 +171,17 @@ export function allViewApplications(
 ): Application[] {
   const viewer = me.trim().toLowerCase();
   const share = reviewer?.trim().toLowerCase();
+  const owned = (a: Application) =>
+    a.status === ApplicationStatus.NeedsFollowUp &&
+    (a.followUpOwner?.email ?? '').toLowerCase() === viewer;
   return inArrivalOrder(
     applications.filter(
       (a) =>
         allViewLists(filter, a.status) &&
-        (!mine ||
-          (a.status === ApplicationStatus.NeedsFollowUp &&
-            (a.followUpOwner?.email ?? '').toLowerCase() === viewer)) &&
-        (!share || (a.reviewer?.email ?? '').trim().toLowerCase() === share),
+        (!mine || owned(a)) &&
+        (!share ||
+          (a.reviewer?.email ?? '').trim().toLowerCase() === share ||
+          (share === viewer && owned(a))),
     ),
   );
 }

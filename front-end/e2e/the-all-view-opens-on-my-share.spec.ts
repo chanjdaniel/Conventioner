@@ -15,8 +15,9 @@ import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
  *
  * Ana and Ben, both Viewers, are chosen; five applications are dealt round robin in address order
  * (Ana's sorts first): Ana, Ben, Ana, Ben, Ana. Ana opens the Applications tab on her three, then
- * switches to everyone's and to Ben's two, whose drawer carries the warning. Cal, an Admin who is
- * not a reviewer, opens on all five, and a market with no reviewers chosen shows no filter at all.
+ * switches to everyone's and to Ben's two, whose drawer carries the warning; a follow-up she keeps
+ * on Ben's share is hers under "Me", with Mine too. Cal, an Admin who is not a reviewer, opens on
+ * all five, and a market with no reviewers chosen shows no filter at all.
  */
 const PASSWORD = 'e2epassword123';
 const ANA = 'e2e-share-ana@example.com';
@@ -97,6 +98,38 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
 
     await all.assignTo('Me');
     await expect(all.count).toHaveText('3 of 5');
+  });
+});
+
+test('a follow-up I own on another’s share is mine, under Me and with Mine', async ({
+  browser,
+  request,
+}) => {
+  const marketId = await marketInReview(request, [ANA, BEN]);
+
+  await withUser(browser, ANA, PASSWORD, async (page) => {
+    const all = new ApplicationsAllPage(page);
+    // Ana helps with Ben's first and keeps the follow-up herself; it stays dealt to Ben.
+    await all.goto(marketId, BEN);
+    await all.open(BENS_FIRST);
+    await all.drawerButton('follow-up').click();
+    await expect(page.getByTestId('follow-up-owner')).toHaveValue(ANA);
+    await page.getByTestId('follow-up-submit-button').click();
+    await expect(all.row(BENS_FIRST).getByTestId('applications-all-status')).toHaveText(
+      'Needs follow-up',
+    );
+    await page.getByTestId('vendors-detail-close').click();
+
+    await all.assignTo('Me');
+    await expect(all.count).toHaveText('4 of 5');
+    await expect(all.row(BENS_FIRST).getByTestId('applications-all-reviewer')).toHaveText(
+      `Reviewer: ${BEN}`,
+    );
+
+    await all.mine.check();
+    await expect(all.count).toHaveText('1 of 5');
+    await expect(all.rows).toHaveCount(1);
+    await expect(all.row(BENS_FIRST)).toHaveCount(1);
   });
 });
 
