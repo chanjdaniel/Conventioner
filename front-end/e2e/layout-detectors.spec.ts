@@ -5,6 +5,7 @@ import {
   minTargetAt,
   misplacedBars,
   PHONE_MAX_WIDTH,
+  pinnedBottom,
   SPACE_SCALE,
   TYPE_SCALE,
   type Finding,
@@ -176,6 +177,69 @@ test.describe('The market bar check', () => {
         apart: ['the floorplan: x 0, width 1440'],
       },
     ]);
+  });
+});
+
+test.describe('The pinned area', () => {
+  /** A page long enough to scroll a window's height, with `html` at its top. */
+  async function pinnedOn(page: Page, html: string) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font: 14px/20px sans-serif; }
+    </style></head><body>${html}<div style="height: 3000px">The page</div></body></html>`);
+    return page.evaluate(pinnedBottom);
+  }
+
+  const header = `<header data-testid="banner" style="position: sticky; top: 0; height: 44px; z-index: 30;
+    background: black">Banner</header>`;
+
+  test('a pinned header and a block pinned under it count, measured after a scroll', async ({
+    page,
+  }) => {
+    const pinned = await pinnedOn(
+      page,
+      `${header}<div style="height: 200px">Above the block</div>
+       <div data-testid="bar" style="position: sticky; top: 44px; height: 56px; background: white">
+         The bar</div>`,
+    );
+    expect(pinned).toEqual({ bottom: 100, el: 'div[bar]' });
+  });
+
+  test('a block that scrolls away, or sticks only sideways, does not count', async ({ page }) => {
+    const pinned = await pinnedOn(
+      page,
+      `${header}<div data-testid="rail" style="height: 300px">The rail, in the flow</div>
+       <div style="height: 120px"><div data-testid="short" style="position: sticky; top: 44px;
+         height: 40px">Stuck inside a box that scrolls away</div></div>
+       <div data-testid="column" style="position: sticky; left: 0; width: 80px; height: 400px">
+         Sticks sideways</div>`,
+    );
+    expect(pinned).toEqual({ bottom: 44, el: 'header[banner]' });
+  });
+
+  test('an open drawer or dialog, and what is pinned inside it, does not count', async ({
+    page,
+  }) => {
+    const pinned = await pinnedOn(
+      page,
+      `${header}
+       <div data-testid="scrim" style="position: fixed; inset: 0; background: rgba(0,0,0,.3)"></div>
+       <aside data-testid="drawer" style="position: fixed; top: 0; right: 0; width: 360px;
+         height: 100vh; overflow: auto; background: white">
+         <div data-testid="drawer-head" style="position: sticky; top: 0; height: 160px">Head</div>
+         <div style="height: 2000px">Its content</div></aside>
+       <div role="dialog" data-testid="dialog" style="position: fixed; top: 0; left: 0;
+         width: 300px; height: 200px; background: white">A small dialog</div>`,
+    );
+    expect(pinned).toEqual({ bottom: 44, el: 'header[banner]' });
+  });
+
+  test('the page is left where it was', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setContent(`${header}<div style="height: 3000px">The page</div>`);
+    await page.evaluate(() => window.scrollTo(0, 120));
+    await page.evaluate(pinnedBottom);
+    expect(await page.evaluate(() => window.scrollY)).toBe(120);
   });
 });
 
