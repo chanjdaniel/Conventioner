@@ -37,6 +37,7 @@ sources:
   - E38/F08/S02
   - E38/F05/S01
   - T139
+  - T142
 ---
 
 # The assignment and its result
@@ -51,6 +52,7 @@ Before a run the rail says "Set the rules and allocate tables."; after it, "Chec
 The tab is called Assignment because that is the organizers' word for the whole job, and its pages are named for what they hold: Settings sets the assignment rules, and what the solver produces is the table allocation, read on Assignments as assignments ([Assignment](../concepts/assignment.md)).
 Its heading says "Assignment settings", so it is not taken for the market's own settings on Market Setup.
 An organizer's result is who sits where, which is the tables; so Assignments is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Assignments (its address redirects there, and the old Assignment and Result pages' addresses redirect to Settings and Assignments, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
+Assignments fits a phone, since the vendor drawer's "Change assignment" at the door leads there: its figures stack, its filters wrap, a half table's two seats stand one under the other, and every seat's control is a thumb's target (T142).
 Allocating tables lands on Assignments.
 Allocating tables again asks nothing: every hand assignment is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-allocate-tables-again-keeping-hand-assignments)), and in Assignment nothing has yet been sent to anyone.
 Before the first run Assignments and Vendors say "Nothing assigned yet." with a link, "Set the rules and allocate tables", or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.

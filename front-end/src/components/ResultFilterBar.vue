@@ -221,4 +221,21 @@ const chips = computed(() => {
   background-color: white;
   border-style: dashed;
 }
+
+/* A phone (T142): each field fills its row, and two share one where both fit (Tier and Table); a
+   date or a section's name needs the row to itself. */
+@media (width <= 640px) {
+  .filter-picker {
+    flex: 1 1 auto;
+  }
+
+  .filter-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .filter-chip {
+    min-height: var(--target-min);
+  }
+}
 </style>

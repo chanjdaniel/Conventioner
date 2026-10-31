@@ -43,8 +43,10 @@ export const PHONE: Size = { width: 390, height: 844 };
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
- * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01),
- * Tools, and `/markets` with its dialogs (T142).
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too. Five places do: the door
+ * (E29/F01), Tools, the Discord return page, and `/markets` and the Assignments page with their
+ * dialogs and the vendor drawer over them (T142), so "Change assignment" at the door lands on a
+ * page that fits the phone it was tapped on.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -463,14 +465,14 @@ export const SCREENS: Screen[] = [
   {
     name: 'the result',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'assignments'), 'tables-count-assigned'),
   },
   {
     // The ledger of bars (E35/F03/S01): a share in muted ink on white.
     name: 'the statistics',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await page.goto(`${marketScreenPath(seed.big.marketId, 'assignments')}?stats=open`);
       await visible(page, 'result-statistics-date');
@@ -518,7 +520,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the change-placement dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'tables-seat-change',
       'placement-dialog-window',
@@ -528,7 +530,7 @@ export const SCREENS: Screen[] = [
     // Its swap picker searched, the list open with a choice active on its beige (E38/F08/S03).
     name: 'the swap picker, searched',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await at(screen('big', 'assignments'), 'tables-count-assigned', [
         'tables-seat-change',
@@ -544,7 +546,7 @@ export const SCREENS: Screen[] = [
     // And the place picker's groups, open on a free seat.
     name: 'the place picker, open',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await at(screen('big', 'assignments'), 'tables-count-assigned', [
         'tables-seat-empty',
@@ -555,9 +557,22 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // Whoever holds a seat opens their drawer over the page, on its Assignments tab: on a phone it
+    // is where "Change assignment" at the door leads back to (T142).
+    name: 'the vendor drawer, over the assignments',
+    who: 'organizer',
+    sizes: [PHONE],
+    open: at(
+      screen('big', 'assignments'),
+      'tables-count-assigned',
+      ['tables-seat-vendor', 'vendors-detail-email'],
+      ['vendor-drawer-tab-assignments', 'vendors-detail-assignment-item'],
+    ),
+  },
+  {
     name: 'the placement history',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'assignments'), 'tables-count-assigned', [
       'result-history-button',
       'placement-history-dialog-window',
@@ -815,13 +830,13 @@ export const SCREENS: Screen[] = [
   {
     name: 'the result of a market with rules',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('rules', 'assignments'), 'tables-count-assigned'),
   },
   {
     name: 'an archive, its result',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('archived', 'assignments'), 'tables-count-assigned'),
   },
   {

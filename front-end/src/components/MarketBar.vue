@@ -119,9 +119,9 @@ function linkFor(tab: MarketTab): string {
   gap: var(--space-hairline);
 }
 
-/* A phone, which only the door reaches (E29/F01): the name takes its own line and the tabs scroll
-   sideways inside the bar rather than widening the page. Every other market screen keeps the
-   desktop floor, so never meets this. */
+/* A phone, which the market screens that fit one reach (the router's `meta.fitsAPhone`: the door,
+   Tools and the Assignments page): the name takes its own line and the tabs scroll sideways inside
+   the bar rather than widening the page. Every other market screen keeps the desktop floor. */
 @media (width <= 640px) {
   .market-bar {
     height: auto;

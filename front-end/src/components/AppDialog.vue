@@ -234,8 +234,9 @@ watch(
 }
 
 /*
- * Sized by content within a readable band, not by a percentage of the viewport. `width: 25%` gave
- * the create-market dialog 480px on a wide screen and 320px on a laptop, for the same two controls.
+ * One width, 26rem (38rem when `wide`), never wider than the window less a gutter at each side;
+ * never a percentage of the viewport. `width: 25%` gave the create-market dialog 480px on a wide
+ * screen and 320px on a laptop, for the same two controls.
  */
 .dialog-window {
   position: relative;
@@ -271,8 +272,10 @@ watch(
   gap: var(--space-4);
 }
 
+/* Wraps where the window is narrower than the buttons, as a phone is beside three (T142). */
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
 }

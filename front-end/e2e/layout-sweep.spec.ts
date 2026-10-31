@@ -139,9 +139,9 @@ layoutTest.describe('No screen is laid out wrong', () => {
     `on a phone no market screen pins more than ${PINNED_MAX}px of the window`,
     async ({ page }) => {
       layoutTest.setTimeout(10 * 60_000);
-      await measureTheRest(page, seed());
+      await measureTheRest(page, seed(), PHONE_MAX_WIDTH);
 
-      // The door, Tools and what opens over them: a check that measured none passes on nothing.
+      // The door, Tools, the Assignments page and what opens over them: a check that measured none passes on nothing.
       expect(pinned.size, 'the pinned area was measured on a phone market screen').toBeGreaterThan(
         0,
       );

@@ -48,7 +48,8 @@ The one exception is a picker's open list ([`SearchPicker.vue`](../../../front-e
 It still gets the scrim, window, close, Escape, backdrop and inert behaviour, without the single-form footer.
 
 **A dialog is 26rem wide, or 38rem when `wide`, and never wider than the window less a 16px gutter at each side**; taller than the window, it scrolls within itself.
-So a dialog on a route that fits a phone opens inside a 390px window with nothing to change; Manage market and the create-market dialog do on `/markets` (T142).
+So a dialog on a route that fits a phone opens inside a 390px window; Manage market and the create-market dialog do on `/markets`, and the placement dialog and the assignment history on the Assignments page (T142).
+The footer's buttons wrap where they are wider than the window, as the placement dialog's Cancel, Free this seat and Swap seats are on a phone.
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 

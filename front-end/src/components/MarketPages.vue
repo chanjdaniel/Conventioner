@@ -90,6 +90,14 @@ function linkTo(marketId: string, page: MarketPage) {
   text-decoration: none;
 }
 
+/* A phone (T142): a thumb's target, by the line's height so the current mark keeps its place on it.
+   The row scrolls away with the rail there (the market frame). */
+@media (width <= 640px) {
+  .market-page {
+    line-height: calc(var(--target-min) - 2 * var(--space-1));
+  }
+}
+
 .market-page:hover {
   color: var(--mm-black);
   background: var(--mm-beige);
