@@ -63,7 +63,7 @@ A second list beside the table would be the drift `_validate_registry()` refuses
 
 **Forward, back and destructive are read off the spine** (`transitionDirection`), never special-cased per phase.
 Only the one forward step is on the rail; every other move is in the "More…" menu behind `phase-rail-menu-button`, a real menu whose arrow keys walk its items and whose Escape or an outside press closes it.
-The menu's box clips its items to its rounded corners, so a focused item wears its halo inside its edge (`--focus-halo-inset`, [the design language](../../design-system.md#the-primitive-layer)).
+The menu's box clips its items to its rounded corners, so a focused item wears its halo inside its edge, as every menu's item does (`--focus-halo-inset`, [the design language](../../design-system.md#the-primitive-layer)).
 Choosing an item also closes it and hands focus back to `phase-rail-menu-button`, before the Publish or Archive confirm opens, so that confirm gives focus back there when it closes ([dialogs](../conventions/dialogs.md)).
 A spec that clicks `phase-transition-<phase>` for a back or destructive edge opens that menu first.
 A move that cannot be undone (`transitionNeedsConfirmation`, derived from the table: today `market_days` and `archived`) asks first in a dialog.

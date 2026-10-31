@@ -52,6 +52,8 @@ export interface Screen {
   name: string;
   who: Who;
   sizes: Size[];
+  /** A state that cannot be walked narrower than a desk, so a sweep's `alsoAt` passes it by. */
+  deskOnly?: true;
   /** Go there and open the state, returning once what it shows has drawn. */
   open: (page: Page, seed: TheScreensSeed) => Promise<void>;
 }
@@ -698,34 +700,41 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     open: at(screen('big', 'floorplan'), 'market-bar-title'),
   },
+  // The floorplan beta's wizard is laid out for a desk: at a phone's width its calibration field
+  // is off the screen, so its steps cannot be walked there.
   {
     name: 'the floorplan, calibrating',
     who: 'organizer',
     sizes: ORGANIZER,
+    deskOnly: true,
     open: floorplanAt('calibrating'),
   },
   {
     name: 'the floorplan, adding a table type',
     who: 'organizer',
     sizes: ORGANIZER,
+    deskOnly: true,
     open: floorplanAt('table types'),
   },
   {
     name: 'the floorplan, its sections listed',
     who: 'organizer',
     sizes: ORGANIZER,
+    deskOnly: true,
     open: floorplanAt('sections'),
   },
   {
     name: 'the floorplan, ready to save',
     who: 'organizer',
     sizes: ORGANIZER,
+    deskOnly: true,
     open: floorplanAt('ready'),
   },
   {
     name: 'the floorplan, saving',
     who: 'organizer',
     sizes: ORGANIZER,
+    deskOnly: true,
     open: floorplanAt('saving'),
   },
   {
@@ -937,11 +946,12 @@ export type SweepTest = TestType<
 
 /**
  * One test per screen, running the sweep's `check` on it: at every size it ships at with
- * `everySize`, else at the first. Returns the seed, for a sweep's own test over several screens.
+ * `everySize`, else at the first, and at `alsoAt` as well when that is given. Returns the seed, for
+ * a sweep's own test over several screens.
  */
 export function walkTheScreens(
   test: SweepTest,
-  { everySize }: { everySize: boolean },
+  { everySize, alsoAt }: { everySize: boolean; alsoAt?: Size },
 ): { seed: () => TheScreensSeed } {
   let seed: TheScreensSeed;
 
@@ -951,10 +961,15 @@ export function walkTheScreens(
   });
 
   for (const s of SCREENS) {
+    const sizes = everySize ? s.sizes : s.sizes.slice(0, 1);
+    // `alsoAt` adds a size the screen does not ship at, when the sweep's question holds there too.
+    if (alsoAt && !s.deskOnly && !sizes.some((size) => size.width === alsoAt.width)) {
+      sizes.push(alsoAt);
+    }
     test(s.name, async ({ page, check }) => {
-      test.setTimeout(60_000 * (everySize ? s.sizes.length : 1));
+      test.setTimeout(60_000 * sizes.length);
       await signIn(page, s.who, seed);
-      for (const size of everySize ? s.sizes : s.sizes.slice(0, 1)) {
+      for (const size of sizes) {
         await page.setViewportSize(size);
         await openScreen(page, s, seed);
         await check(s.name);

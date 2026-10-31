@@ -329,10 +329,11 @@ A browser treats a focused text field as `:focus-visible` whether it was clicked
 
 **A soft halo on every control**, Daniel's choice on the same walk (E38/F01/S01): `--focus-halo`, a white 2px gap then a translucent green glow, in `base.css`.
 `primitives.css` gives it to the primitives and to every link, button, `summary`, `[role='button']` and `[tabindex='0']` on `:focus-visible`, with no outline, so the browser's own ring is drawn nowhere.
+Any other keyboard stop takes it from a zero-specificity rule beneath those: a scroller the browser makes a stop because nothing inside it takes focus, as the export dialog's preview table is on a phone.
 The halo hugs what it marks: it takes `--radius-control` on any control that sets no radius of its own, through a zero-specificity `:where` rule, so a text link, a text button and a disclosure's `summary` wear it rounded rather than as a hard rectangle (T140); and a text control is as wide as its words, so its halo is not the width of the row it sits in ("N more answers", a month's name in the dates card).
 A tab whose underline is a bottom border curls that underline only while it is focused, as the vendor drawer's tabs do.
-What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as the phase rail's menu items, still wears a halo.
-A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: the phase rail's menu items, inside the menu's rounded box.
+What a script focuses and Tab never reaches (`tabindex="-1"`), such as AppDialog's window when no control in it is ready, is not a control and draws nothing, the browser's ring included; a control among them, such as a menu's items, still wears a halo.
+A box that clips what lies past its edge cuts a halo off, so a control that fills such a box wears `--focus-halo-inset`, the same halo drawn inside its edge: every menu's item (`[role='menuitem']`), inside its menu's rounded box (the phase rail's, a Payment line's).
 Every control carries a `scroll-margin` of `--space-2`, so focus that scrolls it into view leaves its halo room inside the scroller, as a dialog's window would otherwise cut off its last control's.
 The white gap is what keeps it visible on the green primary button, where a green glow would meet the fill.
 A control on a dark ground (the market bar's tabs, the vendor drawer's close) takes `--focus-halo-on-dark`, white at 35%, drawn inside the tab on a phone (`--focus-halo-on-dark-inset`), where the tabs scroll sideways on the bar's lower edge and the scroller would clip it; a component rule that gives a control a resting `box-shadow` outranks the shared rule, so it says `var(--focus-halo), <its shadow>` itself; and a market card wears the halo for its name, whose own box clips it.
@@ -372,15 +373,17 @@ A convention nothing enforces is how the product got here. Six checks, the first
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01).
    A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
    The halo must have rounded corners, no box that clips what lies past its edge may cut it off, and a text control with no fill or border may be no more than 24px wider than its words and its padding, room for a disclosure's marker.
-   The phase rail's menu items are no Tab stop, so a test opens the menu from the keyboard and moves through them with the arrow keys.
+   A menu's items are no Tab stop, so in every state it opens each menu with Enter on its button (`aria-haspopup="menu"`) and judges each item it reaches with the arrow keys.
+   It walks each state at a phone's width too, as well as at its first size: an organizer's screens ship at a desk, but a desk zoomed to 400% is that narrow, and there a table too wide for its box scrolls and becomes a keyboard stop of its own; the floorplan beta's wizard steps, which cannot be walked that narrow, are marked `deskOnly`.
    Each dialog window a state shows is focused as a keyboard user's would be and must draw no outline, and a test opens Manage market from the keyboard, where the window takes focus while the market loads (T140).
+   Its phone walk found a dialog's buttons running out past the window's left edge where they were wider than it, and the actions row now wraps.
    It landed with what it found fixed: the seat buttons' and the drawer tabs' own rings, and the buttons whose own `box-shadow`, `none` included, outranked the halo: the dashboard's and the start page's, New market, New organization, the vendor rows, and the floorplan's Save & Continue and Sections buttons.
    It needed the floorplan wizard walked at each step with a plan uploaded, which the other sweeps then walked too, and they found the beta's step labels below AA on their beige, its progress bar with no name and an invalid value, its empty table types in a 40% grey, and its Export PNG button named something other than its words; all are fixed.
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
 The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
-Contrast, axe and focus measure each state at its first size; the layout sweep at every size.
+Contrast and axe measure each state at its first size, focus at its first size and a phone's width, and the layout sweep at every size.
 
 ## Evidence
 

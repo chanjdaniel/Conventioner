@@ -1,6 +1,5 @@
 import { test, expect } from './fixtures';
-import { walkTheScreens, signIn, type Check } from './helpers/screens';
-import { marketScreenPath } from './helpers/marketScreens';
+import { walkTheScreens, PHONE, type Check } from './helpers/screens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -17,8 +16,13 @@ import type { Page } from '@playwright/test';
  * - The halo hugs what it marks: its corners are rounded, and a text control with no fill or
  *   border is about as wide as its words, not the row it sits in.
  * - A dialog's window, which AppDialog focuses when no control in it is ready, draws no outline.
+ * - Every menu the state shows (`aria-haspopup="menu"`) is opened with Enter and walked with the
+ *   arrow keys, since its items are no Tab stop, and each item is judged as a control.
  *
  * It presses Tab rather than calling `focus()`, since `:focus-visible` is what the keyboard gets.
+ * Each state is walked at its first size and at a phone's width too: an organizer's screens ship
+ * at a desk, but a desk zoomed to 400% is that narrow, and a table too wide for it scrolls, which
+ * makes its scroller a keyboard stop of its own.
  */
 
 /** The halos' outer colours, as the browser computes `--focus-halo` and `--focus-halo-on-dark`. */
@@ -44,9 +48,30 @@ interface SweepInPage {
   focusSweepLook: (el: Element) => string;
   /** What cuts off the halo `wearer` draws outside its edge, or null when it is drawn whole. */
   focusSweepClipper: (wearer: Element) => string | null;
+  /** Judges the focused element: what is wrong with how it shows focus, or null for nothing. */
+  focusSweepJudge: (looks: Looks) => Verdict | null;
 }
 
-/** Installs the page's half of the sweep: how a box looks, and what clips a control's halo. */
+/** What the sweep looks for, as the page computes it. */
+interface Looks {
+  halo: string;
+  haloOnDark: string;
+  wordsSlack: number;
+}
+
+const LOOKS: Looks = { halo: HALO, haloOnDark: HALO_ON_DARK, wordsSlack: WORDS_SLACK };
+
+/** One focused element's verdict: its walk id, its name, and its problems (null: not judged). */
+interface Verdict {
+  id: string;
+  name: string;
+  problems: string[] | null;
+}
+
+/**
+ * Installs the page's half of the sweep: how a box looks, what clips a control's halo, and the
+ * verdict on the focused element.
+ */
 async function installTheSweep(page: Page): Promise<void> {
   await page.evaluate(() => {
     const sweep = window as unknown as SweepInPage;
@@ -85,6 +110,119 @@ async function installTheSweep(page: Page): Promise<void> {
         }
       }
       return null;
+    };
+    sweep.focusSweepJudge = ({ halo, haloOnDark, wordsSlack }) => {
+      const { focusSweepLook: look, focusSweepClipper: clipper } = sweep;
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      // Every transition run to its end, so what is read is the focused look, not a frame of it.
+      for (const animation of document.getAnimations()) {
+        if (animation.effect?.getTiming().iterations !== Infinity) animation.finish();
+      }
+      el.dataset.focusWalkId ??= String(Math.random());
+      const id = el.dataset.focusWalkId;
+      const name =
+        el.tagName.toLowerCase() +
+        (el.dataset.testid ? `[data-testid=${el.dataset.testid}]` : '') +
+        (typeof el.className === 'string' && el.className.trim()
+          ? `.${el.className.trim().split(/\s+/).join('.')}`
+          : '');
+      const box = el.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return { id, name, problems: null };
+
+      const problems: string[] = [];
+      const isField =
+        el.matches('textarea, select') ||
+        (el.matches('input') &&
+          !el.matches('[type=button], [type=submit], [type=reset], [type=image]'));
+      if (isField) {
+        let node: Element | null = el;
+        for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
+          const atRest = (node as HTMLElement).dataset.lookAtRest;
+          const now = look(node);
+          // A field drawn after the snapshot has nothing to compare, but draws no outline either.
+          if (atRest === undefined) {
+            if (depth === 0 && !now.startsWith('none |')) problems.push(`a field drew ${now}`);
+            continue;
+          }
+          if (now !== atRest) {
+            const which = depth === 0 ? 'the field' : `the box ${depth} up`;
+            problems.push(`${which} changed on focus: ${atRest} -> ${now}`);
+          }
+        }
+        return { id, name, problems };
+      }
+
+      const s = getComputedStyle(el);
+      if (s.outlineStyle !== 'none' && s.outlineWidth !== '0px') {
+        problems.push(`a control drew an outline: ${s.outlineStyle} ${s.outlineWidth}`);
+      }
+      // The ground the halo is drawn on: the first ancestor with a fill.
+      let ground: number[] = [255, 255, 255];
+      for (let node = el.parentElement; node; node = node.parentElement) {
+        const fill = getComputedStyle(node)
+          .backgroundColor.match(/[\d.]+/g)
+          ?.map(Number);
+        if (fill && (fill[3] ?? 1) > 0.5) {
+          ground = fill;
+          break;
+        }
+      }
+      const dark = 0.2126 * ground[0] + 0.7152 * ground[1] + 0.0722 * ground[2] < 96;
+      const wanted = dark ? haloOnDark : halo;
+      // A control with no shadow of its own may have a box up to four levels around it wear
+      // the halo, as a market card does for its name.
+      const wears = (node: Element) => getComputedStyle(node).boxShadow.includes(wanted);
+      let worn = wears(el);
+      for (
+        let node = el.parentElement, up = 1;
+        !worn && s.boxShadow === 'none' && node && up <= 4;
+        node = node.parentElement, up++
+      ) {
+        worn = wears(node);
+      }
+      if (!worn) {
+        const which = dark ? 'halo for a dark ground' : 'halo';
+        problems.push(`a control drew no ${which}: box-shadow ${s.boxShadow}`);
+        return { id, name, problems };
+      }
+
+      // The halo hugs what it marks: rounded, and around a text control's words rather than
+      // the row it sits in.
+      let wearer: Element = el;
+      while (!wears(wearer) && wearer.parentElement) wearer = wearer.parentElement;
+      const w = getComputedStyle(wearer);
+      const corners = [
+        w.borderTopLeftRadius,
+        w.borderTopRightRadius,
+        w.borderBottomRightRadius,
+        w.borderBottomLeftRadius,
+      ];
+      if (corners.some((corner) => parseFloat(corner) === 0)) {
+        problems.push(`a halo with square corners: border-radius ${corners.join(' ')}`);
+      }
+      const clippedBy = clipper(wearer);
+      if (clippedBy) problems.push(`a halo cut off by ${clippedBy}`);
+      const unfilled = (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0;
+      const unbordered = ['top', 'right', 'bottom', 'left'].every(
+        (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
+      );
+      // A box held at a tap target's least width is that wide for the thumb, not the row.
+      const atLeast = parseFloat(w.minWidth) || 0;
+      if (wearer === el && unfilled && unbordered && box.width > atLeast + 0.5) {
+        const words = document.createRange();
+        words.selectNodeContents(el);
+        const room =
+          box.width -
+          parseFloat(w.paddingLeft) -
+          parseFloat(w.paddingRight) -
+          words.getBoundingClientRect().width;
+        // A marker drawn before the words, as a disclosure's is, takes about 16px.
+        if (room > wordsSlack) {
+          problems.push(`a text control's halo runs ${Math.round(room)}px past its words`);
+        }
+      }
+      return { id, name, problems };
     };
     sweep.focusSweepLook = (el) => {
       const s = getComputedStyle(el);
@@ -135,119 +273,8 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
   for (let press = 0; press < MOST_PRESSES; press++) {
     await page.keyboard.press('Tab');
     const verdict = await page.evaluate(
-      ({ halo, haloOnDark, wordsSlack }) => {
-        const { focusSweepLook: look, focusSweepClipper: clipper } =
-          window as unknown as SweepInPage;
-        const el = document.activeElement as HTMLElement | null;
-        if (!el || el === document.body) return null;
-        // Every transition run to its end, so what is read is the focused look, not a frame of it.
-        for (const animation of document.getAnimations()) {
-          if (animation.effect?.getTiming().iterations !== Infinity) animation.finish();
-        }
-        el.dataset.focusWalkId ??= String(Math.random());
-        const id = el.dataset.focusWalkId;
-        const name =
-          el.tagName.toLowerCase() +
-          (el.dataset.testid ? `[data-testid=${el.dataset.testid}]` : '') +
-          (typeof el.className === 'string' && el.className.trim()
-            ? `.${el.className.trim().split(/\s+/).join('.')}`
-            : '');
-        const box = el.getBoundingClientRect();
-        if (box.width === 0 || box.height === 0) return { id, name, problems: null };
-
-        const problems: string[] = [];
-        const isField =
-          el.matches('textarea, select') ||
-          (el.matches('input') &&
-            !el.matches('[type=button], [type=submit], [type=reset], [type=image]'));
-        if (isField) {
-          let node: Element | null = el;
-          for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
-            const atRest = (node as HTMLElement).dataset.lookAtRest;
-            const now = look(node);
-            // A field drawn after the snapshot has nothing to compare, but draws no outline either.
-            if (atRest === undefined) {
-              if (depth === 0 && !now.startsWith('none |')) problems.push(`a field drew ${now}`);
-              continue;
-            }
-            if (now !== atRest) {
-              const which = depth === 0 ? 'the field' : `the box ${depth} up`;
-              problems.push(`${which} changed on focus: ${atRest} -> ${now}`);
-            }
-          }
-          return { id, name, problems };
-        }
-
-        const s = getComputedStyle(el);
-        if (s.outlineStyle !== 'none' && s.outlineWidth !== '0px') {
-          problems.push(`a control drew an outline: ${s.outlineStyle} ${s.outlineWidth}`);
-        }
-        // The ground the halo is drawn on: the first ancestor with a fill.
-        let ground: number[] = [255, 255, 255];
-        for (let node = el.parentElement; node; node = node.parentElement) {
-          const fill = getComputedStyle(node)
-            .backgroundColor.match(/[\d.]+/g)
-            ?.map(Number);
-          if (fill && (fill[3] ?? 1) > 0.5) {
-            ground = fill;
-            break;
-          }
-        }
-        const dark = 0.2126 * ground[0] + 0.7152 * ground[1] + 0.0722 * ground[2] < 96;
-        const wanted = dark ? haloOnDark : halo;
-        // A control with no shadow of its own may have a box up to four levels around it wear
-        // the halo, as a market card does for its name.
-        const wears = (node: Element) => getComputedStyle(node).boxShadow.includes(wanted);
-        let worn = wears(el);
-        for (
-          let node = el.parentElement, up = 1;
-          !worn && s.boxShadow === 'none' && node && up <= 4;
-          node = node.parentElement, up++
-        ) {
-          worn = wears(node);
-        }
-        if (!worn) {
-          const which = dark ? 'halo for a dark ground' : 'halo';
-          problems.push(`a control drew no ${which}: box-shadow ${s.boxShadow}`);
-          return { id, name, problems };
-        }
-
-        // The halo hugs what it marks: rounded, and around a text control's words rather than
-        // the row it sits in.
-        let wearer: Element = el;
-        while (!wears(wearer) && wearer.parentElement) wearer = wearer.parentElement;
-        const w = getComputedStyle(wearer);
-        const corners = [
-          w.borderTopLeftRadius,
-          w.borderTopRightRadius,
-          w.borderBottomRightRadius,
-          w.borderBottomLeftRadius,
-        ];
-        if (corners.some((corner) => parseFloat(corner) === 0)) {
-          problems.push(`a halo with square corners: border-radius ${corners.join(' ')}`);
-        }
-        const clippedBy = clipper(wearer);
-        if (clippedBy) problems.push(`a halo cut off by ${clippedBy}`);
-        const unfilled = (w.backgroundColor.match(/[\d.]+/g)?.map(Number)[3] ?? 1) === 0;
-        const unbordered = ['top', 'right', 'bottom', 'left'].every(
-          (side) => parseFloat(w.getPropertyValue(`border-${side}-width`)) === 0,
-        );
-        if (wearer === el && unfilled && unbordered) {
-          const words = document.createRange();
-          words.selectNodeContents(el);
-          const room =
-            box.width -
-            parseFloat(w.paddingLeft) -
-            parseFloat(w.paddingRight) -
-            words.getBoundingClientRect().width;
-          // A marker drawn before the words, as a disclosure's is, takes about 16px.
-          if (room > wordsSlack) {
-            problems.push(`a text control's halo runs ${Math.round(room)}px past its words`);
-          }
-        }
-        return { id, name, problems };
-      },
-      { halo: HALO, haloOnDark: HALO_ON_DARK, wordsSlack: WORDS_SLACK },
+      (looks) => (window as unknown as SweepInPage).focusSweepJudge(looks),
+      LOOKS,
     );
     if (!verdict) continue;
     if (seen.has(verdict.id)) break;
@@ -259,14 +286,57 @@ async function walkByTab(page: Page, state: string): Promise<Omit<Walk, 'stops'>
   return { failures, checked };
 }
 
+/**
+ * Opens each menu the state shows with Enter on its button, walks its items with ArrowDown, and
+ * judges each. A menu's items are no Tab stop, so the Tab walk never reaches them, and a menu's
+ * box clips what is drawn past its edge, which hid the phase rail's and the Payment tab's halos.
+ */
+async function walkTheMenus(page: Page, state: string): Promise<string[]> {
+  const failures: string[] = [];
+  const buttons = page.locator("[aria-haspopup='menu']:visible:not(:disabled)");
+  const count = await buttons.count();
+  for (let b = 0; b < count; b++) {
+    const button = buttons.nth(b);
+    // A menu behind an open dialog is out of reach, as the page behind it is.
+    if (await button.evaluate((el) => !!el.closest('[inert]'))) continue;
+    if ((await button.getAttribute('aria-expanded')) === 'true') await button.click();
+    // Focus after a Tab is `:focus-visible`, so Enter opens the menu as the keyboard would.
+    await button.focus();
+    await page.keyboard.press('Enter');
+    const menu = page.locator(`[id='${await button.getAttribute('aria-controls')}']`);
+    await expect(menu, `${state}: a menu did not open from the keyboard`).toBeVisible();
+    const items = await menu.locator("[role='menuitem']").count();
+    for (let i = 0; i < items; i++) {
+      const verdict = await page.evaluate(
+        (looks) => (window as unknown as SweepInPage).focusSweepJudge(looks),
+        LOOKS,
+      );
+      if (!verdict?.problems) {
+        failures.push(`${state}: a menu's item ${i + 1} was not focused`);
+      } else {
+        for (const problem of verdict.problems) {
+          failures.push(`${state}: a menu's ${verdict.name}: ${problem}`);
+        }
+      }
+      await page.keyboard.press('ArrowDown');
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+  }
+  return failures;
+}
+
 const focusTest = test.extend<{ check: Check }>({
   check: async ({ page }, use) => {
-    await use(async (state) => {
+    await use(async (name) => {
+      const state = `${name}, at ${page.viewportSize()?.width}px`;
       const stops = await rememberFieldsAtRest(page);
       const { failures, checked } = await walkByTab(page, state);
       // A state that draws keyboard stops and was walked to none of them proves nothing.
       if (stops > 0) expect(checked, `${state}: Tab reached nothing`).toBeGreaterThan(0);
-      expect([...failures, ...(await windowsFocused(page, state))]).toEqual([]);
+      failures.push(...(await walkTheMenus(page, state)));
+      failures.push(...(await windowsFocused(page, state)));
+      expect(failures).toEqual([]);
     });
   },
 });
@@ -297,40 +367,7 @@ async function windowsFocused(page: Page, state: string): Promise<string[]> {
 }
 
 test.describe('Focus shows on controls only, as the soft halo', () => {
-  const { seed } = walkTheScreens(focusTest, { everySize: false });
-
-  // The phase rail's menu items are no Tab stop, so the walk never reaches them: the arrow keys
-  // move among them. The menu's own box clips what is drawn past its edge, which hid their halo.
-  test("the phase rail's menu, worked from the keyboard, shows each item's halo whole", async ({
-    page,
-  }) => {
-    await signIn(page, 'organizer', seed());
-    await page.goto(marketScreenPath(seed().review.marketId, 'applications'));
-    const button = page.getByTestId('phase-rail-menu-button');
-    await button.waitFor();
-    await installTheSweep(page);
-    await button.focus();
-    await page.keyboard.press('Enter');
-    const items = page.locator('.rail-menu-item');
-    await expect(items.first()).toBeFocused();
-
-    const failures: string[] = [];
-    const count = await items.count();
-    for (let i = 0; i < count; i++) {
-      const item = items.nth(i);
-      await expect(item).toBeFocused();
-      const verdict = await item.evaluate((el, halo) => {
-        const s = getComputedStyle(el);
-        if (!el.matches(':focus-visible')) return "not focused as a keyboard user's";
-        if (!s.boxShadow.includes(halo)) return `no halo: box-shadow ${s.boxShadow}`;
-        const clippedBy = (window as unknown as SweepInPage).focusSweepClipper(el);
-        return clippedBy && `a halo cut off by ${clippedBy}`;
-      }, HALO);
-      if (verdict) failures.push(`${(await item.textContent())?.trim()}: ${verdict}`);
-      await page.keyboard.press('ArrowDown');
-    }
-    expect(failures).toEqual([]);
-  });
+  walkTheScreens(focusTest, { everySize: false, alsoAt: PHONE });
 
   // AppDialog focuses its window when no control is ready to take focus, as Manage market's is
   // not while its market loads; the browser drew its own ring around the whole window.
