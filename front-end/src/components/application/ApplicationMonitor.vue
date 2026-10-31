@@ -276,11 +276,18 @@ const holders = computed(() => [
   ...new Set(walked.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
 ]);
 // Taking the follow-ups into the walk, or leaving them out, changes what can be handed out: with no
-// card up, or the one held left out of the queue, the reviewer is handed the next.
+// card up, or the one held left out of the queue, the reviewer is handed the next. A hand-out still
+// out was asked of the walk as it was, so it is asked again of this one, which overtakes it: marking
+// the last card a follow-up and taking the follow-ups straight back in must put that card up.
 watch(includeFollowUps, () => {
+  if (!decides.value) return;
+  if (asking) {
+    void takeNext(asking.after, asking.want);
+    return;
+  }
   const held = claims.held.value;
   const heldLeftOut = held !== null && !undecided.value.some((app) => app.id === held);
-  if (decides.value && (handedNothing.value || heldLeftOut)) void takeNext(held);
+  if (handedNothing.value || heldLeftOut) void takeNext(held);
 });
 
 /** Someone else has the card on screen open: a reader's walk passes cards being decided. */
@@ -295,6 +302,9 @@ const heldByOther = computed(() => {
  * answers come back in either order.
  */
 let handing = 0;
+
+/** What the newest hand-out was asked, until it has put its card up; null with none out. */
+let asking: { after: string | null; want: string | null } | null = null;
 
 /** Bumped by every load, so a load overtaken by a later one (leaving and coming back) stops. */
 let loads = 0;
@@ -342,6 +352,7 @@ async function takeNext(after: string | null, want: string | null = null) {
     return;
   }
   const mine = ++handing;
+  asking = { after, want };
   try {
     const app = await claims.next(after, includeFollowUps.value, want, mineOnly.value);
     // Overtaken by a later hand-out, or the review was left: its card is not the one to put up.
@@ -360,6 +371,8 @@ async function takeNext(after: string | null, want: string | null = null) {
   } catch (err) {
     if (mine !== handing) return;
     errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
+  } finally {
+    if (mine === handing) asking = null;
   }
 }
 
