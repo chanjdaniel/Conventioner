@@ -945,8 +945,9 @@ function swapSeats(withEmail: string): void {
  * A phone (T142): the vendor drawer's "Change assignment" at the door leads here, so the page fits
  * the phone it was tapped on (`meta.fitsAPhone`). The gutter is the door's; the filters stand in
  * the page's flow, since four rows of them pinned would take back the half of the window the frame
- * gave up; each count is a thumb's target, its type grown with it; and a half table's two seats stand one under the other,
- * each the row's width, rather than squeezing a name into a column a word wide.
+ * gave up; each count is a thumb's target, its type grown with it; and a half table's two seats
+ * stand one under the other, each the row's width, rather than squeezing a name into a column a
+ * word wide.
  */
 @media (width <= 640px) {
   .tables-body {

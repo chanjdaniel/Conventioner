@@ -112,7 +112,8 @@ const router = createRouter({
       path: '/markets/:marketId/assignments',
       name: 'market-assignments',
       component: () => import('@/views/ResultView.vue'),
-      // The vendor drawer's "Change assignment" at the door leads here (T142), so it fits a phone too.
+      // The vendor drawer's "Change assignment" at the door leads here (T142), so it fits a phone
+      // too.
       meta: { fitsAPhone: true },
     },
     // The Assignment tab's pages took the names of what they hold (E38/F08/S01): Assignment became
