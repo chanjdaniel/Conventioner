@@ -16,8 +16,8 @@ import { MarketPhase } from '@/assets/types/datatypes';
  * How a market's pages are reached (E22/F04/S02, from the-assignment-tab ticket 02).
  *
  * The bar carries Market Setup, Application Form, Applications, Assignment, Attendance, Tools and
- * Stats in every phase. The Assignment tab holds three pages - Settings, Assignments, Vendors (E38/F08/S01) -
- * and a tab opens
+ * Stats in every phase. The Assignment tab holds four pages - Settings, Assignments, Vendors and
+ * Payments (E38/F08/S01; E44/F02/S01) - and a tab opens
  * the page the market is worked on in its phase: the one carrying the dot.
  */
 describe('the page a market is worked on in its phase', () => {
