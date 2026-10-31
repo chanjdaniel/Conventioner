@@ -18,7 +18,7 @@ describes:
   - back-end/app.py#use_calculated_price
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T92
   - E44/F01/S01
