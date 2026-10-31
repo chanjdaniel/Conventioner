@@ -93,7 +93,7 @@ Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `untiered-plan
 
 **Status:** Works (walked live; the links read from the code as of bug 42's fix).
 The whole run is refused: "N approved applications cannot be assigned until their answers are complete:", naming each applicant, each name a link to their application ([an incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md)).
-Only the run is: an assignment already stored still shows on Result, its grid and each vendor's drawer, and before one exists the drawer reads nobody placed (T139).
+Only the run is: an assignment already stored still shows on Assignments, its summary and grid, and each vendor's drawer, and before one exists the drawer reads nobody placed (T139).
 Covered by: `a-refused-run-says-who-and-where.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
 
 ### J3b. Refused outside the Assignment phase

@@ -953,9 +953,9 @@ def vendors_to_show(market: Market) -> List[SolverVendor]:
     """The vendors a market's approved applications describe, as a read of its assignment shows them.
 
     Read as they stand, an answer missing included (T139). A read places nobody, so it has nothing
-    to refuse: refusing it hid a published market's stored seats from Result and from a vendor's
-    drawer while the door still read them, over one approved application missing a date. Only a
-    run, which places by those answers, refuses them (``solver_vendors_for``).
+    to refuse: refusing it hid a published market's stored seats from the Assignments page and from
+    a vendor's drawer while the door still read them, over one approved application missing a date.
+    Only a run, which places by those answers, refuses them (``solver_vendors_for``).
     """
     vendors, _incomplete = approved_solver_vendors(
         market.id, effective_essential_options_for_market(market), lenient=True,

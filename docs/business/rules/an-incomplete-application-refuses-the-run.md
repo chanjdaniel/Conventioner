@@ -19,7 +19,7 @@ sources:
 
 An approved application missing an answer to a question the market asked refuses the whole assignment run, naming every such applicant and what each one lacks.
 Nobody is skipped, and no partial assignment is stored.
-It refuses the run and nothing else: Result and its grid, a vendor's drawer and the CSV describe the stored assignment, or nobody placed before one exists, with every approved application read as it stands (T139).
+It refuses the run and nothing else: Assignments, its summary and grid, a vendor's drawer and the CSV describe the stored assignment, or nobody placed before one exists, with every approved application read as it stands (T139).
 
 **Requiredness is defined by what the market asked**, not by a fixed list.
 A question the plan offers nothing for is not asked: no dates, no date questions; no tiers, no tier question; fewer than two sections or table types, no ranking; a ranking the organizer switched off, not asked either.
@@ -46,5 +46,5 @@ In practice it catches imported rows, since the online form validates the same q
 - The translation reports each incomplete application (`IncompleteApplication` in `vendor_input.py`), and `solver_vendors_for` raises `IncompleteApplicationsError` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py) before anything is placed ([the assignment solver](../../implementation/modules/assignment-solver.md)).
 - `POST /markets/:id/assignment` answers it with the message and the `incomplete` list ([placements](../../implementation/modules/placements.md)); the preview `GET /markets/:id/assignment`, which computes a run, answers it with the message.
 - The reads of the stored assignment (the statistics, the tables grid and the CSV) read the approved applications with `vendors_to_show`, which reads an application missing an answer as it stands and refuses nothing ([placements](../../implementation/modules/placements.md#what-a-read-shows)).
-  Refusing them once hid a published market's seats from Result and from a vendor's drawer while the door still read them, over one approved application missing a date (T139).
+  Refusing them once hid a published market's seats from the Assignments page and from a vendor's drawer while the door still read them, over one approved application missing a date (T139).
 - The cases are `TestAnIncompleteApplicationStopsTheRun` in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).

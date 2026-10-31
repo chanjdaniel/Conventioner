@@ -16,8 +16,9 @@ import { TablesPage } from './pages/TablesPage';
  * A stored assignment reads with an approved application's answer missing (T139).
  *
  * The statistics and the tables grid read the approved applications through the run's own check,
- * so one approved application missing an answer refused both reads: on a published market Result
- * held its figures with no grid, and the door showed a vendor's seat while their drawer could not.
+ * so one approved application missing an answer refused both reads: on a published market the
+ * Assignments page held its figures with no grid, and the door showed a vendor's seat while their
+ * drawer could not.
  * Only a new run needs every answer; a read describes what is stored, and before an assignment
  * exists, nobody placed.
  */
@@ -52,7 +53,7 @@ test('a published market shows its stored seats when an approved answer goes mis
   );
   const reads = assignmentReads(page);
 
-  // Result: its figures and the grid, Alice in her seat.
+  // Assignments: its summary and the grid, Alice in her seat.
   const tables = new TablesPage(page);
   await tables.goto(seed.marketId);
   await expect(page.getByTestId('result-approved-assigned')).toContainText('2 of 2', {
