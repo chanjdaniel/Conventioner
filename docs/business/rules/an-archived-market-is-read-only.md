@@ -13,11 +13,12 @@ sources:
   - T15
   - E39/F01/S03
   - E40/F01/S03
+  - E44/F01/S01
 ---
 
 # An archived market is read-only
 
-Nothing in an archived market can be changed, by anyone, whatever their role: its plan, form, applications' verdicts, seats, highlights, rules and phase are the record of what happened.
+Nothing in an archived market can be changed, by anyone, whatever their role: its plan, form, applications' verdicts, seats, highlights, rules, phase, and what each vendor owes and paid are the record of what happened.
 Who may see the record, and whether to keep it, are still decided: roles change and the market may be deleted.
 
 **Serves:** [The door on market day](../intents/the-door-on-market-day.md).

@@ -25,9 +25,9 @@ from datatypes import MarketPerson, MarketPhase, MarketRole
 
 BACK_END = Path(__file__).resolve().parent.parent
 
-#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row and E38/F07's
-#: reviewers rows, and without the form amendment's, which E38/F04 removed (the amendment's walk is
-#: gone): (id, group, label, default, fixed).
+#: The epic's table (E39), with E38/F04's stop row, E38/F06/S01's change row, E38/F07's reviewers
+#: rows and E44/F01's payment rows, and without the form amendment's, which E38/F04 removed (the
+#: amendment's walk is gone): (id, group, label, default, fixed).
 THE_TABLE = [
     ("read", "Reading", "Read the market: its applications, assignments, statistics, attendance "
      "and floorplan export", MarketRole.VIEWER, True),
@@ -58,6 +58,10 @@ THE_TABLE = [
     ("assign", "Assignment",
      "Allocate tables, change the assignment rules, and assign, swap or free seats",
      MarketRole.EDITOR, False),
+    ("record-payment", "Payments", "Record a payment", MarketRole.EDITOR, False),
+    ("change-owed", "Payments", "Change the amount owed", MarketRole.ADMIN, False),
+    ("adjust-paid", "Payments",
+     "Adjust the amount paid: edit or remove a payment, record a refund", MarketRole.ADMIN, False),
     ("check-in", "The door", "Check vendors in", MarketRole.EDITOR, False),
     ("connect-discord", "Discord", "Connect Discord and give roles", MarketRole.ADMIN, False),
     ("manage-editors-and-viewers", "People", "Give and take Editor and Viewer roles",
