@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E26/F01/S01
   - E32/F03/S04
@@ -9,6 +9,8 @@ sources:
   - bug/44
   - T73
   - T148
+  - E38/F11/S01
+  - T161
 ---
 
 # Accounts
@@ -47,12 +49,13 @@ From the verification page, ask for another link.
 **Task:** "Sign in, then sign out."
 
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
-2. Expect the dashboard (`/dashboard`).
+2. Expect the dashboard (`/dashboard`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" on the dashboard or in the navigation menu ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
-Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`), visiting `/login` while signed in (redirects to the dashboard).
-A market link opened while signed out lands on the dashboard after sign-in, not on the market.
-Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
+Branches: wrong password, unverified account, "Show" password toggle, visiting an organizer URL while signed out (redirects to `/login`, which returns there after signing in), visiting `/login` while signed in (redirects to that `next`, else the dashboard).
+A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
+A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
+Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`.
 
 ## A3. Sign in with an emailed code
 
