@@ -1266,6 +1266,20 @@ class TestWhatThePageShows:
         _check(client)
         assert _shown(client)[fern]["shown"] == "in_server"
 
+    def test_a_match_updated_since_the_check_shows_check_again(self, client, world):
+        """The projected read keeps an organizer's update in its place: a matched vendor whose
+        username changed reads as changed, never as the check's old match."""
+        world.market(_id="mongo-market-123", discord=CONNECTED, **WITH_THE_FORM)
+        world.discord.members = [_alike("1001", "maple")]
+        maple = world.applicant("maple@example.com", "maple")
+        _check(client)
+
+        client.put(f"/markets/{MARKET}/applications/{maple}/answers",
+                   json={"answers": {"discord_username": "fern_studio_42"}})
+
+        assert _shown(client)[maple] == {"state": "in_server", "shown": "check_again",
+                                         "possibleMatches": [], "moreMatches": 0}
+
     def test_an_update_the_check_reads_alike_keeps_the_state(self, client, world):
         """Case, spaces, a leading @ and an old tag are tidied away before matching, so a change
         of only those reads the same member and the state still holds."""

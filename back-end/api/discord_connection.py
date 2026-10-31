@@ -372,9 +372,11 @@ def shown_vendors(
     connection = market.discord
     if connection is None or not connection.vendor_states:
         return {}
-    if applications is None:
-        applications = ApplicationsApi.list_applications_for_market(market.id)
     question = connection.username_question
+    if applications is None:
+        applications = (
+            ApplicationsApi.list_applications_with_answers(market.id, [question])
+            if question else [])
     answers = {str(doc.get("id")): ApplicationsApi.effective_answers(doc).get(question)
                for doc in applications} if question else {}
     declined = connection.declined_matches or {}
