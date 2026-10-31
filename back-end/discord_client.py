@@ -215,7 +215,7 @@ def server_members(values: Credentials, guild_id: str) -> List[Member]:
     """Every member of the server, a page of 1000 at a time, each page after the last member read.
 
     Needs the ``GUILD_MEMBERS`` privileged intent, switched on for the application in the Developer
-    Portal; without it Discord refuses the list as it refuses a server the bot has left.
+    Portal; Discord refuses the list without it.
     """
     members: List[Member] = []
     after = "0"
