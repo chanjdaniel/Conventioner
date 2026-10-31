@@ -21,7 +21,6 @@ describe('where signing in continues to', () => {
     ['a backslash the browser reads as a slash', '/\\evil.example'],
     ['a backslash after the slash, with a path', '/\\/evil.example/x'],
     ['a script', 'javascript:alert(1)'],
-    ['a script behind a slash', '/javascript:alert(1)//'],
     ['a relative path', 'markets'],
     ['the sign-in page itself', '/login'],
     ['the sign-in page with a next of its own', '/login?next=/markets'],

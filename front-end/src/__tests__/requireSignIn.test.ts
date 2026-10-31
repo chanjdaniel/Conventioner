@@ -17,6 +17,7 @@ const routerUnderGuard = () => {
       { path: '/reset-password', component: Page, meta: { public: true } },
       { path: '/dashboard', component: Page },
       { path: '/markets', component: Page },
+      { path: '/markets/:id/applications', component: Page },
     ],
   });
   router.beforeEach(requireSignIn);
@@ -77,5 +78,34 @@ describe('the sign-in guard', () => {
     await router.push('/dashboard');
 
     expect(warn.mock.calls.flat().join(' ')).not.toMatch(/next\(\)/);
+  });
+
+  it('carries the page a signed-out person opened to the login page, query and all', async () => {
+    const router = routerUnderGuard();
+
+    await router.push('/markets/m-1/applications?view=all&status=undecided');
+
+    expect(router.currentRoute.value.path).toBe('/login');
+    expect(router.currentRoute.value.query).toEqual({
+      next: '/markets/m-1/applications?view=all&status=undecided',
+    });
+  });
+
+  it('sends a signed-in user from the login page to the page it carries', async () => {
+    signIn();
+    const router = routerUnderGuard();
+
+    await router.push({ path: '/login', query: { next: '/markets/m-1/applications?view=all' } });
+
+    expect(router.currentRoute.value.fullPath).toBe('/markets/m-1/applications?view=all');
+  });
+
+  it('sends a signed-in user to the dashboard when the page carried is not one of ours', async () => {
+    signIn();
+    const router = routerUnderGuard();
+
+    await router.push({ path: '/login', query: { next: '//evil.example/markets' } });
+
+    expect(router.currentRoute.value.path).toBe('/dashboard');
   });
 });
