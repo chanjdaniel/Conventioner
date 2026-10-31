@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { test, expect, BACKEND_URL, LoginPage } from './fixtures';
 import { loginViaApi } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
@@ -177,15 +177,57 @@ test.describe('Finding a market', () => {
     await expect(markets.sortSelect).toHaveValue('date');
   });
 
-  // The shell's own floor is 1000px (`.app-container` in App.vue): the product is not laid out for
-  // a phone, so the narrowest window the finder must fit is that one.
-  test('the finder fits the narrowest window the app is laid out for', async ({ page }) => {
-    await page.setViewportSize({ width: 1000, height: 800 });
-    const markets = new MarketsPage(page);
-    await markets.goto();
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
+  // The way to the market an organizer runs from the door on a phone (T142). Under a phone's own
+  // emulation a page wider than the window does not scroll sideways: it widens the layout viewport
+  // and zooms out, and a dialog opens off screen. The 1000px floor did exactly that here.
+  test.describe('on a phone', () => {
+    test.use({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3,
+    });
+
+    /** The window as the page lays itself out in it, and the page's own width. */
+    const widths = (page: Page) =>
+      page.evaluate(() => ({
+        layout: window.innerWidth,
+        page: document.documentElement.scrollWidth,
+        zoom: window.visualViewport?.scale ?? 1,
+      }));
+
+    /** A box wholly inside the 390px window. */
+    async function expectInside(locator: Locator, what: string): Promise<void> {
+      const box = await locator.boundingBox();
+      expect(box, `${what} is drawn`).not.toBeNull();
+      expect(box!.x, `${what} starts inside the window`).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, `${what} ends inside the window`).toBeLessThanOrEqual(390);
+    }
+
+    test("the list keeps the phone's width, and its dialogs open inside it", async ({ page }) => {
+      const markets = new MarketsPage(page);
+      await markets.goto();
+      await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
+      expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
+      for (const name of [TEST_FAIR, CAFE, WINTER, ATTIC])
+        await expectInside(markets.card(name), `${name}'s card`);
+
+      await markets.card(CAFE).getByTestId('market-card-manage-button').tap();
+      const manage = page.getByTestId('manage-market-window');
+      await expect(manage).toBeVisible();
+      await expectInside(manage, 'Manage market');
+      await page.getByTestId('manage-market-permissions-toggle').tap();
+      await expect(page.getByTestId('manage-market-permission-source').first()).toBeVisible();
+      await expectInside(manage, 'Manage market, its permissions open');
+      expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
+      await page.getByTestId('manage-market-close-button').tap();
+      await expect(manage).toBeHidden();
+
+      await page.getByTestId('markets-create-button').tap();
+      const create = page.getByTestId('new-market-window');
+      await expect(create).toBeVisible();
+      await expectInside(create, 'the new-market dialog');
+      expect(await widths(page)).toEqual({ layout: 390, page: 390, zoom: 1 });
+    });
   });
 });

@@ -9,7 +9,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/01
   - E03/F03
@@ -23,6 +23,7 @@ sources:
   - E36/F04/S02
   - T45
   - E38/F04/S01
+  - T142
 ---
 
 # The guards and the phase move
@@ -37,7 +38,7 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 | `VALID_TRANSITIONS` | every edge `(from, to)` of the machine; a move not in it answers 400 |
 | `TRANSITION_GUARDS` | the guards on each edge, keyed by edge because a precondition can belong to one route |
 | `PHASE_ENTRY_INVARIANTS` | the guards every edge into a phase must carry, whatever route reaches it |
-| `PreconditionResult` | the wire shape: `id`, `passed`, `message`, and an optional `resolutionLink` (a page of the market, never a redirect) with its `resolutionLabel`, both or neither |
+| `PreconditionResult` | the wire shape: `id`, `passed`, `message`, and an optional `resolutionLink` (a page of the market, never a redirect) with its `resolutionLabel` and its `resolutionAction` (the row of [the market's actions](market-actions.md) table the remedy takes), all three or none |
 | `route_between(a, b)` | the shortest route between two phases, archiving excluded, by a breadth-first walk of the table |
 | `moves_from(phase)` | every move open from a phase: one edge of the table each |
 | `evaluate_transition(market, to, db, leaving_out)` | every guard on the move's edge, less any the caller satisfies itself; failures only |
@@ -47,7 +48,21 @@ A market is moved by [`take_move`](../../../back-end/api/markets.py) (judge, the
 
 **Every precondition for every phase transition lives in `guards.py`.**
 Adding or removing one is a one-file edit: append a guard to an edge's list, or delete it.
-The transition endpoint and the front end's [`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue) are generic over `PreconditionResult` and must stay that way; the panel renders each blocker's message, and its link only where following it leads somewhere other than the page the organizer is on.
+The transition endpoint and the front end's [`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue) are generic over `PreconditionResult` and must stay that way; the panel renders each blocker's message, and its link only where following it leads somewhere other than the page the organizer is on, and only for someone the table lets take the blocker's `resolutionAction`.
+
+**Every remedy names the action it takes.**
+A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whoever the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):
+
+| Remedy | Page | Action |
+| - | - | - |
+| Pick market dates, Change the dates, Add a location, Add tables, Give every tier tables, Fix the price groups | `setup` | `change-setup` |
+| Allocate tables (`AssignmentComputedGuard`, `NoApprovedApplicationsGuard`) | `settings` | `assign` |
+| Publish results | `applications` | `publish-results` |
+| Finish deciding | `applications` | `give-verdicts` |
+| Import responses | `import` | `import-applications` |
+
+A link without an action, or an action without a link, is refused at construction.
+That the action is a row of the table is held by `TestEveryRemedyNamesTheActionItTakes` in [`back-end/tests/test_guards.py`](../../../back-end/tests/test_guards.py), not at construction, so a renamed row fails the build rather than answering the organizer with a 500.
 
 **`_validate_registry()` runs at import and refuses tables that disagree**, so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 It refuses an edge naming a phase `MarketPhase` lacks, guards on an edge that is not in `VALID_TRANSITIONS`, entry invariants for a phase no edge enters, and an edge into a phase that does not carry all of that phase's entry invariants.

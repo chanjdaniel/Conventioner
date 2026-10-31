@@ -44,25 +44,26 @@ export const MarketAction = {
 export type MarketAction = (typeof MarketAction)[keyof typeof MarketAction];
 
 /**
- * Said of an action the market in hand carries no answer for: a read that predates the action, or
- * no market at all. Nothing is offered on a missing answer, since the server would refuse it.
+ * Said of an action the market in hand carries no answer for: a read that predates the action, no
+ * market at all, or no action named, as a blocker from an older server names none for its remedy
+ * (T142). Nothing is offered on a missing answer, since the server would refuse it.
  */
 export const UNANSWERED = 'This is not yours to do on this market.';
 
 /** Why this person may not take this action on this market, or null when they may. */
 export function actionRefusal(
   market: Pick<Market, 'actionRefusals'> | null | undefined,
-  action: MarketAction,
+  action: MarketAction | null | undefined,
 ): string | null {
   const answers = market?.actionRefusals;
-  if (!answers || !(action in answers)) return UNANSWERED;
+  if (!answers || !action || !(action in answers)) return UNANSWERED;
   return answers[action] ?? null;
 }
 
 /** Whether this person may take this action on this market. */
 export function mayTake(
   market: Pick<Market, 'actionRefusals'> | null | undefined,
-  action: MarketAction,
+  action: MarketAction | null | undefined,
 ): boolean {
   return actionRefusal(market, action) === null;
 }

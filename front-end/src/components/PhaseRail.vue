@@ -21,10 +21,13 @@
  * Sized for 1920x1080, which is the target: the prototype measured the labelled spine against a
  * 69-character check-in URL and found it clean at and above 1440, colliding below. Narrower than
  * that the spine wraps rather than compressing, because labels painting over each other is worse
- * than a rail two lines tall.
+ * than a rail two lines tall. On a phone the rail scrolls with the page under the pinned bar, and
+ * is laid out for one: the spine scrolls sideways, each address is named rather than shown, and the
+ * next step's link is a line of its own (T142).
  */
 import { MarketAction, mayTake } from '@/utils/marketActions';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import { useRoute, useRouter } from 'vue-router';
 import { hasAssignment } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
@@ -189,6 +192,17 @@ const applyUrl = computed(() => {
   return `${window.location.origin}/${slug}/apply`;
 });
 
+/** The market's public addresses, each a chip on the rail, the application page first. */
+const addresses = computed(() =>
+  [
+    { id: 'apply', label: 'Application page', url: applyUrl.value },
+    { id: 'checkin', label: 'Check-in page', url: checkInUrl.value },
+  ].filter((address) => address.url),
+);
+
+/** The app's phone break (`base.css`), where a chip names its address rather than showing it. */
+const onAPhone = useMediaQuery('(width <= 640px)');
+
 /**
  * An address as the chip shows it: without its scheme, which every one of them shares, so the part
  * that names this market is what shows when the chip is too narrow for all of it. The link, its
@@ -244,8 +258,15 @@ function elsewhere(relative: string | null | undefined): string | null {
   return route?.path === link ? null : link;
 }
 
-/** Where the step is done, unless that is where the organizer already is. */
-const stepLink = computed(() => elsewhere(step.value?.page));
+/**
+ * Where the step is done, unless that is where the organizer already is, or the work there is not
+ * theirs to do (T142): the rail told a Viewer "Pick market dates", a link to a page where every
+ * control was disabled. A step that names no action is unanswered, and leads nowhere. The sentence
+ * is said either way.
+ */
+const stepLink = computed(() =>
+  mayTake(props.market, step.value?.action) ? elsewhere(step.value?.page) : null,
+);
 
 /**
  * The moves this person may make. None when the table's "Move the phase" is not theirs (bug 37,
@@ -275,14 +296,17 @@ const forwardTransition = computed(() => {
 /**
  * The work the step onward waits on, as the rail's main button (E32/F01/S02): named by the guard
  * that refuses it ("Add a location") and leading to the page that resolves it. Only for someone who
- * may make the move, and not on that page itself, where the work is already in front of them. A
- * reason no one page resolves has no fix to offer, and the sentence says it.
+ * may make the move and may take the remedy's action (T142), and not on that page itself, where the
+ * work is already in front of them. A reason no one page resolves has no fix to offer, and the
+ * sentence says it.
  */
 const fix = computed(() => {
   // The move's own first blocker, the one its disabled state is read from - not the sentence's,
   // which before a run says "run the assignment" in its own words and names no blocker.
   const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
-  const to = elsewhere(blocker?.resolutionLink);
+  const to = mayTake(props.market, blocker?.resolutionAction)
+    ? elsewhere(blocker?.resolutionLink)
+    : null;
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
@@ -543,48 +567,46 @@ function cancelPending() {
       <div
         class="phase-rail-end"
         :class="{
-          'phase-rail-end--addresses': applyUrl || checkInUrl,
-          'phase-rail-end--both': applyUrl && checkInUrl,
+          'phase-rail-end--addresses': addresses.length,
+          'phase-rail-end--both': addresses.length > 1,
         }"
       >
         <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
-        <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
-          <span class="url-chip-label">Application page</span>
+        <div
+          v-for="address in addresses"
+          :key="address.id"
+          class="url-chip"
+          :data-testid="`phase-rail-${address.id}`"
+        >
+          <!-- A phone has room for one meaningless fragment of the address, so it draws none: the
+               chip's name is the link, and it and Copy carry the whole address (T142). -->
           <a
-            class="url-chip-url"
-            :href="applyUrl"
-            :title="applyUrl"
+            v-if="onAPhone"
+            class="url-chip-name"
+            :href="address.url"
+            :title="address.url"
             target="_blank"
             rel="noopener"
-            >{{ shown(applyUrl) }}</a
+            >{{ address.label }}</a
           >
+          <template v-else>
+            <span class="url-chip-label">{{ address.label }}</span>
+            <a
+              class="url-chip-url"
+              :href="address.url"
+              :title="address.url"
+              target="_blank"
+              rel="noopener"
+              >{{ shown(address.url) }}</a
+            >
+          </template>
           <button
             type="button"
             class="url-chip-copy"
-            data-testid="phase-rail-apply-copy"
-            @click="copyUrl(applyUrl)"
+            :data-testid="`phase-rail-${address.id}-copy`"
+            @click="copyUrl(address.url)"
           >
-            {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
-          </button>
-        </div>
-
-        <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
-          <span class="url-chip-label">Check-in page</span>
-          <a
-            class="url-chip-url"
-            :href="checkInUrl"
-            :title="checkInUrl"
-            target="_blank"
-            rel="noopener"
-            >{{ shown(checkInUrl) }}</a
-          >
-          <button
-            type="button"
-            class="url-chip-copy"
-            data-testid="phase-rail-checkin-copy"
-            @click="copyUrl(checkInUrl)"
-          >
-            {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
+            {{ copiedUrl === address.url ? 'Copied' : 'Copy' }}
           </button>
         </div>
 
@@ -707,7 +729,7 @@ function cancelPending() {
     <BlockerPanel
       v-if="transitionBlockers.length"
       :blockers="transitionBlockers"
-      :marketId="market.id"
+      :market="market"
       data-testid="phase-rail-blockers"
     />
   </div>
@@ -807,8 +829,8 @@ function cancelPending() {
   flex: 0 0 auto;
 }
 
-/* A phone, which only the door reaches (E29/F01): the spine keeps its full width - shrinking is
-   what makes labels collide - and scrolls sideways inside the rail rather than widening the page. */
+/* A phone (E29/F01): the spine keeps its full width - shrinking is what makes labels collide - and
+   scrolls sideways inside the rail rather than widening the page. */
 @media (width <= 640px) {
   .phase-rail {
     padding: var(--space-2) var(--space-4);
@@ -941,19 +963,26 @@ function cancelPending() {
   min-width: 18rem;
 }
 
-/* A phone has no room for that floor beside the actions: the address shortens, and Copy carries it
-   whole. */
+/*
+ * A phone (T142): the rail's end is one row group under the spine, the addresses at its start and the
+ * actions at its end, and an item that does not fit takes a row of its own rather than shrinking
+ * below its content. Squeezing is what drew the application page as one character between its name
+ * and Copy, in a 171x148px box beside three stacked buttons that ran out of their own. A chip names
+ * its address rather than showing it (`onAPhone`), so it is one line: a 44px Copy inset in its
+ * border by the desk's hairline, 50px, since with none Copy's border lay on the chip's.
+ */
 @media (width <= 640px) {
-  .url-chip {
+  .phase-rail-end {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: var(--space-2);
     min-width: 0;
   }
 
-  /* No wider than the rail: a draft's three actions (Pick market dates, Open Applications, More)
-     ran 33px past a 390px window, so they wrap onto a second line instead (below). */
-  .phase-rail-end {
+  .url-chip {
+    flex: none;
     min-width: 0;
-    max-width: 100%;
-    flex-shrink: 1;
+    align-self: center;
   }
 }
 
@@ -966,8 +995,8 @@ function cancelPending() {
 .url-chip-url {
   color: var(--mm-text-link);
   min-width: 0;
-  /* A line `--target-min` tall, so the address is a target on a phone (WCAG 2.5.8, T79; 44px since
-     T82), and no taller than the Copy button beside it. */
+  /* A line `--target-min` tall, so the address is a target (WCAG 2.5.8, T79), and no taller than
+     the Copy button beside it. A phone draws the chip's name in its place (`.url-chip-name`). */
   line-height: var(--target-min);
   /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
      character rather than the whole address. The rail's end measures its own narrowest to decide
@@ -978,6 +1007,13 @@ function cancelPending() {
   line-clamp: 1;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+/* The chip's name as its link, on a phone: a line `--target-min` tall, as the address is on a desk. */
+.url-chip-name {
+  color: var(--mm-text-link);
+  line-height: var(--target-min);
+  white-space: nowrap;
 }
 
 .url-chip-copy {
@@ -1008,10 +1044,11 @@ function cancelPending() {
   margin-left: auto;
 }
 
+/* On a phone the actions take what the row leaves, and wrap at its end: a draft's Pick market dates,
+   Open Applications and More… ran 33px past a 390px window on one line. */
 @media (width <= 640px) {
   .phase-rail-actions {
-    flex: 0 1 auto;
-    min-width: 0;
+    flex: 1 1 auto;
     flex-wrap: wrap;
     justify-content: flex-end;
   }
@@ -1093,6 +1130,18 @@ function cancelPending() {
   margin-left: var(--space-2);
   color: var(--mm-text-link);
   font-weight: 600;
+}
+
+/* On a phone the link is a thumb's target, on a line of its own under the sentence (T142): inline it
+   was 47x15px. */
+@media (width <= 640px) {
+  .phase-rail-next-link {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    min-height: var(--target-min);
+    margin-left: 0;
+  }
 }
 
 /* A move the server would refuse stays in the menu, disabled, with the reason under it. */

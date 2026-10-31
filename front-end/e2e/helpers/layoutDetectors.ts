@@ -343,14 +343,16 @@ export function detectLayout(opts: DetectOptions): Finding[] {
       leaves.push({ el, r });
     }
 
-    // Tap targets. A link inside a run of text is exempt (WCAG 2.5.8's inline exception), and a
-    // control's label is a target for it too: tapping "Gold" ticks the 20px box beside it.
+    // Tap targets. A link inside a run of text is exempt (WCAG 2.5.8's inline exception), but not
+    // one drawn as a block of its own beside that text, and a control's label is a target for it
+    // too: tapping "Gold" ticks the 20px box beside it.
     if (
       el.matches(
         'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=menuitem],[role=checkbox],[role=radio],[role=switch]',
       )
     ) {
-      const inlineLink = tag === 'a' && el.parentElement && ownText(el.parentElement);
+      const inlineLink =
+        tag === 'a' && cs.display === 'inline' && el.parentElement && ownText(el.parentElement);
       // Only a label someone can see and tap: a hidden or inert one saves nothing.
       const labels = (el as HTMLInputElement).labels
         ? Array.from((el as HTMLInputElement).labels!)
@@ -503,6 +505,63 @@ export function detectLayout(opts: DetectOptions): Finding[] {
     reach = Math.max(reach, b);
   }
   return findings;
+}
+
+/** px, the most of a phone's window the banner and a market's pinned frame may take (T142). */
+export const PINNED_MAX = 150;
+
+/** The bottom of what stays pinned at the window's top, and the element whose bottom it is. */
+export interface Pinned {
+  /** px from the window's top. */
+  bottom: number;
+  /** The element, as `detectLayout` names one. */
+  el: string;
+}
+
+/**
+ * How much of the window's top stays pinned while the page scrolls (T142): the page is scrolled by
+ * one window height, or to its end where it is shorter, and the lowest bottom is taken among the
+ * shown elements that are `sticky` or `fixed` and stand at their `top` inset. A dialog, a drawer
+ * or a scrim (taller than half the window) is drawn over the page on purpose, so neither it nor
+ * what is pinned inside it counts. The page is scrolled back where it was.
+ *
+ * Passed to `page.evaluate`, so, like `detectLayout`, it reaches nothing outside its own body.
+ */
+export function pinnedBottom(): Pinned {
+  const was = scrollY;
+  const end = document.documentElement.scrollHeight - innerHeight;
+  scrollTo(0, Math.min(innerHeight, Math.max(0, end)));
+
+  const label = (el: Element): string => {
+    const tid = el.getAttribute('data-testid');
+    const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/)[0] : '';
+    return `${el.tagName.toLowerCase()}${tid ? `[${tid}]` : ''}${cls ? `.${cls}` : ''}`;
+  };
+  const pinnedAt = (el: Element, cs: CSSStyleDeclaration, r: DOMRect) =>
+    /sticky|fixed/.test(cs.position) &&
+    cs.top !== 'auto' &&
+    Math.abs(r.top - parseFloat(cs.top)) <= 1;
+  const overlay = (el: Element, cs: CSSStyleDeclaration, r: DOMRect) =>
+    el.matches('dialog,[role=dialog],[role=alertdialog],[aria-modal=true]') ||
+    (/sticky|fixed/.test(cs.position) && r.height > innerHeight / 2);
+
+  let pinned: Pinned = { bottom: 0, el: 'nothing' };
+  // Depth first, so an overlay's whole subtree is skipped.
+  const walk = (el: Element) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none') return;
+    const r = el.getBoundingClientRect();
+    if (overlay(el, cs, r)) return;
+    const shown = r.width > 0 && r.height > 0 && cs.visibility !== 'hidden';
+    if (shown && pinnedAt(el, cs, r) && r.bottom > pinned.bottom) {
+      pinned = { bottom: Math.round(r.bottom), el: label(el) };
+    }
+    for (const child of Array.from(el.children)) walk(child);
+  };
+  walk(document.body);
+
+  scrollTo(0, was);
+  return pinned;
 }
 
 /** A screen size at which some market screens put the market bar somewhere the others do not. */

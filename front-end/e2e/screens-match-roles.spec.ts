@@ -1,3 +1,4 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -25,6 +26,19 @@ const ORG_ADMIN = { email: 'e2e-role-org-admin@example.com', password: 'e2epassw
 
 let marketId: string;
 
+/** Give someone a role on a market, as its owner, whose session the seed left on `request`. */
+async function grantRole(
+  request: APIRequestContext,
+  onMarket: string,
+  user: { email: string },
+  role: 'viewer' | 'editor',
+): Promise<void> {
+  const res = await request.post(`${BACKEND_URL}/markets/${onMarket}/roles`, {
+    data: { user_email: user.email, role },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
+
 test.beforeAll(async ({ request }) => {
   ensureVerifiedUser(VIEWER.email, VIEWER.password);
   ensureVerifiedUser(EDITOR.email, EDITOR.password);
@@ -34,16 +48,8 @@ test.beforeAll(async ({ request }) => {
     TEST_USER.email,
     TEST_USER.password,
   ));
-  for (const [user, role] of [
-    [VIEWER, 'viewer'],
-    [EDITOR, 'editor'],
-  ] as const) {
-    const res = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { user_email: user.email, role },
-    });
-    expect(res.ok(), await res.text()).toBeTruthy();
-  }
+  await grantRole(request, marketId, VIEWER, 'viewer');
+  await grantRole(request, marketId, EDITOR, 'editor');
 });
 
 test('a Viewer reads every market page and is offered nothing to change', async ({ browser }) => {
@@ -117,21 +123,68 @@ test('an Editor of a Google Form market is offered no import, and told only an a
     TEST_USER.password,
     { setupObject: planSetupObject(), intakeMode: 'csv' },
   );
-  const res = await request.post(`${BACKEND_URL}/markets/${importing.marketId}/roles`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { user_email: EDITOR.email, role: 'editor' },
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
+  await grantRole(request, importing.marketId, EDITOR, 'editor');
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 15000 });
     await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+    // Nor as the sentence's link (T142): the rail offers a remedy only to whoever may take it.
+    await expect(page.getByTestId('phase-rail-next')).toContainText('responses');
+    await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
     await page.goto(marketScreenPath(importing.marketId, 'import'));
     await expect(page.getByTestId('import-wrong-phase')).toContainText('not yours to do', {
       timeout: 15000,
     });
     await expect(page.getByTestId('import-upload')).toHaveCount(0);
+  });
+});
+
+/*
+ * The rail offers a remedy or a step only to someone who may take it (T142). It told a Viewer "Pick
+ * market dates", a link to a page where every control was disabled; an Editor may change the setup,
+ * so is still led there. On Tools at a phone's width, where the door is run from.
+ */
+test.describe('a draft missing its dates, on a phone', () => {
+  let draftId: string;
+
+  test.beforeAll(async ({ request }) => {
+    // A Google Form market stays a draft; with no dates, the setup is what its move waits on.
+    ({ marketId: draftId } = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject([]), intakeMode: 'csv' },
+    ));
+    await grantRole(request, draftId, VIEWER, 'viewer');
+    await grantRole(request, draftId, EDITOR, 'editor');
+  });
+
+  test('a Viewer reads where it stands and is offered no step', async ({ browser }) => {
+    await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(marketScreenPath(draftId, 'tools'));
+      await expect(page.getByTestId('phase-rail-next')).toContainText('no market dates', {
+        timeout: 15000,
+      });
+      await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
+      await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+    });
+  });
+
+  test('an Editor is led to pick the dates on Market Setup', async ({ browser }) => {
+    await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(marketScreenPath(draftId, 'tools'));
+      const step = page.getByTestId('phase-rail-next-link');
+      await expect(step).toHaveText('Pick market dates', { timeout: 15000 });
+      await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
+
+      await step.click();
+      await expect(page).toHaveURL(marketSetupPath(draftId, 'setup'));
+      await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
+    });
   });
 });
 

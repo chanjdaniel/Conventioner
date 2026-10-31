@@ -71,6 +71,8 @@ const router = createRouter({
       path: '/markets',
       name: 'markets',
       component: () => import('@/views/MarketsView.vue'),
+      // The way to the market an organizer runs from the door on a phone (T142), so it fits one.
+      meta: { fitsAPhone: true },
     },
     {
       path: '/organizations',

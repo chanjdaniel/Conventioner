@@ -290,6 +290,13 @@ function handleNewClose() {
   padding: var(--space-8);
 }
 
+/* On a phone the gutter narrows, as the door's does, and stays on both sides (T142). */
+@media (width <= 640px) {
+  .markets-view {
+    padding: var(--space-4);
+  }
+}
+
 .header {
   display: flex;
   flex-direction: row;
@@ -307,6 +314,8 @@ function handleNewClose() {
 }
 
 .new-market-button {
+  /* A thumb's 44px on a phone; a desk's padding is taller than its target already. */
+  min-height: var(--target-min);
   padding: var(--space-2) var(--space-6);
   background: var(--mm-green);
   color: white;

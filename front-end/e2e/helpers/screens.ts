@@ -42,7 +42,10 @@ export const PHONE: Size = { width: 390, height: 844 };
 /** The sizes each kind of screen ships at: an organizer works at a desk; the rest may be a phone. */
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
-/** A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01) and Tools. */
+/**
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01),
+ * Tools, and `/markets` with its dialogs (T142).
+ */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
 /** Who is signed in to see a screen. */
@@ -104,6 +107,23 @@ const slug =
   (seed: TheScreensSeed) =>
     `/${(seed[market] as { marketSlug: string }).marketSlug}${rest}`;
 const fixed = (path: string) => () => path;
+
+/**
+ * Manage market on `market`'s own card, found by searching `/markets`: the first card is not
+ * always the market whose people the sweep must draw.
+ */
+const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheScreensSeed) => {
+  const name = (seed[market] as { marketName: string }).marketName;
+  await page.goto('/markets');
+  await visible(page, 'markets-result-count');
+  await page.getByTestId('markets-search-input').fill(name);
+  await page
+    .getByTestId('market-card')
+    .filter({ hasText: name })
+    .getByTestId('market-card-manage-button')
+    .click();
+  await visible(page, 'manage-market-window');
+};
 
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
@@ -186,13 +206,13 @@ export const SCREENS: Screen[] = [
     // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
     name: 'the markets list',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count'),
   },
   {
     name: 'the new-market dialog, where a disabled primary lives',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count', [
       'markets-create-button',
       'new-market-name-input',
@@ -202,7 +222,7 @@ export const SCREENS: Screen[] = [
     // With its Permissions section open, which is closed until asked for (E39/F01/S04).
     name: 'the manage-market dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/markets'),
       'markets-result-count',
@@ -211,10 +231,18 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // A second member whose address is long (T142): the row gives it its own line rather than
+    // squeezing it into a column a few letters wide.
+    name: 'the manage-market dialog, a member with a long address',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: managing('dealt'),
+  },
+  {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
     name: "the manage-market dialog's history, an entry open",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/markets'),
       'markets-result-count',
@@ -227,7 +255,7 @@ export const SCREENS: Screen[] = [
     // The app's own menu, behind the banner's button on every organizer screen.
     name: 'the navigation drawer',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count', ['app-menu-button', 'app-nav']),
   },
   {
@@ -694,6 +722,24 @@ export const SCREENS: Screen[] = [
       await expect(page.locator('.rail-menu-item').first()).toBeVisible();
     },
   },
+  // The rail on a phone in every phase the seed holds, on both intake paths (T142): market days is
+  // the attendance above. Each phase draws its own chips and actions, and a squeezed address chip, an
+  // overlapping More… (T139) or an action past the window (T104) showed in one phase only.
+  ...(
+    [
+      ['in draft', 'draft'],
+      ['taking applications on its own page', 'open'],
+      ['in review, from a Google Form', 'review'],
+      ['in assignment', 'assignment'],
+      ['archived', 'archived'],
+    ] as const
+  ).map(([phase, market]): Screen => ({
+    name: `the rail at the door, ${phase}`,
+    who: 'organizer',
+    sizes: [PHONE],
+    // Before publishing the door is a note, so the rail is what the state waits on.
+    open: at(screen(market, 'attendance'), 'phase-rail-current'),
+  })),
   {
     name: 'the floorplan',
     who: 'organizer',
@@ -804,7 +850,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the markets list, with no market',
     who: 'no organization',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-empty'),
   },
 

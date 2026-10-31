@@ -3,7 +3,16 @@ import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
-import { completePlan } from './helpers/seeds';
+import { completePlan, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import type { Locator } from '@playwright/test';
+
+type Box = { x: number; y: number; width: number; height: number };
+
+async function box(locator: Locator): Promise<Box> {
+  const b = await locator.boundingBox();
+  if (!b) throw new Error('not rendered');
+  return b;
+}
 
 /** A plan with a date, so the essential questions have something to ask. */
 // Complete, so the form market may leave draft (E31/F01/S01).
@@ -160,5 +169,110 @@ test.describe('The phase rail', () => {
     await expect(frozen).toContainText('It was published and ran its market days.');
     await expect(page.locator('[data-phase="market_days"]')).toHaveAttribute('data-state', 'done');
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
+  });
+});
+
+/**
+ * The rail on a phone (T142): only the bar pins there, so the rail stands at the top of the page,
+ * and a form market's two addresses, More… and the next step have to read in the room a phone has.
+ * It squeezed the application page into a 171x148px box showing one character of its address, and
+ * put the door's check-in list under a rail that ran to 409px of 844.
+ */
+test.describe('The phase rail on a phone', () => {
+  let seed: { marketId: string };
+
+  test.beforeAll(async ({ request }) => {
+    seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { intakeMode: 'form' },
+    );
+  });
+
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('leaves the door its screen: the list starts within the top 340px', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+    await expect(page.getByTestId('attendance-summary')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('phase-rail-checkin')).toBeVisible();
+
+    // The first thing after the frame in the card: the door itself, on first paint.
+    const door = page.locator('[data-testid="market-frame"] + *');
+    expect((await box(door)).y).toBeLessThanOrEqual(340);
+  });
+
+  test('draws each address as one line: its name as the link, and Copy', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+    for (const [testId, name, end] of [
+      ['phase-rail-apply', 'Application page', '/apply'],
+      ['phase-rail-checkin', 'Check-in page', '/check-in'],
+    ] as const) {
+      const chip = page.getByTestId(testId);
+      await expect(chip).toBeVisible({ timeout: 15000 });
+      // A phone can show only a fragment of the address, so it shows none: the link carries it.
+      const link = chip.getByRole('link', { name, exact: true });
+      const href = (await link.getAttribute('href')) ?? '';
+      expect(href.endsWith(end), href).toBe(true);
+      await expect(link).toHaveAttribute('title', href);
+      await expect(chip).not.toContainText(new URL(href).host);
+      await expect(page.getByTestId(`${testId}-copy`)).toBeVisible();
+      expect((await box(chip)).height).toBeLessThanOrEqual(50);
+    }
+  });
+
+  test('puts the addresses first and the actions at the end, none over another', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+    await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+
+    const apply = await box(page.getByTestId('phase-rail-apply'));
+    const checkIn = await box(page.getByTestId('phase-rail-checkin'));
+    const more = await box(page.getByTestId('phase-rail-menu-button'));
+    const rail = await box(page.getByTestId('phase-rail'));
+    const apart = (a: Box, b: Box) =>
+      a.x + a.width <= b.x ||
+      b.x + b.width <= a.x ||
+      a.y + a.height <= b.y ||
+      b.y + b.height <= a.y;
+    for (const [a, b] of [
+      [apply, checkIn],
+      [apply, more],
+      [checkIn, more],
+    ]) {
+      expect(apart(a, b), `${JSON.stringify(a)} and ${JSON.stringify(b)} overlap`).toBe(true);
+    }
+    // In reading order: the chips, then More… at the row's end, inside the rail.
+    expect(apply.x).toBeLessThan(more.x);
+    expect(checkIn.y).toBeLessThanOrEqual(more.y);
+    expect(more.x + more.width).toBeLessThanOrEqual(rail.x + rail.width);
+    expect(rail.x + rail.width).toBeLessThanOrEqual(390);
+  });
+
+  test('stands the next step on its own line, a 44px target', async ({
+    authenticatedPage: page,
+  }) => {
+    // On Tools the step leads to the door, so it is offered.
+    await page.goto(marketScreenPath(seed.marketId, 'tools'));
+    const sentence = await box(page.getByTestId('phase-rail-next'));
+    const link = await box(page.getByTestId('phase-rail-next-link'));
+    expect(link.height).toBeGreaterThanOrEqual(44);
+    expect(link.x).toBe(sentence.x);
+    expect(link.y).toBeGreaterThan(sentence.y);
+  });
+
+  test('shows the whole address again past the phone break', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+    const link = page.getByTestId('phase-rail-checkin').getByRole('link');
+    await expect(link).toHaveText(/\/check-in$/, { timeout: 15000 });
   });
 });

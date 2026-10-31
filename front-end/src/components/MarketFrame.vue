@@ -4,10 +4,15 @@
  *
  * A card whose top - the market's bar (its name and its tabs, `MarketBar`, the same on every market
  * page since E22/F04/S02) and the whole phase rail - sticks directly under the app banner while the
- * PAGE scrolls. Everything the
- * rail grows (a refused transition's blockers, an error, the archived note) is inside the pinned
- * block, under the button that caused it. Condensing on scroll hid "where the market is"; floating
- * the growth covered what it asked the organizer to fix; both were tried and rejected.
+ * PAGE scrolls, on a desk. Everything the rail grows (a refused transition's blockers, an error, the
+ * archived note) is inside the pinned block, under the button that caused it. Condensing on scroll
+ * hid "where the market is"; floating the growth covered what it asked the organizer to fix; both
+ * were tried and rejected.
+ *
+ * On a phone only the bar pins (T142): with the banner, the whole block took 280 to 442px of a
+ * 844px window, 409 at the door, so the check-in list scrolled in the lower half of the screen. The
+ * rail, the page row and the `pinned` slot stand at the top of the page and scroll away with it; the
+ * bar's dot still says where the market is worked on, and the rail is one scroll up.
  *
  * Sticky, never a viewport-height shell: the banner is sticky on the same principle (`App.vue`), and
  * a sticky element inside an `overflow` ancestor silently stops sticking - so no screen that uses
@@ -19,7 +24,7 @@
  * x 0 on two and x 32 on the import, and each screen had its own answer for a market not yet here -
  * mostly an empty black bar. A screen's content is rendered only once its market is in hand.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
@@ -78,17 +83,30 @@ function retry(): void {
 /*
  * The pinned block's height, measured rather than guessed, as `--market-frame-h` on the card: a
  * screen's own sticky column sits under the frame at `top: calc(var(--banner-h) +
- * var(--market-frame-h))`. The rail grows (blockers, errors), so a fixed number would be wrong.
+ * var(--market-frame-h))`. The rail grows (blockers, errors), so a fixed number would be wrong. On a
+ * phone the frame gives up its box and only the bar is pinned, so the bar's height is measured.
  */
 const card = ref<HTMLElement | null>(null);
 const frame = ref<HTMLElement | null>(null);
+const bar = ref<InstanceType<typeof MarketBar> | null>(null);
+const barEl = computed(() => (bar.value?.$el as HTMLElement | undefined) ?? null);
 let observer: ResizeObserver | null = null;
+function measure(): void {
+  const pinned = frame.value?.offsetHeight || barEl.value?.offsetHeight || 0;
+  card.value?.style.setProperty('--market-frame-h', `${pinned}px`);
+}
 onMounted(() => {
   if (!frame.value || typeof ResizeObserver === 'undefined') return;
-  observer = new ResizeObserver(() => {
-    card.value?.style.setProperty('--market-frame-h', `${frame.value?.offsetHeight ?? 0}px`);
-  });
+  observer = new ResizeObserver(measure);
   observer.observe(frame.value);
+  if (barEl.value) observer.observe(barEl.value);
+});
+// The bar comes and goes with the market's arrival; a box-less frame never says so.
+watch(barEl, (el, was) => {
+  if (!observer) return;
+  if (was) observer.unobserve(was);
+  if (el) observer.observe(el);
+  measure();
 });
 onBeforeUnmount(() => observer?.disconnect());
 </script>
@@ -99,7 +117,11 @@ onBeforeUnmount(() => observer?.disconnect());
       <div ref="frame" class="market-frame" data-testid="market-frame">
         <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). While the
              market is on its way the bar holds its place; a market that is missing has none. -->
-        <MarketBar v-if="market || status === 'loading' || status === 'idle'" :market="market" />
+        <MarketBar
+          v-if="market || status === 'loading' || status === 'idle'"
+          ref="bar"
+          :market="market"
+        />
         <template v-if="market">
           <PhaseRail :market="market" :beforeTransition="beforeTransition" />
           <!-- The open tab's pages, when it has more than one: Settings, Assignments, Vendors
@@ -107,7 +129,7 @@ onBeforeUnmount(() => observer?.disconnect());
           <MarketPages :market="market" />
           <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned
                with the frame rather than sticking on its own, because it could only guess the
-               frame's height. -->
+               frame's height; on a phone it scrolls with the rail. -->
           <slot name="pinned" />
         </template>
       </div>
@@ -181,5 +203,23 @@ onBeforeUnmount(() => observer?.disconnect());
   /* Above the surface it pins over; below the banner (30), the nav scrim and the drawer. */
   z-index: 20;
   background-color: white;
+}
+
+/*
+ * On a phone only the bar pins (T142). A sticky element sticks only inside its parent, so the frame
+ * gives up its box and the bar sticks against the card; the rail, the page row and the `pinned`
+ * slot are the card's own children, in the page's flow, and scroll away with it.
+ */
+@media (width <= 640px) {
+  .market-frame {
+    display: contents;
+  }
+
+  .market-frame > .market-bar {
+    position: sticky;
+    top: var(--banner-h);
+    /* The frame's layer, and over the rail's menu (20), which scrolls under the bar here. */
+    z-index: 21;
+  }
 }
 </style>

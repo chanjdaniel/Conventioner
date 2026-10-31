@@ -12,7 +12,12 @@ import { mount, RouterLinkStub } from '@vue/test-utils';
 
 import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market, type PreconditionResult } from '@/assets/types/datatypes';
-import { answersRefusing } from './support/servedAnswers';
+import {
+  ADMIN_ANSWERS,
+  answersRefusing,
+  EDITOR_ANSWERS,
+  VIEWER_ANSWERS,
+} from './support/servedAnswers';
 import { MarketAction } from '@/utils/marketActions';
 
 const here = vi.hoisted(() => ({ path: '/markets/market-1/form' }));
@@ -28,6 +33,7 @@ const NO_LOCATION: PreconditionResult = {
   message: 'This market has no location. Add one on Market Setup.',
   resolutionLink: 'setup',
   resolutionLabel: 'Add a location',
+  resolutionAction: MarketAction.ChangeSetup,
 };
 
 const ASKS_NOTHING: PreconditionResult = {
@@ -105,6 +111,7 @@ describe('before a run', () => {
     message: 'No tables have been allocated for this market. Allocate tables first.',
     resolutionLink: 'settings',
     resolutionLabel: 'Allocate tables',
+    resolutionAction: MarketAction.Assign,
   };
 
   it('Publish waits on allocating tables, offered from any other page', () => {
@@ -148,5 +155,90 @@ describe('no fix is offered', () => {
 
     expect(rail.find(fix).exists()).toBe(false);
     expect(rail.get('[data-testid="phase-rail-next-link"]').text()).toBe('Add a location');
+  });
+});
+
+/*
+ * The rail offers a remedy or a step only to someone who may take the action it leads to (T142):
+ * the rail told a Viewer "Pick market dates", a link to a page where every control was disabled.
+ * The sentence still says where the market stands, for everyone.
+ */
+describe('a remedy or a step is offered only to someone who may take it', () => {
+  const NO_DATES: PreconditionResult = {
+    id: 'setup_has_dates',
+    passed: false,
+    message: 'This market has no dates. Pick them on Market Setup.',
+    resolutionLink: 'setup',
+    resolutionLabel: 'Pick market dates',
+    resolutionAction: MarketAction.ChangeSetup,
+  };
+  const next = '[data-testid="phase-rail-next"]';
+  const nextLink = '[data-testid="phase-rail-next-link"]';
+  const draftMissingDates = (actionRefusals: Record<string, string | null>) =>
+    railFor([NO_DATES], { actionRefusals }, '/markets/market-1/tools');
+
+  it('a Viewer reads where a draft missing dates stands, and is offered no step', () => {
+    const rail = draftMissingDates(VIEWER_ANSWERS);
+
+    expect(rail.get(next).text()).toContain('no dates');
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+  });
+
+  it('an Editor, who may change the setup, is still led to pick the dates', () => {
+    const rail = draftMissingDates(EDITOR_ANSWERS);
+
+    expect(rail.find(fix).exists()).toBe(false);
+    const link = rail.get(nextLink);
+    expect(link.text()).toBe('Pick market dates');
+    expect(link.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/setup');
+  });
+
+  it('an Admin is offered the fix as before', () => {
+    const rail = draftMissingDates(ADMIN_ANSWERS);
+
+    expect(rail.get(fix).text()).toBe('Pick market dates');
+    expect(rail.find(nextLink).exists()).toBe(false);
+  });
+
+  it('an Admin whose table refuses the setup is offered neither the fix nor the link', () => {
+    const rail = draftMissingDates(answersRefusing(MarketAction.ChangeSetup));
+
+    expect(rail.get(next).text()).toContain('no dates');
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+    expect(rail.get(move).attributes('disabled')).toBeDefined();
+  });
+
+  it('a blocker that names no action, from an older server, offers nothing', () => {
+    const older = { ...NO_DATES, resolutionAction: undefined };
+    const rail = railFor([older], { actionRefusals: ADMIN_ANSWERS }, '/markets/market-1/tools');
+
+    expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.find(nextLink).exists()).toBe(false);
+  });
+
+  describe('at the door, from another tab', () => {
+    const door = (actionRefusals: Record<string, string | null>) =>
+      railFor(
+        [],
+        { phase: MarketPhase.MarketDays, transitionBlockers: {}, actionRefusals },
+        '/markets/market-1/tools',
+      );
+
+    it('a Viewer, who may not check vendors in, is offered no "Go there"', () => {
+      const rail = door(VIEWER_ANSWERS);
+
+      expect(rail.get(next).text()).toContain('Check vendors in at the door.');
+      expect(rail.find(nextLink).exists()).toBe(false);
+    });
+
+    it('an Editor, who may, is', () => {
+      const rail = door(EDITOR_ANSWERS);
+
+      const link = rail.get(nextLink);
+      expect(link.text()).toBe('Go there');
+      expect(link.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/attendance');
+    });
   });
 });

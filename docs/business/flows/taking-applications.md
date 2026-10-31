@@ -15,6 +15,7 @@ sources:
   - bug/11
   - E38/F04/S01
   - E38/F04/S02
+  - T142
   - E38/F07/S02
 ---
 
@@ -42,7 +43,7 @@ A verdict can be given from the first application ([review](review.md)); Begin A
    Cancel or Escape closes it and saves nothing.
    Anyone else who may move the market gets the move at once, with no dialog.
 3. Expect Applications, landing on the Applications page, which carries the dot; the form is locked from now on ([F4](form-tab.md#f4-the-form-lock)).
-4. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11); it stays there in every phase after Draft until the market is archived.
+4. The rail shows "Application page" with the public address and "Copy" on one line, shortening the address rather than wrapping (bug 11), and on a phone "Application page" as the link with "Copy" (T142); it stays there in every phase after Draft until the market is archived.
 5. The rail says "Applications are open on your application page: review them as they arrive. Every application is decided: Begin Assignment.", or, while one is undecided, "… Finish deciding: …".
 
 Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `market-journey.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `openApplicationsOffersTheReviewers.test.ts`.

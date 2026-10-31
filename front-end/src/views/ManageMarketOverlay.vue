@@ -548,6 +548,18 @@ async function closeAddUser() {
   overflow-wrap: anywhere;
 }
 
+/* On a phone a member's address takes a line of its own, with the role and Remove beneath it:
+   beside them, a long address was squeezed into a column a few letters wide, over four lines. */
+@media (width <= 640px) {
+  .user-card {
+    flex-wrap: wrap;
+  }
+
+  .user-email {
+    flex-basis: 100%;
+  }
+}
+
 .role-badge {
   display: inline-block;
   padding: var(--space-hairline) var(--space-2);

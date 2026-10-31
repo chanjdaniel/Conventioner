@@ -6,6 +6,8 @@ import { defineComponent, h } from 'vue';
 
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import type { PreconditionResult } from '@/assets/types/datatypes';
+import { MarketAction } from '@/utils/marketActions';
+import { answersRefusing, VIEWER_ANSWERS } from './support/servedAnswers';
 
 const Blank = defineComponent({ render: () => h('div') });
 
@@ -14,7 +16,11 @@ const Blank = defineComponent({ render: () => h('div') });
  * whether a resolution link goes anywhere depends on where the panel is being read from, and a stub
  * cannot answer that.
  */
-async function mountPanelAt(path: string, blockers: PreconditionResult[]) {
+async function mountPanelAt(
+  path: string,
+  blockers: PreconditionResult[],
+  actionRefusals: Record<string, string | null> = answersRefusing(),
+) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -26,7 +32,7 @@ async function mountPanelAt(path: string, blockers: PreconditionResult[]) {
   await router.push(path);
   await router.isReady();
   return mount(BlockerPanel, {
-    props: { blockers, marketId: 'm1' },
+    props: { blockers, market: { id: 'm1', actionRefusals } },
     global: { plugins: [router] },
   });
 }
@@ -39,6 +45,7 @@ const reviewBlocker: PreconditionResult = {
   // is showing (E21/F02/S02). Every page has its own address since E22/F04/S02.
   resolutionLink: 'applications',
   resolutionLabel: 'Finish deciding',
+  resolutionAction: MarketAction.GiveVerdicts,
 };
 
 describe('BlockerPanel', () => {
@@ -121,6 +128,48 @@ describe('BlockerPanel', () => {
       ]);
 
       expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
+    });
+  });
+
+  /**
+   * A refused move's panel offers a remedy only to someone the table lets take it (T142), as the
+   * rail does: a link to work that is not theirs sends them to a page that refuses it.
+   */
+  describe('a link to work that is not yours to do', () => {
+    it('is not offered, and the blocker is still said', async () => {
+      const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker], VIEWER_ANSWERS);
+
+      expect(wrapper.text()).toContain('still awaiting review');
+      expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
+    });
+
+    it('is offered beside one that is', async () => {
+      const wrapper = await mountPanelAt(
+        '/markets/m1/vendors',
+        [
+          reviewBlocker,
+          {
+            id: 'setup_has_dates',
+            passed: false,
+            message: 'This market has no dates.',
+            resolutionLink: 'setup',
+            resolutionLabel: 'Pick market dates',
+            resolutionAction: MarketAction.ChangeSetup,
+          },
+        ],
+        answersRefusing(MarketAction.GiveVerdicts),
+      );
+
+      const links = wrapper.findAll('[data-testid="blocker-resolution-link"]');
+      expect(links.map((link) => link.text())).toEqual(['Pick market dates →']);
+    });
+
+    it('is not offered where the blocker names no action, as from an older server', async () => {
+      const wrapper = await mountPanelAt('/markets/m1/setup', [
+        { ...reviewBlocker, resolutionAction: undefined },
+      ]);
+
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
   });

@@ -307,6 +307,13 @@ class TestTransitionBlocked:
         assert "resolution_link" not in blocker
         assert blocker["resolutionLink"] is None
         assert blocker["resolutionLabel"] is None
+        assert blocker["resolutionAction"] is None
+
+        # No plan, so the setup's guard refuses too, and its remedy names the row of the table it
+        # takes (T142): the rail's panel offers the link only to someone that row lets take it.
+        dates = next(b for b in body["blockers"] if b["id"] == "setup_has_dates")
+        assert dates["resolutionLink"] == "setup"
+        assert dates["resolutionAction"] == "change-setup"
 
         assert collection.doc["phase"] == "draft"
 

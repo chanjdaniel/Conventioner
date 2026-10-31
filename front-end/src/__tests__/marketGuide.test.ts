@@ -221,6 +221,108 @@ describe('the next step', () => {
   });
 });
 
+describe('the action a step takes (T142)', () => {
+  const ASSIGNED = { assignmentObject: { vendorAssignments: [{ email: 'a@example.com' }] } };
+
+  it("names the table's row for each phase's step, so the rail offers it only to whom it may", () => {
+    const steps: [string, Market, string, MarketAction | null][] = [
+      ['draft', market(MarketPhase.Draft), TODAY, MarketAction.ChangeSetup],
+      ['applications', market(MarketPhase.Applications), TODAY, MarketAction.GiveVerdicts],
+      [
+        'review',
+        market(MarketPhase.Applications, { intakeMode: IntakeMode.Csv }),
+        TODAY,
+        MarketAction.GiveVerdicts,
+      ],
+      ['assignment, not assigned', market(MarketPhase.Assignment), TODAY, MarketAction.Assign],
+      [
+        'assignment, assigned',
+        market(MarketPhase.Assignment, ASSIGNED as Partial<Market>),
+        TODAY,
+        MarketAction.Assign,
+      ],
+      [
+        'assignment, results published',
+        market(MarketPhase.Assignment, { ...ASSIGNED, resultsPublished: true } as Partial<Market>),
+        TODAY,
+        MarketAction.MovePhase,
+      ],
+      ['offers, not assigned', market(MarketPhase.Offers), TODAY, MarketAction.Assign],
+      [
+        'offers, assigned',
+        market(MarketPhase.Offers, ASSIGNED as Partial<Market>),
+        TODAY,
+        MarketAction.Assign,
+      ],
+      ['market days, a date to come', market(MarketPhase.MarketDays), TODAY, MarketAction.CheckIn],
+      [
+        'market days, every date over',
+        market(MarketPhase.MarketDays),
+        '2099-06-01',
+        MarketAction.MovePhase,
+      ],
+      ['archived', market(MarketPhase.Archived), TODAY, null],
+    ];
+    for (const [standing, m, today, action] of steps) {
+      expect(nextStep(m, today).action, standing).toBe(action);
+    }
+  });
+
+  it("is the blocker's own when the step is a blocker's remedy", () => {
+    const blocked = market(MarketPhase.Draft, {
+      transitionBlockers: {
+        applications: [
+          {
+            id: 'setup_has_dates',
+            passed: false,
+            message: 'This market has no dates.',
+            resolutionLink: 'setup',
+            resolutionLabel: 'Pick market dates',
+            resolutionAction: MarketAction.ChangeSetup,
+          },
+        ],
+      },
+    });
+    expect(nextStep(blocked, TODAY)).toMatchObject({
+      page: 'setup',
+      action: MarketAction.ChangeSetup,
+    });
+    const importing = market(MarketPhase.Draft, {
+      intakeMode: IntakeMode.Csv,
+      transitionBlockers: {
+        applications: [
+          {
+            id: 'responses_imported',
+            passed: false,
+            message: 'No responses are imported yet.',
+            resolutionLink: 'import',
+            resolutionLabel: 'Import responses',
+            resolutionAction: MarketAction.ImportApplications,
+          },
+        ],
+      },
+    });
+    expect(nextStep(importing, TODAY).action).toBe(MarketAction.ImportApplications);
+  });
+
+  it('is none for a blocker that names no action, as a read from an older server would', () => {
+    const older = market(MarketPhase.Draft, {
+      transitionBlockers: {
+        applications: [
+          {
+            id: 'setup_has_dates',
+            passed: false,
+            message: 'This market has no dates.',
+            resolutionLink: 'setup',
+            resolutionLabel: 'Pick market dates',
+          },
+        ],
+      },
+    });
+    expect(nextStep(older, TODAY)).toMatchObject({ page: 'setup', action: null });
+  });
+});
+
 describe('the step onward', () => {
   it('is archiving once a running market has had its last day, and none before', () => {
     expect(forwardFrom(market(MarketPhase.MarketDays), TODAY)).toBeNull();

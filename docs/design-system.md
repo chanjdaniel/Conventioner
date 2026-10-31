@@ -52,6 +52,7 @@ sources:
   - E38/F08/S03
   - E38/F05/S01
   - T123
+  - T142
 ---
 
 # Conventioner's design language
@@ -165,7 +166,8 @@ The market screen's `height: 80%`, which pinned it to most of the window and hid
 **The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width ([what keeps this true](#what-keeps-this-true)).
 The public check-in page is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
 The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
-Two organizer market screens lift the desktop floor too, by `meta.fitsAPhone`: Attendance, the door on market day ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)), and the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113); the page Discord sends them back to is an `AuthCard` and is measured with the account pages.
+Three organizer places lift the desktop floor too, by `meta.fitsAPhone`: Attendance, the door on market day ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)), the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113), and `/markets` with its dialogs, the way to the market an organizer runs from the door (T142); the page Discord sends them back to is an `AuthCard` and is measured with the account pages.
+`/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
 
 | Token | Value | Screens |
 | --- | --- | --- |
@@ -200,9 +202,10 @@ Two other rules were prototyped and rejected: two columns by purpose truncated t
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
+On a phone (640px and below) it pins the bar alone, and the rail scrolls away with the page, since the whole block took half a phone's window ([the market frame](implementation/modules/market-frame.md#sharp-edges), T142).
 `--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time; it is the clamp the banner already came to rather than one pixel height, which would have changed the banner's size at every other window height.
-The frame's own pinned block is the one thing that is measured: it grows with whatever the rail shows, so no token could state it.
-`MarketFrame` measures it and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
+What the frame pins is the one thing that is measured: on a desk it grows with whatever the rail shows, so no token could state it.
+`MarketFrame` measures it, the bar alone on a phone, and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
 
 **The frame places itself** (E26/F10/S01).
@@ -215,6 +218,7 @@ Market Setup's four tabs each padded themselves 40px, so there the frame's note 
 **The rail is one row at the workspace width.**
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
+On a phone nothing gives way: the spine scrolls sideways, each address is a one-line chip naming its page as the link beside Copy, the chips and the actions wrap onto rows of their own, and the next step's link is a 44px line of its own ([the phase rail](implementation/modules/phase-rail.md#sharp-edges), T142).
 
 **Columns are sized by need, not by count.**
 Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
@@ -363,12 +367,15 @@ A convention nothing enforces is how the product got here. Six checks, the first
    It landed with what it found fixed (T75): an empty `<html lang>`, no `main` landmark, a market row that was a `role="button"` around its own Manage button, a calendar marked as an ARIA grid with no rows, an unnamed close button on the navigation drawer, and buttons whose `aria-label` replaced the words on them ([every control is named](implementation/conventions/every-control-is-named.md#the-rules)).
    An automated check finds some WCAG failures, not all of them: a pass is a floor, not a verdict.
 5. **A layout sweep**, [`e2e/layout-sweep.spec.ts`](../front-end/e2e/layout-sweep.spec.ts), measures every state at each size it ships at (1920x1080 and 1440x900 for an organizer's screen; 1920x1080 and 390x844 for a public page; all three for a route with `meta.fitsAPhone`) with the detectors in [`e2e/helpers/layoutDetectors.ts`](../front-end/e2e/helpers/layoutDetectors.ts) (T79, from T67's trial).
-   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target.
+   It fails on the kinds that raised nothing false over the whole app: the page or an element past the window, a child outside its parent, text clipped by its box, text or controls drawn over each other in one layer, text squeezed into a column (three or more lines of ten characters or fewer), type off the type scale, and a tap target under 44px on a phone, a control's visible label counting toward its target and a link inside a run of text exempt, unless it is drawn as a block of its own (T142).
    Each failure names the state, the size, the element and the measurement.
    It also fails when the market bar stands at a different x or width on one market screen than on the others of its size, which no screen can see alone (bug 12), and when it found the bar on fewer than two market screens of one size, so a renamed test id cannot leave that check passing on nothing.
+   On a phone it fails when a market screen pins more than its window's top 150px, naming the screen and the measurement: `pinnedBottom` scrolls the page by a window's height, or to its end, and takes the lowest bottom of the banner and whatever is `sticky` or `fixed` at its `top`, a dialog, a drawer or a scrim aside, and the door pinned 409px of 844 until only [the market frame](implementation/modules/market-frame.md#sharp-edges)'s bar pinned there (T142).
    The sweep landed gating a phone target at WCAG 2.5.8's 24px, with about 75 phone controls under 44px (36px buttons and fields, 28px day buttons on phone attendance), and T82 raised them to 44px through the tokens above and the gate with them.
    The noisy kinds (spacing off the scale, uneven gaps, edges 1 to 4px apart, empty bands, truncated names, nested scrollers, small targets on a desktop) are real drift mixed with what is by design, so each test attaches them as a `layout report` and never fails on them; the spacing scale is Stylelint's to hold.
    [`e2e/layout-detectors.spec.ts`](../front-end/e2e/layout-detectors.spec.ts) proves each gating detector fires on a fixture of its defect, and that none fires on a page that only looks broken: a stuck bar over scrolled content, screen-reader-only text, an ellipsis with its title, a closed `<details>`, a menu over the page.
+   It proves a link in a sentence is exempt as a target and one drawn on a line of its own is not.
+   It proves `pinnedBottom` counts a pinned header and a block pinned under it, and not a block that scrolls away, one that sticks only sideways, or an open drawer or dialog.
    It landed with what it and the newly walked states found fixed: the form's step list hung 8px outside its header, a long web address in an answer ran 108px past a phone, the sign-in and reset fields and their Show buttons were 20px and 15px tall inside their 36px boxes, the standalone back links and the rail's addresses were 18px and 19px tall, and on states the other sweeps had never opened, role badges and "Results Published" on translucent tints, the import's hint on beige, the verification error in raw `red`, an unmarked link in a note, and the start page's coloured words on black.
 6. **A focus sweep**, [`e2e/focus-sweep.spec.ts`](../front-end/e2e/focus-sweep.spec.ts), presses Tab through every state (E38/F01/S01).
    A field it lands on must look as it did unfocused, it and the two boxes around it, and a control must draw no outline and the halo for its ground: white at 35% where the first ancestor with a fill is dark, the green halo elsewhere.
@@ -382,7 +389,7 @@ A convention nothing enforces is how the product got here. Six checks, the first
 
 The sweeps are only worth the states they walk. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog, and T67's layout trial missed the dashboard's squeezed dates until it opened a market before the dashboard; **dialogs, menus, drawers, hover states, disabled controls, empty states and remembered state have to be walked deliberately.**
 All four sweeps walk one list, `SCREENS` in [`e2e/helpers/screens.ts`](../front-end/e2e/helpers/screens.ts), through `walkTheScreens()`, and each passes only its own check, so a state added for one is walked by all.
-The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
+The list holds the router's routes, the dialogs, menus and drawers, the dashboard with a market remembered, every phase, the phase rail at 390 in every phase the seed holds, both intake paths among them, settled rules, the floorplan wizard's steps with a plan uploaded and the signed-out pages, over a stress seed ([`e2e/helpers/seedTheScreens.ts`](../front-end/e2e/helpers/seedTheScreens.ts)) of long names, 40 applications in every review state, a review divided between two reviewers and 36 vendors over four dates and three sections, since a layout that holds on three short names breaks on a real market.
 Contrast and axe measure each state at its first size, focus at its first size and a phone's width, and the layout sweep at every size.
 
 ## Evidence
