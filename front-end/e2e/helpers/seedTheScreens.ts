@@ -67,8 +67,9 @@ export interface TheScreensSeed {
    */
   organization: { name: string };
   /**
-   * The one market `organization` holds, a draft, its admin also given Editor on it (E38/F12/S01),
-   * so Manage market draws an organization's people and a market role that adds nothing.
+   * A draft in `organization`, made anew on each run, its admin also given Editor on it
+   * (E38/F12/S01), so Manage market draws an organization's people and a market role that adds
+   * nothing.
    */
   organizationMarket: SeededMarket;
 }
@@ -320,8 +321,10 @@ async function organizationWithPeople(
 
 /**
  * A draft in `organization`, the walk's case (E38/F12/S01): its admin, `DEALT_REVIEWER`, also
- * given Editor on it. Its one date is the latest of any seeded market, so a list sorted by date
- * keeps it after every market another state opens first.
+ * given Editor on it. It is made anew on each run under a unique name, so a reused stack's
+ * organization holds one more draft per run, and the state opens it by its own name. Its one
+ * date is the latest of any seeded market, so a list sorted by date keeps it after every market
+ * another state opens first.
  */
 async function organizationMarket(
   api: APIRequestContext,
