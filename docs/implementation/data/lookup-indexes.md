@@ -9,6 +9,7 @@ sources:
   - E32/F03/S04
   - E40/F01/S03
   - E40/F02/S01
+  - E44/F01/S01
 ---
 
 # Lookup indexes
@@ -32,6 +33,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `attendance` | `market_id, vendor_email` |
 | `history` | `market_id`; `market_id, at, id`, the order its pages are read in ([the market's history](history.md#reading-it)); `organization_id, at, id`, an organization's own history, read and deleted by it ([what an organization records](history.md#what-an-organization-records)) |
 | `vendor_notes` | `market_id, vendor_email` |
+| `payments`, `amounts_owed` | `market_id, vendor_email` ([payments](payments.md)) |
 | `deletion_trail` | `organization_id` ([market deletion](../modules/market-deletion.md)) |
 
 Market fields are named through `market_doc_key`, so the list holds the stored camelCase spelling ([the market document](market-document.md#key-spelling)).

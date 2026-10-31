@@ -36,6 +36,7 @@ import api.discord_connection as DiscordConnectionApi
 import api.door as DoorApi
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
+import api.payments as PaymentsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import api.users as UsersApi
@@ -1305,6 +1306,10 @@ REQUIRED_BODIES = [
     ("put", "/public/markets/<market_slug>/applicant/application", None),
     ("put", "/markets/<market_id>/applications/<application_id>/review", MarketPhase.APPLICATIONS),
     ("put", "/markets/<market_id>/applications/<application_id>/answers", None),
+    ("post", "/markets/<market_id>/payments/<path:vendor_email>", None),
+    ("post", "/markets/<market_id>/payments/<path:vendor_email>/refunds", None),
+    ("put", "/markets/<market_id>/payments/<path:vendor_email>/owed/<date>", None),
+    ("put", "/markets/<market_id>/payment-entries/<payment_id>", None),
     ("post", "/markets/<market_id>/csv-proposal/confirm", MarketPhase.DRAFT),
     ("post", "/markets/<market_id>/vendor-export", None),
     ("post", "/markets/<market_id>/vendor-export/preview", None),
@@ -1363,6 +1368,10 @@ READS_NO_BODY = [
         (ApplicationsApi, "release_claim", None),
     ]),
     ("post", "/markets/<market_id>/publish-results", [(ApplicantsApi, "publish_results", HANDED_ON)]),
+    ("delete", "/markets/<market_id>/payments/<path:vendor_email>/owed/<date>",
+     [(PaymentsApi, "use_calculated_price", {})]),
+    ("delete", "/markets/<market_id>/payment-entries/<payment_id>",
+     [(PaymentsApi, "remove_payment", {})]),
     ("post", "/markets/<market_id>/discord/authorization",
      [(DiscordConnectionApi, "start", {"url": "https://discord.com/oauth2/authorize"})]),
     ("delete", "/markets/<market_id>/discord/connection",
@@ -1393,6 +1402,7 @@ BODY_VIEW_ARGS = {
     "<org_id>": ORG_ID, "<market_id>": "market-123", "<user_id>": "user-2",
     "<application_id>": "app-1", "<market_slug>": SLUG,
     "<path:vendor_email>": "vendor@example.com", "<action_id>": "check-in",
+    "<date>": "2026-08-01", "<payment_id>": "payment-1",
 }
 NOT_OBJECTS = [["Autumn Market"], [], "Autumn Market", "", 7, 0, True, False]
 

@@ -61,11 +61,18 @@ const props = defineProps<{
   vendorSearch: VendorSearch;
   busy?: boolean;
   errorMessage?: string;
+  /**
+   * What freeing this seat may also take off what its vendor owes (E44/F01/S02), for whoever may
+   * change the amount owed: what the seat's line owes and the vendor's name. Null where it is not
+   * asked.
+   */
+  deduction?: { amount: string; name: string } | null;
 }>();
 
 const emit = defineEmits<{
   place: [payload: { email: string; seat: Seat }];
-  free: [];
+  /** Ticked, the seat's line owes nothing once freed: a refund may be due. */
+  free: [deductOwed: boolean];
   swap: [email: string];
   /** Open the occupant's drawer (E35/F01/S02): who they are, before deciding what to do. */
   view: [];
@@ -73,6 +80,7 @@ const emit = defineEmits<{
 }>();
 
 const chosenEmail = ref('');
+const deductOwed = ref(false);
 const chosenSeat = ref<Seat>(FULL_TABLE);
 const swapWith = ref('');
 
@@ -84,6 +92,7 @@ watch(
   () => {
     chosenEmail.value = '';
     swapWith.value = '';
+    deductOwed.value = false;
     chosenSeat.value = props.seat ?? FULL_TABLE;
   },
   { immediate: true },
@@ -335,6 +344,14 @@ function findsToSwap(option: PickerOption, words: string): boolean {
       <p class="placement-note">
         Freeing this seat leaves them with no table on this date until they are assigned again.
       </p>
+      <!-- Freeing never changes what they owe by itself (Q26); this asks, unticked. -->
+      <label v-if="deduction" class="placement-radio placement-deduct">
+        <input v-model="deductOwed" type="checkbox" data-testid="placement-dialog-deduct" />
+        <span
+          >Also remove its {{ deduction.amount }} from what {{ deduction.name }} owes? (Cancelled
+          before the deadline: a refund may be due.)</span
+        >
+      </label>
     </template>
 
     <!--
@@ -349,7 +366,7 @@ function findsToSwap(option: PickerOption, words: string): boolean {
         class="btn btn--destructive"
         :disabled="busy"
         data-testid="placement-dialog-free"
-        @click="emit('free')"
+        @click="emit('free', !!deduction && deductOwed)"
       >
         Free this seat
       </button>
@@ -399,6 +416,15 @@ function findsToSwap(option: PickerOption, words: string): boolean {
   gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--mm-black);
+}
+
+/* Two lines in the drawer's width: the box stays beside the first. */
+.placement-deduct {
+  align-items: flex-start;
+}
+
+.placement-deduct input {
+  margin-top: var(--space-hairline);
 }
 
 .placement-note {

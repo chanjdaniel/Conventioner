@@ -30,6 +30,8 @@ sources:
   - E38/F07/S03
   - E39/F02/S01
   - E46/F01/S02
+  - E44/F01/S01
+  - E44/F01/S02
   - E46/F01/S03
 ---
 
@@ -105,6 +107,10 @@ The kinds are constants in `history.py`; a dash is an empty list or subject.
 | `write-vendor-notes` | `request_handled` | marking a request handled, or not | the vendor | - | `handled` |
 | `assign` | `placed`, `freed`, `swapped`, `assigned` | a placement, a freed seat, a swap, a run | as above | the table-day | as above, `placed` with the seat left as `before` |
 | `assign` | `rules` | the assignment rules, which ride in the plan | - | - | `priority` or `assignment_options` |
+| `assign` | `owed_taken_back` | a day seated again, by hand or by a run, taking back the $0 a free's deduction set ([payments](payments.md)), by whoever seated them | the vendor | `date`, `currency` | `owed_cents`: the $0 taken back, then what the day owes now |
+| `record-payment` | null | [recording a vendor's payment](payments.md) | the vendor | `payment_id`, `payment_kind` (`payment`), and the market's `currency` (null on a market never priced), which its money reads in | `cents`, `method`, `paid_on` and `note` (when there is one), null before |
+| `change-owed` | `owed_set`, `owed_calculated` | setting a table-day's amount owed, a free's deduction included, or using the calculated price again, only when it changed what the day owes | the vendor | `date`, `currency` | `owed_cents` |
+| `adjust-paid` | `refund_recorded`, `payment_edited`, `payment_removed` | a refund, or an edit or a removal of an entry | the vendor | `payment_id`, `payment_kind` (`payment` or `refund`, so an edit that changed no amount still says which), `currency` | the entry's `cents` (negative for a refund), `method`, `paid_on` and `note` that changed: null before for a refund, null after for a removal |
 | `check-in` | `checked_in`, `check_in_undone` | a check-in or its undo, at the organizer's door or the public check-in page, only when it changed whether the vendor is here | the vendor | `date` | `checked_in`, and `via: check_in_page` from the public page, whose actor is null |
 | `connect-discord` | `discord_connected`, `discord`, `discord_disconnected` | [the Discord card](../modules/discord.md): connecting, a choice, disconnecting | - | - | whichever of `guild_id`, `guild_name`, `role_id`, `role_name`, `username_question`, `username_question_label` (the question's label on the form then, null when none) and `invite_link` changed; the history reads the names and the label, never an id or the key |
 | `connect-discord` | `discord_checked` | ["Check Discord"](../modules/discord.md#who-is-in-the-server), one entry a check, even one that changed nobody | each vendor whose state it changed, in the order of `application_ids` | `application_ids` | by application id, each changed vendor's state (`has_role`, `in_server`, `not_found`, `no_username`) before, null when never checked, and after; `addresses`, each changed vendor's address by application id, since `vendors` leaves out an empty one and so does not pair with the ids by position; and `counts`, how many it found in each state |

@@ -12,6 +12,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#completePlan
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/e2e/global-setup.ts
+  - front-end/e2e/helpers/networkSettles.ts
   - front-end/e2e/helpers/settle.ts
   - front-end/src/utils/utils.ts#getFormattedDate
 verified: 2026-10-31
@@ -27,6 +28,7 @@ sources:
   - T45
   - T75
   - E38/F05/S01
+  - T121
 ---
 
 # E2E patterns
@@ -89,6 +91,11 @@ That, the self-signed certificate and the other suite-wide traps are TESTING.md'
 
 **Applicant sign-in is rate limited** ([sign-in is bounded](../../business/rules/a-vendor-signs-in-before-applying.md#sign-in-is-bounded)): an address is sent at most five codes per 15 minutes, and a caller thirty, which the whole serial run shares.
 [`global-setup.ts`](../../../front-end/e2e/global-setup.ts) clears the counters at the start of every run; a spec that signs the same address in more than that within one run trips the limit.
+
+**A run starts once the host's container network has settled.**
+A stack's interfaces keep changing for a while after `up` returns: each takes an IPv6 address within a second, and changes link state again about 15 seconds later, and Chromium fails whatever it has in flight with `net::ERR_NETWORK_CHANGED` at each change, so the first spec after a stack started lost a module and failed.
+`global-setup.ts` waits until the host's newest container interface (`veth`, `br-` or `docker`, aged by its `/sys/class/net` entry) is 20 seconds old ([`networkSettles.ts`](../../../front-end/e2e/helpers/networkSettles.ts)), and prints how long; a settled host, or one with no such interface, waits for nothing.
+Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**
 An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
