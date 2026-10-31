@@ -550,6 +550,19 @@ def _check_discord(client, world):
     return client.post(f"/markets/{MARKET}/discord/check")
 
 
+def _give_discord_roles(client, world):
+    _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username", roleId="r-vendor",
+             roleName="Vendor Test")
+    world.markets.doc["assignmentObject"] = _seated(VENDOR)
+    world.patch(Discord, "server_members", lambda *_a: [Discord.Member("1001", "maple", ())])
+    world.patch(Discord, "give_role", lambda *_a: None)
+    world.markets.doc["applicationForm"] = {"fields": [
+        {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, form_data={"discord_username": "maple"}))
+    return client.post(f"/markets/{MARKET}/discord/role-run")
+
+
 def _disconnect_discord(client, world):
     _discord(world, **DISCORD_SERVER)
     return client.delete(f"/markets/{MARKET}/discord/connection")
@@ -706,6 +719,9 @@ WRITES = [
     Write("who is in the Discord server", "POST", f"{M}/discord/check", Actions.CONNECT_DISCORD,
           History.DISCORD_CHECKED, _check_discord, vendors=(VENDOR,),
           subject={"application_ids": ["app-1"]}, detail_keys=("counts",)),
+    Write("the Discord role given", "POST", f"{M}/discord/role-run", Actions.CONNECT_DISCORD,
+          History.DISCORD_ROLES_GIVEN, _give_discord_roles, vendors=(VENDOR,),
+          subject={"application_ids": ["app-1"]}, detail_keys=("given", "counts")),
     Write("Discord disconnected", "DELETE", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
           History.DISCORD_DISCONNECTED, _disconnect_discord),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,

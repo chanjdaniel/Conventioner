@@ -392,6 +392,15 @@ export interface DiscordConnection {
   checkedAt?: string;
   /** Each vendor as that check found them, by application (`discordCheck.ts` reads the states). */
   vendorStates?: { applicationId: string; state: string }[];
+  /** The last "Give roles" run (E46/F01/S04), its report (`discordRoles.ts` reads it). */
+  roleRun?: DiscordRoleRun;
+}
+
+/** A "Give roles" run as kept: when, the role by its name then, and each assigned vendor's end. */
+export interface DiscordRoleRun {
+  ranAt: string;
+  roleName?: string | null;
+  outcomes: { applicationId: string; outcome: string; reason?: string | null }[];
 }
 
 /** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */

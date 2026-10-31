@@ -6,6 +6,8 @@ describes:
   - front-end/src/components/ExportVendorsDialog.vue
   - front-end/src/utils/vendorExport.ts
   - back-end/api/vendor_export.py
+  - front-end/src/components/GiveRolesDialog.vue
+  - front-end/src/components/DiscordRoleReport.vue
 verified: 2026-10-31
 sources:
   - wayfinding/claims-and-room/04
@@ -27,6 +29,7 @@ sources:
   - T139
   - E46/F01/S03
   - E43/F01/S03
+  - E46/F01/S04
 ---
 
 # Vendors
@@ -98,6 +101,20 @@ On a market connected to a Discord server with a username question chosen ([the 
 
 A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, or the bot is no longer in the server.
 Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
+
+## J17. Give the market's role to the assigned vendors
+
+**Status:** Works against a mocked Discord (E46/F01/S04, `giving-the-discord-role.spec.ts`); not yet walked against a real server.
+On a market connected to a Discord server, with a role and a username question chosen on the Discord card, the organizer gives the market's role to every vendor holding a seat who is in the server, in one run ([the Discord connection](../../implementation/modules/discord.md#giving-the-role)).
+
+1. "Give roles", beside "Check Discord", for an Admin or the owner (the same row), is offered once anyone holds a seat.
+2. It confirms first ([`GiveRolesDialog.vue`](../../../front-end/src/components/GiveRolesDialog.vue)), by the role's name and how many vendors hold a seat on any date: "Give Vendor Nov 2026 to 54 assigned vendors?", saying that it never takes a role away.
+3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state.
+4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026 given 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens each group's vendors, a failure's reason said once for the vendors it held back.
+
+**A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
+A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
+Covered by: `giving-the-discord-role.spec.ts`, `givingTheDiscordRole.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## Superseded
 

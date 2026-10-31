@@ -10,6 +10,8 @@ describes:
   - front-end/src/utils/discordConnected.ts
   - front-end/src/utils/discordQuestion.ts
   - front-end/src/utils/discordCheck.ts
+  - front-end/src/utils/discordRoles.ts
+  - back-end/datatypes.py#DiscordRoleRun
   - scripts/discord_rest_proof.py
 verified: 2026-10-31
 sources:
@@ -18,13 +20,14 @@ sources:
   - E46/F01/S01
   - E46/F01/S02
   - E46/F01/S03
+  - E46/F01/S04
 ---
 
 # The Discord connection
 
 A market is connected to one Discord server, so that a later run can give the market's vendors a role there (E46).
 One Discord application, Conventioner's, is added to each organizer's server through Discord's own approval screen (Daniel, T92 Q11: "one bot").
-[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, disconnecting, and checking who is in the server.
+[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, disconnecting, checking who is in the server, and giving the role.
 
 ## The Discord card
 
@@ -91,6 +94,25 @@ The market read serves them to every reader, so whoever reads the Vendors page r
 **The Vendors page shows them** once a check has run: a Discord chip on each vendor's row, a "Discord" filter of every state with how many are in it, in the address as `discord` (`?discord=not_found`) so a filter is a link, and "Checked 5 minutes ago", ageing as the page sits.
 After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
 
+## Giving the role
+
+**"Give roles" on the Vendors page gives the card's role to every assigned vendor in the server, in one run** (`POST /markets/:id/discord/role-run`, `give_roles`; [the Vendors page](../../business/flows/vendors.md#j17-give-the-markets-role-to-the-assigned-vendors)).
+It asks the same row as the card and the check, and is offered where the check is, on a market whose card names a role, once anyone holds a seat (`mayGiveRoles` in [`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)); an archived market refuses it, as every write.
+It confirms first, by the role's name and how many vendors hold a seat on any date, counted from where the page reads them: "Give Vendor Nov 2026 to 54 assigned vendors?".
+
+- **Assigned is holding a seat on any date** of the stored assignment (`seated_addresses` in [`result_outcome.py`](../../../back-end/result_outcome.py)), among the market's main applications.
+- **The run reads the members once, as a check does**, matching by tidied username alone, then asks Discord to give the role (Add Guild Member Role, `give_role`) only to an assigned vendor whose username a member has and who does not hold the role yet.
+- **Each assigned vendor ends in one outcome**: `given`, `already_had`, `not_found` (no member has the username), `no_username`, or `failed` with its reason in Conventioner's words.
+- **A run only gives** (Daniel, T92 Q19: "no" to taking a role away): it never asks Discord to remove one, so a vendor who has lost their seat keeps the role, and is not in the run's report.
+- **A refusal of one member is theirs alone**: a member who left between the list and the grant (Discord's Unknown Member or Unknown User) fails with "No longer in the server." and reads "Not found", and the run goes on.
+  **Any other refusal would refuse every grant alike**, so the run stops asking and every assigned vendor still to be given the role fails with the same reason: the bot's role below the market's role, or the bot without Manage Roles (Discord's Missing Permissions), says "Conventioner's role is below Vendor Nov 2026, or may not manage roles." with the card's steps to fix it; a role the server no longer has asks to choose the role again; a server the bot cannot reach, the deployment's settings refused, a 429 that holds and Discord out of reach say what any call says. A run thus asks a limit that holds, or a permission it lacks, once, never once a vendor.
+- **The run updates every vendor's state**, as a check would set it, a vendor given the role then "Has the role" and one who left "Not found", and sets `checkedAt`.
+- **The last run's report is kept on the connection** as `roleRun` (`DiscordRoleRun`): `ranAt`, the role's name then, and each assigned vendor's outcome with a failure's reason, by application id; the page counts the groups from them.
+  The market read serves it to every reader, so the report stands above the list for anyone who reads the page ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)): "Vendor Nov 2026 given 5 minutes ago", how many in each group, and "Show who" opening each group's vendors, a failure's reason said once for the vendors it held back.
+  It is about the server, so connecting to another server or disconnecting forgets it, as it forgets the check.
+
+**The run writes its report, the states and `checkedAt` only while the card still names the server, the role and the username question it read against**, as a check does; but the roles are already given in Discord by then, so a card changed meanwhile is kept, the run is still recorded in the history with the roles it gave, and the answer is a 409, "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
+
 ## The values, and a deployment without them
 
 **`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` are optional, and never a boot requirement.**
@@ -130,7 +152,8 @@ A 403 or 404 from List Guild Members says "can no longer reach this server", as 
 **The market document's `discord` field is `DiscordConnection`** in [`back-end/datatypes.py`](../../../back-end/datatypes.py), stored camelCase ([the market document](../data/market-document.md)).
 
 **Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`), the username question's label beside its key; who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
-**A check is one entry** (`discord_checked`), as a run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
+**A check is one entry** (`discord_checked`), as an assignment run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
+**A "Give roles" run is one entry** (`discord_roles_given`), even one that gave nobody the role: the role by its name, the application ids it gave the role, each vendor it gave the role or whose state it changed, with their states before and after and their address, by application id, and how many assigned vendors ended in each outcome ([the market's history](../data/history.md)).
 The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts)).
 
 ## Why
@@ -138,6 +161,6 @@ The history says each in words, by the server's and the role's names and the que
 - [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup, which settle on leaving draft as this card does not.
 - [Building the application form](../../business/flows/form-tab.md): the one-click Discord username question this card picks up.
 - [What each role may do](../../business/rules/what-each-role-may-do.md): connecting and giving the role are an Admin's and the owner's (Q19).
-- [The Vendors page](../../business/flows/vendors.md): where the check runs and its states show.
+- [The Vendors page](../../business/flows/vendors.md): where the check and the run happen, and their states and report show.
 - [Reading the market's history](../../business/flows/reading-the-markets-history.md): the card's changes and the check, in words.
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the rule this card is the stated exception to.

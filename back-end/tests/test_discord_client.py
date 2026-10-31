@@ -327,3 +327,81 @@ class TestTheServersMembers:
             Discord.server_members(Discord.credentials(), GUILD)
 
         assert str(refused.value) == Discord.BOT_NOT_IN_SERVER
+
+
+ROLE = "2909267986263573001"
+MEMBER = "1001"
+GIVE = f"/guilds/{GUILD}/members/{MEMBER}/roles/{ROLE}"
+
+
+class TestGivingARole:
+    """Add Guild Member Role (https://docs.discord.com/developers/resources/guild): a 204 when it is
+    given, and each refusal said in words, never Discord's."""
+
+    def test_the_role_is_given_with_a_put_as_the_bot(self, set_up, discord):
+        discord.answer("PUT", GIVE, 204)
+
+        Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        [sent] = discord.sent
+        assert sent.method == "PUT"
+        assert sent.url == f"https://discord.com/api/v10{GIVE}"
+        assert sent.headers["Authorization"] == f"Bot {VALUES['DISCORD_BOT_TOKEN']}"
+
+    def test_a_role_above_the_bots_is_said_by_its_name(self, set_up, discord):
+        """Discord's 50013, Missing Permissions: the role sits at or above the bot's own, or the
+        bot lacks Manage Roles. Every grant of the run would fail alike."""
+        discord.answer("PUT", GIVE, 403, {"message": "Missing Permissions", "code": 50013})
+
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert str(refused.value) == Discord.role_above_bot("Vendor Nov 2026")
+        assert "Conventioner's role is below Vendor Nov 2026" in str(refused.value)
+        assert "Missing Permissions" not in str(refused.value)
+
+    @pytest.mark.parametrize("code", [10007, 10013])
+    def test_a_member_who_left_is_that_members_alone(self, set_up, discord, code):
+        """Unknown Member or Unknown User: they left the server after the list was read."""
+        discord.answer("PUT", GIVE, 404, {"message": "Unknown Member", "code": code})
+
+        with pytest.raises(Discord.MemberGone) as gone:
+            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert str(gone.value) == Discord.MEMBER_GONE
+
+    def test_a_role_the_server_no_longer_has_asks_to_choose_again(self, set_up, discord):
+        discord.answer("PUT", GIVE, 404, {"message": "Unknown Role", "code": 10011})
+
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert str(refused.value) == Discord.role_gone("Vendor Nov 2026")
+
+    @pytest.mark.parametrize("status, code", [(403, 50001), (404, 10004)])
+    def test_a_server_the_bot_cannot_reach_says_to_connect_again(self, set_up, discord, status,
+                                                                 code):
+        discord.answer("PUT", GIVE, status, {"message": "Missing Access", "code": code})
+
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert str(refused.value) == Discord.BOT_NOT_IN_SERVER
+
+    def test_a_bot_token_discord_refuses_is_the_deployments_to_fix(self, set_up, discord):
+        discord.answer("PUT", GIVE, 401, {"message": "401: Unauthorized"})
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert str(refused.value) == Discord.SETTINGS_REFUSED
+
+    def test_a_429_is_waited_out_and_the_role_given(self, set_up, discord):
+        answers = [_answer(429, {"retry_after": 0.5, "global": False}), _answer(204)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+
+        Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+
+        assert discord.waits == [0.5]
+        assert answers == []

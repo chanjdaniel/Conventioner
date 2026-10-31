@@ -109,6 +109,9 @@ DISCORD_SETTINGS = "discord"
 DISCORD_DISCONNECTED = "discord_disconnected"
 #: "Check Discord" read who is in the server (E46/F01/S03): one entry a check, as a run is.
 DISCORD_CHECKED = "discord_checked"
+#: "Give roles" gave the market's role to the assigned vendors in the server (E46/F01/S04): one
+#: entry a run.
+DISCORD_ROLES_GIVEN = "discord_roles_given"
 
 
 def _now() -> str:

@@ -64,16 +64,20 @@ export function discordStates(market: Market | null | undefined): Map<string, Di
   return states;
 }
 
-/** When the check ran, in words: just now, then minutes, hours, and days. */
-export function checkedAgo(checkedAt: string, now: number): string {
-  const minutes = Math.floor(Math.max(now - Date.parse(checkedAt), 0) / 60_000);
-  const ago = (count: number, unit: string) =>
-    `Checked ${count} ${unit}${count === 1 ? '' : 's'} ago`;
-  if (!(minutes >= 1)) return 'Checked just now';
+/** How long ago `at` was, in words: just now, then minutes, hours, and days. */
+export function agoWords(at: string, now: number): string {
+  const minutes = Math.floor(Math.max(now - Date.parse(at), 0) / 60_000);
+  const ago = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'} ago`;
+  if (!(minutes >= 1)) return 'just now';
   if (minutes < 60) return ago(minutes, 'minute');
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return ago(hours, 'hour');
   return ago(Math.floor(hours / 24), 'day');
+}
+
+/** When the check ran, in words: "Checked 5 minutes ago". */
+export function checkedAgo(checkedAt: string, now: number): string {
+  return `Checked ${agoWords(checkedAt, now)}`;
 }
 
 /**

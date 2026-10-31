@@ -820,6 +820,9 @@ class DiscordConnection(BaseModel):
     #: vendor then. About this server, so connecting to another one or disconnecting forgets them.
     checked_at: Optional[str] = None
     vendor_states: Optional[List["DiscordVendorState"]] = None
+    #: The last "Give roles" run (E46/F01/S04), so its report stays readable. About this server,
+    #: and forgotten with it, as the check is.
+    role_run: Optional["DiscordRoleRun"] = None
 
 
 class DiscordVendorState(BaseModel):
@@ -833,6 +836,29 @@ class DiscordVendorState(BaseModel):
 
     application_id: str
     state: str
+
+
+class DiscordRoleOutcome(BaseModel):
+    """One assigned vendor as a "Give roles" run left them (E46/F01/S04), by their application.
+
+    ``outcome`` is ``given``, ``already_had``, ``not_found`` (no member has the username),
+    ``no_username`` or ``failed``, with ``reason`` in Conventioner's words for a failure. A plain
+    string, as a state is, so an outcome a later build adds never fails an older one's parse.
+    """
+
+    application_id: str
+    outcome: str
+    reason: Optional[str] = None
+
+
+class DiscordRoleRun(BaseModel):
+    """The last "Give roles" run: when, the role it gave by the name it had, and each assigned
+    vendor's outcome, which the report counts. Who ran it, and its counts, are its history
+    entry's too."""
+
+    ran_at: str
+    role_name: Optional[str] = None
+    outcomes: List[DiscordRoleOutcome] = []
 
 
 class MarketPermission(BaseModel):
@@ -1245,10 +1271,21 @@ class DiscordVendorStateContract(DiscordVendorState, ContractModel):
     """Camel-cased contract view of one vendor as "Check Discord" found them."""
 
 
+class DiscordRoleOutcomeContract(DiscordRoleOutcome, ContractModel):
+    """Camel-cased contract view of one vendor as "Give roles" left them."""
+
+
+class DiscordRoleRunContract(DiscordRoleRun, ContractModel):
+    """Camel-cased contract view of the last "Give roles" run."""
+
+    outcomes: List[DiscordRoleOutcomeContract] = []
+
+
 class DiscordConnectionContract(DiscordConnection, ContractModel):
     """Camel-cased contract view of a market's Discord connection."""
 
     vendor_states: Optional[List[DiscordVendorStateContract]] = None
+    role_run: Optional[DiscordRoleRunContract] = None
 
 
 class MarketSchemaContract(ContractModel):

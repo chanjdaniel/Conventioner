@@ -9,6 +9,7 @@ import {
   dayStarts,
   entryChanges,
   addressParts,
+  dotPieces,
   entryParts,
   fieldName,
   soleColumn,
@@ -699,6 +700,13 @@ describe('how a before and after is drawn', () => {
       { kind: 'address', local: 'bo', domain: '@x.test' },
     ]);
     expect(addressParts('none')).toEqual([{ kind: 'text', text: 'none' }]);
+    // A part too wide for its column breaks before a dot first.
+    expect(dotPieces('@riverside-makers.example.com')).toEqual([
+      '@riverside-makers',
+      '.example',
+      '.com',
+    ]);
+    expect(dotPieces('ana')).toEqual(['ana']);
   });
 });
 
@@ -1632,6 +1640,58 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
       { field: 'A vendor with no address', before: 'not checked', after: 'Not found' },
       { field: 'ben@ember.test', before: 'In the server', after: 'Has the role' },
     ]);
+  });
+
+  const run = entry({
+    action: 'connect-discord',
+    kind: 'discord_roles_given',
+    vendors: ['ana@ember.test', 'ben@ember.test'],
+    subject: { application_ids: ['app-ana', 'app-ben'] },
+    detail: {
+      role_name: 'Vendor Nov 2026',
+      given: ['app-ana'],
+      before: { 'app-ana': 'in_server', 'app-ben': null },
+      after: { 'app-ana': 'has_role', 'app-ben': 'not_found' },
+      addresses: { 'app-ana': 'ana@ember.test', 'app-ben': 'ben@ember.test' },
+      counts: { given: 1, already_had: 2, not_found: 1, no_username: 0, failed: 0 },
+    },
+  });
+
+  it('words a run by its role and how many ended in each outcome', () => {
+    expect(said(entryParts(run, NAMES))).toBe(
+      'dana@ember.test gave the Discord role “Vendor Nov 2026”: 1 given, 2 already had it, 1 not found',
+    );
+    expect(said(entryParts(entry({ ...run, detail: { ...run.detail, counts: {} } }), NAMES))).toBe(
+      'dana@ember.test gave the Discord role “Vendor Nov 2026”: no assigned vendors',
+    );
+  });
+
+  it('words a run as the vendor’s own line: given them, or what it found of them', () => {
+    expect(said(entryParts(run, NAMES, {}, IntakeMode.Csv, 'Ana@ember.test'))).toBe(
+      'dana@ember.test gave the Discord role “Vendor Nov 2026”',
+    );
+    expect(said(entryParts(run, NAMES, {}, IntakeMode.Csv, 'ben@ember.test'))).toBe(
+      'dana@ember.test gave the Discord role “Vendor Nov 2026” to the assigned vendors: Not found',
+    );
+    expect(entryChanges(run, {}, IntakeMode.Csv, [], 'ana@ember.test').changed).toEqual([
+      { field: 'Discord', before: 'In the server', after: 'Given the role' },
+    ]);
+  });
+
+  it('opens a run to each vendor it gave the role or whose state changed, and the counts', () => {
+    expect(entryChanges(run)).toEqual({
+      changed: [
+        { field: 'ana@ember.test', before: 'In the server', after: 'Given the role' },
+        { field: 'ben@ember.test', before: 'not checked', after: 'Not found' },
+      ],
+      recorded: [
+        { field: 'Given', value: '1' },
+        { field: 'Already had it', value: '2' },
+        { field: 'Not found', value: '1' },
+        { field: 'No username', value: '0' },
+        { field: 'Failed', value: '0' },
+      ],
+    });
   });
 
   it('opens a check to each vendor whose state changed, and the counts', () => {

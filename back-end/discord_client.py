@@ -73,6 +73,37 @@ SETTINGS_REFUSED = (
     "check them."
 )
 OUT_OF_REACH = "Conventioner could not reach Discord just now. Try again in a moment."
+#: A member who left the server between the list's read and the grant.
+MEMBER_GONE = "No longer in the server."
+
+# Discord's JSON error codes a refused grant names
+# (https://docs.discord.com/developers/topics/opcodes-and-status-codes#json): the member or user
+# gone, the server gone, the role gone, the bot without access, and the bot without the
+# permission, which for a bot holding Manage Roles means the role sits at or above its own highest
+# ("A bot can grant roles to other users that are of a lower position than its own highest role",
+# https://docs.discord.com/developers/topics/permissions).
+UNKNOWN_GUILD = 10004
+UNKNOWN_MEMBER = 10007
+UNKNOWN_ROLE = 10011
+UNKNOWN_USER = 10013
+MISSING_ACCESS = 50001
+MISSING_PERMISSIONS = 50013
+
+
+def role_above_bot(role_name: str) -> str:
+    """Why no grant of a role can land: the bot's role sits below it, or the bot may not manage
+    roles. Said as the Discord card's warning says it, with the fix."""
+    return (
+        f"Conventioner's role is below {role_name}, or may not manage roles. In Discord, open "
+        "Server Settings, then Roles, and drag the Conventioner role above it."
+    )
+
+
+def role_gone(role_name: str) -> str:
+    return (
+        f"The server no longer has the role {role_name}. "
+        "Choose the role again on the Discord card, on the market's Tools tab."
+    )
 
 
 class DiscordNotSetUp(ClientError):
@@ -83,6 +114,12 @@ class DiscordNotSetUp(ClientError):
 
 class DiscordRefused(ClientError):
     """Discord refused what was asked, for a reason the organizer can act on. A 400."""
+
+    status = 400
+
+
+class MemberGone(ClientError):
+    """One member is no longer in the server: a refusal of that member alone, never the run's."""
 
     status = 400
 
@@ -231,6 +268,35 @@ def server_members(values: Credentials, guild_id: str) -> List[Member]:
         if len(page) < MEMBERS_PAGE or not members:
             return members
         after = members[-1].id
+
+
+def give_role(
+    values: Credentials, guild_id: str, member_id: str, role_id: str, role_name: str,
+) -> None:
+    """Give one member the role (Add Guild Member Role, a 204), or say why not.
+
+    A member who left is ``MemberGone``, that member's alone; anything else refused is about every
+    grant of the run (the bot's role below this one, the role or the server gone, the bot's token),
+    so it is ``DiscordRefused`` or ``DiscordUnavailable`` and the run stops asking.
+    """
+    path = f"/guilds/{guild_id}/members/{member_id}/roles/{role_id}"
+    answer = _send("PUT", API + path, headers={"Authorization": f"Bot {values.bot_token}"})
+    if answer.ok:
+        return
+    if answer.status_code == 401:
+        _refused_settings("the bot's token")
+    body = _body(answer)
+    code = body.get("code") if isinstance(body, dict) else None
+    if answer.status_code == 404 and code in (UNKNOWN_MEMBER, UNKNOWN_USER):
+        raise MemberGone(MEMBER_GONE)
+    if answer.status_code == 404 and code == UNKNOWN_ROLE:
+        raise DiscordRefused(role_gone(role_name))
+    if answer.status_code == 403 and code == MISSING_PERMISSIONS:
+        raise DiscordRefused(role_above_bot(role_name))
+    if answer.status_code in (403, 404):
+        raise DiscordRefused(BOT_NOT_IN_SERVER)
+    logger.warning("Discord answered %s to giving a role", answer.status_code)
+    raise DiscordUnavailable(OUT_OF_REACH)
 
 
 def _bot(values: Credentials, method: str, path: str, **kwargs: Any) -> Any:

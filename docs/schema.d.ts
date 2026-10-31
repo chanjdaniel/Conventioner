@@ -45,6 +45,15 @@ export interface MarketSchema {
     inviteLink?: string;
     roleId?: string;
     roleName?: string;
+    roleRun?: {
+      outcomes?: {
+        applicationId: string;
+        outcome: string;
+        reason?: string;
+      }[];
+      ranAt: string;
+      roleName?: string;
+    };
     usernameQuestion?: string;
     vendorStates?: {
       applicationId: string;

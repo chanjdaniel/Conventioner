@@ -28,6 +28,9 @@ export class VendorsPage {
   readonly discordFilter: Locator;
   readonly discordChecked: Locator;
   readonly checkDiscordButton: Locator;
+  /** Giving the market's role (E46/F01/S04): the button, and the last run's report. */
+  readonly giveRolesButton: Locator;
+  readonly roleReport: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -53,6 +56,8 @@ export class VendorsPage {
     this.discordFilter = page.getByTestId('vendors-discord-filter');
     this.discordChecked = page.getByTestId('vendors-discord-checked');
     this.checkDiscordButton = page.getByTestId('vendors-discord-check');
+    this.giveRolesButton = page.getByTestId('vendors-discord-give');
+    this.roleReport = page.getByTestId('vendors-role-report');
   }
 
   async goto(marketId: string): Promise<void> {

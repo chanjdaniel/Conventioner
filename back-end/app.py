@@ -816,6 +816,14 @@ def check_discord(market_id: str) -> Response:
     return jsonify(DiscordConnectionApi.check(market_id, authenticated_email())), 200
 
 
+@app.route('/markets/<market_id>/discord/role-run', methods=['POST'])
+@login_required
+def give_discord_roles(market_id: str) -> Response:
+    """Give the market's role to every assigned vendor in the server (E46/F01/S04), never taking
+    one away: answers how many ended in each outcome, and when. Asks ``Actions.CONNECT_DISCORD``."""
+    return jsonify(DiscordConnectionApi.give_roles(market_id, authenticated_email())), 200
+
+
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
 @login_required
 def get_vendor_notes(market_id: str) -> Response:

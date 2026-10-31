@@ -28,6 +28,7 @@ import {
   discordStateLabel,
   type DiscordState,
 } from '@/utils/discordCheck';
+import { ROLE_OUTCOMES, roleOutcomeLabel } from '@/utils/discordRoles';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { formatPrice } from '@/utils/pricing';
 import {
@@ -347,6 +348,19 @@ function checkedState(state: DiscordState | null): string {
   return state ? discordStateLabel(state) : 'not checked';
 }
 
+/** The application ids a "Give roles" run gave the role to (E46/F01/S04). */
+function givenIds(entry: MarketHistoryEntry): Set<string> {
+  const given = asDetail(entry.detail).given;
+  return new Set(Array.isArray(given) ? given.map(str) : []);
+}
+
+/** A vendor of a run, as checked and as the run left them: given the role, or their state. */
+function ranVendors(entry: MarketHistoryEntry): Array<CheckedVendor & { given: boolean }> {
+  const ids = Array.isArray(entry.subject.application_ids) ? entry.subject.application_ids : [];
+  const given = givenIds(entry);
+  return checkedVendors(entry).map((each, i) => ({ ...each, given: given.has(str(ids[i])) }));
+}
+
 /** One application a deal moved: its vendor, and whom it was dealt to before and after. */
 interface DealtShare {
   vendor: string;
@@ -516,6 +530,22 @@ export function entryParts(
           `checked who is in the Discord server: ${found.length ? found.join(', ') : 'no vendors'}`,
         ),
       ];
+    }
+    case 'connect-discord/discord_roles_given': {
+      const role = `gave the Discord role “${str(detail.role_name)}”`;
+      const vendor = own.trim().toLowerCase();
+      const mine = vendor
+        ? ranVendors(entry).find((each) => each.vendor.toLowerCase() === vendor)
+        : undefined;
+      if (mine?.given) return [actor, text(role)];
+      if (mine) {
+        return [actor, text(`${role} to the assigned vendors: ${checkedState(mine.after)}`)];
+      }
+      const counts = asDetail(detail.counts);
+      const ended = ROLE_OUTCOMES.filter((outcome) => Number(counts[outcome] ?? 0) > 0).map(
+        (outcome) => `${Number(counts[outcome])} ${roleOutcomeLabel(outcome).toLowerCase()}`,
+      );
+      return [actor, text(`${role}: ${ended.length ? ended.join(', ') : 'no assigned vendors'}`)];
     }
     case 'assign/rules':
       return [actor, text('changed the assignment rules')];
@@ -1144,6 +1174,28 @@ export function entryChanges(
     }
     return { changed, recorded: recordedFields(entry, detail, path, true) };
   }
+  if (entry.action === 'connect-discord' && entry.kind === 'discord_roles_given') {
+    const vendor = own.trim().toLowerCase();
+    const vendors = ranVendors(entry);
+    const mine = vendor ? vendors.find((each) => each.vendor.toLowerCase() === vendor) : undefined;
+    const row = (each: CheckedVendor & { given: boolean }, field: string) => ({
+      field,
+      before: checkedState(each.before),
+      after: each.given ? 'Given the role' : checkedState(each.after),
+    });
+    const counts = asDetail(detail.counts);
+    return {
+      changed: mine
+        ? [row(mine, 'Discord')]
+        : vendors.map((each) => row(each, each.vendor || 'A vendor with no address')),
+      recorded: mine
+        ? []
+        : ROLE_OUTCOMES.filter((outcome) => outcome in counts).map((outcome) => ({
+            field: roleOutcomeLabel(outcome),
+            value: str(counts[outcome]),
+          })),
+    };
+  }
   if (entry.action === 'connect-discord' && entry.kind === 'discord_checked') {
     const vendor = own.trim().toLowerCase();
     const vendors = checkedVendors(entry);
@@ -1334,6 +1386,14 @@ export function addressParts(value: string): ValuePart[] {
   }
   if (at < value.length) parts.push({ kind: 'text', text: value.slice(at) });
   return parts;
+}
+
+/**
+ * A part of an address cut before each of its dots, so a column too narrow for the part breaks it
+ * at a dot ("@example" then ".com") before it breaks a word.
+ */
+export function dotPieces(part: string): string[] {
+  return part.split(/(?=\.)/).filter(Boolean);
 }
 
 /** The instant a day starts in the reader's timezone, as the history's `since` reads it. */
