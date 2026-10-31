@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-10-30
+verified: 2026-11-01
 sources:
   - E26
   - E41/F01/S01
@@ -67,7 +67,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | --- | --- | --- |
 | [The lifecycle](../../business/flows/lifecycle.md) | `phase-rail.spec.ts`, `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`, `market-remembers-phases.spec.ts`, `the-rail-addresses.spec.ts` | none noted |
 | [A Accounts](../../business/flows/accounts.md) | `auth.spec.ts`, `smoke.spec.ts`, `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `the-way-in-lines-up.spec.ts`, `sign-in-fits-a-phone.spec.ts` | A3 organizer sign-in code, beyond a wrong code |
-| [B Organizations](../../business/flows/organizations.md) | `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `org-deletion.spec.ts`, `the-organizations-history.spec.ts`, `the-organizations-default.spec.ts`, `organizations-fit-a-phone.spec.ts` | none noted |
+| [B Organizations](../../business/flows/organizations.md) | `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `org-deletion.spec.ts`, `the-organizations-history.spec.ts`, `the-organizations-default.spec.ts`, `organizations-fit-a-phone.spec.ts`, `everyone-with-access.spec.ts` | none noted |
 | [C Finding markets](../../business/flows/finding-a-market.md) | `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `every-market-page-has-an-address.spec.ts`, `one-market-from-the-server.spec.ts`, `the-frame-stays-put.spec.ts`, `sign-in-fits-a-phone.spec.ts` | none noted |
 | [D Creating](../../business/flows/creating-a-market.md) | `new-market-org.spec.ts`, `dialog-idiom.spec.ts`, `public-address.spec.ts`, `where-a-form-starts.spec.ts`, `market-owner.spec.ts` | none noted |
 | [E Planning](../../business/flows/planning.md) | `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`, `plan-cards-share-a-row.spec.ts`, `plan-saves-once.spec.ts`, `untiered-plans-assign.spec.ts`, `intake-mode.spec.ts`, `floorplan.spec.ts`, `the-floorplan-beta-places-tables.spec.ts`, `price-groups.spec.ts`, `what-to-show-and-when.spec.ts`, `the-words-say-what-is-true.spec.ts`, `alignment.spec.ts`, `the-pricing-card.spec.ts` | E6 grouping as a real gesture |
@@ -82,7 +82,7 @@ This is a dev-server effect, not a product bug; wait and retry before filing it.
 | [J11, J12, J15, J16 Vendors](../../business/flows/vendors.md) | `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, `adding-a-vendor.spec.ts`, `an-added-vendor-is-unassigned.spec.ts`, `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `who-is-in-the-discord-server.spec.ts` | J16 against a real Discord server |
 | [The vendor drawer](../../business/flows/vendor-drawer.md) | `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts` | none noted |
 | [K Publishing and market days](../../business/flows/market-day-door.md) | `phase-rail.spec.ts`, `checkin.spec.ts`, `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `alignment.spec.ts` | none noted |
-| [L Ending and managing](../../business/flows/ending-and-managing-a-market.md) | `phase-state-machine.spec.ts`, `an-archive-is-read-only.spec.ts`, `an-archive-keeps-its-check-in-page.spec.ts`, `tier2.spec.ts`, `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `the-permissions-section.spec.ts`, `the-organizations-default.spec.ts`, `public-address.spec.ts`, `org-deletion.spec.ts`, `market-records-go-with-it.spec.ts` | none noted |
+| [L Ending and managing](../../business/flows/ending-and-managing-a-market.md) | `phase-state-machine.spec.ts`, `an-archive-is-read-only.spec.ts`, `an-archive-keeps-its-check-in-page.spec.ts`, `tier2.spec.ts`, `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `the-permissions-section.spec.ts`, `the-organizations-default.spec.ts`, `public-address.spec.ts`, `org-deletion.spec.ts`, `market-records-go-with-it.spec.ts`, `everyone-with-access.spec.ts` | none noted |
 | [L6 Reading the market's history](../../business/flows/reading-the-markets-history.md) | `the-markets-history.spec.ts`, `the-vendors-history.spec.ts`, `a-verdict-names-whom-it-was-dealt-to.spec.ts` | none noted |
 | Paths: [P1 and P2](../../business/flows/the-google-form-path.md), [P3](../../business/flows/the-online-path.md), [P4](../../business/flows/the-mixed-path.md) | `market-journey.spec.ts` walks P1 from creation to the result; `start-from-csv.spec.ts` walks P2's seam from the confirm to the first import; `what-to-show-and-when.spec.ts` holds P4 refused | **P1 and P2 whole, from creation to archive** |
 

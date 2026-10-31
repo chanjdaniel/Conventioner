@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/OrganizationsView.vue
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E26/F06/S02
   - E26/F08/S01
@@ -52,7 +52,7 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer; each market's Manage market lists them as "Admin, through <organization>" or "Viewer, through <organization>".
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
-Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market").
+Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market"), [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (Manage organization from its address) and `OrganizationsView.test.ts` for the key it opens on and drops.
 
 ## B3. Remove a person
 
