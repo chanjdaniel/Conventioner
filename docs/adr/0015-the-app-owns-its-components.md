@@ -9,7 +9,7 @@ describes:
   - front-end/src/__tests__/theAppOwnsItsComponents.test.ts
   - front-end/src/__tests__/theLucideNoticeReachesTheBundle.test.ts
   - front-end/src/components/SearchPicker.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - T45
   - E38/F08/S03

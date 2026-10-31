@@ -271,8 +271,11 @@ watch(
   gap: var(--space-4);
 }
 
+/* Wraps when its buttons are wider than the window, as on a phone: a row that cannot wrap ran out
+   past the window's left edge, where nothing scrolls to it. */
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
 }
