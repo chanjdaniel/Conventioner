@@ -24,10 +24,12 @@ describes:
   - front-end/src/utils/captcha.ts
   - docker-compose.yml
   - scripts/real_data_check.py
+  - scripts/real_data_terms.txt
   - .githooks/
 verified: 2026-10-30
 sources:
   - T74
+  - T109
   - T84
 ---
 
@@ -121,8 +123,8 @@ So the check runs on the PC, before anything leaves it, and CI is only the backs
 | --- | --- |
 | [`.githooks/pre-commit`](../../../.githooks/pre-commit) | the staged lines, so an ignored export added with `git add -f`, or its rows pasted next to a tracked file, is refused |
 | [`.githooks/pre-push`](../../../.githooks/pre-push) | each commit the push sends that no remote-tracking branch already has, its lines and its message: the second net, for a commit made with the hooks skipped |
-| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, before any suite, since the gate pushes the branch |
-| CI's `real-data` job | the pull request's commits, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
+| the gate's [`nm-test.sh`](../../../scripts/nm-test.sh) | each commit since `origin/dev`, then every file of the tree at `HEAD`, before any suite, since the gate pushes the branch |
+| CI's `real-data` job | the pull request's commits, then every file of the merge it checks out, plus gitleaks for secrets; a branch-protection setting can make it block a merge, and it is not the protection |
 
 **The gate's own commits are CI's to check.**
 Its document, lint and CI-fix steps commit after its test step has run `nm-test.sh`, and the gate pushes them from its own repository under `~/.no-mistakes/`, where `core.hooksPath` is not set, so neither the hooks nor `nm-test.sh` read them: CI's `real-data` job on the pull request is the only check they get.
@@ -135,7 +137,27 @@ Where `.scratch/examples/` holds real exports (the checkout's own, or the primar
 A name counts when it stands in a person's-name column of a row that gives an email, has two to five words, and fewer than three applicants gave it: a name three applicants share identifies nobody.
 The exports are read into memory at each run: nothing derived from them is written or printed, and a finding names the file and line with at most a masked hint (`j***@g***.com`, `***-***-**19`), never the value.
 The gate and CI have no exports, so there it judges shapes only; the exact values are the hooks' work, on the machine that has them.
-Only added lines count, and a merge answers only for the lines new to every parent.
+
+**No line copies a real form's questions.**
+Where `.scratch/examples/` holds real exports, the checker also holds each export's header row in memory: every run of eight consecutive words of a header cell, and every link and social handle a header cell holds.
+It fails a line or a commit message holding eight of a question's words in their order, however it cases, spaces or punctuates them (words are taken as the real names are, below), or one of those links or handles: the finding reads `words copied from a real export's questions in .scratch/examples/`, never the words.
+A link counts by its host and path, whatever its scheme, `www.`, query or trailing slash; a handle counts written with its `@` or as a link's path (`instagram.com/handle`), not as a bare word.
+A link's words are no part of a question's, and seven words of a question pass, as does a long answer in a row: the exact-value rules judge the rows.
+The files where the real market may be named, below, may quote its forms too, since the records of real runs report on them.
+Like the exact values, this is the hooks' work, and any run's from a checkout on the machine that has the exports: the gate's checkout and CI have none.
+
+**No line names the real market's organization, venue or groups.**
+The checker fails a line or a commit message holding a name listed in [`scripts/real_data_terms.txt`](../../../scripts/real_data_terms.txt): the real organization's full name and abbreviation, its market's name, its student society and clubs, its venue's rooms and sections, its social handle, and the distinctive parts of the document links its forms named.
+The list is committed, so the gate and CI apply it as the hooks do.
+It holds each name's SHA-256, taken of the name's words, as Unicode NFKC lower-cased runs of letters joined by single spaces, and every run of one to six such words of a line is hashed and looked up: a name matches however a line cases, spaces or punctuates it (a handle's dots, a slug's hyphens, a possessive), and never inside a longer word.
+Hashing keeps the list from reading as a directory of the real names; it hides nothing from anyone who guesses a short one.
+A finding names the file and line, never the name.
+The real market may be named only in the root `README.md` (which says whom the product first serves), `CHANGELOG.md`, [`docs/records/`](../../records/README.md) (the records of real usage runs) and the list itself, which may also quote the real forms' questions; a commit message never may.
+A generic word of a listed name is not listed alone, so a project id or a time zone that shares one passes.
+`python3 scripts/real_data_check.py add-term` lists the names it reads from standard input, one per line, and prints only how many names the list holds; it lists none when a line is empty, already listed or longer than six words.
+Run it and type the name at it, never on a command line or in a file, so listing a name never publishes it.
+On a commit, a push or a range, only added lines count, and a merge answers only for the lines new to every parent.
+`python3 scripts/real_data_check.py tree [REV]` judges every line of every file a revision's tree holds (`HEAD` by default) with every rule, the exemptions above applied, so a name listed after a file was committed is found wherever it still stands; the gate and CI run it after the commits, and a file staged but not committed is the hooks' to judge.
 A spreadsheet is read for its text whatever git makes of it, since that is what an export is: an `.xlsx`, `.xlsm` or `.ods` for its cells and shared strings, a `.csv` or `.tsv` in UTF-8, UTF-16 or Windows-1252 with its delimiter found from its first record (a comma, or the semicolon a European-locale Excel saves), and each of these inside a `.zip`, which is what Google Forms' "Download responses" saves.
 The exports are read the same way, a zipped one included.
 A spreadsheet or archive it cannot read (`.xls`, `.xlsb`, `.numbers`, `.et`, `.sxc`, a `.gz`, `.7z`, `.rar`, `.tar` and the like, or a broken workbook or zip) is refused outright, except under `back-end/tests/test_data/` and `back-end/tests/fixtures/`.
@@ -145,7 +167,7 @@ When `.scratch/examples/` holds a file it read nothing from, it says so on stder
 **The hooks are installed by `core.hooksPath`**, which [`scripts/treehouse-setup.sh`](../../../scripts/treehouse-setup.sh) sets for every treehouse worktree as its first step, before any that can fail (`th-lease.sh` hands out a slot whose pre-warm failed), and a clone sets once with `git config core.hooksPath .githooks` ([STARTUP.md](../../STARTUP.md#the-git-hooks)).
 The setting is the repository's, shared by all its worktrees: a worktree on a branch older than the hooks has no [`.githooks/`](../../../.githooks/) and runs no hook at all.
 Each committed hook also runs the hook of its name in the git directory's `hooks/`, so a hook installed there is not skipped.
-**Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one.
+**Never skip the hooks to get past a finding** (`--no-verify`): replace the value with a fixture one, from the vocabulary in [test data](../testing/test-data.md).
 A test that needs a real-looking value composes it (`"user@" + "gmail.com"`) instead of writing it out, or the hooks refuse the test file itself.
 
 ## The cookies
@@ -209,5 +231,5 @@ It is installed after the [error answers](an-exception-never-reaches-a-client.md
 - [`test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py) signs in through `/login` and reads both cookies' `Set-Cookie` settings.
 - [`test_the_request_origin_check.py`](../../../back-end/tests/test_the_request_origin_check.py) tables the decision for a production-shaped list and the loopback pattern, and sends publish-results, sign-out and a floorplan upload from another site (refused, nothing done) and from the app (done).
 - `test_configured_secret.py` and `test_env_file.py` pin the machinery underneath; [TESTING.md](../../TESTING.md#back-end-tests) lists them.
-- `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the synthetic corpus passes, a refusal sends a fixture to the generator, and no value is printed in full; `test_nm_test.py` fails a gate run on a finding before anything else.
+- `scripts/tests/test_real_data_check.py` runs the checker, the hooks in a scratch repository with its bare remote, the setup step and CI's command on fake exports only: a `gmail.com` address, a real-shaped phone and an Atlas host fail, a fixture one passes, an exact value of a fake export fails, as do eight words of its header's question in order, a link or a handle from it, in a line, a message, a cell and the tree, while seven words, an answer and the exempt files pass, a workbook or OpenDocument sheet is read and an unreadable spreadsheet refused, the synthetic corpus passes, a refusal sends a fixture to the generator, and no value is printed in full; `tree` fails a planted row in a committed CSV, workbook or zip and a name listed after its file was committed, and passes a clean tree and the exempt files; CI's tree step fails real data already on the base branch; `test_nm_test.py` fails a gate run on a finding in the branch's commits or in the tree, before anything else.
 - What breaks it: a default for any of the six, a check that installs something, a secret read at import, a template that prints a value, or a hatch that excuses a published key.
