@@ -70,7 +70,7 @@ The converse holds too: a value that turns on a feature and defends nothing is o
 
 **`ALLOW_INSECURE_LOCAL_DEV` is the only escape hatch for the six** ([`back-end/utils/deployment.py`](../../../back-end/utils/deployment.py)), and it defaults to off.
 Under it a missing value boots: a random signing key for the process's lifetime, loopback origins, sessions on disk, zero hops, no captcha secret and no mail key; each is logged as a defense turned off.
-`DISABLE_CAPTCHA` and `DISABLE_EMAIL` are honoured only under the hatch, so a deployment that inherited either from a copied env file is not silently unprotected.
+`DISABLE_CAPTCHA`, `DISABLE_EMAIL` and `DISCORD_FAKE` are honoured only under the hatch, so a deployment that inherited any of them from a copied env file is not silently unprotected, nor answered by a fake Discord ([a fake Discord](../../TESTING.md#a-fake-discord)).
 The hatch never excuses a published secret ([ADR 0010](../../adr/0010-no-secret-has-a-fallback.md)).
 `docker-compose.yml` and `back-end/.env.example` set it; it must never be set on a deployed environment.
 

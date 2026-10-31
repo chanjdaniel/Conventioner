@@ -3,6 +3,7 @@ layer: implementation
 kind: module
 describes:
   - back-end/discord_client.py
+  - back-end/discord_fake.py
   - back-end/api/discord_connection.py
   - back-end/datatypes.py#DiscordConnection
   - front-end/src/components/market/MarketDiscordCard.vue
@@ -12,7 +13,7 @@ describes:
   - front-end/src/utils/discordCheck.ts
   - front-end/src/components/VendorDiscordOffer.vue
   - scripts/discord_rest_proof.py
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - T92
   - E46
@@ -85,32 +86,35 @@ The check reads every member of the server, a page of 1000 at a time after the l
 
 **The username question is checked again when the check runs**, since it is checked only when the card saves it and a form changed since may have lost it: none chosen says "Choose the username question on the Discord card first", and one no longer a text question of the form says "Choose the username question again" (T113 rereview note 10); neither calls Discord.
 
-**What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, the `answer` it was read for (the username answer as the organizer read it, untidied, left out when there was none) and, for a vendor not found, the `possibleMatches` offered, written whole by each check; a vendor who applied since has no state until the next.
+**What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, the `answer` it was read for (the username answer as the organizer read it, untidied, left out when there was none) and, for a vendor not found, the `possibleMatches` offered and how many more looked alike (`moreMatches`, left out when none), written whole by each check; a vendor who applied since has no state until the next.
 **The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take seconds to read, and up to three waits under a 429, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
 **The card's writes set only their own fields too**: saving a choice, and connecting to the same server, `$set` only the fields they change, so a check finishing meanwhile is not undone, and their history still records the card's fields before and after as it always did.
 They are about that server, so connecting to another server forgets them as it forgets the role, and disconnecting forgets them, even when a check finished after the connection was read; connecting again to the same server keeps them; the members declined as a possible match (`declinedMatches`) are about it too, and go with them.
-The market read serves them to every reader, so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
+The market read serves every reader each vendor as the pages show them (`discordVendors`, below), so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
 
 **The Vendors page shows them** once a check has run: a Discord chip on each vendor's row, a "Discord" filter of every state with how many are in it, in the address as `discord` (`?discord=not_found`) so a filter is a link, and "Checked 5 minutes ago", ageing as the page sits.
-The page shows two more than the check keeps, worked out from the states and the applications as the organizer reads them (`discordVendors`): `possible_match`, "Possible match", a vendor not found with a member still offered, and `check_again`, "Check again", a vendor whose answer now differs from the `answer` their state was read for, as an update made after the check does (T137 ticket 28's note: until then a corrected username kept its old state until the next check, with nothing to say so); a state an older build kept, without its `answer`, cannot tell, and reads as it was kept.
+**The pages show two more than the check keeps, worked out by the server on every market read** (`shown_vendors`, served as `discordVendors`: each vendor's `state`, what is `shown`, the members still offered and `moreMatches`), from the kept states and the applications as the organizer reads them now, so the Vendors page, the drawer and the export say the same (T156 review note 1): `possible_match`, "Possible match", a vendor not found with a member still offered, the declined left out; and `check_again`, "Check again", with nothing offered, a vendor whose answer now reads as another username than the one their state was read for, from an update, a confirmed match, their own edit or a re-import (T137 ticket 28's note: until then a corrected username kept its old state until the next check, with nothing to say so).
+The answers are compared as the check matches them, tidied, so a change of case, spaces, a leading `@` or an old tag reads the same member and keeps the state; "No username" had nothing to read, so any username that tidies to something is new, while one that tidies to nothing (" @ ") keeps it (T156 review note 2); any other state an older build kept, without its `answer`, cannot tell, and reads as it was kept.
+The read lists the market's applications for it only once a check has run.
 After a check the page reads the market again ([one market, from the server](../conventions/one-market-from-the-server.md)), and after a refusal too, since the card may have changed; a refusal is said under the button in the server's words.
 
 ## Possible matches
 
 **A vendor "Not found" is offered the members whose name looks like the username on file** (E46/F01/S05), since a vendor often writes a display name, a real name or a shop's name where the form asks for a username (the 29 unmatched of the March 2025 market, T92).
 The check works them out as it reads the members (`_possible_matches`): a member is offered when their username, display name (Discord's `global_name`) or nickname in this server reads the same as the vendor's answer once both are tidied as a username is, folded (`NFKC`, then case) and kept to their letters and digits (`looks_alike`), so "Maple Crafts", "maple_crafts" and "@MAPLE-crafts" are alike; an answer with no letter or digit offers nobody.
-At most five are offered, by username, each with the names that looked alike (`DiscordPossibleMatch`), and none that was declined for that vendor.
+At most five are offered, in username order, each with the names that looked alike (`DiscordPossibleMatch`), and none that was declined for that vendor; how many more looked alike is kept beside them.
 
 **An offer is never applied by the check** (Daniel, T92 Q19: never by a display name alone).
-In the vendor's drawer ([`VendorDiscordOffer.vue`](../../../front-end/src/components/VendorDiscordOffer.vue), [the vendor drawer](../../business/flows/vendor-drawer.md)) each reads "Possible match: <name> @<username>":
+In the vendor's drawer ([`VendorDiscordOffer.vue`](../../../front-end/src/components/VendorDiscordOffer.vue), [the vendor drawer](../../business/flows/vendor-drawer.md)) the lead says how many look alike, "A member whose name looks like it may be them." or "2 members whose names look like it may be them.", counting those past five, which it says are not listed, "And 3 more not shown."; each offered reads "Possible match: <name> @<username>":
 
 - **"Confirm…"** opens a dialog of what the vendor wrote and the member's username, and "Save update" sends it as the ordinary update of the vendor's answer, `PUT /markets/:id/applications/:applicationId/answers` ([the application document](../data/application-document.md#an-organizers-update-of-an-answer)): who, when, and their own answer kept beside it, recorded as every update is; the row is "Update a vendor's info" (Editor by default), and "Update info the assignment or price reads" too where a price group reads the username question, as for any update.
   The vendor's state then reads "Check again", and the next check reads the update, so it matches them.
 - **"Not them"** declines the member, `POST /markets/:id/discord/possible-matches/:applicationId/declined` with the `username` (`decline_match`): the member's username joins that vendor's list in `declinedMatches` (`$addToSet`, written only while the market is still connected to the server it was loaded with, else 409), which a check never writes and reads to leave the member out of that vendor's offers; the vendor stays "Not found".
-  It asks the same row as confirming, since answering an offer is about the vendor's info, not the check; only a member the last check offered that vendor may be declined, else it answers 400; an archived market refuses it.
+  It asks the rows confirming asks (`assert_may_update_what_the_assignment_or_prices_read`, shared with the update), the price-read row too where a price group reads the username question, since answering an offer is about the vendor's info, not the check; only a member the last check offered that vendor may be declined, else it answers 400; an archived market refuses it.
+  A price group reads only a choice question and the username question is a text one, so that row is asked only once the question stopped being text.
   It records one entry (`discord_match_declined`, under `update-vendor-info`), naming the vendor, with the member's username and names and the answer it was offered for.
 
-Someone either row refuses reads the members offered, with no control.
+Someone either row refuses reads the members offered, with no control (`answersDiscord` in [`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
 
 ## The values, and a deployment without them
 
@@ -120,6 +124,9 @@ Each is read through `configured_secret` when asked for (`credentials()`), never
 The market read serves `discordSetUp`, and without it the card says "Discord is not set up on this Conventioner." and offers nothing; a route that needs Discord answers that sentence as a 503.
 The redirect registered in the Developer Portal is `FRONTEND_URL` + `/discord/connected` for each deployment: `https://conventioner.io/discord/connected`, and `http://127.0.0.1:5173/discord/connected` for the primary checkout's stack.
 **`FRONTEND_URL` must be the address the organizer signs in at**: the state lives in that host's session, so a stack whose `FRONTEND_URL` says `localhost` while the organizer signs in at `127.0.0.1` sends Discord a redirect that is not registered, or brings the organizer back to a host without their session; locally it is `FRONTEND_URL=http://127.0.0.1:5173`.
+
+**A local stack may have a fake answer for Discord** (`DISCORD_FAKE=true`, [a fake Discord](../../TESTING.md#a-fake-discord), T156 review note 6): the client's one sender, `_send`, then asks [`back-end/discord_fake.py`](../../../back-end/discord_fake.py) instead of Discord, which answers the routes the client uses (the bot itself, a server's roles and members, a page at a time, and the code exchange) from the servers in the `fake_discord_servers` collection, in Discord's own shapes, and 404 for a server it has none of; `credentials()` are the fake's own, and the approval address is the market's return address with a code naming the first fake server.
+It is honoured only under `ALLOW_INSECURE_LOCAL_DEV` ([security invariants](../conventions/security-invariants.md#the-one-escape-hatch)), so the E2E runs the real check, the offers and the history against it, and a deployment never does.
 
 ## REST only
 

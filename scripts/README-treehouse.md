@@ -160,6 +160,10 @@ docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
 - **Email is off in a worktree's stack.** The overlay sets the backend's `DISABLE_EMAIL`
   to `true` unless the shell sets it, since an agent's stack has no Resend key;
   `DISABLE_EMAIL=false scripts/th-compose.sh up -d` sends real mail.
+- **A fake answers for Discord in a worktree's stack.** The overlay sets the backend's
+  `DISCORD_FAKE` to `true` unless the shell sets it, since an agent's stack has no
+  Discord values; `DISCORD_FAKE=false scripts/th-compose.sh up -d` talks to Discord
+  with the values you give it ([a fake Discord](../docs/TESTING.md#a-fake-discord)).
 - **Returning a slot wipes its DB/volumes.** `th-return.sh` runs `docker compose
   down -v`, which removes the worktree's isolated mongodb and backend sessions
   volumes. A re-leased worktree always starts with a fresh DB - this

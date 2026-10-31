@@ -586,6 +586,7 @@ The Discord card, on a market's Tools tab, connects a market to a Discord server
 It is **optional**: without its values the card says Discord is not set up, and nothing else changes.
 To walk it locally, set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` from the Discord Developer Portal in the root `.env` (forwarded by `docker-compose.yml`), with `FRONTEND_URL=http://127.0.0.1:5173`, the address you sign in at (an existing `FRONTEND_URL` line in `.env` overrides compose's default, so it must read that too): the redirect Discord is sent is `FRONTEND_URL` + `/discord/connected`, and a `localhost` one brings you back without your session.
 In the Developer Portal, add `http://127.0.0.1:5173/discord/connected` to the application's OAuth2 redirects, and switch on "Requires OAuth2 Code Grant" on the Bot page.
+Without an application of your own, `DISCORD_FAKE=true` answers for Discord from fake servers written to the database ([a fake Discord](TESTING.md#a-fake-discord)); a worktree's stack sets it unless you pass `DISCORD_FAKE=false`, which you must to use the values above there.
 
 ### Backend Structure
 

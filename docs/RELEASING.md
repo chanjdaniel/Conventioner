@@ -220,6 +220,7 @@ A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marke
 | `DISCORD_BOT_TOKEN` | The application's bot token (Bot, Reset Token). Every call the bot makes on a connected server is made with it. | As above. |
 
 None is a boot requirement, and a blank or placeholder value counts as unset (`back-end/discord_client.py`, [the Discord connection](implementation/modules/discord.md)).
+`DISCORD_FAKE`, which answers for Discord from a local stack's own database, is a test switch: a deployment never sets it, and one that inherits it ignores it, since it is honoured only under `ALLOW_INSECURE_LOCAL_DEV`.
 The application needs its OAuth2 redirect set to `FRONTEND_URL` + `/discord/connected` (`https://conventioner.io/discord/connected` in production), "Requires OAuth2 Code Grant" switched on, and the Server Members Intent switched on.
 
 ## Pre-Deploy: Database Migrations

@@ -291,6 +291,7 @@ the ports, caps each service's memory, CPU and processes, and starts mongo-expre
 - `ALLOW_INSECURE_LOCAL_DEV` - Local-development escape hatch for the six required variables above (default OFF; set `true`/`1`). Never set it on a deployment
 - `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
+- `DISCORD_FAKE` - Test-only flag to answer the Discord bot's requests from the fake servers in the database instead of Discord (`back-end/discord_fake.py`; default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `MONGODB_URI` - A full MongoDB connection string (production's Atlas cluster); when set, the five below are not read
 - `MONGODB_HOST` - MongoDB hostname (default: `127.0.0.1`; the compose file sets `mongodb`)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)

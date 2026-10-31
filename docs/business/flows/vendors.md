@@ -90,11 +90,11 @@ Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`,
 
 ## J16. See who is in the Discord server
 
-**Status:** Works against a mocked Discord (E46/F01/S03, `who-is-in-the-discord-server.spec.ts`); not yet walked against a real server.
+**Status:** Works against the stack's fake Discord (E46/F01/S03, `who-is-in-the-discord-server.spec.ts`, [the fake](../../implementation/modules/discord.md#the-values-and-a-deployment-without-them)); not yet walked against a real server.
 On a market connected to a Discord server with a username question chosen ([the Discord connection](../../implementation/modules/discord.md#who-is-in-the-server)), the organizer finds who has joined, so they can ask the rest, by email, to join or to correct their username (T92 Q10).
 
 1. "Check Discord", above the list, for an Admin or the owner (the table's "Connect Discord and give roles" row), reads the server's members and matches each vendor's username to theirs, by username alone, never a display name; it reads "Checking Discord…" while it runs.
-2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J17](#j17-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for.
+2. Each row then shows the vendor's state: "Has the role", "In the server", "Not found" (not joined yet, or the username is wrong, which cannot be told apart) or "No username"; and two that say more: "Possible match", a vendor not found who was offered a member whose name looks like their username ([J17](#j17-answer-a-possible-discord-match)), and "Check again", a vendor whose username was updated after the check, which their state was not read for; the server works both out, so the page, the drawer and the export agree.
 3. The "Discord" filter lists the vendors shown in one of those six, each with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email.
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
@@ -105,18 +105,18 @@ Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.tes
 
 ## J17. Answer a possible Discord match
 
-**Status:** Works against a mocked Discord (E46/F01/S05, `possible-discord-matches.spec.ts`); not yet walked against a real server.
+**Status:** Works against the stack's fake Discord (E46/F01/S05, `possible-discord-matches.spec.ts`); not yet walked against a real server.
 A vendor often writes a display name, a real name or a shop's name where the form asks for a Discord username, and the check, which matches by username alone, does not find them ([J16](#j16-see-who-is-in-the-discord-server)).
 For such a vendor it offers the members whose username, display name or server nickname looks like what they wrote, and the organizer says which, if any, is them (T92 Q19: never by a display name alone).
 
-1. "Possible match" on a row, or the "Discord" filter's "Possible match", finds them; their [drawer](vendor-drawer.md) opens on a "Discord" section: "No member of <server> has the username “<their answer>”. A member whose name looks like it may be them.", then each member offered, "Possible match: <their name> @<username>".
+1. "Possible match" on a row, or the "Discord" filter's "Possible match", finds them; their [drawer](vendor-drawer.md) opens on a "Discord" section: "No member of <server> has the username “<their answer>”. A member whose name looks like it may be them." (or "2 members whose names look like it may be them."), then each member offered, "Possible match: <their name> @<username>", at most five, then "And 3 more not shown." when more looked alike.
 2. "Confirm…", for whoever the row "Update a vendor's info" allows, and the row "Update info the assignment or price reads" too where a price group reads the username question, opens "Use this Discord username?": what they wrote, what it reads now when an update already stands, and the member's username it updates to; "Save update" saves that username as an update of their answer, the ordinary one, kept beside what they wrote with who and when ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
    The row then reads "Check again", and the next check finds them "In the server" or "Has the role".
-3. "Not them" declines the member: the vendor stays "Not found", or "Possible match" while another member is still offered, and that member is never offered to them again on this server.
+3. "Not them", for the same people, declines the member: the vendor stays "Not found", or "Possible match" while another member is still offered, and that member is never offered to them again on this server.
 
 Someone either row refuses reads the members offered with no control.
 Both are in [the market's history](reading-the-markets-history.md) and the vendor's own: the update as every update is, and "said the Discord member @<username> is not <vendor>".
-Covered by: `possible-discord-matches.spec.ts`, `possibleDiscordMatches.test.ts`, `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`).
+Covered by: `possible-discord-matches.spec.ts`, `possibleDiscordMatches.test.ts`, `whoMayAnswerADiscordMatch.test.ts`, `back-end/tests/test_discord_connection.py` (`TestPossibleMatches`, `TestWhatThePageShows`).
 
 ## Superseded
 
