@@ -29,6 +29,7 @@ sources:
   - E38/F08/S03
   - T123
   - T142
+  - T148
 ---
 
 # Dialogs
@@ -49,7 +50,7 @@ It still gets the scrim, window, close, Escape, backdrop and inert behaviour, wi
 The footer's actions row wraps when its buttons are wider than the window, as on a phone, where a row that could not wrap ran out past the window's left edge.
 
 **A dialog is 26rem wide, or 38rem when `wide`, and never wider than the window less a 16px gutter at each side**; taller than the window, it scrolls within itself.
-So a dialog on a route that fits a phone opens inside a 390px window with nothing to change; Manage market and the create-market dialog do on `/markets` (T142).
+So a dialog on a route that fits a phone opens inside a 390px window with nothing to change; Manage market and the create-market dialog do on `/markets` (T142), and New organization, Manage organization and Delete organization on `/organizations`, where only Manage organization's people and add rows needed a phone rule of their own (T148).
 
 **A dialog sits centred, unless its body grows as it is used**: `anchored` holds its top where it opened, so a field's error appearing as a key is typed does not move the dialog half a line under the pointer (the amendment's dialog, E38/F02).
 
