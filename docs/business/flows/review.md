@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
   - front-end/src/components/market/ReviewersPanel.vue
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -97,6 +97,7 @@ If they approved or rejected it, the card offers a verdict only to someone who m
 A verdict on the card hands out the one after it in arrival order, even when Next had moved the reviewer ahead.
 Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 The card on screen is always the one the newest Next, verdict, refresh or load handed over: an answer that comes back late, after a later one was asked for, never puts its card up (the Next race, E38/F07/S04).
+Taking the follow-ups in or out while a hand-out is on its way asks again of the walk as it is now, so a card marked for follow-up and taken straight back in comes up again, not "Every application left is open with another reviewer." (T151).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
 
