@@ -42,7 +42,7 @@ sources:
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
 Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds, in order, its people ("Users with access"), who may do what, its history ("History", [reading the market's history](reading-the-markets-history.md)), its organization, its name and its deletion.
 It opens from `/markets`, which fits a phone (T142), so on a phone it opens inside the window like every [dialog](../../implementation/conventions/dialogs.md), and its history's before-and-after table wraps its cells within the dialog's width rather than widening it.
-On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column; a market role the organization's makes add nothing takes a line of its own beneath those, with its own Remove.
+On a phone each person under "Users with access" puts their address on a line of its own, with their role and Remove beneath it, so a long address is not squeezed into a narrow column; a market role the organization's makes add nothing is said on a line of its own beneath those, with its Remove beneath that line at the start, where every other row's Remove sits.
 The "Add user" row does the same: its email field takes the row, with the role at the start of a row beneath it and "Add" and "Cancel" at that row's end; beside them the field and the role were 66px each, reading "User e" and "Edi" (T142).
 
 ## P6. Ending early, or not at all
@@ -91,7 +91,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 7. A refused change is said beneath that person's row, which keeps the role they hold.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
-Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target).
+Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), and the sweeps' state "the manage-market dialog, an organization's people".
 
 ## L3a. Set who may do what
 

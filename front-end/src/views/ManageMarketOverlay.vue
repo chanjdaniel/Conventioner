@@ -613,11 +613,24 @@ async function closeAddUser() {
   gap: var(--space-3);
 }
 
+/* On the card's beige, the muted ink that reaches AA there (4.23:1 for --mm-text-muted). */
 .user-also-text {
   flex: 1;
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
+}
+
+/* On a phone the line takes the row and its Remove goes beneath it, at the start, where every
+   other row's Remove sits beside its role. */
+@media (width <= 640px) {
+  .user-also {
+    flex-wrap: wrap;
+  }
+
+  .user-also-text {
+    flex-basis: 100%;
+  }
 }
 
 /* A role "through" a long organization name wraps inside the card rather than running past it. */
@@ -716,8 +729,10 @@ async function closeAddUser() {
   margin-bottom: var(--space-3);
 }
 
+/* Underlined, as `.note a` is: told from its sentence by more than colour (WCAG 1.4.1). */
 .organization-people a {
   color: var(--mm-text-link);
+  text-decoration: underline;
 }
 
 .danger-section {
