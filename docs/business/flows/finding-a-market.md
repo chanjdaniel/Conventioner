@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - wayfinding/readable-journey/07
   - E21/F02/S02
@@ -15,6 +15,7 @@ sources:
   - T75
   - E39/F01/S04
   - E38/F08/S01
+  - T142
 ---
 
 # Finding and opening markets
@@ -62,6 +63,7 @@ Covered by: `dashboard-market-count.spec.ts`.
 Above the list a finder narrows it: "Search" by market name as it is typed (case and accents do not count), "Organization", "Sort by" ("Market date", "Name", "Created") and a "Phase" toggle per phase; once narrowed the count says "N of M markets", and when nothing matches the page says "No markets match these filters" and offers "Clear filters".
 The finder's choices are held in the page's address.
 Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).
+The list fits a phone, since an organizer at the door finds the market there first (T142): at 390px nothing scrolls sideways, every control is a 44px target, and Manage market and the create-market dialog open inside the window.
 Covered by: `dashboard-market-count.spec.ts`, `finding-a-market.spec.ts`, `access-control.spec.ts`.
 
 ## C3. Open a market by its address

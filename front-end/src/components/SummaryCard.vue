@@ -148,6 +148,9 @@ defineEmits<{ select: [] }>();
 .summary-card-name :slotted(.summary-card-open) {
   display: block;
   max-width: 100%;
+  /* A thumb's 44px on a phone, where the list fits one (T142); a desk's line is taller than its
+     target already. A button centres its line in the height. */
+  min-height: var(--target-min);
   padding: 0;
   border: none;
   background: none;

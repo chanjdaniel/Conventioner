@@ -31,8 +31,9 @@ const marketStore = useMarketStore();
 const isLogin = computed(() => route.path === '/login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
- * An organizer screen that must also work on a phone (E29/F01): the door on market day. Every other
- * organizer screen keeps the desktop floor; this lifts the floor and nothing else.
+ * An organizer screen that must also work on a phone, by its route's `meta.fitsAPhone` (E29/F01): the
+ * door on market day, and the few other places an organizer reaches from a phone (the router names
+ * them). Every other organizer screen keeps the desktop floor; this lifts the floor and nothing else.
  */
 const fitsAPhone = computed(
   () => isPublicPage.value || route.matched.some((r) => r.meta.fitsAPhone === true),

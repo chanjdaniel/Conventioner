@@ -42,7 +42,10 @@ export const PHONE: Size = { width: 390, height: 844 };
 /** The sizes each kind of screen ships at: an organizer works at a desk; the rest may be a phone. */
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
-/** A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01) and Tools. */
+/**
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, the door (E29/F01),
+ * Tools, and `/markets` with its dialogs (T142).
+ */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
 /** Who is signed in to see a screen. */
@@ -184,13 +187,13 @@ export const SCREENS: Screen[] = [
     // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
     name: 'the markets list',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count'),
   },
   {
     name: 'the new-market dialog, where a disabled primary lives',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count', [
       'markets-create-button',
       'new-market-name-input',
@@ -200,7 +203,7 @@ export const SCREENS: Screen[] = [
     // With its Permissions section open, which is closed until asked for (E39/F01/S04).
     name: 'the manage-market dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/markets'),
       'markets-result-count',
@@ -212,7 +215,7 @@ export const SCREENS: Screen[] = [
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
     name: "the manage-market dialog's history, an entry open",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       fixed('/markets'),
       'markets-result-count',
@@ -225,7 +228,7 @@ export const SCREENS: Screen[] = [
     // The app's own menu, behind the banner's button on every organizer screen.
     name: 'the navigation drawer',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-result-count', ['app-menu-button', 'app-nav']),
   },
   {
@@ -720,7 +723,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the markets list, with no market',
     who: 'no organization',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(fixed('/markets'), 'markets-empty'),
   },
 
