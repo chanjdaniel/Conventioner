@@ -369,9 +369,12 @@ def _write(
         MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
     else:
         before_fields = before.model_dump()
+        # A change of server forgets what was about the old one, whatever ``before`` read of it:
+        # a check may have written its fields after ``before`` was loaded.
+        forgotten = SERVER_CHOICES if after.guild_id != before.guild_id else ()
         update: Dict[str, Any] = {}
         for field, value in after.model_dump().items():
-            if value == before_fields[field]:
+            if value == before_fields[field] and field not in forgotten:
                 continue
             key = f"{market_doc_key('discord')}.{market_doc_key(field)}"
             if value is None:

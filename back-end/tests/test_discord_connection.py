@@ -717,6 +717,46 @@ class TestCheckingWhoIsInTheServer:
 
         assert _stored(world) == {"usernameQuestion": "discord_username"}
 
+    def test_a_first_check_finishing_while_another_server_connects_is_forgotten(
+        self, client, world,
+    ):
+        """The card's writes set only what they change, so the server's change must forget the
+        check's fields whatever the connection read before them held: here, never checked."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple")
+        state = _start(client)
+
+        def connected_server(_values, _code, _redirect_uri):
+            world.markets.doc["discord"] = {
+                **CONNECTED, "checkedAt": "2026-10-31T12:00:00+00:00",
+                "vendorStates": [{"applicationId": maple, "state": "not_found"}]}
+            return Discord.Server(OTHER_GUILD, "Another server")
+
+        world.patch.setattr(Discord, "connected_server", connected_server)
+
+        assert _connect(client, state).status_code == 200
+
+        assert _stored(world)["guildId"] == OTHER_GUILD
+        assert "vendorStates" not in _stored(world) and "checkedAt" not in _stored(world)
+
+    def test_a_first_check_finishing_while_disconnecting_is_forgotten(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "maple")
+        load = MarketsApi._load_market_to_change
+
+        def loaded_then_checked(*args, **kwargs):
+            market = load(*args, **kwargs)
+            world.markets.doc["discord"] = {
+                **CONNECTED, "checkedAt": "2026-10-31T12:00:00+00:00",
+                "vendorStates": [{"applicationId": maple, "state": "not_found"}]}
+            return market
+
+        world.patch.setattr(MarketsApi, "_load_market_to_change", loaded_then_checked)
+
+        client.delete(f"/markets/{MARKET}/discord/connection")
+
+        assert _stored(world) == {"usernameQuestion": "discord_username"}
+
     def test_a_429_from_discord_is_waited_out_and_the_check_finishes(self, client, world):
         """Discord itself faked, under ``discord_client``, so the wait is the client's own."""
         world.market(discord=CONNECTED, **WITH_THE_FORM)
