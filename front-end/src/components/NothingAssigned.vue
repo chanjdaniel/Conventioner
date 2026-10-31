@@ -5,7 +5,7 @@
  * They drew the solver's unstored preview as if it were the result, then the plan's empty tables
  * as if an assignment had come out empty. Nothing is assigned until a run is stored, so each page
  * says that once, in the same words, and points at Assignment - or, where the phase refuses a run,
- * say why, in the words `assign_phase_refusal` uses on the server.
+ * says why, in the words `assign_phase_refusal` uses on the server.
  */
 import { computed } from 'vue';
 import type { Market } from '@/assets/types/datatypes';
