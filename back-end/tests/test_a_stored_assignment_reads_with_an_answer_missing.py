@@ -57,7 +57,7 @@ def market(monkeypatch, applications):
         monkeypatch.setattr(PermissionsApi, "get_user_market_role",
                             lambda *_a, **_kw: MarketRole.OWNER)
         theo = {key: value for key, value in COMPLETE.items() if key != EF.AVAILABLE_DATES_KEY}
-        theo[EF.FULL_NAME_KEY] = "Theo Marsh"
+        theo[EF.FULL_NAME_KEY] = "Theo Bennett"
         for number, (email, answers) in enumerate([(NADIA, COMPLETE), (THEO, theo)], start=1):
             applications.insert_one({
                 "id": f"app-{number}", "market_id": MARKET, "applicant_email": email,
@@ -101,7 +101,7 @@ class TestAPublishedMarketReadsWhatItStored:
 
         assert status == 200, result
         rows = result["csv_content"].splitlines()
-        assert f"Theo Marsh,Theo Marsh,{THEO},Approved,A 2 - Full Table,A 2 - Full Table" in rows
+        assert f"Theo Bennett,Theo Bennett,{THEO},Approved,A 2 - Full Table,A 2 - Full Table" in rows
         assert f"Nadia Okonkwo,Nadia Okonkwo,{NADIA},Approved,A 1 - Full Table," in rows
 
 
