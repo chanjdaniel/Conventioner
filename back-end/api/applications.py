@@ -433,7 +433,7 @@ def update_application_status(
     ``kept_for_undo`` is what ``undo_to_of`` made of the application as a person giving a verdict
     read it (E38/F10/S01): kept on it as ``undo_to``, and the write lands only while the status, the
     verdict's time and the follow-up's owner are still those, so what is kept is what was there.
-    Any other write clears it, so only the verdict that kept it can be undone.
+    Any other status written here clears it, so only the verdict that kept it can be undone.
     """
     if status in MARKED_STATUSES and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")

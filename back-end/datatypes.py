@@ -949,8 +949,8 @@ class Application(BaseModel):
     # Who is reaching out, while it needs a follow-up (E34/F02/S01); cleared with that status.
     follow_up_owner: Optional[MarketPerson] = None
     # What its giver's undo returns it to (E38/F10/S01): its status, giver, time and follow-up owner
-    # as a person's verdict found them while it awaited one; any other write clears it. The
-    # server's own, never served.
+    # as a person's verdict found them while it awaited one; any other status written clears it,
+    # while a follow-up handed on or an answer updated keeps it. The server's own, never served.
     undo_to: Optional[Dict[str, Any]] = None
     # The reviewer looking at it, until ``held_until`` (E34/F03/S02): a lease, renewed while the card
     # stays open and released on a verdict or on moving on. A lapsed one holds nothing.
