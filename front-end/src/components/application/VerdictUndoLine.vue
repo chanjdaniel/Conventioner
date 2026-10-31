@@ -43,8 +43,10 @@ defineEmits<{ undo: [] }>();
   gap: var(--space-2) var(--space-3);
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--mm-border);
+  /* A notice, not a row: it sits beside the reviewed list's rows, and must not read as one. */
+  border: 1px solid var(--mm-blue);
   border-radius: var(--radius-control);
+  background: var(--mm-chip-informational);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
@@ -56,7 +58,6 @@ defineEmits<{ undo: [] }>();
 
 .undo-refusal {
   flex: 1 1 100%;
-  color: var(--mm-text-muted);
 }
 
 kbd {
