@@ -228,6 +228,29 @@ describe('the Vendors page', () => {
     });
   });
 
+  it('reads the market again after a refusal, since the card may have changed meanwhile', async () => {
+    const wrapper = await mounted(market());
+    api.post.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { error: 'The Discord card changed while Discord was being checked.' },
+      },
+    });
+    const reads = api.get.mock.calls.filter(([url]) => url === `/markets/${MARKET_ID}`).length;
+
+    await wrapper.find('[data-testid="vendors-discord-check"]').trigger('click');
+
+    await vi.waitFor(() => {
+      expect(api.get.mock.calls.filter(([url]) => url === `/markets/${MARKET_ID}`).length).toBe(
+        reads + 1,
+      );
+    });
+    expect(wrapper.find('[data-testid="vendors-discord-error"]').text()).toBe(
+      'The Discord card changed while Discord was being checked.',
+    );
+  });
+
   it('offers no check to someone the row refuses', async () => {
     const wrapper = await mounted(market({}, 'Only an Admin or the owner may.'));
 

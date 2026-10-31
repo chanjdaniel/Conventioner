@@ -157,6 +157,8 @@ async function runCheck(): Promise<void> {
     await useMarketStore().refresh();
   } catch (err) {
     checkError.value = getApiErrorMessage(err, 'Discord could not be checked. Try again.');
+    // A refusal may mean the card changed meanwhile, so the page reads what it is now.
+    void useMarketStore().refresh();
   } finally {
     checking.value = false;
   }
@@ -350,10 +352,11 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           >
             {{ checkedWords }}
           </span>
+          <!-- A standard button, the select's height, so the three stand on one line. -->
           <button
             v-if="mayCheck"
             type="button"
-            class="btn btn--secondary btn--compact"
+            class="btn btn--secondary"
             :disabled="checking"
             data-testid="vendors-discord-check"
             @click="runCheck"
@@ -408,8 +411,8 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
                 :names="vendorNames"
               />
               <span v-if="assigned || discordChecked" class="vendor-meta">
-                <!-- Discord leads, so its column holds whatever follows it. A vendor who applied
-                     after the check has no state yet, and keeps the column empty. -->
+                <!-- Discord leads at every width, so its column holds whatever follows it. A vendor
+                     who applied after the check has no state yet, and keeps the column empty. -->
                 <span v-if="discordChecked" class="vendor-discord">
                   <span
                     v-if="discordByApplication.get(vendor.applicationId)"
@@ -765,10 +768,16 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
     gap: var(--space-2);
   }
 
-  /* Under the name, the badge or verdict leads, so it keeps one column down the list whether or
-     not "Added" follows it, and the date count holds the right. */
+  /* Under the name, Discord's column leads, then the badge or verdict, so each keeps one column
+     down the list whether or not "Added" follows, and the date count holds the right; both start
+     at the name's edge. */
   .vendor-meta {
     width: 100%;
+  }
+
+  .vendor-discord {
+    order: -2;
+    justify-content: flex-start;
   }
 
   .vendor-standing {
