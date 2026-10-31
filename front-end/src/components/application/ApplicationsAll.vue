@@ -458,7 +458,7 @@ async function decideSelection() {
         <label v-if="assignedTo" class="all-assigned">
           <span class="all-assigned-label">Assigned to</span>
           <select
-            class="field field--select"
+            class="field field--select all-assigned-select"
             :value="assignedTo"
             name="applications-all-assigned-to"
             data-testid="applications-all-assigned-to"
@@ -807,6 +807,11 @@ async function decideSelection() {
 
 .all-assigned-label {
   white-space: nowrap;
+}
+
+/* As tall as the compact status buttons beside it, so the filter row is one height. */
+.all-assigned-select {
+  height: var(--control-height-compact);
 }
 
 .all-count {
