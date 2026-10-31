@@ -64,11 +64,14 @@ export function paymentsShownFrom(value: QueryValue): PaymentsShown | null {
 
 /**
  * Whether a vendor is in the state a filter lists, as their Payment tab words it: "Owes $27",
- * "Paid $15 more than owed", or square, which is "Paid in full" (and "Nothing owed" for a vendor
- * whose every day was set to $0 and who paid nothing).
+ * "Paid $15 more than owed", or "Paid in full", square with something owed. A vendor who owes
+ * nothing and paid nothing ("Nothing owed": every day freed with its price taken off, or set to $0)
+ * is in none, the one rule the export's money filter keeps too (E42/F01/S04).
  */
 export function vendorShownIn(vendor: PaymentsVendor, shown: PaymentsShown | null): boolean {
-  return !shown || STATE_SHOWN[balanceState(vendor)] === shown;
+  if (!shown) return true;
+  if (!vendor.owedCents && !vendor.paidCents) return false;
+  return STATE_SHOWN[balanceState(vendor)] === shown;
 }
 
 /** The list's columns, each sortable; in the address as `sort`, and `order=desc`. */

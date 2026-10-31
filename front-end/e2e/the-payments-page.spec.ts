@@ -23,6 +23,7 @@ const SILVER = { id: 2, name: 'Silver' };
 const ALICE = 'alice@example.com';
 const BOB = 'bob@example.com';
 const CAROL = 'carol@example.com';
+const DAN = 'dan@example.com';
 
 const PRICING = {
   currency: 'CAD',
@@ -240,6 +241,39 @@ test.describe('the Payments page', () => {
     await expect(page.getByTestId('payment-balance')).toHaveText('Paid $7.50 more than owed');
     await expect(page).toHaveURL(/[?&]show=more/);
     await expect(page).toHaveURL(/[?&]vendorTab=payment/);
+  });
+
+  test('a vendor who owes nothing and paid nothing is not "Paid in full"', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Dan is seated, then freed with the seat taken off what he owes: his line stays, at $0,
+    // and he has paid nothing, so his tab says "Nothing owed" and he is in no filter.
+    const marketId = await threeVendorsPaying(request);
+    seedApprovedVendor(marketId, DAN, {
+      dates: [SEED_MARKET_DATE],
+      tiers: ['Silver'],
+      fullName: 'Dan Example',
+    });
+    await call(request, 'put', `/markets/${marketId}/placements`, {
+      email: DAN,
+      date: SEED_MARKET_DATE,
+      table_code: 'Landing 2',
+      table_choice: 'Full Table',
+    });
+    const freed = await request.delete(`${BACKEND_URL}/markets/${marketId}/placements`, {
+      data: { email: DAN, date: SEED_MARKET_DATE, deductOwed: true },
+    });
+    expect(freed.ok(), await freed.text()).toBeTruthy();
+
+    await paymentsPage(page, marketId);
+    const dan = page.locator(`[data-email="${DAN}"]`);
+    await expect(dan.getByTestId('payments-row-balance')).toHaveText('Nothing owed');
+    await expect(page.getByTestId('payments-show-paid')).toHaveText('Paid in full (1)');
+
+    await page.getByTestId('payments-show-paid').click();
+    await expect(rows(page)).toHaveCount(1);
+    expect(await listedEmails(page)).toEqual([BOB]);
   });
 
   test('a sort is in the address, and a reload keeps it', async ({

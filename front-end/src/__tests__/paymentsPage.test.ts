@@ -27,10 +27,18 @@ describe('the Payments page filters', () => {
 
   it('lists exactly the vendors in each state', () => {
     expect(ALL.filter((v) => vendorShownIn(v, 'owes'))).toEqual([ANA]);
-    // Square is paid in full, a vendor who owes nothing and paid nothing included.
-    expect(ALL.filter((v) => vendorShownIn(v, 'paid'))).toEqual([BEN, DEE]);
+    // Paid in full is square with something owed; a vendor who owes nothing and paid nothing reads
+    // "Nothing owed" on their tab, and is in no filter, as in the export's money filter (E42/F01/S04).
+    expect(ALL.filter((v) => vendorShownIn(v, 'paid'))).toEqual([BEN]);
     expect(ALL.filter((v) => vendorShownIn(v, 'more'))).toEqual([CY]);
     expect(ALL.filter((v) => vendorShownIn(v, null))).toEqual(ALL);
+  });
+
+  it('puts a vendor who owes nothing and paid nothing in no filter', () => {
+    for (const shown of ['owes', 'paid', 'more'] as const) {
+      expect(vendorShownIn(DEE, shown)).toBe(false);
+    }
+    expect(vendorShownIn(DEE, null)).toBe(true);
   });
 
   it('reads the filter from the address, and nothing for anything else', () => {
