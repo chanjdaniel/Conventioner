@@ -17,7 +17,7 @@ describes:
   - back-end/api/markets.py#copy_organization_default
   - back-end/tests/test_the_market_keeps_its_own_rows.py
   - back-end/tests/test_the_organizations_default.py
-verified: 2026-10-30
+verified: 2026-10-31
 sources:
   - E39
   - E39/F01/S01
@@ -91,7 +91,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
 | Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
-| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)) |
+| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
