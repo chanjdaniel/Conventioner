@@ -18,7 +18,7 @@ verified: 2026-10-22
 - [Needs follow-up](../rules/needs-follow-up.md): an application that waits, with an owner, until someone reaches out.
 - [Automatic rejections](../rules/automatic-rejections.md): answers the organizer names reject an undecided application, with the reason.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): what the applicant reads of their own application.
-- [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md): an approved application missing an asked answer stops the assignment.
+- [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md): an approved application missing an asked answer stops the run, naming the applicants.
 - [A seat only for an applicant](../rules/a-seat-only-for-an-applicant.md): a seat goes only to someone with an application.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): the one way to give someone an application by hand.
 - [An imported email is asserted](../rules/an-imported-email-is-asserted.md): an imported applicant's address is the organizer's word, an online applicant's is proven.

@@ -4,19 +4,22 @@ kind: rule
 describes:
   - back-end/assignment/assignment.py#IncompleteApplicationsError
   - back-end/assignment/assignment.py#solver_vendors_for
+  - back-end/assignment/assignment.py#vendors_to_show
   - back-end/essential_fields.py#asked_essential_keys
   - back-end/essential_fields.py#REQUIRED_ESSENTIAL_KEYS
-verified: 2026-10-22
+verified: 2026-10-31
 sources:
   - wayfinding/v0-1-0/02
   - E02
   - bug/42
+  - T139
 ---
 
 # An incomplete application refuses the run
 
 An approved application missing an answer to a question the market asked refuses the whole assignment run, naming every such applicant and what each one lacks.
 Nobody is skipped, and no partial assignment is stored.
+It refuses the run and nothing else: Assignments, its summary and grid, a vendor's drawer and the CSV describe the stored assignment, or nobody placed before one exists, with every approved application read as it stands (T139).
 
 **Requiredness is defined by what the market asked**, not by a fixed list.
 A question the plan offers nothing for is not asked: no dates, no date questions; no tiers, no tier question; fewer than two sections or table types, no ranking; a ranking the organizer switched off, not asked either.
@@ -41,5 +44,7 @@ In practice it catches imported rows, since the online form validates the same q
 - `asked_essential_keys()` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py) is the single statement of what is asked, read by the applicant validator and the solver's input translation alike; two copies would drift, and the drift would show as the solver rejecting answers the form had just accepted ([essential fields](../../implementation/modules/essential-fields.md)).
   `REQUIRED_ESSENTIAL_KEYS` beside it says which asked questions must be answered.
 - The translation reports each incomplete application (`IncompleteApplication` in `vendor_input.py`), and `solver_vendors_for` raises `IncompleteApplicationsError` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py) before anything is placed ([the assignment solver](../../implementation/modules/assignment-solver.md)).
-- `POST /markets/:id/assignment` answers it with the message and the `incomplete` list ([placements](../../implementation/modules/placements.md)); the read-only views that compute from the applications answer it too.
+- `POST /markets/:id/assignment` answers it with the message and the `incomplete` list ([placements](../../implementation/modules/placements.md)); the preview `GET /markets/:id/assignment`, which computes a run, answers it with the message.
+- The reads of the stored assignment (the statistics, the tables grid and the CSV) read the approved applications with `vendors_to_show`, which reads an application missing an answer as it stands and refuses nothing ([placements](../../implementation/modules/placements.md#what-a-read-shows)).
+  Refusing them once hid a published market's seats from the Assignments page and from a vendor's drawer while the door still read them, over one approved application missing a date (T139).
 - The cases are `TestAnIncompleteApplicationStopsTheRun` in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).
