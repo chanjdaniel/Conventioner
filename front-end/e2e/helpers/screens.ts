@@ -106,6 +106,23 @@ const slug =
     `/${(seed[market] as { marketSlug: string }).marketSlug}${rest}`;
 const fixed = (path: string) => () => path;
 
+/**
+ * Manage market on `market`'s own card, found by searching `/markets`: the first card is not
+ * always the market whose people the sweep must draw.
+ */
+const managing = (market: keyof TheScreensSeed) => async (page: Page, seed: TheScreensSeed) => {
+  const name = (seed[market] as { marketName: string }).marketName;
+  await page.goto('/markets');
+  await visible(page, 'markets-result-count');
+  await page.getByTestId('markets-search-input').fill(name);
+  await page
+    .getByTestId('market-card')
+    .filter({ hasText: name })
+    .getByTestId('market-card-manage-button')
+    .click();
+  await visible(page, 'manage-market-window');
+};
+
 const FORM_STEPS = ['essentials', 'questions', 'preview', 'review'] as const;
 
 /** The floor plan the floorplan specs upload: an 800x600 hall, fixture data. */
@@ -210,6 +227,14 @@ export const SCREENS: Screen[] = [
       ['market-card-manage-button', 'manage-market-window'],
       ['manage-market-permissions-toggle', 'manage-market-permission-source'],
     ),
+  },
+  {
+    // A second member whose address is long (T142): the row gives it its own line rather than
+    // squeezing it into a column a few letters wide.
+    name: 'the manage-market dialog, a member with a long address',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: managing('dealt'),
   },
   {
     // Its History section, loaded, with an entry opened to its before and after (E40/F01/S03).
