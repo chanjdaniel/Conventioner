@@ -940,6 +940,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # Whether this deployment has Discord's values (E46/F01/S02): the Discord card offers nothing
     # without them, and says so.
     market_dict['discordSetUp'] = DiscordClient.credentials() is not None
+    # And each vendor as the last "Check Discord" found them, as the pages show them (E46/F01/S05):
+    # "Possible match" and "Check again" are worked out here, once, against the applications as
+    # the organizer reads them now, so the Vendors page, the drawer and the export agree. Read
+    # only once a check has run.
+    from api.discord_connection import shown_vendors
+    market_dict['discordVendors'] = [vendor.served() for vendor in shown_vendors(market).values()]
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     # The roles on the market itself, which Manage market lists, served to every reader; and

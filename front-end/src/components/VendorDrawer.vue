@@ -26,6 +26,7 @@ import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { discordAsks, discordVendors } from '@/utils/discordCheck';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useMarketStore } from '@/stores/market';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerUpdateNote from '@/components/AnswerUpdateNote.vue';
@@ -124,6 +125,9 @@ watch(
 
 async function infoSaved(): Promise<void> {
   updating.value = false;
+  // The market read says what the last Discord check now shows of this vendor ("Check again" once
+  // their username changed), so it is read again too where a check has run (E46/F01/S05).
+  if (props.market?.discordVendors?.length) void useMarketStore().refresh();
   await props.details.load();
   emit('infoUpdated');
 }
@@ -134,9 +138,7 @@ async function infoSaved(): Promise<void> {
  * that row's, and the row for an answer a price reads where a price group reads the username.
  */
 const discordVendor = computed(() =>
-  application.value
-    ? (discordVendors(props.market, [application.value]).get(application.value.id) ?? null)
-    : null,
+  application.value ? (discordVendors(props.market).get(application.value.id) ?? null) : null,
 );
 const answersDiscord = computed(
   () =>

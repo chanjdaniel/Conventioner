@@ -73,14 +73,22 @@ function market(overrides: Partial<Market> = {}, refusal: string | null = null):
       guildName: 'Riverside Makers',
       usernameQuestion: 'discord_username',
       checkedAt: CHECKED_AT,
-      vendorStates: [
-        { applicationId: 'app-ana', state: 'has_role' },
-        { applicationId: 'app-ben', state: 'in_server' },
-        { applicationId: 'app-cy', state: 'not_found' },
-        { applicationId: 'app-dee', state: 'no_username' },
-        { applicationId: 'app-eve', state: 'not_found' },
-      ],
     },
+    discordVendors: (
+      [
+        ['app-ana', 'has_role'],
+        ['app-ben', 'in_server'],
+        ['app-cy', 'not_found'],
+        ['app-dee', 'no_username'],
+        ['app-eve', 'not_found'],
+      ] as const
+    ).map(([applicationId, state]) => ({
+      applicationId,
+      state,
+      shown: state,
+      possibleMatches: [],
+      moreMatches: 0,
+    })),
     actionRefusals: { ...answersRefusing(), [MarketAction.ConnectDiscord]: refusal },
     ...overrides,
   } as unknown as Market;
@@ -112,17 +120,12 @@ describe('a vendor as the check found them', () => {
   });
 
   it('is kept by application, and a state this build does not know is none', () => {
-    const states = discordVendors(
-      {
-        discord: {
-          vendorStates: [
-            { applicationId: 'app-ana', state: 'has_role' },
-            { applicationId: 'app-ben', state: 'a_later_state' },
-          ],
-        },
-      } as unknown as Market,
-      [],
-    );
+    const states = discordVendors({
+      discordVendors: [
+        { applicationId: 'app-ana', state: 'has_role', shown: 'has_role' },
+        { applicationId: 'app-ben', state: 'a_later_state', shown: 'a_later_state' },
+      ],
+    } as unknown as Market);
 
     expect(states.get('app-ana')?.state).toBe('has_role');
     expect(states.has('app-ben')).toBe(false);

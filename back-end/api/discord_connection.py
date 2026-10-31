@@ -37,14 +37,16 @@ import re
 import secrets
 import time
 import unicodedata
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from flask import session
 
 import api.applications as ApplicationsApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import api.vendor_info as VendorInfo
 import discord_client as Discord
 import history as History
 from assignment.utils import convert_keys_to_camel_case
@@ -105,6 +107,12 @@ IN_SERVER = "in_server"
 NOT_FOUND = "not_found"
 NO_USERNAME = "no_username"
 STATES = (HAS_ROLE, IN_SERVER, NOT_FOUND, NO_USERNAME)
+#: What a page shows of a vendor beside the check's own states (E46/F01/S05), worked out on each
+#: read by ``shown_vendors``, never stored: a vendor not found with a member still offered, and a
+#: vendor whose username changed since the check read it.
+POSSIBLE_MATCH = "possible_match"
+CHECK_AGAIN = "check_again"
+SHOWN = (HAS_ROLE, IN_SERVER, POSSIBLE_MATCH, NOT_FOUND, NO_USERNAME, CHECK_AGAIN)
 
 #: How many members a vendor is offered at most as possible matches, in username order.
 POSSIBLE_MATCHES_OFFERED = 5
@@ -244,10 +252,11 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     states = []
     for app_id, _email, answer, username in vendors:
         state = _state(username, roles_by_username, before.role_id)
+        offered, more = (_possible_matches(answer, members, declined.get(app_id) or [])
+                         if state == NOT_FOUND else ([], 0))
         states.append(DiscordVendorState(
             application_id=app_id, state=state, answer=answer,
-            possible_matches=(_possible_matches(answer, members, declined.get(app_id) or [])
-                              if state == NOT_FOUND else None) or None))
+            possible_matches=offered or None, more_matches=more or None))
     after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
     # Only the check's own fields, and only while the card still names what the states were read
     # against: the members take seconds to read, and a card saved meanwhile is not undone. A
@@ -306,12 +315,13 @@ def looks_alike(written: str) -> str:
 
 def _possible_matches(
     answer: Optional[str], members: List[Discord.Member], declined: List[str],
-) -> List[DiscordPossibleMatch]:
+) -> Tuple[List[DiscordPossibleMatch], int]:
     """The members whose username, display name or nickname looks like the vendor's answer, by
-    username, leaving out the ones declined for this vendor; at most ``POSSIBLE_MATCHES_OFFERED``."""
+    username, leaving out the ones declined for this vendor: at most ``POSSIBLE_MATCHES_OFFERED``,
+    and how many more looked alike, so the page can say the list is partial."""
     wanted = looks_alike(answer or "")
     if not wanted:
-        return []
+        return [], 0
     offered = sorted(
         (member for member in members
          if member.username not in declined
@@ -322,7 +332,80 @@ def _possible_matches(
         DiscordPossibleMatch(username=member.username, display_name=member.display_name,
                              nick=member.nick)
         for member in offered[:POSSIBLE_MATCHES_OFFERED]
-    ]
+    ], max(len(offered) - POSSIBLE_MATCHES_OFFERED, 0)
+
+
+@dataclass(frozen=True)
+class ShownVendor:
+    """One vendor as a page shows them (E46/F01/S05): the check's ``state``, what is ``shown``
+    (one of ``SHOWN``), the members still offered as possible matches, and how many more looked
+    alike than the check kept."""
+
+    application_id: str
+    state: str
+    shown: str
+    possible_matches: List[DiscordPossibleMatch]
+    more_matches: int
+
+    def served(self) -> Dict[str, Any]:
+        """As the market read serves it, camelCase."""
+        return {
+            "applicationId": self.application_id, "state": self.state, "shown": self.shown,
+            "possibleMatches": [convert_keys_to_camel_case(match.model_dump())
+                                for match in self.possible_matches],
+            "moreMatches": self.more_matches,
+        }
+
+
+def shown_vendors(
+    market: Market, applications: Optional[Iterable[Dict[str, Any]]] = None,
+) -> Dict[str, ShownVendor]:
+    """Each vendor the last check kept, as a page shows them, by application id in the check's
+    order; none before a check. The one statement of "Possible match" and "Check again", so the
+    Vendors page, the drawer and the export agree (T156 review note 1).
+
+    A state is read for the answer it kept, so an answer that now reads as another username was
+    updated since (by an organizer's update, a confirmed match, the vendor's own edit or a
+    re-import) and shows ``check_again``, with nothing offered, until the next check (T137 ticket
+    28's note). ``applications`` are the market's, read here when not given.
+    """
+    connection = market.discord
+    if connection is None or not connection.vendor_states:
+        return {}
+    if applications is None:
+        applications = ApplicationsApi.list_applications_for_market(market.id)
+    question = connection.username_question
+    answers = {str(doc.get("id")): ApplicationsApi.effective_answers(doc).get(question)
+               for doc in applications} if question else {}
+    declined = connection.declined_matches or {}
+    shown: Dict[str, ShownVendor] = {}
+    for vendor in connection.vendor_states:
+        if vendor.state not in STATES:
+            continue
+        app_id = vendor.application_id
+        if app_id in answers and _changed_since(vendor, answers[app_id]):
+            shown[app_id] = ShownVendor(app_id, vendor.state, CHECK_AGAIN, [], 0)
+            continue
+        gone = declined.get(app_id) or []
+        offered = [match for match in vendor.possible_matches or [] if match.username not in gone]
+        shown[app_id] = ShownVendor(
+            app_id, vendor.state,
+            POSSIBLE_MATCH if vendor.state == NOT_FOUND and offered else vendor.state,
+            offered, vendor.more_matches or 0)
+    return shown
+
+
+def _changed_since(vendor: DiscordVendorState, answer: Any) -> bool:
+    """Whether ``answer``, the vendor's now, reads as another username than the one ``vendor``
+    was checked for: compared as the check matches, tidied, so a change of case, spaces, a leading
+    ``@`` or an old tag reads the same member. "No username" had nothing to read, so any username
+    is new; any other state kept before the answer was kept beside it cannot tell."""
+    now = tidied_username(answer) if isinstance(answer, str) else ""
+    if vendor.state == NO_USERNAME:
+        return bool(now)
+    if vendor.answer is None:
+        return False
+    return tidied_username(vendor.answer) != now
 
 
 def decline_match(
@@ -331,12 +414,17 @@ def decline_match(
     """The organizer says a member offered as a possible match is not this vendor (E46/F01/S05).
 
     The vendor stays "Not found", and the member is never offered to them again on this server.
-    Asks the row "Update a vendor's info", as confirming does: answering an offer is the vendor's
-    info, not the check. Only a member the last check offered to this vendor may be declined.
+    Asks the rows confirming asks: "Update a vendor's info", and "Update info the assignment or
+    price reads" too where a price group reads the username question, since answering an offer is
+    the vendor's info, not the check. Only a member the last check offered to this vendor may be
+    declined.
     """
     market = MarketsApi._load_market_to_change(
         market_id, requesting_user, Actions.UPDATE_VENDOR_INFO)
     connection = _connection(market)
+    if connection.username_question:
+        VendorInfo.assert_may_update_what_the_assignment_or_prices_read(
+            market, [connection.username_question], requesting_user)
     username = _string(body, "username")
     vendor = next((state for state in connection.vendor_states or []
                    if state.application_id == application_id), None)

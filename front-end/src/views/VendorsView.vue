@@ -127,9 +127,7 @@ const placeFiltered = computed(() => hasPlaceFilter(filters.value));
  * (E46/F01/S05), so the filter finds who needs an answer.
  */
 const discordChecked = computed(() => market.value?.discord?.checkedAt ?? '');
-const discordByApplication = computed(() =>
-  discordVendors(market.value, details.applications.value),
-);
+const discordByApplication = computed(() => discordVendors(market.value));
 const discordShown = computed(() =>
   discordChecked.value ? discordShownFrom(route.query.discord) : null,
 );

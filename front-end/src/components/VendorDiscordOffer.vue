@@ -45,6 +45,16 @@ const theyWrote = computed(() => {
   return typeof value === 'string' ? value : '';
 });
 
+/** How many more members looked alike than the check kept, past its cap of five. */
+const moreMatches = computed(() => props.vendor?.moreMatches ?? 0);
+/** One member alike, or how many: several say the match is not one person's for certain. */
+const alikeSentence = computed(() => {
+  const alike = (props.vendor?.matches.length ?? 0) + moreMatches.value;
+  return alike === 1
+    ? 'A member whose name looks like it may be them.'
+    : `${alike} members whose names look like it may be them.`;
+});
+
 const confirming = ref<DiscordPossibleMatch | null>(null);
 const busy = ref(false);
 const confirmError = ref('');
@@ -98,8 +108,8 @@ async function decline(match: DiscordPossibleMatch): Promise<void> {
     </p>
     <template v-else>
       <p class="discord-offer-lead">
-        No member of {{ serverName }} has the username “<AnswerValue :value="answer" />”. A member
-        whose name looks like it may be them.
+        No member of {{ serverName }} has the username “<AnswerValue :value="answer" />”.
+        {{ alikeSentence }}
       </p>
       <ul class="discord-matches">
         <li
@@ -134,6 +144,9 @@ async function decline(match: DiscordPossibleMatch): Promise<void> {
           </span>
         </li>
       </ul>
+      <p v-if="moreMatches" class="discord-offer-more" data-testid="vendors-detail-discord-more">
+        And {{ moreMatches }} more not shown.
+      </p>
       <p
         v-if="declineError"
         class="discord-offer-error"
@@ -192,6 +205,7 @@ async function decline(match: DiscordPossibleMatch): Promise<void> {
 }
 
 .discord-offer-lead,
+.discord-offer-more,
 .discord-offer-note {
   margin: 0;
   font-size: var(--text-sm);

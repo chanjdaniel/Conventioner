@@ -374,6 +374,9 @@ export interface Market {
   discord?: DiscordConnection | null;
   /** Whether this Conventioner has Discord's values; the Discord card offers nothing without. */
   discordSetUp?: boolean;
+  /** Each vendor the last "Check Discord" kept, as the pages show them, worked out by the server
+   *  (`shown_vendors` in `back-end/api/discord_connection.py`, E46/F01/S05); none before a check. */
+  discordVendors?: ServedDiscordVendor[];
 }
 
 /**
@@ -388,26 +391,28 @@ export interface DiscordConnection {
   /** The key of the form's text question that holds each vendor's Discord username. */
   usernameQuestion?: string;
   inviteLink?: string;
-  /** When "Check Discord" last read the server's members (E46/F01/S03). */
+  /** When "Check Discord" last read the server's members (E46/F01/S03); what it found of each
+   *  vendor, the pages read from the market's `discordVendors`. */
   checkedAt?: string;
-  /** Each vendor as that check found them, by application (`discordCheck.ts` reads the states):
-   *  the answer it read, and for a vendor not found, the members offered as possible matches. */
-  vendorStates?: {
-    applicationId: string;
-    state: string;
-    answer?: string;
-    possibleMatches?: DiscordPossibleMatch[];
-  }[];
-  /** The members declined as a vendor's possible match, by application id (E46/F01/S05). */
-  declinedMatches?: Record<string, string[]>;
 }
 
 /** A member of the server who may be a vendor (E46/F01/S05): their username, which confirming
  *  saves as the vendor's answer, and the names that looked like it. */
 export interface DiscordPossibleMatch {
   username: string;
-  displayName?: string;
-  nick?: string;
+  displayName?: string | null;
+  nick?: string | null;
+}
+
+/** One vendor as the server says the pages show them (E46/F01/S05): the check's `state`, what is
+ *  `shown` (the state, `possible_match` or `check_again`), the members still offered, and how many
+ *  more looked alike than were kept. */
+export interface ServedDiscordVendor {
+  applicationId: string;
+  state: string;
+  shown: string;
+  possibleMatches: DiscordPossibleMatch[];
+  moreMatches: number;
 }
 
 /** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */

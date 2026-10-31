@@ -6,7 +6,7 @@
  */
 import { api } from '@/utils/api';
 import { MarketAction, mayTake } from '@/utils/marketActions';
-import type { Application, DiscordPossibleMatch, Market } from '@/assets/types/datatypes';
+import type { DiscordPossibleMatch, Market } from '@/assets/types/datatypes';
 
 /**
  * Has the role (in the server, holding the market's role), in the server, not found (no member has
@@ -124,56 +124,34 @@ export function discordShownFrom(value: unknown): DiscordShown | null {
     : null;
 }
 
-/** One vendor as the page shows them: the check's state, what is shown, and the members offered. */
+/** One vendor as the page shows them: the check's state, what is shown, the members offered, and
+ *  how many more looked alike than were kept. */
 export interface DiscordVendor {
   state: DiscordState;
   shown: DiscordShown;
   /** The members offered as possible matches, less any declined since; none once checked again. */
   matches: DiscordPossibleMatch[];
-}
-
-/** An answer as a username: a string with something in it, else none. */
-function asUsername(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
+  /** How many more members looked alike than the check kept, past its cap of five. */
+  moreMatches: number;
 }
 
 /**
- * Each vendor as the page shows them, by application id, from the market's last check and the
- * applications as the organizer reads them (an update in the vendor's answer's place).
- *
- * A state is read for the answer it keeps, so an answer that differs now was updated since and
- * reads "Check again" (T137 ticket 28's note: a corrected username kept its old state until the
- * next check). A state an older build kept carries no answer, so a change on it cannot be told;
- * nor can one before the applications are read.
+ * Each vendor as the page shows them, by application id, as the market read serves them
+ * (`discordVendors`): the server works out "Possible match" and "Check again" against the
+ * applications as the organizer reads them now (`shown_vendors` in
+ * `back-end/api/discord_connection.py`), so this page, the drawer and the export agree. A value
+ * this build does not know is left out.
  */
-export function discordVendors(
-  market: Market | null | undefined,
-  applications: readonly Application[],
-): Map<string, DiscordVendor> {
-  const question = market?.discord?.usernameQuestion ?? '';
-  const declined = market?.discord?.declinedMatches ?? {};
-  const byId = new Map(applications.map((application) => [application.id, application]));
+export function discordVendors(market: Market | null | undefined): Map<string, DiscordVendor> {
   const shown = new Map<string, DiscordVendor>();
-  for (const vendor of market?.discord?.vendorStates ?? []) {
-    if (!isDiscordState(vendor.state)) continue;
-    const application = byId.get(vendor.applicationId);
-    const told = vendor.answer !== undefined || vendor.state === 'no_username';
-    const changed =
-      told &&
-      !!application &&
-      asUsername(application.formData?.[question]) !== asUsername(vendor.answer);
-    const gone = declined[vendor.applicationId] ?? [];
-    const matches = changed
-      ? []
-      : (vendor.possibleMatches ?? []).filter((match) => !gone.includes(match.username));
+  for (const vendor of market?.discordVendors ?? []) {
+    const what = discordShownFrom(vendor.shown);
+    if (!what || !isDiscordState(vendor.state)) continue;
     shown.set(vendor.applicationId, {
       state: vendor.state,
-      shown: changed
-        ? 'check_again'
-        : vendor.state === 'not_found' && matches.length
-          ? 'possible_match'
-          : vendor.state,
-      matches,
+      shown: what,
+      matches: vendor.possibleMatches ?? [],
+      moreMatches: vendor.moreMatches ?? 0,
     });
   }
   return shown;

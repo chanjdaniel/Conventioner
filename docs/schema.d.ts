@@ -50,6 +50,7 @@ export interface MarketSchema {
     vendorStates?: {
       answer?: string;
       applicationId: string;
+      moreMatches?: number;
       possibleMatches?: {
         displayName?: string;
         nick?: string;

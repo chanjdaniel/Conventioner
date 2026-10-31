@@ -1,9 +1,10 @@
 /**
  * Possible matches, confirmed into an update (E46/F01/S05): a vendor the check did not find is
- * offered the members whose name looks like the username on file, as "Possible match: confirm?".
- * Confirming saves the member's username as an update of the vendor's answer, the ordinary one
- * (E41/F01/S01); declining keeps them "Not found"; and a username updated since the check reads
- * "Check again" until the next check.
+ * offered the members whose name looks like the username on file, each "Possible match: <name>
+ * @<username>". Confirming saves the member's username as an update of the vendor's answer, the
+ * ordinary one (E41/F01/S01); declining keeps them "Not found"; and a username updated since the
+ * check reads "Check again" until the next check. Which of those a vendor shows is the server's
+ * (`shown_vendors`, pinned in `back-end/tests/test_discord_connection.py`); this reads and says it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
@@ -49,7 +50,15 @@ function app(id: string, answer?: string, overrides: Partial<Application> = {}):
   };
 }
 
-function market(discord: Record<string, unknown> = {}): Market {
+const OFFERED = {
+  applicationId: 'app-fern',
+  state: 'not_found',
+  shown: 'possible_match',
+  possibleMatches: [FERN, FERN_TOO],
+  moreMatches: 0,
+};
+
+function market(fern: Record<string, unknown> = {}): Market {
   return {
     id: 'market-1',
     applicationForm: {
@@ -69,89 +78,61 @@ function market(discord: Record<string, unknown> = {}): Market {
       guildName: 'Riverside Makers',
       usernameQuestion: QUESTION,
       checkedAt: '2026-10-31T12:00:00+00:00',
-      vendorStates: [
-        {
-          applicationId: 'app-fern',
-          state: 'not_found',
-          answer: 'Fern Studio',
-          possibleMatches: [FERN, FERN_TOO],
-        },
-        { applicationId: 'app-oak', state: 'not_found', answer: 'oak' },
-        { applicationId: 'app-ash', state: 'in_server', answer: 'ash' },
-        { applicationId: 'app-elm', state: 'no_username' },
-        { applicationId: 'app-old', state: 'has_role' },
-      ],
-      ...discord,
     },
+    discordVendors: [
+      { ...OFFERED, ...fern },
+      {
+        applicationId: 'app-oak',
+        state: 'not_found',
+        shown: 'not_found',
+        possibleMatches: [],
+        moreMatches: 0,
+      },
+      {
+        applicationId: 'app-ash',
+        state: 'in_server',
+        shown: 'in_server',
+        possibleMatches: [],
+        moreMatches: 0,
+      },
+      {
+        applicationId: 'app-elm',
+        state: 'no_username',
+        shown: 'check_again',
+        possibleMatches: [],
+        moreMatches: 0,
+      },
+      {
+        applicationId: 'app-new',
+        state: 'gone_fishing',
+        shown: 'gone_fishing',
+        possibleMatches: [],
+        moreMatches: 0,
+      },
+    ],
   } as unknown as Market;
 }
 
-const APPS = [
-  app('app-fern', 'Fern Studio'),
-  app('app-oak', 'oak'),
-  app('app-ash', 'ash'),
-  app('app-elm'),
-  app('app-old', 'old.username'),
-];
+const APPS = [app('app-fern', 'Fern Studio'), app('app-oak', 'oak'), app('app-ash', 'ash')];
 
 describe('what the page shows of each vendor', () => {
-  it('is the check’s state, or a possible match where it offered one', () => {
-    const shown = discordVendors(market(), APPS);
+  it('is what the server says it shows, with the members it still offers', () => {
+    const shown = discordVendors(market());
 
     expect(shown.get('app-fern')).toEqual({
       state: 'not_found',
       shown: 'possible_match',
       matches: [FERN, FERN_TOO],
+      moreMatches: 0,
     });
     expect(shown.get('app-oak')?.shown).toBe('not_found');
     expect(shown.get('app-ash')?.shown).toBe('in_server');
-    expect(shown.get('app-elm')?.shown).toBe('no_username');
-  });
-
-  it('leaves out a member declined since the check, and is “Not found” once none is left', () => {
-    const one = discordVendors(
-      market({ declinedMatches: { 'app-fern': ['fern_studio_42'] } }),
-      APPS,
-    );
-    expect(one.get('app-fern')?.matches).toEqual([FERN_TOO]);
-    expect(one.get('app-fern')?.shown).toBe('possible_match');
-
-    const both = discordVendors(
-      market({ declinedMatches: { 'app-fern': ['fern_studio_42', 'fernstudio'] } }),
-      APPS,
-    );
-    expect(both.get('app-fern')).toEqual({ state: 'not_found', shown: 'not_found', matches: [] });
-  });
-
-  it('reads “Check again” once the username was updated since the check', () => {
-    const updated = [
-      app('app-fern', 'fern_studio_42'),
-      app('app-oak', 'oak'),
-      app('app-ash', 'ash'),
-      app('app-elm', 'elm.crafts'),
-      app('app-old', 'old.username'),
-    ];
-
-    const shown = discordVendors(market(), updated);
-
-    expect(shown.get('app-fern')).toEqual({
-      state: 'not_found',
-      shown: 'check_again',
-      matches: [],
-    });
     expect(shown.get('app-elm')?.shown).toBe('check_again');
-    expect(shown.get('app-oak')?.shown).toBe('not_found');
   });
 
-  it('cannot tell a change on a state an older check kept without its answer', () => {
-    expect(discordVendors(market(), APPS).get('app-old')?.shown).toBe('has_role');
-  });
-
-  it('keeps the check’s state while the applications are not read', () => {
-    const shown = discordVendors(market(), []);
-
-    expect(shown.get('app-fern')?.shown).toBe('possible_match');
-    expect(shown.get('app-elm')?.shown).toBe('no_username');
+  it('leaves out a value this build does not know, and is empty before a check', () => {
+    expect(discordVendors(market()).has('app-new')).toBe(false);
+    expect(discordVendors({ ...market(), discordVendors: undefined }).size).toBe(0);
   });
 
   it('says each in words, and in the address', () => {
@@ -182,7 +163,7 @@ function offer(
     props: {
       market: m,
       application: a,
-      vendor: discordVendors(m, [a]).get(a.id) ?? null,
+      vendor: discordVendors(m).get(a.id) ?? null,
       canAnswer: props.canAnswer ?? true,
     },
     attachTo: document.body,
@@ -201,7 +182,7 @@ afterEach(() => {
 });
 
 describe('the drawer’s offer', () => {
-  it('offers each member as “Possible match: confirm?”', () => {
+  it('offers each member as “Possible match: <name> @<username>”, saying how many look alike', () => {
     const wrapper = offer();
 
     const matches = wrapper.findAll(testid('vendors-detail-discord-match'));
@@ -209,11 +190,36 @@ describe('the drawer’s offer', () => {
       'Possible match: Fern Studio @fern_studio_42',
       'Possible match: Fern @fernstudio',
     ]);
-    expect(wrapper.find(testid('vendors-detail-discord')).text()).toContain(
-      'No member of Riverside Makers has the username “Fern Studio”.',
+    expect(wrapper.find('.discord-offer-lead').text()).toBe(
+      'No member of Riverside Makers has the username “Fern Studio”. 2 members whose names look like it may be them.',
     );
+    expect(wrapper.find(testid('vendors-detail-discord-more')).exists()).toBe(false);
     expect(wrapper.findAll(testid('vendors-detail-discord-confirm'))).toHaveLength(2);
     expect(wrapper.findAll(testid('vendors-detail-discord-decline'))).toHaveLength(2);
+  });
+
+  it('says “A member” for one alike', () => {
+    const wrapper = offer({ market: market({ possibleMatches: [FERN] }) });
+
+    expect(wrapper.find('.discord-offer-lead').text()).toBe(
+      'No member of Riverside Makers has the username “Fern Studio”. A member whose name looks like it may be them.',
+    );
+  });
+
+  it('counts the members alike past the five offered, and says how many are not shown', () => {
+    const five = Array.from({ length: 5 }, (_, n) => ({
+      username: `fern${n}`,
+      displayName: 'Fern',
+    }));
+    const wrapper = offer({ market: market({ possibleMatches: five, moreMatches: 3 }) });
+
+    expect(wrapper.findAll(testid('vendors-detail-discord-match'))).toHaveLength(5);
+    expect(wrapper.find('.discord-offer-lead').text()).toContain(
+      '8 members whose names look like it may be them.',
+    );
+    expect(wrapper.find(testid('vendors-detail-discord-more')).text()).toBe(
+      'And 3 more not shown.',
+    );
   });
 
   it('confirms in a dialog, then saves the member’s username as an update of their answer', async () => {
@@ -301,7 +307,10 @@ describe('the drawer’s offer', () => {
   });
 
   it('says to check again once the username was updated since the check', () => {
-    const wrapper = offer({ application: app('app-fern', 'fern_studio_42') });
+    const wrapper = offer({
+      market: market({ shown: 'check_again', possibleMatches: [] }),
+      application: app('app-fern', 'fern_studio_42'),
+    });
 
     expect(wrapper.find(testid('vendors-detail-discord')).text()).toContain(
       'Their username was updated after the last check. Check Discord again to see whether they are in the server.',

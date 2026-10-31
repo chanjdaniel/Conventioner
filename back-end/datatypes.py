@@ -843,6 +843,9 @@ class DiscordVendorState(BaseModel):
     #: For a vendor ``not_found``, the members whose username, display name or nickname looks like
     #: the answer (E46/F01/S05): offered for the organizer to confirm, never applied by the check.
     possible_matches: Optional[List["DiscordPossibleMatch"]] = None
+    #: How many more members looked alike than ``possible_matches`` holds, past the cap of five;
+    #: None for none, so the page can say the list is partial.
+    more_matches: Optional[int] = None
 
 
 class DiscordPossibleMatch(BaseModel):
