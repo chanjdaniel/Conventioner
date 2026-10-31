@@ -842,7 +842,8 @@ class DiscordRoleOutcome(BaseModel):
     """One assigned vendor as a "Give roles" run left them (E46/F01/S04), by their application.
 
     ``outcome`` is ``given``, ``already_had``, ``not_found`` (no member has the username),
-    ``no_username`` or ``failed``, with ``reason`` in Conventioner's words for a failure. A plain
+    ``no_username``, ``not_yet`` (the run's time ended before it was asked) or ``failed``, with
+    ``reason`` in Conventioner's words for a vendor not given it yet and for a failure. A plain
     string, as a state is, so an outcome a later build adds never fails an older one's parse.
     """
 

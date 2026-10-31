@@ -19,7 +19,8 @@ const props = defineProps<{
   assigned: number | null;
 }>();
 
-const emit = defineEmits<{ close: []; given: []; refused: [] }>();
+/** `giving` as the run starts, so the page offers no check meanwhile; then `given` or `refused`. */
+const emit = defineEmits<{ close: []; giving: []; given: []; refused: [] }>();
 
 const busy = ref(false);
 const error = ref('');
@@ -36,6 +37,7 @@ async function give(): Promise<void> {
   if (busy.value) return;
   busy.value = true;
   error.value = '';
+  emit('giving');
   try {
     await giveRoles(props.marketId);
     emit('given');

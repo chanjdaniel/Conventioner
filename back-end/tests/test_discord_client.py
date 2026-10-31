@@ -334,6 +334,40 @@ MEMBER = "1001"
 GIVE = f"/guilds/{GUILD}/members/{MEMBER}/roles/{ROLE}"
 
 
+class FakeClock:
+    """The client's clock, which a test moves on as time passes."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch, discord):
+    """A clock the client reads, which each wait moves on, as ``time.sleep`` would."""
+    fake = FakeClock()
+    monkeypatch.setattr(Discord, "clock", fake)
+
+    def wait(seconds):
+        discord.waits.append(seconds)
+        fake.now += seconds
+
+    monkeypatch.setattr(Discord, "_wait", wait)
+    return fake
+
+
+REASON = "Conventioner: Give roles, Test Market"
+
+
+def _grants(deadline=None):
+    """One run's grants of the role, as ``give_roles`` makes them: an hour to spare by default."""
+    return Discord.RoleGrants(Discord.credentials(), GUILD, ROLE, "Vendor Nov 2026",
+                              reason=REASON, deadline=deadline if deadline is not None else
+                              Discord.clock() + 3600)
+
+
 class TestGivingARole:
     """Add Guild Member Role (https://docs.discord.com/developers/resources/guild): a 204 when it is
     given, and each refusal said in words, never Discord's."""
@@ -341,12 +375,32 @@ class TestGivingARole:
     def test_the_role_is_given_with_a_put_as_the_bot(self, set_up, discord):
         discord.answer("PUT", GIVE, 204)
 
-        Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+        _grants().give(MEMBER)
 
         [sent] = discord.sent
         assert sent.method == "PUT"
         assert sent.url == f"https://discord.com/api/v10{GIVE}"
         assert sent.headers["Authorization"] == f"Bot {VALUES['DISCORD_BOT_TOKEN']}"
+
+    def test_each_grant_names_conventioner_and_the_run_in_the_servers_audit_log(
+        self, set_up, discord,
+    ):
+        """``X-Audit-Log-Reason``, URL-encoded as Discord asks
+        (https://docs.discord.com/developers/resources/audit-log), so a server's moderators can
+        tell a run's grants from a role given by hand."""
+        discord.answer("PUT", GIVE, 204)
+
+        _grants().give(MEMBER)
+
+        [sent] = discord.sent
+        assert sent.headers["X-Audit-Log-Reason"] == "Conventioner%3A%20Give%20roles%2C%20Test%20Market"
+
+    def test_an_audit_reason_is_url_encoded_and_kept_within_discords_limit(self):
+        reason = Discord.audit_reason("Conventioner: Give roles, Marché " + "é" * 400)
+
+        assert reason.startswith("Conventioner%3A%20Give%20roles%2C%20March%C3%A9%20")
+        assert len(reason) <= Discord.AUDIT_REASON_LIMIT
+        assert not reason.endswith("%C3")
 
     def test_a_role_above_the_bots_is_said_by_its_name(self, set_up, discord):
         """Discord's 50013, Missing Permissions: the role sits at or above the bot's own, or the
@@ -354,7 +408,7 @@ class TestGivingARole:
         discord.answer("PUT", GIVE, 403, {"message": "Missing Permissions", "code": 50013})
 
         with pytest.raises(Discord.DiscordRefused) as refused:
-            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+            _grants().give(MEMBER)
 
         assert str(refused.value) == Discord.role_above_bot("Vendor Nov 2026")
         assert "Conventioner's role is below Vendor Nov 2026" in str(refused.value)
@@ -366,7 +420,7 @@ class TestGivingARole:
         discord.answer("PUT", GIVE, 404, {"message": "Unknown Member", "code": code})
 
         with pytest.raises(Discord.MemberGone) as gone:
-            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+            _grants().give(MEMBER)
 
         assert str(gone.value) == Discord.MEMBER_GONE
 
@@ -374,7 +428,7 @@ class TestGivingARole:
         discord.answer("PUT", GIVE, 404, {"message": "Unknown Role", "code": 10011})
 
         with pytest.raises(Discord.DiscordRefused) as refused:
-            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+            _grants().give(MEMBER)
 
         assert str(refused.value) == Discord.role_gone("Vendor Nov 2026")
 
@@ -384,7 +438,7 @@ class TestGivingARole:
         discord.answer("PUT", GIVE, status, {"message": "Missing Access", "code": code})
 
         with pytest.raises(Discord.DiscordRefused) as refused:
-            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+            _grants().give(MEMBER)
 
         assert str(refused.value) == Discord.BOT_NOT_IN_SERVER
 
@@ -392,16 +446,152 @@ class TestGivingARole:
         discord.answer("PUT", GIVE, 401, {"message": "401: Unauthorized"})
 
         with pytest.raises(Discord.DiscordUnavailable) as refused:
-            Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+            _grants().give(MEMBER)
 
         assert str(refused.value) == Discord.SETTINGS_REFUSED
 
-    def test_a_429_is_waited_out_and_the_role_given(self, set_up, discord):
+    def test_a_429_is_waited_out_and_the_role_given(self, set_up, discord, clock):
         answers = [_answer(429, {"retry_after": 0.5, "global": False}), _answer(204)]
         discord.request = lambda *_a, **_k: answers.pop(0)
         Discord.requests.request = discord.request
 
-        Discord.give_role(Discord.credentials(), GUILD, MEMBER, ROLE, "Vendor Nov 2026")
+        _grants().give(MEMBER)
 
         assert discord.waits == [0.5]
         assert answers == []
+
+
+class TestARunsTime:
+    """A run's grants stop at its deadline rather than wait past it: the back end is a function
+    that its host ends at its time limit, and a run cut off there would record nothing."""
+
+    def test_a_429_whose_wait_would_pass_the_deadline_is_not_waited(self, set_up, discord, clock):
+        discord.answer("PUT", GIVE, 429, {"retry_after": 8, "global": False})
+
+        with pytest.raises(Discord.OutOfTime):
+            _grants(deadline=clock() + 6).give(MEMBER)
+
+        assert discord.waits == []
+        assert len(discord.sent) == 1
+
+    def test_a_429_that_fits_before_the_deadline_is_waited_out(self, set_up, discord, clock):
+        answers = [_answer(429, {"retry_after": 2, "global": False}), _answer(204)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+
+        _grants(deadline=clock() + 6).give(MEMBER)
+
+        assert discord.waits == [2]
+
+    def test_a_long_429_still_says_slow_down(self, set_up, discord, clock):
+        """A wait longer than any run holds is Discord's limit, said as any call says it."""
+        discord.answer("PUT", GIVE, 429, {"retry_after": 600, "global": True})
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            _grants(deadline=clock() + 6).give(MEMBER)
+
+        assert str(refused.value) == Discord.SLOW_DOWN
+
+    def test_a_grant_asked_at_the_deadline_is_never_sent(self, set_up, discord, clock):
+        discord.answer("PUT", GIVE, 204)
+        grants = _grants(deadline=clock() + 6)
+        clock.now += 6
+
+        with pytest.raises(Discord.OutOfTime):
+            grants.give(MEMBER)
+
+        assert discord.sent == []
+
+    def test_a_request_waits_no_longer_than_the_time_left(self, set_up, discord, clock):
+        discord.answer("PUT", GIVE, 204)
+        grants = _grants(deadline=clock() + 6)
+        clock.now += 4.5
+
+        grants.give(MEMBER)
+
+        [sent] = discord.sent
+        assert sent.timeout == pytest.approx(1.5)
+
+    def test_a_request_the_time_left_cut_short_is_out_of_time(self, set_up, discord, clock):
+        """The grant may have landed: a second run finds the role held and asks nothing."""
+        def timed_out(*_a, **_k):
+            raise Discord.requests.Timeout()
+
+        Discord.requests.request = timed_out
+        grants = _grants(deadline=clock() + 6)
+        clock.now += 4.5
+
+        with pytest.raises(Discord.OutOfTime):
+            grants.give(MEMBER)
+
+    def test_a_request_timing_out_on_its_own_is_discord_out_of_reach(self, set_up, discord, clock):
+        def timed_out(*_a, **_k):
+            raise Discord.requests.Timeout()
+
+        Discord.requests.request = timed_out
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            _grants().give(MEMBER)
+
+        assert str(refused.value) == Discord.OUT_OF_REACH
+
+
+class TestPacing:
+    """Discord says with each answer how many requests the route has left and when it refills
+    (``X-RateLimit-Remaining``, ``X-RateLimit-Reset-After``,
+    https://docs.discord.com/developers/topics/rate-limits): the next grant waits for the refill
+    rather than meet a 429."""
+
+    def _exhausted(self, reset_after):
+        return _answer(204, None, {"X-RateLimit-Remaining": "0",
+                                   "X-RateLimit-Reset-After": str(reset_after)})
+
+    def test_the_next_grant_waits_for_the_bucket_to_refill(self, set_up, discord, clock):
+        answers = [self._exhausted(1.5), _answer(204)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+        grants = _grants()
+
+        grants.give("1001")
+        grants.give("1002")
+
+        assert discord.waits == [1.5]
+        assert answers == []
+
+    def test_a_bucket_with_room_is_not_waited_for(self, set_up, discord, clock):
+        answers = [_answer(204, None, {"X-RateLimit-Remaining": "4",
+                                       "X-RateLimit-Reset-After": "1.5"}), _answer(204)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+        grants = _grants()
+
+        grants.give("1001")
+        grants.give("1002")
+
+        assert discord.waits == []
+
+    def test_time_already_passed_is_not_waited_again(self, set_up, discord, clock):
+        answers = [self._exhausted(1.5), _answer(204)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+        grants = _grants()
+
+        grants.give("1001")
+        clock.now += 1.0
+        grants.give("1002")
+
+        assert discord.waits == [pytest.approx(0.5)]
+
+    def test_a_refill_after_the_deadline_is_out_of_time_without_asking(
+        self, set_up, discord, clock,
+    ):
+        answers = [self._exhausted(8)]
+        discord.request = lambda *_a, **_k: answers.pop(0)
+        Discord.requests.request = discord.request
+        grants = _grants(deadline=clock() + 6)
+
+        grants.give("1001")
+        with pytest.raises(Discord.OutOfTime):
+            grants.give("1002")
+
+        assert discord.waits == []

@@ -75,7 +75,7 @@ test('Give roles confirms by the role and the seated vendors, then reports by gr
     );
     await route.fulfill({
       json: {
-        counts: { given: 1, already_had: 0, not_found: 0, no_username: 0, failed: 1 },
+        counts: { given: 1, already_had: 0, not_found: 0, no_username: 0, not_yet: 0, failed: 1 },
         ranAt,
       },
     });

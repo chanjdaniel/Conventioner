@@ -196,6 +196,26 @@ describe('the report', () => {
     expect(roleRunSummary(roleRunCounts({ ...RUN, outcomes: [] }))).toBe('no assigned vendors');
   });
 
+  it('groups the vendors a run had no time for, its reason said once', () => {
+    const NOT_YET =
+      'Not given yet: a run asks Discord for a few seconds at most, and Discord was still ' +
+      'pacing it. Give roles again to finish.';
+    const stopped = {
+      ...RUN,
+      outcomes: [
+        { applicationId: 'app-ana', outcome: 'given', reason: null },
+        { applicationId: 'app-ben', outcome: 'not_yet', reason: NOT_YET },
+        { applicationId: 'app-cy', outcome: 'not_yet', reason: NOT_YET },
+      ],
+    };
+
+    expect(roleRunGroups(stopped)).toEqual([
+      { outcome: 'given', reason: '', applicationIds: ['app-ana'] },
+      { outcome: 'not_yet', reason: NOT_YET, applicationIds: ['app-ben', 'app-cy'] },
+    ]);
+    expect(roleRunSummary(roleRunCounts(stopped))).toBe('1 given, 2 not given yet');
+  });
+
   it('leaves out an outcome this build does not know', () => {
     const later = { ...RUN, outcomes: [{ applicationId: 'app-ana', outcome: 'queued' }] };
     expect(roleRunGroups(later)).toEqual([]);
@@ -225,6 +245,30 @@ describe('the Vendors page', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('[data-testid="give-roles-window"]')).toBeNull();
     });
+  });
+
+  it('offers no run while a check reads the server', async () => {
+    const wrapper = await mounted(market());
+    api.post.mockReturnValue(new Promise(() => {}));
+
+    await wrapper.find('[data-testid="vendors-discord-check"]').trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="vendors-discord-give"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('offers no check while a run gives the role', async () => {
+    const wrapper = await mounted(market());
+    api.post.mockReturnValue(new Promise(() => {}));
+
+    await wrapper.find('[data-testid="vendors-discord-give"]').trigger('click');
+    (document.querySelector('[data-testid="give-roles-submit-button"]') as HTMLElement).click();
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="vendors-discord-check"]').attributes('disabled')).toBe('');
+    });
+    expect(wrapper.find('[data-testid="vendors-discord-give"]').text()).toBe('Giving roles…');
   });
 
   it('says why a run was refused, in the server’s words, and reads the market again', async () => {

@@ -173,6 +173,11 @@ async function runCheck(): Promise<void> {
  */
 const mayGive = computed(() => assigned.value && mayGiveRoles(market.value));
 const giving = ref(false);
+/**
+ * While a run asks Discord, and while a check does, the other is not offered: a check that read
+ * the members before a run's grants would be refused by the server anyway.
+ */
+const runningRoles = ref(false);
 const seatedCount = computed(() =>
   placementsRefused.value ? null : vendors.value.filter((v) => v.assignedDateCount > 0).length,
 );
@@ -182,10 +187,12 @@ const addressesById = computed(
 );
 function rolesGiven(): void {
   giving.value = false;
+  runningRoles.value = false;
   // The report and the states are the market's, so the market is read again.
   void useMarketStore().refresh();
 }
 function rolesRefused(): void {
+  runningRoles.value = false;
   // A refusal may mean the card changed meanwhile, so the page reads what it is now.
   void useMarketStore().refresh();
 }
@@ -383,7 +390,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             v-if="mayCheck"
             type="button"
             class="btn btn--secondary"
-            :disabled="checking"
+            :disabled="checking || runningRoles"
             data-testid="vendors-discord-check"
             @click="runCheck"
           >
@@ -393,10 +400,11 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             v-if="mayGive"
             type="button"
             class="btn btn--secondary"
+            :disabled="checking || runningRoles"
             data-testid="vendors-discord-give"
             @click="giving = true"
           >
-            Give roles
+            {{ runningRoles ? 'Giving roles…' : 'Give roles' }}
           </button>
           <p v-if="checkError" class="error-text" role="alert" data-testid="vendors-discord-error">
             {{ checkError }}
@@ -524,6 +532,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
       :server-name="market?.discord?.guildName ?? ''"
       :assigned="seatedCount"
       @close="giving = false"
+      @giving="runningRoles = true"
       @given="rolesGiven"
       @refused="rolesRefused"
     />

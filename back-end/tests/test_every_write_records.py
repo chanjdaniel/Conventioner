@@ -550,12 +550,22 @@ def _check_discord(client, world):
     return client.post(f"/markets/{MARKET}/discord/check")
 
 
+class _GrantsThatGive:
+    """Discord giving every role asked."""
+
+    def __init__(self, *_args, **_kwargs):
+        pass
+
+    def give(self, _member_id):
+        pass
+
+
 def _give_discord_roles(client, world):
     _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username", roleId="r-vendor",
              roleName="Vendor Test")
     world.markets.doc["assignmentObject"] = _seated(VENDOR)
     world.patch(Discord, "server_members", lambda *_a: [Discord.Member("1001", "maple", ())])
-    world.patch(Discord, "give_role", lambda *_a: None)
+    world.patch(Discord, "RoleGrants", _GrantsThatGive)
     world.markets.doc["applicationForm"] = {"fields": [
         {"key": "discord_username", "label": "Discord Username", "type": "text"}]}
     world.applications.insert_one(_application(
