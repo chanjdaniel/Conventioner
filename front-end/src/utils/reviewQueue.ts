@@ -4,6 +4,7 @@ import {
   type ApplicationForm,
 } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import { inShareOf } from '@/utils/reviewers';
 import { isDecided } from '@/utils/verdicts';
 
 /**
@@ -157,22 +158,26 @@ export function allViewLists(filter: AllViewFilter, status: string): boolean {
 
 /**
  * The applications the All view lists: those with the status asked for - "Open" is every one
- * awaiting a verdict - and, with Mine, only the follow-ups the viewer owns.
+ * awaiting a verdict - with Mine, only the follow-ups the viewer owns, and with a reviewer named
+ * (E38/F07/S04), only that reviewer's share (`inShareOf`: dealt to them, decided ones included,
+ * and the follow-ups they own, whoever they were dealt to).
  */
 export function allViewApplications(
   applications: Application[],
   filter: AllViewFilter,
   mine: boolean,
   me: string,
+  reviewer: string | null = null,
 ): Application[] {
-  const shown = applications.filter((a) => allViewLists(filter, a.status));
-  if (!mine) return inArrivalOrder(shown);
   const viewer = me.trim().toLowerCase();
   return inArrivalOrder(
-    shown.filter(
+    applications.filter(
       (a) =>
-        a.status === ApplicationStatus.NeedsFollowUp &&
-        (a.followUpOwner?.email ?? '').toLowerCase() === viewer,
+        allViewLists(filter, a.status) &&
+        (!mine ||
+          (a.status === ApplicationStatus.NeedsFollowUp &&
+            (a.followUpOwner?.email ?? '').toLowerCase() === viewer)) &&
+        (!reviewer || inShareOf(a, reviewer)),
     ),
   );
 }

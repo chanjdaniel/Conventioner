@@ -46,6 +46,7 @@ describe('marking a follow-up', () => {
         applicantEmail: 'nadia@ember.test',
         people,
         me,
+        writesNotes: true,
       },
       global: { stubs: { teleport: true } },
     });

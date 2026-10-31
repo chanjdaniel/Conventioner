@@ -25,11 +25,11 @@ sources:
   - E41/F01/S02
   - E40/F01/S04
   - E38/F06/S01
+  - E38/F07/S02
   - T123
+  - T139
   - E44/F01/S01
   - E44/F01/S02
-  - E38/F07/S02
-  - T139
 ---
 
 # The vendor drawer
@@ -45,7 +45,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 
 1. Click a vendor where they appear; the drawer opens on its Application tab, wherever it was opened, and the page behind it holds still and cannot be reached.
 2. The head, "Vendor detail": the vendor's name, their address beside it when they have a name, and their verdict with who gave it ("Approved by <email>, <date and time>"), or "Added by <email>, …" for a vendor added by hand.
-   Opened from the review's All view, the application's status sits under the head, with who holds it open, and Reject, Needs follow-up and Approve beside it while the review is open; everywhere else the verdict and its giver only read.
+   Opened from the review's All view, the application's status sits under the head, with whose share it is while reviewers are chosen and who holds it open, and Reject, Needs follow-up and Approve beside it while the review is open, under a warning when it is dealt to another reviewer ([the All view](review.md#the-all-view)); everywhere else the verdict and its giver only read.
    On an application already approved or rejected those are a change, offered only to someone the row "Change a verdict, or overturn an automatic rejection" lets change one, and a reviewer it refuses reads its sentence in their place (E38/F06/S01).
    The drawer offers verdicts on the server's answers, the verdicts row's, the change row's and `verdictsSettledReason`, never on a list of phases of its own, so it and the review cannot disagree.
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.

@@ -9,6 +9,7 @@ import {
   type PhaseMarketSeed,
 } from './helpers/seedPhaseMarket';
 import { mongoEval } from './helpers/mongo';
+import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
 
 const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
 
@@ -100,7 +101,8 @@ test.describe('Phase state machine - full walk', () => {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-draft.png`, fullPage: true });
 
     // One stage where applications arrive and are reviewed (E38/F04/S01).
-    await page.getByTestId('phase-transition-applications').click();
+    // Opening offers the reviewers first (E38/F07/S02); no one chosen opens as before.
+    await new OpenApplicationsDialog(page).openWith();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,
     });
@@ -434,7 +436,8 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
       timeout: 10000,
     });
 
-    await page.getByTestId('phase-transition-applications').click();
+    // Opening offers the reviewers first (E38/F07/S02); no one chosen opens as before.
+    await new OpenApplicationsDialog(page).openWith();
 
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
       timeout: 10000,

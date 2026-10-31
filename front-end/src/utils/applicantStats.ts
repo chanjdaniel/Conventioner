@@ -7,7 +7,7 @@
  * many were added by hand, and the time each of the others applied. The statuses are counted into
  * the Applications tab's All view filters through the All view's own test (`allViewLists`), so the
  * two pages can never disagree: a status row's count is what its filter lists, and the row opens
- * it. A vendor added by hand never applied, so they are counted apart and on no day, while their
+ * it, on every reviewer's share (E38/F07/S04). A vendor added by hand never applied, so they are counted apart and on no day, while their
  * status is the approval the adding gave them, as the All view shows it.
  *
  * A day is the reader's calendar day, as every "today" in the app is (`calendarToday`): the server
@@ -53,7 +53,11 @@ export function applicantStats(counts: ApplicantCounts, marketId: string): Appli
     count: statuses
       .filter(([status]) => allViewLists(filter.id, status))
       .reduce((sum, [, count]) => sum + count, 0),
-    to: { path: marketPath(marketId, 'applications'), query: { view: 'all', status: filter.id } },
+    // On every reviewer's share, which the count is, not the one a chosen reviewer lands on.
+    to: {
+      path: marketPath(marketId, 'applications'),
+      query: { view: 'all', status: filter.id, reviewer: 'anyone' },
+    },
   }));
 
   // A status no filter lists is still counted, so the rows add up to every application.

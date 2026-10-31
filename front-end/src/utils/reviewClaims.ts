@@ -65,12 +65,14 @@ export function useReviewClaims(marketId: Ref<string>) {
   /**
    * Hand over the next card after `after`, claimed - or `want`, one asked for by name, when it is
    * free; null when every one left is held elsewhere; undefined when a later hand-out, or leaving,
-   * overtook this one before it answered, so its card is not the one to put up.
+   * overtook this one before it answered, so its card is not the one to put up. A chosen reviewer
+   * is handed their own share first, and with `mineOnly` nothing else (E38/F07/S04).
    */
   async function next(
     after: string | null,
     includeFollowUps: boolean,
     want: string | null = null,
+    mineOnly = false,
   ): Promise<Application | null | undefined> {
     touch();
     const mine = ++asked;
@@ -80,6 +82,7 @@ export function useReviewClaims(marketId: Ref<string>) {
         after,
         includeFollowUps,
         ...(want ? { want } : {}),
+        ...(mineOnly ? { mineOnly } : {}),
       }));
     } catch (err) {
       if (mine !== asked) return undefined;

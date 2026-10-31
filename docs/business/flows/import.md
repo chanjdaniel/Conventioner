@@ -18,6 +18,7 @@ sources:
   - E33/F03/S02
   - E38/F03/S01
   - E38/F03/S02
+  - E38/F07/S02
   - E01
   - E20
   - E20/F02/S01
@@ -65,7 +66,7 @@ Covered by: `csv-import.spec.ts`, `automatic-rejections.spec.ts`, `form-amendmen
 
 ### H2a. First import, everything maps
 
-**Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02, and the preview's rows as of E38/F03/S02).
+**Status:** Works (re-walked live on 2026-10-03 for P1 and P2; the automatic rejections read from the code as of E33/F03/S02, the preview's rows as of E38/F03/S02, and its reviewers as of E38/F07/S02: `the-first-import-offers-the-reviewers.spec.ts`).
 On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word (a usability observation, not a bug).
 
 1. **Upload:** "Choose the CSV your form produced", by dropping it or choosing a file; the page names the market ("Importing into …") and says what the import does: on a first import, "Once the import is written, the market enters Review."; on a Redo import, that the whole responses file is read again and the market stays in Review.
@@ -76,7 +77,10 @@ On a first import only Timestamp and Email Address are mapped for you, even wher
    A row opens to its answers as the review card lays them out: the market's highlighted answers, then "N more answers" ([review highlights](../rules/review-highlights.md)).
    "Rejected by your automatic rejections", with its count, checks the rules: every row the import's judging will newly reject, in the same format, each marked "Rejected" and opening on "Rejected automatically:" and its reason; its line says who may overturn one, as the market's row "Change a verdict, or overturn an automatic rejection" stands (`rejectedRowsWhy`, "an Admin or the owner" by default, E38/F06/S01).
    Then "Where each answer comes from".
-4. **Confirm** ("Import N rows"): "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
+   Last, on a first import and for someone who may choose reviewers (an Admin or the owner, by default), "Reviewers": a checkbox for each person they may choose, none ticked (or the reviewers chosen in draft before), and the hint "Choose no one and everyone reviews first come, first served. You can choose reviewers later from the Applications tab." ([the review is dealt among chosen reviewers](../rules/the-review-is-dealt-among-chosen-reviewers.md)).
+   A Redo import offers no reviewers: by then they are the Reviewers panel's ([dividing the review](review.md#dividing-the-review)).
+4. **Confirm** ("Import N rows"): when the reviewers ticked differ from the ones stored, they are saved first, so every imported row is dealt to the next reviewer in turn as it arrives; a save that is refused shows its error under the reviewers and imports nothing, and an import refused after the save shows its error as any refused import does, the reviewers staying chosen.
+   Then "Imported N new applications."; on a first import "This market is now in Review: decide every application, then begin assignment.", and "Go to the review" leads to Applications (bug 16).
 5. Expect N applications, each Open and awaiting review, except those an automatic rejection rejects: "N were rejected by your automatic rejections, each with its reason; an Admin or the owner can overturn any of them.", naming whoever the market's change row lets overturn them ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 For a market started from a Google Form, step 2 opens "Mapped when your form was started from this file." and needs no decisions; a later import opens "Restored from your last import."

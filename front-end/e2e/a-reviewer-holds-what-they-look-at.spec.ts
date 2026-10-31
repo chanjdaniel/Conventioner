@@ -134,3 +134,33 @@ test('a reader walks the queue, holding nothing, and sees who has a card open', 
     ),
   ).toBe('0');
 });
+
+test('a verdict on a card skipped ahead to hands out the one after it', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  const vendors = ['ada@ember.test', 'bo@ember.test', 'cy@ember.test', 'di@ember.test'];
+  // Seeded one after another, so they arrive in this order.
+  for (const vendor of vendors) seedApplicationWithStatus(marketId, 'open', vendor);
+
+  const reviewer = new ApplicationMonitorPage(page);
+  await page.goto(oneByOnePath(marketId));
+  await reviewer.waitForLoaded();
+  await expect(reviewer.email).toHaveText(vendors[0]);
+  await reviewer.nextCard();
+  await reviewer.nextCard();
+  await expect(reviewer.email).toHaveText(vendors[2]);
+
+  // The decided card leaves the queue but keeps its place: on to the next, not back to the first.
+  await reviewer.approveButton.click();
+  await expect(reviewer.email).toHaveText(vendors[3]);
+  await expect(reviewer.progress).toHaveText('3 of 3 to review');
+});

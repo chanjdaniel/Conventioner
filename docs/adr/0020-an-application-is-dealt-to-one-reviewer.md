@@ -10,6 +10,8 @@ sources:
   - E38/F07
   - E38/F07/S01
   - E38/F07/S02
+  - E38/F07/S03
+  - E38/F07/S04
 status: accepted
 ---
 
@@ -53,6 +55,12 @@ A decided application stays where it is, and so does a follow-up, unless its own
 **Choosing is a row of the market's table**, "Choose reviewers" (default Admin, [ADR 0019](0019-a-markets-permissions-are-a-table.md)), open while the review is (draft through the stage) and refused on an archived market.
 A reviewer is chosen from the people the chooser may hand a follow-up to, so someone outside the market's organization is never offered its people.
 
+**Being chosen is a privilege of the market's table, not a role** (E38/F07/S03, [what each role may do](../business/rules/what-each-role-may-do.md)).
+A second row, "Be chosen as a reviewer, and then give verdicts and follow-ups" (`review-when-chosen`, default Viewer), says whose role may be chosen: the chooser is offered only them, and a chosen reviewer whose role it no longer reaches is served not `able` and dealt nothing new, as one who lost their role is.
+An eligible chosen reviewer takes the "Give verdicts and follow-ups" row whatever that row asks of their role, so a chosen Viewer approves, rejects and marks follow-ups on any application, hands a follow-up on, and claims and is handed cards; [`back-end/api/market_actions.py`](../../back-end/api/market_actions.py) answers it in `refusal` and `role_refusal`, so every check of the giving row lets them in and no other module names a role.
+The change row stays on top of the giving row ([ADR 0019](0019-a-markets-permissions-are-a-table.md), E38/F06/S01): a chosen Viewer gives first verdicts and changes none already given.
+The owner raising the row to Editor takes the privilege from the chosen Viewers on that market at once, without removing them.
+
 **The review's record is the market's history** ([ADR 0017](0017-one-history-for-every-change.md)): a change of reviewers, the deal it made and each arrival's deal are entries of their own (`reviewers`, `dealt`).
 A verdict's entry names whom the application was dealt to beside who decided it (`dealt_to`), so help and mistakes can be told apart.
 One application's story is the history narrowed to its vendor, in the vendor drawer's History tab.
@@ -60,8 +68,10 @@ One application's story is the history narrowed to its vendor, in the vendor dra
 ## Consequences
 
 - Every write that can leave an application open and undealt must ask `review_team.py` to deal it, or it stays out of every share.
-- A chosen reviewer who loses their role on the market is skipped by every deal and served as not `able` until an Admin removes them: removing someone is always a person's act, recorded, never a side effect of a role taken away.
+- A chosen reviewer who loses their role on the market, or whose role the table no longer lets be chosen, is skipped by every deal and served as not `able` until an Admin removes them: removing someone is always a person's act, recorded, never a side effect of a role taken away.
+- Being chosen is read off the market's team by address at every check, so removing a reviewer takes their verdicts away at once, with no role to take back.
 - A verdict on someone else's share is not refused: dividing the review is a soft filter, and the warning is the screen's.
+- The share is also the order a chosen reviewer is handed cards in: `review/next` hands them the open applications dealt to them, and the follow-ups they own when follow-ups are asked for, first, and with `mineOnly` nothing else, so One by one can say their share is done before offering the rest (`claim_next_for_review`, E38/F07/S04); for anyone else the hand-out is first come, first served.
 - A change of reviewers can answer 409 ("The reviewers are being dealt applications right now. Try again in a moment.") when another deal holds the market longer than it waits; an arrival never does, since it leaves its application to whoever holds the market.
 
 ## Considered and rejected

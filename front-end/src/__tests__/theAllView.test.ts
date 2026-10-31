@@ -8,6 +8,7 @@ import {
   ALL_VIEW_FILTERS,
   allViewApplications,
   allViewFilter,
+  allViewLists,
   heldElsewhere,
   notSelectedLine,
   reviewView,
@@ -166,5 +167,73 @@ describe('what Select all left out, in words (E38/F05/S02, E38/F06/S01)', () => 
     expect(notSelectedLine(1, 2, WHO)).toBe(
       '3 applications not selected: another reviewer has 1 open, and 2 already have a verdict, which only an Admin or the owner may change.',
     );
+  });
+});
+
+describe('the All view narrowed to a reviewer’s share (E38/F07/S04)', () => {
+  const dealt = (
+    id: string,
+    status: ApplicationStatus,
+    reviewer: string | null,
+    owner?: string,
+  ): Application => ({
+    ...app(id, status, owner),
+    reviewer: reviewer ? { userId: reviewer, email: reviewer } : null,
+  });
+  const SHARES = [
+    dealt('a', ApplicationStatus.Open, 'alex@market.test'),
+    dealt('b', ApplicationStatus.Open, 'Sam@Market.test'),
+    dealt('c', ApplicationStatus.NeedsFollowUp, 'alex@market.test', 'alex@market.test'),
+    dealt('d', ApplicationStatus.NeedsFollowUp, 'sam@market.test', 'alex@market.test'),
+    dealt('e', ApplicationStatus.ReviewerApproved, 'alex@market.test'),
+    dealt('f', ApplicationStatus.ReviewerRejected, null),
+  ];
+  const shareIds = (reviewer: string | null, filter = 'all', mine = false) =>
+    allViewApplications(SHARES, allViewFilter(filter), mine, 'alex@market.test', reviewer).map(
+      (a) => a.id,
+    );
+
+  it('lists only the applications dealt to the reviewer named, decided ones included', () => {
+    expect(shareIds('sam@market.test')).toEqual(['b', 'd']);
+  });
+
+  it('counts a follow-up the reviewer named owns in their share, whoever reads it', () => {
+    const owned = [
+      ...SHARES,
+      dealt('g', ApplicationStatus.NeedsFollowUp, 'alex@market.test', 'sam@market.test'),
+    ];
+    const ids = (reviewer: string) =>
+      allViewApplications(owned, allViewFilter('all'), false, 'alex@market.test', reviewer).map(
+        (a) => a.id,
+      );
+    // Alex reads Sam's share: Sam's follow-up on Alex's share is in both.
+    expect(ids('sam@market.test')).toEqual(['b', 'd', 'g']);
+    expect(ids('alex@market.test')).toEqual(['a', 'c', 'd', 'e', 'g']);
+  });
+
+  it('counts a follow-up the reader owns in their own share, whoever it was dealt to', () => {
+    expect(shareIds('alex@market.test')).toEqual(['a', 'c', 'd', 'e']);
+    expect(shareIds('ALEX@market.test ')).toEqual(['a', 'c', 'd', 'e']);
+  });
+
+  it('lists every application for nobody named, those never dealt included', () => {
+    expect(shareIds(null)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+  });
+
+  it('narrows together with the status filter and Mine', () => {
+    expect(shareIds('alex@market.test', 'undecided')).toEqual(['a']);
+    expect(shareIds('sam@market.test', 'needs_follow_up')).toEqual(['d']);
+    expect(shareIds('alex@market.test', 'all', true)).toEqual(['c', 'd']);
+    expect(shareIds('sam@market.test', 'all', true)).toEqual(['d']);
+  });
+
+  it('lists nothing for a reviewer dealt nothing', () => {
+    expect(shareIds('ben@market.test')).toEqual([]);
+  });
+
+  it('leaves the Stats tab’s test by status alone', () => {
+    expect(allViewLists.length).toBe(2);
+    expect(allViewLists('undecided', ApplicationStatus.Open)).toBe(true);
+    expect(allViewLists('undecided', ApplicationStatus.NeedsFollowUp)).toBe(false);
   });
 });
