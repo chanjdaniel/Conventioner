@@ -244,21 +244,13 @@ function elsewhere(relative: string | null | undefined): string | null {
 }
 
 /**
- * Whether this person may take the action a remedy or a step leads to (T142). The rail told a
- * Viewer "Pick market dates", a link to a page where every control was disabled; it now offers a
- * way somewhere only on the table's answer for what is done there. None named, as from an older
- * server, offers nothing, as an unanswered action does everywhere.
- */
-function mayFollow(action: MarketAction | null | undefined): boolean {
-  return action ? mayTake(props.market, action) : false;
-}
-
-/**
  * Where the step is done, unless that is where the organizer already is, or the work there is not
- * theirs to do. The sentence is said either way.
+ * theirs to do (T142): the rail told a Viewer "Pick market dates", a link to a page where every
+ * control was disabled. A step that names no action is unanswered, and leads nowhere. The sentence
+ * is said either way.
  */
 const stepLink = computed(() =>
-  mayFollow(step.value?.action) ? elsewhere(step.value?.page) : null,
+  mayTake(props.market, step.value?.action) ? elsewhere(step.value?.page) : null,
 );
 
 /**
@@ -297,7 +289,9 @@ const fix = computed(() => {
   // The move's own first blocker, the one its disabled state is read from - not the sentence's,
   // which before a run says "run the assignment" in its own words and names no blocker.
   const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
-  const to = mayFollow(blocker?.resolutionAction) ? elsewhere(blocker?.resolutionLink) : null;
+  const to = mayTake(props.market, blocker?.resolutionAction)
+    ? elsewhere(blocker?.resolutionLink)
+    : null;
   return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 

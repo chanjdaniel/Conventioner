@@ -51,7 +51,7 @@ Adding or removing one is a one-file edit: append a guard to an edge's list, or 
 The transition endpoint and the front end's [`BlockerPanel.vue`](../../../front-end/src/components/BlockerPanel.vue) are generic over `PreconditionResult` and must stay that way; the panel renders each blocker's message, and its link only where following it leads somewhere other than the page the organizer is on, and only for someone the table lets take the blocker's `resolutionAction`.
 
 **Every remedy names the action it takes.**
-A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whom the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):
+A guard that sets a `resolution_link` sets the `resolution_action` its remedy takes, so [the phase rail](phase-rail.md) and its panel offer the remedy only to whoever the table's answer for that row lets take it ([what each role may do](../../business/rules/what-each-role-may-do.md)):
 
 | Remedy | Page | Action |
 | - | - | - |

@@ -1,3 +1,4 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -25,6 +26,19 @@ const ORG_ADMIN = { email: 'e2e-role-org-admin@example.com', password: 'e2epassw
 
 let marketId: string;
 
+/** Give someone a role on a market, as its owner, whose session the seed left on `request`. */
+async function grantRole(
+  request: APIRequestContext,
+  onMarket: string,
+  user: { email: string },
+  role: 'viewer' | 'editor',
+): Promise<void> {
+  const res = await request.post(`${BACKEND_URL}/markets/${onMarket}/roles`, {
+    data: { user_email: user.email, role },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
+
 test.beforeAll(async ({ request }) => {
   ensureVerifiedUser(VIEWER.email, VIEWER.password);
   ensureVerifiedUser(EDITOR.email, EDITOR.password);
@@ -34,16 +48,8 @@ test.beforeAll(async ({ request }) => {
     TEST_USER.email,
     TEST_USER.password,
   ));
-  for (const [user, role] of [
-    [VIEWER, 'viewer'],
-    [EDITOR, 'editor'],
-  ] as const) {
-    const res = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { user_email: user.email, role },
-    });
-    expect(res.ok(), await res.text()).toBeTruthy();
-  }
+  await grantRole(request, marketId, VIEWER, 'viewer');
+  await grantRole(request, marketId, EDITOR, 'editor');
 });
 
 test('a Viewer reads every market page and is offered nothing to change', async ({ browser }) => {
@@ -117,17 +123,13 @@ test('an Editor of a Google Form market is offered no import, and told only an a
     TEST_USER.password,
     { setupObject: planSetupObject(), intakeMode: 'csv' },
   );
-  const res = await request.post(`${BACKEND_URL}/markets/${importing.marketId}/roles`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { user_email: EDITOR.email, role: 'editor' },
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
+  await grantRole(request, importing.marketId, EDITOR, 'editor');
 
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 15000 });
     await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
-    // Nor as the sentence's link (T142): the rail offers a remedy only to whom may take it.
+    // Nor as the sentence's link (T142): the rail offers a remedy only to whoever may take it.
     await expect(page.getByTestId('phase-rail-next')).toContainText('responses');
     await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
     await page.goto(marketScreenPath(importing.marketId, 'import'));
@@ -155,16 +157,8 @@ test.describe('a draft missing its dates, on a phone', () => {
       TEST_USER.password,
       { setupObject: planSetupObject([]), intakeMode: 'csv' },
     ));
-    for (const [user, role] of [
-      [VIEWER, 'viewer'],
-      [EDITOR, 'editor'],
-    ] as const) {
-      const res = await request.post(`${BACKEND_URL}/markets/${draftId}/roles`, {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-        data: { user_email: user.email, role },
-      });
-      expect(res.ok(), await res.text()).toBeTruthy();
-    }
+    await grantRole(request, draftId, VIEWER, 'viewer');
+    await grantRole(request, draftId, EDITOR, 'editor');
   });
 
   test('a Viewer reads where it stands and is offered no step', async ({ browser }) => {

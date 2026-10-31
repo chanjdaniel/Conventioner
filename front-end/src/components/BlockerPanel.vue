@@ -38,9 +38,7 @@ const router = useRouter();
 const rows = computed(() =>
   props.blockers.map((blocker) => {
     const link =
-      blocker.resolutionLink &&
-      blocker.resolutionAction &&
-      mayTake(props.market, blocker.resolutionAction)
+      blocker.resolutionLink && mayTake(props.market, blocker.resolutionAction)
         ? resolutionPath(props.market.id, blocker.resolutionLink)
         : null;
     return {
