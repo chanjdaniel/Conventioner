@@ -393,7 +393,7 @@ Conventioner/
 
 ### Discord
 - **Purpose**: Conventioner's one bot, added to an organizer's server, gives a market's vendors its role
-- **Use Cases**: the Discord card, on a market's Tools tab, connects a market to a server ([the Discord connection](implementation/modules/discord.md))
+- **Use Cases**: the Discord card, on a market's Tools tab, connects a market to a server, and the Vendors page's Check Discord reads who is in it ([the Discord connection](implementation/modules/discord.md))
 - **Configuration**: optional; client id, client secret and bot token, all three or Discord is off; called over REST only, with `requests`
 - **Documentation**: https://docs.discord.com/developers
 

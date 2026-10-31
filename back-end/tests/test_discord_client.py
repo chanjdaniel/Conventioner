@@ -26,8 +26,9 @@ def set_up(monkeypatch):
         monkeypatch.setenv(name, value)
 
 
-def _answer(status, body=None):
-    return SimpleNamespace(status_code=status, json=lambda: body, ok=200 <= status < 300)
+def _answer(status, body=None, headers=None):
+    return SimpleNamespace(status_code=status, json=lambda: body, ok=200 <= status < 300,
+                           headers=headers or {})
 
 
 class FakeDiscord:
@@ -36,6 +37,7 @@ class FakeDiscord:
     def __init__(self):
         self.answers = {}
         self.sent = []
+        self.waits = []
 
     def answer(self, method, path, status, body=None):
         self.answers[(method, path)] = _answer(status, body)
@@ -51,6 +53,7 @@ class FakeDiscord:
 def discord(monkeypatch):
     fake = FakeDiscord()
     monkeypatch.setattr(Discord.requests, "request", fake.request)
+    monkeypatch.setattr(Discord, "_wait", fake.waits.append)
     return fake
 
 
@@ -214,13 +217,14 @@ class TestTheServersRoles:
         assert "401" in caplog.text
         assert VALUES["DISCORD_BOT_TOKEN"] not in caplog.text
 
-    def test_being_asked_to_slow_down_is_said_so(self, set_up, discord):
+    def test_being_asked_to_slow_down_and_again_is_said_so(self, set_up, discord):
         discord.answer("GET", "/users/@me", 429, {"retry_after": 1.5, "global": False})
 
         with pytest.raises(Discord.DiscordUnavailable) as refused:
             Discord.server_roles(Discord.credentials(), GUILD)
 
         assert "try again" in str(refused.value)
+        assert discord.waits == [1.5] * Discord.RATE_LIMIT_WAITS
 
     def test_a_failure_never_quotes_the_token(self, set_up, discord):
         discord.answer("GET", "/users/@me", 500, {"message": VALUES["DISCORD_BOT_TOKEN"]})
@@ -229,3 +233,97 @@ class TestTheServersRoles:
             Discord.server_roles(Discord.credentials(), GUILD)
 
         assert VALUES["DISCORD_BOT_TOKEN"] not in str(refused.value)
+
+
+def _member(user_id, username, roles=(), global_name=None, nick=None, bot=False):
+    return {"user": {"id": user_id, "username": username, "global_name": global_name,
+                     "bot": bot},
+            "nick": nick, "roles": list(roles)}
+
+
+class PagedMembers(FakeDiscord):
+    """List Guild Members as Discord pages it: ``limit`` members whose id is above ``after``,
+    in id order (https://docs.discord.com/developers/resources/guild#list-guild-members)."""
+
+    def __init__(self, members):
+        super().__init__()
+        self.members = sorted(members, key=lambda member: int(member["user"]["id"]))
+        self.limited = []
+
+    def request(self, method, url, **kwargs):
+        if not url.endswith(f"/guilds/{GUILD}/members"):
+            return super().request(method, url, **kwargs)
+        self.sent.append(SimpleNamespace(method=method, url=url, **kwargs))
+        if self.limited:
+            return self.limited.pop(0)
+        params = kwargs.get("params") or {}
+        after = int(params.get("after") or 0)
+        limit = int(params["limit"])
+        return _answer(200, [m for m in self.members if int(m["user"]["id"]) > after][:limit])
+
+
+@pytest.fixture
+def paged(monkeypatch):
+    def server(members):
+        fake = PagedMembers(members)
+        monkeypatch.setattr(Discord.requests, "request", fake.request)
+        monkeypatch.setattr(Discord, "_wait", fake.waits.append)
+        return fake
+    return server
+
+
+class TestTheServersMembers:
+    def test_every_member_is_read_a_page_of_1000_at_a_time(self, set_up, paged):
+        server = paged([_member(str(1000 + n), f"vendor{n}") for n in range(2500)])
+
+        members = Discord.server_members(Discord.credentials(), GUILD)
+
+        assert len(members) == 2500
+        assert [sent.params for sent in server.sent] == [
+            {"limit": 1000, "after": "0"},
+            {"limit": 1000, "after": "1999"},
+            {"limit": 1000, "after": "2999"},
+        ]
+
+    def test_a_member_is_their_username_and_roles_never_their_display_name(self, set_up, paged):
+        paged([_member("1001", "maple.crafts", roles=["r-vendor"], global_name="Maple",
+                       nick="Maple Crafts")])
+
+        [member] = Discord.server_members(Discord.credentials(), GUILD)
+
+        assert member == Discord.Member("1001", "maple.crafts", ("r-vendor",))
+
+    def test_a_429_is_waited_out_and_the_list_finishes(self, set_up, paged):
+        server = paged([_member(str(1000 + n), f"vendor{n}") for n in range(1500)])
+        server.limited = [_answer(429, {"retry_after": 0.25, "global": False})]
+
+        members = Discord.server_members(Discord.credentials(), GUILD)
+
+        assert len(members) == 1500
+        assert server.waits == [0.25]
+
+    def test_a_429_without_a_body_is_waited_out_by_its_header(self, set_up, paged):
+        server = paged([_member("1001", "maple.crafts")])
+        server.limited = [_answer(429, None, {"Retry-After": "2"})]
+
+        assert len(Discord.server_members(Discord.credentials(), GUILD)) == 1
+        assert server.waits == [2.0]
+
+    def test_a_wait_longer_than_a_request_can_hold_is_said_so(self, set_up, paged):
+        server = paged([_member("1001", "maple.crafts")])
+        server.limited = [_answer(429, {"retry_after": 600, "global": True})]
+
+        with pytest.raises(Discord.DiscordUnavailable) as refused:
+            Discord.server_members(Discord.credentials(), GUILD)
+
+        assert str(refused.value) == Discord.SLOW_DOWN
+        assert server.waits == []
+
+    def test_a_server_the_bot_cannot_read_says_to_connect_again(self, set_up, discord):
+        discord.answer("GET", f"/guilds/{GUILD}/members", 403, {
+            "message": "Missing Access", "code": 50001})
+
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            Discord.server_members(Discord.credentials(), GUILD)
+
+        assert str(refused.value) == Discord.BOT_NOT_IN_SERVER

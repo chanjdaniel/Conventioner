@@ -23,6 +23,11 @@ export class VendorsPage {
   readonly summary: Locator;
   readonly unassignedOnly: Locator;
   readonly exportButton: Locator;
+  /** Who is in the Discord server (E46/F01/S03): each row's state, the filter, and the check. */
+  readonly discordStates: Locator;
+  readonly discordFilter: Locator;
+  readonly discordChecked: Locator;
+  readonly checkDiscordButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -44,6 +49,10 @@ export class VendorsPage {
     this.summary = page.getByTestId('vendors-summary');
     this.unassignedOnly = page.getByTestId('vendors-filter-unassigned');
     this.exportButton = page.getByTestId('vendors-export-button');
+    this.discordStates = page.getByTestId('vendors-list-discord');
+    this.discordFilter = page.getByTestId('vendors-discord-filter');
+    this.discordChecked = page.getByTestId('vendors-discord-checked');
+    this.checkDiscordButton = page.getByTestId('vendors-discord-check');
   }
 
   async goto(marketId: string): Promise<void> {
