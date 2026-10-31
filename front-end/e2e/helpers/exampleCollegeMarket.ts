@@ -9,11 +9,11 @@ import { uniqueMarketName } from './uniqueName';
  * (E43/F01/S02); the code names none of its questions.
  */
 export const SECOND_DATE = '2099-05-08';
-export const GOLD = { id: 1, name: 'Gold' };
-export const SILVER = { id: 2, name: 'Silver' };
+const GOLD = { id: 1, name: 'Gold' };
+const SILVER = { id: 2, name: 'Silver' };
 export const STUDENT = 'Current Example College student';
 export const ALUMNI = 'Example College alumni/staff';
-export const CLUBS = ['Art Club', 'Craft Club'];
+const CLUBS = ['Art Club', 'Craft Club'];
 export const NO_CLUB = 'Not in any of these clubs';
 
 export const PLAN = {
@@ -28,7 +28,7 @@ export const PLAN = {
   assignmentOptions: { maxAssignmentsPerVendor: 2, maxHalfTableProportionPerSection: 50 },
 };
 
-export const FORM = {
+const FORM = {
   fields: [
     {
       key: 'affiliation',
