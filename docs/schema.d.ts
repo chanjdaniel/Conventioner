@@ -40,6 +40,7 @@ export interface MarketSchema {
   creationDate: string;
   discord?: {
     checkedAt?: string;
+    declinedMatches?: Record<string, string[]>;
     guildId?: string;
     guildName?: string;
     inviteLink?: string;
@@ -47,7 +48,13 @@ export interface MarketSchema {
     roleName?: string;
     usernameQuestion?: string;
     vendorStates?: {
+      answer?: string;
       applicationId: string;
+      possibleMatches?: {
+        displayName?: string;
+        nick?: string;
+        username: string;
+      }[];
       state: string;
     }[];
   };

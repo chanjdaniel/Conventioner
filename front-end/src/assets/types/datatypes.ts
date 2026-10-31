@@ -390,8 +390,24 @@ export interface DiscordConnection {
   inviteLink?: string;
   /** When "Check Discord" last read the server's members (E46/F01/S03). */
   checkedAt?: string;
-  /** Each vendor as that check found them, by application (`discordCheck.ts` reads the states). */
-  vendorStates?: { applicationId: string; state: string }[];
+  /** Each vendor as that check found them, by application (`discordCheck.ts` reads the states):
+   *  the answer it read, and for a vendor not found, the members offered as possible matches. */
+  vendorStates?: {
+    applicationId: string;
+    state: string;
+    answer?: string;
+    possibleMatches?: DiscordPossibleMatch[];
+  }[];
+  /** The members declined as a vendor's possible match, by application id (E46/F01/S05). */
+  declinedMatches?: Record<string, string[]>;
+}
+
+/** A member of the server who may be a vendor (E46/F01/S05): their username, which confirming
+ *  saves as the vendor's answer, and the names that looked like it. */
+export interface DiscordPossibleMatch {
+  username: string;
+  displayName?: string;
+  nick?: string;
 }
 
 /** A role of the connected server, as `GET /markets/:id/discord/roles` serves it. */

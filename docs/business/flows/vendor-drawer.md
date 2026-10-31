@@ -4,6 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
+  - front-end/src/components/VendorDiscordOffer.vue
 verified: 2026-10-31
 sources:
   - brain-dump/2026-10-19#13
@@ -30,6 +31,7 @@ sources:
   - T139
   - E44/F01/S01
   - E44/F01/S02
+  - E46/F01/S05
 ---
 
 # The vendor drawer
@@ -50,7 +52,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
    The drawer offers verdicts on the server's answers, the verdicts row's, the change row's and `verdictsSettledReason`, never on a list of phases of its own, so it and the review cannot disagree.
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
 4. Four tabs, moved between with the arrow keys; History is held only for whoever the row "Read the market's history" allows, and an address asking for it opens on Application for anyone else:
-   - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
+   - **Application:** a table-share request that needs attention; then "Discord" ([`VendorDiscordOffer.vue`](../../../front-end/src/components/VendorDiscordOffer.vue)), when the last "Check Discord" asks something about the vendor ([J17](vendors.md#j17-answer-a-possible-discord-match), [possible matches](../../implementation/modules/discord.md#possible-matches)): the members offered as a possible match, each "Possible match: <their name> @<username>" with "Confirm…" and "Not them" for whoever may update the vendor's info, or, once their username was updated after the check, "Their username was updated after the last check. Check Discord again to see whether they are in the server."; then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
      An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it, and "Their answer changed since your update." once a re-import or their own edit changed what they wrote.
      "Update info", at the end of the Submission heading for whoever the row "Update a vendor's info" allows, opens a dialog of their answers, each in its question's own control, with Save and Cancel: an answer that differs from what they wrote shows it beside it, with "Use their answer"; below them the essential questions, as the form asks them; those the assignment reads, and the market's own questions a price group reads, are read-only to whoever the row "Update info the assignment or price reads" refuses ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
      Escape closes the dialog alone; once it saves, the drawer reads the market's vendors again, which the Vendors list shares, and the review's All view behind it reads its list again.
@@ -65,7 +67,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      "Record payment", at the end of the Payments heading for whoever the row "Record a payment" allows, opens a dialog of the amount, e-transfer or cash, the day paid (today to begin with) and an optional note; once recorded, the tab reads the account the server answers.
      For whoever the row "Change the amount owed" allows, each line has a "..." menu: "Change the amount owed" opens a dialog that says the change before Save ("Friday, May 8, 2099 will owe $0 instead of $15."), $0 waiving it; a line set by hand shows the calculated price struck beside it, "Set by <address>, <when>", or "Removed when the table was freed, by <address>, <when>" for the $0 a free's deduction set, which seating the day again takes back, and its menu adds "Use the calculated price", confirmed first.
      For whoever the row "Adjust the amount paid" allows, "Record refund" sits beside "Record payment", for money given back ("-$15", "Refund by e-transfer, given …"), and each entry has a "..." menu: "Edit" opens the same dialog filled in, and "Remove", confirmed first, takes it out of what they paid and leaves it listed, struck; an edited or removed entry keeps "Recorded by …", with "Edited by …" or "Removed by …" under it ([payments](../../implementation/data/payments.md)).
-   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, their info updated, and their payments, refunds and amounts owed changed.
+   - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, their info updated, a Discord member said not to be them, and their payments, refunds and amounts owed changed.
      Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.
@@ -75,7 +77,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 The applications stand on their own read: when the server cannot say where vendors sit, the drawer still shows the answers, says the server's reason in red on every tab, and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
-Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
+Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `possible-discord-matches.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
 
 ## The rules it obeys
 

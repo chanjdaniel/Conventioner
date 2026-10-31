@@ -109,6 +109,9 @@ DISCORD_SETTINGS = "discord"
 DISCORD_DISCONNECTED = "discord_disconnected"
 #: "Check Discord" read who is in the server (E46/F01/S03): one entry a check, as a run is.
 DISCORD_CHECKED = "discord_checked"
+#: A member offered as a possible match was declined for a vendor (E46/F01/S05). Confirming one is
+#: the ordinary update of the vendor's answer, recorded as every update is.
+DISCORD_MATCH_DECLINED = "discord_match_declined"
 
 
 def _now() -> str:

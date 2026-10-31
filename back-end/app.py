@@ -816,6 +816,18 @@ def check_discord(market_id: str) -> Response:
     return jsonify(DiscordConnectionApi.check(market_id, authenticated_email())), 200
 
 
+@app.route('/markets/<market_id>/discord/possible-matches/<application_id>/declined',
+           methods=['POST'])
+@login_required
+def decline_discord_match(market_id: str, application_id: str) -> Response:
+    """A member the check offered as a possible match is not this vendor (E46/F01/S05). Body:
+    { "username" }. Asks ``Actions.UPDATE_VENDOR_INFO``, as confirming one, an update of the
+    vendor's answer, does."""
+    DiscordConnectionApi.decline_match(
+        market_id, application_id, json_object(required=True), authenticated_email())
+    return jsonify({"message": "Declined"}), 200
+
+
 @app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
 @login_required
 def get_vendor_notes(market_id: str) -> Response:

@@ -635,6 +635,9 @@ export function entryParts(
     case 'update-vendor-info/kept':
       // Saved as it stood over an answer the vendor changed since: the update is kept.
       return [actor, text('kept their update to the info of '), vendor];
+    case 'update-vendor-info/discord_match_declined':
+      // A member "Check Discord" offered as a possible match, said not to be the vendor (E46/F01/S05).
+      return [actor, text(`said the Discord member @${str(detail.username)} is not `), vendor];
     case 'write-vendor-notes/note':
       return [actor, text('changed the note on '), vendor];
     case 'write-vendor-notes/request_handled':
@@ -1106,6 +1109,22 @@ export function entryChanges(
           ]
         : dealtShares(entry).map((share) => reviewer(share, share.vendor)),
       recorded: [],
+    };
+  }
+  // A possible match declined (E46/F01/S05): the member, by their username and the names that
+  // looked like the vendor's, and the username on file it was offered for. Nothing changed on the
+  // vendor.
+  if (entry.action === 'update-vendor-info' && entry.kind === 'discord_match_declined') {
+    const names = [...new Set([str(detail.nick), str(detail.display_name)].filter(Boolean))];
+    return {
+      changed: [],
+      recorded: [
+        {
+          field: 'Discord member',
+          value: `@${str(detail.username)}${names.length ? ` (${names.join(' · ')})` : ''}`,
+        },
+        { field: 'Username on file', value: str(detail.answer) || 'none' },
+      ],
     };
   }
   // A vendor's answers, as they applied or as an organizer updated them: each question as the form

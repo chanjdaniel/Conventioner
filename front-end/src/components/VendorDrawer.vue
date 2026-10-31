@@ -24,6 +24,7 @@ import { dateLabel, type VendorDetails } from '@/utils/vendorDetails';
 import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
 import type { VendorTab } from '@/utils/vendorDrawer';
 import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
+import { discordAsks, discordVendors } from '@/utils/discordCheck';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useFocusGoesBack } from '@/utils/useFocusGoesBack';
 import { useInertBehind } from '@/utils/useInertBehind';
@@ -33,6 +34,7 @@ import MarketHistory from '@/components/MarketHistory.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import UpdateInfoDialog from '@/components/UpdateInfoDialog.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
+import VendorDiscordOffer from '@/components/VendorDiscordOffer.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import VendorPaymentTab from '@/components/VendorPaymentTab.vue';
 
@@ -125,6 +127,25 @@ async function infoSaved(): Promise<void> {
   await props.details.load();
   emit('infoUpdated');
 }
+
+/**
+ * What the last "Check Discord" asks about this vendor (E46/F01/S05): a member offered as a possible
+ * match, or a username updated since the check. Answering an offer is updating their info, so it is
+ * that row's, and the row for an answer a price reads where a price group reads the username.
+ */
+const discordVendor = computed(() =>
+  application.value
+    ? (discordVendors(props.market, [application.value]).get(application.value.id) ?? null)
+    : null,
+);
+const answersDiscord = computed(
+  () =>
+    updatesInfo.value &&
+    !(
+      (props.market?.priceReads ?? []).includes(props.market?.discord?.usernameQuestion ?? '') &&
+      actionRefusal(props.market, MarketAction.UpdateAssignmentOrPriceInfo)
+    ),
+);
 
 /** The notes as the drawer holds them, for a screen that writes one from beside it (E34/F02/S01). */
 defineExpose({ entryFor, loadNotes });
@@ -308,6 +329,16 @@ watch(
               :notice="vendor.tableShareNotice"
               :words="String(vendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
               testid="vendors-detail-table-share-notice"
+            />
+          </div>
+          <div v-if="discordAsks(discordVendor)" class="detail-section">
+            <h3 class="detail-section-title">Discord</h3>
+            <VendorDiscordOffer
+              :market="market"
+              :application="application"
+              :vendor="discordVendor"
+              :canAnswer="answersDiscord"
+              @confirmed="infoSaved"
             />
           </div>
           <div class="detail-section">

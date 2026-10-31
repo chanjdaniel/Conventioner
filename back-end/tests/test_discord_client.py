@@ -285,13 +285,19 @@ class TestTheServersMembers:
             {"limit": 1000, "after": "2999"},
         ]
 
-    def test_a_member_is_their_username_and_roles_never_their_display_name(self, set_up, paged):
+    def test_a_member_is_their_username_and_roles_with_their_names_beside(self, set_up, paged):
+        """The display name and the server nickname are kept for offering a possible match
+        (E46/F01/S05), never for matching: anyone may set them to anything."""
         paged([_member("1001", "maple.crafts", roles=["r-vendor"], global_name="Maple",
-                       nick="Maple Crafts")])
+                       nick="Maple Crafts"),
+               _member("1002", "oak")])
 
-        [member] = Discord.server_members(Discord.credentials(), GUILD)
+        maple, oak = Discord.server_members(Discord.credentials(), GUILD)
 
-        assert member == Discord.Member("1001", "maple.crafts", ("r-vendor",))
+        assert maple == Discord.Member("1001", "maple.crafts", ("r-vendor",),
+                                       display_name="Maple", nick="Maple Crafts")
+        assert oak == Discord.Member("1002", "oak", ())
+        assert oak.display_name is None and oak.nick is None
 
     def test_a_429_is_waited_out_and_the_list_finishes(self, set_up, paged):
         server = paged([_member(str(1000 + n), f"vendor{n}") for n in range(1500)])

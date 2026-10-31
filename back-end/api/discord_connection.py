@@ -23,11 +23,19 @@ row: it lists the server's members and matches each vendor's username, as the or
 against their usernames alone, never a display name (Daniel, Q19), then keeps each vendor's state
 with when it was checked. A check is one entry in the history, naming each vendor whose state it
 changed.
+
+**A vendor "Not found" is offered possible matches** (E46/F01/S05): the members whose username,
+display name or server nickname looks like the username on file, shown as "Possible match:
+confirm?". The check only offers them; confirming is the ordinary update of the vendor's answer,
+saving the member's username (``api.vendor_info``, the row "Update a vendor's info"), so the next
+check matches them, and declining keeps the member from being offered to that vendor again. Never
+applied by the check itself (Daniel, Q19: never by a display name alone).
 """
 import hmac
 import re
 import secrets
 import time
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +48,9 @@ import discord_client as Discord
 import history as History
 from assignment.utils import convert_keys_to_camel_case
 from client_errors import BadRequestError, ConflictError
-from datatypes import ApplicationType, DiscordConnection, DiscordVendorState, Market
+from datatypes import (
+    ApplicationType, DiscordConnection, DiscordPossibleMatch, DiscordVendorState, Market,
+)
 from market_documents import market_doc_filter, market_doc_key
 from utils.email import frontend_url
 from utils.request_body import string_field
@@ -74,7 +84,8 @@ USERNAME_QUESTION_GONE = (
 #: What a server's connection is, and what is forgotten when the market connects to another one:
 #: the card's choices for that server, and what its check found there.
 SERVER_FIELDS = ("guild_id", "guild_name")
-SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states")
+SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states",
+                  "declined_matches")
 #: What the history records of a change to the card: its fields, never who connected it or when,
 #: which the entry's actor and time already say, and never a check, which records its own entry.
 RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_link",
@@ -93,6 +104,15 @@ IN_SERVER = "in_server"
 NOT_FOUND = "not_found"
 NO_USERNAME = "no_username"
 STATES = (HAS_ROLE, IN_SERVER, NOT_FOUND, NO_USERNAME)
+
+#: How many members a vendor is offered at most as possible matches, the likeliest first.
+POSSIBLE_MATCHES_OFFERED = 5
+NOT_OFFERED = (
+    "That member is not offered as a possible match for this vendor. Check Discord again."
+)
+CHANGED_WHILE_DECLINING = (
+    "The market's Discord connection changed. Check Discord again, then answer its offers."
+)
 
 #: An old Discord tag, "name#1234", from before usernames were unique: its number is not part of
 #: the username a member now has.
@@ -219,16 +239,24 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
         roles_by_username.setdefault(tidied_username(member.username), set()).update(member.roles)
 
     vendors = _vendors_usernames(market_id, question)
-    states = [
-        DiscordVendorState(application_id=app_id, state=_state(
-            username, roles_by_username, before.role_id))
-        for app_id, _email, username in vendors
-    ]
+    declined = before.declined_matches or {}
+    states = []
+    for app_id, _email, answer, username in vendors:
+        state = _state(username, roles_by_username, before.role_id)
+        states.append(DiscordVendorState(
+            application_id=app_id, state=state, answer=answer,
+            possible_matches=(_possible_matches(answer, members, declined.get(app_id) or [])
+                              if state == NOT_FOUND else None) or None))
     after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
     # Only the check's own fields, and only while the card still names what the states were read
-    # against: the members take seconds to read, and a card saved meanwhile is not undone.
+    # against: the members take seconds to read, and a card saved meanwhile is not undone. A
+    # vendor's state leaves out what it does not have: no answer, no offer.
     discord = market_doc_key("discord")
-    stored = convert_keys_to_camel_case(after.model_dump(include={"checked_at", "vendor_states"}))
+    stored = {
+        "checkedAt": after.checked_at,
+        "vendorStates": [convert_keys_to_camel_case(vendor.model_dump(exclude_none=True))
+                         for vendor in states],
+    }
     unchanged = {f"{discord}.{market_doc_key(field)}": getattr(before, field)
                  for field in CHECKED_AGAINST}
     written = MarketsApi.markets_collection.update_one(
@@ -241,7 +269,7 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     for vendor in states:
         counts[vendor.state] = counts.get(vendor.state, 0) + 1
     was = {vendor.application_id: vendor.state for vendor in before.vendor_states or []}
-    changed = [(app_id, email) for (app_id, email, _), now in zip(vendors, states)
+    changed = [(app_id, email) for (app_id, email, _, _), now in zip(vendors, states)
                if was.get(app_id) != now.state]
     now_by_id = {vendor.application_id: vendor.state for vendor in states}
     History.record(
@@ -266,6 +294,75 @@ def tidied_username(written: str) -> str:
     return _OLD_TAG.sub("", username).strip()
 
 
+def looks_alike(written: str) -> str:
+    """A name as a possible match compares it: tidied as a username is, its letters folded
+    (``NFKC``, then case), and only its letters and digits kept, so "Maple Crafts 🍁",
+    "maple_crafts" and "@MAPLE-crafts" all read "maplecrafts". Empty for a name with no letter or
+    digit, which looks like nobody."""
+    folded = unicodedata.normalize("NFKC", tidied_username(written)).casefold()
+    return "".join(character for character in folded if character.isalnum())
+
+
+def _possible_matches(
+    answer: Optional[str], members: List[Discord.Member], declined: List[str],
+) -> List[DiscordPossibleMatch]:
+    """The members whose username, display name or nickname looks like the vendor's answer, by
+    username, leaving out the ones declined for this vendor; at most ``POSSIBLE_MATCHES_OFFERED``."""
+    wanted = looks_alike(answer or "")
+    if not wanted:
+        return []
+    offered = sorted(
+        (member for member in members
+         if member.username not in declined
+         and wanted in {looks_alike(name) for name in
+                        (member.username, member.display_name or "", member.nick or "")}),
+        key=lambda member: member.username)
+    return [
+        DiscordPossibleMatch(username=member.username, display_name=member.display_name,
+                             nick=member.nick)
+        for member in offered[:POSSIBLE_MATCHES_OFFERED]
+    ]
+
+
+def decline_match(
+    market_id: str, application_id: str, body: Dict[str, Any], requesting_user: str,
+) -> None:
+    """The organizer says a member offered as a possible match is not this vendor (E46/F01/S05).
+
+    The vendor stays "Not found", and the member is never offered to them again on this server.
+    Asks the row "Update a vendor's info", as confirming does: answering an offer is the vendor's
+    info, not the check. Only a member the last check offered to this vendor may be declined.
+    """
+    market = MarketsApi._load_market_to_change(
+        market_id, requesting_user, Actions.UPDATE_VENDOR_INFO)
+    connection = _connection(market)
+    username = _string(body, "username")
+    vendor = next((state for state in connection.vendor_states or []
+                   if state.application_id == application_id), None)
+    offered = next((match for match in (vendor.possible_matches or [] if vendor else [])
+                    if match.username == username), None)
+    if not username or offered is None:
+        raise BadRequestError(NOT_OFFERED)
+
+    # By the application's id as a check stored it, so the key is one of the market's own.
+    key = f"{market_doc_key('discord')}.{market_doc_key('declined_matches')}.{vendor.application_id}"
+    written = MarketsApi.markets_collection.update_one(
+        {**market_doc_filter("id", market.id),
+         f"{market_doc_key('discord')}.{market_doc_key('guild_id')}": connection.guild_id},
+        {"$addToSet": {key: offered.username}})
+    if written.matched_count == 0:
+        raise ConflictError(CHANGED_WHILE_DECLINING)
+
+    application = ApplicationsApi.find_application_by_id(vendor.application_id) or {}
+    email = str(application.get(ApplicationsApi.APPLICANT_EMAIL_FIELD) or "").strip().lower()
+    History.record(
+        market.id, requesting_user, Actions.UPDATE_VENDOR_INFO,
+        kind=History.DISCORD_MATCH_DECLINED, vendors=[email] if email else [],
+        subject={"application_id": vendor.application_id},
+        detail={"username": offered.username, "display_name": offered.display_name,
+                "nick": offered.nick, "answer": vendor.answer})
+
+
 def _state(username: str, roles_by_username: Dict[str, set], role_id: Optional[str]) -> str:
     if not username:
         return NO_USERNAME
@@ -276,16 +373,18 @@ def _state(username: str, roles_by_username: Dict[str, set], role_id: Optional[s
 
 
 def _vendors_usernames(market_id: str, question: str) -> List[tuple]:
-    """Each vendor's application id, address and tidied username, in the order the market's
-    applications are read: one main application each."""
+    """Each vendor's application id, address, answer as the organizer reads it (None when it is
+    not a string) and tidied username, in the order the market's applications are read: one main
+    application each."""
     vendors = []
     for doc in ApplicationsApi.list_applications_for_market(market_id):
         if doc.get(ApplicationsApi.APPLICATION_TYPE_FIELD) != ApplicationType.MAIN.value:
             continue
         answer = ApplicationsApi.effective_answers(doc).get(question)
-        username = tidied_username(answer) if isinstance(answer, str) else ""
+        answer = answer if isinstance(answer, str) else None
+        username = tidied_username(answer) if answer is not None else ""
         email = str(doc.get(ApplicationsApi.APPLICANT_EMAIL_FIELD) or "").strip().lower()
-        vendors.append((str(doc.get("id")), email, username))
+        vendors.append((str(doc.get("id")), email, answer, username))
     return vendors
 
 

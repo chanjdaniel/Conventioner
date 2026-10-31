@@ -820,6 +820,10 @@ class DiscordConnection(BaseModel):
     #: vendor then. About this server, so connecting to another one or disconnecting forgets them.
     checked_at: Optional[str] = None
     vendor_states: Optional[List["DiscordVendorState"]] = None
+    #: The members an organizer said are not a vendor (E46/F01/S05), by the vendor's application
+    #: id: their usernames, never offered to that vendor again as a possible match. Written by
+    #: declining an offer, never by a check, and about this server, as the check's fields are.
+    declined_matches: Optional[Dict[str, List[str]]] = None
 
 
 class DiscordVendorState(BaseModel):
@@ -833,6 +837,21 @@ class DiscordVendorState(BaseModel):
 
     application_id: str
     state: str
+    #: The username answer as the check read it, the organizer's update in its place, untidied;
+    #: None when there was none. A page tells an answer updated since the check by it.
+    answer: Optional[str] = None
+    #: For a vendor ``not_found``, the members whose username, display name or nickname looks like
+    #: the answer (E46/F01/S05): offered for the organizer to confirm, never applied by the check.
+    possible_matches: Optional[List["DiscordPossibleMatch"]] = None
+
+
+class DiscordPossibleMatch(BaseModel):
+    """A member of the server who may be the vendor (E46/F01/S05): their username, which confirming
+    saves as the vendor's answer, and the names that looked like it, to show the organizer."""
+
+    username: str
+    display_name: Optional[str] = None
+    nick: Optional[str] = None
 
 
 class MarketPermission(BaseModel):
@@ -1243,6 +1262,12 @@ class ServedReviewTeamContract(ContractModel):
 
 class DiscordVendorStateContract(DiscordVendorState, ContractModel):
     """Camel-cased contract view of one vendor as "Check Discord" found them."""
+
+    possible_matches: Optional[List["DiscordPossibleMatchContract"]] = None
+
+
+class DiscordPossibleMatchContract(DiscordPossibleMatch, ContractModel):
+    """Camel-cased contract view of a member offered as a possible match."""
 
 
 class DiscordConnectionContract(DiscordConnection, ContractModel):

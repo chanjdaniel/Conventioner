@@ -1634,6 +1634,32 @@ describe('the Discord card and its check, in words (E46/F01/S02, S03)', () => {
     ]);
   });
 
+  const declined = entry({
+    action: 'update-vendor-info',
+    kind: 'discord_match_declined',
+    vendors: ['ana@ember.test'],
+    subject: { application_id: 'app-ana' },
+    detail: {
+      username: 'fern_studio_42',
+      display_name: 'Fern Studio',
+      nick: null,
+      answer: 'Fern Studio',
+    },
+  });
+
+  it('words a possible match declined by the member and the vendor (E46/F01/S05)', () => {
+    expect(said(entryParts(declined, NAMES))).toBe(
+      'dana@ember.test said the Discord member @fern_studio_42 is not [Ana Rivera]',
+    );
+    expect(entryChanges(declined)).toEqual({
+      changed: [],
+      recorded: [
+        { field: 'Discord member', value: '@fern_studio_42 (Fern Studio)' },
+        { field: 'Username on file', value: 'Fern Studio' },
+      ],
+    });
+  });
+
   it('opens a check to each vendor whose state changed, and the counts', () => {
     expect(entryChanges(check)).toEqual({
       changed: [

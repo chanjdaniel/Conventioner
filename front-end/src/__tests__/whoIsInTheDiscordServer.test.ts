@@ -13,9 +13,10 @@ import type { Market } from '@/assets/types/datatypes';
 import { MarketAction } from '@/utils/marketActions';
 import {
   checkedAgo,
+  discordShownFrom,
   discordStateFrom,
   discordStateLabel,
-  discordStates,
+  discordVendors,
   mayCheckDiscord,
 } from '@/utils/discordCheck';
 import { answersRefusing } from './support/servedAnswers';
@@ -111,16 +112,19 @@ describe('a vendor as the check found them', () => {
   });
 
   it('is kept by application, and a state this build does not know is none', () => {
-    const states = discordStates({
-      discord: {
-        vendorStates: [
-          { applicationId: 'app-ana', state: 'has_role' },
-          { applicationId: 'app-ben', state: 'a_later_state' },
-        ],
-      },
-    } as unknown as Market);
+    const states = discordVendors(
+      {
+        discord: {
+          vendorStates: [
+            { applicationId: 'app-ana', state: 'has_role' },
+            { applicationId: 'app-ben', state: 'a_later_state' },
+          ],
+        },
+      } as unknown as Market,
+      [],
+    );
 
-    expect(states.get('app-ana')).toBe('has_role');
+    expect(states.get('app-ana')?.state).toBe('has_role');
     expect(states.has('app-ben')).toBe(false);
   });
 
@@ -133,9 +137,14 @@ describe('a vendor as the check found them', () => {
   });
 
   it('is filtered by a state in the address, and nothing else is a filter', () => {
-    expect(discordStateFrom('not_found')).toBe('not_found');
-    expect(discordStateFrom('nobody')).toBeNull();
-    expect(discordStateFrom(undefined)).toBeNull();
+    expect(discordShownFrom('not_found')).toBe('not_found');
+    expect(discordShownFrom('nobody')).toBeNull();
+    expect(discordShownFrom(undefined)).toBeNull();
+  });
+
+  it('reads a state a history entry holds, and nothing else', () => {
+    expect(discordStateFrom('has_role')).toBe('has_role');
+    expect(discordStateFrom('possible_match')).toBeNull();
   });
 });
 

@@ -138,6 +138,14 @@ class LiveMarkets:
         for key, value in (update.get("$push") or {}).items():
             added = value["$each"] if isinstance(value, dict) and "$each" in value else [value]
             self.doc.setdefault(key, []).extend(added)
+        for key, value in (update.get("$addToSet") or {}).items():
+            *parents, last = key.split(".")
+            target = self.doc
+            for part in parents:
+                target = target.setdefault(part, {})
+            held = target.setdefault(last, [])
+            if value not in held:
+                held.append(value)
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
 
@@ -550,6 +558,16 @@ def _check_discord(client, world):
     return client.post(f"/markets/{MARKET}/discord/check")
 
 
+def _decline_discord_match(client, world):
+    _discord(world, **DISCORD_SERVER, usernameQuestion="discord_username", vendorStates=[{
+        "applicationId": "app-1", "state": "not_found", "answer": "Maple Crafts",
+        "possibleMatches": [{"username": "maple.crafts", "displayName": "Maple Crafts"}]}])
+    world.applications.insert_one(_application(
+        "app-1", VENDOR, form_data={"discord_username": "Maple Crafts"}))
+    return client.post(f"/markets/{MARKET}/discord/possible-matches/app-1/declined",
+                       json={"username": "maple.crafts"})
+
+
 def _disconnect_discord(client, world):
     _discord(world, **DISCORD_SERVER)
     return client.delete(f"/markets/{MARKET}/discord/connection")
@@ -706,6 +724,11 @@ WRITES = [
     Write("who is in the Discord server", "POST", f"{M}/discord/check", Actions.CONNECT_DISCORD,
           History.DISCORD_CHECKED, _check_discord, vendors=(VENDOR,),
           subject={"application_ids": ["app-1"]}, detail_keys=("counts",)),
+    Write("a possible Discord match declined", "POST",
+          f"{M}/discord/possible-matches/<application_id>/declined", Actions.UPDATE_VENDOR_INFO,
+          History.DISCORD_MATCH_DECLINED, _decline_discord_match, vendors=(VENDOR,),
+          subject={"application_id": "app-1"}, before_after=False,
+          detail_keys=("username", "display_name", "nick", "answer")),
     Write("Discord disconnected", "DELETE", f"{M}/discord/connection", Actions.CONNECT_DISCORD,
           History.DISCORD_DISCONNECTED, _disconnect_discord),
     Write("a role given", "POST", f"{M}/roles", Actions.MANAGE_EDITORS_AND_VIEWERS,
