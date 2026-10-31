@@ -198,8 +198,8 @@ describe('the report', () => {
 
   it('groups the vendors a run had no time for, its reason said once', () => {
     const NOT_YET =
-      'Not given yet: a run asks Discord for a few seconds at most, and Discord was still ' +
-      'pacing it. Give roles again to finish.';
+      'A run asks Discord for a few seconds at most, and Discord was still pacing it. ' +
+      'Give roles again to finish.';
     const stopped = {
       ...RUN,
       outcomes: [
@@ -300,6 +300,20 @@ describe('the Vendors page', () => {
 
     expect(wrapper.find('[data-testid="vendors-discord-give"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="vendors-role-report"]').text()).toContain('Vendor Nov 2026');
+  });
+
+  it('titles the report by when it last ran, not as given, since a run may give nobody', async () => {
+    const nobody = {
+      ...RUN,
+      outcomes: [{ applicationId: 'app-ben', outcome: 'failed', reason: ROLE_ABOVE }],
+    };
+    const wrapper = await mounted(
+      market({ discord: { ...market().discord, roleRun: nobody } } as Partial<Market>),
+    );
+
+    const title = wrapper.find('#role-report-title').text();
+    expect(title).toMatch(/^Vendor Nov 2026, last run /);
+    expect(title).not.toContain('given');
   });
 
   it('offers no run before anyone holds a seat', async () => {

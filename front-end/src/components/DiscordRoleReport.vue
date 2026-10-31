@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * The last "Give roles" run's report (E46/F01/S04), kept on the market so every reader of the
- * Vendors page reads it: when it ran and the role it gave, how many ended in each outcome, and,
- * opened, each group's vendors, a failure's reason said once for the vendors it held back.
+ * Vendors page reads it: the role and when it last ran (never "given", since a run may give nobody
+ * the role), how many ended in each outcome, and, opened, each group's vendors, a failure's reason,
+ * or why the rest are not given yet, said once for the vendors it held back.
  */
 import { computed, ref } from 'vue';
 
@@ -42,7 +43,7 @@ const when = computed(() =>
   >
     <p class="role-report-line">
       <span id="role-report-title" class="role-report-title"
-        >{{ run.roleName || 'The role' }} given {{ when }}</span
+        >{{ run.roleName || 'The role' }}, last run {{ when }}</span
       >
       <span class="role-report-summary" data-testid="vendors-role-report-summary">{{
         summary

@@ -114,7 +114,7 @@ NO_ROLE = "Choose the role to give on the Discord card first, on the market's To
 #: before it, leaving time for a cold start and for writing what it did.
 ROLE_RUN_SECONDS = 6
 NOT_GIVEN_YET = (
-    "Not given yet: a run asks Discord for a few seconds at most, and Discord was still pacing it. "
+    "A run asks Discord for a few seconds at most, and Discord was still pacing it. "
     "Give roles again to finish."
 )
 #: The run's grants as the server's audit log names them, so its moderators can tell them from a

@@ -97,7 +97,7 @@ test('Give roles confirms by the role and the seated vendors, then reports by gr
 
   await expect(dialog).toHaveCount(0);
   expect(runs).toBe(1);
-  await expect(vendors.roleReport).toContainText('Vendor Nov 2026 given just now');
+  await expect(vendors.roleReport).toContainText('Vendor Nov 2026, last run just now');
   await expect(page.getByTestId('vendors-role-report-summary')).toHaveText('1 given, 1 failed');
 
   await page.getByTestId('vendors-role-report-toggle').click();
