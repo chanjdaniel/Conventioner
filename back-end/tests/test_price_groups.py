@@ -31,7 +31,7 @@ NO_CLUB = "Not in any of these clubs"
 FIELDS = [
     {"key": "affiliation", "label": "Are you an Example College student or alumni?", "type": "multi_select",
      "options": [STUDENT, ALUMNI]},
-    {"key": "clubs", "label": "Which clubs are you a member of?", "type": "multi_select",
+    {"key": "clubs", "label": "Do you belong to any of these clubs?", "type": "multi_select",
      "options": [*CLUBS, NO_CLUB]},
     {"key": "volunteer", "label": "I volunteered last year", "type": "checkbox"},
     {"key": "business", "label": "Business name", "type": "text"},
