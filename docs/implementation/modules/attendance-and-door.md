@@ -15,7 +15,7 @@ describes:
   - back-end/app.py#organizer_undo_check_in
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/App.vue#fitsAPhone
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
@@ -89,6 +89,7 @@ So the door's journey fits a phone from end to end: `/markets`, the door, a chec
 At that width only the banner and the market bar stay pinned, 138px of an 844px window, and the rail scrolls away with the page ([the market frame](market-frame.md)); the rail is laid out for a phone, its addresses named as chips and its actions wrapping beside them, so on a form market in market days the door starts at 319px of 844 on first paint rather than 409px, and `phase-rail.spec.ts` holds it within the top 340px ([the phase rail](phase-rail.md)).
 At that width the door's gutter narrows to `--space-4` and stays on both sides; at 0 its rows ran to the card's edges (T15).
 Every target the door's organizer and its vendors tap there is 44px, through the design language's [target tokens](../../design-system.md#the-primitive-layer); the layout sweep walks the attendance, its navigation drawer, the vendor drawer on each of its tabs, rail menu and archive confirmation, and the check-in page before and after a lookup at 390px, and fails on a target under 44px (T82).
+A roster that could not be read says which kind of failure it was, with a 44px Try again that reads it once more, apart from a check-in or undo the server did not record ([what the organizer reads](../conventions/an-exception-never-reaches-a-client.md#what-the-organizer-reads)).
 
 **Each check-in and its undo records into [the market's history](../data/history.md)** (`checked_in`, `check_in_undone`, under `check-in`) in `record_attendance` and `undo_attendance`, so both doors record alike, and only when whether the vendor is here changed: the organizer is the actor at theirs, and the public check-in page, which proves nobody, records no actor and `via: check_in_page`.
 

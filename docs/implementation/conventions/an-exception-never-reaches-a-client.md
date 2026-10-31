@@ -89,11 +89,19 @@ describes:
   - back-end/api/placements.py#AssignPhaseError
   - back-end/csv_start.py#ConfirmRefused
   - back-end/seed_test_markets.py#main
-verified: 2026-10-31
+  - front-end/src/utils/api.ts
+  - front-end/src/utils/download.ts#downloadErrorMessage
+  - front-end/src/components/ReadFailed.vue
+  - front-end/src/utils/signInNext.ts
+  - front-end/src/utils/sessionEnded.ts
+  - front-end/e2e/a-failure-says-what-to-do.spec.ts
+verified: 2026-11-01
 sources:
   - T74
   - E41/F01/S01
   - T139
+  - E38/F11/S01
+  - T161
 ---
 
 # An exception never reaches a client
@@ -231,3 +239,37 @@ Before that it refuses a database the environment does not name, or the primary 
   It stops following a flow at a `raise`, so the client copy rule and these route tests hold the rest: a library's message carried into a client error's copy is invisible to it.
 
 What breaks it: a route `except` that answers what it caught, a library's message in client copy, or a 500 body with more than `error` in it.
+
+## What the organizer reads
+
+The client half: the generic 500 body is for the log and for support, and never reaches a screen (E38/F11/S01).
+Each kind of failure reads one way, chosen in one place, `getApiErrorMessage(err, fallback)` in [`front-end/src/utils/api.ts`](../../../front-end/src/utils/api.ts), which every screen's catch calls with its own fallback.
+
+| The failure | What the screen says |
+| --- | --- |
+| No answer at all (no connection, a dropped request, a timeout) | "You seem to be offline. Check the connection and try again." |
+| A 500, whatever its body | "Something went wrong on our side. Try again in a moment." |
+| Another 5xx with no sentence of the back end's (a proxy's 502 or 504) | The same |
+| Another 5xx with a sentence (Discord's `DiscordNotSetUp` 503 and `DiscordUnavailable` 502) | That sentence |
+| A 401 with no sentence (Flask-Login's) | "Your session has ended. Sign in again." |
+| Any other refusal, a 401 with a sentence included (the applicant's code check) | Its `error`, else its `message` |
+| A refusal with neither, or a failure that is not a request's | The screen's fallback |
+
+A fallback says what did not happen ("The verdict was not saved.", "The applications could not be loaded."), never "Failed to ...".
+A download asks for a blob, so `downloadErrorMessage` in [`front-end/src/utils/download.ts`](../../../front-end/src/utils/download.ts) reads a refusal's sentence out of it and then answers the same way, through `answerMessage`.
+The account pages (sign in, register, password reset, email verification) still word their own failures.
+
+**A screen whose own read failed offers Try again**: [`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue) shows the message with a button that runs the read once more, its test ids `<name>-read-failed` and `<name>-retry`.
+Applications (both views, `applications`), Markets (`markets`), Organizations (`organizations`), Assignments (`tables`) and Attendance (`attendance`) use it; a market that could not be loaded at all is [the market frame](../modules/market-frame.md)'s `MarketArrival` to say, with its own Try again.
+Its button is a `.btn`, so it is 44px on a phone.
+
+**A session that ends mid-work** answers 401 to the next request, and one response interceptor on `api`, installed from `main.ts` by `installSessionEnded` in [`front-end/src/utils/sessionEnded.ts`](../../../front-end/src/utils/sessionEnded.ts), takes the organizer to sign in again.
+It clears `localStorage` and the market store, as signing out does, and goes to `/login?next=<the page's full path>&ended=1`, where the sign-in page says "Your session has ended. Sign in again.".
+It leaves alone a 401 from signing in, from the shell's session probe (`/check-session`, which `App.vue` answers itself, the same way) and from any `/public/...` request, since the applicant's and the door's pages have their own sign-in, and any 401 while the page is public.
+The request still fails as it would have, so the screen's own catch runs too.
+
+**A link opened signed out keeps its place**: `requireSignIn` in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts) sends it to `/login?next=<its full path>`, and both ways of signing in, by password and by code, continue to `next`, else to `/dashboard`; so does a signed-in visit to `/login?next=`.
+`next` is honoured only when `safeNext` in [`front-end/src/utils/signInNext.ts`](../../../front-end/src/utils/signInNext.ts) finds it a path of this app: one leading `/` (not `//`, not `/\`), no backslash or control character, not `/login` itself, and resolving to this origin; anything else is dropped for `/dashboard`.
+
+[`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds it end to end: each screen's read and the verdict, selection, plan save, phase move and Manage organization writes under the generic 500 and with no connection, Try again on a route that fails once, a session ended mid-review returning to the same address, a signed-out link by password and by code, and a `next` of another host.
+`api.test.ts` and `signInNext.test.ts` hold each kind and each hostile shape.

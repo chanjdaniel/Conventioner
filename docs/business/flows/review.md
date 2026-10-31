@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
   - front-end/src/components/market/ReviewersPanel.vue
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/08
@@ -66,6 +66,7 @@ The choice is kept in the address: no `view` is All, and a saved `?view=all` sti
 Choosing All drops both `view` and `application`.
 Both views say when their list was last read from the server, "Updated just now" or "Updated N minutes ago", ageing on screen, with "Refresh" beside it to read it again at once ([`ListFreshness.vue`](../../../front-end/src/components/application/ListFreshness.vue)).
 A refresh is a re-read, not a reset: the All view keeps the ticks of rows still shown, One by one keeps the card up while it is still to decide and moves on from one decided elsewhere, and a refresh that fails says "Could not refresh. The list is as it was last read." and keeps the list.
+A first read that fails says which kind of failure it was, the connection or the server, with "Try again" to read it once more ([`ReadFailed.vue`](../../../front-end/src/components/ReadFailed.vue)).
 Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
 

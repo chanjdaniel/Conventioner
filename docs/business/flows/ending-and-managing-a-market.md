@@ -8,7 +8,7 @@ describes:
   - front-end/src/components/PermissionChanges.vue
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E20/F01/S03
   - E21/F03/S04
