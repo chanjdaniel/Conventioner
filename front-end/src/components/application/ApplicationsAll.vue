@@ -209,6 +209,10 @@ function leading(app: Application): string {
     .join(' · ');
 }
 
+// With no leading answer in any listed row, the rows hold no leading column, so the status lines
+// take its room rather than wrap beside an empty band; with one, every row keeps it to line up.
+const leadingShown = computed(() => shown.value.some((app) => leading(app)));
+
 function holderOf(app: Application): string | null {
   const holder = app.heldBy?.email;
   if (!holder) return null;
@@ -677,7 +681,7 @@ async function decideSelection() {
       No application matches.
     </p>
 
-    <ul v-else class="all-list">
+    <ul v-else :class="['all-list', { 'all-list-no-leading': !leadingShown }]">
       <li v-for="app in shown" :key="app.id" class="all-row" data-testid="applications-all-row">
         <input
           v-if="decides"
@@ -703,7 +707,7 @@ async function decideSelection() {
             <span class="all-name">{{ nameOf(app) || app.applicantEmail }}</span>
             <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
           </span>
-          <span class="all-leading">{{ leading(app) }}</span>
+          <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
           <span class="all-state">
             <span :class="statusChip(app.status)" data-testid="applications-all-status">
               {{ statusLabel(app.status) }}
@@ -1013,9 +1017,11 @@ async function decideSelection() {
   flex: 0 0 auto;
 }
 
+/* The leading answers shorten to fit, so the status lines share the row's room with them, and
+   never take less than 22rem. */
 .all-row-button {
   display: grid;
-  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(0, 22rem);
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(22rem, 1fr);
   align-items: center;
   gap: var(--space-3);
   width: 100%;
@@ -1025,6 +1031,10 @@ async function decideSelection() {
   background: white;
   text-align: left;
   cursor: pointer;
+}
+
+.all-list-no-leading .all-row-button {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
 }
 
 .all-row-button:hover {
