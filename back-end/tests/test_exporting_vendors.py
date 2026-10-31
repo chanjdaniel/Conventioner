@@ -705,7 +705,7 @@ class TestTheDiscordColumns:
         assert "discordUsername" in ids
         assert "discordState" not in ids
 
-    def test_each_row_holds_the_username_as_given_the_state_in_words_and_the_link(
+    def test_each_row_holds_the_username_tidied_the_state_in_words_and_the_link(
             self, market, applications):
         _connected(market(), applications)
 
@@ -716,11 +716,48 @@ class TestTheDiscordColumns:
             ["ana@example.com", "ana.makes", "In the server", INVITE],
             ["ben@example.com", "benbuns", "Not found", INVITE],
             ["cy@example.com", "", "No username", INVITE],
-            ["dee@example.com", "'@DeePark", "Has the role", INVITE],
+            ["dee@example.com", "deepark", "Has the role", INVITE],
             # Applied since the check: no state until the next.
             ["eve@example.com", "", "", INVITE],
             ["fay@example.com", "", "", INVITE],
         ]
+
+    def test_a_username_written_with_a_leading_at_is_exported_without_it(
+            self, market, applications):
+        """Tidied as the check reads it, so a mail merge never quotes "'@name" (T157 review
+        note 2)."""
+        _connected(market(), applications)
+        dee = next(a for a in applications.documents if a["applicant_email"] == "dee@example.com")
+        dee["form_data"]["discord_username"] = "@fixture_name"
+
+        content, _ = _file(filters={"search": "dee"}, columns=["email", "discordUsername"])
+
+        assert _rows(content)[1:] == [["dee@example.com", "fixture_name"]]
+
+    def test_the_username_is_not_offered_once_the_form_no_longer_asks_it(
+            self, market, applications):
+        """The check asks for the question again then (T157 review note 3)."""
+        doc = market()
+        _connected(doc, applications)
+        doc["applicationForm"] = {"fields": list(FORM["fields"])}
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" not in ids
+        with pytest.raises(BadRequestError):
+            _file(columns=["email", "discordUsername"])
+
+    def test_a_username_question_no_longer_a_text_question_is_an_answer_again(
+            self, market, applications):
+        doc = market()
+        _connected(doc, applications)
+        doc["applicationForm"] = {"fields": [
+            *FORM["fields"], {**DISCORD_QUESTION, "type": "select", "options": ["a", "b"]}]}
+
+        ids = [column["id"] for column in _preview()["offered"]["columns"]]
+
+        assert "discordUsername" not in ids
+        assert "answer:discord_username" in ids
 
     def test_the_username_is_exported_as_the_organizer_updated_it(self, market, applications):
         _connected(market(), applications)
@@ -746,7 +783,7 @@ class TestTheDiscordColumns:
         assert _rows(content) == [
             ["Name", "Email", "Discord username"],
             ["Ana Lima", "ana@example.com", "ana.makes"],
-            ["Dee Park", "dee@example.com", "'@DeePark"],
+            ["Dee Park", "dee@example.com", "deepark"],
         ]
 
     def test_a_discord_filter_takes_any_of_its_states(self, market, applications):

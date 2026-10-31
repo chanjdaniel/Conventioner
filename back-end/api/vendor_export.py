@@ -155,7 +155,7 @@ def _organizers_questions(market: Market) -> List[FormField]:
     """The form's own questions in the order it asks them: the essential ones are the plan's, and
     the two names among them are columns of their own, as is the Discord username's."""
     fields = market.application_form.fields if market.application_form else []
-    username_question = _discord(market).username_question
+    username_question = DiscordApi.asked_username_question(market)
     return sorted(
         (f for f in fields
          if not f.key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX)
@@ -222,14 +222,17 @@ def _assignment_columns(market: Market) -> List[Column]:
 
 def _discord_columns(market: Market) -> List[Column]:
     """What the market knows of its vendors on Discord (E42/F01/S05): the username its card's
-    question holds, as updated; the state the last check found, once one has run; and the
-    invite link, when the card holds one, the same on every row."""
+    question holds, as updated and tidied as the check reads it, while the form asks it; the state
+    the last check found, once one has run; and the invite link, when the card holds one, the same
+    on every row."""
     connection = _discord(market)
     columns = []
-    if connection.username_question:
-        question = connection.username_question
-        columns.append(Column("discordUsername", "Discord username",
-                              lambda vendor: answer_text(vendor.answers.get(question)), "discord"))
+    question = DiscordApi.asked_username_question(market)
+    if question:
+        columns.append(Column(
+            "discordUsername", "Discord username",
+            lambda vendor: DiscordApi.tidied_username(answer_text(vendor.answers.get(question))),
+            "discord"))
     if connection.checked_at:
         columns.append(Column(
             "discordState", "Discord state",
