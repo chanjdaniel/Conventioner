@@ -931,7 +931,8 @@ function cancelPending() {
  * actions at its end, and an item that does not fit takes a row of its own rather than shrinking
  * below its content. Squeezing is what drew the application page as one character between its name
  * and Copy, in a 171x148px box beside three stacked buttons that ran out of their own. A chip names
- * its address rather than showing it (`onAPhone`), so it is one line: a 44px Copy in its border.
+ * its address rather than showing it (`onAPhone`), so it is one line: a 44px Copy inset in its
+ * border by the desk's hairline, 50px, since with none Copy's border lay on the chip's.
  */
 @media (width <= 640px) {
   .phase-rail-end {
@@ -944,7 +945,6 @@ function cancelPending() {
   .url-chip {
     flex: none;
     min-width: 0;
-    padding-block: 0;
     align-self: center;
   }
 }
