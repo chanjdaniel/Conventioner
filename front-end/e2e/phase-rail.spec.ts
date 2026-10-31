@@ -301,6 +301,8 @@ test.describe('The phase rail on a phone', () => {
 test.describe("The rail's end wraps only when it must", () => {
   let doorSeed: { marketId: string };
   let openSeed: { marketId: string };
+  let draftSeed: { marketId: string };
+  let reviewSeed: { marketId: string };
 
   test.beforeAll(async ({ request }) => {
     // A long name, so the addresses are long, as a real market's are.
@@ -320,6 +322,26 @@ test.describe("The rail's end wraps only when it must", () => {
     expect(opened.ok(), await opened.text()).toBeTruthy();
     // One still to decide, so the rail offers Finish deciding beside the move it waits on.
     seedApplication(openSeed.marketId);
+
+    // Three actions before More…, on a row a phone cannot fit them on: a draft with no market
+    // dates (Pick market dates, Open Applications), and the CSV path's Review with one still to
+    // decide (Finish deciding, Begin Assignment).
+    draftSeed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await savePlan(request, BACKEND_URL, TEST_USER.email, draftSeed.marketId, {
+      ...PLAN,
+      marketDates: [],
+    });
+    reviewSeed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    // Its response, there before the move, as an import's would be: Review waits for one.
+    seedApplication(reviewSeed.marketId);
+    const reviewing = await request.post(
+      `${BACKEND_URL}/markets/${reviewSeed.marketId}/transition`,
+      {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase: 'applications' },
+      },
+    );
+    expect(reviewing.ok(), await reviewing.text()).toBeTruthy();
   });
 
   /** The end's items in reading order, each on the row it was given, with the row's right edge. */
@@ -355,6 +377,19 @@ test.describe("The rail's end wraps only when it must", () => {
     return { items, right };
   }
 
+  /** More… shares its row with another of the end's items. */
+  async function expectMoreNotAlone(page: import('@playwright/test').Page, where: string) {
+    const { items } = await theEnd(page);
+    const more = items[items.length - 1];
+    const beside = items.filter(
+      (i) => i !== more && i.y < more.y + more.height && more.y < i.y + i.height,
+    );
+    expect(
+      beside.length,
+      `More… alone on its row ${where}: ${JSON.stringify(items)}`,
+    ).toBeGreaterThan(0);
+  }
+
   async function expectNoNeedlessWrap(page: import('@playwright/test').Page) {
     const { items, right } = await theEnd(page);
     expect(items.length).toBeGreaterThan(1);
@@ -371,12 +406,19 @@ test.describe("The rail's end wraps only when it must", () => {
     return items;
   }
 
-  test('on a phone, at the door and taking applications', async ({ authenticatedPage: page }) => {
+  test('on a phone, in every phase with More… and an action or address before it', async ({
+    authenticatedPage: page,
+  }) => {
     // Phones from 375 to 430 wide, a classic scrollbar taking 15px of some: at a 326px rail both
     // chips fitted on one row and More… fell alone under them.
     for (const width of [375, 390, 405, 430]) {
       await page.setViewportSize({ width, height: 844 });
-      for (const marketId of [doorSeed.marketId, openSeed.marketId]) {
+      for (const marketId of [
+        doorSeed.marketId,
+        openSeed.marketId,
+        draftSeed.marketId,
+        reviewSeed.marketId,
+      ]) {
         await page.goto(marketScreenPath(marketId, 'attendance'));
         const items = await expectNoNeedlessWrap(page);
         // More… at the end of its row, where the rail's actions end, and never alone on it.
@@ -386,14 +428,21 @@ test.describe("The rail's end wraps only when it must", () => {
           Math.abs(more.x + more.width - right),
           `More… ends its row at ${width}`,
         ).toBeLessThanOrEqual(1);
-        const beside = items.filter(
-          (i) => i !== more && i.y < more.y + more.height && more.y < i.y + i.height,
-        );
-        expect(
-          beside.length,
-          `More… alone on its row at ${width}: ${JSON.stringify(items)}`,
-        ).toBeGreaterThan(0);
+        await expectMoreNotAlone(page, `at ${width}`);
       }
+    }
+  });
+
+  test('between a phone and a desk, More… beside an address', async ({
+    authenticatedPage: page,
+  }) => {
+    // The door, Tools and the Assignments page lift the desktop floor, so they reach these widths
+    // too: both addresses filled the first row and More… stood alone on the second.
+    for (const width of [680, 700, 720, 768, 780]) {
+      await page.setViewportSize({ width, height: 1024 });
+      await page.goto(marketScreenPath(doorSeed.marketId, 'attendance'));
+      await expectNoNeedlessWrap(page);
+      await expectMoreNotAlone(page, `at ${width}`);
     }
   });
 
