@@ -974,6 +974,17 @@ function submittedOn(app: Application): string {
   font-size: var(--text-sm);
 }
 
+/* A state that offers something to do: its lines, then the button, set apart. */
+.done-state .btn {
+  margin-top: var(--space-4);
+}
+
+/* What the reviewer has finished, said first and plainly; what is left reads under it. */
+.share-done {
+  color: var(--mm-black);
+  font-weight: 600;
+}
+
 .error-state {
   color: var(--mm-red);
   font-size: var(--text-sm);
