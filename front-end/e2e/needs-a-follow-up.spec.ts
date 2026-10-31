@@ -153,6 +153,65 @@ test('an organization admin with no role on the market marks a follow-up and own
 });
 
 /*
+ * Marking the last card a follow-up asks the server for the next one, follow-ups left out. Taking
+ * them back in before that answer arrived lost the card: the answer said nothing was left, and the
+ * monitor said every application was open with another reviewer, though nobody else was there.
+ */
+test('taking the follow-ups in while the next card is on its way puts the follow-up up', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+
+  await page.goto(oneByOnePath(marketId));
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.waitForLoaded();
+  await expect(monitor.email).toHaveText('nadia@ember.test');
+
+  // The hand-out after the follow-up is held back until the follow-ups are taken in.
+  let letGo: () => void = () => undefined;
+  const takenIn = new Promise<void>((resolve) => (letGo = resolve));
+  const leftOut = (body: { includeFollowUps?: boolean } | null) => body?.includeFollowUps === false;
+  let heldBack = false;
+  await page.route('**/review/next', async (route) => {
+    if (!heldBack && leftOut(route.request().postDataJSON())) {
+      heldBack = true;
+      await takenIn;
+    }
+    await route.continue();
+  });
+
+  await page.keyboard.press('s');
+  await page.getByTestId('follow-up-submit-button').click();
+  await expect(page.getByTestId('follow-up-window')).toBeHidden();
+  await expect.poll(() => heldBack).toBe(true);
+  // Taken in, the walk is asked again with the follow-ups in; the held answer is then old news.
+  const askedAgain = page.waitForResponse(
+    (r) => r.url().endsWith('/review/next') && r.request().postDataJSON()?.includeFollowUps,
+    { timeout: 10_000 },
+  );
+  const answered = page.waitForResponse(
+    (r) => r.url().endsWith('/review/next') && leftOut(r.request().postDataJSON()),
+  );
+  await page.getByTestId('app-monitor-include-follow-ups').check();
+  letGo();
+  expect(await (await answered).json()).toEqual({ application: null });
+  expect((await (await askedAgain).json()).application?.applicantEmail).toBe('nadia@ember.test');
+
+  await expect(monitor.email).toHaveText('nadia@ember.test');
+  await expect(page.getByTestId('app-monitor-follow-up-owner')).toHaveValue(TEST_USER.email);
+  await expect(page.getByTestId('app-monitor-panel')).not.toContainText('open with another');
+});
+
+/*
  * Who is offered a follow-up's owners depends on who asks (decision/2026-10-22). An Editor from
  * outside the organization, there by a role on the market alone, is offered the people the
  * market's roles name and none of the organization's own, whose addresses they must not read.
