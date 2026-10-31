@@ -981,22 +981,18 @@ export function entryChanges(
   if (entry.action === 'add-vendor') {
     const before = asDetail(detail.before);
     const after = asDetail(detail.after);
-    const own = ['name', 'status'];
-    const pick = (side: Detail, keep: (key: string) => boolean) =>
-      Object.fromEntries(Object.entries(side).filter(([key]) => keep(key)));
-    const answers = inFormOrder(
-      Object.keys(after).filter((key) => !own.includes(key)),
-      fields,
-    ).map((key) => ({
+    const beforeAnswers = asDetail(before.answers);
+    const afterAnswers = asDetail(after.answers);
+    const answers = inFormOrder(Object.keys(afterAnswers), fields).map((key) => ({
       field: answerLabel(key, fields),
-      before: essentialAnswerText(key, before[key]).trim() || 'none',
-      after: essentialAnswerText(key, after[key]).trim() || 'none',
+      before: essentialAnswerText(key, beforeAnswers[key]).trim() || 'none',
+      after: essentialAnswerText(key, afterAnswers[key]).trim() || 'none',
     }));
     return {
       changed: [
         ...changedFields(
-          pick(before, (key) => own.includes(key)),
-          pick(after, (key) => own.includes(key)),
+          { name: before.name, status: before.status },
+          { name: after.name, status: after.status },
           path,
         ),
         ...answers,

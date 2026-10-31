@@ -72,7 +72,7 @@ def add_vendor(
         market_id, adder.email, Actions.ADD_VENDOR, vendors=[address],
         subject={"application_id": application.id},
         detail=lambda: History.changes(
-            {}, {"name": name, "status": application.status.value, **answers}),
+            {}, {"name": name, "status": application.status.value, "answers": answers}),
     )
     return {"application": convert_keys_to_camel_case(application.model_dump())}, 201
 

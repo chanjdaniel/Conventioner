@@ -36,11 +36,11 @@ FORM_FIELDS = [{"required": False, "options": [], **field, "order": order}
 REFUSED = "Only an Admin or the owner may update the answers this market's assignment or prices read."
 
 
-def _document(phase, pricing=EXAMPLE_TABLE, **overrides):
+def _document(phase, pricing=EXAMPLE_TABLE, fields=FORM_FIELDS, **overrides):
     plan = copy.deepcopy(GOLD_AND_SILVER)
     plan["pricing"] = copy.deepcopy(pricing)
     return stored_market(phase, setupObject=plan,
-                         applicationForm={"fields": FORM_FIELDS}, **overrides)
+                         applicationForm={"fields": fields}, **overrides)
 
 
 @pytest.fixture
@@ -48,9 +48,9 @@ def adding(monkeypatch):
     """A market in market days with the Example College card, and the applications added to it."""
     written = []
 
-    def at(pricing=EXAMPLE_TABLE, phase=MarketPhase.MARKET_DAYS):
+    def at(pricing=EXAMPLE_TABLE, phase=MarketPhase.MARKET_DAYS, fields=FORM_FIELDS):
         monkeypatch.setattr(
-            MarketsApi, "markets_collection", FakeMarketsCollection(_document(phase, pricing)))
+            MarketsApi, "markets_collection", FakeMarketsCollection(_document(phase, pricing, fields)))
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
         monkeypatch.setattr(
             AddedVendors.ApplicationsApi, "find_application_by_email", lambda *_a: None)
@@ -171,10 +171,27 @@ class TestAddingAVendorAsksThePriceAnswers:
         assert entry["action"] == "add-vendor"
         # The vendor's drawer reads the entries that name them.
         assert entry["vendors"] == ["walk.in@example.com"]
-        assert entry["detail"]["before"] == {
-            "name": None, "status": None, "affiliation": None, "clubs": None}
+        assert entry["detail"]["before"] == {"name": None, "status": None, "answers": None}
         assert entry["detail"]["after"] == {
-            "name": "Walk-in Wares", "status": "reviewer_approved", **STUDENT_IN_A_CLUB}
+            "name": "Walk-in Wares", "status": "reviewer_approved",
+            "answers": STUDENT_IN_A_CLUB}
+
+    def test_a_price_answer_keyed_status_keeps_the_real_status(self, adding, market_records):
+        """A group may read a question the form keys `status`; the entry keeps both apart."""
+        fields = [{"key": "status", "label": "Student or staff?", "type": "select",
+                   "options": ["Student", "Staff"], "order": 0}]
+        pricing = {**EXAMPLE_TABLE, "groups": [{
+            "name": "Students", "conditions": [{"key": "status", "answers": ["Student"]}],
+            "prices": [{"tier": "Gold", "cents": 1200}]}]}
+        adding(pricing, fields=fields)
+
+        _add({"status": "Student"})
+
+        [entry] = market_records.history.documents
+        assert entry["detail"]["before"] == {"name": None, "status": None, "answers": None}
+        assert entry["detail"]["after"] == {
+            "name": "Walk-in Wares", "status": "reviewer_approved",
+            "answers": {"status": "Student"}}
 
 
 @pytest.fixture
