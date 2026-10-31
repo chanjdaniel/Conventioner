@@ -46,6 +46,11 @@ const props = defineProps<{
   canAdjustPaid?: boolean;
 }>();
 
+const emit = defineEmits<{
+  /** A write changed their account: a screen that shows it, the Payments page, reads it again. */
+  changed: [account: VendorAccount];
+}>();
+
 const account = ref<VendorAccount | null>(null);
 const isLoading = ref(false);
 const loadError = ref('');
@@ -85,6 +90,7 @@ function show(dialog: Open): void {
 function saved(updated: VendorAccount): void {
   account.value = updated;
   open.value = null;
+  emit('changed', updated);
 }
 
 const entryDialog = computed(() => {

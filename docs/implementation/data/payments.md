@@ -18,11 +18,13 @@ describes:
   - back-end/app.py#use_calculated_price
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
-verified: 2026-10-30
+  - back-end/app.py#get_market_payments
+verified: 2026-10-31
 sources:
   - T92
   - E44/F01/S01
   - E44/F01/S02
+  - E44/F02/S01
 ---
 
 # Payments, and what a vendor owes
@@ -83,6 +85,11 @@ Both collections are indexed on `market_id, vendor_email` ([lookup indexes](look
 
 Every route is in [`back-end/app.py`](../../../back-end/app.py) (`get_vendor_account`, `record_payment`, `record_refund`, `set_amount_owed`, `use_calculated_price`, `edit_payment`, `remove_payment`), and every write answers the vendor's account as it now reads.
 
+- `GET /markets/:id/payments` (`market_payments`) answers [the Payments page](../../business/flows/payments.md): `currency`; `vendors`, each vendor with a line or any entry, by address, with `owedCents` and `paidCents` as their own account reads them; `totals`, `byTier` and `byDate`, each `owedCents`, `paidCents`, `stillOwedCents` and `paidMoreCents`.
+  Every account is built from one read of each collection and of the seats, the same `lines` and `account` the drawer's tab reads (`payments_by_vendor`, `amounts_owed_by_vendor`).
+  `market_summary` in `payments.py` shares what each vendor paid across their lines by what each owes, evenly where they owe nothing, to the cent by largest remainder (`shares`), so a vendor's lines are all owing or all paid more, and each breakdown adds up to `totals`, which are each vendor's figures summed; a vendor with no line puts what they paid under a `tier` and `date` of null, last.
+  Tiers come in the market's order, a tier it no longer has after them; dates in order.
+  It asks the table's Read row.
 - `GET /markets/:id/payments/:email` (`vendor_account`) answers one vendor's account: `currency` (null on a market that sets no prices), `lines` (each `date`, `tableCode`, `tier`, `tableChoice`, `group`, `priceCents`, `owedCents`, `owedSetBy`, `owedSetAt`, `owedByFree`, `freed`, and `freedAt` and `freedBy` for a freed seat), `payments` (the last recorded first), `owedCents` and `paidCents`; an unpriced line owes nothing toward the total.
   It asks the table's Read row: anyone with a role reads it.
 - `POST /markets/:id/payments/:email` (`record_payment`), body `{cents, method, paidOn, note}`, records one payment and answers the account as it now reads.
@@ -98,8 +105,10 @@ A payment, a refund and an edit go through [`RecordPaymentDialog.vue`](../../../
 ## How it is tested
 
 - `back-end/tests/test_a_vendors_payments.py`: $70 for two Gold full days, the half share, a seat moved from Gold to Silver, an amount set by hand that stays, a freed day's line kept with neither amount changed, every refusal of a payment, who may record, the history entry, and deletion with the market.
+- `back-end/tests/test_the_payments_page.py`: the page's vendors as their tabs read, its totals against the sum of the tabs, the sharing by tier and by date to the cent, a vendor owing nothing, a market with no prices or nobody, and who may read it.
 - `back-end/tests/test_changing_owed_and_paid.py`: an amount set to $0 and taken back, each recorded, and every change in the vendor's own history read; a free ticked and unticked; a refund that squares the account; an edit and a removal with the entry's own history; an Editor refused every one of them, and the deduction before anything is freed.
 - `front-end/src/__tests__/payments.test.ts`, `vendorPaymentTab.test.ts` and `placementDialog.test.ts` (the question, unticked).
 - `front-end/e2e/the-payment-tab.spec.ts`: two Gold full days owe $70, $35 reads "Owes $35", $35 more "Paid in full", a freed day keeps its line; a Viewer reads the tab with no "Record payment".
   `changing-owed-and-paid.spec.ts`: an Admin sets a $35 line to $0 and back; frees a paid $15 seat ticked, reads "Paid $15 more than owed", records a $15 refund and reads "Paid in full", and finds each change in the drawer's History with who and when; unticked, the line stays $15 owed.
+  `the-payments-page.spec.ts`: the Payments page's totals against the sum of three vendors' tabs, each filter and the sort kept by a reload, and a payment recorded in the drawer read on the page again.
   `market-records-go-with-it.spec.ts` finds no payment or amount owed left after a market is deleted.

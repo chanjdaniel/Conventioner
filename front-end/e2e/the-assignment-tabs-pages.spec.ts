@@ -32,7 +32,12 @@ test.describe("The Assignment tab's pages", () => {
 
     const pages = page.getByTestId('market-pages');
     await expect(pages).toBeVisible({ timeout: 15000 });
-    await expect(pages.getByRole('link')).toHaveText(['Settings', 'Assignments', 'Vendors']);
+    await expect(pages.getByRole('link')).toHaveText([
+      'Settings',
+      'Assignments',
+      'Vendors',
+      'Payments',
+    ]);
     await expect(page.getByTestId('market-pages-settings')).toHaveClass(/active/);
     // Told apart from the market's own settings on Market Setup (E38/F08/S01).
     await expect(page.getByRole('heading', { name: 'Assignment settings' })).toBeVisible();
@@ -69,7 +74,7 @@ test.describe("The Assignment tab's pages", () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    for (const where of ['settings', 'assignments', 'vendors']) {
+    for (const where of ['settings', 'assignments', 'vendors', 'payments']) {
       await page.goto(at(marketId, where));
       await expect(page.getByTestId(`market-pages-${where}`)).toHaveClass(/active/, {
         timeout: 15000,

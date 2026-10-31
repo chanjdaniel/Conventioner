@@ -92,7 +92,9 @@ export function money(cents: number, account: Pick<VendorAccount, 'currency'>): 
  * than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
  * "Nothing owed".
  */
-export function balanceText(account: VendorAccount): string {
+export function balanceText(
+  account: Pick<VendorAccount, 'currency' | 'owedCents' | 'paidCents'>,
+): string {
   const balance = account.owedCents - account.paidCents;
   if (balance > 0) return `Owes ${money(balance, account)}`;
   if (balance < 0) return `Paid ${money(-balance, account)} more than owed`;
@@ -100,7 +102,9 @@ export function balanceText(account: VendorAccount): string {
 }
 
 /** Whether they owe, are square, or paid more: the comparison's tone. */
-export function balanceState(account: VendorAccount): 'owing' | 'settled' | 'overpaid' {
+export function balanceState(
+  account: Pick<VendorAccount, 'owedCents' | 'paidCents'>,
+): 'owing' | 'settled' | 'overpaid' {
   const balance = account.owedCents - account.paidCents;
   return balance > 0 ? 'owing' : balance < 0 ? 'overpaid' : 'settled';
 }

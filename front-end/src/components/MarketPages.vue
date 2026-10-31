@@ -3,8 +3,9 @@
  * The pages of the open tab, when it has more than one (E22/F04/S03).
  *
  * Only the Assignment tab does: Settings (the rules and the run), Assignments (the assignment by
- * table) and Vendors (the assignment by vendor), named for what they hold (E38/F08/S01): the first
- * two read "Assignment" and "Result" until the 2026-10-29 walk. The row sits under the rail and is
+ * table), Vendors (the assignment by vendor) and Payments (the money it is owed, E44/F02/S01), named
+ * for what they hold (E38/F08/S01): the first two read "Assignment" and "Result" until the
+ * 2026-10-29 walk. The row sits under the rail and is
  * pinned with the frame. The dot marks the page the market is worked on in its phase, as the bar's
  * does for tabs.
  */

@@ -8,6 +8,7 @@ describes:
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
   - front-end/src/views/ToolsView.vue
+  - front-end/src/views/PaymentsView.vue
 verified: 2026-10-31
 sources:
   - wayfinding/the-market-frame/map
@@ -28,6 +29,7 @@ sources:
   - E38/F08/S01
   - E46/F01/S02
   - T142
+  - E44/F02/S01
 ---
 
 # The market frame
@@ -44,7 +46,7 @@ A screen hands it the market from [the market store](market-store.md) and render
   The underline is the tab being looked at, and the dot the tab the market is worked on in its phase; a tab opens the page carrying the dot when it holds it, else its first page.
   A CSV market's form tab is called "Questions".
 - **The rail**, under the bar, once the market is in hand.
-- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments and Vendors.
+- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Settings, Assignments, Vendors and Payments ([`PaymentsView.vue`](../../../front-end/src/views/PaymentsView.vue), [payments](../../business/flows/payments.md)).
 - **A `pinned` slot** for a screen's own control that must stay in view with the frame on a desk, such as the vendor search.
 - **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
   The note stands in for a tab's pages only, never for a flow the tab holds: a Google Form market's first import is the work its draft Applications tab is waiting on (E38/F04/S01).
@@ -111,7 +113,7 @@ Four tabs, with the Assignment tab's pages in a row under the rail, won over two
 The bar holds seven tabs since Attendance stayed on it for the market's whole life (E31/F03/S02), Stats joined it (E45/F01/S01) and Tools joined it (E46/F01/S02), while Vendors stays a page of the Assignment tab; Stats is a tab rather than a page under Applications because the figures planned for it, seats and money among them, would sit oddly under the applications (Daniel's choice in T92's planning).
 Seven tabs still fit beside a long name at 1280 because the name, never the tabs, gives way.
 Tools is a tab of its own, immediately left of Stats, by Daniel's hand walk of E46/F01/S02: a tool runs in any phase, while the plan it used to stand beneath settles on leaving draft.
-The page row names each page for what it holds: Settings the rules and the run, headed "Assignment settings" so it is not taken for the market's own settings on Market Setup, and Assignments and Vendors beside each other the assignment by table and by vendor.
+The page row names each page for what it holds: Settings the rules and the run, headed "Assignment settings" so it is not taken for the market's own settings on Market Setup, Assignments and Vendors beside each other the assignment by table and by vendor, and Payments the money the seats are owed, beside the seats it is for rather than on Stats, which reads and does not chase (Daniel, T92 Q16; E44/F02/S01).
 
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
 Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).

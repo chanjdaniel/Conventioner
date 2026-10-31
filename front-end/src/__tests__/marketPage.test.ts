@@ -73,14 +73,16 @@ describe('the tabs', () => {
   it('put every page under exactly one tab', () => {
     const pages: MarketPage[] = Object.values(TAB_PAGES).flat();
     expect(new Set(pages).size).toBe(pages.length);
-    expect(TAB_PAGES.assignment).toEqual(['settings', 'assignments', 'vendors']);
+    expect(TAB_PAGES.assignment).toEqual(['settings', 'assignments', 'vendors', 'payments']);
   });
 
-  it('read Settings, Assignments and Vendors under the Assignment tab (E38/F08/S01)', () => {
+  it('read Settings, Assignments, Vendors and Payments under the Assignment tab', () => {
+    // E38/F08/S01 named the first three; Payments joined them (E44/F02/S01).
     expect(TAB_PAGES.assignment.map((page) => PAGE_LABELS[page])).toEqual([
       'Settings',
       'Assignments',
       'Vendors',
+      'Payments',
     ]);
   });
 
@@ -88,6 +90,7 @@ describe('the tabs', () => {
     expect(tabOf('settings')).toBe('assignment');
     expect(tabOf('assignments')).toBe('assignment');
     expect(tabOf('vendors')).toBe('assignment');
+    expect(tabOf('payments')).toBe('assignment');
     expect(tabOf('import')).toBe('applications');
     expect(tabOf('floorplan')).toBe('setup');
     expect(tabOf('stats')).toBe('stats');
@@ -120,6 +123,7 @@ describe('the page a route is', () => {
   it('names the pages and flows that are views of their own', () => {
     expect(pageOfRoute('market-assignments', {})).toBe('assignments');
     expect(pageOfRoute('vendors', {})).toBe('vendors');
+    expect(pageOfRoute('market-payments', {})).toBe('payments');
     expect(pageOfRoute('attendance-status', {})).toBe('attendance');
     expect(pageOfRoute('market-stats', {})).toBe('stats');
     expect(pageOfRoute('market-tools', {})).toBe('tools');

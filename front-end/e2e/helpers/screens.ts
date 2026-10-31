@@ -738,6 +738,13 @@ export const SCREENS: Screen[] = [
     ]),
   },
   {
+    // The market's money and who owes it (E44/F02/S01): the figures, the breakdowns and the list.
+    name: 'the payments',
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: at(screen('big', 'payments'), 'payments-row'),
+  },
+  {
     name: 'the attendance',
     who: 'organizer',
     sizes: FITS_A_PHONE,
