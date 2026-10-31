@@ -323,14 +323,21 @@ export async function seedPublishedMarketWithAssignments(
   // `intakeMode` as the market is created; absent, it is a CSV market, as it always was here.
   // `vendors`, the approved vendors, each given a table: alice and bob unless a spec needs more,
   // a door long enough to scroll, say.
-  options: { marketDate?: string; intakeMode?: 'csv' | 'form'; vendors?: string[] } = {},
+  // `namePrefix`, the start of the market's name and so of its public addresses: a long one gives
+  // the rail long addresses to lay out.
+  options: {
+    marketDate?: string;
+    intakeMode?: 'csv' | 'form';
+    vendors?: string[];
+    namePrefix?: string;
+  } = {},
 ): Promise<PublishedSeedResult> {
   const marketDate = options.marketDate ?? SEED_MARKET_DATE;
   const vendors = options.vendors ?? ['alice@example.com', 'bob@example.com'];
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = uniqueMarketName('E2E Published');
+  const marketName = uniqueMarketName(options.namePrefix ?? 'E2E Published');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',

@@ -941,6 +941,16 @@ function cancelPending() {
   flex-wrap: wrap;
 }
 
+/* Both addresses share the end's row with the actions, each shortening alike to make room and
+   never past its floor: as wide as its whole address they took a row each, with More… alone beside
+   an empty band at 1920 (T142). The actions take a row of their own only below that floor. */
+@media (width > 640px) {
+  .phase-rail-end--both .url-chip {
+    flex: 1 1 18rem;
+    max-width: max-content;
+  }
+}
+
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
 .url-chip {
   display: flex;
@@ -975,12 +985,16 @@ function cancelPending() {
   .phase-rail-end {
     flex: 1 1 100%;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--space-2);
     min-width: 0;
   }
 
+  /* A chip takes what its row leaves, its name at its start and Copy at its end, so a row starts
+     with an address and ends with an action. */
   .url-chip {
-    flex: none;
+    flex: 1 0 auto;
+    justify-content: space-between;
     min-width: 0;
     align-self: center;
   }
@@ -1000,13 +1014,14 @@ function cancelPending() {
   line-height: var(--target-min);
   /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
      character rather than the whole address. The rail's end measures its own narrowest to decide
-     whether it fits beside the spine, and an unbreakable address made it never fit. */
+     whether it fits beside the spine, and an unbreakable address made it never fit. Anywhere, not
+     only where nothing else breaks: a line cut at the slug's last hyphen left a gap before Copy. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
   line-clamp: 1;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 /* The chip's name as its link, on a phone: a line `--target-min` tall, as the address is on a desk. */
@@ -1044,13 +1059,13 @@ function cancelPending() {
   margin-left: auto;
 }
 
-/* On a phone the actions take what the row leaves, and wrap at its end: a draft's Pick market dates,
-   Open Applications and More… ran 33px past a 390px window on one line. */
+/* On a phone each action wraps on its own, beside the addresses where it fits and at the row's end:
+   a draft's Pick market dates, Open Applications and More… ran 33px past a 390px window on one line,
+   and wrapped as one group they left More… alone under two buttons that had room beside the
+   application page (T142). */
 @media (width <= 640px) {
   .phase-rail-actions {
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: contents;
   }
 }
 
