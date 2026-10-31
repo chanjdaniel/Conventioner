@@ -587,7 +587,7 @@ def review_application(
                         **_dealt_to(app_doc)},
     )
     app = Application(**stored)
-    return {"application": _application_response_organizer(app)}, 200
+    return {"application": _application_response_organizer(app), **undo_window()}, 200
 
 
 def _verdict_row(before: List[Dict[str, Any]]) -> "Actions.Action":
@@ -690,6 +690,108 @@ def review_selection(
                     app_id: _verdict_state(ApplicationsApi.find_application_by_id(app_id))
                     for app_id in written
                 },
+                **_each_dealt_to(was[app_id] for app_id in written),
+            },
+        )
+    return {"written": written, "skipped": skipped, **(undo_window() if written else {})}, 200
+
+
+#: Why an undo is refused when its verdict is not the reviewer's own any longer, or the window has
+#: passed (E38/F10/S01): who may still change it, the change row's default.
+UNDO_REFUSED = "This verdict can no longer be undone here. An Admin or the owner can change it."
+
+
+def undo_window() -> Dict[str, int]:
+    """How long a verdict just written may be undone by its giver, for its answer: the client times
+    its Undo from this, so the window is kept in one place (E38/F10/S01)."""
+    return {"undoSeconds": int(ApplicationsApi.UNDO_WINDOW.total_seconds())}
+
+
+#: What a reviewer asks to undo: the application, as they saw it once their verdict was written,
+#: and what to return it to - with its follow-up's owner when that is a follow-up.
+UndoAsked = Tuple[str, Optional[Dict[str, Any]], ApplicationStatus, Optional[MarketPerson]]
+
+
+def _undo_one(
+    market_id: str, asked: UndoAsked, by: VerdictGiver,
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Tuple[str, int]]]:
+    """Undo one verdict: the application as it was and as it is now, or why not and its status.
+
+    Asked in this order: an application of another market is not there; one changed since the
+    reviewer's verdict is stale, never written over; one that is not their own verdict within the
+    window is refused. The write is conditional on the status and the verdict's time the reviewer
+    saw, so a verdict landing between this read and the write is the stale answer too.
+    """
+    app_id, seen, back, owner = asked
+    doc = ApplicationsApi.find_application_by_id(app_id)
+    if doc is None or doc.get("market_id") != market_id:
+        return None, None, ("Not an application here.", 404)
+    pinned = {"status": (seen or {}).get("status"), "verdict_at": (seen or {}).get("verdict_at")}
+    if (pinned["status"] != doc.get("status")
+            or (pinned["verdict_at"] or None) != (doc.get("verdict_at") or None)):
+        return doc, None, (_changed_since_seen(doc, seen), 409)
+    if not ApplicationsApi.undoable_by(doc, by.user_id):
+        return doc, None, (UNDO_REFUSED, 403)
+    marker = by if back is ApplicationStatus.NEEDS_FOLLOW_UP else None
+    if not ApplicationsApi.update_application_status(
+            app_id, back, by=marker, owner=owner, if_unchanged_since=pinned):
+        now = ApplicationsApi.find_application_by_id(app_id) or doc
+        return now, None, (_changed_since_seen(now, seen), 409)
+    return doc, ApplicationsApi.find_application_by_id(app_id), None
+
+
+def undo_verdict(
+    market_id: str, asked: UndoAsked, by: VerdictGiver,
+) -> Tuple[Dict[str, Any], int]:
+    """Undo the verdict, or the follow-up, this reviewer gave an application (E38/F10/S01).
+
+    Theirs alone, within ``UNDO_WINDOW``, while they may still give verdicts (the caller asks
+    ``verdict_refusal``) - giving, taken back, so never the change row. It returns the application to
+    ``back``, open or needs follow-up with its owner, and leaves whom it was dealt to as it is.
+    Refused with ``UNDO_REFUSED`` (403) once it is not theirs to undo, and with the stale-verdict
+    sentence and the application as it stands (409) when someone wrote over it since.
+    """
+    was, now, refused = _undo_one(market_id, asked, by)
+    if refused:
+        reason, status = refused
+        if status == 409 and was is not None:
+            return {"error": reason,
+                    "application": _application_response_organizer(Application(**was))}, 409
+        return {"error": reason}, status
+    History.record(
+        market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICT_UNDONE,
+        vendors=[was.get("applicant_email")], subject={"application_id": asked[0]},
+        detail=lambda: {"before": _verdict_state(was), "after": _verdict_state(now),
+                        **_dealt_to(was)},
+    )
+    return {"application": _application_response_organizer(Application(**now))}, 200
+
+
+def undo_selection(
+    market_id: str, selection: List[UndoAsked], by: VerdictGiver,
+) -> Tuple[Dict[str, Any], int]:
+    """Undo what a selection's verdict wrote (E38/F10/S01), each as ``undo_verdict`` undoes one,
+    answering which were written and, for each skipped, why - as ``review_selection`` answers."""
+    written: List[str] = []
+    was: Dict[str, Dict[str, Any]] = {}
+    now: Dict[str, Dict[str, Any]] = {}
+    skipped: List[Dict[str, Any]] = []
+    for asked in selection:
+        before, after, refused = _undo_one(market_id, asked, by)
+        if refused:
+            skipped.append({"id": asked[0], "email": (before or {}).get("applicant_email"),
+                            "reason": refused[0]})
+            continue
+        written.append(asked[0])
+        was[asked[0]], now[asked[0]] = before, after
+    if written:
+        History.record(
+            market_id, by.email, Actions.GIVE_VERDICTS, kind=History.VERDICTS_UNDONE,
+            vendors=[was[app_id].get("applicant_email") for app_id in written],
+            subject={"application_ids": written},
+            detail=lambda: {
+                "before": {app_id: _verdict_state(was[app_id]) for app_id in written},
+                "after": {app_id: _verdict_state(now[app_id]) for app_id in written},
                 **_each_dealt_to(was[app_id] for app_id in written),
             },
         )

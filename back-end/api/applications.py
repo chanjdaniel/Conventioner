@@ -366,6 +366,33 @@ def is_decided(doc: Dict[str, Any]) -> bool:
     return doc.get("status") in VERDICT_STATUSES
 
 
+#: How long the person who gave a verdict, or marked a follow-up, may take it back themselves
+#: (E38/F10/S01): long enough to notice a slip while reading the next card, short enough that
+#: nobody else has acted on it. After it, changing a verdict is the change row's (E38/F06/S01).
+UNDO_WINDOW = timedelta(minutes=2)
+#: What an undo may return an application to: what it was before a verdict could be given on it.
+#: Never a verdict, so an undo is never a change of one; whoever's own verdict changed one may
+#: change verdicts anyway.
+UNDONE_TO = (ApplicationStatus.OPEN, ApplicationStatus.NEEDS_FOLLOW_UP)
+
+
+def undoable_by(doc: Dict[str, Any], user_id: Optional[str]) -> bool:
+    """Whether this person may still undo what they marked on this application: a verdict or a
+    follow-up that they gave, by user id, within ``UNDO_WINDOW`` of it (E38/F10/S01)."""
+    if doc.get("status") not in {status.value for status in MARKED_STATUSES} or not user_id:
+        return False
+    by = doc.get("verdict_by") or {}
+    if by.get("kind") != "person" or by.get("user_id") != user_id:
+        return False
+    try:
+        at = datetime.fromisoformat(str(doc.get("verdict_at")))
+    except ValueError:
+        return False
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - at <= UNDO_WINDOW
+
+
 def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
     reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
