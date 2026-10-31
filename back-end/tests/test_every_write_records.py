@@ -120,6 +120,11 @@ class LiveMarkets:
             *parents, last = key.split(".")
             target = self.doc
             for part in parents:
+                if part in target and target[part] is None:
+                    # Mongo refuses to create a field under an explicit null parent, which is how
+                    # a product-created market stores ``discord`` until it is first connected.
+                    raise ValueError(
+                        f"Cannot create field '{last}' in element {{{part}: null}}")
                 target = target.setdefault(part, {})
             target[last] = value
         for key in update.get("$unset") or {}:

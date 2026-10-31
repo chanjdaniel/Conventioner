@@ -147,6 +147,17 @@ class TestConnecting:
         assert set(_stored(world)) == {"guildId", "guildName"}
         assert world.discord.codes == [("a-code", "https://conventioner.io/discord/connected")]
 
+    def test_a_market_created_with_a_null_discord_connects(self, client, world):
+        """A created market stores ``discord: null``, and Mongo refuses a dotted write under a
+        null parent: the first connection must write the whole sub-document."""
+        world.market(discord=None)
+
+        response = _connect(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _stored(world)["guildId"] == GUILD
+        assert _stored(world)["guildName"] == "Market Vendors"
+
     def test_the_answer_names_the_market_so_the_app_goes_back_to_it(self, client, world):
         world.market()
 
