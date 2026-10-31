@@ -99,7 +99,7 @@ On a market connected to a Discord server with a username question chosen ([the 
 3. The "Discord" filter lists the vendors in one state, each state with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email.
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
-A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, or the bot is no longer in the server.
+A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took more than a few seconds to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## J17. Give the market's role to the assigned vendors

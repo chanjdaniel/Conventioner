@@ -805,6 +805,91 @@ class TestCheckingWhoIsInTheServer:
         assert _states(world) == {maple: "in_server"}
 
 
+class TestACheckWithinItsTime:
+    """A check reads the members for ``ROLE_RUN_SECONDS`` at most, as a run does, and a read that
+    runs out answers ``CHECK_TOO_SLOW`` with nothing written or recorded: the back end is a
+    function its host ends at a time limit, and a check cut off there answers in no words of its
+    own (T155 rereview, finding 5)."""
+
+    def _a_server_on_a_clock(self, world, pages, seconds_per_page, page_answer=None):
+        """``pages`` full pages of members and a last short one, each taking ``seconds_per_page``
+        on a fake clock, or the ``timeout`` it was given if that is shorter, as a slow Discord
+        would. ``page_answer(n)`` may answer the n-th page asked, from 1, instead."""
+        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+        clock = SimpleNamespace(now=1000.0, started=1000.0, gets=0, waits=[])
+        world.patch.setattr(Discord, "clock", lambda: clock.now)
+
+        def wait(seconds):
+            clock.waits.append(seconds)
+            clock.now += seconds
+
+        world.patch.setattr(Discord, "_wait", wait)
+
+        def request(method, url, timeout, **kwargs):
+            clock.gets += 1
+            if seconds_per_page > timeout:
+                clock.now += timeout
+                raise Discord.requests.Timeout()
+            clock.now += seconds_per_page
+            answer = page_answer(clock.gets) if page_answer else None
+            if answer is not None:
+                return answer
+            size = Discord.MEMBERS_PAGE if clock.gets <= pages else 1
+            first = (clock.gets - 1) * Discord.MEMBERS_PAGE
+            page = [{"user": {"id": str(10_000 + first + n), "username": f"member{first + n}"},
+                     "roles": []} for n in range(size)]
+            return SimpleNamespace(status_code=200, ok=True, headers={}, json=lambda: page)
+
+        world.patch.setattr(Discord.requests, "request", request)
+        return clock
+
+    def test_a_server_whose_pages_take_four_seconds_each_is_too_slow_to_check(
+        self, client, world,
+    ):
+        """The reviewer's plan: four full pages, each answered in four seconds, which unbounded
+        is sixteen seconds of reading, past the host's limit."""
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+        clock = self._a_server_on_a_clock(world, pages=4, seconds_per_page=4)
+
+        response = _check(client)
+
+        assert response.status_code == Discord.DiscordUnavailable.status, response.get_json()
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
+        assert clock.now - clock.started <= DiscordConnection.ROLE_RUN_SECONDS
+        assert _stored(world) == CONNECTED
+        assert world.history.documents == []
+
+    def test_a_429_asking_past_the_checks_time_is_not_waited_out(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "maple")
+
+        def limited_second_page(n):
+            if n == 2:
+                return SimpleNamespace(status_code=429, ok=False, headers={},
+                                       json=lambda: {"retry_after": 8, "global": False})
+            return None
+
+        clock = self._a_server_on_a_clock(world, pages=2, seconds_per_page=0.1,
+                                          page_answer=limited_second_page)
+
+        response = _check(client)
+
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
+        assert clock.waits == []
+        assert _stored(world) == CONNECTED
+
+    def test_a_server_read_within_the_time_is_checked(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        maple = world.applicant("maple@example.com", "member1500")
+        self._a_server_on_a_clock(world, pages=2, seconds_per_page=1)
+
+        response = _check(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _states(world) == {maple: "in_server"}
+
+
 class TestTheChecksHistory:
     def test_a_check_is_one_entry_naming_each_vendor_whose_state_changed(self, client, world):
         world.market(discord=CONNECTED, **WITH_THE_FORM)

@@ -22,7 +22,8 @@ in the market's history, the fields before and after.
 row: it lists the server's members and matches each vendor's username, as the organizer reads it,
 against their usernames alone, never a display name (Daniel, Q19), then keeps each vendor's state
 with when it was checked. A check is one entry in the history, naming each vendor whose state it
-changed.
+changed. It reads the members for ``ROLE_RUN_SECONDS`` at most, as a run does, and a read that runs
+out writes and records nothing.
 
 **"Give roles" gives the card's role to every assigned vendor in the server** (E46/F01/S04), under
 the same row: it reads the members as a check does, asks Discord to give the role to each assigned
@@ -108,16 +109,17 @@ CHANGED_WHILE_GIVING = (
 )
 NO_ROLE = "Choose the role to give on the Discord card first, on the market's Tools tab."
 
-#: How long a run may ask Discord, from the route's start. The back end runs as a Vercel function,
-#: which Vercel ends at its maximum duration; nothing in this repository sets one, and the shortest
-#: default a plan may have is 10 seconds (without Fluid compute), so the run stops asking well
-#: before it, leaving time for a cold start and for writing what it did.
+#: How long a run, or a check, may ask Discord, from the route's start. The back end runs as a
+#: Vercel function, which Vercel ends at its maximum duration; nothing in this repository sets one,
+#: and the shortest default a plan may have is 10 seconds (without Fluid compute), so the request
+#: stops asking well before it, leaving time for a cold start and for writing what it found.
 ROLE_RUN_SECONDS = 6
 NOT_GIVEN_YET = (
     "A run asks Discord for a few seconds at most, and Discord was still pacing it. "
     "Give roles again to finish."
 )
 MEMBERS_TOO_SLOW = "Discord was slow to list the server's members. Give roles again."
+CHECK_TOO_SLOW = "Discord was slow to list the server's members. Check Discord again."
 #: The run's grants as the server's audit log names them, so its moderators can tell them from a
 #: role given by hand.
 AUDIT_REASON = "Conventioner: Give roles for {market}"
@@ -245,13 +247,18 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     Every main application of the market is a vendor checked, by its username as the organizer
     reads it (an update in its place, ``effective_answers``). The username question is checked
     again here, since it is checked only when the card saves it and the form may have lost it
-    since.
+    since. The members are read within ``ROLE_RUN_SECONDS``: a read that runs out writes and
+    records nothing, and answers ``CHECK_TOO_SLOW``.
     """
+    deadline = Discord.clock() + ROLE_RUN_SECONDS
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
     before = _connection(market)
     question = _username_question(market, before)
 
-    members = _members_by_username(before)
+    try:
+        members = _members_by_username(before, deadline=deadline)
+    except Discord.OutOfTime:
+        raise Discord.DiscordUnavailable(CHECK_TOO_SLOW)
     vendors = _vendors_usernames(market_id, question)
     states = _states(vendors, members, before.role_id)
     after = before.model_copy(update={"checked_at": _checked_at(), "vendor_states": states})
@@ -379,8 +386,8 @@ def _username_question(market: Market, connection: DiscordConnection) -> str:
 
 
 def _members_by_username(connection: DiscordConnection,
-                         deadline: Optional[float] = None) -> Dict[str, Discord.Member]:
-    """The server's members by their username, tidied as a vendor's is."""
+                         deadline: float) -> Dict[str, Discord.Member]:
+    """The server's members by their username, tidied as a vendor's is, read by ``deadline``."""
     members: Dict[str, Discord.Member] = {}
     for member in Discord.server_members(Discord.required_credentials(), connection.guild_id,
                                          deadline=deadline):

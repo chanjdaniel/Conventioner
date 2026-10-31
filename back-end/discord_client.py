@@ -114,9 +114,9 @@ def role_gone(role_name: str) -> str:
 
 
 class OutOfTime(Exception):
-    """A run's time ends before this grant could be asked, waited for or answered: nothing refused
-    it, and a second run asks again. One cut off while Discord was answering may have landed; the
-    second run then finds the role held."""
+    """A request's time ends before this call could be asked, waited for or answered: nothing
+    refused it, and asking again may finish. A grant cut off while Discord was answering may have
+    landed; the second run then finds the role held."""
 
 
 class DiscordNotSetUp(ClientError):
