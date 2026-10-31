@@ -141,10 +141,21 @@ def remove_payment(market_id: str, payment_id: str, by: str) -> Optional[Dict[st
     return payment(market_id, payment_id)
 
 
+def _last_first(found: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(found, key=lambda doc: doc.get("recorded_at") or "", reverse=True)
+
+
 def payments_for(market_id: str, vendor_email: str) -> List[Dict[str, Any]]:
     """One vendor's entries, removed ones too, the last recorded first."""
-    found = payments_collection.find(_vendor(market_id, vendor_email))
-    return sorted(found, key=lambda doc: doc.get("recorded_at") or "", reverse=True)
+    return _last_first(payments_collection.find(_vendor(market_id, vendor_email)))
+
+
+def payments_by_vendor(market_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Every vendor's entries on the market, by address, each as ``payments_for`` reads it."""
+    found: Dict[str, List[Dict[str, Any]]] = {}
+    for doc in _last_first(payments_collection.find({MARKET_ID_FIELD: market_id})):
+        found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", []).append(doc)
+    return found
 
 
 # --- The amount owed ------------------------------------------------------------------------------
@@ -217,6 +228,14 @@ def amounts_owed_for(market_id: str, vendor_email: str) -> Dict[str, Dict[str, A
     }
 
 
+def amounts_owed_by_vendor(market_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """What is kept of every vendor's table-days on the market, by address, then by date."""
+    found: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
+        found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", {})[doc["date"]] = doc
+    return found
+
+
 def lines(
     seats: Mapping[str, Seat], kept: Mapping[str, Mapping[str, Any]],
 ) -> List[Dict[str, Any]]:
@@ -283,6 +302,25 @@ def account(
         "owedCents": sum(line["owedCents"] or 0 for line in day_lines),
         "paidCents": sum(doc.get("cents") or 0 for doc in paid if not doc.get("removed_at")),
     }
+
+
+#: How what a vendor paid compares with what they owe, as the Payment tab reads it
+#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27", "Paid in full", or
+#: "Paid $15 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
+OWES = "owes"
+PAID_IN_FULL = "paid"
+PAID_MORE = "over"
+BALANCE_STATES = {OWES: "Owes", PAID_IN_FULL: "Paid in full", PAID_MORE: "Paid more than owed"}
+
+
+def balance_state(vendor_account: Mapping[str, Any]) -> Optional[str]:
+    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid."""
+    balance = vendor_account["owedCents"] - vendor_account["paidCents"]
+    if balance > 0:
+        return OWES
+    if balance < 0:
+        return PAID_MORE
+    return PAID_IN_FULL if vendor_account["owedCents"] > 0 else None
 
 
 def delete_for_market(market_id: str) -> int:
