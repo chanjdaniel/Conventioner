@@ -88,6 +88,7 @@ The server builds the file and the preview from the filters the dialog sends ([`
 An answer an organizer updated is exported, and filtered on, as updated ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 Every cell but an amount is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
 An amount is the server's own, written from whole cents, so it is left as it is: "-$15" reaches the spreadsheet as the number it is, where the quote would make it text and show.
+Where a minus would lead a currency's letters, as "-A$15", "-US$15" or "-NZ$15" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
 Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe), `back-end/tests/test_exporting_vendors.py`, `back-end/tests/test_the_exports_money_columns.py`, `exportingVendors.test.ts`.
 

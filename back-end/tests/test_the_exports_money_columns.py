@@ -26,6 +26,7 @@ import api.vendor_export as VendorExport
 import essential_fields as EF
 import payments as Payments
 import pricing as Pricing
+from assignment.csv_output import FORMULA_LEADS
 from client_errors import BadRequestError
 from datatypes import MarketPhase, PaymentEntry
 from test_price_groups import CLUBS, EXAMPLE_TABLE, FIELDS, STUDENT
@@ -206,6 +207,36 @@ class TestTheMoneyColumns:
 
         assert _by_email(_export(columns=("email", "priceGroup")))[ANA] == ["'=SUM(A1)"]
 
+    @pytest.mark.parametrize("currency, text", [
+        ("AUD", "−A$15"), ("USD", "−US$15"), ("NZD", "−NZ$15")])
+    def test_a_negative_amount_is_never_a_cell_reference(self, market, currency, text):
+        """T154 review finding 1: "-A$15" is a minus and the cell A$15, which Excel opening a CSV
+        evaluates, so a refund due would show another row's number. The minus sign, U+2212, is no
+        formula lead anywhere."""
+        market.doc["setupObject"]["pricing"]["currency"] = currency
+
+        assert _by_email(_export({"payment": "over"}, columns=("email", "stillOwed"))) == {
+            CY: [text]}
+
+    def test_only_the_three_amounts_skip_the_escape(self, market):
+        """T154 review finding 2: a column written as it is must be one the server writes from its
+        own numbers, never anyone's text."""
+        market_doc = MarketsApi._load_market_for(MARKET, EDITOR, Actions.READ)
+
+        assert {c.id for c in VendorExport.offered_columns(market_doc) if c.as_is} == {
+            "owed", "paid", "stillOwed"}
+
+    def test_a_typed_answer_is_escaped_beside_an_amount_that_is_not(self, market, applications):
+        for doc in applications.documents:
+            if doc["applicant_email"] == CY:
+                doc["form_data"]["business"] = "-1+1"
+            if doc["applicant_email"] == ANA:
+                doc["form_data"]["business"] = "+1 604 555 0100"
+
+        got = _by_email(_export(columns=("email", "answer:business", "stillOwed")))
+        assert got[CY] == ["'-1+1", "-$15"]
+        assert got[ANA] == ["'+1 604 555 0100", "$70"]
+
 
 class TestThePaymentFilter:
     @pytest.mark.parametrize("state, emails", [
@@ -257,3 +288,23 @@ class TestTheMoneyText:
     def test_every_offered_currency_has_its_symbol(self):
         for currency in Pricing.CURRENCIES:
             assert Pricing.money_text(100, currency).endswith("1")
+
+    @pytest.mark.parametrize("cents, currency, cell", [
+        (-1500, "CAD", "-$15"), (-1500, "EUR", "-€15"), (-1500, "GBP", "-£15"),
+        (-1500, "AUD", "−A$15"), (-1500, "USD", "−US$15"), (-150050, "NZD", "−NZ$1,500.50"),
+        (3500, "AUD", "A$35"), (0, "USD", "US$0"),
+    ])
+    def test_a_file_writes_it_so_no_spreadsheet_reads_a_formula(self, cents, currency, cell):
+        """A file's amount is the screen's, but where a minus would lead a currency's letters, a
+        cell reference ("-A$15", "-US$15", "-NZ$15"), it is the minus sign U+2212 (finding 1)."""
+        assert VendorExport.money_cell(cents, currency) == cell
+
+    @pytest.mark.parametrize("currency", [*Pricing.CURRENCIES, None])
+    @pytest.mark.parametrize("cents", [-123456750, -1500, -1, 0, 1, 3500])
+    def test_no_amount_in_a_file_begins_a_formula(self, cents, currency):
+        """Why a money column may skip ``as_text_cell``: it begins with no formula lead, or with a
+        minus before a sign that is no letter, a number to a spreadsheet ("-$15")."""
+        cell = VendorExport.money_cell(cents, currency)
+
+        assert not cell.startswith(FORMULA_LEADS) or (
+            cell.startswith("-") and not cell[1].isalpha() and not cell[1:].startswith(FORMULA_LEADS))

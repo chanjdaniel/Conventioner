@@ -16,8 +16,10 @@ What they owe and have paid is read from the account the drawer's Payment tab re
 
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
-A money cell is the server's own, from whole cents, so it is written as it is: a negative
-difference, "-$15", reaches the spreadsheet as a number, where the escape's quote would make it text.
+A money cell is the server's own, from whole cents, so it is written as it is (``money_cell``): a
+negative difference, "-$15", reaches the spreadsheet as a number, where the escape's quote would make
+it text. Where a minus would lead a currency's letters, "-A$15" being a minus and the cell A$15, it is
+the minus sign U+2212, which no spreadsheet reads as a formula.
 """
 import csv
 import io
@@ -115,7 +117,7 @@ class Column:
     cell: Callable[["Vendor"], str]
     group: str = "vendor"
     #: A cell the server writes from its own numbers, never from anyone's text, so it is written as
-    #: it is rather than escaped (``as_text_cell``).
+    #: it is rather than escaped (``as_text_cell``): only an amount, ``money_cell``.
     as_is: bool = False
 
 
@@ -221,6 +223,19 @@ def _assignment_columns(market: Market) -> List[Column]:
     ]
 
 
+#: The minus sign, which no spreadsheet reads as a formula lead, where the hyphen-minus is one.
+MINUS_SIGN = "\u2212"
+
+
+def money_cell(cents: int, currency: Optional[str]) -> str:
+    """An amount as a file writes it: as the Payment tab does (``Pricing.money_text``), but where a
+    minus would lead a currency's letters, "-A$15", "-US$15" or "-NZ$15", a minus and a cell
+    reference that Excel opening a CSV evaluates, with the minus sign U+2212 instead. "-$15", "-€15"
+    and "-£15" keep the hyphen-minus, so a spreadsheet reads the number."""
+    text = Pricing.money_text(cents, currency)
+    return MINUS_SIGN + text[1:] if text.startswith("-") and text[1].isalpha() else text
+
+
 def _no_account(currency: Optional[str]) -> Dict[str, Any]:
     return {"currency": currency, "lines": [], "payments": [], "owedCents": 0, "paidCents": 0}
 
@@ -236,8 +251,7 @@ def _payment_columns(market: Market) -> List[Column]:
         return ", ".join(dict.fromkeys(line["group"] for line in lines if line.get("group")))
 
     def money(amount: Callable[[Dict[str, Any]], int]) -> Callable[[Vendor], str]:
-        return lambda vendor: Pricing.money_text(
-            amount(vendor.account or _no_account(currency)), currency)
+        return lambda vendor: money_cell(amount(vendor.account or _no_account(currency)), currency)
 
     return [
         Column("priceGroup", "Price group", groups, "payment"),
