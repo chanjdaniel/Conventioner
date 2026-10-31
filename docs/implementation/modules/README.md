@@ -15,7 +15,7 @@ One line per node, sorted by file name.
 - [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the phone-sized door among the organizer market screens
 - [The CSV import](csv-import.md) - a Google Form's responses as applications: the CSV path's in Draft and Review, one row per applicant, one mapping format
 - [The CSV proposal and start](csv-proposal-and-start.md) - a draft started from its Google Form's responses: a proposal that writes nothing, a confirm that writes all or nothing
-- [The Discord connection](discord.md) - a market connected to a server through Discord's approval screen: one bot, REST only, the card editable until archived, optional values
+- [The Discord connection](discord.md) - a market connected to a server through Discord's approval screen: one bot, REST only, the card editable until archived, who is in the server, optional values
 - [Essential fields](essential-fields.md) - the questions every form asks: asked, required, the offering and its freeze, the reserved prefix
 - [Floorplan placement](floorplan-placement.md) - the beta's Auto-Place: geometry, not AI; the room is the floor plan; no `pyckingsolver` in production; Konva colours
 - [The form amendment](form-amendment.md) - fixing the form from inside the first import through the one form writer, in draft; the phase walk is gone

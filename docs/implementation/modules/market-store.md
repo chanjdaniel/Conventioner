@@ -63,6 +63,7 @@ Each control asks the row of the action it takes:
 | Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
 | Assignments, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
 | Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
+| Vendors | Check Discord | Connect Discord and give roles |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
 | The drawer | Update info | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
 | The drawer's Payment tab | Record payment | Record a payment |

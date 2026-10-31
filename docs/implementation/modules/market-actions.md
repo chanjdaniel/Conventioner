@@ -32,11 +32,11 @@ sources:
   - E38/F05
   - E41/F01/S02
   - E38/F06/S01
+  - E38/F07/S02
   - E46/F01/S02
+  - E43/F01/S03
   - E44/F01/S01
   - E44/F01/S02
-  - E38/F07/S02
-  - E43/F01/S03
 ---
 
 # The market's actions
@@ -97,7 +97,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Change the amount owed (`change-owed`) | Admin | `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`, and a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too) |
 | Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`) | Admin | `POST /markets/:id/payments/<email>/refunds`, `PUT` and `DELETE /markets/:id/payment-entries/<id>` |
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
-| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)) |
+| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer |
 | Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |

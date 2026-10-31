@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { MarketAction, mayTake } from '@/utils/marketActions';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -32,6 +32,17 @@ import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { NO_FILTERS, vendorsPageSeed, type ExportFilters } from '@/utils/vendorExport';
+import { getApiErrorMessage } from '@/utils/api';
+import {
+  DISCORD_STATES,
+  checkDiscord,
+  checkedAgo,
+  discordStateChip,
+  discordStateFrom,
+  discordStateLabel,
+  discordStates,
+  mayCheckDiscord,
+} from '@/utils/discordCheck';
 
 const router = useRouter();
 const route = useRoute();
@@ -109,6 +120,63 @@ const filters = computed(() => offeredFilters(addressFilters.value, offered.valu
 const filterOptionsShown = computed(() => filterOptions(tableRows.value));
 const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 
+/**
+ * Who is in the market's Discord server (E46/F01/S03), as the last "Check Discord" found each
+ * vendor: a column and a filter once a check has run, the filter in the address as `discord`.
+ */
+const discordChecked = computed(() => market.value?.discord?.checkedAt ?? '');
+const discordByApplication = computed(() => discordStates(market.value));
+const discordShown = computed(() =>
+  discordChecked.value ? discordStateFrom(route.query.discord) : null,
+);
+const discordCounts = computed(() => {
+  const counts = new Map(DISCORD_STATES.map((state) => [state, 0]));
+  for (const v of vendors.value) {
+    const state = discordByApplication.value.get(v.applicationId);
+    if (state) counts.set(state, (counts.get(state) ?? 0) + 1);
+  }
+  return counts;
+});
+function showDiscord(value: string): void {
+  const state = discordStateFrom(value);
+  void router.replace({
+    query: state ? { ...route.query, discord: state } : withoutQueryKey(route.query, 'discord'),
+  });
+}
+
+/** "Check Discord" is the table's Connect Discord and give roles row (Q19: "admins only"). */
+const mayCheck = computed(() => mayCheckDiscord(market.value));
+const checking = ref(false);
+const checkError = ref('');
+async function runCheck(): Promise<void> {
+  checking.value = true;
+  checkError.value = '';
+  try {
+    await checkDiscord(marketId.value);
+    // The states are the market's, so the market is read again (one market, from the server).
+    await useMarketStore().refresh();
+  } catch (err) {
+    checkError.value = getApiErrorMessage(err, 'Discord could not be checked. Try again.');
+    // A refusal may mean the card changed meanwhile, so the page reads what it is now.
+    void useMarketStore().refresh();
+  } finally {
+    checking.value = false;
+  }
+}
+
+/** "Checked 5 minutes ago" ages as the page sits, a turn of the minute within seconds of it. */
+const now = ref(Date.now());
+let ageing: ReturnType<typeof setInterval> | null = null;
+onMounted(() => (ageing = setInterval(() => (now.value = Date.now()), 10_000)));
+onUnmounted(() => {
+  if (ageing) clearInterval(ageing);
+});
+const checkedWords = computed(() =>
+  discordChecked.value
+    ? checkedAgo(discordChecked.value, Math.max(now.value, Date.parse(discordChecked.value)))
+    : '',
+);
+
 const filteredVendors = computed(() => {
   const listed = vendors.value.filter(
     (v) =>
@@ -116,7 +184,9 @@ const filteredVendors = computed(() => {
       vendorShown(v.assignmentsByDate, filters.value, {
         onlyUnassigned: onlyUnassigned.value,
         isAssigned: v.isAssigned,
-      }),
+      }) &&
+      (!discordShown.value ||
+        discordByApplication.value.get(v.applicationId) === discordShown.value),
   );
   const term = filterText.value.trim();
   if (!term) return listed;
@@ -224,7 +294,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           </button>
           <!-- With anything narrowing the list, it counts what is left (E28/F02/S02). -->
           <div class="summary-line" data-testid="vendors-summary">
-            <template v-if="placeFiltered || shown || filterText.trim()">
+            <template v-if="placeFiltered || shown || discordShown || filterText.trim()">
               <span class="summary-strong">{{ filteredVendors.length }}</span>
               of
               <span class="summary-strong">{{ totalVendorCount }}</span>
@@ -253,6 +323,51 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
         <p v-if="loadError" class="error-text">{{ loadError }}</p>
         <NothingAssigned v-if="market && !assigned" :market="market" testid="vendors-empty" />
 
+        <!-- Who is in the Discord server (E46/F01/S03): the filter once a check has run, when it
+             ran, and the check itself for whoever the row allows. -->
+        <div
+          v-if="market?.discord?.guildId && (discordChecked || mayCheck)"
+          class="vendors-discord"
+          data-testid="vendors-discord"
+        >
+          <label v-if="discordChecked" class="vendors-discord-filter">
+            <span class="field-label">Discord</span>
+            <select
+              class="field field--select"
+              :value="discordShown ?? ''"
+              name="vendors-discord-filter"
+              data-testid="vendors-discord-filter"
+              @change="showDiscord(($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">All vendors</option>
+              <option v-for="state in DISCORD_STATES" :key="state" :value="state">
+                {{ discordStateLabel(state) }} ({{ discordCounts.get(state) }})
+              </option>
+            </select>
+          </label>
+          <span
+            v-if="discordChecked"
+            class="vendors-discord-checked"
+            data-testid="vendors-discord-checked"
+          >
+            {{ checkedWords }}
+          </span>
+          <!-- A standard button, the select's height, so the three stand on one line. -->
+          <button
+            v-if="mayCheck"
+            type="button"
+            class="btn btn--secondary"
+            :disabled="checking"
+            data-testid="vendors-discord-check"
+            @click="runCheck"
+          >
+            {{ checking ? 'Checking Discord…' : 'Check Discord' }}
+          </button>
+          <p v-if="checkError" class="error-text" role="alert" data-testid="vendors-discord-error">
+            {{ checkError }}
+          </p>
+        </div>
+
         <ResultFilterBar
           v-if="assigned && tableRows.length"
           class="vendors-filters"
@@ -270,6 +385,9 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
           <p v-if="totalVendorCount === 0">No vendors found.</p>
           <p v-else-if="filterText.trim()">No vendors match "{{ filterText }}".</p>
           <p v-else-if="placeFiltered">No vendors match these filters.</p>
+          <p v-else-if="discordShown">
+            No vendor reads “{{ discordStateLabel(discordShown) }}” in Discord.
+          </p>
           <p v-else-if="onlyUnassigned">Every vendor has a table.</p>
           <p v-else-if="shown === 'rejected'">Nobody was rejected.</p>
         </div>
@@ -292,42 +410,55 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
                 :email="vendor.displayEmail"
                 :names="vendorNames"
               />
-              <span v-if="assigned" class="vendor-meta">
-                <!-- "Added" leads, so what follows holds one column down the list: whoever needs
+              <span v-if="assigned || discordChecked" class="vendor-meta">
+                <!-- Discord leads at every width, so its column holds whatever follows it. A vendor
+                     who applied after the check has no state yet, and keeps the column empty. -->
+                <span v-if="discordChecked" class="vendor-discord">
+                  <span
+                    v-if="discordByApplication.get(vendor.applicationId)"
+                    :class="discordStateChip(discordByApplication.get(vendor.applicationId)!)"
+                    data-testid="vendors-list-discord"
+                    ><span class="visually-hidden">Discord: </span
+                    >{{ discordStateLabel(discordByApplication.get(vendor.applicationId)!) }}</span
+                  >
+                </span>
+                <template v-if="assigned">
+                  <!-- "Added" leads, so what follows holds one column down the list: whoever needs
                      a table says whether they have one, a vendor added by hand included
                      (E38/F08/S02); for anyone else the verdict stands there (E36/F02/S04). -->
-                <span
-                  v-if="vendor.added"
-                  class="chip chip--informational"
-                  data-testid="vendors-list-status"
-                  >Added</span
-                >
-                <span class="vendor-standing">
                   <span
-                    v-if="vendor.needsATable"
-                    class="vendor-badge"
-                    :class="
-                      vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
-                    "
-                    data-testid="vendors-list-badge"
+                    v-if="vendor.added"
+                    class="chip chip--informational"
+                    data-testid="vendors-list-status"
+                    >Added</span
                   >
-                    {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                  <span class="vendor-standing">
+                    <span
+                      v-if="vendor.needsATable"
+                      class="vendor-badge"
+                      :class="
+                        vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
+                      "
+                      data-testid="vendors-list-badge"
+                    >
+                      {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
+                    </span>
+                    <span
+                      v-else
+                      :class="statusChip(vendor.status)"
+                      data-testid="vendors-list-status"
+                      >{{ statusLabel(vendor.status) }}</span
+                    >
                   </span>
                   <span
-                    v-else
-                    :class="statusChip(vendor.status)"
-                    data-testid="vendors-list-status"
-                    >{{ statusLabel(vendor.status) }}</span
+                    v-if="!placementsRefused"
+                    class="vendor-date-count"
+                    data-testid="vendor-date-count"
                   >
-                </span>
-                <span
-                  v-if="!placementsRefused"
-                  class="vendor-date-count"
-                  data-testid="vendor-date-count"
-                >
-                  {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
-                  {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
-                </span>
+                    {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
+                    {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
+                  </span>
+                </template>
               </span>
             </button>
           </li>
@@ -552,6 +683,39 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   flex-shrink: 0;
 }
 
+/* The Discord state's column, as wide as "In the server", its longest word, so the badge after it
+   holds one column down the list. */
+.vendor-discord {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 104px;
+}
+
+.vendors-discord {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+/* Laid out as the filter bar's pickers below it: the label on the select, as wide as its options. */
+.vendors-discord-filter {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vendors-discord-checked {
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+  /* On the select's line, not its label's. */
+  line-height: var(--control-height);
+}
+
+.vendors-discord .error-text {
+  flex-basis: 100%;
+}
+
 /* One column for the badge or the verdict, whatever its word, right before the date count. As wide
    as "Unassigned", the longest; centred, so "Assigned" sits in the middle of the same slot. */
 .vendor-standing {
@@ -606,10 +770,16 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
     gap: var(--space-2);
   }
 
-  /* Under the name, the badge or verdict leads, so it keeps one column down the list whether or
-     not "Added" follows it, and the date count holds the right. */
+  /* Under the name, Discord's column leads, then the badge or verdict, so each keeps one column
+     down the list whether or not "Added" follows, and the date count holds the right; both start
+     at the name's edge. */
   .vendor-meta {
     width: 100%;
+  }
+
+  .vendor-discord {
+    order: -2;
+    justify-content: flex-start;
   }
 
   .vendor-standing {
