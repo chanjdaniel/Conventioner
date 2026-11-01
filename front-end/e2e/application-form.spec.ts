@@ -1,4 +1,4 @@
-import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage } from './fixtures';
+import { test, expect, BACKEND_URL, APP_API, TEST_USER, ApplicationFormPage } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
 import { seedApplication } from './helpers/seedApplication';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
@@ -7,8 +7,8 @@ import type { Page } from '@playwright/test';
 /** Create a bare market via the API and land on the setup view. Returns its id. */
 async function createMarket(page: Page): Promise<string> {
   const ctx = page.request;
-  await loginViaApi(ctx, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-  const orgsRes = await ctx.get(`${BACKEND_URL}/organizations`, {
+  await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
+  const orgsRes = await ctx.get(`${APP_API}/organizations`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   const orgs = (await orgsRes.json()).organizations as { id: string }[];
@@ -16,7 +16,7 @@ async function createMarket(page: Page): Promise<string> {
   if (!orgId) throw new Error('No organization found');
 
   const marketName = `Form Builder E2E ${Date.now()}`;
-  const createRes = await ctx.post(`${BACKEND_URL}/markets`, {
+  const createRes = await ctx.post(`${APP_API}/markets`, {
     headers: {
       'Content-Type': 'application/json',
       'X-Owner-Email': TEST_USER.email,

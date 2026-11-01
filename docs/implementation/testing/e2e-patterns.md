@@ -29,9 +29,10 @@ sources:
   - T75
   - E38/F05/S01
   - T121
-  - E38/F15/S03
-  - E42/F01/S05
   - T161
+  - E38/F15/S03
+  - T169
+  - E42/F01/S05
 ---
 
 # E2E patterns
@@ -55,7 +56,7 @@ A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, 
 ## Fixtures
 
 [`front-end/e2e/fixtures.ts`](../../../front-end/e2e/fixtures.ts) is what a spec imports `test` and `expect` from.
-It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls, and re-exports of the page objects.
+It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls from a request context of their own, `APP_API` (`/api`, the address the app's pages call the API at) for calls made with a page's cookies (`page.request`), and re-exports of the page objects.
 A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
 Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
 `expectAccessible(state)` runs axe over the page as it stands and fails on any WCAG A or AA violation, one line per element as `rule (impact) target`; its configuration and why `color-contrast` is off are [the design language's](../../design-system.md#what-keeps-this-true).
@@ -104,7 +105,11 @@ A stack's interfaces keep changing for a while after `up` returns: each takes an
 Another stack starting or stopping during a run can still abort a request: [CI and the gate](ci-and-the-gate.md#the-no-mistakes-gate) has the lock that keeps two gate runs apart.
 
 **A spec ends an organizer's session on the server**: `mongoEval` unsets the user's `login_id`, so the cookie names a login no account holds and the next request answers 401, as after a password reset; the next sign-in gives the account a new one.
-`context.clearCookies()` on a page that is loading data does not end it: a read still in flight answers with the session's cookie again, since the server refreshes it on every request, and the browser keeps it.
+`context.clearCookies()` ends it only in the browser: the stack keeps its sessions on disk, where it stays until it lapses.
+
+**A call made with a page's cookies goes to `APP_API`, never `BACKEND_URL`** (E38/F14/S01).
+The back end holds a session to the client that signed in, its address and browser (Flask-Login's "strong" session protection, [the cookies](../conventions/security-invariants.md#the-cookies)), and on a stack the page reaches it through the dev server's proxy while the back end's own port is another address, so a `page.request` there ends the page's session and deletes its remember-me cookie.
+A page of another browser context (`withUser()`'s) is a page too; a request context of its own (the `request` fixture, `playwright.request.newContext()`) is a client of its own, and may call either.
 A request with no cookie at all answers 401; [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds that, from a page of the app's origin that runs none of its code.
 
 **`waitForURL` returns when the route changes, not when the new page has loaded.**

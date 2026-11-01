@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import {
   seedApplicationWithStatus,
@@ -56,7 +56,7 @@ test('an editor decides and is named; a viewer decides nothing; the phase stays 
     );
     // Deciding is not moving the market: the rail offers an editor no move.
     await expect(page.getByTestId('phase-transition-assignment')).toHaveCount(0);
-    const moved = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+    const moved = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
       data: { toPhase: 'assignment' },
     });
     expect(moved.status()).toBe(403);

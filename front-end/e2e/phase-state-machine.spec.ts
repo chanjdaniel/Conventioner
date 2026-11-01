@@ -1,5 +1,5 @@
 import { marketSetupPath } from './helpers/marketScreens';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   seedPhaseMarket,
@@ -14,7 +14,7 @@ import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
 const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
 
 async function transitionViaPage(page: Page, marketId: string, toPhase: string): Promise<void> {
-  const res = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+  const res = await page.request.post(`${APP_API}/markets/${marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
     data: { toPhase },
   });
@@ -25,7 +25,7 @@ async function transitionViaPage(page: Page, marketId: string, toPhase: string):
 }
 
 async function loadMarket(page: Page, marketId: string): Promise<Record<string, unknown>> {
-  const res = await page.request.get(`${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`, {
+  const res = await page.request.get(`${APP_API}/markets/${encodeURIComponent(marketId)}`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   const json = await res.json();
@@ -255,7 +255,7 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
     // The rail offers no way into offers (E30/F01/S04); the guard is the server's, asked directly.
     await page.getByTestId('phase-rail-menu-button').click();
     await expect(page.getByTestId('phase-transition-offers')).toHaveCount(0);
-    const refused = await page.request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    const refused = await page.request.post(`${APP_API}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'offers' },
     });
@@ -511,7 +511,7 @@ test.describe('The applications surface says where the market stands', () => {
     const taking = await conditionOf(form.marketId);
 
     const stopped = await page.request.post(
-      `${BACKEND_URL}/markets/${form.marketId}/applications-stopped`,
+      `${APP_API}/markets/${form.marketId}/applications-stopped`,
       { data: { stopped: true } },
     );
     expect(stopped.ok(), await stopped.text()).toBeTruthy();

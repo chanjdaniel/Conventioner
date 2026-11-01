@@ -91,7 +91,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Session Management
 - **Flask-Session 0.8.0** - Server-side session storage
   - Session store selected by `SESSION_TYPE`, which has no default: `filesystem` (local disk) on a container or VM, `null` (signed cookie only, no server-side store) on a serverless host
-  - Session lifetime: 2 hours (7200 seconds)
+  - A sign-in lasts 12 hours, or 30 days with "Remember me", counted from signing in and enforced by the server ([the cookies](implementation/conventions/security-invariants.md#the-cookies)); the session cookie ends with the browser
   - The session and remember-me cookies are `SameSite=None`, so they are always `Secure` and `HttpOnly` - not configurable ([the cookies](implementation/conventions/security-invariants.md#the-cookies))
 
 ### Testing
