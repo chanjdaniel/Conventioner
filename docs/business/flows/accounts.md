@@ -13,6 +13,8 @@ sources:
   - T161
   - E38/F14/S01
   - T169
+  - E38/F14/S02
+  - T176
 ---
 
 # Accounts
@@ -44,6 +46,7 @@ Covered by: `auth.spec.ts` ("Register new user"), `account-links.spec.ts`, `a-si
 
 **Status:** Works (code; `POST /resend-verification`).
 From the verification page, ask for another link.
+A sign-in refused because the address is not verified yet offers "Send the link again" too (A2), which says "If that address needs verifying, a new link is on its way." whatever the address (E38/F14/S02).
 
 ## A2. Sign in and sign out
 
@@ -60,7 +63,13 @@ Branches: wrong password, unverified account, "Show" password toggle, visiting a
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
-Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`, `remember-me.spec.ts`.
+
+Each form says one line at a time, the newer replacing the older, and says what to do next (E38/F14/S02):
+
+- A wrong password and an address with no account say the same, "That email and password do not match.", with "Forgot password?" in it (A4).
+- A right password on an account not yet verified says "Verify your email address first: we sent you a link when you registered.", with "Send the link again" (A1a).
+
+Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`, `remember-me.spec.ts`, `the-sign-in-says-what-to-do-next.spec.ts`.
 
 ## A3. Sign in with an emailed code
 
@@ -70,8 +79,8 @@ Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email" returns to step 1.
 
-Branches: a wrong code ("That code is not right"), too many wrong codes.
-Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code; `a-failure-says-what-to-do.spec.ts` and `remember-me.spec.ts`, which stub the send and set the code where the server keeps it, then sign in with it; `sign-in-fits-a-phone.spec.ts`.
+Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+Covered by: `auth.spec.ts` ("shows error for invalid OTP code") and `the-sign-in-says-what-to-do-next.spec.ts`, which stub the send and walk only a wrong code; `a-failure-says-what-to-do.spec.ts` and `remember-me.spec.ts`, which stub the send and set the code where the server keeps it, then sign in with it; `sign-in-fits-a-phone.spec.ts`.
 
 ## A4. Reset a forgotten password
 
