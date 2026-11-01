@@ -32,6 +32,7 @@ sources:
   - E44/F01/S01
   - E44/F01/S02
   - E46/F01/S05
+  - E38/F13/S01
 ---
 
 # The vendor drawer
@@ -43,7 +44,7 @@ sources:
 One drawer opens over the page from the side, the same on every one of those pages ([`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
 The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assignments`), so a reload or a shared link opens the same drawer ([`vendorDrawer.ts`](../../../front-end/src/utils/vendorDrawer.ts)).
 
-**Status:** Works (read from the code as of E35/F01: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`; the History tab as of E40/F01/S04, `the-vendors-history.spec.ts`).
+**Status:** Works (read from the code as of E35/F01: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`; the History tab as of E40/F01/S04, `the-vendors-history.spec.ts`; Back as of E38/F13/S01, `back-closes-the-drawer.spec.ts`).
 
 1. Click a vendor where they appear; the drawer opens on its Application tab, wherever it was opened, and the page behind it holds still and cannot be reached.
 2. The head, "Vendor detail": the vendor's name, their address beside it when they have a name, and their verdict with who gave it ("Approved by <email>, <date and time>"), or "Added by <email>, …" for a vendor added by hand.
@@ -68,16 +69,18 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
      For whoever the row "Change the amount owed" allows, each line has a "..." menu: "Change the amount owed" opens a dialog that says the change before Save ("Friday, May 8, 2099 will owe $0 instead of $15."), $0 waiving it; a line set by hand shows the calculated price struck beside it, "Set by <address>, <when>", or "Removed when the table was freed, by <address>, <when>" for the $0 a free's deduction set, which seating the day again takes back, and its menu adds "Use the calculated price", confirmed first.
      For whoever the row "Adjust the amount paid" allows, "Record refund" sits beside "Record payment", for money given back ("-$15", "Refund by e-transfer, given …"), and each entry has a "..." menu: "Edit" opens the same dialog filled in, and "Remove", confirmed first, takes it out of what they paid and leaves it listed, struck; an edited or removed entry keeps "Recorded by …", with "Edited by …" or "Removed by …" under it ([payments](../../implementation/data/payments.md)).
    - **History:** everything [the market's history](reading-the-markets-history.md) holds about them, newest first, a page of ten at a time with "Load more": applying and editing their application, being added by hand, verdicts and follow-ups, the application dealt to a reviewer, notes, tables assigned, moved, swapped and freed ([J13](placing-by-hand.md#j13-assignment-history)), check-ins, their info updated, a Discord member said not to be them, and their payments, refunds and amounts owed changed.
-     Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address.
+     Each entry reads as in Manage market's History section, opening to its before and after; the vendor reads by name alone, as text, since the head shows their address, and any other vendor an entry names links to their own drawer, by name and address: on the Vendors page it opens in this drawer, a change of vendor that adds no step to Back, and on any other page it leads to Vendors.
      A run of the assignment names nobody, so it is not in a vendor's list.
      There are no filters: it is already one vendor's.
-5. Close with "×", Escape, or a click outside it; the address loses the vendor.
-   The drawer opens with focus on "×", and closing gives focus back to what opened it, a row, a name or a button ([dialogs](../../implementation/conventions/dialogs.md)).
+5. Close with "×", Escape, a click outside it, or Back (a phone's back gesture, the browser's button); the address loses the vendor and the page stays as it was, its filter and scroll included.
+   Opening the drawer is a step of the browser's history and closing it takes that step back, so Back after closing goes to the page before, however the drawer was closed; changing its tab or vendor is no step, so one Back closes it.
+   A drawer reached by a link or a reload closes onto the page too, never out of the site ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#a-pages-own-state-is-replaced-the-drawers-opening-is-pushed)).
+   The drawer opens with focus on "×", and takes it there again when it shows another vendor in place, such as one its History tab names; closing gives focus back to what opened it, a row, a name or a button ([dialogs](../../implementation/conventions/dialogs.md)).
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 The applications stand on their own read: when the server cannot say where vendors sit, the drawer still shows the answers, says why in red on every tab (a refusal's own sentence, or which kind of failure it was), and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
-Covered by: `the-vendor-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `possible-discord-matches.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
+Covered by: `the-vendor-drawer.spec.ts`, `back-closes-the-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `possible-discord-matches.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
 
 ## The rules it obeys
 

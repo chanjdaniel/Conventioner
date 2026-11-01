@@ -290,7 +290,8 @@ async function triggerAutoPlace() {
 
   background: var(--mm-green);
   color: #ffffff;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -309,11 +310,11 @@ async function triggerAutoPlace() {
 }
 
 .auto-place-btn:disabled {
-  opacity: 0.5;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
-  background: var(--mm-border);
-  /* White on this fill is 1.67. --mm-black on it is 9.31. */
-  color: var(--mm-black);
 }
 
 /* ── Icon ────────────────────────────────────────────────────── */

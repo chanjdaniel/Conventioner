@@ -1,0 +1,317 @@
+import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { TablesPage } from './pages/TablesPage';
+import { VendorsPage } from './pages/VendorsPage';
+import { marketScreenPath } from './helpers/marketScreens';
+
+/**
+ * Back closes the vendor drawer (E38/F13/S01).
+ *
+ * The drawer opened and closed by replacing the address, so a phone's back gesture with it open left
+ * the page: from Vendors, it went to the dashboard. Opening it is a step of the browser's history
+ * now, and closing it takes that step back, so Back closes the drawer and leaves the page as it was,
+ * its search and scroll included. A drawer reached by a link or a reload opens, and closing it stays
+ * on the page.
+ */
+const ON_THE_DAY = '2099-05-02';
+
+/** A door long enough to scroll on a phone. */
+const VENDORS = Array.from(
+  { length: 24 },
+  (_, i) => `door${String(i + 1).padStart(2, '0')}@example.com`,
+);
+const LAST = VENDORS[VENDORS.length - 1];
+
+const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
+
+/** The page is where it was: no drawer, the same search, the same scroll. */
+async function expectThePageAsItWas(
+  page: Page,
+  path: string,
+  search: Locator,
+  scrolled: number,
+): Promise<void> {
+  await expect(page.getByTestId('vendors-detail-close')).toBeHidden();
+  await expect(page).toHaveURL((url) => url.pathname === path && !url.searchParams.has('vendor'));
+  await expect(search).toHaveValue('door');
+  await expect.poll(() => scrollY(page)).toBe(scrolled);
+}
+
+test.describe('on a phone', () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test('Back closes the drawer on Attendance and on Vendors, and a second Back leaves the page', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { marketDate: ON_THE_DAY, vendors: VENDORS },
+    );
+
+    // Attendance: search, scroll to the last vendor, open their drawer, and Back.
+    await page.goto('/dashboard');
+    const attendance = new AttendanceStatusPage(page);
+    await attendance.goto(seed.marketId);
+    const attendancePath = new URL(page.url()).pathname;
+    await attendance.search.fill('door');
+    await expect(attendance.rows).toHaveCount(VENDORS.length);
+    const name = attendance.vendor(LAST);
+    await name.scrollIntoViewIfNeeded();
+    const atTheDoor = await scrollY(page);
+    expect(atTheDoor).toBeGreaterThan(0);
+
+    await name.tap();
+    await expect(page.getByTestId('vendors-detail-email')).toHaveText(LAST);
+    await page.goBack();
+    await expectThePageAsItWas(page, attendancePath, attendance.search, atTheDoor);
+    await expect(attendance.status(LAST)).toHaveText('Not yet');
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    // Vendors: the same, from its own list.
+    await page.goto('/dashboard');
+    const vendors = new VendorsPage(page);
+    await vendors.goto(seed.marketId);
+    const vendorsPath = new URL(page.url()).pathname;
+    await vendors.search('door');
+    await expect(vendors.vendorListItems).toHaveCount(VENDORS.length);
+    const row = vendors.vendorListItems.last();
+    await row.scrollIntoViewIfNeeded();
+    const inTheList = await scrollY(page);
+    expect(inTheList).toBeGreaterThan(0);
+
+    await row.tap();
+    await expect(vendors.detailCloseButton).toBeVisible();
+    await page.goBack();
+    await expectThePageAsItWas(page, vendorsPath, vendors.searchInput, inTheList);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('one Back closes the drawer whatever tab it is on, and closing it leaves no step behind', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const vendors = new VendorsPage(page);
+    const vendorsPath = marketScreenPath(seed.marketId, 'vendors');
+
+    // Two tab changes are no steps of their own.
+    await page.goto('/dashboard');
+    await vendors.goto(seed.marketId);
+    await vendors.clickVendor(0);
+    await vendors.openTab('assignments');
+    await vendors.openTab('history');
+    await expect(page).toHaveURL(/vendorTab=history/);
+    await page.goBack();
+    await expect(vendors.detailCloseButton).toBeHidden();
+    await expect(page).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+
+    // The close button, Escape and a tap outside each take the step back: Back after them leaves
+    // the page, rather than opening the drawer again.
+    const closes: Record<string, () => Promise<void>> = {
+      'the close button': () => vendors.closeDetail(),
+      Escape: () => page.keyboard.press('Escape'),
+      'a tap outside': () => vendors.detailOverlay.tap({ position: { x: 10, y: 400 } }),
+    };
+    for (const [how, close] of Object.entries(closes)) {
+      await page.goto('/dashboard');
+      await vendors.goto(seed.marketId);
+      await vendors.clickVendor(0);
+      await vendors.openTab('history');
+      await close();
+      await expect(vendors.detailCloseButton, how).toBeHidden();
+      await expect(page, how).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+
+      await page.goBack();
+      await expect(page, how).toHaveURL(/\/dashboard$/);
+      await expect(vendors.detailCloseButton, how).toBeHidden();
+    }
+  });
+
+  test('a drawer reached by a link or a reload opens, and closing it stays on the page', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const vendorsPath = marketScreenPath(seed.marketId, 'vendors');
+
+    // A link to the drawer, opened in a tab of its own.
+    const linked = await page.context().newPage();
+    await linked.goto(`${vendorsPath}?vendor=alice@example.com&vendorTab=assignments`);
+    const fromTheLink = new VendorsPage(linked);
+    await expect(linked.getByTestId('vendors-detail-email')).toHaveText('alice@example.com');
+    await fromTheLink.closeDetail();
+    await expect(fromTheLink.detailCloseButton).toBeHidden();
+    await expect(linked).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+    await expect(fromTheLink.vendorListItems).toHaveCount(2);
+    await linked.close();
+
+    // A reload with the drawer open.
+    const vendors = new VendorsPage(page);
+    await page.goto('/dashboard');
+    await vendors.goto(seed.marketId);
+    await vendors.clickVendor(0);
+    await expect(vendors.detailCloseButton).toBeVisible();
+    await page.reload();
+    await expect(vendors.detailCloseButton).toBeVisible();
+    await vendors.closeDetail();
+    await expect(vendors.detailCloseButton).toBeHidden();
+    await expect(page).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+    await expect(vendors.vendorListItems).toHaveCount(2);
+  });
+});
+
+test('on a desktop, Back closes a drawer opened from a seat and keeps the Assignments filter', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const seed = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const tables = new TablesPage(page);
+  await page.goto('/dashboard');
+  await tables.goto(seed.marketId);
+  await tables.setFilter('date', SEED_MARKET_DATE);
+  await expect(page).toHaveURL(/date=/);
+  const filtered = page.url();
+
+  const seat = page.getByTestId('tables-seat-occupied').first();
+  await tables.openVendor(seat);
+  await expect(page.getByTestId('vendors-detail-close')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId('vendors-detail-close')).toBeHidden();
+  await expect(page).toHaveURL(filtered);
+  await expect(seat).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test.describe('a vendor named in the History tab', () => {
+  const ALICE = 'alice@example.com';
+  const BOB = 'bob@example.com';
+
+  /** A market where Alice and Bob swapped tables, so Alice's History names Bob as a link. */
+  async function swapped(request: APIRequestContext): Promise<string> {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const swap = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/placements/swap`, {
+      data: { emails: [ALICE, BOB], date: SEED_MARKET_DATE },
+    });
+    expect(swap.ok(), await swap.text()).toBeTruthy();
+    return seed.marketId;
+  }
+
+  /** From the dashboard to Vendors, Alice's drawer on its History tab, then Bob's name in it. */
+  async function toBobFromAlice(page: Page, marketId: string): Promise<VendorsPage> {
+    const vendors = new VendorsPage(page);
+    await page.goto('/dashboard');
+    await vendors.goto(marketId);
+    await vendors.search(ALICE);
+    await vendors.clickVendor(0);
+    await vendors.openTab('history');
+    await page
+      .getByTestId('vendor-drawer-panel-history')
+      .getByTestId('market-history-vendor-link')
+      .filter({ hasText: BOB })
+      .first()
+      .click();
+    await expect(page.getByTestId('vendors-detail-email')).toHaveText(BOB);
+    return vendors;
+  }
+
+  test('on Vendors, opens in the same drawer: one Back closes it', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const marketId = await swapped(request);
+    const vendorsPath = marketScreenPath(marketId, 'vendors');
+    const vendors = await toBobFromAlice(page, marketId);
+    // The page's own search is kept: the drawer changed vendor, the page did not change.
+    await expect(vendors.searchInput).toHaveValue(ALICE);
+
+    await page.goBack();
+    await expect(vendors.detailCloseButton).toBeHidden();
+    await expect(page).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
+
+    // Closed by "×" instead, Back goes to the page before, and no drawer opens again.
+    await toBobFromAlice(page, marketId);
+    await vendors.closeDetail();
+    await expect(vendors.detailCloseButton).toBeHidden();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(vendors.detailCloseButton).toBeHidden();
+  });
+
+  test('on Vendors, Enter on the name shows that vendor with focus on the drawer’s close', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // The name was the focused element, and the History panel it sat in goes as the drawer shows
+    // Bob on his Application tab, so focus fell to `<body>`, the top of the page behind the drawer.
+    const marketId = await swapped(request);
+    const vendors = new VendorsPage(page);
+    await vendors.goto(marketId);
+    await vendors.search(ALICE);
+    await vendors.clickVendor(0);
+    await vendors.openTab('history');
+    await page
+      .getByTestId('vendor-drawer-panel-history')
+      .getByTestId('market-history-vendor-link')
+      .filter({ hasText: BOB })
+      .first()
+      .focus();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByTestId('vendors-detail-email')).toHaveText(BOB);
+    await expect(vendors.detailCloseButton).toBeFocused();
+  });
+
+  test('on another page, is a link to Vendors', async ({ authenticatedPage: page, request }) => {
+    const marketId = await swapped(request);
+    const tables = new TablesPage(page);
+    await tables.goto(marketId);
+    const seat = page.locator(`[data-testid="tables-seat-occupied"][data-vendor-email="${ALICE}"]`);
+    await tables.openVendor(seat);
+    await page.getByTestId('vendor-drawer-tab-history').click();
+    await page
+      .getByTestId('vendor-drawer-panel-history')
+      .getByTestId('market-history-vendor-link')
+      .filter({ hasText: BOB })
+      .first()
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === marketScreenPath(marketId, 'vendors') &&
+        url.searchParams.get('vendor') === BOB,
+    );
+    await expect(page.getByTestId('vendors-detail-email')).toHaveText(BOB);
+  });
+});

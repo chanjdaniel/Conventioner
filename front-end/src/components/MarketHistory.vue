@@ -10,10 +10,12 @@
  * history alone, with no filters: the same entries in the same words, narrowed by the server.
  */
 import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type { FormField, IntakeMode, RejectionQuestion } from '@/assets/types/datatypes';
 import HistoryEntries from '@/components/HistoryEntries.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
+import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import {
   dayEnds,
@@ -219,6 +221,20 @@ function vendorLink(email: string) {
   return { path: marketPath(props.marketId, 'vendors'), query: { vendor: email.toLowerCase() } };
 }
 
+/**
+ * In a vendor's drawer on the Vendors page, another vendor an entry names opens in the same drawer
+ * (E38/F13/S01): following the link would push a step of its own, so one Back would no longer close
+ * the drawer. On any other page the link leads to Vendors, a page of its own.
+ */
+const route = useRoute();
+const router = useRouter();
+const drawer = useVendorDrawer();
+const openVendor = computed(() =>
+  ownVendor.value && route?.path === router?.resolve(marketPath(props.marketId, 'vendors')).path
+    ? (email: string) => drawer.open(email)
+    : undefined,
+);
+
 const emptyText = computed(() => {
   if (ownVendor.value) return 'Nothing has been recorded about this vendor yet.';
   return filtered.value
@@ -317,6 +333,7 @@ const emptyText = computed(() => {
       :labels="labels"
       :path="path"
       :vendor-link="vendorLink"
+      :open-vendor="openVendor"
       :own-vendor="ownVendor"
       :questions="questions"
       :fields="fields"

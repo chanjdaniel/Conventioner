@@ -839,7 +839,8 @@ onUnmounted(() => {
   min-width: 90px;
   height: 36px;
   padding: 0 16px;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
@@ -851,7 +852,10 @@ onUnmounted(() => {
 }
 
 .cal-btn:disabled {
-  opacity: 0.55;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
