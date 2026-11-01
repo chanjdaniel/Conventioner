@@ -76,10 +76,12 @@ defineEmits<{ resend: [] }>();
   color: var(--mm-green);
 }
 
-/* A link in the sentence, so it reads as part of it; the link colour tells it from the red. */
+/* A link in the sentence, so it reads as part of it; the link colour tells it from the red. On a
+   phone it moves to the next line whole, rather than breaking between its two words. */
 .sign-in-notice__link {
   color: var(--mm-text-link);
   text-decoration: underline;
+  white-space: nowrap;
 }
 
 /* As wide as its words, under the line it answers. */
