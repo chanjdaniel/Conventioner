@@ -177,7 +177,9 @@ test.describe('the Payments page', () => {
         .getByTestId(testid)
         .evaluateAll((found) =>
           found.map((row) =>
-            Array.from(row.querySelectorAll('th, td')).map((cell) => cell.textContent?.trim()),
+            Array.from(row.querySelectorAll<HTMLElement>('th, td')).map((cell) =>
+              cell.innerText.trim(),
+            ),
           ),
         );
     await expect
@@ -448,16 +450,17 @@ test.describe('the Payments page', () => {
     browser,
     request,
   }) => {
-    // Payments keeps the 1000px desktop floor, so at 390 it is a desk's layout scrolled sideways.
+    // Settings keeps the 1000px desktop floor, so at 390 it is a desk's layout scrolled sideways.
     // The frame's phone rules followed the window, so its name, rail, page row and read-only note
-    // stood on the phone's 16px gutter there, 8px left of the page's own notes and titles.
+    // stood on the phone's 16px gutter there, 8px left of the page's own notes and titles; on
+    // Payments, which kept the floor until T180.
     const unpriced = await threeVendorsPaying(request, null);
 
     await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
       await page.setViewportSize({ width: 390, height: 844 });
-      await paymentsPage(page, unpriced);
-      await expect(page.getByTestId('market-read-only')).toBeVisible();
-      const desk = await starts(page, '#payments-vendors-title');
+      await page.goto(marketScreenPath(unpriced, 'settings'));
+      await expect(page.getByTestId('market-read-only')).toBeVisible({ timeout: 15000 });
+      const desk = await starts(page, '[data-testid="assignment-settings-heading"]');
       const inset = desk.title;
       // As on a desk: the page link's pill stands on the inset, its label inside it.
       expect({ ...desk, pageLabel: undefined }).toEqual({
@@ -469,24 +472,32 @@ test.describe('the Payments page', () => {
         title: inset,
       });
       expect(desk.pageLabel).toBeGreaterThan(inset!);
+
+      // Payments (T180) and Assignments (T142) fit a phone: there the frame keeps the phone's 16px
+      // gutter, x 32, the page link's label on it and its pill reaching into it, and the page's
+      // own notes and titles stand on it too.
+      for (const [where, title] of [
+        ['payments', 'payments-vendors-title'],
+        ['assignments', 'tables-date-heading'],
+      ] as const) {
+        await page.goto(marketScreenPath(unpriced, where));
+        await expect(page.getByTestId('market-read-only')).toBeVisible({ timeout: 15000 });
+        await expect(page.getByTestId(title).first()).toBeVisible();
+        const phone = await starts(page, `[data-testid="${title}"]`);
+        expect({ ...phone, pageLink: undefined }, where).toEqual({
+          name: 32,
+          rail: 32,
+          pageLink: undefined,
+          pageLabel: 32,
+          readOnly: 32,
+          title: 32,
+        });
+      }
+      await page.goto(marketScreenPath(unpriced, 'payments'));
       const unpricedNote = page.getByTestId('payments-unpriced');
       expect(await unpricedNote.evaluate((el) => Math.round(el.getBoundingClientRect().left))).toBe(
-        inset,
+        32,
       );
-
-      // Assignments fits a phone (T142): there the frame keeps the phone's 16px gutter, x 32, the
-      // page link's label on it and its pill reaching into it.
-      await page.goto(marketScreenPath(unpriced, 'assignments'));
-      await expect(page.getByTestId('market-read-only')).toBeVisible({ timeout: 15000 });
-      const phone = await starts(page, '.date-heading');
-      expect({ ...phone, pageLink: undefined, title: undefined }).toEqual({
-        name: 32,
-        rail: 32,
-        pageLink: undefined,
-        pageLabel: 32,
-        readOnly: 32,
-        title: undefined,
-      });
     });
   });
 });

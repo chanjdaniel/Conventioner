@@ -142,6 +142,9 @@ const router = createRouter({
       path: '/markets/:marketId/vendors',
       name: 'vendors',
       component: () => import('@/views/VendorsView.vue'),
+      // On market day a vendor is looked up, paid and corrected here, one tap from the door (T180),
+      // so the page and its drawer fit a phone, as the door does.
+      meta: { fitsAPhone: true },
     },
     { path: '/vendors', redirect: '/markets' },
     // The market's money at a glance, and who has yet to pay (E44/F02/S01).
@@ -149,6 +152,9 @@ const router = createRouter({
       path: '/markets/:marketId/payments',
       name: 'market-payments',
       component: () => import('@/views/PaymentsView.vue'),
+      // Who still owes is read at the door on market day (T180), so it fits a phone, as the door
+      // does.
+      meta: { fitsAPhone: true },
     },
     {
       path: '/markets/:marketId/attendance',

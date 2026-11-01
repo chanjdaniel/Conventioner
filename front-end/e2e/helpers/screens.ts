@@ -50,11 +50,18 @@ export const PHONE: Size = { width: 390, height: 844 };
 const ORGANIZER = [DESKTOP, LAPTOP];
 const PUBLIC = [DESKTOP, PHONE];
 /**
- * A route with `meta.fitsAPhone`: an organizer's that works on a phone too. The door (E29/F01),
- * Tools, the Discord return page, and `/markets` and the Assignments page with their dialogs and
- * the vendor drawer over them (T142), so "Change assignment" at the door lands on a page that fits
- * the phone it was tapped on; and the dashboard sign-in lands on, and Organizations with its
- * dialogs (T148).
+ * A route with `meta.fitsAPhone`: an organizer's that works on a phone too, with the dialogs, menus
+ * and drawers that open over it. One place a line, each with the work that brought it:
+ *
+ * - the door (E29/F01);
+ * - Tools, and the Discord return page;
+ * - `/markets` (T142);
+ * - the Assignments page (T142), so "Change assignment" at the door lands on a page that fits the
+ *   phone it was tapped on;
+ * - the dashboard, where signing in lands (T148);
+ * - Organizations (T148);
+ * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
+ * - Payments (T180), so who still owes is read at the door.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -705,17 +712,29 @@ export const SCREENS: Screen[] = [
   {
     name: 'the vendors',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item'),
   },
   {
     name: 'the vendor drawer',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-list-item',
       'vendors-detail-email',
     ]),
+  },
+  {
+    // An Editor corrects a vendor's answer at the door (T180), so it opens inside a phone's window.
+    name: 'the Update info dialog, over the vendors',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendors-detail-update-info', 'update-info-window'],
+    ),
   },
   {
     // An Editor's Update info (E41/F01/S02): the answers the assignment reads are an Admin's to
@@ -723,7 +742,7 @@ export const SCREENS: Screen[] = [
     // are (T181). It opens on `big`, whose plan asks the tiers, the table and the section ranking.
     name: "an Editor's update-info dialog, the essentials locked",
     who: 'editor',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -735,7 +754,7 @@ export const SCREENS: Screen[] = [
     // Its History tab, the market's history narrowed to the vendor (E40/F01/S04).
     name: "the vendor drawer's history",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -747,7 +766,7 @@ export const SCREENS: Screen[] = [
     // What the vendor owes and paid (E44/F01/S01).
     name: "the vendor drawer's Payment tab",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -758,7 +777,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the record-payment dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -771,7 +790,7 @@ export const SCREENS: Screen[] = [
     // A table-day's "..." menu, and the dialog it opens (E44/F01/S02).
     name: "a Payment tab line's menu",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -783,7 +802,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the change-owed dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -796,7 +815,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the add-vendor dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-add-button',
       'add-vendor-name-input',
@@ -806,18 +825,35 @@ export const SCREENS: Screen[] = [
     // The preview's rows, not the dialog: its fields and table arrive with the first preview.
     name: 'the export dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-export-button',
       'vendor-export-preview-row',
     ]),
   },
   {
-    // The market's money and who owes it (E44/F02/S01): the figures, the breakdowns and the list.
+    // Who owes (E44/F02/S01): the list, on a market that sets no prices, so it draws no figures.
     name: 'the payments',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'payments'), 'payments-row'),
+  },
+  {
+    // A priced market (T180): its money by tier and by date, laid out as blocks on a phone.
+    name: 'the payments, priced',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: async (page, seed) => {
+      await at(screen('rules', 'payments'), 'payments-row')(page, seed);
+      await visible(page, 'payments-by-date-row');
+    },
+  },
+  {
+    // A vendor's line opens their drawer on its Payment tab (E44/F02/S01), over the page.
+    name: 'the vendor drawer, over the payments',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('big', 'payments'), 'payments-row', ['payments-row-open', 'payment-tab']),
   },
   {
     name: 'the attendance',

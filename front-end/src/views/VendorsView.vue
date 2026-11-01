@@ -299,6 +299,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
             class="vendors-shown"
             role="group"
             aria-label="Show only"
+            data-testid="vendors-shown"
           >
             <button
               v-if="!placementsRefused"
@@ -617,6 +618,7 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 .filter-input {
   flex: 1 1 16rem;
   min-width: 0;
+  min-height: var(--target-min);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
@@ -863,9 +865,12 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   }
 
   /* Under the name, the columns keep their order and widths, starting at the name's edge, and the
-     date count holds the right. */
+     date count holds the right. The Discord state, the badge, "Added" and the date count are wider
+     together than a phone's row, so they wrap there (T180). */
   .vendor-meta {
     width: 100%;
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
   }
 
   .vendor-discord,
@@ -880,6 +885,25 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
 
   .summary-line {
     white-space: normal;
+  }
+}
+
+/*
+ * A phone (T180): a vendor is looked up at the door, so the page fits the phone it is read on
+ * (`meta.fitsAPhone`). The gutter is the door's, and the search takes a row of its own, the
+ * filters, Export and Add a vendor wrapping beneath it.
+ */
+@media (width <= 640px) {
+  .vendors-toolbar {
+    padding-inline: var(--space-4);
+  }
+
+  .filter-input {
+    flex-basis: 100%;
+  }
+
+  .vendors-body {
+    padding: var(--space-4);
   }
 }
 </style>

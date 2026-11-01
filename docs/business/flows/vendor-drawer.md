@@ -33,6 +33,7 @@ sources:
   - E44/F01/S02
   - E46/F01/S05
   - E38/F13/S01
+  - T180
 ---
 
 # The vendor drawer
@@ -42,6 +43,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md), [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
 One drawer opens over the page from the side, the same on every one of those pages ([`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
+On a phone, over a page that fits one, it opens inside the window, 92% of its width, and so do its tabs, Update info and the payment dialogs ([the design language](../../design-system.md#layout), T180).
 The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assignments`), so a reload or a shared link opens the same drawer ([`vendorDrawer.ts`](../../../front-end/src/utils/vendorDrawer.ts)).
 
 **Status:** Works (read from the code as of E35/F01: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`; the History tab as of E40/F01/S04, `the-vendors-history.spec.ts`; Back as of E38/F13/S01, `back-closes-the-drawer.spec.ts`).
@@ -89,7 +91,9 @@ Covered by:
 - `changing-owed-and-paid.spec.ts`
 - `possible-discord-matches.spec.ts`
 - `the-all-view.spec.ts`
+- `the-door-on-a-phone.spec.ts`, on a phone
 - `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`
+- `the-market-on-a-phone.spec.ts`, on a phone and at a desk
 - `the-payment-tab.spec.ts`
 - `the-vendor-drawer.spec.ts`
 - `the-vendors-history.spec.ts`

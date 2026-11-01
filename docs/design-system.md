@@ -171,10 +171,33 @@ The market screen's `height: 80%`, which pinned it to most of the window and hid
 **The organizer's screens are designed for 1920x1080**, and since T79 the [layout sweep](#what-keeps-this-true) also measures them at 1440x900; no other width is a layout requirement new work is held to (wayfinding/readable-journey/06), though the focus sweep walks every state at a phone's width but the floorplan beta's wizard steps ([what keeps this true](#what-keeps-this-true)).
 The public check-in page is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
 The [account pages](business/flows/accounts.md) are the way to it, so they work on a phone too: sign in with its tabs, both password-reset pages and email verification stand in one `AuthCard`, 600px wide at most, with a 16px page gutter at each side, and `sign-in-fits-a-phone.spec.ts` fails on any of them that scrolls sideways at 390px (T73).
-Six organizer places lift the desktop floor too, by `meta.fitsAPhone`: Attendance, the door on market day ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)), the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113), `/markets` with its dialogs, the way to the market an organizer runs from the door, the Assignments page with its dialogs and the vendor drawer over it, where the drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142), the dashboard, where sign-in lands on the way there, and Organizations with its dialogs, the dashboard's other place (T148); the page Discord sends them back to is an `AuthCard` and is measured with the account pages.
+Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each with the dialogs, menus and drawers that open over it; listed in the router's order, one place a line:
+
+- the dashboard, where sign-in lands on the way to the door (T148);
+- `/markets`, the way to the market an organizer runs from the door (T142);
+- Organizations, the dashboard's other place (T148);
+- the Assignments page, where the vendor drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142);
+- Vendors, with the [vendor drawer](business/flows/vendor-drawer.md), Update info and the payment dialogs, where a vendor is looked up, paid and corrected from the door ([vendors](business/flows/vendors.md)) (T180);
+- Payments, where who still owes is read on market day ([payments](business/flows/payments.md)) (T180);
+- Attendance, the door on market day ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges));
+- the Tools tab, where an organizer may connect Discord from a phone (Daniel, T113);
+- the page Discord sends them back to, an `AuthCard` measured with the account pages.
+
+The setup screens keep the floor, since they are built at a desk before the market and the floorplan and the form builder are drawn for a pointer; one a line:
+
+- Market Setup's plan;
+- the form builder;
+- Settings, the assignment rules;
+- the import;
+- start-from-CSV;
+- the floorplan beta;
+- the market chooser at `/init`.
+
 `/markets` on a phone narrows its gutter to 16px, as the door does, and its finder's fields and phase toggles wrap; a market's card stacks its facts and Manage under its name, which keeps one line and its ellipsis.
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
+Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
+Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 The dashboard is one column, 716px wide at most and the window's width less a 16px gutter at each side where that is narrower: the remembered market's card, or the sentence and its step, fills it, Markets and Organizations share the row beneath in two equal tiles, and Sign out is under them.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.
 
@@ -424,6 +447,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - every phase
 - the phase rail at 390 in every phase the seed holds, both intake paths among them
 - `/markets` and the Assignments page with their dialogs at 390
+- Vendors and Payments with their dialogs and drawers at 390, Payments priced and unpriced
 - the vendor drawer at the door on each of its tabs at 390
 - an Editor's Update info with its essential questions locked
 - settled rules
