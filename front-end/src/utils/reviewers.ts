@@ -4,9 +4,12 @@
  * With reviewers chosen, every row and card names the reviewer an application was dealt to, and
  * deciding one dealt to someone else carries a warning on the card - never a dialog to click
  * through, since helping a reviewer who is behind should stay easy. The words live here, so the All
- * view's rows, its drawer, One by one's card and a selection's confirmation say them alike.
+ * view's rows, its drawer, One by one's card and a selection's confirmation say them alike. Words
+ * that carry an address come back as parts (`addressParts.ts`), so the screen draws the address
+ * through `EmailAddress.vue` and a narrow line breaks it only before its "@" or a dot (T181).
  */
 import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
+import { addressParts, type AddressPart } from '@/utils/addressParts';
 import { reviewerAddresses } from '@/utils/reviewTeam';
 
 /** Not decided yet, so whose share it is still matters: open, or waiting on a follow-up. */
@@ -49,10 +52,15 @@ export function isChosen(reader: string, market: Team): boolean {
 }
 
 /** "Reviewer: sam@example.com", or "Reviewer: you" for the reader's own; null when not dealt. */
-export function reviewerLine(application: Dealt, reader: string, market: Team): string | null {
+export function reviewerLine(
+  application: Dealt,
+  reader: string,
+  market: Team,
+): AddressPart[] | null {
   const reviewer = dealtTo(application, market);
   if (!reviewer) return null;
-  return `Reviewer: ${same(reviewer, reader) ? 'you' : reviewer}`;
+  if (same(reviewer, reader)) return [{ kind: 'text', text: 'Reviewer: you' }];
+  return [{ kind: 'text', text: 'Reviewer: ' }, ...addressParts(reviewer)];
 }
 
 /**
@@ -67,8 +75,15 @@ export function dealtElsewhere(application: Dealt, reader: string, market: Team)
 }
 
 /** The warning above the verdict buttons of an application dealt to someone else. */
-export function dealtWarning(reviewer: string): string {
-  return `This application is dealt to ${reviewer}. If you decide it, its history will say you decided it for them.`;
+export function dealtWarning(reviewer: string): AddressPart[] {
+  return [
+    { kind: 'text', text: 'This application is dealt to ' },
+    ...addressParts(reviewer),
+    {
+      kind: 'text',
+      text: '. If you decide it, its history will say you decided it for them.',
+    },
+  ];
 }
 
 /** What a selection's confirmation adds for the ticked rows dealt to others; null for none. */

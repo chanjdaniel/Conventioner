@@ -141,39 +141,6 @@ export function soleColumn(
     : 'After';
 }
 
-/** A piece of a value as drawn: words, or an address split at its "@". */
-export type ValuePart =
-  { kind: 'text'; text: string } | { kind: 'address'; local: string; domain: string };
-
-const ADDRESS = /[^\s@,;()]+@[^\s@,;()]+\.[^\s@,;()]+/g;
-
-/**
- * A value's pieces, each address apart, so the screen keeps the part before the "@" and the part
- * from it whole: an address breaks, if a column is too narrow for it, only before its "@", never at
- * a hyphen inside a name.
- */
-export function addressParts(value: string): ValuePart[] {
-  const parts: ValuePart[] = [];
-  let at = 0;
-  for (const match of value.matchAll(ADDRESS)) {
-    const start = match.index ?? 0;
-    if (start > at) parts.push({ kind: 'text', text: value.slice(at, start) });
-    const split = match[0].indexOf('@');
-    parts.push({ kind: 'address', local: match[0].slice(0, split), domain: match[0].slice(split) });
-    at = start + match[0].length;
-  }
-  if (at < value.length) parts.push({ kind: 'text', text: value.slice(at) });
-  return parts;
-}
-
-/**
- * A part of an address cut before each of its dots, so a column too narrow for the part breaks it
- * at a dot ("@example" then ".com") before it breaks a word.
- */
-export function dotPieces(part: string): string[] {
-  return part.split(/(?=\.)/).filter(Boolean);
-}
-
 /** The instant a day starts in the reader's timezone, as the history's `since` reads it. */
 export function dayStarts(isoDay: string): string {
   return new Date(`${isoDay}T00:00:00`).toISOString();

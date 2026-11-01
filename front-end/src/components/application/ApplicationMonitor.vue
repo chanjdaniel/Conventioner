@@ -43,6 +43,7 @@ import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue'
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
@@ -841,7 +842,7 @@ function submittedOn(app: Application): string {
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
         <p v-if="currentReviewer" class="card-reviewer" data-testid="app-monitor-reviewer">
-          {{ currentReviewer }}
+          <EmailAddress :words="currentReviewer" />
         </p>
         <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
         <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
@@ -965,7 +966,7 @@ function submittedOn(app: Application): string {
           class="dealt-warning"
           data-testid="app-monitor-dealt-warning"
         >
-          {{ dealtWarning(currentDealtElsewhere) }}
+          <EmailAddress :words="dealtWarning(currentDealtElsewhere)" />
         </p>
         <div class="card-actions">
           <button

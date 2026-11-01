@@ -21,6 +21,11 @@ const ME = 'ana@example.com';
 const SAM = 'sam@example.com';
 const WARNING = `This application is dealt to ${SAM}. If you decide it, its history will say you decided it for them.`;
 
+/** The reviewer's address, drawn so it breaks only before its "@" (T181): its two parts. */
+const SAMS_PARTS = ['sam', '@example.com'];
+const addressPartsOf = (element: { findAll(selector: string): Array<{ text(): string }> }) =>
+  element.findAll('.email-address').map((part) => part.text());
+
 const fetchMarketApplications = vi.fn();
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 const route = vi.hoisted(() => ({ query: {} as Record<string, string> }));
@@ -134,6 +139,7 @@ describe('the All view’s rows', () => {
 
     expect(reviewerOf(wrapper, 'mine')?.text()).toBe('Reviewer: you');
     expect(reviewerOf(wrapper, 'sams')?.text()).toBe(`Reviewer: ${SAM}`);
+    expect(addressPartsOf(reviewerOf(wrapper, 'sams')!)).toEqual(SAMS_PARTS);
     expect(reviewerOf(wrapper, 'never-dealt')?.exists()).toBe(false);
   });
 
@@ -161,6 +167,10 @@ describe('the All view’s drawer', () => {
     );
     const warning = verdict.get('[data-testid="applications-all-drawer-dealt-warning"]');
     expect(warning.text()).toBe(WARNING);
+    expect(addressPartsOf(warning)).toEqual(SAMS_PARTS);
+    expect(addressPartsOf(verdict.get('[data-testid="applications-all-drawer-reviewer"]'))).toEqual(
+      SAMS_PARTS,
+    );
     // Above the buttons, which are still there: a warning, not a lock.
     const html = verdict.html();
     expect(html.indexOf('dealt-warning')).toBeLessThan(html.indexOf('applications-all-approve'));
@@ -270,6 +280,10 @@ describe('One by one’s card', () => {
     const card = wrapper.get('[data-testid="app-monitor-card"]');
     expect(card.get('[data-testid="app-monitor-reviewer"]').text()).toBe(`Reviewer: ${SAM}`);
     expect(card.get('[data-testid="app-monitor-dealt-warning"]').text()).toBe(WARNING);
+    expect(addressPartsOf(card.get('[data-testid="app-monitor-dealt-warning"]'))).toEqual(
+      SAMS_PARTS,
+    );
+    expect(addressPartsOf(card.get('[data-testid="app-monitor-reviewer"]'))).toEqual(SAMS_PARTS);
     const html = card.html();
     expect(html.indexOf('app-monitor-dealt-warning')).toBeLessThan(
       html.indexOf('app-monitor-approve-button'),

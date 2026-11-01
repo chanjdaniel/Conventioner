@@ -41,6 +41,8 @@ export class ApplicationMonitorPage {
   readonly helpOthersButton: Locator;
   /** The card is dealt to another reviewer (E38/F07/S03). */
   readonly dealtWarning: Locator;
+  /** Whose share the card is: "Reviewer: <address>", or "Reviewer: you" (E38/F07/S03). */
+  readonly reviewer: Locator;
   /** The applicant's name, leading the card's heading. */
   readonly name: Locator;
   /** The verdict just given, above the next card, and its Undo (E38/F10/S01). */
@@ -72,6 +74,7 @@ export class ApplicationMonitorPage {
     this.shareDoneOthers = page.getByTestId('app-monitor-share-done-others');
     this.helpOthersButton = page.getByTestId('app-monitor-help-others');
     this.dealtWarning = this.card.getByTestId('app-monitor-dealt-warning');
+    this.reviewer = this.card.getByTestId('app-monitor-reviewer');
     this.name = this.card.getByTestId('app-monitor-name');
     this.undoLine = page.getByTestId('app-monitor-undo');
     this.undoButton = page.getByTestId('app-monitor-undo-button');
