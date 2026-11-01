@@ -11,6 +11,7 @@ import {
   reviewerLine,
   selectionDealtLine,
 } from '@/utils/reviewers';
+import { partsText, type AddressPart } from '@/utils/addressParts';
 
 /**
  * Whose share an application is, for the reader, and the warning on deciding someone else's
@@ -41,32 +42,54 @@ function application(
   };
 }
 
+/** The reviewer line's words, as one string, as their accessible name reads; null when none. */
+const line = (...args: Parameters<typeof reviewerLine>) => {
+  const parts = reviewerLine(...args);
+  return parts && partsText(parts);
+};
+
+/** The addresses among the parts, each cut at its "@" for `EmailAddress.vue` to draw. */
+const addressesIn = (parts: AddressPart[] | null) =>
+  (parts ?? []).filter((part) => part.kind === 'address');
+
 describe('reviewerLine', () => {
   it('names the reviewer an application was dealt to', () => {
-    expect(reviewerLine(application(ApplicationStatus.Open, SAM), ANA, chosen)).toBe(
-      `Reviewer: ${SAM}`,
-    );
+    expect(line(application(ApplicationStatus.Open, SAM), ANA, chosen)).toBe(`Reviewer: ${SAM}`);
+  });
+
+  it('hands the reviewer’s address over as a part of its own, cut at its "@"', () => {
+    const hyphened = 'rv-sam-lee@example.com';
+    expect(
+      addressesIn(
+        reviewerLine(application(ApplicationStatus.Open, hyphened), ANA, {
+          reviewTeam: { reviewers: [{ email: hyphened, able: true }] },
+        }),
+      ),
+    ).toEqual([{ kind: 'address', local: 'rv-sam-lee', domain: '@example.com' }]);
+    expect(
+      addressesIn(reviewerLine(application(ApplicationStatus.Open, SAM), SAM, chosen)),
+    ).toEqual([]);
   });
 
   it('says "you" for the reader’s own, whatever the case of either address', () => {
-    expect(reviewerLine(application(ApplicationStatus.Open, 'Sam@Example.com'), SAM, chosen)).toBe(
+    expect(line(application(ApplicationStatus.Open, 'Sam@Example.com'), SAM, chosen)).toBe(
       'Reviewer: you',
     );
   });
 
   it('names the reviewer of a decided application too: it stays the record of whose it was', () => {
-    expect(reviewerLine(application(ApplicationStatus.ReviewerApproved, SAM), ANA, chosen)).toBe(
+    expect(line(application(ApplicationStatus.ReviewerApproved, SAM), ANA, chosen)).toBe(
       `Reviewer: ${SAM}`,
     );
   });
 
   it('says nothing for an application never dealt', () => {
-    expect(reviewerLine(application(ApplicationStatus.Open, null), ANA, chosen)).toBeNull();
+    expect(line(application(ApplicationStatus.Open, null), ANA, chosen)).toBeNull();
   });
 
   it('says nothing with no reviewers chosen, even on one dealt before', () => {
-    expect(reviewerLine(application(ApplicationStatus.Open, SAM), ANA, noneChosen)).toBeNull();
-    expect(reviewerLine(application(ApplicationStatus.Open, SAM), ANA, null)).toBeNull();
+    expect(line(application(ApplicationStatus.Open, SAM), ANA, noneChosen)).toBeNull();
+    expect(line(application(ApplicationStatus.Open, SAM), ANA, null)).toBeNull();
   });
 });
 
@@ -123,9 +146,12 @@ describe('dealtElsewhere', () => {
 
 describe('the warning’s words', () => {
   it('names whose the application is, and what its history will say', () => {
-    expect(dealtWarning(SAM)).toBe(
+    expect(partsText(dealtWarning(SAM))).toBe(
       `This application is dealt to ${SAM}. If you decide it, its history will say you decided it for them.`,
     );
+    expect(addressesIn(dealtWarning('rv-sam-lee@example.com'))).toEqual([
+      { kind: 'address', local: 'rv-sam-lee', domain: '@example.com' },
+    ]);
   });
 
   it('counts the ticked rows dealt to others in a selection’s confirmation', () => {

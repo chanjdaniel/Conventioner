@@ -14,6 +14,8 @@ export class CsvImportPage {
 
   // Stage containers, used to assert which stage the flow is showing.
   readonly view: Locator;
+  /** The page's title: "Import responses" on a draft, "Redo import" after it. */
+  readonly heading: Locator;
   readonly upload: Locator;
   readonly map: Locator;
   readonly preview: Locator;
@@ -77,6 +79,7 @@ export class CsvImportPage {
     this.page = page;
 
     this.view = page.getByTestId('import-view');
+    this.heading = this.view.getByRole('heading', { level: 1 });
     this.upload = page.getByTestId('import-upload');
     this.map = page.getByTestId('import-map');
     this.preview = page.getByTestId('import-preview');
@@ -219,7 +222,6 @@ export class CsvImportPage {
     await this.confirmButton.click();
   }
 
-  /** Preview, confirm, and wait for the result - for tests whose subject is elsewhere. */
   /** Import an export from the upload step to its result: choose, map, preview, confirm. */
   async importCsv(
     contents: string,
@@ -232,6 +234,7 @@ export class CsvImportPage {
     await this.previewAndConfirm();
   }
 
+  /** Preview, confirm, and wait for the result - for tests whose subject is elsewhere. */
   async previewAndConfirm(): Promise<void> {
     await this.clickPreview();
     await this.clickConfirm();

@@ -57,6 +57,8 @@ import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
+import type { AddressPart } from '@/utils/addressParts';
 
 const props = defineProps<{
   market: Market | null;
@@ -223,7 +225,7 @@ function holderOf(app: Application): string | null {
 }
 
 /** Whose share the application is, while reviewers are chosen (E38/F07/S03). */
-function reviewerOf(app: Application): string | null {
+function reviewerOf(app: Application): AddressPart[] | null {
   return reviewerLine(app, me.value, props.market);
 }
 
@@ -721,9 +723,9 @@ async function decideSelection() {
               data-testid="applications-all-giver"
               >{{ verdictGiverLine(app) }}</span
             >
-            <span v-if="reviewerOf(app)" class="all-meta" data-testid="applications-all-reviewer">{{
-              reviewerOf(app)
-            }}</span>
+            <span v-if="reviewerOf(app)" class="all-meta" data-testid="applications-all-reviewer"
+              ><EmailAddress :words="reviewerOf(app) ?? []"
+            /></span>
             <span v-if="app.followUpOwner" class="all-meta" data-testid="applications-all-owner"
               >Followed up by {{ app.followUpOwner.email }}</span
             >
@@ -756,8 +758,8 @@ async function decideSelection() {
               v-if="reviewerOf(opened)"
               class="all-meta"
               data-testid="applications-all-drawer-reviewer"
-              >{{ reviewerOf(opened) }}</span
-            >
+              ><EmailAddress :words="reviewerOf(opened) ?? []"
+            /></span>
             <span
               v-if="holderOf(opened)"
               class="all-meta"
@@ -794,7 +796,7 @@ async function decideSelection() {
             class="drawer-dealt"
             data-testid="applications-all-drawer-dealt-warning"
           >
-            {{ dealtWarning(openedDealtElsewhere) }}
+            <EmailAddress :words="dealtWarning(openedDealtElsewhere)" />
           </p>
           <div v-if="decidesOpened" class="drawer-buttons">
             <button

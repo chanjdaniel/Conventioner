@@ -7,9 +7,8 @@
  */
 import { computed, onMounted, onUpdated, ref } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
+import EmailAddress from '@/components/EmailAddress.vue';
 import {
-  addressParts,
-  dotPieces,
   entryChanges,
   entryParts,
   entryWhen,
@@ -139,16 +138,18 @@ onUpdated(measureFields);
       :data-action="entry.action"
       :data-testid="`${testid}-entry`"
     >
+      <!-- An address in the sentence, who made the change or whose share it was, breaks, if at
+           all, only before its "@" or a dot, as the table's do (T181). -->
       <p class="history-what" :data-testid="`${testid}-sentence`">
         <template v-for="(part, index) in entryParts(entry, context)" :key="index">
-          <template v-if="part.kind === 'text'">{{ part.text }}</template>
+          <EmailAddress v-if="part.kind === 'text'" :words="part.text" />
           <!-- The drawer's head names them with their address, so here the name is enough. -->
           <span
             v-else-if="ownVendor && part.email.toLowerCase() === ownVendor"
             class="history-vendor-self"
             :data-testid="`${testid}-own-vendor`"
-            >{{ part.name || part.email }}</span
-          >
+            ><EmailAddress :words="part.name || part.email"
+          /></span>
           <!-- Opened in place, the click is caught on its way down, before the link's own: a
                prevented click is one RouterLink does not follow. -->
           <component
@@ -162,11 +163,10 @@ onUpdated(measureFields);
             "
             :class="{ 'history-vendor': vendorLink }"
             :data-testid="`${testid}-vendor-link`"
-            >{{ part.name || part.email
-            }}<template v-if="part.name"
-              >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
-            ></component
-          >
+            ><EmailAddress :words="part.name || part.email" /><template v-if="part.name"
+              >{{ ' ' }}<span class="history-email"><EmailAddress :words="part.email" /></span
+            ></template>
+          </component>
         </template>
       </p>
       <div class="history-meta">
@@ -201,23 +201,8 @@ onUpdated(measureFields);
             <tr v-for="row in changesOf(entry).changed" :key="row.field">
               <th scope="row">
                 <!-- A field may be a vendor's address, a check's or a run's row: it breaks, if at
-                     all, only before its "@", as the values do (T137 review note 7). -->
-                <span class="history-field-name"
-                  ><template v-for="(part, p) in addressParts(row.field)" :key="p"
-                    ><template v-if="part.kind === 'text'">{{ part.text }}</template
-                    ><template v-else
-                      ><span class="history-address"
-                        ><template v-for="(piece, d) in dotPieces(part.local)" :key="d"
-                          ><wbr v-if="d" />{{ piece }}</template
-                        ></span
-                      ><wbr /><span class="history-address"
-                        ><template v-for="(piece, d) in dotPieces(part.domain)" :key="d"
-                          ><wbr v-if="d" />{{ piece }}</template
-                        ></span
-                      ></template
-                    ></template
-                  ></span
-                >
+                     all, only before its "@" or a dot, as the values do (T137 review note 7). -->
+                <span class="history-field-name"><EmailAddress :words="row.field" /></span>
               </th>
               <td
                 v-for="(side, s) in valueColumns(entry).length === 1
@@ -234,21 +219,8 @@ onUpdated(measureFields);
                     >{{ line }}</span
                   >
                 </template>
-                <!-- An address breaks, if at all, only before its "@". -->
-                <template v-for="(part, p) in addressParts(side)" v-else :key="p">
-                  <template v-if="part.kind === 'text'">{{ part.text }}</template>
-                  <template v-else
-                    ><span class="history-address"
-                      ><template v-for="(piece, d) in dotPieces(part.local)" :key="d"
-                        ><wbr v-if="d" />{{ piece }}</template
-                      ></span
-                    ><wbr /><span class="history-address"
-                      ><template v-for="(piece, d) in dotPieces(part.domain)" :key="d"
-                        ><wbr v-if="d" />{{ piece }}</template
-                      ></span
-                    ></template
-                  >
-                </template>
+                <!-- An address breaks, if at all, only before its "@" or a dot. -->
+                <EmailAddress v-else :words="side" />
               </td>
             </tr>
           </tbody>
@@ -381,16 +353,6 @@ onUpdated(measureFields);
    name up to its cap (`measureFields`): an organizer's long question, or a long name in the drawer. */
 .history-table tbody th {
   overflow-wrap: normal;
-}
-
-/* Each part of an address, before its "@" and from it, holds one line where the column has room
-   for it, so the address breaks first at its "@"; a part wider than the column on its own, an
-   address in a phone's Field column, breaks before a dot (`dotPieces`), then at a hyphen, and only
-   then inside a word, rather than running over the next column (T137 review note 7). */
-.history-address {
-  display: inline-block;
-  max-width: 100%;
-  overflow-wrap: anywhere;
 }
 
 .history-table thead th {

@@ -75,7 +75,7 @@ test('a chosen reviewer decides their share, then helps with the others', async 
     await expect(monitor.card).toHaveCount(0);
     await expect(monitor.shareDone).toContainText('Your share is done.');
     await expect(monitor.shareDoneOthers).toHaveText(
-      "3 open applications are dealt to other reviewers. You can help with them; each one's history will say you decided it.",
+      "3 applications are left outside your share. You can help with them; each one's history will say you decided it.",
     );
     await expect(monitor.tally).toContainText('2 reviewed');
 

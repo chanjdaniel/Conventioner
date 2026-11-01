@@ -43,6 +43,7 @@ import ApplicationAnswers from '@/components/application/ApplicationAnswers.vue'
 import { updateOf } from '@/utils/answerUpdates';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import ReadFailed from '@/components/ReadFailed.vue';
+import EmailAddress from '@/components/EmailAddress.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import { isDecided, statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
@@ -828,20 +829,26 @@ function submittedOn(app: Application): string {
       </p>
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
+        <!-- The card is headed by the applicant's name, else their address, so the notes' h3
+             labels sit one level under it (T95 note 6), as they do under the drawer's title. -->
         <div class="card-head">
-          <span v-if="nameOf(current)" class="app-name" data-testid="app-monitor-name">
+          <h2 v-if="nameOf(current)" class="app-name" data-testid="app-monitor-name">
             {{ nameOf(current) }}
-          </span>
-          <span class="app-email" data-testid="app-monitor-email">
+          </h2>
+          <component
+            :is="nameOf(current) ? 'span' : 'h2'"
+            class="app-email"
+            data-testid="app-monitor-email"
+          >
             {{ current.applicantEmail }}
-          </span>
+          </component>
           <span :class="statusChip(current.status)" data-testid="app-monitor-status">
             {{ statusLabel(current.status) }}
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
         <p v-if="currentReviewer" class="card-reviewer" data-testid="app-monitor-reviewer">
-          {{ currentReviewer }}
+          <EmailAddress :words="currentReviewer" />
         </p>
         <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
         <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
@@ -965,7 +972,7 @@ function submittedOn(app: Application): string {
           class="dealt-warning"
           data-testid="app-monitor-dealt-warning"
         >
-          {{ dealtWarning(currentDealtElsewhere) }}
+          <EmailAddress :words="dealtWarning(currentDealtElsewhere)" />
         </p>
         <div class="card-actions">
           <button
@@ -1153,6 +1160,15 @@ function submittedOn(app: Application): string {
   font-size: var(--text-sm);
   color: var(--mm-black);
   word-break: break-all;
+}
+
+/* The card's heading keeps its line's type: no heading margin, and an address stays regular. */
+.card-head h2 {
+  margin: 0;
+}
+
+.card-head h2.app-email {
+  font-weight: inherit;
 }
 
 /* The card is beige, where --mm-text-muted is 4.23: its quiet text takes the ink made for that
@@ -1343,7 +1359,7 @@ function submittedOn(app: Application): string {
   margin-bottom: var(--space-3);
 }
 
-/* The applicant's name leads the card's heading and a reviewed row; the address follows it. */
+/* The applicant's name heads the card and leads a reviewed row; the address follows it. */
 .app-name {
   font-size: var(--text-sm);
   font-weight: 600;
