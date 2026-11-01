@@ -8,6 +8,7 @@ describes:
   - front-end/src/utils/marketHistory.ts
   - front-end/src/utils/placementHistory.ts
   - front-end/e2e/the-markets-history.spec.ts
+  - front-end/src/utils/historyReaders/
 verified: 2026-11-01
 sources:
   - E40/F01/S03
@@ -20,17 +21,17 @@ sources:
   - E39/F02/S01
   - E44/F01/S02
   - E46/F01/S03
-  - E46/F01/S05
   - E38/F10/S01
-  - E38/F13/S01
+  - E46/F01/S05
   - E46/F01/S04
   - T137
+  - E38/F13/S01
 ---
 
 # Reading the market's history
 
 **Who:** anyone who may read the market's history, its row "Read the market's history", Viewer by default ([what each role may do](../rules/what-each-role-may-do.md)).
-**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), its heading [`HistorySection.vue`](../../../front-end/src/components/HistorySection.vue) and its list of changes [`HistoryEntries.vue`](../../../front-end/src/components/HistoryEntries.vue), both shared with Manage organization's History ([B7](organizations.md#b7-read-the-organizations-history)), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
+**Where they start:** the Markets list's "Manage", whose "Manage market" dialog holds the History section after "Users with access" ([managing a market](ending-and-managing-a-market.md#l3-manage-who-has-access)); the section is [`MarketHistory.vue`](../../../front-end/src/components/MarketHistory.vue), its heading [`HistorySection.vue`](../../../front-end/src/components/HistorySection.vue) and its list of changes [`HistoryEntries.vue`](../../../front-end/src/components/HistoryEntries.vue), both shared with Manage organization's History ([B7](organizations.md#b7-read-the-organizations-history)), and each sentence is worded by [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts) from each area's own file under [`historyReaders/`](../../../front-end/src/utils/historyReaders/), a placement's by [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), the words the assignment history uses.
 
 Every change on a market is recorded once, in one history: who, what, when, and what it was before and after ([the market's history](../../implementation/data/history.md)).
 An organizer reads it to investigate a problem or a mistake, which is why it lives in Manage market, a step away from the market's daily running (Daniel, T92 Q24 and Q25).

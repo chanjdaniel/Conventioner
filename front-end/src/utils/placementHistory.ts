@@ -15,7 +15,8 @@ import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 /** Mirrors the placement kinds in `back-end/history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
 
-const PLACEMENT_KINDS: ReadonlySet<string> = new Set<PlacementHistoryKind>([
+/** Every placement kind, each worded by `historyParts` and read in the history by its own key. */
+export const PLACEMENT_KINDS: ReadonlySet<string> = new Set<PlacementHistoryKind>([
   'placed',
   'freed',
   'swapped',

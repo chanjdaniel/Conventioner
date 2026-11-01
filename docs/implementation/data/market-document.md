@@ -81,7 +81,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `exampleColumns` | what [the start from a Google Form's responses](../modules/csv-proposal-and-start.md) kept of each question and left-out column of its file: label, key and the options at least 3 applicants gave that name nobody; server-owned, absent on any other market |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
-| `discord` | the Discord server the market is connected to and what [its card](../modules/discord.md) chose (`guildId`, `guildName`, `roleId`, `roleName`, `usernameQuestion`, `inviteLink`), and what ["Check Discord"](../modules/discord.md#who-is-in-the-server) last found (`checkedAt`, and `vendorStates`, each `applicationId` with its `state`, the `answer` it was read for and, for a vendor not found, the `possibleMatches` offered and `moreMatches`, how many more looked alike), and the members declined as a vendor's possible match (`declinedMatches`, member usernames by application id, [possible matches](../modules/discord.md#possible-matches)), and the last ["Give roles"](../modules/discord.md#giving-the-role) run's report (`roleRun`: `ranAt`, `roleName`, and `outcomes`, each `applicationId` with its `outcome` and, for a failure or a vendor not given it yet, its `reason`), written only by the card's, the check's, the decline's and the run's routes, who connected it and when being the history's; absent is not connected, and a market disconnected keeps only `usernameQuestion`, and one connected to another server forgets its role, its invite link, its check, what was declined and its run, as choosing another username question forgets its check and its run; the `discordGuildId` and `discordWebhookUrl` some old documents carry are E18/F05's removed fields, read by nothing |
+| `discord` | the Discord server the market is connected to; see [the Discord connection is `discord`](#the-discord-connection-is-discord) |
 | `applicationsStopped` | whether the organizer has stopped taking applications inside the stage (E38/F04/S02), a fact about the form; absent is false, and only `set_applications_stopped` writes it |
 | `reviewTeam` | the reviewers chosen for the review, `{reviewers: [{userId, email}], turn}`, in the order they are dealt to (by address), and how many applications were dealt since they last changed, and while a deal runs `dealing` (`{by, until}`), the lease by which every deal holds the market, so the turn has one writer at a time ([ADR 0020](../../adr/0020-an-application-is-dealt-to-one-reviewer.md)); absent is none chosen, so no migration; written only by [`back-end/review_team.py`](../../../back-end/review_team.py), null at creation, and never by a market update body ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)); the read serves every reader `{reviewers: [{email, able}]}`, never the turn |
 | `creationDate`, `modificationList`, `theme` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` |
@@ -91,6 +91,51 @@ Each field's own rules are with the module that writes it; this node is the docu
 **The prices are `setupObject.pricing`**, null on a market never priced: `currency` (`CAD` unless the organizer picked another of `PRICING_CURRENCIES`), `halfTablePercent` (a whole number from 0 to 100, 50 unless changed), `groups`, the organizer's price groups, each `{name, conditions: [{key, answers}], prices}` with `prices` shaped as `everyoneElse` (absent on a card saved before there were groups, which has none), and `everyoneElse`, a list of `{tier, cents}`, each a full table's price for one day in whole cents.
 A list rather than a map keyed by tier name, because every write camel-cases the document's keys and a tier's name is the organizer's text; a half price rounds half up to the cent.
 What they mean and how an assignment is priced is [a price follows the table](../../business/rules/a-price-follows-the-table.md).
+
+<a id="the-discord-connection-is-discord"></a>
+**The Discord connection is `discord`**; absent is not connected.
+Each list here is in the order `DiscordConnection` (`datatypes.py`) declares its subfields, so a new subfield is one line in its place in each list it belongs in ([two features never share a line](../conventions/two-features-never-share-a-line.md)):
+
+- the Discord server the market is connected to and what [its card](../modules/discord.md) chose:
+  - `guildId`
+  - `guildName`
+  - `roleId`
+  - `roleName`
+  - `usernameQuestion`
+  - `inviteLink`
+- what ["Check Discord"](../modules/discord.md#who-is-in-the-server) last found:
+  - `checkedAt`
+  - `vendorStates`, each `applicationId` with:
+    - its `state`
+    - the `answer` it was read for
+    - for a vendor not found, the `possibleMatches` offered and `moreMatches`, how many more looked alike
+- the last ["Give roles"](../modules/discord.md#giving-the-role) run's report, `roleRun`:
+  - `ranAt`
+  - `roleName`
+  - `outcomes`, each `applicationId` with its `outcome` and, for a failure or a vendor not given it yet, its `reason`
+- the members declined as a vendor's possible match, `declinedMatches`: member usernames by application id, [possible matches](../modules/discord.md#possible-matches)
+
+It is written only by these routes, who connected it and when being the history's:
+
+- the card's
+- the check's
+- the run's
+- the decline's
+
+A market disconnected keeps only `usernameQuestion`, and one connected to another server forgets:
+
+- its role
+- its invite link
+- its check
+- its run
+- what was declined
+
+Choosing another username question forgets:
+
+- its check
+- its run
+
+The `discordGuildId` and `discordWebhookUrl` some old documents carry are E18/F05's removed fields, read by nothing.
 
 **The application form is stored as one validator returns it.**
 Every writer of `applicationForm` passes it through `_normalized_application_form` (`api/markets.py`), so a stored form never differs from the form that was checked; the writes on an existing market go through `prepared_application_form`, which asks [the form lock](../../business/rules/the-form-locks-at-the-first-application.md) first:

@@ -66,19 +66,82 @@ Every spec using it adds its own account to the shared `E2E Test Org`, so that a
 ## The seed helpers
 
 Every helper works over the API through Playwright's `APIRequestContext`, whose cookies carry the session, except where it says it writes to Mongo.
+Each helper is one block, what it leaves and its notes, one note a line; a new helper is a block beside the helper it builds on, and a new item in its lists is one line beside the item it is most like, not at the list's end ([two features never share a line](../conventions/two-features-never-share-a-line.md)):
 
-| Helper | Leaves | Notes |
-| --- | --- | --- |
-| `seedDraftMarket()` ([file](../../../front-end/e2e/helpers/seedDraftMarket.ts)) | a draft with no plan and no form | what an organizer has the moment the new-market dialog closes |
-| `seedPhaseMarket()`, `seedFormlessPhaseMarket()` ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts)) | a draft that may open applications: a complete plan, and a two-field form or none | does not move the phase; `transitionMarket()` and `seedApplicationWithStatus()` beside them |
-| `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo; `dates` gives it more than the one date; a CSV market unless `intakeMode` says `form` |
-| `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each; `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish |
-| `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first; `vendors` seeds others than alice and bob, a table each; `namePrefix` starts its name, and so its addresses, with a long one |
-| `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications`, or a `csv` one left a draft for its first import, or a `form` one left a draft with `draft: true`, to be opened from the rail | `fields` gives its form its own questions; it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
-| `seedExampleMarket()` ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts)) | a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions | the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share; `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself |
-| `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |
-| `seedTheScreens()` ([file](../../../front-end/e2e/helpers/seedTheScreens.ts)) | the stress markets the sweeps walk: one in every phase, names of about 70 characters, 40 applications in every review state, a review divided between the organizer and a Viewer (the organizer's share all decided), 36 vendors over four dates and three sections, settled rules, an archive and two CSV markets, and an organization of the organizer's own, its name 72 characters and its admin's and member's addresses 32 and 43, found by name on a later run, so Manage organization draws its people, holding a draft of its own, made anew on each run and dated after every other seeded market, its admin also Editor on it, so Manage market draws an organization's people and a market role that adds nothing (E38/F12/S01) and the organizer always has a second organization, and "the new-market dialog" always draws the organization select rather than naming one (T148); the review market's cards lead with two answers and fold the rest behind "N more answers" | for the [sweeps](../../design-system.md#what-keeps-this-true); its applications go in with one `insertApplications()` per market |
-| `seedFloorplanTemplate()` ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts)) | a floorplan template of the given table types, saved by the signed-in user | a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned |
+**`seedDraftMarket()`** ([file](../../../front-end/e2e/helpers/seedDraftMarket.ts))
+- Leaves: a draft with no plan and no form
+- Notes: what an organizer has the moment the new-market dialog closes
+
+**`seedPhaseMarket()`, `seedFormlessPhaseMarket()`** ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts))
+- Leaves: a draft that may open applications: a complete plan, and a two-field form or none
+- Notes:
+  - does not move the phase
+  - `transitionMarket()` and `seedApplicationWithStatus()` beside them
+
+**`seedMarketWithVendors()`**
+- Leaves: a draft with a complete plan, a one-field form and two approved vendors
+- Notes:
+  - the vendors are written into Mongo
+  - `dates` gives it more than the one date
+  - a CSV market unless `intakeMode` says `form`
+
+**`seedAssignedMarket()`** ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts))
+- Leaves: the above, walked to `assignment` and assigned
+- Notes:
+  - `run: false` stops before the run
+  - `tables` sizes the room
+  - `dates` gives it more than one date, a table on each
+  - `intakeMode: 'form'` makes its vendors apply on its page, so it has results to publish
+
+**`seedPublishedMarketWithAssignments()`**
+- Leaves: the above, in `market_days`, with its slug
+- Notes:
+  - a `form` market publishes its results first
+  - `vendors` seeds others than alice and bob, a table each
+  - `namePrefix` starts its name, and so its addresses, with a long one
+
+**`seedApplicantMarket()`** ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts))
+- Leaves, one of:
+  - a `form` market in `applications`
+  - a `csv` one left a draft for its first import
+  - a `form` one left a draft with `draft: true`, to be opened from the rail
+- Notes:
+  - `fields` gives its form its own questions
+  - it creates no application
+  - `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo
+
+**`seedExampleMarket()`** ([file](../../../front-end/e2e/helpers/exampleCollegeMarket.ts))
+- Leaves: a draft on the vendors' own page, with two dates, Gold and Silver, and the Example College form's two choice questions
+- Notes:
+  - the Example College fixture both `price-groups.spec.ts` and `the-price-answers.spec.ts` share
+  - `EXAMPLE_PRICING` and `EXAMPLE_GROUPS` give its three groups and "Everyone else", and it writes no prices itself
+
+**`seedApplication()`, `seedApprovedVendor()`** ([file](../../../front-end/e2e/helpers/seedApplication.ts))
+- Leaves: one application, written into Mongo
+- Notes: see below
+
+**`seedTheScreens()`** ([file](../../../front-end/e2e/helpers/seedTheScreens.ts))
+- Leaves: the stress markets the sweeps walk:
+  - one in every phase
+  - names of about 70 characters
+  - 40 applications in every review state
+  - a review divided between the organizer and a Viewer (the organizer's share all decided)
+  - 36 vendors over four dates and three sections
+  - settled rules
+  - an archive
+  - two CSV markets
+  - an organization of the organizer's own:
+    - its name 72 characters and its admin's and member's addresses 32 and 43, found by name on a later run, so Manage organization draws its people
+    - holding a draft of its own, made anew on each run and dated after every other seeded market, its admin also Editor on it, so Manage market draws an organization's people and a market role that adds nothing (E38/F12/S01)
+    - the organizer always has a second organization, and "the new-market dialog" always draws the organization select rather than naming one (T148)
+  - the review market's cards lead with two answers and fold the rest behind "N more answers"
+- Notes:
+  - for the [sweeps](../../design-system.md#what-keeps-this-true)
+  - its applications go in with one `insertApplications()` per market
+
+**`seedFloorplanTemplate()`** ([file](../../../front-end/e2e/helpers/seedFloorplanTemplate.ts))
+- Leaves: a floorplan template of the given table types, saved by the signed-in user
+- Notes: a seeded template is the user's and outlives every market, so a spec finds its own by the unique name returned
 
 **A vendor is seeded as an approved application**, which is what the solver reads ([ADR 0003](../../adr/0003-applications-are-the-solvers-only-input.md)).
 `seedApprovedVendor()` writes the essential answers in the shapes `essential_fields.py` validates into (dates and tiers as the plan's own names, the count an integer, the table choice lower-cased).

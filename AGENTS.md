@@ -69,6 +69,7 @@ This file holds what nearly every session needs; everything else is in the knowl
 - **A PR that changes a described file touches the node or bumps `verified`.**
   Find a file's nodes before changing it with `git grep -l '<path>' docs`; CI's `knowledge-graph-drift` job fails on a PR that does neither; it is not required, for the next 10 PRs from 2026-10-22, then re-judged with the close-out's replay, while `knowledge-graph` (the checker's tests and `check`) is a required check.
 - **`python3 scripts/knowledge_graph.py check`** checks the frontmatter, every link and anchor, reachability and back-links; run it after editing any Markdown.
+- Before adding a row to a doc's shared list or table, read [two features never share a line](docs/implementation/conventions/two-features-never-share-a-line.md).
 
 ## Before changing an area, read its node
 
