@@ -3,7 +3,12 @@
  * The Stats tab (E45/F01/S01): the market's figures, from its first application to its archive,
  * open in every phase and to anyone who reads the market.
  *
- * Both sections are counted on the server and read in one small answer (`utils/marketStats.ts`),
+ * Its top line is the market's state in headlines (E45/F01/S03, `utils/statsHeadlines.ts`): the
+ * table-days used and free and the vendors unassigned, once an assignment is stored, and the amounts
+ * owed, paid and still owed, where the market sets prices and the Payments page counts someone;
+ * each the figure the page it links to shows, and the link opens that page with its filter.
+ *
+ * Every figure is counted on the server and read in one small answer (`utils/marketStats.ts`),
  * so the page never downloads the applications to count them. It starts with who applied: every
  * application by its status, counted as the Applications tab's All view filters them, and by the
  * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
@@ -17,6 +22,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { applicantStats } from '@/utils/applicantStats';
 import { ANSWER_GROUPS, answerGroup, questionLedgers } from '@/utils/answerCounts';
 import { fetchMarketStats, type MarketStats } from '@/utils/marketStats';
+import { statsHeadlines } from '@/utils/statsHeadlines';
 import { useOpenMarket } from '@/utils/openMarket';
 import BarLedger from '@/components/BarLedger.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
@@ -44,6 +50,9 @@ const stats = computed(() =>
   figures.value ? applicantStats(figures.value.applicants, marketId.value) : null,
 );
 const answers = computed(() => figures.value?.answers ?? null);
+const headlines = computed(() =>
+  figures.value ? statsHeadlines(figures.value.headlines, marketId.value) : [],
+);
 
 /** Who the charts count, in the address beside the page. */
 const among = computed(() => answerGroup(route.query.among));
@@ -65,6 +74,30 @@ const NOBODY: Record<string, string> = {
 <template>
   <MarketFrame :market="market" @retry="load">
     <div class="stats">
+      <!-- Nothing stored and no prices: there is no state to headline, and noughts say nothing. -->
+      <ul
+        v-if="headlines.length"
+        class="stats-headlines"
+        aria-label="The market at a glance"
+        data-testid="stats-headlines"
+      >
+        <li
+          v-for="headline in headlines"
+          :key="headline.id"
+          class="stats-headline"
+          :class="{ 'stats-headline--money': headline.id === 'owed' }"
+          :data-testid="`stats-headline-${headline.id}`"
+        >
+          <RouterLink v-if="headline.to" :to="headline.to" class="stats-headline-link">
+            <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
+            {{ headline.words }}
+          </RouterLink>
+          <span v-else>
+            <strong data-testid="stats-headline-figure">{{ headline.figure }}</strong>
+            {{ headline.words }}
+          </span>
+        </li>
+      </ul>
       <section class="stats-section" aria-labelledby="stats-applicants-title">
         <h2 id="stats-applicants-title" class="stats-title">Who applied</h2>
         <p v-if="errorMessage" class="stats-error" role="alert">{{ errorMessage }}</p>
@@ -158,6 +191,38 @@ const NOBODY: Record<string, string> = {
   gap: var(--space-8);
   padding: var(--space-6);
   color: var(--mm-black);
+}
+
+/* The Assignments page's strip, in its look: figures on beige, each worked on where it links. */
+.stats-headlines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--mm-beige);
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.stats-headline strong {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The money starts a group of its own, set apart from the placements by a rule. */
+.stats-headline--money:not(:first-child) {
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--mm-border);
+}
+
+.stats-headline-link {
+  color: var(--mm-black);
+  text-decoration: underline;
+  text-underline-offset: var(--space-hairline);
 }
 
 .stats-section {
