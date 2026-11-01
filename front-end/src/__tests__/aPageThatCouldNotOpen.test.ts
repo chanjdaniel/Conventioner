@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises } from '@vue/test-utils';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { OFFLINE_MESSAGE } from '@/utils/api';
-import { PAGE_NOT_OPENED_MESSAGE, watchPageFailed } from '@/utils/pageFailed';
+import { PAGE_NOT_OPENED_MESSAGE, openAfresh, watchPageFailed } from '@/utils/pageFailed';
 
 const Page = { template: '<div />' };
 let fetchable = false;
@@ -28,6 +28,11 @@ beforeEach(async () => {
           fetchable
             ? Promise.resolve(Page)
             : Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+      },
+      {
+        path: '/:anything(.*)*',
+        component: () =>
+          Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
       },
     ],
   });
@@ -69,4 +74,37 @@ describe('a page that could not be opened', () => {
 
     expect(failed.value).toBeNull();
   });
+});
+
+describe('Try again', () => {
+  const browser = () => ({ assign: vi.fn(), reload: vi.fn() });
+
+  it('loads the page the navigation was going to', async () => {
+    const failed = watchPageFailed(router);
+    await router.push('/organizations?tab=people').catch(() => {});
+    await flushPromises();
+    const location = browser();
+
+    openAfresh(failed.value!.to, location);
+
+    expect(location.assign).toHaveBeenCalledWith('/organizations?tab=people');
+  });
+
+  // Where the window is sent is checked the one way every such address is: a navigation that
+  // named another host reloads the page the organizer is on instead.
+  it.each(['//evil.example/x', '/\\evil.example/x'])(
+    'never leaves this app for %s',
+    async (address) => {
+      const failed = watchPageFailed(router);
+      await router.push(address).catch(() => {});
+      await flushPromises();
+      expect(failed.value).not.toBeNull();
+      const location = browser();
+
+      openAfresh(failed.value!.to, location);
+
+      expect(location.assign).not.toHaveBeenCalled();
+      expect(location.reload).toHaveBeenCalled();
+    },
+  );
 });

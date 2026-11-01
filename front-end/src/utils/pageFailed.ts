@@ -1,6 +1,7 @@
 import { ref, type InjectionKey, type Ref } from 'vue';
 import type { Router } from 'vue-router';
 import { OFFLINE_MESSAGE } from '@/utils/api';
+import { safeNext } from '@/utils/signInNext';
 
 /**
  * A page that could not be opened (E38/F11/S01). A screen's code is fetched when it is first
@@ -36,7 +37,16 @@ export function watchPageFailed(router: Router): Ref<PageFailed | null> {
   return failed;
 }
 
-/** Load `to` as a new page, the app's code with it. */
-export function openAfresh(to: string): void {
-  window.location.assign(to);
+/**
+ * Load `to` as a new page, the app's code with it. Where the window is sent is checked the way
+ * sign-in's `next` is (`safeNext`): an address that is not a path of this app, such as `//host`,
+ * reloads the page the organizer is on instead.
+ */
+export function openAfresh(
+  to: string,
+  location: Pick<Location, 'assign' | 'reload'> = window.location,
+): void {
+  const path = safeNext(to);
+  if (path) location.assign(path);
+  else location.reload();
 }

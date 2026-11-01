@@ -280,7 +280,8 @@ It used to sign the organizer out on any failure, so a dropped connection at loa
 
 **A page whose code could not be fetched says so**: a screen's code is fetched the first time it is opened, so with no connection, or once a deploy has replaced the files, the navigation fails and the click did nothing.
 `watchPageFailed` in [`front-end/src/utils/pageFailed.ts`](../../../front-end/src/utils/pageFailed.ts), installed from `main.ts` before the router, catches any failed navigation, and `App.vue` shows a `ReadFailed` strip (`page-read-failed`, `page-retry`) under the banner: the offline line when the browser is offline, else "The page could not be opened. Try again to load it.".
-Try again loads the page afresh, which fetches the files a deploy put in their place; the strip goes once a page opens.
+Try again loads the page afresh, which fetches the files a deploy put in their place, and only where `safeNext` says it is a path of this app, as sign-in's `next` is; any other address, `//host` say, reloads the page the organizer is on instead.
+The strip goes once a page opens.
 
 [`a-failure-says-what-to-do.spec.ts`](../../../front-end/e2e/a-failure-says-what-to-do.spec.ts) holds it end to end: each screen's read and the verdict, selection, plan save, phase move and Manage organization writes under the generic 500 and with no connection, Try again on a route that fails once, a session ended mid-review returning to the same address, a signed-out link by password and by code, a `next` of another host, a page whose code could not be fetched (offline and after a deploy), the session probe failing without ending the session, and a request with no cookie answering 401.
 `api.test.ts` and `signInNext.test.ts` hold each kind and each hostile shape, `aPageThatCouldNotOpen.test.ts` the strip's wording.
