@@ -901,6 +901,14 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // A priced market's Stats (T180): the money's headlines too, set apart from the placements by
+    // a rule, beside them at a desk and above them on a phone.
+    name: 'the stats, priced',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('rules', 'stats'), 'stats-headline-stillOwed'),
+  },
+  {
     // The manual tools, Discord's card first (E46/F01/S02); it fits a phone, as the door does.
     name: 'the tools',
     who: 'organizer',

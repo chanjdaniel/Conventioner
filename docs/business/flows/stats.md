@@ -41,7 +41,7 @@ The page fits a phone, so how the day stands is read at the market (T180): its h
 
 Covered by:
 - `test_the_stats_headlines.py`
-- `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk: the headlines, the switch and the cards inside the window, a headline's link landing on Payments at the window's width, and a Viewer's page)
+- `the-market-on-a-phone.spec.ts` ("Stats", on a phone and at a desk: the headlines, the switch and the cards inside the window, a headline's link landing on Payments at the window's width, and a Viewer's page; "Stats keeps its headlines and cards inside the frame at 320")
 - `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices")
 
 ## N2. See who applied

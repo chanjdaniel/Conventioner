@@ -805,3 +805,33 @@ test.describe('between a phone and a desk', () => {
     });
   }
 });
+
+/**
+ * The narrowest phone (T180 review): 320px is WCAG 1.4.10's reflow width. Stats' cards kept an
+ * 18rem floor there, so in a 256px column they ran past the frame's card to the window's edge,
+ * which no sideways scroll showed.
+ */
+test('Stats keeps its headlines and cards inside the frame at 320', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const marketId = await aMarketThatIsOwed(request);
+  askWhatTheySell(marketId);
+  await page.goto(marketScreenPath(marketId, 'stats'));
+  await expect(page.getByTestId('stats-headline-stillOwed')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId('stats-question')).toHaveCount(1);
+  expect((await widths(page)).sideways, 'Stats scrolls sideways').toBe(0);
+  const frame = (await page.getByTestId('market-frame-card').boundingBox())!;
+  const parts = [
+    page.getByTestId('stats-headlines'),
+    ...(await page.getByTestId(/^stats-(by-status|by-day|question)$/).all()),
+  ];
+  for (const part of parts) {
+    const box = (await part.boundingBox())!;
+    expect(
+      box.x + box.width,
+      `${await part.getAttribute('data-testid')} ends inside the frame`,
+    ).toBeLessThanOrEqual(frame.x + frame.width);
+  }
+});

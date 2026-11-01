@@ -258,10 +258,11 @@ const NOBODY: Record<string, string> = {
 }
 
 /* The cards share the page's whole width rather than leaving its right half empty (Daniel, T104);
-   a card added later may want columns of one width again. */
+   a card added later may want columns of one width again. A window narrower than one card's 18rem
+   (a 320px phone) narrows the card rather than running it past the frame. */
 .stats-ledgers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   align-items: start;
   gap: var(--space-4);
 }
