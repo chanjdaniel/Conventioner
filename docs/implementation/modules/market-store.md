@@ -66,6 +66,7 @@ Each control asks the row of the action it takes:
 | Vendors | Check Discord | Connect Discord and give roles |
 | The drawer, the review card and Attendance | vendor notes | Write vendor notes |
 | The drawer | Update info | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
+| The drawer's Discord section | Confirm…, Not them | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
 | The drawer's Payment tab | Record payment | Record a payment |
 | The drawer's Payment tab | Change the amount owed, Use the calculated price | Change the amount owed |
 | The drawer's Payment tab | Record refund, Edit, Remove | Adjust the amount paid |
