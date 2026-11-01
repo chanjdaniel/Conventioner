@@ -259,6 +259,7 @@ watch(marketId, loadAttendance, { immediate: true });
             v-for="row in shown"
             :key="rowKey(row)"
             class="door-row"
+            :class="{ 'door-row--read': !canCheckIn }"
             data-testid="attendance-row"
             :data-vendor="row.vendorEmail"
           >
@@ -384,6 +385,12 @@ watch(marketId, loadAttendance, { immediate: true });
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
+}
+
+/* Someone offered no check-in has no action column, so their status ends the row: an empty 7rem
+   left each chip standing short of the edge with nothing beside it (E38/F15/S04). */
+.door-row--read {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) auto;
 }
 
 /* Under the row, the width of it: notes are read standing at the door, not squeezed into a cell. */
