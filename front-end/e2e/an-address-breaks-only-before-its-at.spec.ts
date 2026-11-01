@@ -15,9 +15,10 @@ import { VendorsPage } from './pages/VendorsPage';
  * sentence naming whose share a verdict was each lay it out; no line inside it may end at a hyphen.
  *
  * The Applications page fits a phone (its route names it in `meta.fitsAPhone`, T180), so at 390
- * One by one's card and the All view's rows are a phone's width, and the drawer is too. So each
- * sentence is also drawn in a line narrower than the address, as a phone's layout would draw it,
- * where the address has to break somewhere.
+ * One by one's card and the All view's rows are a phone's width, and the drawer is too; but each
+ * of those lines is still wider than the seed's address, which may then move whole to a line of
+ * its own. So each sentence is also drawn in a line narrower than the address, where the address
+ * has to break somewhere.
  */
 
 const SIZES = [
