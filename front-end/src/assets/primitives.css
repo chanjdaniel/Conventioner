@@ -82,6 +82,19 @@
   font-weight: 600;
 }
 
+/*
+ * A row's destructive action is the destructive intent at secondary weight, not a fourth intent:
+ * red ink on the secondary button, so a list of people is not a column of filled red buttons
+ * (E38/F15/S01). It asks before it acts; the confirmation's own button is the filled one. Still
+ * `btn--destructive`, so a dialog never opens on it.
+ */
+.btn--secondary.btn--destructive {
+  background: white;
+  color: var(--mm-red);
+  border-color: var(--mm-border);
+  font-weight: 400;
+}
+
 .btn:hover:not(:disabled) {
   opacity: 0.9;
 }
