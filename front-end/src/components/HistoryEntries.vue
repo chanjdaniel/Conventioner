@@ -30,6 +30,12 @@ const props = withDefaults(
     path?: IntakeMode;
     /** Where a vendor named in an entry opens; without it a vendor is drawn as text. */
     vendorLink?: (email: string) => RouteLocationRaw;
+    /**
+     * Opens a vendor named in an entry where the list stands, in place of following `vendorLink`:
+     * the vendor drawer's History tab on the page `vendorLink` leads to anyway. The name stays a link
+     * to `vendorLink`, for a new tab.
+     */
+    openVendor?: (email: string) => void;
     /** The vendor whose own history this is, in their drawer: named by name alone, as text. */
     ownVendor?: string;
     /** The market's choice questions, so a price group's conditions read in the card's words. */
@@ -42,6 +48,7 @@ const props = withDefaults(
     labels: () => ({}),
     path: IntakeMode.Csv,
     vendorLink: undefined,
+    openVendor: undefined,
     ownVendor: '',
     questions: () => [],
     fields: () => [],
@@ -49,6 +56,15 @@ const props = withDefaults(
 );
 
 const opened = ref<Set<string>>(new Set());
+
+/** A plain click opens the vendor in place; a click meant for a new tab or window is the link's. */
+function openInPlace(event: MouseEvent, email: string) {
+  if (!props.openVendor) return;
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+    return;
+  event.preventDefault();
+  props.openVendor(email);
+}
 
 function toggle(id: string) {
   const now = new Set(opened.value);
@@ -146,6 +162,23 @@ onUpdated(measureFields);
             :data-testid="`${testid}-own-vendor`"
             >{{ part.name || part.email }}</span
           >
+          <RouterLink
+            v-else-if="vendorLink && openVendor"
+            v-slot="{ href }"
+            :to="vendorLink(part.email)"
+            custom
+          >
+            <a
+              :href="href"
+              class="history-vendor"
+              :data-testid="`${testid}-vendor-link`"
+              @click="openInPlace($event, part.email)"
+              >{{ part.name || part.email
+              }}<template v-if="part.name"
+                >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
+              ></a
+            >
+          </RouterLink>
           <component
             :is="vendorLink ? RouterLink : 'span'"
             v-else

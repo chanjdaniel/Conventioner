@@ -7,7 +7,7 @@
  * history alike. A drawer reached by a link has no step of its own to take back, and closing it
  * replaces the address as before, so it never leaves the site.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import { createRouter, createWebHistory, type Router } from 'vue-router';
@@ -124,6 +124,56 @@ describe('opening the drawer is a step; Back takes it back', () => {
     expect(path()).toBe('/vendors');
     expect(drawer.email.value).toBeNull();
 
+    await back();
+    expect(path()).toBe('/dashboard');
+  });
+
+  it('a second close before the first has landed takes no second step', async () => {
+    await begin('/vendors');
+    drawer.open(ANA);
+    await flushPromises();
+
+    // A browser answers Back later, with a popstate; until then the entry is still the drawer's.
+    const go = window.history.go.bind(window.history);
+    const later = vi.spyOn(window.history, 'go').mockImplementation((delta) => {
+      setTimeout(() => go(delta), 10);
+    });
+    const closed = landed();
+    drawer.close();
+    drawer.close();
+    await closed;
+    // Anything still in flight lands too.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
+    expect(path()).toBe('/vendors');
+    later.mockRestore();
+
+    // Once it has landed, the drawer opens and closes by a step again.
+    drawer.open(BEN);
+    await flushPromises();
+    const again = landed();
+    drawer.close();
+    await again;
+    expect(path()).toBe('/vendors');
+    await back();
+    expect(path()).toBe('/dashboard');
+  });
+
+  it('the entry before is the same page however its address was spelled', async () => {
+    await begin('/vendors?q=gold+wing');
+    // The browser holds the page as it was typed, with `%20` where the router writes `+`.
+    router.options.history.replace('/vendors?q=gold%20wing');
+    drawer.open(ANA);
+    await flushPromises();
+    expect(router.options.history.state.back).toBe('/vendors?q=gold%20wing');
+
+    const closed = landed();
+    drawer.close();
+    await closed;
+    expect(router.currentRoute.value.path).toBe('/vendors');
+    expect(router.currentRoute.value.query).toEqual({ q: 'gold wing' });
+
+    // The step was taken back, so Back leaves the page rather than opening the drawer again.
     await back();
     expect(path()).toBe('/dashboard');
   });
