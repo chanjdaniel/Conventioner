@@ -4,6 +4,8 @@ import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
 import { inTheWindow, PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import { savePlan } from './helpers/savePlan';
+import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { withUser } from './helpers/withUser';
 import {
   SEED_MARKET_DATE,
   seedMarketWithVendors,
@@ -18,10 +20,17 @@ import {
  * 390px window, and under a phone's own emulation the layout viewport widened to 1001px and zoomed
  * out, so the vendor drawer opened off screen. A leg per place that fits a phone; each also runs at
  * a desk, where nothing may move.
+ *
+ * Vendors is one tap from the door's own list: the organizer looks a vendor up, reads every tab of
+ * their drawer, takes their payment, and an Editor corrects an answer with Update info.
  */
 
 const OWES = 'alice@example.com';
 const PAID = 'bob@example.com';
+/** An Editor of the market, who corrects a vendor's answers at the door. */
+const EDITOR = { email: 'e2e-phone-editor@example.com', password: 'e2epassword123' };
+/** The vendor drawer's tabs, in its order. */
+const DRAWER_TABS = ['application', 'assignments', 'payment', 'history'] as const;
 
 async function call(
   request: APIRequestContext,
@@ -160,6 +169,120 @@ for (const size of PHONE_AND_DESK) {
       ).toBe(0);
       await expectFits(page, 'Payments, the drawer open');
     });
+
+    test('Vendors: a vendor looked up, paid and corrected', async ({
+      authenticatedPage: page,
+      request,
+      browser,
+    }) => {
+      const marketId = await aMarketThatIsOwed(request);
+      ensureVerifiedUser(EDITOR.email, EDITOR.password);
+      const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+        data: { user_email: EDITOR.email, role: 'editor' },
+      });
+      expect(granted.ok(), await granted.text()).toBeTruthy();
+
+      // From Payments by the Assignment tab's page row.
+      await page.goto(marketScreenPath(marketId, 'payments'));
+      const pages = page.getByTestId('market-pages');
+      await expect(pages).toBeVisible({ timeout: 15000 });
+      await press(page.getByTestId('market-pages-vendors'));
+      await page.waitForURL(/\/vendors$/);
+      const rows = page.getByTestId('vendors-list-item');
+      await expect(rows).toHaveCount(2, { timeout: 15000 });
+      await expectFits(page, 'Vendors');
+      await expectAcross(pages, 'the page row on Vendors');
+
+      // The search takes its row, and the filters, Export and Add a vendor wrap beneath it, each a
+      // thumb's target.
+      await expectTargets(page.getByTestId('vendors-search-input'), 'the search');
+      await expectTargets(
+        page.getByRole('group', { name: 'Show only' }).getByRole('button'),
+        'a filter',
+      );
+      await expectTargets(page.getByTestId('vendors-export-button'), 'Export');
+      await expectTargets(page.getByTestId('vendors-add-button'), 'Add a vendor');
+      await expectAcross(page.getByTestId('vendors-summary'), 'the count');
+      for (const row of await rows.all()) {
+        await expectAcross(row, 'a vendor row');
+        await expectAcross(row.getByTestId('vendor-date-count'), "a vendor row's date count");
+      }
+
+      // Every tab of the drawer stands inside the window, and scrolls only down.
+      await press(rows.filter({ hasText: OWES }));
+      const drawer = page.getByTestId('vendors-detail-panel');
+      await expect(drawer.getByTestId('vendors-detail-email')).toBeVisible();
+      await expect(drawer.getByRole('tab')).toHaveCount(DRAWER_TABS.length);
+      for (const tab of DRAWER_TABS) {
+        await press(drawer.getByTestId(`vendor-drawer-tab-${tab}`));
+        await expect(drawer.getByTestId(`vendor-drawer-tab-${tab}`)).toHaveAttribute(
+          'aria-selected',
+          'true',
+        );
+        await expectInside(drawer, `the drawer on its ${tab} tab`);
+        expect(
+          await drawer.locator('.detail-content').evaluate((el) => el.scrollWidth - el.clientWidth),
+          `the drawer's ${tab} tab scrolls sideways`,
+        ).toBe(0);
+        await expectTargets(
+          drawer.locator('.detail-content').getByRole('button'),
+          `a button on the ${tab} tab`,
+        );
+      }
+
+      // Back on the Payment tab, the payment is taken in its dialog, inside the window.
+      await press(drawer.getByTestId('vendor-drawer-tab-payment'));
+      await press(drawer.getByTestId('payment-record'));
+      const recording = page.getByTestId('record-payment-window');
+      await expect(recording).toBeVisible();
+      await expectInside(recording, 'the record-payment dialog');
+      await page.getByTestId('record-payment-amount').fill('35');
+      await press(page.getByTestId('record-payment-submit-button'));
+      await expect(recording).toHaveCount(0);
+      await expect(drawer.getByTestId('payment-paid')).toContainText('35');
+      await expectFits(page, 'Vendors, the drawer open');
+
+      // An Editor at the door corrects an answer: Update info opens inside the window, a field a
+      // row, and saves.
+      await withUser(
+        browser,
+        EDITOR.email,
+        EDITOR.password,
+        async (editor) => {
+          const { expectInside: inside, press: tap } = inTheWindow(size);
+          await editor.goto(marketScreenPath(marketId, 'vendors'));
+          const vendor = editor.getByTestId('vendors-list-item').filter({ hasText: OWES });
+          await expect(vendor).toBeVisible({ timeout: 15000 });
+          await tap(vendor);
+          await tap(editor.getByTestId('vendors-detail-update-info'));
+          const updating = editor.getByTestId('update-info-window');
+          await expect(updating).toBeVisible();
+          await inside(updating, 'Update info');
+          const field = editor.getByTestId('update-info-input-business_name');
+          const answer = await editor.getByTestId('update-info-answer-business_name').boundingBox();
+          expect(
+            answer!.x + answer!.width,
+            'the answer ends inside the window',
+          ).toBeLessThanOrEqual(width);
+          await field.fill('Alice Ceramics');
+          const save = editor.getByTestId('update-info-submit-button');
+          await save.scrollIntoViewIfNeeded();
+          await inside(save, 'Save');
+          await inside(editor.getByTestId('update-info-cancel-button'), 'Cancel');
+          await tap(save);
+          await expect(updating).toHaveCount(0);
+          await expect(editor.getByTestId('vendors-detail-answer-business_name')).toContainText(
+            'Alice Ceramics',
+          );
+          expect(await widths(editor), 'Vendors keeps the window for an Editor').toEqual({
+            layout: width,
+            sideways: 0,
+            zoom: 1,
+          });
+        },
+        size.use,
+      );
+    });
   });
 }
 
@@ -182,7 +305,7 @@ test.describe('between a phone and a desk', () => {
         TEST_USER.password,
         { intakeMode: 'form' },
       );
-      for (const where of ['attendance', 'tools', 'assignments', 'payments'] as const) {
+      for (const where of ['attendance', 'tools', 'assignments', 'vendors', 'payments'] as const) {
         await page.goto(marketScreenPath(seed.marketId, where));
         await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
         expect((await widths(page)).sideways, `${where} scrolls sideways`).toBe(0);

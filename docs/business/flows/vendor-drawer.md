@@ -33,6 +33,7 @@ sources:
   - E44/F01/S02
   - E46/F01/S05
   - E38/F13/S01
+  - T180
 ---
 
 # The vendor drawer
@@ -42,6 +43,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md), [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
 One drawer opens over the page from the side, the same on every one of those pages ([`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
+On a page that fits a phone it opens inside the window, 92% of its width, with every tab and the dialogs it opens, Update info and the payment dialogs among them ([the design language](../../design-system.md#layout), T180).
 The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assignments`), so a reload or a shared link opens the same drawer ([`vendorDrawer.ts`](../../../front-end/src/utils/vendorDrawer.ts)).
 
 **Status:** Works (read from the code as of E35/F01: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`; the History tab as of E40/F01/S04, `the-vendors-history.spec.ts`; Back as of E38/F13/S01, `back-closes-the-drawer.spec.ts`).
@@ -80,7 +82,7 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
 A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Assignments page reads them again.
 The applications stand on their own read: when the server cannot say where vendors sit, the drawer still shows the answers, says why in red on every tab (a refusal's own sentence, or which kind of failure it was), and offers no date cards, and the Vendors list says nothing of who is placed ([J11](vendors.md#j11-browse-by-vendor)); every vendor keeps their name, read from their application (T123).
-Covered by: `the-vendor-drawer.spec.ts`, `back-closes-the-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `possible-discord-matches.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
+Covered by: `the-vendor-drawer.spec.ts`, `back-closes-the-drawer.spec.ts`, `the-vendors-history.spec.ts`, `the-payment-tab.spec.ts`, `changing-owed-and-paid.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `changing-a-verdict-is-its-own-row.spec.ts`, `vendor-notes.spec.ts`, `updating-vendor-info.spec.ts`, `updating-answers-the-assignment-reads.spec.ts`, `possible-discord-matches.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to"), `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`, and on a phone `the-door-on-a-phone.spec.ts` and `the-market-on-a-phone.spec.ts`.
 
 ## The rules it obeys
 

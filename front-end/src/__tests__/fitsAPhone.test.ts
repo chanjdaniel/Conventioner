@@ -19,6 +19,7 @@ describe('the places that fit a phone', () => {
     ['the door', `${MARKET}/attendance`],
     ['Tools', `${MARKET}/tools`],
     ['the Assignments page', `${MARKET}/assignments`],
+    ['Vendors', `${MARKET}/vendors`],
     ['Payments', `${MARKET}/payments`],
     ['the Discord return page', '/discord/connected'],
   ])('%s fits a phone', (_, path) => {
@@ -26,7 +27,6 @@ describe('the places that fit a phone', () => {
   });
 
   it.each([
-    ['Vendors', `${MARKET}/vendors`],
     ['Stats', `${MARKET}/stats`],
     ["Market Setup's plan", `${MARKET}/setup`],
     ['the form builder', `${MARKET}/form`],

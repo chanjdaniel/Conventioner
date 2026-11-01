@@ -447,8 +447,8 @@ test.describe("The rail's end wraps only when it must", () => {
   test('between a phone and a desk, More… beside an address', async ({
     authenticatedPage: page,
   }) => {
-    // The door, Tools and the Assignments page lift the desktop floor, so they reach these widths
-    // too: both addresses filled the first row and More… stood alone on the second.
+    // The places that fit a phone, the door among them, lift the desktop floor, so they reach these
+    // widths too: both addresses filled the first row and More… stood alone on the second.
     for (const width of [680, 700, 720, 768, 780]) {
       await page.setViewportSize({ width, height: 1024 });
       await page.goto(marketScreenPath(doorSeed.marketId, 'attendance'));

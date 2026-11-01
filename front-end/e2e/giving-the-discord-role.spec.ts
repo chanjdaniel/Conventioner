@@ -5,6 +5,15 @@ import { SEED_MARKET_DATE } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
 import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { VendorsPage } from './pages/VendorsPage';
+import { PHONE } from './helpers/screens';
+import { widths } from './helpers/phoneWindow';
+import {
+  detectLayout,
+  gates,
+  minTargetAt,
+  SPACE_SCALE,
+  TYPE_SCALE,
+} from './helpers/layoutDetectors';
 
 /**
  * Giving the market's role (E46/F01/S04): "Give roles" on the Vendors page confirms by the role's
@@ -126,6 +135,33 @@ test('Give roles confirms, reports a refusal by group, and gives the role once i
       .getByTestId('vendors-list-discord'),
   ).toHaveText('Discord: Possible match');
   expect(memberRoles('1001')).toEqual([]);
+
+  // On the phone at the door (T180): the report, its groups open, and the rows' Discord states
+  // keep the window's width and are laid out as the layout sweep holds a screen (the screens seed
+  // connects no Discord), and Give roles opens inside the window.
+  const desk = page.viewportSize()!;
+  await page.setViewportSize(PHONE);
+  expect(await widths(page), 'Vendors with the role report keeps the window').toMatchObject({
+    layout: PHONE.width,
+    sideways: 0,
+  });
+  const findings = await page.evaluate(detectLayout, {
+    spaceScale: SPACE_SCALE,
+    textScale: TYPE_SCALE,
+    minTarget: minTargetAt(PHONE.width),
+  });
+  expect(
+    findings.filter((f) => gates(f, PHONE.width)).map((f) => `${f.kind} ${f.el}: ${f.detail}`),
+    'Vendors with Discord at 390x844 has layout findings',
+  ).toEqual([]);
+  await vendors.giveRolesButton.click();
+  const box = (await dialog.boundingBox())!;
+  expect(box.x, 'Give roles starts inside the window').toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, 'Give roles ends inside the window').toBeLessThanOrEqual(PHONE.width);
+  expect(box.y + box.height, 'Give roles ends inside the window').toBeLessThanOrEqual(PHONE.height);
+  await page.getByTestId('give-roles-cancel-button').click();
+  await expect(dialog).toHaveCount(0);
+  await page.setViewportSize(desk);
 
   // In Discord, the organizer drags the Conventioner role above the market's, and runs again.
   mongoEval(

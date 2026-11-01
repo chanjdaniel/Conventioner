@@ -60,6 +60,7 @@ const PUBLIC = [DESKTOP, PHONE];
  *   phone it was tapped on;
  * - the dashboard, where signing in lands (T148);
  * - Organizations (T148);
+ * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
  * - Payments (T180), so who still owes is read at the door.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
@@ -711,23 +712,35 @@ export const SCREENS: Screen[] = [
   {
     name: 'the vendors',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item'),
   },
   {
     name: 'the vendor drawer',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-list-item',
       'vendors-detail-email',
     ]),
   },
   {
+    // An Editor corrects a vendor's answer at the door (T180), so it opens inside a phone's window.
+    name: 'the Update info dialog, over the vendors',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendors-detail-update-info', 'update-info-window'],
+    ),
+  },
+  {
     // Its History tab, the market's history narrowed to the vendor (E40/F01/S04).
     name: "the vendor drawer's history",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -739,7 +752,7 @@ export const SCREENS: Screen[] = [
     // What the vendor owes and paid (E44/F01/S01).
     name: "the vendor drawer's Payment tab",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -750,7 +763,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the record-payment dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -763,7 +776,7 @@ export const SCREENS: Screen[] = [
     // A table-day's "..." menu, and the dialog it opens (E44/F01/S02).
     name: "a Payment tab line's menu",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -775,7 +788,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the change-owed dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       screen('big', 'vendors'),
       'vendors-list-item',
@@ -788,7 +801,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'the add-vendor dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-add-button',
       'add-vendor-name-input',
@@ -798,7 +811,7 @@ export const SCREENS: Screen[] = [
     // The preview's rows, not the dialog: its fields and table arrive with the first preview.
     name: 'the export dialog',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(screen('big', 'vendors'), 'vendors-list-item', [
       'vendors-export-button',
       'vendor-export-preview-row',

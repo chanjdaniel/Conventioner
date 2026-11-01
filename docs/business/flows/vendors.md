@@ -8,7 +8,7 @@ describes:
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
   - front-end/src/components/DiscordRoleReport.vue
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -34,6 +34,7 @@ sources:
   - T137
   - E42/F01/S05
   - E46/F01/S04
+  - T180
 ---
 
 # Vendors
@@ -43,6 +44,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md), behind which it reads as selected ([a selected row](../../design-system.md#the-primitive-layer)); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
+The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer and every dialog open inside the window ([the design language](../../design-system.md#layout)).
 
 ## J11. Browse by vendor
 
@@ -58,7 +60,7 @@ The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.v
 When the server cannot say where vendors sit, the page shows its reason above the list and says nothing of who is placed: "N vendors", the whole list counted before a run or after, each row its verdict and no date count, and no "Unassigned only" or filter by where they sit, one in the address ignored and Export opening on neither; the names and the search by name still hold, from the applications (T123).
 
 Before a run the page lists the vendors and says nothing is assigned yet.
-Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, and the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`.
+Covered by: `vendors.spec.ts`, `vendors-and-limits.spec.ts`, `placing-someone-not-approved.spec.ts`, the open row's look `the-open-vendor-reads-as-selected.spec.ts`, the refused read `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, and on a phone and at a desk `the-market-on-a-phone.spec.ts` (the page, every tab of the drawer, a payment recorded and an Editor's Update info).
 
 **Adding a vendor who never applied.**
 From Assignment on, "Add a vendor" opens "Add a vendor": "For someone who never applied. They are added as approved, and you assign them on the Assignments page.", with Name and Email, each marked required; on a market whose price groups read questions of its own form, "Their price is set by these answers." and each of those questions, required, a checkbox's unticked state its answer; "Add vendor", offered once each is answered.
@@ -146,7 +148,7 @@ On a market connected to a Discord server, with a role and a username question c
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
-Covered by: `giving-the-discord-role.spec.ts`, `givingTheDiscordRole.test.ts`, `back-end/tests/test_discord_connection.py`.
+Covered by: `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390 and Give roles inside the window there), `givingTheDiscordRole.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## Superseded
 
