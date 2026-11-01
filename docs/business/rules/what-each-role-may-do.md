@@ -114,7 +114,7 @@ Everything an Editor may, and:
 - publishing results
 - [updating an answer the assignment or a price group reads](an-update-is-kept-beside-the-vendors-answer.md#who-may)
 - changing what a vendor owes (Daniel, T92 Q26: "this number can be changed by the admin")
-- adjusting what they paid
+- adjusting what a vendor paid (Daniel, T92 Q26: "this number can be changed by the admin")
 - connect the market to Discord, choose its role, check who is in its server and give its role to the assigned vendors ([the Discord connection](../../implementation/modules/discord.md))
 - manage editors and viewers
 

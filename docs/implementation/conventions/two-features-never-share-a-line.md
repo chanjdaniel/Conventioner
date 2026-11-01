@@ -20,7 +20,7 @@ When two lanes' rows share a line, that merge conflicts though nothing disagrees
 - **An enumeration that features grow is a Markdown list, one item to a line.**
   Never a sentence ("A, B and C") and never a table cell, because each new item rewrites the one line.
 - **The order is stated, once, in the line above the list.**
-  Items with no order of their own (specs, page objects, sweep states, seed helpers) are sorted by name; items the code orders (actions and the rights of each role, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py)) follow the code.
+  Items with no order of their own (specs, page objects) are sorted by name; items the code orders (actions and the rights of each role, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py)) follow the code; a list whose doc names another order (the seed helpers, each beside the helper it builds on) follows that order.
   A sorted list puts two new items in different places unless their names sort side by side; a list in the code's order conflicts exactly when the code itself would.
 - **A table whose rows features edit becomes one block per row**, each block apart from the next by a blank line, because git conflicts on edits to adjacent lines and a table's rows are adjacent.
   A block opens with the row's name as a heading or a bold lead, then its facts, with any enumeration inside it a list in turn.
