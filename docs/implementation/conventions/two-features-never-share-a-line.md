@@ -58,3 +58,13 @@ A new action's right is one new line in the list of its default role, in its row
 
 [The market store](../modules/market-store.md#where-a-screens-permission-comes-from), "Where a screen's permission comes from": one block per screen, its name a bold lead line, then a list, one control and the row it asks a line.
 A new control is one line under its screen; a new screen is a new block beside the nearest screen of its page.
+
+### E2E seeds
+
+[E2E seeds](../testing/e2e-seeds.md#the-seed-helpers), "The seed helpers": one block per helper, its name a bold lead line, then a list of what it leaves and its notes, any enumeration in them (`seedTheScreens()`'s stress markets, the states `seedApplicantMarket()` leaves) a list in turn, one item a line.
+A new helper is a new block beside the helper it builds on; a new item in its lists, a note or a stress market, is one line beside the item it is most like, not at the list's end, where every lane would add its own.
+
+### Testing Conventioner
+
+[Testing Conventioner](../../TESTING.md#e2e-foundation), "E2E Foundation": the page objects in `front-end/e2e/pages/` are a list, one class a line, sorted by class name.
+A new page object is one line in its sorted place.
