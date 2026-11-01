@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/review_team.py
   - back-end/api/markets.py#choose_reviewers
-  - back-end/api/markets.py#reviewer_candidates
+  - back-end/api/markets.py#reviewer_candidate_ids
   - back-end/review_team.py#deal_arrivals
   - front-end/src/components/market/ReviewersPanel.vue
   - front-end/src/components/market/ReviewerPicker.vue
