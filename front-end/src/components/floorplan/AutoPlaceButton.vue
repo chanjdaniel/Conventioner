@@ -316,11 +316,11 @@ async function triggerAutoPlace() {
 }
 
 .auto-place-btn:disabled {
-  opacity: 0.5;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
-  background: var(--mm-border);
-  /* White on this fill is 1.67. --mm-black on it is 9.31. */
-  color: var(--mm-black);
 }
 
 /* ── Icon ────────────────────────────────────────────────────── */

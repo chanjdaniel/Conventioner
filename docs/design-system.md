@@ -8,6 +8,8 @@ describes:
   - front-end/stylelint.config.js
   - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
+  - front-end/e2e/contrast-measure.spec.ts
+  - front-end/e2e/helpers/contrastSweep.ts
   - front-end/e2e/accessibility-sweep.spec.ts
   - front-end/e2e/layout-sweep.spec.ts
   - front-end/e2e/focus-sweep.spec.ts
@@ -335,6 +337,7 @@ The one exception is `.answer-link--alone`, an answer that is only a link: it ta
 A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
+A control drawn by a component of its own rather than a `.btn` takes the same values, `--mm-text-muted-on-beige` on `--mm-beige` inside a `--mm-border` line, and never opacity, which dims the words with the affordance: the floorplan wizard's Next, Save and Auto-Place and the application form's order arrows sat at 1.87 to 2.72:1 (T162).
 
 **A field shows no focus at all**, by Daniel's decision on the 2026-10-29 walk (E38/F01/S01): no outline, ring, glow, or border or fill change on any `input`, `textarea` or `select`, by click or by Tab, and a text field shows its caret.
 A browser treats a focused text field as `:focus-visible` whether it was clicked or tabbed into, so no rule could keep a ring for the keyboard alone, and Daniel chose this knowing a keyboard user loses it too; an accessibility pass does not put it back.
@@ -371,6 +374,8 @@ A convention nothing enforces is how the product got here. Six checks, the first
 2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
    **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
 3. **A rendered-usage contrast sweep**, [`e2e/contrast-sweep.spec.ts`](../front-end/e2e/contrast-sweep.spec.ts), walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+   It measures text as it is drawn: the colour's own alpha times every opacity up the chain, laid over the ground, since a line dimmed with `opacity: 0.8` drew the Vendors page's 4.59:1 green counts at 3.2:1 and passed while the sweep read colours alone (T162).
+   The measure is [`e2e/helpers/contrastSweep.ts`](../front-end/e2e/helpers/contrastSweep.ts), and [`e2e/contrast-measure.spec.ts`](../front-end/e2e/contrast-measure.spec.ts) shows it fixture pages, each defect it is meant to catch and its quiet twin.
    `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
 4. **An accessibility sweep**, [`e2e/accessibility-sweep.spec.ts`](../front-end/e2e/accessibility-sweep.spec.ts), runs axe (`@axe-core/playwright`) over the same states and fails on any WCAG 2.0, 2.1 or 2.2 A or AA violation it can see, naming each one's rule, impact and target.
    Its configuration is the `expectAccessible` fixture in `e2e/fixtures.ts`, which also holds the app to exactly one `main` landmark; axe's `color-contrast` rule is off there, since the contrast sweep owns contrast and one defect should fail one check.

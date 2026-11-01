@@ -1821,9 +1821,14 @@ function startOver() {
   background: rgba(54, 130, 111, 0.16);
 }
 
+/* Reading a file: the zone takes no file and its words go muted, as a disabled field's do, rather
+   than dimming with opacity, which took its heading under AA (T162). */
 .drop-zone.busy {
   cursor: progress;
-  opacity: 0.6;
+}
+
+.drop-zone.busy .drop-zone-main {
+  color: var(--mm-text-muted-on-beige);
 }
 
 /* The input still does the work; it is the zone the organizer sees and drops onto. */
@@ -1989,7 +1994,10 @@ function startOver() {
 }
 
 .button-primary:disabled {
-  opacity: 0.5;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

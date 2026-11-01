@@ -730,7 +730,10 @@ function deleteType(tt: TableTypeObject) {
 }
 
 .tt-btn:disabled {
-  opacity: 0.45;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 
