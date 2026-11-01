@@ -102,6 +102,9 @@ USERNAME_QUESTION_GONE = (
 SERVER_FIELDS = ("guild_id", "guild_name")
 SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states",
                   "declined_matches", "role_run")
+#: What a check and the last "Give roles" run found, forgotten too when the card's username
+#: question changes: the states and the run's outcomes were read against the old question's answers.
+CHECK_FIELDS = ("checked_at", "vendor_states", "role_run")
 #: What the history records of a change to the card: its fields, never who connected it or when,
 #: which the entry's actor and time already say, and never a check, which records its own entry.
 RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_link",
@@ -162,6 +165,16 @@ NOT_OFFERED = (
 CHANGED_WHILE_DECLINING = (
     "The market's Discord connection changed. Check Discord again, then answer its offers."
 )
+
+#: Each of ``SHOWN`` as the Vendors page says it (`discordCheck.ts`), and the export writes it.
+STATE_LABELS = {
+    HAS_ROLE: "Has the role",
+    IN_SERVER: "In the server",
+    POSSIBLE_MATCH: "Possible match",
+    NOT_FOUND: "Not found",
+    NO_USERNAME: "No username",
+    CHECK_AGAIN: "Check again",
+}
 
 #: Each assigned vendor as a "Give roles" run leaves them, in the order its report counts them.
 GIVEN = "given"
@@ -744,6 +757,13 @@ def _string(body: Dict[str, Any], key: str) -> str:
     return value
 
 
+def asked_username_question(market: Market) -> Optional[str]:
+    """The card's username question while the form still asks it as a text question, else None:
+    a check asks for it again then (``USERNAME_QUESTION_GONE``)."""
+    question = market.discord.username_question if market.discord else None
+    return question if question and question in _text_questions(market) else None
+
+
 def _text_questions(market: Market) -> List[str]:
     form = market.application_form
     return [field.key for field in (form.fields if form else []) if field.type == "text"]
@@ -768,6 +788,17 @@ def _write(
     market: Market, before: DiscordConnection, after: DiscordConnection, kind: str,
     requesting_user: str,
 ) -> None:
+    # A change of server forgets what was about the old one, and a change of the username question
+    # what the check and the last run read against the old one (``CHECK_FIELDS``), whatever
+    # ``before`` read of them: a check or a run may have written its fields after ``before`` was
+    # loaded.
+    if after.guild_id != before.guild_id:
+        forgotten: tuple = SERVER_CHOICES
+    elif after.username_question != before.username_question:
+        forgotten = CHECK_FIELDS
+    else:
+        forgotten = ()
+    after = after.model_copy(update={field: None for field in forgotten})
     if market.discord is None:
         # A market the product creates stores ``discord: null``, and Mongo cannot create a field
         # under an explicit null parent: the first connection writes the whole sub-document.
@@ -777,9 +808,6 @@ def _write(
         MarketsApi.markets_collection.update_one(market_doc_filter("id", market.id), update)
     else:
         before_fields = before.model_dump()
-        # A change of server forgets what was about the old one, whatever ``before`` read of it:
-        # a check may have written its fields after ``before`` was loaded.
-        forgotten = SERVER_CHOICES if after.guild_id != before.guild_id else ()
         update: Dict[str, Any] = {}
         for field, value in after.model_dump().items():
             if value == before_fields[field] and field not in forgotten:
