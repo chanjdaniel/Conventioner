@@ -100,6 +100,7 @@ A new input to the words, something a reader needs from the screen besides the e
 ### A flow's "Covered by"
 
 [The flows](../../business/flows/README.md)' "Covered by": under each step, `Covered by:` ends its line and a list follows, one test a line, sorted by the test's file name as its code span writes it, ignoring case, a link whose text is a code span counting as one; each keeps its note after the name.
+A group of specs that walk one step together is one item named by their shared pattern, as the four sweeps are `*-sweep.spec.ts`, sorted by that text.
 A new spec is one line in its sorted place in the list of each step it walks, and nowhere else: the [coverage map](../testing/walking-the-flows.md#coverage-map) keeps only each flow's gaps.
 [`check_covered_by`](../../../scripts/knowledge_graph.py) in `knowledge_graph.py check` refuses, in a flow, a `Covered by:` with anything after its colon, an item that does not open with a file name, an item out of order, and a line run on to the last item, with "a Covered by is a list, one test a line, sorted by file name".
 
