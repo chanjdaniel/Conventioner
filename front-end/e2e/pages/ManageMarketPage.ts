@@ -145,11 +145,12 @@ export class ManageMarketPage {
 
   // ── Remove user ──
 
-  /** Removes the person whose row holds `email`, through the confirmation Remove opens. */
+  /** Confirms the confirmation a row's Remove opened; nothing is removed until then. */
   async confirmRemove(): Promise<void> {
     await this.removeConfirmButton.click();
   }
 
+  /** Removes the person whose row holds `email`, through the confirmation Remove opens. */
   async removeUser(email: string): Promise<void> {
     await this.page
       .getByTestId('manage-market-person')
