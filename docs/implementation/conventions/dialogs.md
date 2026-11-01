@@ -74,6 +74,7 @@ So does a row that takes the place of the button that opened it: Manage market's
 Load Template focuses its confirm view's Cancel, then the chosen card again on Cancel ([`TemplatePanel.vue`](../../../front-end/src/components/floorplan/TemplatePanel.vue)).
 [`useFocusGoesBack`](../../../front-end/src/utils/useFocusGoesBack.ts) holds that, for `AppDialog` and for the [vendor drawer](../../business/flows/vendor-drawer.md), a modal that is not a dialog on the shell (T123).
 The drawer moved no focus in and gave none back, so after every vendor a keyboard user started again from the top of the page; it now opens on its close, its first control, since what follows it may be a verdict or a note, and gives focus back to what opened it: a row on the Vendors page or in the review's All view, a seat's name, or a name at the door.
+Another vendor shown in the open drawer takes focus to its close the same way: a vendor named in its History tab is shown in place on the Vendors page, and the focused name goes with the panel it sat in, which left focus on `<body>` (T162).
 
 **A field looks like a field.**
 A dialog's text input is the `.field` primitive ([the design language](../../design-system.md#the-primitive-layer)), which owns its height, padding, corners, type and disabled state; nothing resets it (`all: unset` once left the market name as bare text).

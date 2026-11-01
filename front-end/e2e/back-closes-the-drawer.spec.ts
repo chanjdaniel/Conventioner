@@ -270,6 +270,30 @@ test.describe('a vendor named in the History tab', () => {
     await expect(vendors.detailCloseButton).toBeHidden();
   });
 
+  test('on Vendors, Enter on the name shows that vendor with focus on the drawer’s close', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // The name was the focused element, and the History panel it sat in goes as the drawer shows
+    // Bob on his Application tab, so focus fell to `<body>`, the top of the page behind the drawer.
+    const marketId = await swapped(request);
+    const vendors = new VendorsPage(page);
+    await vendors.goto(marketId);
+    await vendors.search(ALICE);
+    await vendors.clickVendor(0);
+    await vendors.openTab('history');
+    await page
+      .getByTestId('vendor-drawer-panel-history')
+      .getByTestId('market-history-vendor-link')
+      .filter({ hasText: BOB })
+      .first()
+      .focus();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByTestId('vendors-detail-email')).toHaveText(BOB);
+    await expect(vendors.detailCloseButton).toBeFocused();
+  });
+
   test('on another page, is a link to Vendors', async ({ authenticatedPage: page, request }) => {
     const marketId = await swapped(request);
     const tables = new TablesPage(page);
