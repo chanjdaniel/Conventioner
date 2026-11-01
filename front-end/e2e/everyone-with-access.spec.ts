@@ -122,6 +122,7 @@ test.describe('Users with access', () => {
 
     // Remove takes only the market role: the admin stays, at Admin, through the organization.
     await admin.getByTestId('manage-market-remove-user-button').click();
+    await manage.removeConfirmButton.click();
     await expect(admin.getByTestId('manage-market-also')).toHaveCount(0);
     await expect(admin.getByTestId('manage-market-role')).toHaveText(`Admin, through ${orgName}`);
 

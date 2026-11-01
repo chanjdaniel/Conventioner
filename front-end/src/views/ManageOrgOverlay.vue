@@ -22,14 +22,14 @@
  * permissions its new markets copy (E39/F02/S01); the people and the controls an owner or an admin
  * manages are theirs alone.
  */
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
   type Organization,
   type OrganizationRoleType,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { fetchOrganizations } from '@/utils/organizations';
+import { fetchOrganizations, organizationRemoval } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
 import HistorySection from '@/components/HistorySection.vue';
@@ -60,6 +60,12 @@ const addMemberError = ref('');
 const deleteConfirming = ref(false);
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
+/** The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01). */
+const removing = ref<{ userId: string; email: string; place: 'admins' | 'members' } | null>(null);
+const removeError = ref('');
+const removeBusy = ref(false);
+const adminsList = ref<HTMLElement | null>(null);
+const membersList = ref<HTMLElement | null>(null);
 
 watch(
   () => [props.manageOpen, props.org] as const,
@@ -70,6 +76,8 @@ watch(
       showAddAdminForm.value = false;
       showAddMemberForm.value = false;
       deleteConfirming.value = false;
+      removing.value = null;
+      removeError.value = '';
       errorMessage.value = '';
       renameError.value = '';
       addAdminError.value = '';
@@ -215,17 +223,54 @@ async function handleAddMember() {
   }
 }
 
-async function handleRemoveUser(userId: string) {
-  if (!orgData.value) return;
-  errorMessage.value = '';
+/** What the open confirmation says: whom, and what they lose. */
+const removal = computed(() =>
+  orgData.value && removing.value
+    ? organizationRemoval(orgData.value, removing.value.userId, removing.value.email)
+    : null,
+);
+
+/**
+ * Remove asks first (E38/F15/S01): it took someone's access to every market of the organization in
+ * one click, from a filled red button on every row.
+ */
+function askToRemove(userId: string, email: string, place: 'admins' | 'members') {
+  removeError.value = '';
+  removing.value = { userId, email, place };
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the row's Remove. */
+function cancelRemove() {
+  if (removeBusy.value) return;
+  removing.value = null;
+  removeError.value = '';
+}
+
+/**
+ * Confirmed: removed, and the list re-read in place with Manage organization still open. The row,
+ * and with it the Remove that opened the confirmation, is gone, so focus goes to the list it was in.
+ * A refusal stays in the confirmation, which said what was about to happen.
+ */
+async function handleRemoveUser() {
+  const target = removing.value;
+  if (!orgData.value || !target || removeBusy.value) return;
+  removeError.value = '';
+  removeBusy.value = true;
   try {
     await api.delete(
-      `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(userId)}`,
+      `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(target.userId)}`,
     );
-    await saved();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
+    removeError.value = getApiErrorMessage(err, 'Failed to remove user');
+    return;
+  } finally {
+    removeBusy.value = false;
   }
+  await saved();
+  removing.value = null;
+  // Once the confirmation has closed and the page behind it is no longer inert.
+  await nextTick();
+  (target.place === 'admins' ? adminsList : membersList).value?.focus();
 }
 
 function canRemoveUser(userId: string, role: OrganizationRoleType): boolean {
@@ -270,8 +315,15 @@ function handleDeleted() {
         </section>
 
         <section v-if="canManage()" class="section">
-          <h3>Admins</h3>
-          <div class="users-list">
+          <h3 id="manage-org-admins-heading">Admins</h3>
+          <div
+            ref="adminsList"
+            class="users-list"
+            role="group"
+            aria-labelledby="manage-org-admins-heading"
+            tabindex="-1"
+            data-testid="manage-org-admins"
+          >
             <div
               v-for="(email, idx) in orgData.adminEmails || []"
               :key="orgData.admins?.[idx] ?? idx"
@@ -282,12 +334,11 @@ function handleDeleted() {
               <button
                 v-if="isOwner() && canRemoveUser(orgData.admins![idx], 'admin')"
                 type="button"
-                class="btn btn--destructive"
-                title="Remove admin"
+                class="btn btn--secondary btn--destructive"
                 data-testid="manage-org-remove-user-button"
-                @click="handleRemoveUser(orgData.admins![idx])"
+                @click="askToRemove(orgData.admins![idx], email, 'admins')"
               >
-                Remove
+                Remove<span class="visually-hidden"> {{ email }}</span>
               </button>
             </div>
             <p v-if="!orgData.adminEmails?.length && !showAddAdminForm" class="empty-state">
@@ -343,8 +394,15 @@ function handleDeleted() {
         </section>
 
         <section v-if="canManage()" class="section">
-          <h3>Members</h3>
-          <div class="users-list">
+          <h3 id="manage-org-members-heading">Members</h3>
+          <div
+            ref="membersList"
+            class="users-list"
+            role="group"
+            aria-labelledby="manage-org-members-heading"
+            tabindex="-1"
+            data-testid="manage-org-members"
+          >
             <div
               v-for="(email, idx) in orgData.memberEmails || []"
               :key="orgData.members?.[idx] ?? idx"
@@ -355,12 +413,11 @@ function handleDeleted() {
               <button
                 v-if="canRemoveUser(orgData.members![idx], 'member')"
                 type="button"
-                class="btn btn--destructive"
-                title="Remove member"
+                class="btn btn--secondary btn--destructive"
                 data-testid="manage-org-remove-member-button"
-                @click="handleRemoveUser(orgData.members![idx])"
+                @click="askToRemove(orgData.members![idx], email, 'members')"
               >
-                Remove
+                Remove<span class="visually-hidden"> {{ email }}</span>
               </button>
             </div>
             <p v-if="!orgData.memberEmails?.length && !showAddMemberForm" class="empty-state">
@@ -460,6 +517,21 @@ function handleDeleted() {
         </section>
       </div>
     </template>
+  </AppDialog>
+
+  <!-- The product's destructive dialog, opened on Cancel: it names the person and what they lose. -->
+  <AppDialog
+    :open="manageOpen && !!removal"
+    :title="removal?.title ?? ''"
+    testid="manage-org-remove"
+    destructive
+    confirm-label="Remove"
+    :confirm-disabled="removeBusy"
+    :error="removeError"
+    @close="cancelRemove"
+    @submit="handleRemoveUser"
+  >
+    <p class="confirm-text" data-testid="manage-org-remove-consequence">{{ removal?.loses }}</p>
   </AppDialog>
 
   <DeleteOrgDialog
@@ -598,5 +670,11 @@ function handleDeleted() {
 .danger-section {
   padding-top: var(--space-4);
   border-top: 1px solid var(--mm-border);
+}
+
+.confirm-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 </style>

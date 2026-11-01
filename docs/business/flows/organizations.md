@@ -15,6 +15,7 @@ sources:
   - E39/F02/S01
   - T148
   - E38/F12/S01
+  - E38/F15/S01
 ---
 
 # Organizations
@@ -56,9 +57,17 @@ Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `
 
 ## B3. Remove a person
 
-**Status:** Works (walked live).
-"Remove" beside them, with no confirmation; they lose what the organization gave them on its markets (Admin for an admin, Viewer for a member) and keep any role a market gives them of its own.
-Covered by: `access-control.spec.ts` ("org membership changes").
+**Status:** Works (walked live; the confirmation as of E38/F15/S01, driven by `removing-someone-asks-first.spec.ts`).
+"Remove" beside them, the owner's for anyone but themselves and an admin's for a member; they lose what the organization gave them on its markets (Admin for an admin, Viewer for a member) and keep any role a market gives them of its own.
+It asks first, in a destructive confirmation that opens on Cancel: "Remove walk390@example.com from Seed Test Org?", then what they lose, counted by the organization read ([the organization document](../../implementation/data/organization-document.md#the-organization)):
+
+- "They lose access to its 11 markets.";
+- "They lose access to 9 of its 11 markets, and keep the 2 they hold a role on of their own." when a market gives them a role of its own, as one they created makes them its Owner;
+- "They keep its 3 markets, each through a role of their own." when every one does, and "It has no markets yet." when it has none.
+
+Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation.
+Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
+Covered by: `access-control.spec.ts` ("org membership changes"), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, and the sweeps' state "the manage-organization dialog, removing a member".
 
 ## B4. Rename an organization
 

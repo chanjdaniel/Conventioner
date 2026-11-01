@@ -6,6 +6,7 @@ import {
   MarketPhase,
   MarketRole,
   type PermissionTableRow,
+  type PersonWithAccess,
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
@@ -22,7 +23,7 @@ import {
 } from '@/utils/permissions';
 import { MarketAction, actionRefusal, mayTake } from '@/utils/marketActions';
 import { intakeModeOf } from '@/utils/marketGuide';
-import { alsoWords, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
+import { alsoWords, marketRemoval, roleAddingNothing, roleWords } from '@/utils/peopleWithAccess';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -46,8 +47,13 @@ const deleteConfirming = ref(false);
 const deleteError = ref('');
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
-/** A refused change to one person's access, said beneath their row. */
+/** A refused change to one person's role, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
+/** The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01). */
+const removing = ref<PersonWithAccess | null>(null);
+const removeError = ref('');
+const removeBusy = ref(false);
+const peopleList = ref<HTMLElement | null>(null);
 
 watch(
   () => [props.manageOpen, props.market] as const,
@@ -57,6 +63,8 @@ watch(
       renameValue.value = market.name;
       showAddUserForm.value = false;
       deleteConfirming.value = false;
+      removing.value = null;
+      removeError.value = '';
       errorMessage.value = '';
       userError.value = null;
       addUserError.value = '';
@@ -149,18 +157,53 @@ async function handleAddUser() {
   }
 }
 
-async function handleRemoveUser(userId: string) {
-  if (!marketData.value) return;
+/** What the open confirmation says: whom, the role they lose and the place they keep. */
+const removal = computed(() =>
+  marketData.value && removing.value
+    ? marketRemoval(removing.value, marketData.value.name, organizationLabel.value)
+    : null,
+);
+
+/** Remove asks first (E38/F15/S01): it took the role in one click, from a filled red button. */
+function askToRemove(person: PersonWithAccess) {
+  removeError.value = '';
+  removing.value = person;
+}
+
+/** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the row's Remove. */
+function cancelRemove() {
+  if (removeBusy.value) return;
+  removing.value = null;
+  removeError.value = '';
+}
+
+/**
+ * Confirmed: the market role is taken, and the list re-read in place with Manage market still
+ * open. The Remove that opened the confirmation is gone with the role, so focus goes to the list. A
+ * refusal stays in the confirmation, which said what was about to happen.
+ */
+async function handleRemoveUser() {
+  const target = removing.value;
+  if (!marketData.value || !target || removeBusy.value) return;
+  removeError.value = '';
   userError.value = null;
+  removeBusy.value = true;
   try {
     await api.delete(
-      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
+      `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(target.userId)}`,
     );
-    changesMade.value++;
-    await fetchMarket(false);
   } catch (err) {
-    userError.value = { userId, message: getApiErrorMessage(err, 'Failed to remove user') };
+    removeError.value = getApiErrorMessage(err, 'Failed to remove user');
+    return;
+  } finally {
+    removeBusy.value = false;
   }
+  changesMade.value++;
+  await fetchMarket(false);
+  removing.value = null;
+  // Once the confirmation has closed and the page behind it is no longer inert.
+  await nextTick();
+  peopleList.value?.focus();
 }
 
 /** A refused change puts the select back on the role they still hold, and says why under it. */
@@ -284,8 +327,15 @@ async function closeAddUser() {
     <p v-if="loading" class="empty-state">Loading...</p>
     <div v-else-if="marketData" class="content">
       <section class="section">
-        <h3>Users with access</h3>
-        <div class="users-list">
+        <h3 id="manage-market-people-heading">Users with access</h3>
+        <div
+          ref="peopleList"
+          class="users-list"
+          role="group"
+          aria-labelledby="manage-market-people-heading"
+          tabindex="-1"
+          data-testid="manage-market-people"
+        >
           <div
             v-for="row in accessList"
             :key="row.userId"
@@ -325,12 +375,11 @@ async function closeAddUser() {
               <button
                 v-if="!row.fromOrganization && canManageRoles(marketData, row.role)"
                 type="button"
-                class="btn btn--destructive"
-                title="Remove user"
+                class="btn btn--secondary btn--destructive"
                 data-testid="manage-market-remove-user-button"
-                @click="handleRemoveUser(row.userId)"
+                @click="askToRemove(row)"
               >
-                Remove
+                Remove<span class="visually-hidden"> {{ row.email }}</span>
               </button>
               <!-- A market role the organization's reaches changes nothing; its Remove tidies it
                    away and leaves the organization's role (the walk's admin added as Editor). -->
@@ -341,9 +390,9 @@ async function closeAddUser() {
                 <button
                   v-if="canManageRoles(marketData, row.addingNothing)"
                   type="button"
-                  class="btn btn--destructive"
+                  class="btn btn--secondary btn--destructive"
                   data-testid="manage-market-remove-user-button"
-                  @click="handleRemoveUser(row.userId)"
+                  @click="askToRemove(row)"
                 >
                   Remove<span class="visually-hidden">
                     {{ getRoleDisplayName(row.addingNothing) }} on this market</span
@@ -514,6 +563,25 @@ async function closeAddUser() {
         </button>
       </section>
     </div>
+  </AppDialog>
+
+  <!-- The product's destructive dialog, opened on Cancel: it names the person, the role they lose
+       and the place in the organization they keep. -->
+  <AppDialog
+    :open="manageOpen && !!removal"
+    :title="removal?.title ?? ''"
+    testid="manage-market-remove"
+    destructive
+    confirm-label="Remove"
+    :confirm-disabled="removeBusy"
+    :error="removeError"
+    @close="cancelRemove"
+    @submit="handleRemoveUser"
+  >
+    <p class="confirm-text" data-testid="manage-market-remove-consequence">{{ removal?.loses }}</p>
+    <p v-if="removal?.keeps" class="confirm-text" data-testid="manage-market-remove-keeps">
+      {{ removal.keeps }}
+    </p>
   </AppDialog>
 
   <!--

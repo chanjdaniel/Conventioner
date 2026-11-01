@@ -19,7 +19,7 @@ describes:
   - back-end/tests/test_the_organizations_default.py
   - back-end/api/permissions.py#market_role_of
   - back-end/tests/test_a_chosen_reviewer_decides.py
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E39
   - E39/F01/S01
