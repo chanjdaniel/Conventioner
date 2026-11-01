@@ -181,7 +181,7 @@ async function handleRename() {
     changesMade.value++;
     emit('changed');
   } catch (err) {
-    renameError.value = getApiErrorMessage(err, 'Failed to rename');
+    renameError.value = getApiErrorMessage(err, 'The name was not changed.');
   }
 }
 
@@ -197,7 +197,7 @@ async function handleAddAdmin() {
     newAdminEmail.value = '';
     await saved();
   } catch (err) {
-    addAdminError.value = getApiErrorMessage(err, 'Failed to add admin');
+    addAdminError.value = getApiErrorMessage(err, 'The admin was not added.');
   }
 }
 
@@ -211,7 +211,7 @@ async function handleAddMember() {
     newMemberEmail.value = '';
     await saved();
   } catch (err) {
-    addMemberError.value = getApiErrorMessage(err, 'Failed to add member');
+    addMemberError.value = getApiErrorMessage(err, 'The member was not added.');
   }
 }
 
@@ -224,7 +224,7 @@ async function handleRemoveUser(userId: string) {
     );
     await saved();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
+    errorMessage.value = getApiErrorMessage(err, 'The person was not removed.');
   }
 }
 

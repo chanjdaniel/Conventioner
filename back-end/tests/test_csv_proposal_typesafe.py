@@ -156,6 +156,31 @@ class TestWhatIsSent:
         assert all(call["question"] != "ceiling" for call in stub.calls)
 
 
+class TestTheShareSent:
+    """The share sent is the ledger's own (E38/F15/S02): answers in the rows counted as
+    responses, over the responses, never every filled cell, so never over 100%."""
+
+    @staticmethod
+    def _team_state(headers, rows):
+        stub = Stub(team=FORM, ceiling=TWO)
+        CsvProposal.proposal(headers, rows, None, asker=stub)
+        asked = [call["state"] for call in stub.calls if call["question"] == "team"]
+        assert len(asked) == 1
+        return asked[0]
+
+    def test_a_status_only_row_is_not_an_answer(self):
+        headers, rows = _file()
+        width = len(headers)
+        rows += [[""] * (width - 1) + ["chase payment"] for _ in range(3)]
+        # 5 of the 12 responses hold a note; the 3 status-only rows are no response.
+        assert "Answered in 42% of rows;" in self._team_state(headers, rows)
+
+    def test_a_file_with_no_responses_is_never_over_100_percent(self):
+        headers = ["Timestamp", "Email Address", "Full Name", TEAM_NOTES]
+        rows = [[f"1/{i + 1}/2026 9:00:00", "", "", f"called about stall {i}"] for i in range(5)]
+        assert "Answered in 0% of rows;" in self._team_state(headers, rows)
+
+
 class TestWhatTheAnswersDo:
     def test_a_confident_team_column_is_left_out_and_marked(self):
         column = _propose(Stub(team=TEAM, ceiling=TWO))["columns"][5]

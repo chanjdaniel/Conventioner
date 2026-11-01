@@ -5,6 +5,7 @@ import {
   type RouteLocation,
 } from 'vue-router';
 import { marketPath } from '@/utils/market';
+import { loginAddress, safeNext } from '@/utils/signInNext';
 import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
 import InitView from '@/views/InitView.vue';
 import LoginView from '@/views/LoginView.vue';
@@ -268,12 +269,15 @@ export const requireSignIn: NavigationGuard = (to) => {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
   // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
-  // hop, since the dashboard's session probe clears it and comes back here.
-  if (user && to.path === '/login') return '/dashboard';
+  // hop, since the shell's session probe clears it and comes back here. The page it carries is
+  // where signing in would have gone (E38/F11/S01). By the route, not the path: the router
+  // matches `/Login` and `/login/` to it too.
+  if (user && to.name === 'login') return safeNext(to.query.next) ?? '/dashboard';
 
   if (to.matched.some((record) => record.meta.public === true)) return true;
 
-  if (!user) return '/login';
+  // A link opened signed out keeps its place: signing in returns to it (E38/F11/S01).
+  if (!user) return loginAddress(to.fullPath);
 
   return true;
 };

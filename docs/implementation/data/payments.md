@@ -19,13 +19,13 @@ describes:
   - back-end/app.py#edit_payment
   - back-end/app.py#remove_payment
   - back-end/app.py#get_market_payments
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - T92
   - E44/F01/S01
   - E44/F01/S02
-  - E44/F02/S01
   - E42/F01/S04
+  - E44/F02/S01
 ---
 
 # Payments, and what a vendor owes

@@ -442,7 +442,7 @@ async function doTransition(toPhase: string): Promise<boolean> {
     if (response?.status === 409 && response.data?.blockers) {
       transitionBlockers.value = response.data.blockers;
     } else {
-      transitionError.value = response?.data?.error || 'Failed to advance market phase.';
+      transitionError.value = getApiErrorMessage(err, 'The market did not move to the next phase.');
     }
     return false;
   } finally {

@@ -80,7 +80,7 @@ async function publish() {
     confirming.value = false;
     void useMarketStore().refresh();
   } catch (err) {
-    error.value = getApiErrorMessage(err, 'Failed to publish results');
+    error.value = getApiErrorMessage(err, 'The results were not published.');
   } finally {
     loading.value = false;
   }

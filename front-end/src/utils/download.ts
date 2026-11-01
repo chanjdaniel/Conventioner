@@ -3,6 +3,8 @@
  *
  * The request asks for a blob, so an error comes back as one too, and is read out of it here.
  */
+import axios from 'axios';
+import { answerMessage } from '@/utils/api';
 
 /** The filename a `Content-Disposition` header names, or the fallback when it names none. */
 export function filenameFrom(header: string | undefined, fallback: string): string {
@@ -10,20 +12,23 @@ export function filenameFrom(header: string | undefined, fallback: string): stri
   return match?.[1] ?? fallback;
 }
 
-/** The error the server gave, whether it came back as JSON or inside the blob asked for. */
+/**
+ * What a failed download says: as any failed request does (`getApiErrorMessage`), with the
+ * refusal's sentence read out of the blob the request asked for.
+ */
 export async function downloadErrorMessage(err: unknown, fallback: string): Promise<string> {
-  const data =
-    err && typeof err === 'object' && 'response' in err
-      ? (err as { response?: { data?: unknown } }).response?.data
-      : undefined;
-  try {
-    const parsed = data instanceof Blob ? JSON.parse(await data.text()) : data;
-    const message = (parsed as { error?: unknown } | undefined)?.error;
-    if (typeof message === 'string' && message) return message;
-  } catch {
-    // Not JSON: fall through to the plain message.
+  if (!axios.isAxiosError(err) || axios.isCancel(err)) return fallback;
+  const response = err.response;
+  if (!response) return answerMessage(undefined, fallback);
+  let data: unknown = response.data;
+  if (data instanceof Blob) {
+    try {
+      data = JSON.parse(await data.text());
+    } catch {
+      data = undefined; // Not JSON: no sentence of the server's.
+    }
   }
-  return fallback;
+  return answerMessage({ status: response.status, data }, fallback);
 }
 
 /** Save a CSV the server answered, under the name it gave. */

@@ -419,13 +419,44 @@ def resolve_value(
     return None, False
 
 
+NOT_A_CSV_EXPORT = (
+    "This file does not look like a CSV export. "
+    "Download the responses again from Google Forms as .csv."
+)
+
+# The code points no form's heading holds: a control character other than tab, line feed and
+# carriage return, or the replacement character a lossy decode leaves. Their set matches the
+# browser's ``UNPRINTABLE`` in ``front-end/src/utils/csvFile.ts``.
+_UNPRINTABLE_CODES = frozenset(
+    list(range(0x00, 0x09))
+    + [0x0B, 0x0C]
+    + list(range(0x0E, 0x20))
+    + list(range(0x7F, 0xA0))
+    + [0xFFFD]
+)
+
+
+def _not_csv_text(csv_content: str) -> bool:
+    """Whether the text is a binary file decoded anyway, rather than a CSV export (E38/F15/S02).
+
+    The browser refuses such a file where it is first read (``front-end/src/utils/csvFile.ts``);
+    this is the same check on what reaches the server, which sees text, not bytes: a NUL anywhere,
+    or an unprintable character in the header row.
+    """
+    header = csv_content.split("\n", 1)[0]
+    return "\x00" in csv_content or any(ord(ch) in _UNPRINTABLE_CODES for ch in header)
+
+
 def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str]]]:
     """Split a CSV into its header row and its data rows.
 
     Returns ``(error, headers, rows)``. Python's reader is used rather than a split on commas
     because a Google Forms answer routinely contains one, and quoted fields spanning newlines are
-    normal in a long-answer question.
+    normal in a long-answer question. A binary file is refused before it is read
+    (``NOT_A_CSV_EXPORT``): read anyway, it became one garbled column.
     """
+    if _not_csv_text(csv_content):
+        return NOT_A_CSV_EXPORT, [], []
     try:
         parsed = list(csv.reader(io.StringIO(csv_content)))
     except csv.Error as exc:

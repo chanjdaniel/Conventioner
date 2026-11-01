@@ -1,8 +1,7 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, watch, onUnmounted } from 'vue';
 import { useDropZone, useFileDialog } from '@vueuse/core';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import IconCloudUpload from '@/components/icons/IconCloudUpload.vue';
 
 type UploadResult = {
@@ -80,8 +79,8 @@ async function handleFile(file: File) {
       };
       emit('uploaded', singleResult.value);
     }
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Upload failed';
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'The floorplan was not uploaded.');
     emit('error', error.value);
   } finally {
     uploading.value = false;

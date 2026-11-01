@@ -10,7 +10,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { getFormattedDate, getFormattedTimestamp } from '@/utils/utils';
 import { tableInWords } from '@/utils/placementChange';
 
@@ -140,15 +140,12 @@ async function fetchSummary(): Promise<void> {
     ended.value = ended.value || resp.data.ended === true;
   } catch (err: unknown) {
     summary.value = null;
-    const status =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { status?: number; data?: { error?: string } } }).response
-        : undefined;
-    if (status?.status === 404) {
-      lookupError.value = status.data?.error || 'No assignment found for this email.';
-    } else {
-      lookupError.value = status?.data?.error || 'Unable to look up assignment. Please try again.';
-    }
+    lookupError.value = getApiErrorMessage(
+      err,
+      getApiErrorStatus(err) === 404
+        ? 'No assignment found for this email.'
+        : 'The assignment could not be looked up.',
+    );
   } finally {
     isLoading.value = false;
   }
@@ -165,11 +162,7 @@ async function checkIn(date: string): Promise<void> {
     });
     await fetchSummary();
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    checkinError.value = data?.error || 'Failed to check in. Please try again.';
+    checkinError.value = getApiErrorMessage(err, 'The check-in was not saved.');
   } finally {
     checkingInDate.value = null;
   }
@@ -185,11 +178,7 @@ async function undoCheckIn(date: string): Promise<void> {
     });
     await fetchSummary();
   } catch (err: unknown) {
-    const data =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data
-        : undefined;
-    checkinError.value = data?.error || 'Failed to undo the check-in. Please try again.';
+    checkinError.value = getApiErrorMessage(err, 'The check-in was not undone.');
   } finally {
     undoingDate.value = null;
   }

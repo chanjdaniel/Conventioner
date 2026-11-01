@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from 'vue';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 // One rendering of an answer for the drawer, its dialog and the review card alike (E41/F01/S01).
 import { ESSENTIAL_KEY_PREFIX, answerText, applicantName } from '@/utils/essentialFields';
@@ -111,12 +111,6 @@ function extractEmail(raw: unknown): string {
   return typeof candidate === 'string' ? candidate.trim() : '';
 }
 
-function errorText(err: unknown, fallback: string): string {
-  const resp = (err as { response?: { data?: { error?: string } } })?.response;
-  if (resp?.data?.error) return resp.data.error;
-  return err instanceof Error && err.message ? err.message : fallback;
-}
-
 function assignmentSummary(assignment: VendorTableAssignment): string {
   const choice = assignment.tableChoice ? ` (${assignment.tableChoice})` : '';
   const parts = [`${assignment.tableCode || 'No table'}${choice}`];
@@ -219,7 +213,10 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
     ]);
     try {
       if (applicationsRead.status === 'rejected') {
-        loadError.value = errorText(applicationsRead.reason, 'Failed to load vendors.');
+        loadError.value = getApiErrorMessage(
+          applicationsRead.reason,
+          'The vendors could not be loaded.',
+        );
         applications.value = [];
         forgetPlacements();
         return;
@@ -228,7 +225,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       applications.value = Array.isArray(applicationList) ? applicationList : [];
       loaded.value = true;
       if (placementsReadNow.status === 'rejected') {
-        loadError.value = errorText(
+        loadError.value = getApiErrorMessage(
           placementsReadNow.reason,
           'Where the vendors sit could not be read.',
         );

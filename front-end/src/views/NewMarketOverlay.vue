@@ -22,8 +22,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { IntakeMode, type Market } from '@/assets/types/datatypes.ts';
-import axios from 'axios';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 
 const props = defineProps<{
   newOpen: boolean;
@@ -104,19 +103,11 @@ const handleSubmit = async () => {
     // responses first.
     router.push(marketPath(marketId, path.value === IntakeMode.Csv ? 'start-from-csv' : 'setup'));
   } catch (error) {
-    if (
-      axios.isAxiosError(error) &&
-      error.response?.status === 400 &&
-      error.response?.data?.error
-    ) {
-      // The server's own words. This used to rewrite anything mentioning "market already" into "A
-      // market with this name already exists" - which is false for the refusal that matters most:
-      // "Cafe Market" beside "Café Market" is a different name on the SAME public address, and the
-      // server says exactly that (E21/F03/S03).
-      errorMessage.value = error.response.data.error;
-    } else {
-      errorMessage.value = 'An error occurred. Please try again.';
-    }
+    // A refusal in the server's own words. This used to rewrite anything mentioning "market
+    // already" into "A market with this name already exists" - which is false for the refusal that
+    // matters most: "Cafe Market" beside "Café Market" is a different name on the SAME public
+    // address, and the server says exactly that (E21/F03/S03).
+    errorMessage.value = getApiErrorMessage(error, 'The market was not created.');
   } finally {
     creating.value = false;
   }
