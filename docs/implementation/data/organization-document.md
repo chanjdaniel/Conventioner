@@ -24,6 +24,7 @@ describes:
   - front-end/src/components/OrganizationPermissions.vue
   - back-end/api/permissions.py
   - back-end/api/markets.py#get_markets_for_user
+  - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
   - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#organization_refusal
   - back-end/api/markets.py#add_market_role
@@ -42,6 +43,7 @@ sources:
   - E39/F02/S01
   - E38/F12/S01
   - E38/F15/S01
+  - T181
 ---
 
 # The organization document, and roles
@@ -136,7 +138,11 @@ Removing someone from the organization takes away what it gave them and leaves a
 
 `user_has_permission` ranks the roles by `ROLE_RANK`, owner 4, admin 3, editor 2, viewer 1, and grants a row when the person's rank reaches the row's role; only [the market's actions](../modules/market-actions.md) calls it, with the row's role.
 Every market check asks a row there, and the market read serves every row's answer for the screens (`actionRefusals`), so no screen decides a threshold of its own ([what each role may do](../../business/rules/what-each-role-may-do.md)).
-The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations; each entry's role is the one the market's own read would resolve, worked by the same two rules from the documents the list already holds (`_summary_role`, reading the organization from the list's memo), and the entry's `actionRefusals` are asked of it, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations, each kept only where the market's own read would serve it to them (T181).
+It reads each document as the read does (`_readable_market`), resolves the person's role by the read's rule (`_summary_role`, through `market_role_of`, with the organization parsed as the read parses it, from the list's memo, so an organization whose document fails validation grants nothing through it here either) and asks the read's question of that role (`read_refused`).
+A document the model refuses is logged by `_log_unreadable_market` and left out with the rest still listed, and a market whose read row refuses the person is left out too, so no card opens onto "not found".
+The entry's `actionRefusals` are asked of the same role, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read.
 
 ## A market's organization
 

@@ -15,6 +15,7 @@ describes:
   - back-end/tests/test_changing_a_verdict_is_its_own_row.py
   - back-end/tests/test_a_chosen_reviewer_decides.py
   - back-end/tests/test_undoing_a_verdict.py
+  - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
 verified: 2026-11-01
 sources:
   - brain-dump/2026-10-19#22
@@ -40,6 +41,7 @@ sources:
   - E38/F10/S01
   - E38/F12/S01
   - E38/F15/S04
+  - T181
 ---
 
 # What each role may do
@@ -174,6 +176,8 @@ See [the organization document](../../implementation/data/organization-document.
   `add_market_role` refuses an address that already has a role on the market, so a role changes only through `update_market_role`, which refuses any change to the owner and lets only the owner change an Admin; adding once overwrote the role, so any Admin, and with T15 any organization admin, could demote the owner and leave the market with nobody to delete or hand it over.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's read-only line and its answer for moving the phase; `every-screen-asks-the-table.spec.ts` walks a Viewer, an Editor and an Admin through Market Setup, Applications (the vendor drawer's "Update info" among them), the Assignment tab and Attendance.
 - [`back-end/tests/test_an_organizations_admins_run_its_markets.py`](../../../back-end/tests/test_an_organizations_admins_run_its_markets.py) pins the role each place in an organization gives, the higher of two roles, that the Markets list names the same role, and that an organization admin adds and changes only Editors and Viewers; `screens-match-roles.spec.ts` walks an organization admin swapping two seats on market day.
+- **The Markets list shows a market only where its own page opens for the reader** (T181): the list asks the market read's question of each market, the read row for the role the read resolves, so a market the read answers as absent (its document unreadable, its organization's unreadable and so granting nothing, or no role of the reader's on it) is never a card that opens onto "not found" ([the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market)).
+  [`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client.
 - **Giving a verdict and changing one are two rows** (E38/F06/S01): every review write asks "Give verdicts and follow-ups" (`_reviewer_on`), and a verdict or a selection's asks "Change a verdict, or overturn an automatic rejection" too, of each application it writes that is already approved or rejected.
   A single verdict on one is refused with a 403 and the row's sentence ("Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."), a selection skips each with that sentence, and the write itself refuses one decided since the reviewer saw it, so a verdict landing in between is the 409 it always was.
   A write that judges the automatic rejections again returns what a rule rejected to open only for someone the row lets overturn it ([automatic rejections](automatic-rejections.md)).

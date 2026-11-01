@@ -392,7 +392,7 @@ _RANKING = ("user_has_permission", "can_manage_roles", "ROLE_RANK")
 #: role modules call them, and the functions below, which serve the role itself to the client:
 #: each by its module and its name, so a function of the same name elsewhere is searched.
 _RESOLVERS = ("get_user_market_role", "organization_market_role", "higher_role")
-_SERVE_THE_ROLE = {("api/markets.py", "get_market_for_user"), ("api/markets.py", "_summary_role")}
+_SERVE_THE_ROLE = {("api/markets.py", "get_market_for_user")}
 
 
 def _named(node: ast.AST) -> str:

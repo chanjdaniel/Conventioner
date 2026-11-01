@@ -127,13 +127,20 @@ def _load_organization_context(
     if not org_dict:
         return None, None
     org_dict.pop('_id', None)
+    return _organization_from_document(org_dict), org_dict
+
+
+def _organization_from_document(org_dict: Dict[str, Any]) -> Optional[Organization]:
+    """A stored organization as its model, or None, logged, when the document fails validation:
+    the market read and the Markets list parse it here alike, so both grant through it the same."""
     try:
-        return Organization(**org_dict), org_dict
+        return Organization(**{k: v for k, v in org_dict.items() if k != '_id'})
     except Exception as e:
         logger.warning(
-            "Stored organization %s failed validation: %s", organization_id, parse_failure_detail(e),
+            "Stored organization %s failed validation: %s", org_dict.get('id'),
+            parse_failure_detail(e),
         )
-        return None, org_dict
+        return None
 
 
 def _load_organization(organization_id: Optional[str]) -> Optional[Organization]:
@@ -800,16 +807,36 @@ def _log_unreadable_market(market_id: str, error: Exception) -> None:
     logger.warning("Stored market %s failed validation: %s", market_id, parse_failure_detail(error))
 
 
+def _readable_market(document: Dict[str, Any]) -> Optional[Market]:
+    """A stored market as its model, or None, logged, when the model refuses the document: the
+    market read and the Markets list parse it here alike, so a document one cannot read the other
+    does not serve."""
+    try:
+        return market_from_document(document)
+    except Exception as e:
+        _log_unreadable_market(document.get('id'), e)
+        return None
+
+
+def read_refused(market: Market, role: Optional[MarketRole]) -> bool:
+    """Whether the market read answers a market as absent to someone holding ``role``, the role
+    ``market_role_of`` gives them.
+
+    The one question the read (``get_market_for_user``) and the Markets list
+    (``get_markets_for_user``) both ask of a market ``_readable_market`` read, so every card the
+    list shows opens.
+    """
+    return Actions.role_refusal(Actions.READ, role, market.permissions) is not None
+
+
 def load_market_context(market_id: str) -> Optional[MarketContext]:
     """Load a market with its parsed model and owning organization, or None if absent."""
     market_dict = markets_collection.find_one({"id": market_id})
     if not market_dict:
         return None
 
-    try:
-        market = market_from_document(market_dict)
-    except Exception as e:
-        _log_unreadable_market(market_id, e)
+    market = _readable_market(market_dict)
+    if market is None:
         return MarketContext(market_dict, None, None, None)
 
     organization, org_dict = _load_organization_context(market.organization_id)
@@ -856,7 +883,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     user_role = PermissionsApi.get_user_market_role(
         user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
-    if Actions.role_refusal(Actions.READ, user_role, market.permissions):
+    if read_refused(market, user_role):
         return None
 
     market_dict['_id'] = str(market_dict['_id'])
@@ -1040,11 +1067,22 @@ class _SummaryLookups:
 
     def __init__(self, organizations: Optional[List[Dict[str, Any]]] = None) -> None:
         self._organizations: Dict[str, Any] = {org['id']: org for org in (organizations or [])}
+        self._models: Dict[str, Optional[Organization]] = {}
 
     def organization(self, org_id: str) -> Optional[Dict[str, Any]]:
         if org_id not in self._organizations:
             self._organizations[org_id] = OrgsApi.get_organization(org_id)
         return self._organizations[org_id]
+
+    def organization_model(self, org_id: Optional[str]) -> Optional[Organization]:
+        """The organization as the market read parses it, so it grants what the read grants:
+        nothing when its document fails validation."""
+        if not org_id:
+            return None
+        if org_id not in self._models:
+            org = self.organization(org_id)
+            self._models[org_id] = _organization_from_document(org) if org else None
+        return self._models[org_id]
 
 
 def _decorate_market_summary(
@@ -1083,30 +1121,36 @@ def _market_role(value: Optional[str]) -> Optional[MarketRole]:
         return None
 
 
-def _summary_role(
-    market: Dict[str, Any], user_id: str, lookups: _SummaryLookups
-) -> Optional[str]:
+def _summary_role(market: Market, user_id: str, lookups: _SummaryLookups) -> Optional[MarketRole]:
     """The role a list entry names: the one ``get_user_market_role`` would serve on the market.
 
-    Worked from the raw documents the list already holds, by the same two rules, so a card offers
+    Worked by the same rule, from the organization the list's memo already holds, so a card offers
     Manage to exactly the people the market's own page lets manage it: an organization's admins
     run its markets, and the list called them viewers.
     """
-    explicit = (market_doc_field(market, 'roles') or {}).get(user_id)
-    on_the_market = _market_role(explicit)
-    organization_id = market_doc_field(market, 'organization_id')
-    org = lookups.organization(organization_id) if organization_id else None
-    through_organization = PermissionsApi.organization_market_role(
-        user_id, org.get('owner'), org.get('admins') or [], org.get('members') or [],
-    ) if org else None
-    role = PermissionsApi.higher_role(on_the_market, through_organization)
-    return role.value if role else explicit
+    return PermissionsApi.market_role_of(
+        user_id, market, lookups.organization_model(market.organization_id))
+
+
+def _listed(
+    document: Dict[str, Any], user_id: str, lookups: _SummaryLookups,
+) -> Optional[Dict[str, Any]]:
+    """A stored market as its list entry, or None when the market read would not serve it to this
+    reader: the list asks the read's own question (``read_refused``), so no card opens on "not
+    found"."""
+    market = _readable_market(document)
+    if market is None:
+        return None
+    role = _summary_role(market, user_id, lookups)
+    if read_refused(market, role):
+        return None
+    return _decorate_market_summary(document, role.value if role else None, lookups)
 
 
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
-    Get all markets a user has access to (via explicit role or organization).
-    Returns markets with user's effective role included.
+    Get all markets a user has access to (via explicit role or organization): exactly those the
+    market read serves them, each with their effective role included.
     """
     user = UsersApi.get_user(user_email)
     if not user:
@@ -1125,28 +1169,20 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     markets_with_role = markets_collection.find(
         {f"{market_doc_key('roles')}.{user_id}": {"$exists": True}}
     )
-
-    for market in markets_with_role:
-        mid = market["id"]
-        if mid not in seen_ids:
-            seen_ids.add(mid)
-            result.append(_decorate_market_summary(
-                market, _summary_role(market, user_id, lookups), lookups
-            ))
-
     org_ids = [org['id'] for org in user_orgs]
+    org_markets = markets_collection.find(
+        market_doc_filter("organization_id", {"$in": org_ids})
+    ) if org_ids else []
 
-    if org_ids:
-        org_markets = markets_collection.find(
-            market_doc_filter("organization_id", {"$in": org_ids})
-        )
-        for market in org_markets:
-            mid = market["id"]
-            if mid not in seen_ids:
-                seen_ids.add(mid)
-                result.append(_decorate_market_summary(
-                    market, _summary_role(market, user_id, lookups), lookups
-                ))
+    for documents in (markets_with_role, org_markets):
+        for document in documents:
+            mid = document["id"]
+            if mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            entry = _listed(document, user_id, lookups)
+            if entry is not None:
+                result.append(entry)
 
     return result
 
