@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 import { savePlan } from './helpers/savePlan';
-import { BACKEND_URL, TEST_USER } from './fixtures';
+import { APP_API, TEST_USER } from './fixtures';
 import { SEED_MARKET_DATE, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 
@@ -22,11 +22,11 @@ test.describe('Section preference', () => {
     authenticatedPage: page,
   }) => {
     const ctx = page.request;
-    await loginViaApi(ctx, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const orgId = await ensureTestOrg(ctx, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
+    const orgId = await ensureTestOrg(ctx, APP_API, TEST_USER.email, TEST_USER.password);
 
     const marketName = `Section Preference ${Date.now()}`;
-    const createRes = await ctx.post(`${BACKEND_URL}/markets`, {
+    const createRes = await ctx.post(`${APP_API}/markets`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {
         name: marketName,
@@ -68,9 +68,9 @@ test.describe('Section preference', () => {
       sections: [HALL, GARDEN],
     });
 
-    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, setupObject);
+    await savePlan(ctx, APP_API, TEST_USER.email, marketId, setupObject);
 
-    const assignmentRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}/assignment`, {
+    const assignmentRes = await ctx.get(`${APP_API}/markets/${marketId}/assignment`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     expect(assignmentRes.ok(), await assignmentRes.text()).toBeTruthy();

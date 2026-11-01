@@ -2,7 +2,7 @@ import {
   test,
   expect,
   TEST_USER,
-  BACKEND_URL,
+  APP_API,
   CsvImportPage,
   ApplicationMonitorPage,
 } from './fixtures';
@@ -26,7 +26,7 @@ test.describe('A late export', () => {
   }) => {
     const seed = await seedApplicantMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
       { setupObject: planSetupObject(), intakeMode: 'csv' },

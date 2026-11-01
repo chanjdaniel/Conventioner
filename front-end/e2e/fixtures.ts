@@ -21,6 +21,14 @@ export const NO_ORG_USER = {
 
 export const BACKEND_URL = process.env.BACKEND_URL || stack().backendURL;
 
+/**
+ * The API at the address the app's own pages call it, for a call made with a page's cookies
+ * (`page.request`). The back end holds a session to the client that signed in ("strong" session
+ * protection), and its own port is another client to it than the page, so a call there with the
+ * page's session ends it (E38/F14/S01). A request context of its own may call `BACKEND_URL`.
+ */
+export const APP_API = '/api';
+
 async function login(page: Page, email: string, password: string) {
   const loginPage = new LoginPage(page);
   await loginPage.goto();

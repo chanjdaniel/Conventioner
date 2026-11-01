@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API } from './fixtures';
 import { marketSetupPath, oneByOnePath } from './helpers/marketScreens';
 import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplication } from './helpers/seedApplication';
@@ -138,7 +138,7 @@ test.describe('What a reviewer reads first', () => {
     }
 
     // It saved, rather than only ticking a box: the market itself carries it now.
-    const response = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
+    const response = await page.request.get(`${APP_API}/markets/${marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const body = (await response.json()) as { market: { reviewHighlights?: string[] } };

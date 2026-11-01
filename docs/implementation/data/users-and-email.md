@@ -9,15 +9,18 @@ describes:
   - back-end/api/users.py#register_user
   - back-end/api/users.py#register_user_with_captcha
   - back-end/api/users.py#get_user_by_login_id
+  - back-end/api/users.py#signed_in_account
   - back-end/api/users.py#_sign_in
   - back-end/api/users.py#reset_password
   - back-end/app.py#verify_user_indexes
   - back-end/migrations/migrate_user_emails.py
   - back-end/tests/test_the_remember_cookie.py
-verified: 2026-10-28
+verified: 2026-11-01
 sources:
   - E32/F03/S04
   - T85
+  - E38/F14/S01
+  - T169
 ---
 
 # Users, and the one spelling of an address
@@ -40,19 +43,21 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 | `verification_token`, `verification_token_expires` | the email-verification link, valid an hour |
 | `password_reset_token`, `password_reset_token_expires` | the password-reset link, valid an hour |
 | `otp`, `otp_expires`, `otp_attempts` | a sign-in code, valid five minutes, cleared by the fifth wrong attempt |
-| `login_id` | what the session and the remember-me cookie name the account by: a random value, made at the first sign-in and replaced by a password reset |
+| `login_id` | the account a session or remember-me cookie names, in its sign-in id: a random value, made at the first sign-in and replaced by a password reset |
 
 ## The session names the account by its login id
 
-The session and the remember-me cookie name the account by its `login_id` (`AuthUser.get_id`), not its address, and each signed-in request loads the account by it (`get_user_by_login_id`, the app's user loader); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
+The session and the remember-me cookie name the account by its `login_id`, not its address, inside a sign-in id (`AuthUser.get_id`): `<login id>.<s|r>.<seconds since the epoch>`, the kind saying whether "Remember me" was ticked and the time when the account signed in.
+Each signed-in request reads it through the app's user loader, `signed_in_account`, which refuses a sign-in as old as its kind's length ([the cookies](../conventions/security-invariants.md#the-cookies)) and an id of any other shape, then loads the account by its login id (`get_user_by_login_id`); `authenticated_email()` then reads the loaded account's address, and permissions are decided by the account's id.
 **A password reset replaces the login id**, in the same write as the new password, so every session and remember-me cookie issued before the reset loads no one and that browser is signed out; signing in again works at once.
 An organizer who resets a password because a device was lost or shared is signed out on it.
-A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in for its year.
-So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address.
+A login id that matches no account loads no one, with no fallback to loading by address: a fallback would keep every remember-me cookie issued before the reset, or before login ids, signing in.
+So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address, and once more after the release that brings sign-in ids, since theirs had named the bare login id.
 
 **Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
+Both read the body's `remember` with `flag_field`, so only JSON `true` is "Remember me" ([a request value is a string](../conventions/a-request-value-is-a-string.md#the-one-spelling)).
 The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py).
-A route test that signs in by writing the session with an address points the loader at its own fake account with conftest's `sessions_load_through_get_user`.
+A route test that signs in by writing the session with an address points the user loader at its own fake account with conftest's `sessions_load_through_get_user`.
 
 ## Lookups
 

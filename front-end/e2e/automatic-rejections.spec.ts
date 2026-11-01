@@ -3,7 +3,7 @@ import {
   test,
   expect,
   TEST_USER,
-  BACKEND_URL,
+  APP_API,
   CsvImportPage,
   ApplicationMonitorPage,
 } from './fixtures';
@@ -68,12 +68,12 @@ test.describe('Automatic rejections', () => {
   }) => {
     const { marketId } = await seedPhaseMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
       { intakeMode: 'form' },
     );
-    const form = await page.request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    const form = await page.request.put(`${APP_API}/markets/${marketId}/application-form`, {
       data: { fields: FIELDS },
     });
     expect(form.ok(), await form.text()).toBeTruthy();
@@ -81,7 +81,7 @@ test.describe('Automatic rejections', () => {
     await openReviewSetup(page, marketId);
     // Free text is not a choice, so it is never offered; the server refuses it outright.
     await expect(page.getByTestId('rejection-rule-question')).not.toContainText('Business name');
-    const freeText = await page.request.put(`${BACKEND_URL}/markets/${marketId}/rejection-rules`, {
+    const freeText = await page.request.put(`${APP_API}/markets/${marketId}/rejection-rules`, {
       data: { rules: [{ key: 'business', answers: ['Acme'] }] },
     });
     expect(freeText.status()).toBe(400);
@@ -89,7 +89,7 @@ test.describe('Automatic rejections', () => {
     await addRule(page, 'no_shows', 'not ticked');
 
     // Applications open: the form locks, the rules do not (decision 24).
-    await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+    await transitionMarket(page.request, APP_API, TEST_USER.email, marketId, 'applications');
     await openReviewSetup(page, marketId);
     await expect(page.getByTestId('rejection-rules-locked')).toHaveCount(0);
     await addRule(page, 'affiliation', OUTSIDER);
@@ -109,7 +109,7 @@ test.describe('Automatic rejections', () => {
   }) => {
     const { marketId } = await seedAssignedMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
       { run: false },
@@ -119,7 +119,7 @@ test.describe('Automatic rejections', () => {
     await expect(page.getByTestId('rejection-rules-locked')).toContainText('reached Assignment');
     await expect(page.getByTestId('rejection-rule-add')).toHaveCount(0);
 
-    const refused = await page.request.put(`${BACKEND_URL}/markets/${marketId}/rejection-rules`, {
+    const refused = await page.request.put(`${APP_API}/markets/${marketId}/rejection-rules`, {
       data: { rules: [] },
     });
     expect(refused.status()).toBe(400);
@@ -133,12 +133,12 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
   }) => {
     const seed = await seedApplicantMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
       { setupObject: planSetupObject(), intakeMode: 'csv' },
     );
-    const rule = await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}/rejection-rules`, {
+    const rule = await page.request.put(`${APP_API}/markets/${seed.marketId}/rejection-rules`, {
       data: { rules: [{ key: 'essential_table_choice', answers: ['half'] }] },
     });
     expect(rule.ok(), await rule.text()).toBeTruthy();
@@ -176,7 +176,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       'Nadia Okonkwo',
       'Ines Albrecht',
     ]);
-    const before = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`);
+    const before = await page.request.get(`${APP_API}/markets/${seed.marketId}/applications`);
     expect((await before.json()).applications).toEqual([]);
 
     await importPage.clickConfirm();

@@ -82,6 +82,16 @@ const otpErrorMessage = ref('');
 const otpRequested = ref(false);
 const otpSuccessMessage = ref('');
 
+/**
+ * "Remember me" (E38/F14/S01): one choice for both sign-ins, so it holds when switching between the
+ * password and the code, and unticked until ticked. The server decides what it means: without it
+ * the sign-in ends with the browser or 12 hours after it, with it 30 days after it.
+ */
+const remember = ref(false);
+/** What the choice does, said under it: the door's laptop is often a shared one. */
+const REMEMBER_ME_HELP =
+  'Keeps you signed in on this device for 30 days. Leave it unticked on a shared one.';
+
 const setUser = inject<(user: unknown) => void>('setUser', () => {});
 
 const submitLogin = async () => {
@@ -93,6 +103,7 @@ const submitLogin = async () => {
       {
         email: email.value,
         password: password.value,
+        remember: remember.value,
       },
       {
         withCredentials: true,
@@ -263,6 +274,7 @@ const submitOTPLogin = async () => {
       {
         email: otpEmail.value,
         otp: otpCode.value,
+        remember: remember.value,
       },
       {
         withCredentials: true,
@@ -347,6 +359,7 @@ const submitOTPLogin = async () => {
             v-model="email"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             data-testid="login-email-input"
           />
@@ -359,6 +372,7 @@ const submitOTPLogin = async () => {
             v-model="password"
             placeholder=""
             class="password-input"
+            autocomplete="current-password"
             required
             data-testid="login-password-input"
           />
@@ -380,6 +394,16 @@ const submitOTPLogin = async () => {
         >
           {{ errorMessage }}
         </p>
+        <label class="remember-me">
+          <input
+            v-model="remember"
+            type="checkbox"
+            aria-describedby="remember-me-help"
+            data-testid="login-remember-me"
+          />
+          Remember me
+        </label>
+        <p id="remember-me-help" class="field-help remember-me-help">{{ REMEMBER_ME_HELP }}</p>
         <button
           type="submit"
           class="btn btn--primary submit-button"
@@ -422,6 +446,7 @@ const submitOTPLogin = async () => {
             v-model="registerEmail"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             data-testid="login-register-email-input"
           />
@@ -434,6 +459,7 @@ const submitOTPLogin = async () => {
             v-model="registerPassword"
             placeholder=""
             class="password-input"
+            autocomplete="new-password"
             required
             data-testid="login-register-password-input"
           />
@@ -455,6 +481,7 @@ const submitOTPLogin = async () => {
             v-model="registerPasswordConfirm"
             placeholder=""
             class="password-input"
+            autocomplete="new-password"
             required
             data-testid="login-register-password-confirm-input"
           />
@@ -513,6 +540,7 @@ const submitOTPLogin = async () => {
             v-model="otpEmail"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             :disabled="otpRequested"
             data-testid="login-otp-email-input"
@@ -551,6 +579,20 @@ const submitOTPLogin = async () => {
         >
           {{ otpSuccessMessage }}
         </p>
+        <template v-if="otpRequested">
+          <label class="remember-me">
+            <input
+              v-model="remember"
+              type="checkbox"
+              aria-describedby="otp-remember-me-help"
+              data-testid="login-otp-remember-me"
+            />
+            Remember me
+          </label>
+          <p id="otp-remember-me-help" class="field-help remember-me-help">
+            {{ REMEMBER_ME_HELP }}
+          </p>
+        </template>
         <button
           type="submit"
           class="btn btn--primary submit-button"
@@ -701,6 +743,24 @@ const submitOTPLogin = async () => {
   flex-grow: 1;
   outline: none;
   background: transparent;
+}
+
+/* The choice and its label are one target, at least `--target-min` tall (44px on a phone), and
+   only as wide as its words, so a tap beside it does not tick it. */
+.remember-me {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+  cursor: pointer;
+}
+
+.remember-me-help {
+  margin-top: 0;
 }
 
 /* Why they are here, before anything is asked of them: a fact, in the attention chip's tint. */
