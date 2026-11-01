@@ -136,7 +136,6 @@ export class CsvImportPage {
     await expect(this.view).toBeVisible();
   }
 
-  /** Hand the flow a CSV as though the organizer had picked it off their disk. */
   /** Choose a file named `form-responses.csv`: CSV text, or the bytes of a file that is not one. */
   async chooseFile(contents: string | Buffer): Promise<void> {
     await this.fileInput.setInputFiles({

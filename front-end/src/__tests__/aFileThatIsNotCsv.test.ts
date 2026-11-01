@@ -7,6 +7,7 @@ import CsvImportView from '@/views/CsvImportView.vue';
 import StartFromCsvView from '@/views/StartFromCsvView.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { NOT_A_CSV_EXPORT, readCsvFile } from '@/utils/csvFile';
+import type { Proposal, ProposedColumn } from '@/utils/csvProposal';
 import { answersRefusing } from './support/servedAnswers';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
@@ -181,5 +182,51 @@ describe('the start from a CSV', () => {
     expect(wrapper.get('[data-testid="start-from-csv-error"]').text()).toBe(NOT_A_CSV_EXPORT);
     expect(wrapper.find('[data-testid="start-from-csv-upload"]').exists()).toBe(true);
     expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+/** The proposal for a file of `columns` columns and `responses` responses, every column left out. */
+function proposalOf(columns: number, responses: number): Proposal {
+  return {
+    rowCount: responses,
+    responses,
+    columns: Array.from({ length: columns }, (_, index): ProposedColumn => ({
+      index,
+      header: `Column ${index}`,
+      group: null,
+      answered: responses,
+      firstAnswers: [],
+      fate: 'left_out',
+      essential: null,
+      leftOut: null,
+      why: 'Left out',
+      check: [],
+      field: null,
+    })),
+    plan: { dates: [], year: null, tiers: [], ceiling: null, disagreements: [], check: [] },
+    notAsked: [],
+    typesafe: { asked: false },
+  };
+}
+
+describe("the start's summary", () => {
+  async function summaryFor(columns: number, responses: number): Promise<string> {
+    api.post.mockResolvedValue({ data: proposalOf(columns, responses) });
+    const wrapper = mount(StartFromCsvView, {
+      global: {
+        stubs: { MarketFrame: { template: '<div><slot /></div>' }, ProposalLedger: true },
+      },
+    });
+    await flushPromises();
+    await choose(wrapper, 'start-from-csv-file-input', fileOf('Email Address\nada@example.test\n'));
+    return wrapper.get('[data-testid="start-from-csv-summary"]').text().replace(/\s+/g, ' ');
+  }
+
+  it('counts one column and one response as one', async () => {
+    expect(await summaryFor(1, 1)).toBe('responses.csv · 1 response · 1 column');
+  });
+
+  it('counts two of each as two', async () => {
+    expect(await summaryFor(2, 2)).toBe('responses.csv · 2 responses · 2 columns');
   });
 });

@@ -196,7 +196,10 @@ function leave() {
         <div>
           <h1>Start from your Google Form</h1>
           <p v-if="proposal" class="subtitle" data-testid="start-from-csv-summary">
-            {{ fileName }} · {{ proposal.responses }} responses · {{ columnCount }} columns
+            {{ fileName }} · {{ proposal.responses }} response{{
+              proposal.responses === 1 ? '' : 's'
+            }}
+            · {{ columnCount }} column{{ columnCount === 1 ? '' : 's' }}
             <template v-if="proposal.plan.dates.length">
               · dates in <strong data-testid="start-from-csv-year">{{ year }}</strong>
               <button
