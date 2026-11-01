@@ -260,6 +260,38 @@ describe('Manage organization asks before it removes', () => {
     wrapper.unmount();
   });
 
+  it('stays busy until it closes, so a second click sends no second removal', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    const wrapper = mountDialog();
+    await flushPromises();
+
+    byTestId('manage-org-remove-member-button')!.click();
+    await flushPromises();
+    // The re-read after the removal waits until it is let go.
+    let reread!: () => void;
+    const held = new Promise<void>((resolve) => (reread = resolve));
+    const answer = api.get.getMockImplementation()!;
+    api.get.mockImplementation(async (url: string) => {
+      if (url === '/organizations') await held;
+      return answer(url);
+    });
+    served = { ...served, members: [], memberEmails: [] };
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+
+    const submit = byTestId('manage-org-remove-submit-button')!;
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    submit.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenCalledTimes(1);
+
+    reread();
+    await flushPromises();
+    expect(byTestId('manage-org-remove-window')).toBeNull();
+    expect(byTestId('manage-org-remove-error')).toBeNull();
+    wrapper.unmount();
+  });
+
   it('says a refusal in the confirmation, and removes nothing from the list', async () => {
     api.delete.mockRejectedValue(
       Object.assign(new AxiosError('refused'), {
@@ -397,6 +429,37 @@ describe('Manage market asks before it removes', () => {
       'Remove walk390@example.com from Spring Market? | They lose their Editor role on it. | ' +
         'They can still view it as a member of Seed Test Org.',
     ]);
+    wrapper.unmount();
+  });
+
+  it('stays busy until it closes, so a second click sends no second removal', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    const wrapper = await open([person()]);
+
+    byTestId('manage-market-remove-user-button')!.click();
+    await flushPromises();
+    // The re-read after the removal waits until it is let go.
+    let reread!: () => void;
+    const held = new Promise<void>((resolve) => (reread = resolve));
+    const answer = api.get.getMockImplementation()!;
+    api.get.mockImplementation(async (url: string) => {
+      if (url === '/markets/market-1') await held;
+      return answer(url);
+    });
+    served = market([]);
+    byTestId('manage-market-remove-submit-button')!.click();
+    await flushPromises();
+
+    const submit = byTestId('manage-market-remove-submit-button')!;
+    expect(submit.hasAttribute('disabled')).toBe(true);
+    submit.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenCalledTimes(1);
+
+    reread();
+    await flushPromises();
+    expect(byTestId('manage-market-remove-window')).toBeNull();
+    expect(byTestId('manage-market-remove-error')).toBeNull();
     wrapper.unmount();
   });
 

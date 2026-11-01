@@ -265,12 +265,13 @@ async function handleRemoveUser() {
     );
   } catch (err) {
     removeError.value = getApiErrorMessage(err, 'Failed to remove user');
-    return;
-  } finally {
     removeBusy.value = false;
+    return;
   }
+  // Busy until the confirmation closes: during the re-read its Remove would send a second removal.
   await saved();
   removing.value = null;
+  removeBusy.value = false;
   // Once the confirmation has closed and the page behind it is no longer inert.
   await nextTick();
   (target.place === 'admins' ? adminsList : membersList).value?.focus();
