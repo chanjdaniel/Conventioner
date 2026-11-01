@@ -14,6 +14,8 @@ export class OpenApplicationsDialog {
   readonly confirm: Locator;
   readonly cancel: Locator;
   readonly error: Locator;
+  /** Every person the picker offers, in its order. */
+  readonly choices: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -22,6 +24,7 @@ export class OpenApplicationsDialog {
     this.confirm = page.getByTestId('open-applications-submit-button');
     this.cancel = page.getByTestId('open-applications-cancel-button');
     this.error = page.getByTestId('open-applications-error');
+    this.choices = this.dialog.getByRole('checkbox');
   }
 
   /** The picker's checkbox for one address. */

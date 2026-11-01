@@ -36,14 +36,19 @@ function sized(el: HTMLElement, scrollWidth: number, clientWidth: number) {
   Object.defineProperty(el, 'clientWidth', { configurable: true, value: clientWidth });
 }
 
-async function harness() {
+async function harness(items: Ref<string[]> = ref([])) {
   let scrolls!: Ref<boolean>;
   const target = ref<HTMLElement | null>(null);
   const wrapper = mount(
     defineComponent({
       setup() {
-        scrolls = useScrollsSideways(target);
-        return () => h('ol', { ref: target });
+        scrolls = useScrollsSideways(target, items);
+        return () =>
+          h(
+            'ol',
+            { ref: target },
+            items.value.map((item) => h('li', item)),
+          );
       },
     }),
   );
@@ -69,6 +74,30 @@ describe('useScrollsSideways', () => {
 
     sized(el(), 520, 520);
     observers[0].callback([], observers[0] as unknown as ResizeObserver);
+    expect(scrolls()).toBe(false);
+  });
+
+  it('turns true when the content grows past a region of fixed width, and false when it shrinks back', async () => {
+    // Content growing inside a region of fixed width resizes nothing, so no ResizeObserver
+    // callback comes: only the content changing can say the region now scrolls. The composable
+    // measures on the tick after the render, hence two ticks.
+    const items = ref(['Draft', 'Applications']);
+    const { el, scrolls } = await harness(items);
+    const region = el();
+    Object.defineProperty(region, 'clientWidth', { configurable: true, value: 350 });
+    Object.defineProperty(region, 'scrollWidth', {
+      configurable: true,
+      get: () => region.children.length * 120,
+    });
+
+    items.value = ['Draft', 'Applications', 'Assignment', 'Published'];
+    await nextTick();
+    await nextTick();
+    expect(scrolls()).toBe(true);
+
+    items.value = ['Draft', 'Applications'];
+    await nextTick();
+    await nextTick();
     expect(scrolls()).toBe(false);
   });
 

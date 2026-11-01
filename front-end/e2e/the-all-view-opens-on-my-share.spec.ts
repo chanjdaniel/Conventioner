@@ -9,6 +9,7 @@ import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { FollowUpDialog } from './pages/FollowUpDialog';
 
 /**
  * The All view opens on "Assigned to me", with the "Assigned to" filter (E38/F07/S04).
@@ -66,13 +67,9 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     // The tab itself, as she reaches it: All, on her own share.
     await page.goto(marketScreenPath(marketId, 'applications'));
     await expect(all.assignedTo).toHaveValue('me');
-    await expect(all.assignedTo.locator('option')).toHaveText(['Me', 'Anyone', BEN]);
+    await expect(all.assignedToOptions).toHaveText(['Me', 'Anyone', BEN]);
     await expect(all.count).toHaveText('3 of 5');
-    await expect(all.rows.getByTestId('applications-all-reviewer')).toHaveText([
-      'Reviewer: you',
-      'Reviewer: you',
-      'Reviewer: you',
-    ]);
+    await expect(all.rowReviewers).toHaveText(['Reviewer: you', 'Reviewer: you', 'Reviewer: you']);
 
     await all.assignTo('Anyone');
     await expect.poll(() => reviewerIn(page.url())).toBe('anyone');
@@ -88,7 +85,7 @@ test('a chosen reviewer lands on their share, and anyone’s is a filter away', 
     await expect(all.drawerDealtWarning).toHaveText(
       `This application is dealt to ${BEN}. If you decide it, its history will say you decided it for them.`,
     );
-    await page.getByTestId('vendors-detail-close').click();
+    await all.closeDrawer();
 
     // The status filter narrows within the share; a reload keeps both.
     await all.filter('undecided');
@@ -113,24 +110,21 @@ test('a follow-up I own on another’s share is mine, under Me and with Mine', a
     await all.goto(marketId, BEN);
     await all.open(BENS_FIRST);
     await all.drawerButton('follow-up').click();
-    await expect(page.getByTestId('follow-up-owner')).toHaveValue(ANA);
-    await page.getByTestId('follow-up-submit-button').click();
-    await expect(all.row(BENS_FIRST).getByTestId('applications-all-status')).toHaveText(
-      'Needs follow-up',
-    );
-    await page.getByTestId('vendors-detail-close').click();
+    const followUp = new FollowUpDialog(page);
+    await expect(followUp.owner).toHaveValue(ANA);
+    await followUp.confirm();
+    await expect(all.statusOf(BENS_FIRST)).toHaveText('Needs follow-up');
+    await all.closeDrawer();
 
     await all.assignTo('Me');
     await expect(all.count).toHaveText('4 of 5');
-    await expect(all.row(BENS_FIRST).getByTestId('applications-all-reviewer')).toHaveText(
-      `Reviewer: ${BEN}`,
-    );
+    await expect(all.reviewerOf(BENS_FIRST)).toHaveText(`Reviewer: ${BEN}`);
 
     // Hers to follow up, so its drawer does not warn her that it is Ben's.
     await all.open(BENS_FIRST);
     await expect(all.drawerReviewer).toBeVisible();
     await expect(all.drawerDealtWarning).toHaveCount(0);
-    await page.getByTestId('vendors-detail-close').click();
+    await all.closeDrawer();
 
     await all.mine.check();
     await expect(all.count).toHaveText('1 of 5');
@@ -154,7 +148,7 @@ test('an Admin who is not a reviewer opens on every application', async ({ brows
     const all = new ApplicationsAllPage(page);
     await page.goto(marketScreenPath(marketId, 'applications'));
     await expect(all.assignedTo).toHaveValue('anyone');
-    await expect(all.assignedTo.locator('option')).toHaveText(['Anyone', ANA, BEN]);
+    await expect(all.assignedToOptions).toHaveText(['Anyone', ANA, BEN]);
     await expect(all.count).toHaveText('5 of 5');
 
     await all.assignTo(ANA);

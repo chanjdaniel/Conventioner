@@ -14,12 +14,19 @@ import {
   NO_ORG_USER,
   BACKEND_URL,
   APP_API,
+  CsvImportPage,
   FloorplanWorkflowPage,
 } from '../fixtures';
+import { EmailVerificationPage } from '../pages/EmailVerificationPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
-import { SCREENS_EDITOR, seedTheScreens, type TheScreensSeed } from './seedTheScreens';
+import {
+  FIRST_IMPORT,
+  SCREENS_EDITOR,
+  seedTheScreens,
+  type TheScreensSeed,
+} from './seedTheScreens';
 import { settle } from './settle';
 
 /**
@@ -598,6 +605,24 @@ export const SCREENS: Screen[] = [
     sizes: ORGANIZER,
     open: at(screen('csv', 'import'), 'import-view'),
   },
+  {
+    // The first import offers the reviewers on its preview, as "Open Applications" does on a
+    // market's own form (E38/F07/S02); nothing is imported, so every run finds it the same.
+    name: "a CSV draft's first import, choosing reviewers",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      const importing = new CsvImportPage(page);
+      await page.goto(screen('csvFirst', 'import')(seed));
+      await expect(importing.view).toBeVisible({ timeout: 15000 });
+      await importing.chooseFile(FIRST_IMPORT.csv);
+      await importing.mapColumns(FIRST_IMPORT.headers, FIRST_IMPORT.mapping);
+      await expect(importing.allMapped).toBeVisible();
+      await importing.clickPreview();
+      await expect(importing.previewCounts).toContainText('3 of 3 rows');
+      await expect(importing.reviewers).toBeVisible();
+    },
+  },
 
   // Assignment, its rules still open and nothing run.
   {
@@ -1126,7 +1151,7 @@ export const SCREENS: Screen[] = [
     open: at(fixed('/reset-password?token=a-token-from-an-email'), 'auth-card'),
   },
   {
-    // An unknown token, so the page settles on its error and the buttons that answer it.
+    // An unknown token, so the page settles on its error and the form that answers it.
     name: 'verify an email address',
     who: 'nobody',
     sizes: PUBLIC,
@@ -1134,6 +1159,35 @@ export const SCREENS: Screen[] = [
       fixed('/verify-email?token=a-token-from-an-email'),
       'email-verification-error-message',
     ),
+  },
+  {
+    // "Send the link again" with nothing typed: the field's own message, in red under it (T181).
+    // The pointer then leaves the button: this state is the message, not a hovered button.
+    name: 'verify an email address, no address typed',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page, seed) => {
+      await at(
+        fixed('/verify-email?token=a-token-from-an-email'),
+        'email-verification-error-message',
+        ['email-verification-resend-button', 'email-verification-email-error'],
+      )(page, seed);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    // An address with no account: the server answers as for any, and the page says a link is on
+    // its way (T181).
+    name: 'verify an email address, the link sent again',
+    who: 'nobody',
+    sizes: PUBLIC,
+    open: async (page) => {
+      const verification = new EmailVerificationPage(page);
+      await verification.goto('a-token-from-an-email');
+      await expect(verification.emailInput).toBeVisible({ timeout: 15000 });
+      await verification.sendTheLinkAgain('e2e-screens-nobody@example.com');
+      await expect(verification.resentMessage).toBeVisible({ timeout: 15000 });
+    },
   },
   {
     name: 'a page that is not there',
@@ -1250,7 +1304,8 @@ export function walkTheScreens(
   });
 
   for (const s of SCREENS) {
-    const sizes = everySize ? s.sizes : s.sizes.slice(0, 1);
+    // A copy, since screens share their sizes' arrays and `alsoAt` adds to it.
+    const sizes = everySize ? [...s.sizes] : s.sizes.slice(0, 1);
     // `alsoAt` adds a size the screen does not ship at, when the sweep's question holds there too.
     if (alsoAt && !s.deskOnly && !sizes.some((size) => size.width === alsoAt.width)) {
       sizes.push(alsoAt);

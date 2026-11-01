@@ -34,10 +34,12 @@ a {
 }
 
 /* No padding: the scaffold's `padding: 3px` pushed every link 3px off the text beside it, and the
-   links that leaned on it never said so (E26 re-walk). A link that wants room sets its own. */
+   links that leaned on it never said so (E26 re-walk). A link that wants room sets its own.
+   It eases its colour alone: easing every property drew a link's focus halo square and rounded
+   its corners over 0.4s, where a button's appears at once (T181). */
 a {
   text-decoration: none;
-  transition: 0.4s;
+  transition: color 0.4s;
 }
 
 /*

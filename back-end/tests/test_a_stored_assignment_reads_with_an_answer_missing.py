@@ -1,10 +1,10 @@
 """A stored assignment reads with an approved application's answer missing (T139).
 
 The statistics, the tables grid and the CSV read the approved applications through the run's own
-check, so one approved application missing an answer the run needs refused all three: on a
-published market the Assignments page held its figures with no grid, and the door showed a seat its
-drawer could not. A read describes what is stored, so it reads every approved application as it stands; only a
-run, which places by those answers, still refuses, with its message unchanged.
+check, so one approved application missing an answer the run needs refused all three: on a published
+market the Assignments page held its figures with no grid, and the door showed a seat its drawer
+could not. A read describes what is stored, so it reads every approved application as it stands;
+only a run, which places by those answers, still refuses, with its message unchanged.
 """
 import pytest
 

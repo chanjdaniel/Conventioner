@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { mongoEval } from './mongo';
 import { approvedVendorApplication, insertApplications } from './seedApplication';
 import { seedDraftMarket } from './seedDraftMarket';
 import { transitionMarket } from './seedPhaseMarket';
@@ -66,6 +67,11 @@ export interface TheScreensSeed {
   csv: SeededMarket;
   /** A CSV draft with no plan yet, which starting from a Google Form's responses serves. */
   csvDraft: SeededMarket;
+  /**
+   * A CSV draft with its plan and form, `DEALT_REVIEWER` a Viewer on it, so its first import's
+   * preview offers the reviewers (E38/F07/S02).
+   */
+  csvFirst: SeededMarket;
   /** An applicant of `open`, who signs in to their dashboard (`signIn` in `screens.ts`). */
   applicant: { email: string };
   /**
@@ -252,19 +258,35 @@ const DEALT_REVIEWER = 'e2e-screens-reviewer@example.com';
 const DEALT_REVIEWER_PASSWORD = 'e2epassword123';
 const UNDECIDED = ['open', 'under_review'];
 
+/** A person as the server stores one on an application: their user's id and their address. */
+interface Person {
+  user_id: string;
+  email: string;
+}
+
+/** A verified user's id, read from their stored account, as the server reads it to store them. */
+function personOf(email: string): Person {
+  const id = mongoEval(`print(db.users.findOne({ email: ${JSON.stringify(email)} }).id)`);
+  if (!id || id === 'undefined') throw new Error(`No user id stored for ${email}`);
+  return { user_id: id, email };
+}
+
 /**
- * A market whose review is divided between `email` and `DEALT_REVIEWER`: chosen in the draft, so
- * no deal runs, and its applications go in already dealt, every open one to the other reviewer and
- * the decided ones alternately, so both shares have rows and the organizer's has nothing to hand
- * out.
+ * A market whose review is divided between `organizer` and `DEALT_REVIEWER`: chosen in the draft,
+ * so no deal runs, and its applications go in already dealt, every open one to the other reviewer
+ * and the decided ones alternately, so both shares have rows and the organizer's has nothing to
+ * hand out. Each reviewer, verdict giver and follow-up owner is written with their user's id, as
+ * the server writes them.
  */
 async function dealtMarket(
   api: APIRequestContext,
   backend: string,
-  email: string,
+  organizer: Person,
   dates: string[],
 ): Promise<SeededMarket & { reviewer: string }> {
+  const { email } = organizer;
   ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
+  const other = personOf(DEALT_REVIEWER);
   const market = await createMarket(
     api,
     backend,
@@ -282,16 +304,84 @@ async function dealtMarket(
   });
   if (!chosen.ok()) throw new Error(`Choosing failed: ${chosen.status()} ${await chosen.text()}`);
   insertApplications(
-    applicationsInEveryState(market.marketId, email, dates).map((application, i) => ({
+    applicationsInEveryState(market.marketId, organizer, dates).map((application, i) => ({
       ...application,
-      reviewer: {
-        user_id: null,
-        email: UNDECIDED.includes(application.status) || i % 2 ? DEALT_REVIEWER : email,
-      },
+      reviewer: UNDECIDED.includes(application.status) || i % 2 ? other : organizer,
     })),
   );
   await walk(api, backend, email, market.marketId, ['applications']);
   return { ...market, reviewer: DEALT_REVIEWER };
+}
+
+/**
+ * The Google Form export the first import of `csvFirst` reads, by `screens.ts`: three rows of
+ * fixture data in the market's own dates, tiers, sections and categories, so the preview is clean,
+ * and the mapping that takes each header to its question.
+ */
+export const FIRST_IMPORT = (() => {
+  const columns: [string, string | null][] = [
+    ['Timestamp', null],
+    ['Email Address', null],
+    ['Full Legal Name', 'essential_full_name'],
+    ['Which days can you attend?', 'essential_available_dates'],
+    ['How many days do you want?', 'essential_max_dates'],
+    ['Which tiers will you accept?', 'essential_tier_preference'],
+    ['Full or half table?', 'essential_table_choice'],
+    ['Rank the sections', 'essential_section_ranking'],
+    ['Business name', 'business_name'],
+    [FIELDS[1].label, 'product_type'],
+    ['Category', 'category'],
+  ];
+  const quoted = (cell: string) => `"${cell.replaceAll('"', '""')}"`;
+  const rows = [0, 1, 2].map((i) =>
+    [
+      `2026/05/0${i + 1} 9:1${i}:00`,
+      `first-import${i}@example.com`,
+      `Applicant Number ${i} Featherstonehaugh-Montgomery`,
+      MARKET_DATES[0],
+      '1',
+      TIERS[i % TIERS.length],
+      i % 2 ? 'half' : 'full',
+      SECTIONS.join(', '),
+      ...Object.values(answers(i)).slice(0, 3),
+    ]
+      .map(quoted)
+      .join(','),
+  );
+  const headers = columns.map(([header]) => header);
+  return {
+    headers,
+    mapping: Object.fromEntries(
+      columns.flatMap(([header, key]) => (key ? [[header, key] as const] : [])),
+    ) as Record<string, string>,
+    csv: [headers.map(quoted).join(','), ...rows].join('\n'),
+  };
+})();
+
+/**
+ * A CSV draft whose first import is still to come, `DEALT_REVIEWER` a Viewer on it, so the
+ * import's preview offers the organizer and them as reviewers.
+ */
+async function firstImportMarket(
+  api: APIRequestContext,
+  backend: string,
+  email: string,
+  dates: string[],
+): Promise<SeededMarket> {
+  ensureVerifiedUser(DEALT_REVIEWER, DEALT_REVIEWER_PASSWORD);
+  const market = await createMarket(
+    api,
+    backend,
+    email,
+    uniqueMarketName('First Import Market'),
+    plan(dates),
+    'csv',
+  );
+  const role = await api.post(`${backend}/markets/${market.marketId}/roles`, {
+    data: { user_email: DEALT_REVIEWER, role: 'viewer' },
+  });
+  if (!role.ok()) throw new Error(`Role failed: ${role.status()} ${await role.text()}`);
+  return market;
 }
 
 /** The screens' own organization (T148), fixture data. */
@@ -364,8 +454,11 @@ async function organizationMarket(
   return market;
 }
 
-/** 40 applications, in every review state, with a verdict's giver where a reviewer gave one. */
-function applicationsInEveryState(marketId: string, reviewer: string, dates: string[]) {
+/**
+ * 40 applications, in every review state, with a verdict's giver where a reviewer gave one, and a
+ * follow-up's owner, both `reviewer`.
+ */
+function applicationsInEveryState(marketId: string, reviewer: Person, dates: string[]) {
   const statuses = [
     'open',
     'open',
@@ -384,15 +477,13 @@ function applicationsInEveryState(marketId: string, reviewer: string, dates: str
       fullName: `Applicant Number ${i} Featherstonehaugh-Montgomery`,
       extra: answers(i),
     });
-    const by = { kind: 'person', user_id: null, email: reviewer };
+    const by = { kind: 'person', ...reviewer };
     const marked = ['needs_follow_up', 'reviewer_approved', 'reviewer_rejected'].includes(status);
     return {
       ...base,
       status,
       ...(marked ? { verdict_by: by, verdict_at: now } : {}),
-      ...(status === 'needs_follow_up'
-        ? { follow_up_owner: { user_id: null, email: reviewer } }
-        : {}),
+      ...(status === 'needs_follow_up' ? { follow_up_owner: reviewer } : {}),
     };
   });
 }
@@ -435,7 +526,7 @@ export async function seedTheScreens(
   email: string,
   password: string,
 ): Promise<TheScreensSeed> {
-  await loginViaApi(api, backend, email, password);
+  const organizer = { user_id: await loginViaApi(api, backend, email, password), email };
   const two = MARKET_DATES.slice(0, 2);
 
   const draft = await createMarket(
@@ -457,7 +548,7 @@ export async function seedTheScreens(
       plan(two),
       intakeMode,
     );
-    insertApplications(applicationsInEveryState(market.marketId, email, two));
+    insertApplications(applicationsInEveryState(market.marketId, organizer, two));
     await walk(api, backend, email, market.marketId, ['applications']);
     return market;
   };
@@ -475,7 +566,7 @@ export async function seedTheScreens(
   if (!highlights.ok()) {
     throw new Error(`Marking highlights failed: ${highlights.status()} ${await highlights.text()}`);
   }
-  const dealt = await dealtMarket(api, backend, email, two);
+  const dealt = await dealtMarket(api, backend, organizer, two);
 
   const assignment = await createMarket(api, backend, email, uniqueMarketName('Winter Lantern'), {
     ...plan(two),
@@ -534,6 +625,7 @@ export async function seedTheScreens(
     intakeMode: 'csv',
   });
   const csvDraft = { marketId, marketName, marketSlug: marketNameToSlug(marketName) };
+  const csvFirst = await firstImportMarket(api, backend, email, two);
 
   // The first applicant of `open`; each sign-in plants its own code, since a code is used once.
   const applicant = { email: 'applicant0@example.com' };
@@ -552,6 +644,7 @@ export async function seedTheScreens(
     archived,
     csv,
     csvDraft,
+    csvFirst,
     applicant,
     organization,
     organizationMarket: ofTheOrganization,
