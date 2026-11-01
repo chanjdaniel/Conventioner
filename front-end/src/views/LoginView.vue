@@ -3,8 +3,10 @@ import axios from 'axios';
 import { computed, ref, inject, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
+import SignInMessage from '@/components/SignInMessage.vue';
 import { SESSION_ENDED_MESSAGE } from '@/utils/api';
 import { executeRecaptcha } from '@/utils/captcha';
+import { refusedSignIn, resentLink, type SignInNotice } from '@/utils/signInNotice';
 import { safeNext } from '@/utils/signInNext';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
@@ -34,9 +36,9 @@ const MODE_TABS: ReadonlyArray<{ mode: Mode; label: string; testid: string }> = 
 /** Open a way in, with nothing carried over from the last one. */
 function selectMode(next: Mode) {
   mode.value = next;
-  errorMessage.value = '';
+  loginNotice.value = null;
   registerErrorMessage.value = '';
-  otpErrorMessage.value = '';
+  otpNotice.value = null;
   if (next === 'otp') otpRequested.value = false;
 }
 
@@ -64,7 +66,8 @@ function onTabKey(event: KeyboardEvent) {
 // Login fields
 const email = ref('');
 const password = ref('');
-const errorMessage = ref('');
+/** The password form's one line (E38/F14/S02): a newer one replaces it. */
+const loginNotice = ref<SignInNotice | null>(null);
 const showPassword = ref(false);
 
 // Registration fields
@@ -78,9 +81,49 @@ const showRegisterPassword = ref(false);
 // OTP fields
 const otpEmail = ref('');
 const otpCode = ref('');
-const otpErrorMessage = ref('');
 const otpRequested = ref(false);
-const otpSuccessMessage = ref('');
+/** The code form's one line: "code sent", then a wrong code's in its place, never both. */
+const otpNotice = ref<SignInNotice | null>(null);
+
+/** Start the code form again with another address, saying nothing of the last one. */
+function useADifferentEmail() {
+  otpRequested.value = false;
+  otpCode.value = '';
+  otpNotice.value = null;
+}
+
+/** The address a sign-in was refused for as unverified, which "Send the link again" sends to. */
+const unverifiedAddress = ref('');
+/** A link on its way, so a double click sends one. */
+const resending = ref(false);
+
+/** Remember the address of a refusal that offers the link again, for the button to send to. */
+function noticeOf(refusal: SignInNotice, address: string): SignInNotice {
+  if (refusal.next === 'resend') unverifiedAddress.value = address;
+  return refusal;
+}
+
+/**
+ * "Send the link again" (E38/F14/S02): asks for the verification link for the address that was
+ * refused, and then says one link is on its way, whatever the server said of the address.
+ */
+async function resendVerification(form: 'login' | 'otp') {
+  if (resending.value) return;
+  const notice = form === 'login' ? loginNotice : otpNotice;
+  resending.value = true;
+  try {
+    await axios.post(
+      `${hostname}/resend-verification`,
+      { email: unverifiedAddress.value },
+      { withCredentials: true, headers: { 'Content-Type': 'application/json' } },
+    );
+    notice.value = resentLink(null);
+  } catch (err: unknown) {
+    notice.value = resentLink(err);
+  } finally {
+    resending.value = false;
+  }
+}
 
 /**
  * "Remember me" (E38/F14/S01): one choice for both sign-ins, so it holds when switching between the
@@ -95,7 +138,8 @@ const REMEMBER_ME_HELP =
 const setUser = inject<(user: unknown) => void>('setUser', () => {});
 
 const submitLogin = async () => {
-  errorMessage.value = ''; // Clear previous error
+  loginNotice.value = null;
+  const address = email.value;
 
   try {
     const response = await axios.post(
@@ -119,25 +163,11 @@ const submitLogin = async () => {
       setUser(user_email);
       router.push(afterSignIn.value);
     }
-  } catch (_e: unknown) {
-    const error = _e as {
-      response?: { data?: { msg?: string; message?: string }; status?: number };
-      request?: unknown;
-      message?: string;
-    };
-    // Handle axios errors (including 401 responses)
-    if (error.response) {
-      // Server responded with error status
-      errorMessage.value =
-        error.response.data?.message ||
-        'That email and password do not match. Try again, or reset your password below.';
-    } else if (error.request) {
-      // Request was made but no response received
-      errorMessage.value = 'Unable to connect to server. Please try again.';
-    } else {
-      // Something else happened
-      errorMessage.value = 'An error occurred. Please try again.';
-    }
+  } catch (err: unknown) {
+    loginNotice.value = noticeOf(
+      refusedSignIn(err, 'That email and password do not match.', { mismatchOffersReset: true }),
+      address,
+    );
   }
 };
 
@@ -217,11 +247,11 @@ const submitRegister = async () => {
 };
 
 const requestOTP = async () => {
-  otpErrorMessage.value = '';
-  otpSuccessMessage.value = '';
+  otpNotice.value = null;
+  const address = otpEmail.value;
 
-  if (!otpEmail.value) {
-    otpErrorMessage.value = 'Email is required';
+  if (!address) {
+    otpNotice.value = { tone: 'error', text: 'Enter your email address.' };
     return;
   }
 
@@ -241,30 +271,24 @@ const requestOTP = async () => {
 
     if (response.status === 200) {
       otpRequested.value = true;
-      otpSuccessMessage.value = response.data.msg || 'A sign-in code has been sent to your email.';
+      otpNotice.value = {
+        tone: 'success',
+        text: response.data.msg || 'A sign-in code has been sent to your email.',
+      };
     }
-  } catch (_e: unknown) {
-    const error = _e as {
-      response?: { data?: { msg?: string; message?: string }; status?: number };
-      request?: unknown;
-      message?: string;
-    };
-    if (error.response) {
-      otpErrorMessage.value =
-        error.response.data?.msg || 'The sign-in code could not be sent. Please try again.';
-    } else if (error.request) {
-      otpErrorMessage.value = 'Unable to connect to server. Please try again.';
-    } else {
-      otpErrorMessage.value = 'An error occurred. Please try again.';
-    }
+  } catch (err: unknown) {
+    otpNotice.value = noticeOf(
+      refusedSignIn(err, 'The sign-in code could not be sent. Please try again.'),
+      address,
+    );
   }
 };
 
 const submitOTPLogin = async () => {
-  otpErrorMessage.value = '';
+  const address = otpEmail.value;
 
-  if (!otpEmail.value || !otpCode.value) {
-    otpErrorMessage.value = 'Enter your email address and the code.';
+  if (!address || !otpCode.value) {
+    otpNotice.value = { tone: 'error', text: 'Enter your email address and the code.' };
     return;
   }
 
@@ -290,19 +314,8 @@ const submitOTPLogin = async () => {
       setUser(user_email);
       router.push(afterSignIn.value);
     }
-  } catch (_e: unknown) {
-    const error = _e as {
-      response?: { data?: { msg?: string; message?: string }; status?: number };
-      request?: unknown;
-      message?: string;
-    };
-    if (error.response) {
-      otpErrorMessage.value = error.response.data?.msg || 'That code is not right.';
-    } else if (error.request) {
-      otpErrorMessage.value = 'Unable to connect to server. Please try again.';
-    } else {
-      otpErrorMessage.value = 'An error occurred. Please try again.';
-    }
+  } catch (err: unknown) {
+    otpNotice.value = noticeOf(refusedSignIn(err, 'That code is not right.'), address);
   }
 };
 </script>
@@ -386,14 +399,12 @@ const submitOTPLogin = async () => {
             {{ showPassword ? 'Hide' : 'Show' }}
           </button>
         </div>
-        <p
-          class="error-message"
-          role="alert"
-          v-show="errorMessage"
-          data-testid="login-error-message"
-        >
-          {{ errorMessage }}
-        </p>
+        <SignInMessage
+          :notice="loginNotice"
+          testid-prefix="login"
+          :sending="resending"
+          @resend="resendVerification('login')"
+        />
         <label class="remember-me">
           <input
             v-model="remember"
@@ -563,22 +574,12 @@ const submitOTPLogin = async () => {
             data-testid="login-otp-code-input"
           />
         </div>
-        <p
-          class="error-message"
-          role="alert"
-          v-show="otpErrorMessage"
-          data-testid="login-otp-error-message"
-        >
-          {{ otpErrorMessage }}
-        </p>
-        <p
-          class="success-message"
-          role="status"
-          v-show="otpSuccessMessage"
-          data-testid="login-otp-success-message"
-        >
-          {{ otpSuccessMessage }}
-        </p>
+        <SignInMessage
+          :notice="otpNotice"
+          testid-prefix="login-otp"
+          :sending="resending"
+          @resend="resendVerification('otp')"
+        />
         <template v-if="otpRequested">
           <label class="remember-me">
             <input
@@ -603,11 +604,7 @@ const submitOTPLogin = async () => {
         <div v-if="otpRequested" class="form-links">
           <a
             href="#"
-            @click.prevent="
-              otpRequested = false;
-              otpCode = '';
-              otpSuccessMessage = '';
-            "
+            @click.prevent="useADifferentEmail"
             class="link"
             data-testid="login-otp-different-email-link"
             >Use a different email</a

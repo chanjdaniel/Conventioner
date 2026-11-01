@@ -1,0 +1,55 @@
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+
+/**
+ * The one line a sign-in form says (E38/F14/S02), and what it offers to do next: reset the
+ * password, or send the verification link again.
+ */
+export interface SignInNotice {
+  tone: 'error' | 'success';
+  text: string;
+  next?: 'reset' | 'resend';
+}
+
+/** What "Send the link again" says once it is sent, whatever the server said of the address. */
+export const LINK_RESENT = 'If that address needs verifying, a new link is on its way.';
+
+/**
+ * A refused sign-in, said in the server's words, with what to do next: a 403 is an address that
+ * needs verifying, and a 401 on the password sign-in an email and password that do not match.
+ *
+ * An answer that never came and a server's fault say what `api.ts` says of every request. The
+ * account endpoints word a refusal as `message` or `msg`, which `api.ts` does not read, so a
+ * refusal's sentence is read here.
+ */
+export function refusedSignIn(
+  err: unknown,
+  fallback: string,
+  { mismatchOffersReset = false } = {},
+): SignInNotice {
+  const status = getApiErrorStatus(err);
+  if (status === null || status >= 500) {
+    return { tone: 'error', text: getApiErrorMessage(err, fallback) };
+  }
+  const data = (err as { response?: { data?: { message?: unknown; msg?: unknown } } }).response
+    ?.data;
+  const sentence = [data?.message, data?.msg].find((s) => typeof s === 'string' && s);
+  const text = (sentence as string | undefined) ?? fallback;
+  if (status === 403) return { tone: 'error', text, next: 'resend' };
+  if (status === 401 && mismatchOffersReset) return { tone: 'error', text, next: 'reset' };
+  return { tone: 'error', text };
+}
+
+/**
+ * What "Send the link again" says of its answer: any refusal is said as a link on its way, since
+ * the screen never says whether an address has an account; an answer that never came or a server's
+ * fault says so, and offers the link again.
+ */
+export function resentLink(err: unknown | null): SignInNotice {
+  const status = err === null ? 200 : getApiErrorStatus(err);
+  if (status !== null && status < 500) return { tone: 'success', text: LINK_RESENT };
+  return {
+    tone: 'error',
+    text: getApiErrorMessage(err, 'The link was not sent. Try again.'),
+    next: 'resend',
+  };
+}

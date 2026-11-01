@@ -175,7 +175,7 @@ test.describe('Authentication journeys', () => {
       await loginPage.clickSubmit();
 
       await expect(loginPage.errorMessage).toBeVisible({ timeout: 10000 });
-      await expect(loginPage.errorMessage).toContainText('Invalid credentials');
+      await expect(loginPage.errorMessage).toContainText('That email and password do not match.');
     });
 
     test('redirects to login when session is absent', async ({ page }) => {
