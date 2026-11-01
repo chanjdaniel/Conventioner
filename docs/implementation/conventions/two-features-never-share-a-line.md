@@ -101,3 +101,8 @@ A new area is a new file, and one line in each of the sorted lists of areas, the
 [The flows](../../business/flows/README.md)' "Covered by": under each step, `Covered by:` ends its line and a list follows, one test a line, sorted by the test's file name as its code span writes it, ignoring case, a link whose text is a code span counting as one; each keeps its note after the name.
 A new spec is one line in its sorted place in the list of each step it walks, and nowhere else: the [coverage map](../testing/walking-the-flows.md#coverage-map) keeps only each flow's gaps.
 [`check_covered_by`](../../../scripts/knowledge_graph.py) in `knowledge_graph.py check` refuses, in a flow, a `Covered by:` with anything after its colon, an item that does not open with a file name, an item out of order, and a line run on to the last item, with "a Covered by is a list, one test a line, sorted by file name".
+
+### The market's actions
+
+[The market's actions](../modules/market-actions.md#each-routes-row), "Each route's row": one block per row of the table, in the `ACTIONS` order of [`back-end/api/market_actions.py`](../../../back-end/api/market_actions.py), headed by its label and id, then its default, then "Asked by:" and a list, one route or caller a line, any enumeration inside one a list in turn.
+A new action is a new block in its `ACTIONS` place; a new route or caller of an existing action is one line in its action's "Asked by" list, beside the route it is most like.
