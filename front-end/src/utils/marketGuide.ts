@@ -404,7 +404,10 @@ export function pageForTab(
  * names none and is a fact too, but guards only the move back to draft, never the step onward.
  * Keyed on the guard, never on its words.
  */
-const FACTS: ReadonlySet<string> = new Set(['all_applications_reviewed']);
+/** The guard that holds the stage open while an application is undecided (`guards.py`). */
+const UNDECIDED = 'all_applications_reviewed';
+
+const FACTS: ReadonlySet<string> = new Set([UNDECIDED]);
 
 /**
  * The rail's statement for this market, now.
@@ -496,9 +499,6 @@ const FORM_STEPS: readonly FormStep[] = [
 export function formSteps(path: IntakeMode): readonly FormStep[] {
   return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
 }
-
-/** The guard that holds the stage open while an application is undecided (`guards.py`). */
-const UNDECIDED = 'all_applications_reviewed';
 
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */
 export function pathTabLabel(
