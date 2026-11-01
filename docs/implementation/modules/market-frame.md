@@ -32,6 +32,7 @@ sources:
   - E44/F02/S01
   - E38/F15/S04
   - T181
+  - T180
 ---
 
 # The market frame
@@ -90,11 +91,11 @@ The layout sweep fails on any phone market screen whose banner and pinned bar re
 Above 640px, a tablet included, the frame is the desk's.
 
 **The phone's gutter follows the screen's layout, not the window.**
-A screen that keeps the 1000px desktop floor (every market screen but Attendance, Tools and the Assignments page) is a desk's layout scrolled sideways in a phone's window, so its page keeps the desk's 24px inset there.
+A screen that keeps the 1000px desktop floor (every market screen but those [the design language](../../design-system.md#layout) lists as fitting a phone) is a desk's layout scrolled sideways in a phone's window, so its page keeps the desk's 24px inset there.
 The frame's own insets follow it: the card takes `market-fits-a-phone` only where the route has `meta.fitsAPhone` (`fitsAPhone` in [`utils/fitsAPhone.ts`](../../../front-end/src/utils/fitsAPhone.ts), as `App.vue` lifts the floor by), and the phone's 16px gutter of the bar's row, the rail, the page row and the read-only note is scoped to it.
-Scoped to the window instead, at 390 on Payments the market's name, the rail, the page row's labels and the read-only note stood 8px left of the page's own notes and titles (T153 review finding 7).
+Scoped to the window instead, at 390 on Payments, while it kept the floor, the market's name, the rail, the page row's labels and the read-only note stood 8px left of the page's own notes and titles (T153 review finding 7).
 Only the gutters are scoped: the pinned bar, the rail's sideways spine and its wrapping end follow the window, since the window's height is what they spare.
-`the-payments-page.spec.ts` ("in a phone-sized window, a page that keeps the desktop floor ...") measures both at 390x844: on Payments the frame stands on the page's inset, and on Assignments on the phone's.
+`the-payments-page.spec.ts` ("in a phone-sized window, a page that keeps the desktop floor ...") measures both at 390x844: on Settings the frame stands on the page's inset, and on Payments and Assignments on the phone's.
 The card is at least the height of the window under the banner, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
@@ -106,8 +107,8 @@ A screen in the frame sets no width of its own, or moving between a market's scr
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not; the tabs never give way to it.
 
 **Where the bar is too narrow for the tabs, they scroll inside it.**
-Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only Attendance, Tools and the Assignments page reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
-It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-door-on-a-phone.spec.ts` holds the three routes at 720 and 768.
+Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only those that fit a phone reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
+It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-market-on-a-phone.spec.ts` ("between a phone and a desk") holds each market place that fits a phone at 720 and 768.
 The page row there scrolls away with the rail, each page's link a one-line 44px target by its line's height, so its current mark keeps its place.
 On a phone (640px and below), on a screen that fits one, the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
 The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.

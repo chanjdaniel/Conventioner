@@ -8,7 +8,7 @@ describes:
   - back-end/api/vendor_export.py
   - front-end/src/components/GiveRolesDialog.vue
   - front-end/src/components/DiscordRoleReport.vue
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - wayfinding/claims-and-room/04
   - wayfinding/rejection-visibility/02
@@ -34,6 +34,7 @@ sources:
   - T137
   - E42/F01/S05
   - E46/F01/S04
+  - T180
 ---
 
 # Vendors
@@ -43,6 +44,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md), behind which it reads as selected ([a selected row](../../design-system.md#the-primitive-layer)); what the page counts is the vendors who need a table: the run's own, and the vendors added by hand.
+The page fits a phone, so a vendor is looked up, paid and corrected from the door on market day (T180): the search takes its row with the filters, Export and Add a vendor beneath it, each row stacks the name over its chips, and the drawer, Add a vendor, Export and Give roles open inside the window ([the design language](../../design-system.md#layout)).
 
 ## J11. Browse by vendor
 
@@ -61,6 +63,7 @@ Before a run the page lists the vendors and says nothing is assigned yet.
 Covered by:
 - `placing-someone-not-approved.spec.ts`
 - `the-drawer-reads-the-application-when-the-tables-cannot.spec.ts`, the refused read
+- `the-market-on-a-phone.spec.ts`, on a phone and at a desk: the page, every tab of the drawer, a payment recorded and an Editor's Update info
 - `the-open-vendor-reads-as-selected.spec.ts`, the open row's look
 - `vendors-and-limits.spec.ts`
 - `vendors.spec.ts`
@@ -173,7 +176,7 @@ On a market connected to a Discord server, with a role and a username question c
 A run that cannot start says why in the dialog: no role chosen, the username question gone, Discord out of reach, or the bot no longer in the server.
 Covered by:
 - `back-end/tests/test_discord_connection.py`
-- `giving-the-discord-role.spec.ts`
+- `giving-the-discord-role.spec.ts` (the report and the rows' Discord states laid out at 390, and Give roles inside the window there)
 - `givingTheDiscordRole.test.ts`
 
 ## Superseded

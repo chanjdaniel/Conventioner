@@ -190,7 +190,13 @@ const nobodyShown = computed(() => {
             @input="setSearch(($event.target as HTMLInputElement).value)"
           />
           <!-- No filter where pricing is off: nobody owes, so the refunds one would be everyone. -->
-          <div v-if="filters.length" class="payments-shown" role="group" aria-label="Show only">
+          <div
+            v-if="filters.length"
+            class="payments-shown"
+            role="group"
+            aria-label="Show only"
+            data-testid="payments-shown"
+          >
             <button
               v-for="filter in filters"
               :key="filter.id"
@@ -274,23 +280,39 @@ const nobodyShown = computed(() => {
                   :data-testid="`payments-by-${breakdown.id}`"
                 >
                   <h3 class="payments-subtitle">{{ breakdown.title }}</h3>
-                  <table class="payments-table payments-table--figures">
-                    <thead>
-                      <tr>
-                        <th scope="col">{{ breakdown.head }}</th>
-                        <th v-for="figure in FIGURES" :key="figure.key" scope="col">
+                  <!-- The roles keep it a table to a screen reader where a phone lays its rows out
+                       as blocks (`display` drops a table's own semantics in some browsers). -->
+                  <table role="table" class="payments-table payments-table--figures">
+                    <thead role="rowgroup">
+                      <tr role="row">
+                        <th role="columnheader" scope="col">{{ breakdown.head }}</th>
+                        <th
+                          v-for="figure in FIGURES"
+                          :key="figure.key"
+                          role="columnheader"
+                          scope="col"
+                        >
                           {{ figure.label }}
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                       <tr
                         v-for="row in breakdown.rows"
                         :key="row.label"
+                        role="row"
                         :data-testid="`payments-by-${breakdown.id}-row`"
                       >
-                        <th scope="row">{{ row.label }}</th>
-                        <td v-for="figure in FIGURES" :key="figure.key" :data-figure="figure.key">
+                        <th role="rowheader" scope="row">{{ row.label }}</th>
+                        <td
+                          v-for="figure in FIGURES"
+                          :key="figure.key"
+                          role="cell"
+                          :data-figure="figure.key"
+                        >
+                          <span class="payments-cell-label" aria-hidden="true">{{
+                            figure.label
+                          }}</span>
                           {{ amount(row[figure.key]) }}
                         </td>
                       </tr>
@@ -320,16 +342,23 @@ const nobodyShown = computed(() => {
             class="payments-section"
             aria-labelledby="payments-vendors-title"
           >
-            <h2 id="payments-vendors-title" class="payments-title">Vendors</h2>
+            <h2
+              id="payments-vendors-title"
+              class="payments-title"
+              data-testid="payments-vendors-title"
+            >
+              Vendors
+            </h2>
             <p v-if="!listed.length" class="payments-note" data-testid="payments-none-shown">
               {{ nobodyShown }}
             </p>
-            <table v-else class="payments-table payments-table--vendors">
-              <thead>
-                <tr>
+            <table v-else role="table" class="payments-table payments-table--vendors">
+              <thead role="rowgroup">
+                <tr role="row">
                   <th
                     v-for="column in COLUMNS"
                     :key="column.key"
+                    role="columnheader"
                     scope="col"
                     :aria-sort="ariaSort(column.key)"
                     :class="{ 'payments-amount': column.amount }"
@@ -351,17 +380,18 @@ const nobodyShown = computed(() => {
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 <tr
                   v-for="vendor in listed"
                   :key="vendor.email"
+                  role="row"
                   class="payments-row"
                   :class="{ 'payments-row--open': vendor.email === drawer.email.value }"
                   :data-email="vendor.email"
                   data-testid="payments-row"
                   @click="drawer.open(vendor.email, 'payment')"
                 >
-                  <td>
+                  <td role="cell">
                     <!-- The row's one keyboard stop; a click anywhere on the row does the same. -->
                     <button
                       type="button"
@@ -372,13 +402,22 @@ const nobodyShown = computed(() => {
                       <VendorIdentity :email="vendor.email" :names="names" />
                     </button>
                   </td>
-                  <td class="payments-amount" data-testid="payments-row-owed">
+                  <td role="cell" class="payments-amount" data-testid="payments-row-owed">
+                    <span class="payments-cell-label" aria-hidden="true">{{
+                      COLUMNS[1].label
+                    }}</span>
                     {{ amount(vendor.owedCents) }}
                   </td>
-                  <td class="payments-amount" data-testid="payments-row-paid">
+                  <td role="cell" class="payments-amount" data-testid="payments-row-paid">
+                    <span class="payments-cell-label" aria-hidden="true">{{
+                      COLUMNS[2].label
+                    }}</span>
                     {{ amount(vendor.paidCents) }}
                   </td>
-                  <td class="payments-amount">
+                  <td role="cell" class="payments-amount">
+                    <span class="payments-cell-label" aria-hidden="true">{{
+                      COLUMNS[3].label
+                    }}</span>
                     <span
                       class="chip"
                       :class="balanceChip({ ...vendor, currency: found.currency })"
@@ -430,6 +469,7 @@ const nobodyShown = computed(() => {
 .payments-search {
   flex: 1 1 16rem;
   min-width: 0;
+  min-height: var(--target-min);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
@@ -642,6 +682,7 @@ const nobodyShown = computed(() => {
   display: block;
   width: fit-content;
   max-width: 100%;
+  min-height: var(--target-min);
   padding: 0;
   border: 0;
   background: none;
@@ -650,5 +691,114 @@ const nobodyShown = computed(() => {
   text-align: left;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+/* A column's heading beside each value, where a phone lays a row out as a block (below). The
+   table's own `th` says it to a screen reader, so this copy is for the eye alone. */
+.payments-cell-label {
+  display: none;
+}
+
+/*
+ * A phone (T180): who still owes is read at the door, so the page fits the phone it is read on
+ * (`meta.fitsAPhone`). The gutter is the door's. A table whose columns cannot share the phone's
+ * room keeps its rows and headers (the roles hold them where `display` would drop them) but lays
+ * each row out as a block: its row heading, the date or tier or the vendor, on a line of its own,
+ * then each value on a line beside its column's heading. The vendors' headings stay as a row of
+ * sort buttons above, each a thumb's target.
+ */
+@media (width <= 640px) {
+  .payments-toolbar {
+    padding-inline: var(--space-4);
+  }
+
+  .payments-search {
+    flex-basis: 100%;
+  }
+
+  .payments-body {
+    padding: var(--space-4);
+  }
+
+  .payments-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .payments-table,
+  .payments-table thead,
+  .payments-table tbody,
+  .payments-table tr,
+  .payments-table th,
+  .payments-table td {
+    display: block;
+  }
+
+  .payments-table tbody tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--mm-border);
+  }
+
+  .payments-table th,
+  .payments-table td {
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 0;
+  }
+
+  .payments-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .payments-cell-label {
+    display: inline;
+    color: var(--mm-text-muted);
+  }
+
+  .payments-table tbody th {
+    font-weight: 600;
+  }
+
+  /* The figures' headings are said by each line, so they stand only for a screen reader: the
+     `.visually-hidden` utility of `assets/base.css`, copied whole, since it applies here only on a
+     phone; change one with the other. */
+  .payments-table--figures thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- the utility's own value, not spacing: it pulls the 1px box off the layout */
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .payments-table--vendors thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--mm-border);
+  }
+
+  .payments-table--vendors th:first-child {
+    width: auto;
+  }
+
+  .payments-table--vendors .payments-amount {
+    padding-left: var(--space-2);
+  }
+
+  .payments-sort {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
+
+  .payments-row--open .payments-cell-label {
+    color: var(--mm-text-muted-on-beige);
+  }
 }
 </style>

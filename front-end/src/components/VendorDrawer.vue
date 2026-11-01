@@ -243,7 +243,7 @@ watch(
     :aria-hidden="!open"
     @click.stop
   >
-    <div v-if="open && email" class="detail-content">
+    <div v-if="open && email" class="detail-content" data-testid="vendors-detail-content">
       <div class="detail-header">
         <div class="detail-title-wrap">
           <span class="detail-eyebrow">Vendor detail</span>
