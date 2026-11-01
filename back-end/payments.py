@@ -349,7 +349,8 @@ def market_summary(
     accounts: Mapping[str, Mapping[str, Any]], tier_order: List[str],
 ) -> Dict[str, Any]:
     """The Payments page from every vendor's account: each vendor with a line or a payment, by
-    address, and the market's figures, also by tier and by date.
+    address, with their ``balance_state`` (what the page's lists and the export's payment filter
+    both read), and the market's figures, also by tier and by date.
 
     A payment is a vendor's, never a day's, so what a vendor paid is shared across their table-days
     in proportion to what each owes, or evenly where they owe nothing, and each day's share counts
@@ -372,7 +373,7 @@ def market_summary(
         if not held["lines"] and not held["payments"]:
             continue
         vendors.append({"email": email, "owedCents": held["owedCents"],
-                        "paidCents": held["paidCents"]})
+                        "paidCents": held["paidCents"], "balanceState": balance_state(held)})
         add(totals, held["owedCents"], held["paidCents"])
         owed = [line["owedCents"] or 0 for line in held["lines"]]
         if not owed:

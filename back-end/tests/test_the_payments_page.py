@@ -93,6 +93,24 @@ class TestTheVendors:
         ben = next(v for v in page()["vendors"] if v["email"] == BEN)
         assert (ben["owedCents"], ben["paidCents"]) == (3000, 3000)
 
+    def test_each_vendor_carries_the_state_the_export_filters_by(self, market):
+        # One definition for the page's lists and the export's payment filter (E42/F01/S04).
+        got = page()
+        assert {v["email"]: v["balanceState"] for v in got["vendors"]} == {
+            ANA: Payments.OWES, BEN: Payments.PAID_IN_FULL, CY: Payments.PAID_MORE,
+            DEE: Payments.PAID_MORE}
+        for vendor in got["vendors"]:
+            tab = PaymentsApi.vendor_account(MARKET, vendor["email"], EDITOR)
+            assert vendor["balanceState"] == Payments.balance_state(tab)
+
+    def test_a_vendor_owing_nothing_and_paying_nothing_is_in_no_state(
+            self, market, market_records):
+        entry = next(doc for doc in market_records.payments.documents if doc["vendor_email"] == DEE)
+        PaymentsApi.remove_payment(MARKET, entry["id"], EDITOR)
+
+        dee = next(v for v in page()["vendors"] if v["email"] == DEE)
+        assert dee["balanceState"] is None
+
     def test_a_removed_payment_pays_nothing(self, market, market_records):
         entry = next(doc for doc in market_records.payments.documents if doc["vendor_email"] == DEE)
         PaymentsApi.remove_payment(MARKET, entry["id"], EDITOR)
