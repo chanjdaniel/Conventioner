@@ -287,14 +287,34 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 objects, fixtures, opening a market by URL, `mongoEval`, market dates and plans), and [E2E
 seeds](implementation/testing/e2e-seeds.md) is every helper that puts users and markets in the state
 a spec starts from.
-The page objects in `front-end/e2e/pages/` are `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
-`ResultPage`, `CheckinPage`, `VendorsPage`, `TablesPage`, `AttendanceStatusPage`,
-`OrganizationsPage`, `ManageMarketPage`, `PasswordResetPage`, `ApplicationFormPage`,
-`FloorplanWorkflowPage`, `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`,
-`CsvImportPage`, `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage`,
-`ApplicationMonitorPage`, `StatsPage`, `ToolsPage`, `VendorExportDialog` (the export dialog, wherever it
-opens), `UpdateInfoDialog` (the vendor drawer's Update info dialog) and `ReviewersPanel` (the
-Applications tab's Reviewers panel and its dialog).
+The page objects in `front-end/e2e/pages/` are these, one a line, sorted by class name, so a new one is one line in its place ([two features never share a line](implementation/conventions/two-features-never-share-a-line.md)):
+
+- `ApplicantDashboardPage`
+- `ApplicantLoginPage`
+- `ApplicationFormPage`
+- `ApplicationMonitorPage`
+- `ApplicationsAllPage`
+- `ApplyPage`
+- `AttendanceStatusPage`
+- `CheckinPage`
+- `CsvImportPage`
+- `FloorplanWorkflowPage`
+- `LoginPage`
+- `ManageMarketPage`
+- `MarketSetupPage`
+- `MarketsPage`
+- `NewMarketPage`
+- `OrganizationsPage`
+- `PasswordResetPage`
+- `ResultPage`
+- `ReviewersPanel` (the Applications tab's Reviewers panel and its dialog)
+- `StartFromCsvPage`
+- `StatsPage`
+- `TablesPage`
+- `ToolsPage`
+- `UpdateInfoDialog` (the vendor drawer's Update info dialog)
+- `VendorExportDialog` (the export dialog, wherever it opens)
+- `VendorsPage`
 
 ### Bypassing CAPTCHA and email in tests
 

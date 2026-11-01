@@ -57,13 +57,12 @@ db = get_database()
 history_collection = db[HISTORY_COLLECTION]
 legacy_placement_collection = db[LEGACY_PLACEMENT_COLLECTION]
 
-#: The one verb no row of the table asks: an applicant submitting or editing their own
-#: application, whose sign-in is the check.
-APPLY = "apply"
-
 # What a change was, where one action covers several: kinds rather than a message, as for the
 # placements below, so a surface words them. ``docs/implementation/data/history.md`` lists each
 # with its subject and detail.
+# One block per group of the actions table, in its order; a new kind ends its action's group.
+
+# Market Setup
 RENAMED = "renamed"
 PLAN = "plan"
 PRICING = "pricing"
@@ -72,6 +71,8 @@ FLOORPLAN_IMAGE_DELETED = "floorplan_image_deleted"
 FORM = "form"
 REVIEW_HIGHLIGHTS = "review_highlights"
 REJECTION_RULES = "rejection_rules"
+
+# Applications
 IMPORTED = "imported"
 STARTED = "started"
 VERDICT = "verdict"
@@ -81,33 +82,38 @@ VERDICTS = "verdicts"
 VERDICT_UNDONE = "verdict_undone"
 VERDICTS_UNDONE = "verdicts_undone"
 FOLLOW_UP_OWNER = "follow_up_owner"
-NOTE = "note"
-REQUEST_HANDLED = "request_handled"
-RULES = "rules"
-CHECKED_IN = "checked_in"
-CHECK_IN_UNDONE = "check_in_undone"
-ROLE_GIVEN = "role_given"
-ROLE_CHANGED = "role_changed"
-ROLE_TAKEN = "role_taken"
-SUBMITTED = "submitted"
-EDITED = "edited"
-#: An organizer kept their update of a vendor's answer over what the vendor wrote since.
-KEPT = "kept"
-PERMISSION_SET = "permission_set"
-PERMISSION_RESET = "permission_reset"
-PERMISSION_TABLE_RESET = "permission_table_reset"
 # Who reviews which application (E38/F07, ADR 0020): the reviewers chosen, and applications dealt
 # to them - by a change of reviewers, or as they arrive - each under the action that dealt them.
 REVIEWERS = "reviewers"
 DEALT = "dealt"
-#: A market's table replaced by its organization's default as it is now (E39/F02/S01).
-PERMISSION_TABLE_COPIED = "permission_table_copied"
+
+# Lifecycle: its writes record no kind.
+
+# Vendors
+NOTE = "note"
+REQUEST_HANDLED = "request_handled"
+#: An organizer kept their update of a vendor's answer over what the vendor wrote since.
+KEPT = "kept"
+#: A member offered as a possible match was declined for a vendor (E46/F01/S05). Confirming one is
+#: the ordinary update of the vendor's answer, recorded as every update is.
+DISCORD_MATCH_DECLINED = "discord_match_declined"
+
+# Assignment; its placement kinds are with the placements, below
+RULES = "rules"
+OWED_TAKEN_BACK = "owed_taken_back"
+
+# Payments
 OWED_SET = "owed_set"
 OWED_CALCULATED = "owed_calculated"
 REFUND_RECORDED = "refund_recorded"
 PAYMENT_EDITED = "payment_edited"
 PAYMENT_REMOVED = "payment_removed"
-OWED_TAKEN_BACK = "owed_taken_back"
+
+# The door
+CHECKED_IN = "checked_in"
+CHECK_IN_UNDONE = "check_in_undone"
+
+# Discord
 DISCORD_CONNECTED = "discord_connected"
 DISCORD_SETTINGS = "discord"
 DISCORD_DISCONNECTED = "discord_disconnected"
@@ -116,9 +122,25 @@ DISCORD_CHECKED = "discord_checked"
 #: "Give roles" gave the market's role to the assigned vendors in the server (E46/F01/S04): one
 #: entry a run.
 DISCORD_ROLES_GIVEN = "discord_roles_given"
-#: A member offered as a possible match was declined for a vendor (E46/F01/S05). Confirming one is
-#: the ordinary update of the vendor's answer, recorded as every update is.
-DISCORD_MATCH_DECLINED = "discord_match_declined"
+
+# People
+ROLE_GIVEN = "role_given"
+ROLE_CHANGED = "role_changed"
+ROLE_TAKEN = "role_taken"
+PERMISSION_SET = "permission_set"
+PERMISSION_RESET = "permission_reset"
+PERMISSION_TABLE_RESET = "permission_table_reset"
+#: A market's table replaced by its organization's default as it is now (E39/F02/S01).
+PERMISSION_TABLE_COPIED = "permission_table_copied"
+
+# The organization's own: its verbs and its template kinds are with its changes, below.
+
+# The applicant's own
+#: The one verb no row of the table asks: an applicant submitting or editing their own
+#: application, whose sign-in is the check.
+APPLY = "apply"
+SUBMITTED = "submitted"
+EDITED = "edited"
 
 
 def _now() -> str:

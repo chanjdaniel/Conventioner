@@ -45,43 +45,80 @@ Every view routed by market id uses it, and hands the market to [the market fram
 **From the market in the store, never from a role.**
 The market read carries the table's answer for the person asking, per action, as `actionRefusals` ([the market's actions](market-actions.md#what-the-screens-read)), and a screen asks it through one helper, [`front-end/src/utils/marketActions.ts`](../../../front-end/src/utils/marketActions.ts): `mayTake(market, MarketAction.CheckIn)`, or `actionRefusal(...)` for the sentence to say.
 A market that carries no answer for an action refuses it, so nothing is offered before the server has said.
-Each control asks the row of the action it takes:
+Each control asks the row of the action it takes, one block per screen.
+A new control is one line under its screen, and a new screen is a block beside the nearest screen of its page ([two features never share a line](../conventions/two-features-never-share-a-line.md)):
 
-| Screen | Control | Row |
-| --- | --- | --- |
-| The phase rail | every move | Move the phase |
-| The phase rail's More…, in Applications | Redo import | Import applications |
-| The phase rail's More…, in Applications | Stop taking applications, Take applications again | Stop taking applications, and take them again, while `applicationsStopReason` is null |
-| Market Setup, the plan and the floorplan flow | every plan card, the plan's autosave | Change Market Setup |
-| The Assignment tab's Settings page | the rules | Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan |
-| The Assignment tab's Settings page | Allocate tables | Allocate tables, change the assignment rules, and assign, swap or free seats |
-| Tools, the Discord card | Connect, Disconnect, and each choice | Connect Discord and give roles |
-| The form tab, and the review's highlights | the questions, the highlights, the automatic rejections | Change the form |
-| Applications, the import and the start from a CSV | Import, Start from a CSV | Import applications |
-| Applications, the review and All | verdicts and follow-ups | Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too |
-| Applications, the review | Choose reviewers, Change reviewers | Choose reviewers, while `verdictsSettledReason` is null |
-| Applications, the review | Publish results | Publish results; disabled with `publishWaitsReason` |
-| Assignments, and the drawer's link to it | Change on a seat | Allocate tables, change the assignment rules, and assign, swap or free seats |
-| Vendors | Add a vendor | Add a vendor, while `addingVendorsReason` is null |
-| Vendors | Check Discord, Give roles | Connect Discord and give roles |
-| The drawer, the review card and Attendance | vendor notes | Write vendor notes |
-| The drawer | Update info | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
-| The drawer's Discord section | Confirm…, Not them | Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads |
-| The drawer's Payment tab | Record payment | Record a payment |
-| The drawer's Payment tab | Change the amount owed, Use the calculated price | Change the amount owed |
-| The drawer's Payment tab | Record refund, Edit, Remove | Adjust the amount paid |
-| Assignments, and the drawer's link to it | "Also remove its $15…" beside Free this seat | Change the amount owed, besides the Assignment row the free itself asks |
-| The drawer | History | Read the market's history |
-| Attendance | Check in, Undo | Check vendors in, in market days |
-| Manage market | each role's select, Remove, Add user | the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts)) |
-| Manage market | the Permissions section's Show and its rows; its changes; each row's select and Reset to built-in defaults | Read the market; Read the market's history; Change this table |
-| Manage market | History | Read the market's history |
-| Manage market | Rename; Delete | Change Market Setup; Delete the market |
-| The markets list | Manage | Read the market |
-| Vendors, Applications' All view, and Assignments | Export; Download CSV | Export CSV |
+**The phase rail**
+- every move: Move the phase
+
+**The phase rail's More…, in Applications**
+- Redo import: Import applications
+- Stop taking applications, Take applications again: Stop taking applications, and take them again, while `applicationsStopReason` is null
+
+**Market Setup, the plan and the floorplan flow**
+- every plan card, the plan's autosave: Change Market Setup
+
+**The Assignment tab's Settings page**
+- the rules: Allocate tables, change the assignment rules, and assign, swap or free seats, and Change Market Setup, since the rules ride in the plan
+- Allocate tables: Allocate tables, change the assignment rules, and assign, swap or free seats
+
+**Tools, the Discord card**
+- Connect, Disconnect, and each choice: Connect Discord and give roles
+
+**The form tab, and the review's highlights**
+- the questions, the highlights, the automatic rejections: Change the form
+
+**Applications, the import and the start from a CSV**
+- Import, Start from a CSV: Import applications
+
+**Applications, the review and All**
+- verdicts and follow-ups: Give verdicts, while `verdictsSettledReason` is null; on an application already approved or rejected, Change a verdict, or overturn an automatic rejection too
+
+**Applications, the review**
+- Choose reviewers, Change reviewers: Choose reviewers, while `verdictsSettledReason` is null
+- Publish results: Publish results; disabled with `publishWaitsReason`
+
+**Assignments, and the drawer's link to it**
+- Change on a seat: Allocate tables, change the assignment rules, and assign, swap or free seats
+- "Also remove its $15…" beside Free this seat: Change the amount owed, besides the Assignment row the free itself asks
+
+**Vendors**
+- Add a vendor: Add a vendor, while `addingVendorsReason` is null
+- Check Discord, Give roles: Connect Discord and give roles
+
+**The drawer, the review card and Attendance**
+- vendor notes: Write vendor notes
+
+**The drawer**
+- Update info: Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads
+- History: Read the market's history
+
+**The drawer's Discord section**
+- Confirm…, Not them: Update a vendor's info, and, for an answer the assignment or a price group reads, Update info the assignment or price reads
+
+**The drawer's Payment tab**
+- Record payment: Record a payment
+- Change the amount owed, Use the calculated price: Change the amount owed
+- Record refund, Edit, Remove: Adjust the amount paid
+
+**Attendance**
+- Check in, Undo: Check vendors in, in market days
+
+**Manage market**
+- each role's select, Remove, Add user: the row that gives the role (`canManageRoles` in [`permissions.ts`](../../../front-end/src/utils/permissions.ts))
+- the Permissions section's Show and its rows; its changes; each row's select and Reset to built-in defaults: Read the market; Read the market's history; Change this table
+- History: Read the market's history
+- Rename: Change Market Setup
+- Delete: Delete the market
+
+**The markets list**
+- Manage: Read the market
+
+**Vendors, Applications' All view, and Assignments**
+- Export; Download CSV: Export CSV
 
 The frame alone says why a person may change nothing, from `readOnlyReason` ([the market frame](market-frame.md)).
-No screen reads the role-shaped reasons the screens read before: every screen that read one is in the table above.
+No screen reads the role-shaped reasons the screens read before: every screen that read one is listed above.
 The read serves them, and the person's `user_role`, one more release for a tab still on the old bundle ([the market's actions](market-actions.md#what-the-screens-read)), and the `Market` type names none of them, nor the role, so the type checker refuses a screen that reads one.
 
 ## Sharp edges
