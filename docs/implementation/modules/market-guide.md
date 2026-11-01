@@ -33,7 +33,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 - **Where a move into a phase lands** (`landingPage`): that page; a row may name a flow its work is done in instead (`lands`), but none does now, so a move into the stage lands on Applications on both paths.
 - **The page a tab opens** (`pageForTab`): the one carrying the dot when the tab holds it, else its first.
 - **The rail's sentence** (`nextStep`): one sentence naming the one next step, linking to where it is done.
-  When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, except before an assignment is run, when running it is the step.
+  When the server would refuse that step, the sentence is its first blocker from `transitionBlockers` instead, for someone who may take the blocker's remedy, except before an assignment is run, when running it is the step.
 - **The action a step takes** (`NextStep.action`): the row of [the market's actions](market-actions.md) table the step's work takes, so [the phase rail](phase-rail.md) links the sentence only for someone who may take it ([what each role may do](../../business/rules/what-each-role-may-do.md)).
   A step read off a blocker takes the blocker's `resolutionAction`, served by [the guards](guards.md); a step read off the guide's row takes the row's `action`:
 

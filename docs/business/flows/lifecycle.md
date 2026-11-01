@@ -80,7 +80,7 @@ Inside the stage, More… also offers what is not a move: "Redo import" on the G
 ## What the rail says
 
 One sentence per phase and path names the one next step and, for someone who may take its action, links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md), [what each role may do](../rules/what-each-role-may-do.md)).
-When the server would refuse that step, the sentence is its first blocker instead, so the organizer reads what is wrong before trying.
+When the server would refuse that step, the sentence is its first blocker for someone who may put it right, so the organizer reads what is wrong before trying.
 
 | Phase | Online path | Google Form path |
 | --- | --- | --- |
