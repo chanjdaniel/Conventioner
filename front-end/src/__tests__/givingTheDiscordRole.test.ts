@@ -198,7 +198,7 @@ describe('the report', () => {
 
   it('groups the vendors a run had no time for, its reason said once', () => {
     const NOT_YET =
-      'A run asks Discord for a few seconds at most, and Discord was still pacing it. ' +
+      'A run asks Discord for under a minute, and Discord was still pacing it. ' +
       'Give roles again to finish.';
     const stopped = {
       ...RUN,

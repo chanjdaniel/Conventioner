@@ -6,6 +6,8 @@ is archived. Every write goes through the Flask client as the card sends it, wit
 replaced by fakes of ``discord_client``'s three calls.
 """
 import copy
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 
@@ -805,58 +807,74 @@ class TestCheckingWhoIsInTheServer:
         assert _states(world) == {maple: "in_server"}
 
 
+def _a_paged_server_on_a_clock(world, pages, seconds_per_page, page_answer=None):
+    """Discord's own API faked under ``discord_client``, on a clock each request and each wait moves
+    on: ``pages`` full pages of members, ``member0`` onwards, and a last short one, each taking
+    ``seconds_per_page``, or the ``timeout`` it was given if that is shorter, as a slow Discord
+    would. ``page_answer(n)`` may answer the n-th page asked, from 1, instead. Each grant takes
+    ``PER_REQUEST`` and is given."""
+    world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
+    world.patch.setattr(Discord, "RoleGrants", ROLE_GRANTS)
+    clock = SimpleNamespace(now=1000.0, started=1000.0, gets=0, waits=[], puts=[], read_by=None)
+    world.patch.setattr(Discord, "clock", lambda: clock.now)
+
+    def wait(seconds):
+        clock.waits.append(seconds)
+        clock.now += seconds
+
+    world.patch.setattr(Discord, "_wait", wait)
+
+    def request(method, url, timeout, **kwargs):
+        if method == "PUT":
+            clock.now += PER_REQUEST
+            clock.puts.append(url)
+            return SimpleNamespace(status_code=204, ok=True, headers={}, json=lambda: None)
+        clock.gets += 1
+        if seconds_per_page > timeout:
+            clock.now += timeout
+            raise Discord.requests.Timeout()
+        clock.now += seconds_per_page
+        answer = page_answer(clock.gets) if page_answer else None
+        if answer is not None:
+            return answer
+        size = Discord.MEMBERS_PAGE if clock.gets <= pages else 1
+        if size < Discord.MEMBERS_PAGE:
+            clock.read_by = clock.now
+        first = (clock.gets - 1) * Discord.MEMBERS_PAGE
+        page = [{"user": {"id": str(10_000 + first + n), "username": f"member{first + n}"},
+                 "roles": []} for n in range(size)]
+        return SimpleNamespace(status_code=200, ok=True, headers={}, json=lambda: page)
+
+    world.patch.setattr(Discord.requests, "request", request)
+    return clock
+
+
+#: How long Discord takes to answer a page of members on a slow day, and how many full pages, of
+#: 1000 members each, are read within ``MEMBERS_READ_SECONDS`` at that pace (T155 rereview, note 6).
+SLOW_PAGE_SECONDS = 0.5
+PAGES_THAT_FIT = 29
+
+
 class TestACheckWithinItsTime:
-    """A check reads the members for ``ROLE_RUN_SECONDS`` at most, as a run does, and a read that
-    runs out answers ``CHECK_TOO_SLOW`` with nothing written or recorded: the back end is a
+    """A check reads the members for ``MEMBERS_READ_SECONDS`` at most, as a run does, and a read
+    that runs out answers ``CHECK_TOO_SLOW`` with nothing written or recorded: the back end is a
     function its host ends at a time limit, and a check cut off there answers in no words of its
     own (T155 rereview, finding 5)."""
-
-    def _a_server_on_a_clock(self, world, pages, seconds_per_page, page_answer=None):
-        """``pages`` full pages of members and a last short one, each taking ``seconds_per_page``
-        on a fake clock, or the ``timeout`` it was given if that is shorter, as a slow Discord
-        would. ``page_answer(n)`` may answer the n-th page asked, from 1, instead."""
-        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
-        clock = SimpleNamespace(now=1000.0, started=1000.0, gets=0, waits=[])
-        world.patch.setattr(Discord, "clock", lambda: clock.now)
-
-        def wait(seconds):
-            clock.waits.append(seconds)
-            clock.now += seconds
-
-        world.patch.setattr(Discord, "_wait", wait)
-
-        def request(method, url, timeout, **kwargs):
-            clock.gets += 1
-            if seconds_per_page > timeout:
-                clock.now += timeout
-                raise Discord.requests.Timeout()
-            clock.now += seconds_per_page
-            answer = page_answer(clock.gets) if page_answer else None
-            if answer is not None:
-                return answer
-            size = Discord.MEMBERS_PAGE if clock.gets <= pages else 1
-            first = (clock.gets - 1) * Discord.MEMBERS_PAGE
-            page = [{"user": {"id": str(10_000 + first + n), "username": f"member{first + n}"},
-                     "roles": []} for n in range(size)]
-            return SimpleNamespace(status_code=200, ok=True, headers={}, json=lambda: page)
-
-        world.patch.setattr(Discord.requests, "request", request)
-        return clock
 
     def test_a_server_whose_pages_take_four_seconds_each_is_too_slow_to_check(
         self, client, world,
     ):
-        """The reviewer's plan: four full pages, each answered in four seconds, which unbounded
-        is sixteen seconds of reading, past the host's limit."""
+        """The reviewer's plan, at the read's share: four seconds a page, which unbounded reads
+        the server's five pages for twenty seconds."""
         world.market(discord=CONNECTED, **WITH_THE_FORM)
         world.applicant("maple@example.com", "maple")
-        clock = self._a_server_on_a_clock(world, pages=4, seconds_per_page=4)
+        clock = _a_paged_server_on_a_clock(world, pages=4, seconds_per_page=4)
 
         response = _check(client)
 
         assert response.status_code == Discord.DiscordUnavailable.status, response.get_json()
         assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
-        assert clock.now - clock.started <= DiscordConnection.ROLE_RUN_SECONDS
+        assert clock.now - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
         assert _stored(world) == CONNECTED
         assert world.history.documents == []
 
@@ -864,14 +882,14 @@ class TestACheckWithinItsTime:
         world.market(discord=CONNECTED, **WITH_THE_FORM)
         world.applicant("maple@example.com", "maple")
 
-        def limited_second_page(n):
-            if n == 2:
+        def limited_fourth_page(n):
+            if n == 4:
                 return SimpleNamespace(status_code=429, ok=False, headers={},
                                        json=lambda: {"retry_after": 8, "global": False})
             return None
 
-        clock = self._a_server_on_a_clock(world, pages=2, seconds_per_page=0.1,
-                                          page_answer=limited_second_page)
+        clock = _a_paged_server_on_a_clock(world, pages=4, seconds_per_page=3,
+                                           page_answer=limited_fourth_page)
 
         response = _check(client)
 
@@ -879,15 +897,28 @@ class TestACheckWithinItsTime:
         assert clock.waits == []
         assert _stored(world) == CONNECTED
 
-    def test_a_server_read_within_the_time_is_checked(self, client, world):
+    def test_the_pages_that_fit_at_a_slow_pace_are_checked(self, client, world):
         world.market(discord=CONNECTED, **WITH_THE_FORM)
-        maple = world.applicant("maple@example.com", "member1500")
-        self._a_server_on_a_clock(world, pages=2, seconds_per_page=1)
+        last = PAGES_THAT_FIT * Discord.MEMBERS_PAGE
+        maple = world.applicant("maple@example.com", f"member{last}")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
 
         response = _check(client)
 
         assert response.status_code == 200, response.get_json()
         assert _states(world) == {maple: "in_server"}
+        assert clock.read_by - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+
+    def test_a_page_more_than_fit_at_a_slow_pace_is_too_slow(self, client, world):
+        world.market(discord=CONNECTED, **WITH_THE_FORM)
+        world.applicant("maple@example.com", "member0")
+        _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT + 1,
+                                   seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _check(client)
+
+        assert response.get_json()["error"] == DiscordConnection.CHECK_TOO_SLOW
 
 
 class TestTheChecksHistory:
@@ -1221,32 +1252,6 @@ class TestGivingTheRole:
         assert response.status_code == 400
         assert response.get_json()["error"] == DiscordConnection.NOT_CONNECTED
 
-    def test_a_members_read_that_runs_out_gives_nobody_the_role(self, client, world):
-        """The members are read within the run's time too: a read that runs out answers
-        ``MEMBERS_TOO_SLOW``, with no grant, no write and no history."""
-        world.patch.setattr(Discord, "server_members", LIST_MEMBERS)
-        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
-        world.applicant("ana@example.com", "ana")
-        clock = SimpleNamespace(now=1000.0, puts=[])
-        world.patch.setattr(Discord, "clock", lambda: clock.now)
-
-        def request(method, url, **kwargs):
-            if method == "GET":
-                clock.now += DiscordConnection.ROLE_RUN_SECONDS + 1
-                raise Discord.requests.Timeout()
-            clock.puts.append(url)
-            return SimpleNamespace(status_code=204, ok=True, headers={}, json=lambda: None)
-
-        world.patch.setattr(Discord.requests, "request", request)
-
-        response = _give(client)
-
-        assert response.status_code == Discord.DiscordUnavailable.status
-        assert response.get_json()["error"] == DiscordConnection.MEMBERS_TOO_SLOW
-        assert clock.puts == []
-        assert _stored(world) == WITH_THE_ROLE
-        assert world.history.documents == []
-
     @pytest.mark.parametrize("role", [MarketRole.EDITOR, MarketRole.VIEWER])
     def test_below_an_admin_is_refused(self, client, world, role):
         world.market(role=role, discord=WITH_THE_ROLE, **WITH_THE_FORM,
@@ -1349,6 +1354,16 @@ class TestARunWithinItsTime:
     and records what it gave: the back end is a function its host ends at a time limit, and a run
     cut off there would have given roles and recorded nothing (T155 review, finding 1)."""
 
+    def test_the_back_end_keeps_fluid_computes_limit_well_past_the_run(self):
+        """The run's time is sized to Fluid compute's 300 seconds on the Hobby plan: without Fluid
+        the default is 10, and a run of ``ROLE_RUN_SECONDS`` would be ended mid-run."""
+        config = json.loads((Path(__file__).resolve().parents[1] / "vercel.json").read_text())
+
+        assert config.get("fluid") is True
+        assert all(function.get("maxDuration", 300) >= 2 * DiscordConnection.ROLE_RUN_SECONDS
+                   for function in config.get("functions", {}).values())
+        assert DiscordConnection.MEMBERS_READ_SECONDS < DiscordConnection.ROLE_RUN_SECONDS
+
     def _fifty_four(self, world, has_role=()):
         emails = [f"vendor{n}@example.com" for n in range(54)]
         world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats(*emails))
@@ -1411,6 +1426,38 @@ class TestARunWithinItsTime:
         assert _run(world)["outcomes"][1] == {
             "applicationId": ids[1], "outcome": "not_yet",
             "reason": DiscordConnection.NOT_GIVEN_YET}
+
+    def test_the_pages_that_fit_at_a_slow_pace_are_read_and_the_role_given(self, client, world):
+        """A server of ``PAGES_THAT_FIT`` thousand members read at a slow pace leaves the grants
+        the rest of the run's time."""
+        last = PAGES_THAT_FIT * Discord.MEMBERS_PAGE
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        ana = world.applicant("ana@example.com", f"member{last}")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _give(client)
+
+        assert response.status_code == 200, response.get_json()
+        assert _outcomes(world) == {ana: "given"}
+        assert clock.read_by - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+        assert len(clock.puts) == 1
+
+    def test_a_read_past_its_share_stops_there_not_at_the_runs_end(self, client, world):
+        """A read that runs out answers ``MEMBERS_TOO_SLOW``, with no grant, no write and no
+        history, at the end of its share rather than of the run."""
+        world.market(discord=WITH_THE_ROLE, **WITH_THE_FORM, **_seats("ana@example.com"))
+        world.applicant("ana@example.com", "member0")
+        clock = _a_paged_server_on_a_clock(world, pages=PAGES_THAT_FIT + 1,
+                                           seconds_per_page=SLOW_PAGE_SECONDS)
+
+        response = _give(client)
+
+        assert response.get_json()["error"] == DiscordConnection.MEMBERS_TOO_SLOW
+        assert clock.now - clock.started <= DiscordConnection.MEMBERS_READ_SECONDS
+        assert clock.puts == []
+        assert _stored(world) == WITH_THE_ROLE
+        assert world.history.documents == []
 
     def test_a_second_run_gives_the_rest(self, client, world):
         ids, members = self._fifty_four(world, has_role=range(9))

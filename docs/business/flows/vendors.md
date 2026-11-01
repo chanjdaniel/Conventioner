@@ -99,7 +99,7 @@ On a market connected to a Discord server with a username question chosen ([the 
 3. The "Discord" filter lists the vendors in one state, each state with how many are in it; it stays in the address, so a link to "Not found" is the list of whom to email.
 4. "Checked 5 minutes ago" says when the states were read; they change only when someone checks again.
 
-A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took more than a few seconds to list the server's members ("Check Discord again"), or the bot is no longer in the server.
+A check that cannot run says why under the button: the market lost its username question ("Choose the username question again"), Discord cannot be reached, Discord took too long to list the server's members ("Check Discord again"), or the bot is no longer in the server.
 Covered by: `who-is-in-the-discord-server.spec.ts`, `whoIsInTheDiscordServer.test.ts`, `back-end/tests/test_discord_connection.py`.
 
 ## J17. Give the market's role to the assigned vendors
@@ -110,7 +110,7 @@ On a market connected to a Discord server, with a role and a username question c
 1. "Give roles", beside "Check Discord", for an Admin or the owner (the same row), is offered once anyone holds a seat.
 2. It confirms first ([`GiveRolesDialog.vue`](../../../front-end/src/components/GiveRolesDialog.vue)), by the role's name and how many vendors hold a seat on any date: "Give Vendor Nov 2026 to 54 assigned vendors?", saying that it never takes a role away.
 3. The run reads the server's members as a check does, gives the role to each assigned vendor matched who does not hold it, and updates every vendor's Discord state; "Give roles" reads "Giving roles…" meanwhile, and neither it nor "Check Discord" is offered while the other runs.
-   It asks Discord for a few seconds at most: the vendors it had no time for are "Not given yet", and running it again gives them.
+   It asks Discord for under a minute: the vendors it had no time for are "Not given yet", and running it again gives them.
 4. Its report ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)) stays above the list for everyone who reads the page: "Vendor Nov 2026, last run 5 minutes ago", how many ended in each group ("2 given, 1 already had it, 1 not found, 1 no username"), and "Show who" opens each group's vendors, a failure's reason, or why the rest are not given yet, said once for the vendors it held back.
 
 **A run only gives**: a vendor who has lost their seat keeps the role they have (Daniel, T92 Q19).

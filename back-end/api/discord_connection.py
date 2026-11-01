@@ -22,16 +22,17 @@ in the market's history, the fields before and after.
 row: it lists the server's members and matches each vendor's username, as the organizer reads it,
 against their usernames alone, never a display name (Daniel, Q19), then keeps each vendor's state
 with when it was checked. A check is one entry in the history, naming each vendor whose state it
-changed. It reads the members for ``ROLE_RUN_SECONDS`` at most, as a run does, and a read that runs
-out writes and records nothing.
+changed. It reads the members for ``MEMBERS_READ_SECONDS`` at most, as a run does, and a read
+that runs out writes and records nothing.
 
 **"Give roles" gives the card's role to every assigned vendor in the server** (E46/F01/S04), under
 the same row: it reads the members as a check does, asks Discord to give the role to each assigned
 vendor matched who does not hold it, never takes a role away, and keeps the run's report beside the
 states it updates. A run is one entry in the history, naming each vendor it gave the role or whose
-state it changed. It asks Discord for ``ROLE_RUN_SECONDS`` at most, so the back end's function is
-never ended mid-run with roles given and nothing recorded: the vendors it had no time for are "not
-given yet", and a second run gives them.
+state it changed. It asks Discord for ``ROLE_RUN_SECONDS`` at most, the members read within the
+first ``MEMBERS_READ_SECONDS`` of them, so the back end's function is never ended mid-run with
+roles given and nothing recorded: the vendors it had no time for are "not given yet", and a second
+run gives them.
 """
 import hmac
 import re
@@ -109,13 +110,18 @@ CHANGED_WHILE_GIVING = (
 )
 NO_ROLE = "Choose the role to give on the Discord card first, on the market's Tools tab."
 
-#: How long a run, or a check, may ask Discord, from the route's start. The back end runs as a
-#: Vercel function, which Vercel ends at its maximum duration; nothing in this repository sets one,
-#: and the shortest default a plan may have is 10 seconds (without Fluid compute), so the request
-#: stops asking well before it, leaving time for a cold start and for writing what it found.
-ROLE_RUN_SECONDS = 6
+#: How long a run may ask Discord, from the route's start. The back end runs as a Vercel function
+#: with Fluid compute (``back-end/vercel.json``), which Vercel ends at its maximum duration: 300
+#: seconds by default, and at most, on the Hobby plan. A run asks for far less, since the organizer
+#: watches "Giving roles…" meanwhile and a connection idle for a minute may be closed on the way;
+#: what it had no time for, a second run gives.
+ROLE_RUN_SECONDS = 50
+#: How long the members are read, from the route's start: a check's whole time, and the share of a
+#: run's that leaves its grants at least 35 seconds. At half a second a page of 1000, a slow pace
+#: for Discord, 29 full pages and a last one fit: a server of fewer than 30,000 members.
+MEMBERS_READ_SECONDS = 15
 NOT_GIVEN_YET = (
-    "A run asks Discord for a few seconds at most, and Discord was still pacing it. "
+    "A run asks Discord for under a minute, and Discord was still pacing it. "
     "Give roles again to finish."
 )
 MEMBERS_TOO_SLOW = "Discord was slow to list the server's members. Give roles again."
@@ -247,10 +253,10 @@ def check(market_id: str, requesting_user: str) -> Dict[str, Any]:
     Every main application of the market is a vendor checked, by its username as the organizer
     reads it (an update in its place, ``effective_answers``). The username question is checked
     again here, since it is checked only when the card saves it and the form may have lost it
-    since. The members are read within ``ROLE_RUN_SECONDS``: a read that runs out writes and
+    since. The members are read within ``MEMBERS_READ_SECONDS``: a read that runs out writes and
     records nothing, and answers ``CHECK_TOO_SLOW``.
     """
-    deadline = Discord.clock() + ROLE_RUN_SECONDS
+    deadline = Discord.clock() + MEMBERS_READ_SECONDS
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
     before = _connection(market)
     question = _username_question(market, before)
@@ -292,13 +298,14 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
     not hold it yet. A refusal of one member (they left meanwhile) is theirs alone; any other
     refusal would refuse every grant alike, so the run stops asking and the rest fail with it.
     When its ``ROLE_RUN_SECONDS`` end, it stops asking too, and the rest are not given yet. The
-    members are read within that time as well: a read that runs out gives nobody the role and
-    answers ``MEMBERS_TOO_SLOW``.
+    members are read within the first ``MEMBERS_READ_SECONDS`` of them, so the grants keep the
+    rest: a read that runs out gives nobody the role and answers ``MEMBERS_TOO_SLOW``.
 
     Its states are written whatever a check wrote while it asked: its grants are newer than the
     members that check read.
     """
-    deadline = Discord.clock() + ROLE_RUN_SECONDS
+    started = Discord.clock()
+    deadline = started + ROLE_RUN_SECONDS
     market = MarketsApi._load_market_to_change(market_id, requesting_user, Actions.CONNECT_DISCORD)
     before = _connection(market)
     if not before.role_id:
@@ -307,7 +314,7 @@ def give_roles(market_id: str, requesting_user: str) -> Dict[str, Any]:
     values = Discord.required_credentials()
 
     try:
-        members = _members_by_username(before, deadline=deadline)
+        members = _members_by_username(before, deadline=started + MEMBERS_READ_SECONDS)
     except Discord.OutOfTime:
         raise Discord.DiscordUnavailable(MEMBERS_TOO_SLOW)
     vendors = _vendors_usernames(market_id, question)
