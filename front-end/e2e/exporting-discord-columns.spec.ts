@@ -3,17 +3,18 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { mongoEval } from './helpers/mongo';
-import { connectDiscord, mockDiscordCheck, type FoundState } from './helpers/discord';
+import { connectToFakeDiscord, fakeDiscordId, seedFakeDiscordServer } from './helpers/fakeDiscord';
 import { VendorsPage } from './pages/VendorsPage';
 import { VendorExportDialog } from './pages/VendorExportDialog';
 
 /**
  * The export's Discord columns (E42/F01/S05): "please fix your Discord username" is one export.
  *
- * Four vendors, each with a Discord username on the form; a check finds two of them nowhere in the
- * server, one of whose usernames an organizer has since updated. The Vendors page's "Not found"
- * filter, then Export, downloads exactly those two with their names, addresses and usernames, the
- * updated one as updated. Discord is mocked where the browser meets it (`helpers/discord.ts`).
+ * Four vendors, each with a Discord username on the form; the check finds two of them nowhere in
+ * the server, one of whose usernames an organizer updated before it. The Vendors page's "Not
+ * found" filter, then Export, downloads exactly those two with their names, addresses and
+ * usernames, the updated one as updated. The check is the back end's own, run against a fake
+ * Discord server the stack answers for (`DISCORD_FAKE`, `helpers/fakeDiscord.ts`).
  */
 test('Export from “Not found” downloads exactly the vendors the page shows as not found', async ({
   authenticatedPage: page,
@@ -25,18 +26,30 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
     TEST_USER.email,
     TEST_USER.password,
   );
-  const market = `{ id: ${JSON.stringify(marketId)} }`;
-  // The form asks for the username the card names, as "Add Discord username" asks it.
-  mongoEval(
-    `db.markets.updateOne(${market}, { $push: { 'applicationForm.fields': ${JSON.stringify({
-      key: 'discord_username',
-      label: 'Discord Username',
-      type: 'text',
-      required: false,
-      options: [],
-      order: 99,
-    })} } })`,
-  );
+  // A fake server, and the market connected to it, its form asking for the username the card names.
+  const guildId = fakeDiscordId();
+  const roleId = fakeDiscordId();
+  const botRoleId = fakeDiscordId();
+  seedFakeDiscordServer({
+    guildId,
+    name: 'Riverside Makers',
+    roles: [
+      { id: roleId, name: 'Vendor', position: 1 },
+      { id: botRoleId, name: 'Conventioner', position: 2 },
+    ],
+    botRoles: [botRoleId],
+    // Alice holds the role, Cy is in the server without it; Bob and Dee are nowhere.
+    members: [
+      { id: '2001', username: 'alice.makes', roles: [roleId] },
+      { id: '2002', username: 'cy.ceramics' },
+    ],
+  });
+  connectToFakeDiscord(marketId, {
+    guildId,
+    guildName: 'Riverside Makers',
+    roleId,
+    roleName: 'Vendor',
+  });
   for (const [email, username] of [
     ['e2e-discord-cy@example.com', 'cy.ceramics'],
     ['e2e-discord-dee@example.com', 'dee_prints'],
@@ -57,7 +70,7 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
         `${JSON.stringify(username)} } })`,
     );
   }
-  // Bob wrote his username wrong, and an organizer has updated it since.
+  // Bob wrote his username wrong, and an organizer updated it before the check.
   mongoEval(
     `db.applications.updateOne({ market_id: ${JSON.stringify(marketId)}, applicant_email: ` +
       `'bob@example.com' }, { $set: { answer_updates: { discord_username: ${JSON.stringify({
@@ -68,25 +81,12 @@ test('Export from “Not found” downloads exactly the vendors the page shows a
       })} } } })`,
   );
 
-  const applications = JSON.parse(
-    mongoEval(
-      `JSON.stringify(db.applications.find({ market_id: ${JSON.stringify(marketId)} }, ` +
-        `{ _id: 0, id: 1, applicant_email: 1 }).toArray())`,
-    ),
-  ) as { id: string; applicant_email: string }[];
-  expect(applications).toHaveLength(4);
-  const states: Record<string, FoundState> = {
+  const states: Record<string, string> = {
     'alice@example.com': 'has_role',
     'bob@example.com': 'not_found',
     'e2e-discord-cy@example.com': 'in_server',
     'e2e-discord-dee@example.com': 'not_found',
   };
-  connectDiscord(marketId);
-  await mockDiscordCheck(
-    page,
-    marketId,
-    Object.fromEntries(applications.map((a) => [a.id, states[a.applicant_email]!])),
-  );
 
   const vendors = new VendorsPage(page);
   await vendors.goto(marketId);
