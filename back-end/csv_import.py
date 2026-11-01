@@ -424,9 +424,16 @@ NOT_A_CSV_EXPORT = (
     "Download the responses again from Google Forms as .csv."
 )
 
-# A character no form's heading holds: a control character other than tab, line feed and carriage
-# return, or the replacement character a lossy decode leaves.
-_UNPRINTABLE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\ufffd]")
+# The code points no form's heading holds: a control character other than tab, line feed and
+# carriage return, or the replacement character a lossy decode leaves. Their set matches the
+# browser's ``UNPRINTABLE`` in ``front-end/src/utils/csvFile.ts``.
+_UNPRINTABLE_CODES = frozenset(
+    list(range(0x00, 0x09))
+    + [0x0B, 0x0C]
+    + list(range(0x0E, 0x20))
+    + list(range(0x7F, 0xA0))
+    + [0xFFFD]
+)
 
 
 def _not_csv_text(csv_content: str) -> bool:
@@ -436,7 +443,8 @@ def _not_csv_text(csv_content: str) -> bool:
     this is the same check on what reaches the server, which sees text, not bytes: a NUL anywhere,
     or an unprintable character in the header row.
     """
-    return "\x00" in csv_content or bool(_UNPRINTABLE.search(csv_content.split("\n", 1)[0]))
+    header = csv_content.split("\n", 1)[0]
+    return "\x00" in csv_content or any(ord(ch) in _UNPRINTABLE_CODES for ch in header)
 
 
 def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str]]]:
