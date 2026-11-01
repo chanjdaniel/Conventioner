@@ -725,9 +725,10 @@ def _shape(column: _Column) -> str:
 def _team_column_state(column: _Column) -> str:
     """One column, never a row, in the shape ticket 04 measured the 0.8 threshold on: the
     header, how many answered and how many distinct, and a typical answer's shape. Ticket 01 would
-    allow the answers 3 applicants share as well; the threshold was not measured with them."""
+    allow the answers 3 applicants share as well; the threshold was not measured with them.
+    The share is the ledger's own (``answered_share``), so it is never over 100% (E38/F15/S02)."""
     return (f'Column header: "{column.label}"\n'
-            f"Answered in {column.filled / column.responses:.0%} of rows; "
+            f"Answered in {column.answered_share:.0%} of rows; "
             f"{column.distinct_ratio:.0%} of answers are distinct; "
             f"typical answer: {_shape(column)}.")
 
