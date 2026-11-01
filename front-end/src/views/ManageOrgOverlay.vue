@@ -22,7 +22,7 @@
  * permissions its new markets copy (E39/F02/S01); the people and the controls an owner or an admin
  * manages are theirs alone.
  */
-import { computed, nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import {
   type Organization,
   type OrganizationRoleType,
@@ -60,8 +60,17 @@ const addMemberError = ref('');
 const deleteConfirming = ref(false);
 /** Counts the changes this dialog has made, so its History reads them as they land. */
 const changesMade = ref(0);
-/** The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01). */
-const removing = ref<{ userId: string; email: string; place: 'admins' | 'members' } | null>(null);
+/**
+ * The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01), and the
+ * words the confirmation says, taken when it opens: the re-read after a confirm counts the
+ * organization without them, and the closing confirmation must not say that.
+ */
+const removing = ref<{
+  userId: string;
+  place: 'admins' | 'members';
+  title: string;
+  loses: string;
+} | null>(null);
 const removeError = ref('');
 const removeBusy = ref(false);
 const adminsList = ref<HTMLElement | null>(null);
@@ -223,20 +232,14 @@ async function handleAddMember() {
   }
 }
 
-/** What the open confirmation says: whom, and what they lose. */
-const removal = computed(() =>
-  orgData.value && removing.value
-    ? organizationRemoval(orgData.value, removing.value.userId, removing.value.email)
-    : null,
-);
-
 /**
  * Remove asks first (E38/F15/S01): it took someone's access to every market of the organization in
  * one click, from a filled red button on every row.
  */
 function askToRemove(userId: string, email: string, place: 'admins' | 'members') {
+  if (!orgData.value) return;
   removeError.value = '';
-  removing.value = { userId, email, place };
+  removing.value = { userId, place, ...organizationRemoval(orgData.value, userId, email) };
 }
 
 /** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the row's Remove. */
@@ -521,8 +524,8 @@ function handleDeleted() {
 
   <!-- The product's destructive dialog, opened on Cancel: it names the person and what they lose. -->
   <AppDialog
-    :open="manageOpen && !!removal"
-    :title="removal?.title ?? ''"
+    :open="manageOpen && !!removing"
+    :title="removing?.title ?? ''"
     testid="manage-org-remove"
     destructive
     confirm-label="Remove"
@@ -531,7 +534,7 @@ function handleDeleted() {
     @close="cancelRemove"
     @submit="handleRemoveUser"
   >
-    <p class="confirm-text" data-testid="manage-org-remove-consequence">{{ removal?.loses }}</p>
+    <p class="confirm-text" data-testid="manage-org-remove-consequence">{{ removing?.loses }}</p>
   </AppDialog>
 
   <DeleteOrgDialog

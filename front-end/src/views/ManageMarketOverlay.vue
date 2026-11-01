@@ -49,8 +49,17 @@ const deleteError = ref('');
 const changesMade = ref(0);
 /** A refused change to one person's role, said beneath their row. */
 const userError = ref<{ userId: string; message: string } | null>(null);
-/** The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01). */
-const removing = ref<PersonWithAccess | null>(null);
+/**
+ * The person a Remove is asking about, until it is confirmed or cancelled (E38/F15/S01), and the
+ * words the confirmation says, taken when it opens: the re-read after a confirm may name the market
+ * or its organization differently, and the closing confirmation must not.
+ */
+const removing = ref<{
+  userId: string;
+  title: string;
+  loses: string;
+  keeps: string;
+} | null>(null);
 const removeError = ref('');
 const removeBusy = ref(false);
 const peopleList = ref<HTMLElement | null>(null);
@@ -157,17 +166,14 @@ async function handleAddUser() {
   }
 }
 
-/** What the open confirmation says: whom, the role they lose and the place they keep. */
-const removal = computed(() =>
-  marketData.value && removing.value
-    ? marketRemoval(removing.value, marketData.value.name, organizationLabel.value)
-    : null,
-);
-
 /** Remove asks first (E38/F15/S01): it took the role in one click, from a filled red button. */
 function askToRemove(person: PersonWithAccess) {
+  if (!marketData.value) return;
   removeError.value = '';
-  removing.value = person;
+  removing.value = {
+    userId: person.userId,
+    ...marketRemoval(person, marketData.value.name, organizationLabel.value),
+  };
 }
 
 /** Cancel, Escape and the backdrop change nothing; the shell gives focus back to the row's Remove. */
@@ -568,8 +574,8 @@ async function closeAddUser() {
   <!-- The product's destructive dialog, opened on Cancel: it names the person, the role they lose
        and the place in the organization they keep. -->
   <AppDialog
-    :open="manageOpen && !!removal"
-    :title="removal?.title ?? ''"
+    :open="manageOpen && !!removing"
+    :title="removing?.title ?? ''"
     testid="manage-market-remove"
     destructive
     confirm-label="Remove"
@@ -580,9 +586,9 @@ async function closeAddUser() {
   >
     <!-- One paragraph: what they lose and what they keep are one thought. -->
     <p class="confirm-text">
-      <span data-testid="manage-market-remove-consequence">{{ removal?.loses }}</span>
-      <template v-if="removal?.keeps">
-        {{ ' ' }}<span data-testid="manage-market-remove-keeps">{{ removal.keeps }}</span>
+      <span data-testid="manage-market-remove-consequence">{{ removing?.loses }}</span>
+      <template v-if="removing?.keeps">
+        {{ ' ' }}<span data-testid="manage-market-remove-keeps">{{ removing.keeps }}</span>
       </template>
     </p>
   </AppDialog>

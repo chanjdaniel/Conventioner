@@ -127,6 +127,33 @@ describe('what removing someone from a market says', () => {
 const byTestId = (id: string) => document.body.querySelector<HTMLElement>(`[data-testid="${id}"]`);
 const escape = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
+/**
+ * Every wording the confirmation shows, render by render, until it closes: a MutationObserver
+ * reads the window after each change Vue makes to the page.
+ */
+function recordConfirmation(prefix: string): { seen: string[]; stop: () => void } {
+  const seen: string[] = [];
+  const read = () => {
+    const window = byTestId(`${prefix}-window`);
+    if (!window) return;
+    const words = [
+      window.getAttribute('aria-label'),
+      byTestId(`${prefix}-consequence`)?.textContent?.trim(),
+      byTestId(`${prefix}-keeps`)?.textContent?.trim() ?? '',
+    ].join(' | ');
+    if (seen[seen.length - 1] !== words) seen.push(words);
+  };
+  read();
+  const observer = new MutationObserver(read);
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+  });
+  return { seen, stop: () => observer.disconnect() };
+}
+
 beforeEach(() => {
   setActivePinia(createPinia());
   api.get.mockReset();
@@ -137,8 +164,8 @@ beforeEach(() => {
 describe('Manage organization asks before it removes', () => {
   let served: Organization;
 
-  function mountDialog(): VueWrapper {
-    served = org();
+  function mountDialog(overrides: Partial<Organization> = {}): VueWrapper {
+    served = org(overrides);
     api.get.mockImplementation(async (url: string) =>
       url === '/organizations'
         ? { data: { organizations: [served] } }
@@ -208,6 +235,28 @@ describe('Manage organization asks before it removes', () => {
     expect(document.activeElement?.getAttribute('data-testid')).toBe('manage-org-members');
     expect(wrapper.emitted('changed')).toHaveLength(1);
     expect(wrapper.emitted('manageClose')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('says the same words until it closes, though the re-read changes the count', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    const wrapper = mountDialog({ marketsWithOwnRole: { 'u-walk': 1 } });
+    await flushPromises();
+
+    byTestId('manage-org-remove-member-button')!.click();
+    await flushPromises();
+    const record = recordConfirmation('manage-org-remove');
+    // The re-read organization no longer counts their own role: they are no longer in it.
+    served = { ...served, members: [], memberEmails: [], marketsWithOwnRole: {} };
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+    record.stop();
+
+    expect(byTestId('manage-org-remove-window')).toBeNull();
+    expect(record.seen).toEqual([
+      'Remove walk390@example.com from Seed Test Org? | They lose access to 10 of its 11 markets, ' +
+        'and keep the 1 they hold a role on of their own. | ',
+    ]);
     wrapper.unmount();
   });
 
@@ -327,6 +376,27 @@ describe('Manage market asks before it removes', () => {
     expect(document.body.textContent).not.toContain(EMAIL);
     expect(document.activeElement?.getAttribute('data-testid')).toBe('manage-market-people');
     expect(wrapper.emitted('manageClose')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('says the same words until it closes, though the re-read market reads differently', async () => {
+    api.delete.mockResolvedValue({ data: {} });
+    const wrapper = await open([person({ organizationRole: 'member' })]);
+
+    byTestId('manage-market-remove-user-button')!.click();
+    await flushPromises();
+    const record = recordConfirmation('manage-market-remove');
+    // Renamed meanwhile, along with its organization: the confirmation said the old names.
+    served = { ...market([]), name: 'Autumn Market', organizationName: 'Other Org' } as Market;
+    byTestId('manage-market-remove-submit-button')!.click();
+    await flushPromises();
+    record.stop();
+
+    expect(byTestId('manage-market-remove-window')).toBeNull();
+    expect(record.seen).toEqual([
+      'Remove walk390@example.com from Spring Market? | They lose their Editor role on it. | ' +
+        'They can still view it as a member of Seed Test Org.',
+    ]);
     wrapper.unmount();
   });
 
