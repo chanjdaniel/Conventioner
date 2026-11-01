@@ -17,6 +17,7 @@ import {
   CsvImportPage,
   FloorplanWorkflowPage,
 } from '../fixtures';
+import { EmailVerificationPage } from '../pages/EmailVerificationPage';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
@@ -1154,13 +1155,11 @@ export const SCREENS: Screen[] = [
     who: 'nobody',
     sizes: PUBLIC,
     open: async (page) => {
-      await page.goto('/verify-email?token=a-token-from-an-email');
-      await visible(page, 'email-verification-email-input');
-      await page
-        .getByTestId('email-verification-email-input')
-        .fill('e2e-screens-nobody@example.com');
-      await page.getByTestId('email-verification-resend-button').click();
-      await visible(page, 'email-verification-resent-message');
+      const verification = new EmailVerificationPage(page);
+      await verification.goto('a-token-from-an-email');
+      await expect(verification.emailInput).toBeVisible({ timeout: 15000 });
+      await verification.sendTheLinkAgain('e2e-screens-nobody@example.com');
+      await expect(verification.resentMessage).toBeVisible({ timeout: 15000 });
     },
   },
   {

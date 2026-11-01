@@ -243,6 +243,8 @@ describe('the primitives exist and own what tokens cannot', () => {
   });
 
   it('owns the link on a line of its own, so the sign-in pages stop owning a copy of it', () => {
+    // The class `.link` or `.link-alone` in a selector, and not a longer name that starts so.
+    const NAMES_A_LINK_CLASS = /\.link(-alone)?(?![\w-])/;
     // Four views each declared the same `.link` rule (T82 note 5).
     const views = [
       'EmailVerificationView',
@@ -253,12 +255,15 @@ describe('the primitives exist and own what tokens cannot', () => {
     for (const view of views) {
       const { descriptor } = parseSfc(readFileSync(join(SRC, `views/${view}.vue`), 'utf8'));
       for (const style of descriptor.styles) {
-        const css = postcss.parse(style.content);
-        const copies = [...rulesWith(css, '.link'), ...rulesWith(css, '.link-alone')];
-        expect(
-          copies.map((rule) => rule.selector),
-          view,
-        ).toEqual([]);
+        // Any rule naming either class counts, whatever else its selector says: `.link:hover`,
+        // `.form-links .link-alone` and `a.link` are copies too.
+        const copies: string[] = [];
+        postcss.parse(style.content).walkRules((rule) => {
+          if (rule.selectors.some((selector) => NAMES_A_LINK_CLASS.test(selector))) {
+            copies.push(rule.selector);
+          }
+        });
+        expect(copies, view).toEqual([]);
       }
       expect(descriptor.template?.content, view).toContain('class="link-alone"');
     }
