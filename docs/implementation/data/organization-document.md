@@ -41,6 +41,7 @@ sources:
   - E40/F02/S01
   - E39/F02/S01
   - E38/F12/S01
+  - E38/F15/S01
 ---
 
 # The organization document, and roles
@@ -66,6 +67,7 @@ The glossary concept: [Organization and roles](../../business/concepts/organizat
 Every key is one word but `default_permissions`, which no other spelling of has ever been written, so the spelling question the market document has does not arise.
 Membership is recorded on both sides: each user's `organizations` lists the ids of the organizations they are in, kept in step by every membership write ([users and email](users-and-email.md)).
 `get_organizations_for_user` finds a person's organizations with an `$or` over `owner`, `admins` and `members`, each a [lookup index](lookup-indexes.md).
+It serves each with what removing someone from it takes (E38/F15/S01): `marketCount`, its markets counted from the markets themselves by their indexed `organizationId`, since `markets` is kept in step only at best effort, and `marketsWithOwnRole`, each admin's and member's count of those markets whose own `roles` name them, since removing them from the organization leaves those roles; Manage organization's Remove says both ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)), and the organization's card says `marketCount`; the front end reads no organization's `markets` list.
 
 **Who changes an organization**: only the owner renames it, adds an admin or transfers ownership; the owner or an admin adds a member or changes its default table; the owner removes anyone but themselves, an admin only members.
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.

@@ -82,7 +82,8 @@ function org(table: PermissionTableRow[], userRole: OrganizationRoleType): Organ
     owner: 'user-owner',
     admins: ['user-admin'],
     members: ['user-member'],
-    markets: [],
+    marketCount: 0,
+    marketsWithOwnRole: {},
     userRole,
     defaultPermissionTable: table,
   };
@@ -320,6 +321,8 @@ describe("the organizations list's answer", () => {
       name: 'Ember Markets',
       owner: 'user-owner',
       defaultPermissionTable: SET,
+      marketCount: 0,
+      marketsWithOwnRole: {},
     });
 
     expect(parsed.defaultPermissionTable).toEqual(SET);

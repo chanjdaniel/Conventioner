@@ -3,13 +3,14 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/ManageMarketOverlay.vue
+  - front-end/src/utils/peopleWithAccess.ts
+  - front-end/e2e/everyone-with-access.spec.ts
   - front-end/src/components/MarketPermissions.vue
   - front-end/src/components/PermissionRows.vue
   - front-end/src/components/PermissionChanges.vue
   - front-end/src/utils/permissionTable.ts
   - front-end/e2e/the-permissions-section.spec.ts
-  - front-end/src/utils/peopleWithAccess.ts
-  - front-end/e2e/everyone-with-access.spec.ts
+  - front-end/e2e/removing-someone-asks-first.spec.ts
 verified: 2026-11-01
 sources:
   - E20/F01/S03
@@ -31,6 +32,7 @@ sources:
   - E39/F02/S01
   - T142
   - E38/F12/S01
+  - E38/F15/S01
 ---
 
 # Ending and managing a market
@@ -85,13 +87,16 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
    A person whose market role adds nothing beside the organization's (the organization's reaches it, a tie included) reads, under that, "Also Editor on this market: this adds nothing while they are an admin of <organization>." ("a member of" for a member), with a Remove that takes only the market role, to tidy it away.
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
 4. "Remove" beside each such person the reader may remove; never the owner.
+   It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
+   Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation.
+   Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.
    An address that already has a role on the market is refused beneath the row, pointing to that person's own row: adding once overwrote any role, the owner's too, around the guards a role change keeps (T15).
-7. A refused change is said beneath that person's row, which keeps the role they hold.
+7. A refused change of role is said beneath that person's row, which keeps the role they hold.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
-Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), and the sweeps' state "the manage-market dialog, an organization's people".
+Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, at 1440 and 390), and the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role".
 
 ## L3a. Set who may do what
 
