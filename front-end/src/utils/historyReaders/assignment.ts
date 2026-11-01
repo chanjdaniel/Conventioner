@@ -86,7 +86,7 @@ function placement(entry: MarketHistoryEntry, context: HistoryContext): MarketHi
 }
 
 export const readers: HistoryReaders = {
-  // One key a placement kind, so a kind added to `PLACEMENT_KINDS` is worded with no other change.
+  // One key a placement kind, so a kind added to `PLACEMENT_KINDS` needs no other change here.
   ...Object.fromEntries(
     [...PLACEMENT_KINDS].map((kind) => [`assign/${kind}`, { parts: placement }]),
   ),
