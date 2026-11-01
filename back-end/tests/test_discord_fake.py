@@ -3,6 +3,7 @@
 The bot client is asked here exactly as the check, the card and connecting ask it, with ``requests``
 refusing every call, so each answer can only have come from the fake's servers.
 """
+import copy
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -45,6 +46,16 @@ class Servers:
         return next((server for server in self.servers
                      if all(server.get(key) == value for key, value in query.items())), None)
 
+    def update_one(self, query, update):
+        """A role given to one member, as the fake writes it: ``$addToSet`` on the member the
+        query names by ``members.user.id``."""
+        server = self.find_one({"guildId": query["guildId"]})
+        member = next(member for member in server["members"]
+                      if member["user"]["id"] == query["members.user.id"])
+        role = update["$addToSet"]["members.$.roles"]
+        if role not in member["roles"]:
+            member["roles"].append(role)
+
 
 @pytest.fixture
 def fake(monkeypatch):
@@ -52,7 +63,7 @@ def fake(monkeypatch):
     monkeypatch.setenv(DiscordFake.FAKE_VAR, "true")
     for name in (Discord.CLIENT_ID_ENV, Discord.CLIENT_SECRET_ENV, Discord.BOT_TOKEN_ENV):
         monkeypatch.delenv(name, raising=False)
-    servers = Servers(SERVER)
+    servers = Servers(copy.deepcopy(SERVER))
     monkeypatch.setattr(DiscordFake, "_collection", lambda: servers)
 
     def never(*_args, **_kwargs):
@@ -133,3 +144,36 @@ class TestTheClientReadsTheFakeServers:
                                      "http://127.0.0.1/back")
 
         assert str(refused.value) == Discord.CONNECT_AGAIN
+
+
+class TestTheFakeGivesARole:
+    """"Give roles" (E46/F01/S04) against the fake: a grant lands on the member in the database, so
+    a check after it reads the role held, and is refused as Discord refuses one."""
+
+    def _grants(self, role_id=VENDOR_ROLE, role_name="Vendor"):
+        return Discord.RoleGrants(Discord.credentials(), GUILD, role_id, role_name,
+                                  reason="Conventioner: Give roles for Riverside",
+                                  deadline=Discord.clock() + 30)
+
+    def test_a_grant_lands_on_the_member_and_a_check_reads_it(self, fake):
+        self._grants().give("1001")
+
+        fern = next(member for member in Discord.server_members(Discord.credentials(), GUILD)
+                    if member.username == "fern_studio_42")
+        assert VENDOR_ROLE in fern.roles
+
+    def test_a_member_who_is_not_in_the_server_is_gone(self, fake):
+        with pytest.raises(Discord.MemberGone):
+            self._grants().give("1999")
+
+    def test_a_role_the_server_does_not_have_is_gone(self, fake):
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            self._grants("2909267986263577999", "Old Vendor").give("1001")
+
+        assert str(refused.value) == Discord.role_gone("Old Vendor")
+
+    def test_a_role_above_the_bots_own_is_refused(self, fake):
+        with pytest.raises(Discord.DiscordRefused) as refused:
+            self._grants(ADMIN_ROLE, "Admin").give("1001")
+
+        assert str(refused.value) == Discord.role_above_bot("Admin")

@@ -3,7 +3,9 @@
 The back end's bot client (``discord_client``) sends every request through one function, ``_send``;
 with the fake on, that function asks this module instead of Discord, so a check, the card's roles
 and connecting run the client's own requests, paging and reading end to end against servers a test
-writes to the database. Nothing else in the back end knows the fake is there.
+writes to the database, and "Give roles" gives a role there: a grant lands on the member's
+``roles``, so a check after it reads the role held. Nothing else in the back end knows the fake is
+there.
 
 **It is on only when asked for twice**: ``DISCORD_FAKE`` set true, and only under
 ``ALLOW_INSECURE_LOCAL_DEV`` (``utils.deployment``), as ``DISABLE_CAPTCHA`` and ``DISABLE_EMAIL``
@@ -48,6 +50,7 @@ CODE_PREFIX = "fake-discord-server-"
 _TRUTHY = ("true", "1")
 _API_PATH = re.compile(r"^/api/v\d+(?P<route>/.*)$")
 _TOKEN_PATH = "/api/oauth2/token"
+_GRANT_PATH = re.compile(r"^/members/(?P<member>[^/]+)/roles/(?P<role>[^/]+)$")
 
 
 def on() -> bool:
@@ -88,7 +91,7 @@ def answer(method: str, url: str, params: Optional[Dict[str, Any]] = None,
     if method == "POST" and path == _TOKEN_PATH:
         return _code_exchange(data or {})
     matched = _API_PATH.match(path)
-    if method != "GET" or not matched:
+    if method not in ("GET", "PUT") or not matched:
         return _unknown()
     route = matched.group("route").rstrip("/")
     if route == "/users/@me":
@@ -99,6 +102,9 @@ def answer(method: str, url: str, params: Optional[Dict[str, Any]] = None,
     server = _collection().find_one({"guildId": guild_id})
     if server is None:
         return _unknown()
+    grant = _GRANT_PATH.match(rest)
+    if method == "PUT":
+        return _give(server, *grant.groups()) if grant else _unknown()
     if rest == "/roles":
         return Answer(200, [{"id": guild_id, "name": "@everyone", "position": 0, "managed": False},
                             *server.get("roles", [])])
@@ -107,6 +113,24 @@ def answer(method: str, url: str, params: Optional[Dict[str, Any]] = None,
     if rest == "/members":
         return Answer(200, _members_page(server.get("members", []), params or {}))
     return _unknown()
+
+
+def _give(server: Dict[str, Any], member_id: str, role_id: str) -> Answer:
+    """Discord's Add Guild Member Role, as it refuses one: a member not in the server, a role it
+    does not have, or a role at or above the bot's highest; else the role joins the member's."""
+    members = {str(member["user"]["id"]) for member in server.get("members", [])}
+    if member_id not in members:
+        return Answer(404, {"message": "Unknown Member", "code": 10007})
+    positions = {str(role["id"]): int(role.get("position") or 0)
+                 for role in server.get("roles", [])}
+    if role_id not in positions:
+        return Answer(404, {"message": "Unknown Role", "code": 10011})
+    bot_top = max((positions.get(str(role), 0) for role in server.get("botRoles", [])), default=0)
+    if positions[role_id] >= bot_top:
+        return Answer(403, {"message": "Missing Permissions", "code": 50013})
+    _collection().update_one({"guildId": server["guildId"], "members.user.id": member_id},
+                             {"$addToSet": {"members.$.roles": role_id}})
+    return Answer(204, None)
 
 
 def _code_exchange(data: Dict[str, Any]) -> Answer:

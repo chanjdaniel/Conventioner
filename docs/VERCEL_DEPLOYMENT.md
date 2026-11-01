@@ -43,8 +43,10 @@ Both import this repository from GitHub, each with its own root directory:
 | Root directory | `front-end` | `back-end` |
 | Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
 | Runtime | Node 24.x (build only), from `front-end/package.json`'s `engines` | Python 3.12, from `back-end/.python-version` |
-| Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work, and every path carries the [security headers](implementation/conventions/security-invariants.md#security-headers) | [`back-end/vercel.json`](../back-end/vercel.json) |
+| Config in the repo | [`front-end/vercel.json`](../front-end/vercel.json): every path that is not a file serves `index.html`, so deep links work, and every path carries the [security headers](implementation/conventions/security-invariants.md#security-headers) | [`back-end/vercel.json`](../back-end/vercel.json): Fluid compute on, so a request may run for 300 seconds, the Hobby plan's default and maximum, which a ["Give roles" run](implementation/modules/discord.md#giving-the-role) relies on |
 | Custom domain | `conventioner.io` | `api.conventioner.io` |
+
+The back end's Functions settings keep the Default Max Duration at its 300 seconds: `back-end/vercel.json` sets no `maxDuration`, so a lower default there would end a "Give roles" run, which asks Discord for up to 50 seconds, before it writes what it did.
 
 Both `vercel.json` files set `git.deploymentEnabled: false`: Vercel's Git integration builds no branch, so no push, merge or PR creates a deployment, preview or production, and production moves only when the Deploy workflow is started by hand (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
 Each project's Ignored Build Step used to cancel the builds of other branches instead, but a cancelled build still counts against the Hobby plan's daily deployment quota; with Git builds off, that setting is never reached and can be left empty.

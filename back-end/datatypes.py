@@ -820,6 +820,9 @@ class DiscordConnection(BaseModel):
     #: vendor then. About this server, so connecting to another one or disconnecting forgets them.
     checked_at: Optional[str] = None
     vendor_states: Optional[List["DiscordVendorState"]] = None
+    #: The last "Give roles" run (E46/F01/S04), so its report stays readable. About this server,
+    #: and forgotten with it, as the check is.
+    role_run: Optional["DiscordRoleRun"] = None
     #: The members an organizer said are not a vendor (E46/F01/S05), by the vendor's application
     #: id: their usernames, never offered to that vendor again as a possible match. Written by
     #: declining an offer, never by a check, and about this server, as the check's fields are.
@@ -855,6 +858,30 @@ class DiscordPossibleMatch(BaseModel):
     username: str
     display_name: Optional[str] = None
     nick: Optional[str] = None
+
+
+class DiscordRoleOutcome(BaseModel):
+    """One assigned vendor as a "Give roles" run left them (E46/F01/S04), by their application.
+
+    ``outcome`` is ``given``, ``already_had``, ``not_found`` (no member has the username),
+    ``no_username``, ``not_yet`` (the run's time ended before it was asked) or ``failed``, with
+    ``reason`` in Conventioner's words for a vendor not given it yet and for a failure. A plain
+    string, as a state is, so an outcome a later build adds never fails an older one's parse.
+    """
+
+    application_id: str
+    outcome: str
+    reason: Optional[str] = None
+
+
+class DiscordRoleRun(BaseModel):
+    """The last "Give roles" run: when, the role it gave by the name it had, and each assigned
+    vendor's outcome, which the report counts. Who ran it, and its counts, are its history
+    entry's too."""
+
+    ran_at: str
+    role_name: Optional[str] = None
+    outcomes: List[DiscordRoleOutcome] = []
 
 
 class MarketPermission(BaseModel):
@@ -1271,6 +1298,16 @@ class DiscordPossibleMatchContract(DiscordPossibleMatch, ContractModel):
     """Camel-cased contract view of a member offered as a possible match."""
 
 
+class DiscordRoleOutcomeContract(DiscordRoleOutcome, ContractModel):
+    """Camel-cased contract view of one vendor as "Give roles" left them."""
+
+
+class DiscordRoleRunContract(DiscordRoleRun, ContractModel):
+    """Camel-cased contract view of the last "Give roles" run."""
+
+    outcomes: List[DiscordRoleOutcomeContract] = []
+
+
 class ServedDiscordVendorContract(ContractModel):
     """One vendor as the market read serves them in ``discordVendors`` (E46/F01/S05): the check's
     state, what the pages show, the members still offered and how many more looked alike."""
@@ -1294,6 +1331,7 @@ class DiscordConnectionContract(ContractModel):
     username_question: Optional[str] = None
     invite_link: Optional[str] = None
     checked_at: Optional[str] = None
+    role_run: Optional[DiscordRoleRunContract] = None
 
 
 class MarketSchemaContract(ContractModel):
