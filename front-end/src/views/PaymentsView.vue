@@ -444,8 +444,7 @@ const nobodyShown = computed(() => {
 
 .payments-summary {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.8;
+  color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
