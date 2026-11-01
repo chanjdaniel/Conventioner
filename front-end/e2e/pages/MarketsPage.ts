@@ -36,6 +36,16 @@ export class MarketsPage {
     return this.page.getByTestId(`markets-phase-toggle-${phase}`);
   }
 
+  /** The phases the filter offers a toggle for, in the order shown ("All phases" aside). */
+  async offeredPhases(): Promise<string[]> {
+    const ids = await this.page
+      .locator('[data-testid^="markets-phase-toggle-"]')
+      .evaluateAll((toggles) => toggles.map((toggle) => toggle.getAttribute('data-testid') ?? ''));
+    return ids
+      .map((id) => id.replace('markets-phase-toggle-', ''))
+      .filter((phase) => phase !== 'all');
+  }
+
   /** The market names on show, in the order shown. */
   async expectNames(names: string[]): Promise<void> {
     await expect(this.cardNames).toHaveText(names);
