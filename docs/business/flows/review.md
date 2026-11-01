@@ -104,7 +104,16 @@ Someone who gives no verdicts walks the queue with Next and holds nothing, and i
 The card on screen is always the one the newest Next, verdict, refresh or load handed over: an answer that comes back late, after a later one was asked for, never puts its card up (the Next race, E38/F07/S04).
 Taking the follow-ups in or out while a hand-out is on its way asks again of the walk as it is now, so a card marked for follow-up and taken straight back in comes up again, not "Every application left is open with another reviewer." (T151).
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
-Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
+Covered by:
+- `a-chosen-reviewer-decides.spec.ts`
+- `a-reviewer-holds-what-they-look-at.spec.ts`
+- `a-verdict-says-who.spec.ts`
+- `market-journey.spec.ts`
+- `needs-a-follow-up.spec.ts`
+- `one-by-one-hands-out-my-share-first.spec.ts`
+- `result-and-review-read-cleanly.spec.ts`
+- `reviewers-do-not-collide.spec.ts`
+- `the-list-says-when-it-was-read.spec.ts`
 
 ## Undoing a verdict just given
 
@@ -134,7 +143,10 @@ The story asked the line and the reviewed list to name the applicant's business 
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
 From Assignment on the list only reads.
-Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it"), `changing-a-verdict-is-its-own-row.spec.ts`.
+Covered by:
+- `automatic-rejections.spec.ts` ("the preview lists the rows a rule will reject, an import rejects them, and a reviewer overturns one")
+- `changing-a-verdict-is-its-own-row.spec.ts`
+- `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it")
 
 ## The All view
 
@@ -186,13 +198,18 @@ The rule is [the review is dealt among chosen reviewers](../rules/the-review-is-
 
 **Status:** Works (walked live).
 "Choose what leads the card" on a card edits the highlights ([F3](form-tab.md#f3-what-a-reviewer-reads-first)) in place, without moving off the card.
-Covered by: `review-highlights.spec.ts`.
+Covered by:
+- `review-highlights.spec.ts`
 
 ## I4. Enter the review
 
 **Status:** Works (read from the code as of E38/F04/S01 and E38/F07/S02: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`).
 An own-form market enters by "Open Applications", which offers someone who may choose reviewers the choice in the same step, so the review is divided from the first application ([taking applications](taking-applications.md#h1-open-applications)); a Google Form market by its first import, confirmed and written, whose preview step offers the same choice of reviewers ([the import](import.md#h2a-first-import-everything-maps)), and which takes the move itself, so the import's done step reads "This market is now in Review: …" and leads to the review with "Go to the review" ([review needs an import](../rules/review-needs-an-import.md)).
-Covered by: `market-journey.spec.ts`, `every-move-lands.spec.ts`, `open-applications-offers-the-reviewers.spec.ts`, `the-first-import-offers-the-reviewers.spec.ts`.
+Covered by:
+- `every-move-lands.spec.ts`
+- `market-journey.spec.ts`
+- `open-applications-offers-the-reviewers.spec.ts`
+- `the-first-import-offers-the-reviewers.spec.ts`
 
 ## I5. Begin assignment
 
@@ -205,13 +222,17 @@ From Review or Applications, "Begin Assignment", disabled before the click with 
 - a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).
 
 It lands on the Assignment tab's Settings page, and the verdicts settle there; an own-form market's application page closes with it.
-Covered by: `phase-state-machine.spec.ts`, `needs-a-follow-up.spec.ts`, `placement-pins.spec.ts`.
+Covered by:
+- `needs-a-follow-up.spec.ts`
+- `phase-state-machine.spec.ts`
+- `placement-pins.spec.ts`
 
 ## I6. Bring in a late export
 
 **Status:** Works (read from the code as of E38/F04/S03: `a-late-export.spec.ts`).
 On the Google Form path, More…, "Redo import": the import reads the whole responses file again, and the market stays in Review ([H2j](import.md#h2j-import-after-review-has-begun)).
-Covered by: `a-late-export.spec.ts`.
+Covered by:
+- `a-late-export.spec.ts`
 
 Publishing the results, I7, is a step of the assignment: [the assignment and its result](assignment-and-result.md#i7-publish-results).
 
@@ -228,7 +249,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [Vendor notes](../rules/vendor-notes.md): the card shows the vendor's request among their answers and the notes below them.
 - [An update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md): the card and the All view read an updated answer in its place.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## Superseded
 

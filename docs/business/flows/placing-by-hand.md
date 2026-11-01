@@ -62,7 +62,11 @@ Every change goes through [the one writer of placements](../../implementation/mo
 
 A seat already taken is refused, naming its holder: "<email> already holds <table> (<size>) on <date>. Free that seat first, or swap the two vendors." (bug 32).
 A seat held by someone not approved is marked "Not approved" on the Assignments page and in the drawer, and the next run keeps them there.
-Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `placing-someone-not-approved.spec.ts`, `adding-a-vendor.spec.ts`.
+Covered by:
+- `adding-a-vendor.spec.ts`
+- `override-warnings.spec.ts`
+- `placement-edit.spec.ts`
+- `placing-someone-not-approved.spec.ts`
 
 ## J7. Swap two vendors
 
@@ -70,7 +74,11 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `placing-some
 "Change" on an occupied seat: "<name> holds this seat.", with "View vendor" beside it, which closes the dialog and opens the [drawer](vendor-drawer.md); "Swap them with" ("Search by name, business, email or table…") any vendor seated that date, each named with where they sit, found by typing; "Swap seats"; both seats change at once.
 "Nobody else holds a table on this date, so there is nobody to trade with." when nobody else is seated.
 The same warnings as J6 apply to both vendors, including a change of table size (bugs 18 and 32).
-Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `a-searchable-vendor-picker.spec.ts`.
+Covered by:
+- `a-searchable-vendor-picker.spec.ts`
+- `a-seat-and-an-entry-open-the-drawer.spec.ts`
+- `override-warnings.spec.ts`
+- `placement-edit.spec.ts`
 
 ## J8. Free a seat
 
@@ -78,13 +86,17 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-a
 In the same dialog, "Free this seat" ("Freeing this seat leaves them with no table on this date until they are assigned again.").
 Freeing never changes what they owe by itself: the day keeps its line on their [Payment tab](vendor-drawer.md), still owed.
 Whoever may change the amount owed is also asked, naming what the day's line owes, "Also remove its $15 from what Alice owes? (Cancelled before the deadline: a refund may be due.)", unticked, and not asked where it owes nothing; ticked, the day owes $0 once freed, so a vendor who paid reads paid more than owed (E44/F01/S02).
-Covered by: `placement-edit.spec.ts`, `changing-owed-and-paid.spec.ts`.
+Covered by:
+- `changing-owed-and-paid.spec.ts`
+- `placement-edit.spec.ts`
 
 ## J9. Allocate tables again, keeping hand assignments
 
 **Status:** Works (walked live).
 Every hand assignment is a pin; on the Settings page, "Allocate tables again" says "Keeps your N hand assignments; allocates tables for everyone else again." (or "Allocates tables for everyone again." with none) and seats pins first.
-Covered by: `placement-pins.spec.ts`, `placing-someone-not-approved.spec.ts`.
+Covered by:
+- `placement-pins.spec.ts`
+- `placing-someone-not-approved.spec.ts`
 
 ## J10. A pin the plan no longer holds
 
@@ -93,7 +105,9 @@ A pin whose seat the plan no longer has is orphaned, never deleted.
 The setup settles on leaving Draft ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md)), so a pin is orphaned only by changing a settled plan in the database, as these specs do.
 It blocks Begin Assignment ([I5](review.md#i5-begin-assignment)) until moved or freed.
 In Assignment its table is marked "No longer in the plan - move or free this vendor", the vendor's drawer says "This table is no longer in the plan. Move them or free the seat before publishing.", and Publish Market is refused until it is re-placed or freed.
-Covered by: `placement-pins.spec.ts`, `orphaned-pin-in-assignment.spec.ts`.
+Covered by:
+- `orphaned-pin-in-assignment.spec.ts`
+- `placement-pins.spec.ts`
 
 ## J13. Assignment history
 
@@ -103,7 +117,9 @@ A vendor's drawer holds their placements on its History tab, among everything el
 Each entry says what changed, naming each vendor by name with their email beside, who made it and when: "Assigned <vendor> at Front 10 (Full Table)" (the table alone where no table choice was recorded), "Moved <vendor> from Back 1 to Front 10 (Full Table)" when they had a table that day, "Swapped <vendor> and <vendor> - now at Front 10 and Back 1", "Freed Back 1, leaving <vendor> with no table"; a solver run is one entry, "Allocated tables: N assignments written, M pins preserved", and names nobody, so it is in no vendor's tab.
 A move recorded before the history kept the table left reads as an assignment.
 Anyone who may read the market's history can read it, and the drawer holds no History tab for anyone else ([what each role may do](../rules/what-each-role-may-do.md)).
-Covered by: `the-placement-history-dialog.spec.ts`, `the-vendors-history.spec.ts`.
+Covered by:
+- `the-placement-history-dialog.spec.ts`
+- `the-vendors-history.spec.ts`
 
 ## The rules it obeys
 
@@ -113,7 +129,7 @@ Covered by: `the-placement-history-dialog.spec.ts`, `the-vendors-history.spec.ts
 - [An assignment knows when it is out of date](../rules/an-assignment-knows-when-it-is-out-of-date.md): a hand placement is not a change.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## Superseded
 

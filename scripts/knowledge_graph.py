@@ -95,6 +95,8 @@ SOURCE = re.compile(
     r"|decision/\d{4}-\d{2}-\d{2})$"
 )
 WORK_ITEM = re.compile(r"\bE\d{2}(?:/F\d{2}(?:/S\d{2})?)?\b")
+COVERED_BY = "Covered by:"  # in a flow, a list follows: one test a line, sorted by file name
+COVERED_BY_ITEM = re.compile(r"^- (?:`([^`]+)`|\[`([^`]+)`\]\([^)]*\))")  # its file name, or a link's
 
 # ── git ──────────────────────────────────────────────────────────────────────
 
@@ -424,6 +426,7 @@ def check(repo):
             report(path, 1, "a hub must not carry frontmatter")
         elif doc.is_node:
             check_schema(repo, doc, report)
+            check_covered_by(doc, report)
         for line, message in doc.meta_errors:
             report(path, line, message)
     check_folders(repo, report)
@@ -517,6 +520,48 @@ def check_schema(repo, doc, report):
         linked = {link.path for link in doc.links if link.path}
         for value, line in entries:
             check_describes(repo, path, value, line, linked, report)
+
+
+def check_covered_by(doc, report):
+    """A flow's every `Covered by:` ends its line, and a list follows, one test a line, each item opening
+    with the test's file name as a code span (or a link whose text is one), sorted by that name ignoring
+    case: a new spec is then one line in its sorted place, apart from another lane's."""
+    if doc.kind != "flow":
+        return
+    lines = doc.text.split("\n")
+
+    def first_wrong(index):
+        """The index of the first wrong line of the `Covered by:` at `index` and its list, or None."""
+        if lines[index].rstrip() != COVERED_BY:
+            return index
+        names = []
+        for number in range(index + 1, len(lines)):
+            item = lines[number]
+            if item.startswith("  ") and names:
+                continue  # an item's note, carried on to the next line
+            if not item.startswith("- "):
+                if not names:
+                    return index
+                return number if item.strip() else None  # a line run on would join the last item
+            named = COVERED_BY_ITEM.match(item)
+            name = named and (named.group(1) or named.group(2)).casefold()
+            if not name or (names and name < names[-1]):
+                return number
+            names.append(name)
+        return None if names else index  # the list ends the file
+
+    fence = None
+    for index in range(doc.body_start - 1, len(lines)):
+        match = FENCE.match(lines[index])
+        if fence:
+            if match and match.group(1)[0] == fence[0] and len(match.group(1)) >= len(fence):
+                fence = None
+        elif match:
+            fence = match.group(1)
+        elif lines[index].startswith(COVERED_BY):
+            wrong = first_wrong(index)
+            if wrong is not None:
+                report(doc.path, wrong + 1, "a Covered by is a list, one test a line, sorted by file name")
 
 
 def check_verified(entry, path, report):
@@ -756,7 +801,7 @@ def ids(repo):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="knowledge_graph.py", description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("check", help="schema, links, fragments, reachability, back-links, folders")
+    commands.add_parser("check", help="schema, links, fragments, reachability, back-links, folders, a flow's Covered by")
     drift_parser = commands.add_parser("drift", help="nodes whose described code changed without them")
     drift_parser.add_argument("--base", required=True)
     drift_parser.add_argument("--head", default="HEAD")

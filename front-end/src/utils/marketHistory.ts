@@ -18,6 +18,7 @@ import {
   changedFields,
   fieldName,
   fieldValue,
+  readerContext,
   recordedFields,
   sentence,
   valueText,
@@ -25,9 +26,7 @@ import {
   type EntryChanges,
   type HistoryContext,
 } from '@/utils/historyReaders/shared';
-import { IntakeMode, type FormField, type RejectionQuestion } from '@/assets/types/datatypes';
 import { getFormattedTimestamp } from '@/utils/utils';
-import type { VendorNames } from '@/utils/vendorIdentity';
 
 /** One entry of the market's history, as `GET /markets/:id/history` serves it. */
 export interface MarketHistoryEntry {
@@ -53,25 +52,22 @@ export interface MarketHistoryGroup {
 export type MarketHistoryPart =
   { kind: 'text'; text: string } | { kind: 'vendor'; name: string; email: string };
 
+export type { HistoryContext };
+
 /**
  * What happened, in one sentence, as parts: who did it, and a vendor as a part of their own, so
- * the screen draws them as a link to their drawer. `labels` names each of the table's actions, for
- * a change no reader has words for yet; `path` is how the market's vendors arrive, so a phase
- * reads as that market's other screens name it ("Review" on a Google Form market), and absent is a
- * Google Form market's, as `intakeModeOf` reads a market with none. `own` is the vendor whose own
- * history this is, if it is one: an entry about many vendors reads as that vendor's line.
+ * the screen draws them as a link to their drawer. The context names the vendors, the table's
+ * rows, the market's path and the vendor whose own history this is.
  */
 export function entryParts(
   entry: MarketHistoryEntry,
-  names: VendorNames,
-  labels: Readonly<Record<string, string>> = {},
-  path: IntakeMode = IntakeMode.Csv,
-  own = '',
+  given: HistoryContext = {},
 ): MarketHistoryPart[] {
-  const context: HistoryContext = { names, labels, path, own, questions: [], fields: [] };
+  const context = readerContext(given);
   for (const reader of readersOf(entry)) {
     if (reader.parts) return reader.parts(entry, context);
   }
+  const { labels } = context;
   const { actor, text, vendor } = sentence(entry, context);
   const parts: MarketHistoryPart[] = [
     actor,
@@ -108,25 +104,17 @@ export interface RecordedField {
  * What an entry opens to: the fields the change set, before and after, and whatever else it
  * recorded. An assignment's table is its before and after: the table left, when the entry knows
  * it, and the table taken. A reset of a whole table, a market's or an organization's default, and a
- * market's copy of its organization's default are each row they changed, by its label in `labels`,
- * and a phase reads as the market's `path` names it. A deal is each vendor's reviewer, or the
- * `own` vendor's alone in their own history.
+ * market's copy of its organization's default are each row they changed, by its label in the
+ * context's `labels`, and a phase reads as the market's `path` names it. A deal is each vendor's
+ * reviewer, or the `own` vendor's alone in their own history.
  */
-export function entryChanges(
-  entry: MarketHistoryEntry,
-  labels: Readonly<Record<string, string>> = {},
-  path: IntakeMode = IntakeMode.Csv,
-  /** The market's choice questions (`rejectionQuestions`), which a price group's conditions name. */
-  questions: readonly RejectionQuestion[] = [],
-  own = '',
-  /** The market's form, whose questions name a vendor's answers. */
-  fields: readonly FormField[] = [],
-): EntryChanges {
-  const context: HistoryContext = { names: {}, labels, path, own, questions, fields };
+export function entryChanges(entry: MarketHistoryEntry, given: HistoryContext = {}): EntryChanges {
+  const context = readerContext(given);
   for (const reader of readersOf(entry)) {
     const changes = reader.changes?.(entry, context);
     if (changes) return changes;
   }
+  const { path } = context;
   const detail = asDetail(entry.detail);
   const changes =
     detail.before && detail.after && typeof detail.after === 'object'
