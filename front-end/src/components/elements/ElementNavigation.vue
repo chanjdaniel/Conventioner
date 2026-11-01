@@ -80,7 +80,8 @@ const { marketId } = storeToRefs(useMarketStore());
         <template #icon>
           <IconSignOutSquare class="nav-icon" />
         </template>
-        <span class="signout-label">Sign out</span>
+        <!-- A row like the links above it, so its words are drawn as theirs are. -->
+        <span class="nav-label">Sign out</span>
       </ElementSignoutButton>
     </div>
   </div>
@@ -92,7 +93,8 @@ const { marketId } = storeToRefs(useMarketStore());
   font-size: var(--text-lg);
 }
 
-/* A link is named by its words: a heading inside one put the drawer's links in the page's outline. */
+/* A link is named by its words: a heading inside one put the drawer's links in the page's outline.
+   Sign out's words take it too: they read in Outfit and the body's slate below the links. */
 .nav-label {
   font-family: 'Merge One';
   font-style: normal;
