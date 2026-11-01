@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { type Market, MarketPhase } from '@/assets/types/datatypes';
 import {
   DEFAULT_MARKET_LIST_QUERY,
-  FILTER_PHASES,
+  FILTERABLE_PHASES,
   type MarketListQuery,
   marketListQueryFromRoute,
   marketListQueryToRoute,
@@ -183,11 +183,18 @@ describe('sort', () => {
 
 describe('the phases the filter offers', () => {
   it('are the stages the rail draws, in its order', () => {
-    expect(FILTER_PHASES).toEqual(phaseSpine());
+    expect(FILTERABLE_PHASES).toEqual(phaseSpine());
+    expect(FILTERABLE_PHASES).toEqual([
+      MarketPhase.Draft,
+      MarketPhase.Applications,
+      MarketPhase.Assignment,
+      MarketPhase.MarketDays,
+      MarketPhase.Archived,
+    ]);
   });
 
   it('leave out offers, which no market reaches (E38/F15/S03)', () => {
-    expect(FILTER_PHASES).not.toContain(MarketPhase.Offers);
+    expect(FILTERABLE_PHASES).not.toContain(MarketPhase.Offers);
   });
 });
 

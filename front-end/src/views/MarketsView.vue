@@ -7,10 +7,10 @@ import { fetchMarkets, openMarket } from '@/utils/market';
 import { fetchOrganizations } from '@/utils/organizations';
 import { phaseLabel } from '@/utils/phase';
 import {
+  FILTERABLE_PHASES,
   MARKET_SORTS,
   type MarketListQuery,
   type MarketSort,
-  FILTER_PHASES,
   localToday,
   marketListQueryFromRoute,
   marketListQueryToRoute,
@@ -225,7 +225,7 @@ function handleNewClose() {
                 All phases
               </button>
               <button
-                v-for="phase in FILTER_PHASES"
+                v-for="phase in FILTERABLE_PHASES"
                 :key="phase"
                 type="button"
                 class="btn btn--compact btn--secondary phase-toggle"

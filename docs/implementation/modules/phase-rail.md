@@ -68,7 +68,7 @@ The moves follow them, any back edge first and Archive Market last, so the destr
 `phaseSpine()` in [`front-end/src/utils/phase.ts`](../../../front-end/src/utils/phase.ts) walks `VALID_TRANSITIONS` (the front end's mirror of the server's table) forward from `draft`, taking at each step the one edge to somewhere new that is not `archived`, and appends `archived`.
 A second list beside the table would be the drift `_validate_registry()` refuses on the server.
 `offers` is off it (`OFF_SPINE_PHASES`), since nothing sets `assignment_sent`, except for a market actually in that phase, which gets its stage back where the table puts it so the rail can still say where it stands; no move into `offers` is ever offered.
-The Markets list's Phase filter offers the same spine (`FILTER_PHASES` in [`front-end/src/utils/marketList.ts`](../../../front-end/src/utils/marketList.ts), E38/F15/S03), so it never offers a stage the rail does not draw.
+The Markets list's Phase filter offers the same spine (`FILTERABLE_PHASES` in [`front-end/src/utils/marketList.ts`](../../../front-end/src/utils/marketList.ts), E38/F15/S03), so it never offers a stage the rail does not draw.
 
 **Forward, back and destructive are read off the spine** (`transitionDirection`), never special-cased per phase.
 Only the one forward step is on the rail; every other move is in the "More…" menu behind `phase-rail-menu-button`, a real menu whose arrow keys walk its items and whose Escape or an outside press closes it.

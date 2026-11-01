@@ -42,7 +42,7 @@ const KNOWN_PHASES = new Set<string>(Object.values(MarketPhase));
  * in its order (E38/F15/S03). `offers` is left out, as on the rail, since no market reaches it; an
  * old bookmark that names it is read as one that names no phase.
  */
-export const FILTER_PHASES: readonly MarketPhase[] = phaseSpine().filter(
+export const FILTERABLE_PHASES: readonly MarketPhase[] = phaseSpine().filter(
   (phase): phase is MarketPhase => KNOWN_PHASES.has(phase),
 );
 
@@ -120,8 +120,8 @@ function first(value: LocationQuery[string] | undefined): string {
 
 /**
  * The query the page's address holds. A value that no longer means anything - an organization the
- * organizer has left, a phase the filter does not offer (`offers` among them) - is dropped rather than narrowing the list
- * to nothing, so an old bookmark still opens onto markets.
+ * organizer has left, a phase the filter does not offer (`offers` among them) - is dropped rather
+ * than narrowing the list to nothing, so an old bookmark still opens onto markets.
  *
  * `organizationIds` is null when the organizer's organizations are not known (still loading, or
  * failed to load). The address's organization is then kept: dropping it would let the next change
@@ -137,7 +137,7 @@ export function marketListQueryFromRoute(
   return {
     search: first(route.q),
     organizationId: org && (!organizationIds || organizationIds.includes(org)) ? org : null,
-    phases: FILTER_PHASES.filter((phase) => phases.has(phase)),
+    phases: FILTERABLE_PHASES.filter((phase) => phases.has(phase)),
     sort: MARKET_SORTS.some((s) => s.value === sort)
       ? (sort as MarketSort)
       : DEFAULT_MARKET_LIST_QUERY.sort,
@@ -150,7 +150,7 @@ export function marketListQueryToRoute(query: MarketListQuery): LocationQueryRaw
   if (query.search) route.q = query.search;
   if (query.organizationId) route.org = query.organizationId;
   if (query.phases.length) {
-    route.phase = FILTER_PHASES.filter((phase) => query.phases.includes(phase)).join(',');
+    route.phase = FILTERABLE_PHASES.filter((phase) => query.phases.includes(phase)).join(',');
   }
   if (query.sort !== DEFAULT_MARKET_LIST_QUERY.sort) route.sort = query.sort;
   return route;

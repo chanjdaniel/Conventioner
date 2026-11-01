@@ -185,9 +185,13 @@ test.describe('Finding a market', () => {
     await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
     await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'true');
     await expect(markets.phaseToggle('offers')).toHaveCount(0);
-    await expect(
-      page.getByRole('group', { name: 'Phase' }).getByRole('button', { pressed: false }),
-    ).toHaveText(['Draft', 'Applications / Review', 'Assignment', 'Market Days', 'Archived']);
+    expect(await markets.offeredPhases()).toEqual([
+      'draft',
+      'applications',
+      'assignment',
+      'market_days',
+      'archived',
+    ]);
   });
 
   // The way to the market an organizer runs from the door on a phone (T142). Under a phone's own
