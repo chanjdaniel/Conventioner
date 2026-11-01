@@ -42,6 +42,9 @@ IN_THE_ORGANIZATION = ["org-owner@org.test", "org-admin@org.test", "org-member@o
 # The market's Owner and an Editor, neither of them in its organization.
 OUTSIDE_THE_ORGANIZATION = ["owner@market.test", "editor@market.test"]
 OUTSIDER_REFUSAL = "You can hand a follow-up only to someone named in this market's roles."
+UNDO_OWNER_REFUSAL = (
+    "This verdict can no longer be undone here: the follow-up it closed would come back to an "
+    "owner you cannot see on this market. An Admin or the market's owner can change it.")
 ORGANIZATION = Organization(
     id=ORG_ID, name="Test Org", owner="org-owner", admins=["org-admin"], members=["org-member"],
     markets=["market-123"],
@@ -178,16 +181,33 @@ def test_an_outsider_may_not_own_one(monkeypatch, market, requester):
     assert market[0]["follow_up_owner"]["email"] == requester
 
 
+def test_an_undo_over_an_owner_they_are_not_offered_hands_nothing(monkeypatch, market):
+    """An Editor from outside the organization approves a follow-up owned by its admin, who has no
+    role on the market, then undoes it: the owner is still asked as the review route asks, so it
+    is refused, but in the undo's own words, since an undo hands the follow-up to nobody, and in
+    words that never tell them the owner is the organization's (E38/F10/S01)."""
+    marked = _mark(_signed_in(monkeypatch, "org-member@org.test"), "org-admin@org.test")
+    assert marked.status_code == 200
+    outsider = _signed_in(monkeypatch, "editor@market.test")
+    given = outsider.put("/markets/market-123/applications/app-1/review",
+                         json={"status": "reviewer_approved"}).get_json()["application"]
+
+    response = outsider.post("/markets/market-123/applications/app-1/review/undo", json={
+        "seen": {"status": given["status"], "verdictAt": given["verdictAt"]}})
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": UNDO_OWNER_REFUSAL}
+    assert market[0]["status"] == "reviewer_approved"
+
+
 @pytest.mark.parametrize("requester", IN_THE_ORGANIZATION)
 def test_someone_in_the_organization_reads_everyone_who_may_own_one(market, requester):
     served = MarketsApi.get_market_for_user(requester, "market-123")
 
     assert sorted(served["peopleOnMarket"]) == sorted([*MARKET_PEOPLE, *ORGANIZATION_PEOPLE])
-    # Manage market keeps listing the roles on the market, and only those.
-    assert served["role_emails"] == {
-        "user-1": "owner@market.test", "user-sam": "sam@market.test",
-        "user-editor": "editor@market.test", "org-member": "org-member@org.test",
-    }
+    # Manage market lists everyone with access, the organization's people too (E38/F12/S01).
+    assert sorted(person["email"] for person in served["peopleWithAccess"]) == sorted(
+        [*MARKET_PEOPLE, *ORGANIZATION_PEOPLE])
 
 
 @pytest.mark.parametrize("requester", OUTSIDE_THE_ORGANIZATION)
@@ -203,10 +223,9 @@ def test_a_viewer_not_in_the_organization_reads_no_people(market):
     served = MarketsApi.get_market_for_user("sam@market.test", "market-123")
 
     assert served["peopleOnMarket"] == []
-    assert served["role_emails"] == {
-        "user-1": "owner@market.test", "user-sam": "sam@market.test",
-        "user-editor": "editor@market.test", "org-member": "org-member@org.test",
-    }
+    # Manage market lists the market's own roles to them, and no organization address.
+    assert sorted(person["email"] for person in served["peopleWithAccess"]) == sorted(
+        [*MARKET_PEOPLE, "org-member@org.test"])
 
 
 def test_someone_on_the_market_and_in_its_organization_is_served_once(monkeypatch, market):

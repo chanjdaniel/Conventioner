@@ -76,8 +76,8 @@ describe('marking a follow-up', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     reviewApplication.mockReset().mockResolvedValue({
-      ...APP,
-      status: ApplicationStatus.NeedsFollowUp,
+      application: { ...APP, status: ApplicationStatus.NeedsFollowUp },
+      undoSeconds: 120,
     });
     saveVendorNote.mockReset().mockResolvedValue(undefined);
   });
