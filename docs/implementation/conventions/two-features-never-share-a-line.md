@@ -4,9 +4,11 @@ kind: convention
 describes:
   - scripts/merge_node.py
   - .gitattributes
+  - scripts/knowledge_graph.py#check_covered_by
 verified: 2026-11-01
 sources:
   - T174
+  - T178
 ---
 
 # Two features never share a line
@@ -45,6 +47,7 @@ The driver leaves the body to git's own text merge, so the body is what this rul
 ## How it is kept, and what breaks it
 
 Each split doc says its order in one line above its list, linking here, so a builder learns the rule where they edit; a reviewer reads a new enumeration against it.
+The flows' "Covered by" lists carry no order line: the graph's check keeps them, and its message says the order.
 Two features still conflict when they insert at the same place: two items whose names sort side by side, or two actions added at the end of the same group, where the code conflicts too.
 
 ## Where a new feature's row goes
@@ -92,3 +95,9 @@ Each area file names the `action/kind` keys it reads in its header, one a line, 
 A new kind's words are one reader in the file of its action's group, unless its words are another area's (`update-vendor-info/discord_match_declined` is Discord's, `assign/owed_taken_back` Payments'), one line in that file's header, and one line in each sorted key list of `historyReaders.test.ts` it has words for; `index.ts` refuses a key two areas both define.
 A new placement kind is one line in each of three places: the `PlacementHistoryKind` type and `PLACEMENT_KINDS` of [`placementHistory.ts`](../../../front-end/src/utils/placementHistory.ts), from which `assignment.ts` builds its `assign/<kind>` readers with no other change, and `SENTENCES` of `historyReaders.test.ts`.
 A new area is a new file, and one line in each of the sorted lists of areas, the imports and `AREAS` of `index.ts` and of `historyReaders.test.ts`.
+
+### A flow's "Covered by"
+
+[The flows](../../business/flows/README.md)' "Covered by": under each step, `Covered by:` ends its line and a list follows, one test a line, sorted by the test's file name as its code span writes it, ignoring case, a link whose text is a code span counting as one; each keeps its note after the name.
+A new spec is one line in its sorted place in the list of each step it walks, and nowhere else: the [coverage map](../testing/walking-the-flows.md#coverage-map) keeps only each flow's gaps.
+[`check_covered_by`](../../../scripts/knowledge_graph.py) in `knowledge_graph.py check` refuses, in a flow, a `Covered by:` with anything after its colon, an item that does not open with a file name, an item out of order, and a line run on to the last item, with "a Covered by is a list, one test a line, sorted by file name".

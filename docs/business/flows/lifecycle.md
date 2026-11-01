@@ -125,6 +125,8 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.
+Covered by:
+- `phase-state-machine.spec.ts`
 
 ## Where the check-in address lives
 
@@ -134,6 +136,9 @@ A form market's application page has a chip of its own on the same row, from the
 
 The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
 A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.
+Covered by:
+- `market-remembers-phases.spec.ts`
+- `the-rail-addresses.spec.ts`
 
 ## Why the phases are the order of the work
 

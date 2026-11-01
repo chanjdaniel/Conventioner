@@ -38,7 +38,11 @@ Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real k
 
 Branches: mismatched passwords ("Passwords do not match"), short password, an email already registered, an expired or reused link.
 Depends on: reCAPTCHA (bypassed locally), Resend.
-Covered by: `auth.spec.ts` ("Register new user"), `account-links.spec.ts`, `a-signup-is-sent-once.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
+Covered by:
+- `a-signup-is-sent-once.spec.ts`
+- `account-links.spec.ts`
+- `auth.spec.ts` ("Register new user")
+- `sign-in-fits-a-phone.spec.ts`
 
 ## A1a. Resend the verification email
 
@@ -60,7 +64,13 @@ Branches: wrong password, unverified account, "Show" password toggle, visiting a
 A market link opened while signed out returns there after sign-in, by password or by code, rather than to the dashboard.
 A session that ends mid-work lands on sign-in saying "Your session has ended. Sign in again.", and signing in returns to the page it was on.
 A browser closed and reopened is signed out unless "Remember me" was ticked.
-Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-failure-says-what-to-do.spec.ts`, `remember-me.spec.ts`.
+Covered by:
+- `a-failure-says-what-to-do.spec.ts`
+- `auth.spec.ts`
+- `remember-me.spec.ts`
+- `sign-in-fits-a-phone.spec.ts`
+- `smoke.spec.ts`
+- `the-way-in-lines-up.spec.ts` ("every row of the navigation drawer is one shape, Sign out included")
 
 ## A3. Sign in with an emailed code
 
@@ -71,7 +81,11 @@ Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-
 3. "Use a different email" returns to step 1.
 
 Branches: a wrong code ("That code is not right"), too many wrong codes.
-Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code; `a-failure-says-what-to-do.spec.ts` and `remember-me.spec.ts`, which stub the send and set the code where the server keeps it, then sign in with it; `sign-in-fits-a-phone.spec.ts`.
+Covered by:
+- `a-failure-says-what-to-do.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
+- `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the send and walks only a wrong code
+- `remember-me.spec.ts`, which stubs the send and sets the code where the server keeps it, then signs in with it
+- `sign-in-fits-a-phone.spec.ts`
 
 ## A4. Reset a forgotten password
 
@@ -81,10 +95,14 @@ Covered by: `auth.spec.ts` ("shows error for invalid OTP code"), which stubs the
 2. Follow the emailed link to `/reset-password`, set a new password; every browser signed in to the account, remembered or not, is signed out.
 3. Sign in with the new password.
 
-Covered by: `auth.spec.ts` ("Password reset"), `account-links.spec.ts`, `sign-in-fits-a-phone.spec.ts`.
+Covered by:
+- `account-links.spec.ts`
+- `auth.spec.ts` ("Password reset")
+- `sign-in-fits-a-phone.spec.ts`
+- `the-way-in-lines-up.spec.ts` ("asking for a reset reads like signing in")
 
 ## A5. Delete my account
 
 **Status:** No screen (`POST /delete-user` exists; nothing in the front end calls it).
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

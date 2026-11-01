@@ -61,7 +61,11 @@ On the Google Form path the essential questions are the answers each import read
    "Ask this" under "Anything else you need from us?" stops asking for a vendor's request the same way.
 
 What the questions offer follows the plan until the first applicant answers, and is frozen from then on ([essential fields](../../implementation/modules/essential-fields.md)).
-Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`, `ask-this-stays-off.spec.ts`, `vendor-notes.spec.ts`.
+Covered by:
+- `ask-this-stays-off.spec.ts`
+- `essential-fields.spec.ts`
+- `section-preference.spec.ts`
+- `vendor-notes.spec.ts`
 
 ## F2. Custom questions
 
@@ -73,11 +77,14 @@ Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`, `ask-this-
 
 "Add Discord username", beside "Add Field" ([`FormBuilder.vue`](../../../front-end/src/components/application/FormBuilder.vue)), adds an optional Text question "Discord username" in one click, for a market that gives its vendors a role on Discord; the Discord card picks it up as the question that holds each vendor's username when the market connects ([the Discord connection](../../implementation/modules/discord.md#the-discord-card)).
 It is not offered once the form has a Text question whose label names Discord.
-Covered by: `formBuilder.test.ts`, `the-tools-tab.spec.ts`.
+Covered by:
+- `formBuilder.test.ts`
+- `the-tools-tab.spec.ts`
 
 "Save Form" is disabled and says why while a field is invalid ('Field "Product category" is a select and needs at least one option.'); keys may not start with `essential_`, may not be one the import reads as something else (`applicant_email`, `submitted_at`, `sheet_note`), and must be unique.
 A form with no questions of its own says "No questions of your own yet. Add Field adds one."
-Covered by: `application-form.spec.ts`.
+Covered by:
+- `application-form.spec.ts`
 
 On a market started from its Google Form's responses, the questions also draw on the file it was started from, which the start kept the answers of, as far as they name nobody ([the CSV proposal and start](../../implementation/modules/csv-proposal-and-start.md)); the start itself is one-shot, and this is where what it got wrong is fixed (E38/F02):
 
@@ -87,7 +94,8 @@ On a market started from its Google Form's responses, the questions also draw on
    A Select or Multi-Select the file gives no options to choose from becomes Text, since a choice needs at least one option.
 
 A question that did not come from the file behaves as above, and a market not started from one offers neither.
-Covered by: `the-questions-come-from-the-file.spec.ts`.
+Covered by:
+- `the-questions-come-from-the-file.spec.ts`
 
 ## F3. What a reviewer reads first
 
@@ -95,7 +103,9 @@ Covered by: `the-questions-come-from-the-file.spec.ts`.
 On Review setup, under "What a reviewer reads first", tick the questions that should lead each review card; it saves itself and stays editable in every phase but Archived.
 Under "Automatic rejections", "Add a rule on" a choice question and tick the answers that reject: "An application that gives one of these answers arrives in review already rejected, with the reason. An Admin or the owner can overturn it, and the applicant never sees the reason.", naming whoever the market's row "Change a verdict, or overturn an automatic rejection" lets overturn it.
 The rules stay editable while the market can still reach Review; from Assignment on they are shown fixed: "The automatic rejections are settled: the market has reached Assignment, and a rule judges applications only while they can still be reviewed."
-Covered by: `review-highlights.spec.ts`, `automatic-rejections.spec.ts`.
+Covered by:
+- `automatic-rejections.spec.ts`
+- `review-highlights.spec.ts`
 
 ## F4. The form lock
 
@@ -107,7 +117,10 @@ Once locked, the essential questions and "Your questions" are read only under th
 - past Draft, on the Google Form path: "The questions are fixed: they cannot change once its responses have been imported, because your imports are mapped onto them.";
 - in Draft with an application: "Application form is locked. N applications have already been submitted for this market. The form cannot be modified once applicants have submitted."
 
-Covered by: `application-form.spec.ts` ("an existing application locks the form in the builder and on every route"), `what-to-show-and-when.spec.ts`, `screens-name-things.spec.ts`.
+Covered by:
+- `application-form.spec.ts` ("an existing application locks the form in the builder and on every route")
+- `screens-name-things.spec.ts`
+- `what-to-show-and-when.spec.ts`
 
 ## F5. Reopen the market to fix the form
 
@@ -116,7 +129,9 @@ From Applications, More…, "Reopen for Editing" returns the market to Draft and
 A Google Form market is a draft until its first import, so its form is edited in place; once anything is imported there is no way back.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
 The first import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
-Covered by: `every-move-lands.spec.ts` ("a move back lands on its phase's page too"), `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu").
+Covered by:
+- `every-move-lands.spec.ts` ("a move back lands on its phase's page too")
+- `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu")
 
 ## F6. Table type preference
 
@@ -132,4 +147,4 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md) and [automatic rejections](../rules/automatic-rejections.md): what a rule may name, what it judges, and that it closes with the review.
 - [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

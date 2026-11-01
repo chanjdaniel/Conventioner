@@ -80,4 +80,12 @@ Someone below the row is shown no History tab, as no History section.
 - [What each role may do](../rules/what-each-role-may-do.md): the row "Read the market's history".
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md): it still reads.
 
-Covered by: [`the-markets-history.spec.ts`](../../../front-end/e2e/the-markets-history.spec.ts), `the-vendors-history.spec.ts` for one vendor's, and `manageMarketHistory.test.ts`, `theDrawersHistory.test.ts` and `marketHistory.test.ts` for the filters, the paging and the words ([walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map)).
+Covered by:
+- `a-verdict-names-whom-it-was-dealt-to.spec.ts`
+- `manageMarketHistory.test.ts` for the filters, the paging and the words
+- `marketHistory.test.ts` for the filters, the paging and the words
+- [`the-markets-history.spec.ts`](../../../front-end/e2e/the-markets-history.spec.ts)
+- `the-vendors-history.spec.ts` for one vendor's
+- `theDrawersHistory.test.ts` for the filters, the paging and the words
+
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

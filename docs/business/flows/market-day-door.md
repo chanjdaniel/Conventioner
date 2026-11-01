@@ -47,7 +47,11 @@ Disabled before the click, with the rail naming the first blocker:
 - on a market whose vendors apply on its page, the results are not published: "Applicants have not been told whether they have a table. Publish the results before the market goes live.", with "Publish results" ([I7](assignment-and-result.md#i7-publish-results)).
 
 The Attendance tab is on the bar in every phase; before publishing it says "Opens when the market is published."
-Covered by: `phase-rail.spec.ts`, `phase-state-machine.spec.ts`, `tier2.spec.ts` ("publish market and verify check-in URL"), `results-wait-for-the-allocation.spec.ts`.
+Covered by:
+- `phase-rail.spec.ts`
+- `phase-state-machine.spec.ts`
+- `results-wait-for-the-allocation.spec.ts`
+- `tier2.spec.ts` ("publish market and verify check-in URL")
 
 ## K2. A vendor looks up their table and checks in
 
@@ -61,7 +65,9 @@ Covered by: `phase-rail.spec.ts`, `phase-state-machine.spec.ts`, `tier2.spec.ts`
 
 The cards show the stored assignment, so a vendor placed, swapped or freed by hand is sent where they were put (bug 1).
 An address that is not a published market's says "There is no check-in page at this address. Check the link you were given, or ask the market's organizer."
-Covered by: `checkin.spec.ts`.
+Covered by:
+- `alignment.spec.ts` ("the check-in field and its button are the same height")
+- `checkin.spec.ts`
 
 ## K3. Check in on a day that is not today
 
@@ -73,7 +79,9 @@ The note "Today is not one of your days at this market. You can still check in f
 
 **Status:** Works (walked live).
 "Undo" on a checked-in card removes it; the organizer can undo one at the door too (K5).
-Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `the-door-on-market-day.spec.ts`.
+Covered by:
+- `checkin.spec.ts` ("a check-in on the wrong day can be undone")
+- `the-door-on-market-day.spec.ts`
 
 ## K5. Watch attendance
 
@@ -88,7 +96,12 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `th
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only Tools and the Assignments page among the other organizer market screens do, and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
-Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `checkin.spec.ts`, `a-viewer-at-the-door-reads-why.spec.ts`.
+Covered by:
+- `a-seat-and-an-entry-open-the-drawer.spec.ts`
+- `a-viewer-at-the-door-reads-why.spec.ts`
+- `checkin.spec.ts`
+- `the-door-keeps-its-own-day.spec.ts`
+- `the-door-on-market-day.spec.ts`
 
 ## The rules it obeys
 
@@ -98,4 +111,4 @@ Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.t
 - [What each role may do](../rules/what-each-role-may-do.md): publishing is an Admin's, checking in at the door an Editor's.
 - [Vendor notes](../rules/vendor-notes.md): a request is marked handled at the door, and the mark can be taken back.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
