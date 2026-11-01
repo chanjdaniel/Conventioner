@@ -2,6 +2,7 @@
 import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import type { ComponentPublicInstance } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AuthCard from '@/components/AuthCard.vue';
 import { resentLink, type SignInNotice } from '@/utils/signInNotice';
@@ -29,6 +30,8 @@ const resent = computed(() => notice.value?.tone === 'success');
 const address = ref('');
 const addressError = ref('');
 const addressInput = ref<HTMLInputElement | null>(null);
+/** "Back to sign in", where focus goes once the form that held it is gone. */
+const backLink = ref<ComponentPublicInstance | null>(null);
 /** A link on its way, so a double click sends one. */
 const sending = ref(false);
 
@@ -110,6 +113,12 @@ async function sendTheLinkAgain() {
   } finally {
     sending.value = false;
   }
+  // A link on its way takes the form, and the focus in it, away: focus goes to the one control
+  // left, so a keyboard is never left on the page itself; the sentence is read as a status.
+  if (resent.value) {
+    await nextTick();
+    (backLink.value?.$el as HTMLElement | undefined)?.focus();
+  }
 }
 </script>
 
@@ -190,7 +199,11 @@ async function sendTheLinkAgain() {
       </form>
 
       <div class="form-links">
-        <RouterLink to="/login" class="link-alone" data-testid="email-verification-back-link"
+        <RouterLink
+          ref="backLink"
+          to="/login"
+          class="link-alone"
+          data-testid="email-verification-back-link"
           >Back to sign in</RouterLink
         >
       </div>

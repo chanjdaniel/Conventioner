@@ -152,6 +152,18 @@ describe('"Send the link again"', () => {
     expect(router.currentRoute.value.path).toBe('/verify-email');
   });
 
+  it('moves focus to "Back to sign in" once the form is gone, so it never falls to the page', async () => {
+    const { wrapper } = await aFailedLink();
+
+    post.mockResolvedValueOnce({ status: 200, data: { msg: 'Verification email sent' } });
+    const input = wrapper.get('[data-testid="email-verification-email-input"]');
+    (input.element as HTMLInputElement).focus();
+    await sendTheLinkAgain(wrapper);
+
+    expect(byTestId(wrapper, 'email-verification-resend-form').exists()).toBe(false);
+    expect(document.activeElement).toBe(byTestId(wrapper, 'email-verification-back-link').element);
+  });
+
   it.each([
     ['a 400', refused(400, { msg: 'Email already verified' })],
     ['a 429', refused(429, { msg: 'Too many requests' })],

@@ -104,6 +104,8 @@ for (const { name, viewport } of WIDTHS) {
         await expect(verification.errorMessage).toBeHidden();
         await expect(verification.resendForm).toHaveCount(0);
         await expect(verification.backLink).toBeVisible();
+        // The form held focus; it goes to the one control left, never to the page itself.
+        await expect(verification.backLink).toBeFocused();
         await expectItIsDrawnWell(page);
 
         // A new link was made for the address, which the stack's mail would have carried.

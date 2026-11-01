@@ -54,6 +54,7 @@ Covered by:
 1. Open a link that fails (expired, used, or cut short); `/verify-email` says why.
 2. Type the address in the page's Email field and choose "Send the link again".
 3. Expect "If that address needs verifying, a new link is on its way.", whatever the address, and the page to stay where it is: only a link that worked goes on to sign in.
+   The form goes, and focus moves to "Back to sign in", the one control left.
 
 The page asks on the page itself; it used to open a browser prompt, and then said "Redirecting to login page..." and stayed (T181).
 "Send the link again" with nothing typed says "Type your email address." under the field and sends nothing; a double click sends one link.
