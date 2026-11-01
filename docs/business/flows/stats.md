@@ -34,7 +34,7 @@ Every figure is counted on the server and read in one small answer (`GET /market
    - "4 table-days free", the Assignments grid's "Empty" count, opening Assignments on it (`?status=empty`); half a table held is used, not free;
    - "1 vendor unassigned", the Assignments strip's "N unassigned", opening [Vendors](vendors.md) on "Unassigned only" (`?show=unassigned`);
    - "$117.50 owed", "$90 paid" and "$35 still owed", the [Payments](payments.md) page's Owed, Paid and Still owed, the first two opening Payments and the third Payments on "Owes" (`?show=owes`).
-2. The placements are told once an assignment is stored, as the Assignments page's strip is; the money only where the market sets prices and the Payments page has someone to count.
+2. The placements are told once an assignment is stored, as the Assignments page's strip is, from the one count of the stored assignment they share ([placements](../../implementation/modules/placements.md#what-a-read-shows)); the money only where the market sets prices and the Payments page has someone to count.
    With neither, there is no strip.
 3. A zero whose filter would list nothing, "0 table-days free", "0 vendors unassigned" or "$0 still owed", is told but not linked, as the Assignments page's counts cannot be chosen at zero.
 

@@ -104,7 +104,8 @@ The solver keeps an orphaned pin's vendor on the date it claimed, at that pin an
 
 **Read-only views describe the stored assignment, and only that.**
 `assignment_to_show` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is `describe_stored_assignment`, which seats the stored rows and derives statistics without running the solver.
-The statistics, the tables grid and the CSV all go through it, which is what keeps them describing the same market.
+The statistics, the tables grid, the CSV and the Stats tab's headlines all go through it, which is what keeps them describing the same market.
+The Assignments page's strip and the Stats tab's placement headlines are one count, `counted_assignment` in the same file, with `table_days_free` beside it counting the grid's "Empty" rows ([the market's statistics](../../business/flows/stats.md#n1-see-the-markets-state-at-a-glance)).
 They read the approved applications with `vendors_to_show`, never the run's `solver_vendors_for`: a read places nobody, so an approved application missing an answer refuses nothing, and is counted and seated as stored (T139).
 Only a run, and the preview below, refuse it ([an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md)).
 A market with nothing stored is shown nobody placed, never the run it would get (E31/F03/S05): that preview once read "197 of 197 vendors assigned" before anyone pressed Assign.
