@@ -742,9 +742,12 @@ function deleteType(tt: TableTypeObject) {
   background: var(--mm-green);
 }
 
+/* As a secondary `.btn` is drawn: a grey `--mm-border` fill with no line read duller than the
+   disabled Save beside it (T162). */
 .tt-btn--secondary {
-  background: var(--mm-border);
+  background: white;
   color: var(--mm-black);
+  border-color: var(--mm-border);
 }
 
 /* ── Transitions ─────────────────────────────────────────────── */

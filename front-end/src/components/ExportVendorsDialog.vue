@@ -583,11 +583,12 @@ async function download(): Promise<void> {
   min-width: var(--target-min);
   min-height: var(--target-min);
   padding: 0;
-  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
-  border: 1px solid transparent;
+  /* Drawn as the application form's order arrows are (`RankedChoiceInput.vue`), so the app has one
+     order control, and its disabled beige reads the quieter of the two (T162). */
+  border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
-  background: none;
-  color: var(--mm-text-muted);
+  background: white;
+  color: var(--mm-black);
   cursor: pointer;
 }
 
@@ -597,7 +598,8 @@ async function download(): Promise<void> {
 }
 
 .export-move:hover:not(:disabled) {
-  color: var(--mm-black);
+  border-color: var(--mm-green);
+  color: var(--mm-green);
 }
 
 .export-move:disabled {
