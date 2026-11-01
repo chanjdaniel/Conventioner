@@ -5,10 +5,10 @@
  *
  * Its top line is the market's state in headlines (E45/F01/S03, `utils/statsHeadlines.ts`): the
  * table-days used and free and the vendors unassigned, once an assignment is stored, and the amounts
- * owed, paid and still owed, where the market sets prices; each the figure the page it links to
- * shows, and the link opens that page with its filter.
+ * owed, paid and still owed, where the market sets prices and the Payments page counts someone;
+ * each the figure the page it links to shows, and the link opens that page with its filter.
  *
- * Both sections are counted on the server and read in one small answer (`utils/marketStats.ts`),
+ * Every figure is counted on the server and read in one small answer (`utils/marketStats.ts`),
  * so the page never downloads the applications to count them. It starts with who applied: every
  * application by its status, counted as the Applications tab's All view filters them, and by the
  * day it arrived, as a ledger of bars (`BarLedger`, `utils/applicantStats.ts`). Then what they
