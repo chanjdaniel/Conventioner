@@ -96,16 +96,18 @@ function linkTo(marketId: string, page: MarketPage) {
    fourth page ran past the card at 390 and squeezed Assignments onto two lines (E44/F02/S01). So
    the links touch, and each label stands on the phone's 16px gutter with its pill reaching into
    it, which fits all four at 390; a narrower phone scrolls the row sideways inside itself, as the
-   bar's tabs do, never the page. The row's own padding keeps a link's halo inside the scroller. */
+   bar's tabs do, never the page. The row's own padding keeps a link's halo inside the scroller.
+   Only on a screen that fits a phone (the frame's `market-fits-a-phone`): one that keeps the desktop
+   floor is a desk's layout in a phone's window, and its labels stay on the page's desk inset. */
 @media (width <= 640px) {
-  .market-pages {
+  .market-fits-a-phone .market-pages {
     gap: 0;
     padding: var(--space-2);
     overflow-x: auto;
     scrollbar-width: none;
   }
 
-  .market-page {
+  .market-fits-a-phone .market-page {
     flex: none;
     padding: var(--space-1) var(--space-2);
     line-height: calc(var(--target-min) - 2 * var(--space-1));

@@ -327,4 +327,73 @@ test.describe('the Payments page', () => {
       await expect(page.getByTestId('plan-card-pricing')).toBeVisible({ timeout: 15000 });
     });
   });
+
+  /**
+   * Where each part of the frame starts, and a page's own title: the market's name, the rail's
+   * stages, the first page link (its pill and its label) and the read-only note.
+   */
+  async function starts(page: Page, title: string) {
+    return page.evaluate((titleSelector) => {
+      const left = (el: Element | null | undefined) =>
+        el ? Math.round(el.getBoundingClientRect().left) : null;
+      const at = (selector: string) => left(document.querySelector(selector));
+      const link = document.querySelector('[data-testid="market-pages"] a');
+      const label = document.createRange();
+      if (link?.firstChild) label.selectNodeContents(link.firstChild);
+      return {
+        name: at('[data-testid="market-bar-title"]'),
+        rail: at('.phase-spine'),
+        pageLink: left(link),
+        pageLabel: link ? Math.round(label.getBoundingClientRect().left) : null,
+        readOnly: at('[data-testid="market-read-only"]'),
+        title: at(titleSelector),
+      };
+    }, title);
+  }
+
+  test("in a phone-sized window, a page that keeps the desktop floor keeps the frame on the page's inset", async ({
+    browser,
+    request,
+  }) => {
+    // Payments keeps the 1000px desktop floor, so at 390 it is a desk's layout scrolled sideways.
+    // The frame's phone rules followed the window, so its name, rail, page row and read-only note
+    // stood on the phone's 16px gutter there, 8px left of the page's own notes and titles.
+    const unpriced = await threeVendorsPaying(request, null);
+
+    await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await paymentsPage(page, unpriced);
+      await expect(page.getByTestId('market-read-only')).toBeVisible();
+      const desk = await starts(page, '#payments-vendors-title');
+      const inset = desk.title;
+      // As on a desk: the page link's pill stands on the inset, its label inside it.
+      expect({ ...desk, pageLabel: undefined }).toEqual({
+        name: inset,
+        rail: inset,
+        pageLink: inset,
+        pageLabel: undefined,
+        readOnly: inset,
+        title: inset,
+      });
+      expect(desk.pageLabel).toBeGreaterThan(inset!);
+      const unpricedNote = page.getByTestId('payments-unpriced');
+      expect(await unpricedNote.evaluate((el) => Math.round(el.getBoundingClientRect().left))).toBe(
+        inset,
+      );
+
+      // Assignments fits a phone (T142): there the frame keeps the phone's 16px gutter, x 32, the
+      // page link's label on it and its pill reaching into it.
+      await page.goto(marketScreenPath(unpriced, 'assignments'));
+      await expect(page.getByTestId('market-read-only')).toBeVisible({ timeout: 15000 });
+      const phone = await starts(page, '.date-heading');
+      expect({ ...phone, pageLink: undefined, title: undefined }).toEqual({
+        name: 32,
+        rail: 32,
+        pageLink: undefined,
+        pageLabel: 32,
+        readOnly: 32,
+        title: undefined,
+      });
+    });
+  });
 });

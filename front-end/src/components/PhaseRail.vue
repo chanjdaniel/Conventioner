@@ -843,9 +843,11 @@ function cancelPending() {
 }
 
 /* A phone (E29/F01): the spine keeps its full width - shrinking is what makes labels collide - and
-   scrolls sideways inside the rail rather than widening the page. */
+   scrolls sideways inside the rail rather than widening the page. The rail takes the phone's gutter
+   on a screen that fits a phone (the frame's `market-fits-a-phone`); one that keeps the desktop
+   floor keeps the desk's inset, on one line with its page. */
 @media (width <= 640px) {
-  .phase-rail {
+  .market-fits-a-phone .phase-rail {
     padding: var(--space-2) var(--space-4);
   }
 

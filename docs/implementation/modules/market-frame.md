@@ -84,6 +84,13 @@ The rail, the page row and the `pinned` slot are then the card's own children, i
 The observer cannot measure a box-less element, so on a phone it measures the bar.
 The layout sweep fails on any phone market screen whose banner and pinned bar reach lower than 150px of the window ([the design language](../../design-system.md#what-keeps-this-true)); at 390x844 the banner and the bar end at 138px, against 409 at the door when the whole block pinned.
 Above 640px, a tablet included, the frame is the desk's.
+
+**The phone's gutter follows the screen's layout, not the window.**
+A screen that keeps the 1000px desktop floor (every market screen but Attendance, Tools and the Assignments page) is a desk's layout scrolled sideways in a phone's window, so its page keeps the desk's 24px inset there.
+The frame's own insets follow it: the card takes `market-fits-a-phone` only where the route has `meta.fitsAPhone` (`fitsAPhone` in [`utils/fitsAPhone.ts`](../../../front-end/src/utils/fitsAPhone.ts), as `App.vue` lifts the floor by), and the phone's 16px gutter of the bar's row, the rail, the page row and the read-only note is scoped to it.
+Scoped to the window instead, at 390 on Payments the market's name, the rail, the page row's labels and the read-only note stood 8px left of the page's own notes and titles (T153 review finding 7).
+Only the gutters are scoped: the pinned bar, the rail's sideways spine and its wrapping end follow the window, since the window's height is what they spare.
+`the-payments-page.spec.ts` ("in a phone-sized window, a page that keeps the desktop floor ...") measures both at 390x844: on Payments the frame stands on the page's inset, and on Assignments on the phone's.
 The card is at least the height of the window under the banner, so a short page fills it.
 
 **A page says only its own lock; the frame says the person's.**
@@ -98,7 +105,7 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 Where the bar is narrower than the tabs and a readable name beside them (`@container market-bar (width < 59rem)`), the name takes its own line and the tabs scroll sideways rather than widening the page, since seven tabs are wider than a phone; among the market screens only Attendance, Tools and the Assignments page reach that width (`meta.fitsAPhone`; see [attendance and the door](attendance-and-door.md)), on a phone or a tablet, since at the desktop floor the bar is 968px wide.
 It is the bar's own width, not the window's, that decides: at 768 the name drew 0px wide beside the tabs and the page scrolled sideways, and `the-door-on-a-phone.spec.ts` holds the three routes at 720 and 768.
 The page row there scrolls away with the rail, each page's link a one-line 44px target by its line's height, so its current mark keeps its place.
-On a phone (640px and below) the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
+On a phone (640px and below), on a screen that fits one, the links touch, each label on the phone's 16px gutter with its pill reaching into it, so the Assignment tab's four pages fit a 390 phone; a narrower one scrolls the row sideways inside itself, as the bar's tabs do, never the page.
 The fourth page, Payments, ran past the card at 390 and squeezed Assignments onto two lines until then (E44/F02/S01); `the-assignment-tabs-pages.spec.ts` measures the row at 390 and 320, and the layout sweep's Assignments states at 390 find a link outside the row.
 A focused tab wears the white halo for the dark bar, drawn inside the tab there, since the scroller clips anything drawn outside it ([the design language](../../design-system.md#the-primitive-layer)).
 [`the-stats-tab.spec.ts`](../../../front-end/e2e/the-stats-tab.spec.ts) measures both widths: at 1280 the seven tabs hold one row beside a 60-character name on the form path, whose "Application Form" is the widest bar, the name ellipsing; at 390 the tabs scroll inside the bar and the page does not scroll sideways.

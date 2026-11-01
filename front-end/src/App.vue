@@ -9,6 +9,7 @@ import { onMounted, ref, provide, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
 import { useMarketStore } from '@/stores/market';
+import { fitsAPhone as routeFitsAPhone } from '@/utils/fitsAPhone';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
@@ -31,13 +32,11 @@ const marketStore = useMarketStore();
 const isLogin = computed(() => route.path === '/login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 /**
- * An organizer screen that must also work on a phone, by its route's `meta.fitsAPhone` (E29/F01): the
- * door on market day, and the few other places an organizer reaches from a phone (the router names
- * them). Every other organizer screen keeps the desktop floor; this lifts the floor and nothing else.
+ * A page that must also work on a phone: every public page, and an organizer screen whose route says
+ * so (`utils/fitsAPhone.ts`). Every other organizer screen keeps the desktop floor; this lifts the
+ * floor and nothing else.
  */
-const fitsAPhone = computed(
-  () => isPublicPage.value || route.matched.some((r) => r.meta.fitsAPhone === true),
-);
+const fitsAPhone = computed(() => isPublicPage.value || routeFitsAPhone(route));
 
 const user = ref<string | null>(null);
 const setUser = (user_data: string | null) => {
