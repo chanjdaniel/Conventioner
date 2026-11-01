@@ -103,6 +103,7 @@ sources:
   - T139
   - E38/F11/S01
   - T161
+  - T181
 ---
 
 # An exception never reaches a client
@@ -127,7 +128,8 @@ A parse that fails says what was wrong in our words, with the status it always h
   It names each failing field by its dotted location and pydantic's short `msg`, and never the error's `input`, `ctx`, `url` or `type`.
   Its log line is `parse_failure_detail(error)`: each location and pydantic's error type.
   The value is parsed with `model_validate`, so a value that is not an object is refused the same way rather than raising a `TypeError`.
-- A stored market the model refuses answers `Invalid market data`, 400, and `_log_unreadable_market` logs the same detail with the market's id, for `_load_market_for` and `load_market_context` alike.
+- A stored market the model refuses is answered `Invalid market data`, 400, by `_load_market_for`, and `_log_unreadable_market` logs the same detail with the market's id for `_load_market_for` and `load_market_context` alike.
+  The routes built on `load_market_context` decide their own answer, the market read among them: `get_market_for_user` serves it to no one, a 404, and the Markets list leaves it out and lists the rest ([the market document](../data/market-document.md)).
   A stored organization the model refuses is logged the same way with its id by `_load_organization_context`, and its market is still served, granting nothing through the organization.
 - A number question answered with text ([`back-end/application_write.py`](../../../back-end/application_write.py)) answers `'<label>' must be a number.`, 422, and logs nothing: why the conversion failed is the answer itself, which is the applicant's and never a log's.
 - A CSV Python's reader refuses (`parse_csv` in [`back-end/csv_import.py`](../../../back-end/csv_import.py)): the import's endpoints and the [CSV start](../modules/csv-proposal-and-start.md)'s proposal answer `That file could not be read as CSV.`, 400, and the CSV start's confirm answers it as a `ConfirmRefused`, 409.
@@ -182,6 +184,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
 
 So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).
+Removing someone already gone says what is true now, as the client half asks: "They are no longer in this organization." and "They no longer have a role on this market.", each a 404 ([the organization document](../data/organization-document.md#the-organization)); the two removal routes answer nothing of their own.
 
 So do the market setup routes: reading a market and listing a user's markets, creating, renaming, planning and deleting one, and its vendor notes, review highlights, rejection rules and permission rows, with their history.
 None catches anything, and each keeps its literal answers (`note is required`, `keys is required`, `Market not found or access denied`).

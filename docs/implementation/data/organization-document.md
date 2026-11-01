@@ -24,6 +24,8 @@ describes:
   - front-end/src/components/OrganizationPermissions.vue
   - back-end/api/permissions.py
   - back-end/api/markets.py#get_markets_for_user
+  - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
+  - back-end/tests/test_removing_someone_already_gone.py
   - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#organization_refusal
   - back-end/api/markets.py#add_market_role
@@ -42,6 +44,7 @@ sources:
   - E39/F02/S01
   - E38/F12/S01
   - E38/F15/S01
+  - T181
 ---
 
 # The organization document, and roles
@@ -73,6 +76,7 @@ It serves each with what removing someone from it takes (E38/F15/S01): `marketCo
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
 Transferring ownership makes the old owner an admin; transferring it to its own owner is refused before anything is written.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
+Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose `$pull` finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
 
@@ -115,6 +119,7 @@ Anyone else is added afterwards by email, through `add_market_role`, which store
 The owner's entry cannot be changed, removed or added beside, so a market's ownership cannot be handed on.
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
 Roles change on an archived market too: they are not a change to its record.
+Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows before it looks at the person, so someone who may take no role there is refused in one sentence whoever the person is, the only owner, an Admin, anyone else or nobody, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 
@@ -136,7 +141,11 @@ Removing someone from the organization takes away what it gave them and leaves a
 
 `user_has_permission` ranks the roles by `ROLE_RANK`, owner 4, admin 3, editor 2, viewer 1, and grants a row when the person's rank reaches the row's role; only [the market's actions](../modules/market-actions.md) calls it, with the row's role.
 Every market check asks a row there, and the market read serves every row's answer for the screens (`actionRefusals`), so no screen decides a threshold of its own ([what each role may do](../../business/rules/what-each-role-may-do.md)).
-The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations; each entry's role is the one the market's own read would resolve, worked by the same two rules from the documents the list already holds (`_summary_role`, reading the organization from the list's memo), and the entry's `actionRefusals` are asked of it, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations, each kept only where the market's own read would serve it to them (T181).
+It reads each document as the read does (`_readable_market`), resolves the person's role by the read's rule (`_summary_role`, through `market_role_of`, with the organization parsed as the read parses it, from the list's memo, so an organization whose document fails validation grants nothing through it here either) and asks the read's question of that role (`read_refused`).
+A document the model refuses is logged by `_log_unreadable_market` and left out with the rest still listed, and a market whose read row refuses the person is left out too, so no card opens onto "not found".
+The entry's `actionRefusals` are asked of the same role, so each control the card and Manage market offer is offered to exactly the people the market lets take it.
+[`back-end/tests/test_the_market_list_shows_what_the_read_serves.py`](../../../back-end/tests/test_the_market_list_shows_what_the_read_serves.py) pins it at the Flask client: every listed market opens for its reader, and an unknown role in a roles map or an organization that does not parse leaves the market out of the list as it leaves it out of the read.
 
 ## A market's organization
 

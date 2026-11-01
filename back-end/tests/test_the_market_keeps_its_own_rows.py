@@ -376,10 +376,13 @@ class TestEveryCheckReadsTheMarketsRows:
         MarketsApi.set_permission("market-123", "check-in", "admin", OWNER)
         lookups = MarketsApi._SummaryLookups()
 
-        changed = MarketsApi._decorate_market_summary(
-            copy.deepcopy(world.markets.doc("market-123")), "editor", lookups)
-        other = MarketsApi._decorate_market_summary(
-            copy.deepcopy(world.markets.doc("market-456")), "editor", lookups)
+        def entry(market_id):
+            document = copy.deepcopy(world.markets.doc(market_id))
+            return MarketsApi._decorate_market_summary(
+                document, MarketsApi.market_from_document(document), MarketRole.EDITOR, lookups)
+
+        changed = entry("market-123")
+        other = entry("market-456")
 
         assert changed["actionRefusals"]["check-in"] == (
             "Only an Admin or the owner may check vendors in at this market.")

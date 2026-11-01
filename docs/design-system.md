@@ -57,6 +57,7 @@ sources:
   - T142
   - T148
   - E38/F15/S01
+  - T181
 ---
 
 # Conventioner's design language
@@ -367,6 +368,7 @@ A desk keeps its denser 36px and 28px.
 
 **One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
 A control drawn by a component of its own rather than a `.btn` takes the same values, `--mm-text-muted-on-beige` on `--mm-beige` inside a `--mm-border` line, and never opacity, which dims the words with the affordance: the floorplan wizard's Next, Save and Auto-Place and the application form's order arrows sat at 1.87 to 2.72:1 (T162).
+A locked answer in Update info is drawn in the same state, whatever its control: a field, a tick list, the essential questions' choice rows and their ranking, each beige with muted ink, its chosen row marked by a `--mm-border` line rather than the applicant's mint; the Form preview, which shows what a vendor sees, keeps the applicant's look ([essential fields](implementation/modules/essential-fields.md)).
 Such a control drawn with no line of its own carries a transparent 1px one at rest, as `.btn` does, so the line appears when it is disabled and nothing moves: Publish Results drawn with `border: none` was a beige patch beside the bar's Publish Market, which had a line.
 The contrast sweep fails a shown disabled control drawn as a box, with a fill, that draws no line; a control drawn as words with no fill ("Resend code in 30s" on the vendor's sign-in) has no box to line, and a control in a disabled `<fieldset>` is out of it, since a settled plan is read as it stands, its calendar and fields as written.
 
@@ -447,6 +449,7 @@ The list holds these states, one a line, each beside the state it is most like, 
 - `/markets` and the Assignments page with their dialogs at 390
 - Vendors and Payments with their dialogs and drawers at 390, Payments priced and unpriced
 - the vendor drawer at the door on each of its tabs at 390
+- an Editor's Update info with its essential questions locked
 - settled rules
 - the floorplan wizard's steps with a plan uploaded
 - the signed-out pages

@@ -38,6 +38,7 @@ sources:
   - T142
   - T148
   - E38/F12/S01
+  - T181
 ---
 
 # E2E seeds
@@ -127,6 +128,7 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)
   - 36 vendors over four dates and three sections
+  - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
   - an archive
   - two CSV markets

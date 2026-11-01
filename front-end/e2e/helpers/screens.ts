@@ -19,7 +19,7 @@ import {
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
-import { seedTheScreens, type TheScreensSeed } from './seedTheScreens';
+import { SCREENS_EDITOR, seedTheScreens, type TheScreensSeed } from './seedTheScreens';
 import { settle } from './settle';
 
 /**
@@ -66,7 +66,7 @@ const PUBLIC = [DESKTOP, PHONE];
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
 /** Who is signed in to see a screen. */
-export type Who = 'organizer' | 'no organization' | 'applicant' | 'nobody';
+export type Who = 'organizer' | 'editor' | 'no organization' | 'applicant' | 'nobody';
 
 export interface Screen {
   name: string;
@@ -737,6 +737,20 @@ export const SCREENS: Screen[] = [
     ),
   },
   {
+    // An Editor's Update info (E41/F01/S02): the answers the assignment reads are an Admin's to
+    // update, so they are locked, the essential questions drawn as the market's own locked ones
+    // are (T181). It opens on `big`, whose plan asks the tiers, the table and the section ranking.
+    name: "an Editor's update-info dialog, the essentials locked",
+    who: 'editor',
+    sizes: ORGANIZER,
+    open: at(
+      screen('big', 'vendors'),
+      'vendors-list-item',
+      ['vendors-list-item', 'vendors-detail-email'],
+      ['vendors-detail-update-info', 'update-info-essentials'],
+    ),
+  },
+  {
     // Its History tab, the market's history narrowed to the vendor (E40/F01/S04).
     name: "the vendor drawer's history",
     who: 'organizer',
@@ -1171,7 +1185,9 @@ export async function signIn(page: Page, who: Who, seed: TheScreensSeed): Promis
     );
     return;
   }
-  const user = who === 'organizer' ? TEST_USER : NO_ORG_USER;
+  const user = { organizer: TEST_USER, editor: SCREENS_EDITOR, 'no organization': NO_ORG_USER }[
+    who
+  ];
   // At the page's own address for the API (`APP_API`), as its sign-in page would sign in.
   await loginViaApi(page.request, APP_API, user.email, user.password);
   // The shell keeps who is signed in here, and the router reads it before any probe (`App.vue`).

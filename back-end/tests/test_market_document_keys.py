@@ -38,19 +38,22 @@ from market_documents import (
 from migrate_market_keys import migrate
 
 USER_ID = "user-1"
+MARKET_OWNER_ID = "market-owner"
 USER_EMAIL = "member@example.com"
 ORG_ID = "org-1"
 OTHER_ORG_ID = "org-2"
 
 
 def _market(market_id, org_key="organizationId", org_id=ORG_ID, roles=None):
-    """A stored market owned by an org, keyed the way the given write path spelled it."""
+    """A stored market owned by an org, keyed the way the given write path spelled it, with the
+    one owner every market the server writes has: a document without one the market read refuses,
+    and so does the list (T181)."""
     return {
         "_id": f"mongo-{market_id}",
         "id": market_id,
         "name": f"Market {market_id}",
         "creationDate": "2026-01-01T00:00:00Z",
-        "roles": roles if roles is not None else {},
+        "roles": roles if roles is not None else {MARKET_OWNER_ID: MarketRole.OWNER.value},
         "modificationList": [],
         "assignmentObject": {"vendorAssignments": [], "assignmentStatistics": None},
         "isDraft": True,
@@ -62,7 +65,7 @@ def _organization(org_id):
     """An organization as ``get_organization`` and ``get_organizations_for_user`` return it."""
     return {
         "id": org_id, "_id": f"mongo-{org_id}", "name": "Test Org",
-        "owner": "org-owner", "admins": [], "members": [USER_ID],
+        "owner": "org-owner", "admins": [], "members": [USER_ID], "markets": [],
     }
 
 

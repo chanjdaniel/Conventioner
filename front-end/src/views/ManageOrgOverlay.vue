@@ -28,7 +28,7 @@ import {
   type OrganizationRoleType,
   type PermissionTableRow,
 } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { fetchOrganizations, organizationRemoval } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
 import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
@@ -252,7 +252,8 @@ function cancelRemove() {
 /**
  * Confirmed: removed, and the list re-read in place with Manage organization still open. The row,
  * and with it the Remove that opened the confirmation, is gone, so focus goes to the list it was in.
- * A refusal stays in the confirmation, which said what was about to happen.
+ * A 404 is someone another admin removed first: what was asked for is true, so it is read as done.
+ * Any other refusal stays in the confirmation, which said what was about to happen.
  */
 async function handleRemoveUser() {
   const target = removing.value;
@@ -264,9 +265,11 @@ async function handleRemoveUser() {
       `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(target.userId)}`,
     );
   } catch (err) {
-    removeError.value = getApiErrorMessage(err, 'The person was not removed.');
-    removeBusy.value = false;
-    return;
+    if (getApiErrorStatus(err) !== 404) {
+      removeError.value = getApiErrorMessage(err, 'The person was not removed.');
+      removeBusy.value = false;
+      return;
+    }
   }
   // Busy until the confirmation closes: during the re-read its Remove would send a second removal.
   await saved();

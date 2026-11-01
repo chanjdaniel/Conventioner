@@ -127,13 +127,20 @@ def _load_organization_context(
     if not org_dict:
         return None, None
     org_dict.pop('_id', None)
+    return _organization_from_document(org_dict), org_dict
+
+
+def _organization_from_document(org_dict: Dict[str, Any]) -> Optional[Organization]:
+    """A stored organization as its model, or None, logged, when the document fails validation:
+    the market read and the Markets list parse it here alike, so both grant through it the same."""
     try:
-        return Organization(**org_dict), org_dict
+        return Organization(**{k: v for k, v in org_dict.items() if k != '_id'})
     except Exception as e:
         logger.warning(
-            "Stored organization %s failed validation: %s", organization_id, parse_failure_detail(e),
+            "Stored organization %s failed validation: %s", org_dict.get('id'),
+            parse_failure_detail(e),
         )
-        return None, org_dict
+        return None
 
 
 def _load_organization(organization_id: Optional[str]) -> Optional[Organization]:
@@ -227,7 +234,8 @@ def role_action_refusals(
 
     Each row is asked by ``Actions.role_refusal`` of the role already resolved, the ranking the
     writes' ``Actions.refusal`` asks after resolving it: the market read resolves it once, and the
-    markets list from the documents it holds. Served as ``actionRefusals``, so every screen offers
+    markets list from the market and the organization its memo holds (``_summary_role``); both
+    pass the market's rows as the read parses them. Served as ``actionRefusals``, so every screen offers
     a control on the answer of the action it takes. The rules of a market's life other than the
     archived one are each served on their own. ``chosen`` says whether the person is one of the
     market's chosen reviewers (``Actions.is_chosen``), who may take the giving row by it.
@@ -800,16 +808,36 @@ def _log_unreadable_market(market_id: str, error: Exception) -> None:
     logger.warning("Stored market %s failed validation: %s", market_id, parse_failure_detail(error))
 
 
+def _readable_market(document: Dict[str, Any]) -> Optional[Market]:
+    """A stored market as its model, or None, logged, when the model refuses the document: the
+    market read and the Markets list parse it here alike, so a document one cannot read the other
+    does not serve."""
+    try:
+        return market_from_document(document)
+    except Exception as e:
+        _log_unreadable_market(document.get('id'), e)
+        return None
+
+
+def read_refused(market: Market, role: Optional[MarketRole]) -> bool:
+    """Whether the market read answers a market as absent to someone holding ``role``, the role
+    ``market_role_of`` gives them.
+
+    The one question the read (``get_market_for_user``) and the Markets list
+    (``get_markets_for_user``) both ask of a market ``_readable_market`` read, so every card the
+    list shows opens.
+    """
+    return Actions.role_refusal(Actions.READ, role, market.permissions) is not None
+
+
 def load_market_context(market_id: str) -> Optional[MarketContext]:
     """Load a market with its parsed model and owning organization, or None if absent."""
     market_dict = markets_collection.find_one({"id": market_id})
     if not market_dict:
         return None
 
-    try:
-        market = market_from_document(market_dict)
-    except Exception as e:
-        _log_unreadable_market(market_id, e)
+    market = _readable_market(market_dict)
+    if market is None:
         return MarketContext(market_dict, None, None, None)
 
     organization, org_dict = _load_organization_context(market.organization_id)
@@ -856,7 +884,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     user_role = PermissionsApi.get_user_market_role(
         user_email, market, context.organization, user=reader)
     chosen = Actions.is_chosen(user_email, market)
-    if Actions.role_refusal(Actions.READ, user_role, market.permissions):
+    if read_refused(market, user_role):
         return None
 
     market_dict['_id'] = str(market_dict['_id'])
@@ -1040,17 +1068,30 @@ class _SummaryLookups:
 
     def __init__(self, organizations: Optional[List[Dict[str, Any]]] = None) -> None:
         self._organizations: Dict[str, Any] = {org['id']: org for org in (organizations or [])}
+        self._models: Dict[str, Optional[Organization]] = {}
 
     def organization(self, org_id: str) -> Optional[Dict[str, Any]]:
         if org_id not in self._organizations:
             self._organizations[org_id] = OrgsApi.get_organization(org_id)
         return self._organizations[org_id]
 
+    def organization_model(self, org_id: Optional[str]) -> Optional[Organization]:
+        """The organization as the market read parses it, so it grants what the read grants:
+        nothing when its document fails validation."""
+        if not org_id:
+            return None
+        if org_id not in self._models:
+            org = self.organization(org_id)
+            self._models[org_id] = _organization_from_document(org) if org else None
+        return self._models[org_id]
+
 
 def _decorate_market_summary(
-    market: Dict[str, Any], user_role: Optional[str], lookups: _SummaryLookups
+    market: Dict[str, Any], parsed: Market, user_role: Optional[MarketRole],
+    lookups: _SummaryLookups,
 ) -> Dict[str, Any]:
-    """Add the read-time fields every market list entry carries.
+    """Add the read-time fields every market list entry carries to the stored document ``market``,
+    whose model ``parsed`` is, as ``_readable_market`` read it.
 
     Kept in one place so a market exposes the same derived state - phase included -
     whether it was served by the list endpoint or by ``get_market_for_user``.
@@ -1060,13 +1101,12 @@ def _decorate_market_summary(
     from api.discord_connection import leave_out_what_is_not_served
     leave_out_what_is_not_served(market)
     # Deprecated, as the market read's: an old bundle's card offers Manage on it.
-    market['user_role'] = user_role
+    market['user_role'] = user_role.value if user_role else None
     phase = phase_from_market_document(market)
     _stamp_effective_market_state(market, phase)
-    # The table's answers for the role the entry names, so the card offers Manage on its row as
-    # the market's own page does (E39/F01/S02).
-    market['actionRefusals'] = role_action_refusals(
-        _market_role(user_role), phase, market_doc_field(market, 'permissions') or {})
+    # The table's answers for the role the entry names, asked of the market's rows as the read
+    # parses them, so the card offers Manage on its row as the market's own page does (E39/F01/S02).
+    market['actionRefusals'] = role_action_refusals(user_role, phase, parsed.permissions)
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
@@ -1075,38 +1115,36 @@ def _decorate_market_summary(
     return market
 
 
-def _market_role(value: Optional[str]) -> Optional[MarketRole]:
-    """A stored role value as a role, or None for no role or one this server does not know."""
-    try:
-        return MarketRole(value) if value else None
-    except ValueError:
-        return None
-
-
-def _summary_role(
-    market: Dict[str, Any], user_id: str, lookups: _SummaryLookups
-) -> Optional[str]:
+def _summary_role(market: Market, user_id: str, lookups: _SummaryLookups) -> Optional[MarketRole]:
     """The role a list entry names: the one ``get_user_market_role`` would serve on the market.
 
-    Worked from the raw documents the list already holds, by the same two rules, so a card offers
+    Worked by the same rule, from the organization the list's memo already holds, so a card offers
     Manage to exactly the people the market's own page lets manage it: an organization's admins
     run its markets, and the list called them viewers.
     """
-    explicit = (market_doc_field(market, 'roles') or {}).get(user_id)
-    on_the_market = _market_role(explicit)
-    organization_id = market_doc_field(market, 'organization_id')
-    org = lookups.organization(organization_id) if organization_id else None
-    through_organization = PermissionsApi.organization_market_role(
-        user_id, org.get('owner'), org.get('admins') or [], org.get('members') or [],
-    ) if org else None
-    role = PermissionsApi.higher_role(on_the_market, through_organization)
-    return role.value if role else explicit
+    return PermissionsApi.market_role_of(
+        user_id, market, lookups.organization_model(market.organization_id))
+
+
+def _listed(
+    document: Dict[str, Any], user_id: str, lookups: _SummaryLookups,
+) -> Optional[Dict[str, Any]]:
+    """A stored market as its list entry, or None when the market read would not serve it to this
+    reader: the list asks the read's own question (``read_refused``), so no card opens on "not
+    found"."""
+    market = _readable_market(document)
+    if market is None:
+        return None
+    role = _summary_role(market, user_id, lookups)
+    if read_refused(market, role):
+        return None
+    return _decorate_market_summary(document, market, role, lookups)
 
 
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
-    Get all markets a user has access to (via explicit role or organization).
-    Returns markets with user's effective role included.
+    Get all markets a user has access to (via explicit role or organization): exactly those the
+    market read serves them, each with their effective role included.
     """
     user = UsersApi.get_user(user_email)
     if not user:
@@ -1125,28 +1163,20 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     markets_with_role = markets_collection.find(
         {f"{market_doc_key('roles')}.{user_id}": {"$exists": True}}
     )
-
-    for market in markets_with_role:
-        mid = market["id"]
-        if mid not in seen_ids:
-            seen_ids.add(mid)
-            result.append(_decorate_market_summary(
-                market, _summary_role(market, user_id, lookups), lookups
-            ))
-
     org_ids = [org['id'] for org in user_orgs]
+    org_markets = markets_collection.find(
+        market_doc_filter("organization_id", {"$in": org_ids})
+    ) if org_ids else []
 
-    if org_ids:
-        org_markets = markets_collection.find(
-            market_doc_filter("organization_id", {"$in": org_ids})
-        )
-        for market in org_markets:
-            mid = market["id"]
-            if mid not in seen_ids:
-                seen_ids.add(mid)
-                result.append(_decorate_market_summary(
-                    market, _summary_role(market, user_id, lookups), lookups
-                ))
+    for documents in (markets_with_role, org_markets):
+        for document in documents:
+            mid = document["id"]
+            if mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            entry = _listed(document, user_id, lookups)
+            if entry is not None:
+                result.append(entry)
 
     return result
 
@@ -2037,8 +2067,17 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     return result.modified_count > 0
 
 
-def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bool:
-    """Remove a user role from a market. Asks the row that takes the role (``Actions.roles_row``)."""
+NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
+
+
+def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> None:
+    """Remove a user role from a market. Asks the row that takes the role (``Actions.roles_row``).
+
+    Taking the role of someone who holds none here, another organizer having taken it first, is
+    a 404 saying so, written and recorded as nothing, and Manage market reads it as done. A
+    requester whom neither roles row lets take a role is refused first, in one sentence, so they
+    learn nothing of whether the person is the only owner, an Admin, anyone else or nobody.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
@@ -2049,9 +2088,14 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
     market = context.market
     organization = context.organization
 
+    refusals = [Actions.refusal(row, requesting_user, market, organization)
+                for row in (Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS)]
+    if all(refusals):
+        raise ForbiddenError(refusals[0])
+
     roles = market_dict.get('roles', {})
     if user_id not in roles:
-        raise BadRequestError("User does not have a role in this market")
+        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
     
     if roles.get(user_id) == MarketRole.OWNER.value:
         # Count how many owners there are
@@ -2073,10 +2117,11 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         {"$set": {"roles": roles}}
     )
     
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
-                     market.roles[user_id], None)
-    return result.modified_count > 0
+    # Nothing changed: someone else took the role between the read and this write.
+    if result.modified_count == 0:
+        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
+    _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
+                 market.roles[user_id], None)
 
 
 def update_market_role(market_id: str, user_id: str, new_role: MarketRole, requesting_user: str) -> bool:

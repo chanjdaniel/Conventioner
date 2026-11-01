@@ -327,8 +327,9 @@ def role_refusal(
 ) -> Optional[str]:
     """``refusal`` for a role already resolved, on a market holding ``rows``: the market read
     resolves the person's role once and asks every row of it, and the markets list resolves each
-    entry's role from the documents it holds (``_summary_role``) and passes the document's stored
-    rows; each asks the row of that rather than resolving it again. A row asked on top of another
+    entry's role from the market and the organization its memo holds (``_summary_role``); both
+    pass the market's rows as the read parses them, and each asks the row of that role rather than
+    resolving it again. A row asked on top of another
     asks that one first, as ``refusal`` does. ``chosen`` says whether the person is one of the
     market's chosen reviewers, which lets them take the giving row as ``refusal`` does.
     """

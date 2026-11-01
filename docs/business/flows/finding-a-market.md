@@ -18,6 +18,7 @@ sources:
   - T142
   - T148
   - E38/F15/S03
+  - T181
 ---
 
 # Finding and opening markets
@@ -64,7 +65,7 @@ Covered by:
 ## C2. The markets list
 
 **Status:** Works (walked live; the finder read from the code and `finding-a-market.spec.ts`).
-`/markets` lists every reachable market with its phase badge, dates ("Nov 17-21, 2025 (5 days)"; two separate days are named both, "Oct 3 and 10, 2026") and organization; a long name is cut with an ellipsis rather than wrapped (bug 14).
+`/markets` lists every market whose own page opens for the organizer ([what each role may do](../rules/what-each-role-may-do.md)), with its phase badge, dates ("Nov 17-21, 2025 (5 days)"; two separate days are named both, "Oct 3 and 10, 2026") and organization; a long name is cut with an ellipsis rather than wrapped (bug 14).
 Above the list a finder narrows it: "Search" by market name as it is typed (case and accents do not count), "Organization", "Sort by" ("Market date", "Name", "Created") and a "Phase" toggle per stage the phase rail draws, in its order, so no "Offers", which nothing moves a market into (E38/F15/S03); once narrowed the count says "N of M markets", and when nothing matches the page says "No markets match these filters" and offers "Clear filters".
 The finder's choices are held in the page's address; a value there that no longer means anything (an organization the organizer has left, a phase the finder does not offer, `offers` included) is dropped, so an old bookmark opens onto markets.
 Clicking a card opens the market; "Manage", shown to anyone who may read the market, opens the Manage market dialog ([L3 to L5](ending-and-managing-a-market.md#l3-manage-who-has-access)), where each control asks its own row and everyone reads [who may do what](ending-and-managing-a-market.md#l3a-set-who-may-do-what) (E39/F01/S04).

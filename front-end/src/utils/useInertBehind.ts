@@ -10,6 +10,15 @@ import { watch, onUnmounted, type Ref } from 'vue';
  */
 const markedBy = new Map<HTMLElement, number>();
 
+/**
+ * How many live modals have taken `inert` off each element because it is part of them.
+ *
+ * Module-level for the same reason as `markedBy`: a modal beneath walks again when one of its parts
+ * changes while it is open, and its walk must not put `inert` back on a dialog opened on top of it,
+ * whose branch that dialog holds live.
+ */
+const suppressedBy = new Map<HTMLElement, number>();
+
 /** Nothing here can hold focus or take a click, so marking it would only puzzle a reader. */
 const NOT_RENDERED = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
 
@@ -56,8 +65,12 @@ export function useInertBehind(
 
   function release() {
     for (const el of suppressed) {
-      // Still marked by something else, so it goes back to being out of play.
-      if ((markedBy.get(el) ?? 0) > 0) el.setAttribute('inert', '');
+      const holders = (suppressedBy.get(el) ?? 1) - 1;
+      if (holders > 0) suppressedBy.set(el, holders);
+      else suppressedBy.delete(el);
+      // Still marked by something else, and held live by no other modal, so it goes back to being
+      // out of play.
+      if (holders === 0 && (markedBy.get(el) ?? 0) > 0) el.setAttribute('inert', '');
     }
     suppressed = [];
 
@@ -75,7 +88,8 @@ export function useInertBehind(
 
   function mark(el: HTMLElement) {
     const already = markedBy.get(el);
-    if (already === undefined) el.setAttribute('inert', '');
+    // A modal open on top holds this one live: counted, so it goes out of play once that closes.
+    if (already === undefined && !suppressedBy.has(el)) el.setAttribute('inert', '');
     markedBy.set(el, (already ?? 0) + 1);
     marked.push(el);
   }
@@ -100,6 +114,7 @@ export function useInertBehind(
     for (const el of spine) {
       if (!(el instanceof HTMLElement) || !markedBy.has(el)) continue;
       el.removeAttribute('inert');
+      suppressedBy.set(el, (suppressedBy.get(el) ?? 0) + 1);
       suppressed.push(el);
     }
 
@@ -116,11 +131,18 @@ export function useInertBehind(
     }
   }
 
+  const openNow = typeof isOpen === 'function' ? isOpen : () => isOpen.value;
   watch(
-    typeof isOpen === 'function' ? isOpen : () => isOpen.value,
-    (open) => (open ? apply() : release()),
-    // `immediate` and `post` together: a modal that is already open when its view mounts must be
-    // marked, and the walk needs the elements in `partsOf` to exist before it runs.
+    // The parts as well as the open state. A modal mounted already open (a `v-if` dialog with
+    // `:open="true"`) is open from setup, before the template ref that names its parts has bound,
+    // so watching the open state alone walked once with no parts and never again: the page behind
+    // the change-placement dialog stayed live (T181). The ref binding on mount now re-runs the walk,
+    // and `apply` releases before it marks, so a re-run never counts an element twice, and leaves a
+    // dialog opened on top live (`suppressedBy`).
+    () => [openNow(), ...partsOf()] as const,
+    ([open]) => (open ? apply() : release()),
+    // `immediate` and `post` together: a modal whose parts already exist when it opens is marked
+    // at once, and every later walk runs after the render that bound its parts.
     { immediate: true, flush: 'post' },
   );
 

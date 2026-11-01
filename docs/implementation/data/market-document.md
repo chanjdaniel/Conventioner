@@ -14,6 +14,7 @@ describes:
   - back-end/api/markets.py#create_market
   - back-end/api/markets.py#public_address_refusal
   - back-end/api/markets.py#load_market_context
+  - back-end/api/markets.py#_readable_market
   - back-end/api/markets.py#_stamp_effective_market_state
   - back-end/api/markets.py#_normalized_application_form
   - back-end/api/markets.py#_strip_persisted_assignment_statistics
@@ -22,7 +23,7 @@ describes:
   - back-end/migrations/migrate_is_draft_consistency.py
   - back-end/migrations/migrate_publishing_to_market_days.py
   - docs/schema.d.ts
-verified: 2026-10-31
+verified: 2026-11-01
 sources:
   - E02
   - E03/F03
@@ -38,6 +39,7 @@ sources:
   - E46/F01/S02
   - E46/F01/S05
   - E46/F01/S04
+  - T181
 ---
 
 # The market document
@@ -189,6 +191,7 @@ Until it runs, such a market reads as finished: its check-in page takes no check
 For one release it also reads the three phases E38/F04 folded into `applications` (`LEGACY_STAGE_PHASES`) as `migrate_to_one_stage.py` would leave them: `applications`, or `draft` for a Google Form market that imported nothing; and `applications_stopped_from_market_document()` reads a form market still stored in `applications_closed` or `review` as stopped, unless `applicationsStopped` says otherwise ([ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 `market_from_document()` takes `applications_stopped` from it, and nothing is written back; a later release drops the aliases.
 `load_market_context()` (`api/markets.py`) is the shared market, organization and permission load every endpoint uses.
+**A document the model refuses is served to no one**: the read and the Markets list both parse it through `_readable_market`, which logs the market's id and why (`_log_unreadable_market`, never what the document held); the read answers it 404 and the list leaves it out and lists the rest ([the organization document](organization-document.md#what-a-person-may-do-on-a-market), T181).
 
 **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes both from their document readers, `phase_from_market_document()` and `intake_mode_from_market_document()`.
 Pydantic validates an enum on construction, before any later assignment can degrade it, so a stored value this build does not recognize used to raise, taking down every list that included that one market.

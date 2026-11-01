@@ -8,7 +8,7 @@ import {
   type PermissionTableRow,
   type PersonWithAccess,
 } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage } from '@/utils/api';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
@@ -186,7 +186,8 @@ function cancelRemove() {
 /**
  * Confirmed: the market role is taken, and the list re-read in place with Manage market still
  * open. The Remove that opened the confirmation is gone with the role, so focus goes to the list. A
- * refusal stays in the confirmation, which said what was about to happen.
+ * 404 is a role another admin took first: what was asked for is true, so it is read as done. Any
+ * other refusal stays in the confirmation, which said what was about to happen.
  */
 async function handleRemoveUser() {
   const target = removing.value;
@@ -199,9 +200,11 @@ async function handleRemoveUser() {
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(target.userId)}`,
     );
   } catch (err) {
-    removeError.value = getApiErrorMessage(err, 'The person was not removed.');
-    removeBusy.value = false;
-    return;
+    if (getApiErrorStatus(err) !== 404) {
+      removeError.value = getApiErrorMessage(err, 'The person was not removed.');
+      removeBusy.value = false;
+      return;
+    }
   }
   // Busy until the confirmation closes: during the re-read its Remove would send a second removal.
   changesMade.value++;

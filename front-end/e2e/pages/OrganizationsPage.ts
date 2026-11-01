@@ -48,6 +48,8 @@ export class OrganizationsPage {
   readonly doomedMarkets: Locator;
   readonly blockingMarkets: Locator;
   readonly manageWindow: Locator;
+  /** What Manage organization says of a request that failed, under its title. */
+  readonly manageError: Locator;
   readonly manageCloseButton: Locator;
   readonly adminEmails: Locator;
   readonly memberEmails: Locator;
@@ -83,6 +85,7 @@ export class OrganizationsPage {
     // ManageOrgOverlay
     this.manageOverlayBackground = page.getByTestId('manage-org-background');
     this.manageWindow = page.getByTestId('manage-org-window');
+    this.manageError = page.getByTestId('manage-org-error');
     this.manageCloseButton = page.getByTestId('manage-org-close-button');
     this.renameInput = page.getByTestId('manage-org-rename-input');
     this.renameSaveButton = page.getByTestId('manage-org-rename-save-button');
