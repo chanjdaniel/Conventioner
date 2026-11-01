@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/views/AttendanceCheckinView.vue
   - front-end/src/views/AttendanceStatusView.vue
-verified: 2026-10-29
+verified: 2026-11-01
 sources:
   - brain-dump/2026-10-19#15
   - E10/F01/S02
@@ -19,6 +19,7 @@ sources:
   - E08/F03
   - T15
   - E38/F09/S01
+  - E38/F15/S04
 ---
 
 # Publishing, and the door on market day
@@ -82,11 +83,12 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone"), `th
 2. "N of M checked in", and "All M", "Not yet N" (or "Did not come N" once the day is over or the market archived) and "Checked in N" to show one or the other.
 3. "Find a vendor" ("Name, email or table") narrows the list.
 4. Each vendor placed that day, by table: their name, a link at rest (link ink, underlined, a 44px target on a phone), which opens the [vendor drawer](vendor-drawer.md) and never checks them in; the time they checked in and by whom ("by you", or the organizer's address; a vendor's own check-in names nobody), or "Not yet"; and their notes under the row when they have some.
-5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door.
+5. While the market is in Market Days, "Check in" and "Undo" on each row check a vendor in at the door, for someone who may check vendors in.
+   A Viewer is offered neither: they read the frame's "You can view this market but not change it. …", the rail's "Follow who has checked in at the door.", and each row ending at its status (E38/F15/S04).
 
 It lists everyone expected on the day, so it shows who is missing; "Nobody is assigned on this date." on a date with nobody.
 It works at a phone's width, as only Tools and the Assignments page among the other organizer market screens do, and there its rows keep a gutter at both sides rather than running to the card's edges (T15).
-Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `checkin.spec.ts`.
+Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `checkin.spec.ts`, `a-viewer-at-the-door-reads-why.spec.ts`.
 
 ## The rules it obeys
 
