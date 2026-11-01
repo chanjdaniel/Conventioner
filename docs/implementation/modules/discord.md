@@ -3,7 +3,6 @@ layer: implementation
 kind: module
 describes:
   - back-end/discord_client.py
-  - back-end/discord_fake.py
   - back-end/api/discord_connection.py
   - back-end/datatypes.py#DiscordConnection
   - front-end/src/components/market/MarketDiscordCard.vue
@@ -11,8 +10,11 @@ describes:
   - front-end/src/utils/discordConnected.ts
   - front-end/src/utils/discordQuestion.ts
   - front-end/src/utils/discordCheck.ts
-  - front-end/src/components/VendorDiscordOffer.vue
   - scripts/discord_rest_proof.py
+  - front-end/src/utils/discordRoles.ts
+  - back-end/datatypes.py#DiscordRoleRun
+  - back-end/discord_fake.py
+  - front-end/src/components/VendorDiscordOffer.vue
 verified: 2026-11-01
 sources:
   - T92
@@ -20,6 +22,7 @@ sources:
   - E46/F01/S01
   - E46/F01/S02
   - E46/F01/S03
+  - E46/F01/S04
   - E46/F01/S05
   - T137
 ---
@@ -28,7 +31,7 @@ sources:
 
 A market is connected to one Discord server, so that a later run can give the market's vendors a role there (E46).
 One Discord application, Conventioner's, is added to each organizer's server through Discord's own approval screen (Daniel, T92 Q11: "one bot").
-[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, disconnecting, checking who is in the server, and declining a possible match.
+[`back-end/discord_client.py`](../../../back-end/discord_client.py) is the only code that talks to Discord, and [`back-end/api/discord_connection.py`](../../../back-end/api/discord_connection.py) is the market's side: connecting, the card's choices, disconnecting, checking who is in the server, declining a possible match, and giving the role.
 
 ## The Discord card
 
@@ -86,8 +89,13 @@ The check reads every member of the server, a page of 1000 at a time after the l
 
 **The username question is checked again when the check runs**, since it is checked only when the card saves it and a form changed since may have lost it: none chosen says "Choose the username question on the Discord card first", and one no longer a text question of the form says "Choose the username question again" (T113 rereview note 10); neither calls Discord.
 
+**A check reads the members for `MEMBERS_READ_SECONDS` (15) at most, from the route's start, as a run does** ([giving the role](#giving-the-role)): each page is asked, waited for and waited on no longer than that, so a large or slow server cannot hold the check past the host's time limit, which would end it with a bare 504 (T155 rereview, finding 5).
+A read that runs out writes and records nothing and answers "Discord was slow to list the server's members. Check Discord again." (a 502, `CHECK_TOO_SLOW`).
+
 **What it found is kept on the market's connection**: `checkedAt`, and `vendorStates`, each `applicationId` with its `state`, the `answer` it was read for (the username answer as the organizer read it, untidied, left out when there was none) and, for a vendor not found, the `possibleMatches` offered and how many more looked alike (`moreMatches`, left out when none), written whole by each check; a vendor who applied since has no state until the next.
-**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take seconds to read, and up to three waits under a 429, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
+**The check writes those two fields only, and only while the card still names the server, the role and the username question it read against** (`CHECKED_AGAINST`): the members take up to `MEMBERS_READ_SECONDS` to read, so a card saved meanwhile is kept, and a check whose server, role or question changed under it answers 409, "The Discord card changed, or roles were given, while Discord was being checked. Check Discord again.", and records nothing; an invite link saved meanwhile is kept and the check stands.
+**It writes them only while `checkedAt` is what it read, too**: a "Give roles" run, or another check, that wrote since read the members later, and a run's grants are newer than any list read before them, so the check's states never put "In the server" back over a vendor the run just gave the role; it answers the same 409.
+The page offers neither the check nor "Give roles" while the other runs.
 **The card's writes set only their own fields too**: saving a choice, and connecting to the same server, `$set` only the fields they change, so a check finishing meanwhile is not undone, and their history still records the card's fields before and after as it always did.
 They are about that server, so connecting to another server forgets them as it forgets the role, and disconnecting forgets them, even when a check finished after the connection was read; connecting again to the same server keeps them; the members declined as a possible match (`declinedMatches`) are about it too, and go with them.
 The market read serves every reader each vendor as the pages show them (`discordVendors`, below), so whoever reads the Vendors page reads its Discord column and filter, and only someone the row allows is offered the check.
@@ -118,6 +126,33 @@ In the vendor's drawer ([`VendorDiscordOffer.vue`](../../../front-end/src/compon
 
 Someone either row refuses reads the members offered, with no control (`answersDiscord` in [`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
 
+## Giving the role
+
+**"Give roles" on the Vendors page gives the card's role to every assigned vendor in the server, in one run** (`POST /markets/:id/discord/role-run`, `give_roles`; [the Vendors page](../../business/flows/vendors.md#j18-give-the-markets-role-to-the-assigned-vendors)).
+It asks the same row as the card and the check, and is offered where the check is, on a market whose card names a role, once anyone holds a seat (`mayGiveRoles` in [`discordRoles.ts`](../../../front-end/src/utils/discordRoles.ts)); an archived market refuses it, as every write.
+It confirms first, by the role's name and how many vendors hold a seat on any date, counted from where the page reads them: "Give Vendor Nov 2026 to 54 assigned vendors?".
+
+- **Assigned is holding a seat on any date** of the stored assignment (`seated_addresses` in [`result_outcome.py`](../../../back-end/result_outcome.py)), among the market's main applications.
+- **The run reads the members once, as a check does, within the first `MEMBERS_READ_SECONDS` (15) of the run's time**, so the grants keep at least 35 seconds, matching by tidied username alone, then asks Discord to give the role (Add Guild Member Role, `RoleGrants` in [`discord_client.py`](../../../back-end/discord_client.py)) only to an assigned vendor whose username a member has and who does not hold the role yet. A read that runs out gives nobody the role, writes nothing and records nothing, answering "Discord was slow to list the server's members. Give roles again." (a 502).
+- **Each assigned vendor ends in one outcome**: `given`, `already_had`, `not_found` (no member has the username), `no_username`, `not_yet` (the run's time ended first), or `failed` with its reason in Conventioner's words.
+- **A run asks Discord for `ROLE_RUN_SECONDS` (50) at most, from the route's start**, then stops asking, and every assigned vendor still to be given the role is "Not given yet", with "A run asks Discord for under a minute, and Discord was still pacing it. Give roles again to finish."; a second run finds those given already holding the role and gives the rest.
+  The back end is a Vercel function, ended at its maximum duration with whatever it had not yet written: with Fluid compute, which [`back-end/vercel.json`](../../../back-end/vercel.json) turns on, that is 300 seconds by default and at most on the Hobby plan ([Vercel's duration limits](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits)), and nothing in this repository lowers it.
+  The run stops far sooner, since the organizer watches "Giving roles…" meanwhile and a connection idle for a minute may be closed on the way.
+  At half a second a page of 1000 members, a slow pace for Discord, the read's 15 seconds fit 29 full pages and a last one, a server of fewer than 30,000 members (`PAGES_THAT_FIT` in `test_discord_connection.py`); a larger or slower server answers "Discord was slow to list the server's members".
+  No request, neither the member read nor a grant, is sent, no 429 waited out and no request waited on past that time: a wait that would pass it, or a request cut short by it, ends the run there (`OutOfTime`); a grant cut short while Discord answered may have landed, and the second run then finds the role held.
+- **The grants are paced by Discord's own count**: each answer says how many requests the route has left and when it refills (`X-RateLimit-Remaining`, `X-RateLimit-Reset-After`, [rate limits](https://docs.discord.com/developers/topics/rate-limits)), and at none the next grant waits for the refill, within the run's time, rather than meet a 429.
+- **Each grant names the run in the server's audit log** (`X-Audit-Log-Reason`, URL-encoded and cut to Discord's 512 characters, [audit log](https://docs.discord.com/developers/resources/audit-log)): "Conventioner: Give roles for" and the market's name, so the server's moderators can tell these grants from a role given by hand.
+- **A run only gives** (Daniel, T92 Q19: "no" to taking a role away): it never asks Discord to remove one, so a vendor who has lost their seat keeps the role, and is not in the run's report.
+- **A refusal of one member is theirs alone**: a member who left between the list and the grant (Discord's Unknown Member or Unknown User) fails with "No longer in the server." and reads "Not found", and the run goes on.
+  **Any other refusal would refuse every grant alike**, so the run stops asking and every assigned vendor still to be given the role fails with the same reason: the bot's role below the market's role, or the bot without Manage Roles (Discord's Missing Permissions), says "Conventioner's role is below Vendor Nov 2026, or may not manage roles." with the card's steps to fix it; a role the server no longer has asks to choose the role again; a server the bot cannot reach, the deployment's settings refused, a 429 that holds and Discord out of reach say what any call says. A run thus asks a limit that holds, or a permission it lacks, once, never once a vendor.
+- **The run updates every vendor's state**, as a check would set it, with the possible matches a check would offer, a vendor given the role then "Has the role" and one who left "Not found", and sets `checkedAt`; a check that wrote while the run asked is overwritten, since the run's grants are newer than what that check read.
+- **The last run's report is kept on the connection** as `roleRun` (`DiscordRoleRun`): `ranAt`, the role's name then, and each assigned vendor's outcome with a failure's reason, by application id; the page counts the groups from them.
+  The market read serves it to every reader, so the report stands above the list for anyone who reads the page ([`DiscordRoleReport.vue`](../../../front-end/src/components/DiscordRoleReport.vue)): "Vendor Nov 2026, last run 5 minutes ago", how many in each group, and "Show who" opening each group's vendors, a failure's reason, or the reason the rest are not given yet, said once for the vendors it held back.
+  A vendor not found whom the market's `discordVendors` now show as a possible match is counted beside "not found" ("1 not found (1 possible match)"), so the report and their row agree.
+  It is about the server, so connecting to another server or disconnecting forgets it, as it forgets the check.
+
+**The run writes its report, the states and `checkedAt` only while the card still names the server, the role and the username question it read against**, as a check does; but the roles are already given in Discord by then, so a card changed meanwhile is kept, the run is still recorded in the history with the roles it gave, and the answer is a 409, "The Discord card changed while roles were being given. The roles given are in the market's history; check Discord again."
+
 ## The values, and a deployment without them
 
 **`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` and `DISCORD_BOT_TOKEN` are optional, and never a boot requirement.**
@@ -127,7 +162,7 @@ The market read serves `discordSetUp`, and without it the card says "Discord is 
 The redirect registered in the Developer Portal is `FRONTEND_URL` + `/discord/connected` for each deployment: `https://conventioner.io/discord/connected`, and `http://127.0.0.1:5173/discord/connected` for the primary checkout's stack.
 **`FRONTEND_URL` must be the address the organizer signs in at**: the state lives in that host's session, so a stack whose `FRONTEND_URL` says `localhost` while the organizer signs in at `127.0.0.1` sends Discord a redirect that is not registered, or brings the organizer back to a host without their session; locally it is `FRONTEND_URL=http://127.0.0.1:5173`.
 
-**A local stack may have a fake answer for Discord** (`DISCORD_FAKE=true`, [a fake Discord](../../TESTING.md#a-fake-discord), T156 review note 6): the client's one sender, `_send`, then asks [`back-end/discord_fake.py`](../../../back-end/discord_fake.py) instead of Discord, which answers the routes the client uses (the bot itself, a server's roles and members, a page at a time, and the code exchange) from the servers in the `fake_discord_servers` collection, in Discord's own shapes, and 404 for a server it has none of; `credentials()` are the fake's own, and the approval address is the market's return address with a code naming the first fake server.
+**A local stack may have a fake answer for Discord** (`DISCORD_FAKE=true`, [a fake Discord](../../TESTING.md#a-fake-discord), T156 review note 6): the client's one sender, `_send`, then asks [`back-end/discord_fake.py`](../../../back-end/discord_fake.py) instead of Discord, which answers the routes the client uses (the bot itself, a server's roles and members, a page at a time, the code exchange, and a role given to a member) from the servers in the `fake_discord_servers` collection, in Discord's own shapes, and 404 for a server it has none of; a grant lands on the member's `roles` in that collection, so a check after a run reads the role held, and is refused as Discord refuses one: Unknown Member, Unknown Role, or Missing Permissions for a role at or above the bot's highest; `credentials()` are the fake's own, and the approval address is the market's return address with a code naming the first fake server.
 It is honoured only under `ALLOW_INSECURE_LOCAL_DEV` ([security invariants](../conventions/security-invariants.md#the-one-escape-hatch)), so the E2E runs the real check, the offers and the history against it, and a deployment never does.
 
 ## REST only
@@ -151,6 +186,7 @@ None of these endpoints says a gateway connection is required.
 
 **A failure is answered in Conventioner's words, never Discord's, and never with a value sent**: a 400 from the exchange asks to connect again, a 401 from the exchange or the bot says Discord refused this Conventioner's Discord settings and logs the 401 (the client secret or the bot token is wrong or revoked, which only whoever runs the deployment can fix), a 403 or 404 from the bot says it can no longer reach the server, a 429 asks to wait, and anything else is "could not reach Discord"; a log line names the status and what was asked, never a value.
 **A 429 is waited out**: every request waits the `retry_after` it names (its body's, else the `Retry-After` header) and asks again, up to three waits of at most 10 seconds each ([rate limits](https://docs.discord.com/developers/topics/rate-limits): 50 requests a second per bot, 429 with `retry_after`); a longer wait, or a fourth 429, is answered as asking to slow down, so one request never holds the back end for long and a run never keeps asking a limit that holds, since 10,000 refused requests in 10 minutes block the address.
+A "Give roles" grant also never waits past the run's time ([giving the role](#giving-the-role)).
 A 403 or 404 from List Guild Members says "can no longer reach this server", as from any other call; the list also needs the application's `GUILD_MEMBERS` intent, so a deployment whose intent is off is refused there, in whatever words Discord's status then maps to (unverified against a real server with the intent off).
 
 **Every request names itself** as `DiscordBot (https://conventioner.io, 1.0)`, the shape Discord asks of an HTTP client.
@@ -161,7 +197,8 @@ A 403 or 404 from List Guild Members says "can no longer reach this server", as 
 
 **Every change records one entry** in [the market's history](../data/history.md) under `connect-discord`, with the card's fields before and after (`discord_connected`, `discord`, `discord_disconnected`), the username question's label beside its key; who connected it and when are the entry's actor and time, and the market keeps no field of its own for them, and starting the approval screen changes nothing on the market.
 **Declining a possible match is one entry** (`discord_match_declined`, under `update-vendor-info`), and confirming one is the update it is ([possible matches](#possible-matches)).
-**A check is one entry** (`discord_checked`), as a run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
+**A check is one entry** (`discord_checked`), as an assignment run is, naming each vendor whose state it changed, with their states before and after and their address, each by application id, and how many it found in each; one that changed nobody still records who checked and when.
+**A "Give roles" run is one entry** (`discord_roles_given`), even one that gave nobody the role: the role by its name, the application ids it gave the role, each vendor it gave the role or whose state it changed, with their states before and after and their address, by application id, and how many assigned vendors ended in each outcome ([the market's history](../data/history.md)).
 The history says each in words, by the server's and the role's names and the question's label, never Discord's ids or the question's key (T127 review 6 note 30, [`marketHistory.ts`](../../../front-end/src/utils/marketHistory.ts)).
 
 ## Why
@@ -169,6 +206,6 @@ The history says each in words, by the server's and the role's names and the que
 - [Planning the market](../../business/flows/planning.md): the plan cards on Market Setup, which settle on leaving draft as this card does not.
 - [Building the application form](../../business/flows/form-tab.md): the one-click Discord username question this card picks up.
 - [What each role may do](../../business/rules/what-each-role-may-do.md): connecting and giving the role are an Admin's and the owner's (Q19).
-- [The Vendors page](../../business/flows/vendors.md): where the check runs and its states show, and where a possible match is answered.
+- [The Vendors page](../../business/flows/vendors.md): where the check and the run happen, their states and report show, and where a possible match is answered.
 - [Reading the market's history](../../business/flows/reading-the-markets-history.md): the card's changes and the check, in words.
 - [The setup settles on leaving draft](../../business/rules/the-setup-settles-on-leaving-draft.md): the rule this card is the stated exception to.
