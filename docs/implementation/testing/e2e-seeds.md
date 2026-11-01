@@ -127,11 +127,12 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - names of about 70 characters
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)
+  - every reviewer, verdict giver and follow-up owner it writes on an application carries their user's id, as the server writes them: the organizer's id from `loginViaApi`, the Viewer's read from their stored account
   - 36 vendors over four dates and three sections
   - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules, on a priced market, so Payments draws the market's money and its tables by tier and by date (T180)
   - an archive
-  - two CSV markets
+  - the CSV markets the import screens serve: one taking applications, a draft with no plan, and a draft with a plan and the Viewer on it, whose first import's preview offers the reviewers
   - an organization of the organizer's own:
     - its name 72 characters and its admin's and member's addresses 32 and 43, found by name on a later run, so Manage organization draws its people
     - holding a draft of its own, made anew on each run and dated after every other seeded market, its admin also Editor on it, so Manage market draws an organization's people and a market role that adds nothing (E38/F12/S01)

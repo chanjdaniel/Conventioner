@@ -1,7 +1,9 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
 import { ApplyPage } from './pages/ApplyPage';
+import { MarketSetupPage } from './pages/MarketSetupPage';
 import { OpenApplicationsDialog } from './pages/OpenApplicationsDialog';
+import { ReviewersPanel } from './pages/ReviewersPanel';
 import {
   createApplicantLoginChallenge,
   planSetupObject,
@@ -100,6 +102,7 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   const market = await draftWithPeople(request);
   await page.goto(marketScreenPath(market.marketId, 'setup'));
   const opening = new OpenApplicationsDialog(page);
+  const { currentPhase } = new MarketSetupPage(page);
 
   // Its keys are a dialog's: it opens on its first control, Escape closes it writing nothing, and
   // focus goes back to the rail's button.
@@ -109,13 +112,13 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
     'Choose no one and everyone reviews first come, first served.',
   );
   // The organization's other people are offered too, so the first control is whoever sorts first.
-  await expect(opening.dialog.getByRole('checkbox').first()).toBeFocused();
+  await expect(opening.choices.first()).toBeFocused();
   await expect(opening.choice(ANA)).not.toBeChecked();
   await opening.choice(ANA).check();
   await page.keyboard.press('Escape');
   await expect(opening.dialog).toBeHidden();
   await expect(opening.opener).toBeFocused();
-  await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
+  await expect(currentPhase).toHaveText('Draft');
 
   // Cancel the same, and nothing ticked then was kept.
   await opening.start();
@@ -133,12 +136,10 @@ test('an Admin opens applications choosing two reviewers, and each new applicati
   await opening.choice(BEN).focus();
   await page.keyboard.press('Enter');
   await expect(opening.dialog).toBeHidden();
-  await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
-    timeout: 10000,
-  });
+  await expect(currentPhase).toHaveText('Applications', { timeout: 10000 });
   // It lands where the move always has.
   await expect(page).toHaveURL(/\/applications$/);
-  await expect(page.getByTestId('reviewers-person')).toHaveText([ANA, BEN]);
+  await expect(new ReviewersPanel(page).people).toHaveText([ANA, BEN]);
 
   const first = await apply(browser, market, 'Iris');
   const second = await apply(browser, market, 'Jude');
@@ -154,10 +155,10 @@ test('opening with no one ticked opens as before: the first application is dealt
   const market = await draftWithPeople(request);
   await page.goto(marketScreenPath(market.marketId, 'setup'));
   await new OpenApplicationsDialog(page).openWith();
-  await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications', {
+  await expect(new MarketSetupPage(page).currentPhase).toHaveText('Applications', {
     timeout: 10000,
   });
-  await expect(page.getByTestId('reviewers-none')).toBeVisible();
+  await expect(new ReviewersPanel(page).none).toBeVisible();
 
   const vendor = await apply(browser, market, 'Kit');
   expect((await reviewerOf(page, market.marketId))[vendor]).toBeNull();

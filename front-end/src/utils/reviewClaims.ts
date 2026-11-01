@@ -64,9 +64,11 @@ export function useReviewClaims(marketId: Ref<string>) {
 
   /**
    * Hand over the next card after `after`, claimed - or `want`, one asked for by name, when it is
-   * free; null when every one left is held elsewhere; undefined when a later hand-out, or leaving,
-   * overtook this one before it answered, so its card is not the one to put up. A chosen reviewer
-   * is handed their own share first, and with `mineOnly` nothing else (E38/F07/S04).
+   * free; null when there is none to hand: every one left is held elsewhere, or, with `mineOnly`,
+   * every one left in the reader's share is, or that share is empty; undefined when a later
+   * hand-out, or leaving, overtook this one before it answered, so its card is not the one to put
+   * up. A chosen reviewer is handed their own share first, and with `mineOnly` nothing else
+   * (E38/F07/S04).
    */
   async function next(
     after: string | null,

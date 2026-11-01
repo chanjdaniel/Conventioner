@@ -7,8 +7,9 @@
  * many were added by hand, and the time each of the others applied. The statuses are counted into
  * the Applications tab's All view filters through the All view's own test (`allViewLists`), so the
  * two pages can never disagree: a status row's count is what its filter lists, and the row opens
- * it, on every reviewer's share (E38/F07/S04). A vendor added by hand never applied, so they are counted apart and on no day, while their
- * status is the approval the adding gave them, as the All view shows it.
+ * it, on every reviewer's share (E38/F07/S04). A vendor added by hand never applied, so they are
+ * counted apart and on no day, while their status is the approval the adding gave them, as the All
+ * view shows it.
  *
  * A day is the reader's calendar day, as every "today" in the app is (`calendarToday`): the server
  * keeps no time zone for a market, so it sends times and the page makes them days.

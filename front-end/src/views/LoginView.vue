@@ -426,7 +426,7 @@ const submitOTPLogin = async () => {
           <a
             href="#"
             @click.prevent="router.push('/reset-password-request')"
-            class="link"
+            class="link-alone"
             data-testid="login-forgot-password-link"
             >Forgot password?</a
           >
@@ -605,7 +605,7 @@ const submitOTPLogin = async () => {
           <a
             href="#"
             @click.prevent="useADifferentEmail"
-            class="link"
+            class="link-alone"
             data-testid="login-otp-different-email-link"
             >Use a different email</a
           >
@@ -801,20 +801,5 @@ const submitOTPLogin = async () => {
 .form-links {
   margin-top: var(--space-4);
   text-align: center;
-}
-
-/* A link on a line of its own is a target (WCAG 2.5.8, T79): a line box `--target-min` tall, with no
-   padding, so it still sits on its text. */
-.link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
-  color: var(--mm-text-link);
-  text-decoration: none;
-  font-size: var(--text-sm);
-}
-
-.link:hover {
-  text-decoration: underline;
 }
 </style>

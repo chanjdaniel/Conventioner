@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { marketScreenPath } from '../helpers/marketScreens';
 
 type AllViewFilter =
@@ -22,6 +22,8 @@ export class ApplicationsAllPage {
   readonly result: Locator;
   readonly skipped: Locator;
   readonly drawer: Locator;
+  /** The drawer's close button. */
+  readonly drawerClose: Locator;
   readonly drawerVerdict: Locator;
   readonly drawerHolder: Locator;
   readonly exportButton: Locator;
@@ -36,6 +38,10 @@ export class ApplicationsAllPage {
   readonly confirmDealt: Locator;
   /** Whose share the rows show, with reviewers chosen (E38/F07/S04). */
   readonly assignedTo: Locator;
+  /** The shares "Assigned to" offers, in its order. */
+  readonly assignedToOptions: Locator;
+  /** Every listed row's reviewer line, in the rows' order. */
+  readonly rowReviewers: Locator;
   /** "N of M": how many rows show of every application. */
   readonly count: Locator;
 
@@ -51,6 +57,7 @@ export class ApplicationsAllPage {
     this.result = page.getByTestId('applications-all-result');
     this.skipped = page.getByTestId('applications-all-skipped');
     this.drawer = page.getByTestId('vendors-detail-panel');
+    this.drawerClose = page.getByTestId('vendors-detail-close');
     this.drawerVerdict = page.getByTestId('applications-all-drawer-verdict');
     this.drawerHolder = page.getByTestId('applications-all-drawer-holder');
     this.exportButton = page.getByTestId('applications-all-export-button');
@@ -60,6 +67,8 @@ export class ApplicationsAllPage {
     this.drawerDealtWarning = page.getByTestId('applications-all-drawer-dealt-warning');
     this.confirmDealt = page.getByTestId('applications-all-confirm-dealt');
     this.assignedTo = page.getByLabel('Assigned to');
+    this.assignedToOptions = this.assignedTo.locator('option');
+    this.rowReviewers = this.rows.getByTestId('applications-all-reviewer');
     this.count = page.getByTestId('applications-all-count');
   }
 
@@ -117,6 +126,12 @@ export class ApplicationsAllPage {
   async open(email: string): Promise<void> {
     await this.row(email).getByRole('button').click();
     await this.drawer.waitFor();
+  }
+
+  /** Close the drawer, and wait for it to slide away: it stays in the page, closed. */
+  async closeDrawer(): Promise<void> {
+    await this.drawerClose.click();
+    await expect(this.drawer).not.toHaveClass(/detail-panel--open/);
   }
 
   /** A verdict from the drawer of the row opened. */

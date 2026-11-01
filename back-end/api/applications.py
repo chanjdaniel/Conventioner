@@ -709,8 +709,9 @@ def claim_next_for_review(
     now: Optional[datetime] = None, want: Optional[str] = None, chosen: bool = False,
     mine_only: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """Hand ``person`` the next card to review, claimed for them, or None when every one left is
-    held by someone else (E34/F03/S02).
+    """Hand ``person`` the next card to review, claimed for them, or None when there is none to
+    hand: every one left is held by someone else, or, for a ``chosen`` reviewer with ``mine_only``,
+    every one left in their share is, or their share is empty (E34/F03/S02).
 
     The next undecided application in arrival order after ``after`` - the one they move on from,
     which comes round last, and keeps its place once a verdict takes it out of the queue - that
