@@ -502,6 +502,16 @@ describe('the dialog', () => {
     wrapper.unmount();
   });
 
+  it('offers no payment filter on a market without prices, which offers no payment state', async () => {
+    // Everyone who paid there would be "Paid more than owed" (finding 8), the list the Payments
+    // page offers no filter for there either.
+    const wrapper = await opened(NO_FILTERS, { ...OFFERED, paymentStates: [] });
+
+    expect(wrapper.find('[data-testid="vendor-export-payment"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Paid or not');
+    wrapper.unmount();
+  });
+
   it('cannot download with no column ticked', async () => {
     const wrapper = await opened();
 

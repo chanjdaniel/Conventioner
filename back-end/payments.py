@@ -313,14 +313,115 @@ PAID_MORE = "over"
 BALANCE_STATES = {OWES: "Owes", PAID_IN_FULL: "Paid in full", PAID_MORE: "Paid more than owed"}
 
 
+def compares(vendor_account: Mapping[str, Any]) -> bool:
+    """Whether what an ``account`` paid compares with what it owes: always on a market with prices,
+    and on one without (no ``currency``) only for an account owing an amount set by hand, or one
+    refunded beyond what it paid, whose negative amount paid is money owed back to the market. The
+    reading follows the account, not the market (T153 review findings 10, 12 and 14)."""
+    return (vendor_account["currency"] is not None or bool(vendor_account["owedCents"])
+            or vendor_account["paidCents"] < 0)
+
+
 def balance_state(vendor_account: Mapping[str, Any]) -> Optional[str]:
-    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid."""
+    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid.
+
+    On a market without prices (no ``currency``) an account owing nothing is in none either,
+    whatever it paid, so long as that is not below nothing: nothing is priced, so a payment is not
+    "more than owed". One owing an amount set by hand, or refunded beyond what it paid, reads as
+    anywhere (``compares``)."""
+    if not compares(vendor_account):
+        return None
     balance = vendor_account["owedCents"] - vendor_account["paidCents"]
     if balance > 0:
         return OWES
     if balance < 0:
         return PAID_MORE
     return PAID_IN_FULL if vendor_account["owedCents"] > 0 else None
+
+
+# --- The market's money (E44/F02/S01) -------------------------------------------------------------
+
+def _figures(owed: int, paid: int, compared: bool = True) -> Dict[str, int]:
+    """What the Payments page counts, for a vendor, a day, a tier, a date or the market. What was
+    paid that compares with nothing (``compared`` false) is paid, but never paid more than owed."""
+    return {"owedCents": owed, "paidCents": paid, "stillOwedCents": max(owed - paid, 0),
+            "paidMoreCents": max(paid - owed, 0) if compared else 0}
+
+
+def shares(cents: int, weights: List[int]) -> List[int]:
+    """``cents`` split across ``weights`` in proportion, to the cent: each takes its whole share,
+    and the cents left over go to the largest remainders, the earlier first, so nothing is lost.
+    Every weight is at least 0 and one at least is above it."""
+    total = sum(weights)
+    whole = abs(cents)
+    exact = [whole * weight for weight in weights]
+    split = [part // total for part in exact]
+    left = whole - sum(split)
+    for i in sorted(range(len(weights)), key=lambda i: (-(exact[i] % total), i))[:left]:
+        split[i] += 1
+    return [-part for part in split] if cents < 0 else split
+
+
+def market_summary(
+    accounts: Mapping[str, Mapping[str, Any]], tier_order: List[str],
+) -> Dict[str, Any]:
+    """The Payments page from every vendor's account: each vendor with a line or a payment, by
+    address, with their ``balance_state`` (what the page's lists and the export's payment filter
+    both read), and the market's figures, also by tier and by date.
+
+    A payment is a vendor's, never a day's, so what a vendor paid is shared across their table-days
+    in proportion to what each owes, or evenly where they owe nothing, and each day's share counts
+    toward its tier and its date; what a vendor with no line paid is counted apart, under neither
+    (``None``), and only where it is not nothing. A vendor's days are all owing or all paid more,
+    so the still owed and the paid more of every breakdown add up to the market's, which are each
+    vendor's own, summed. They are summed by the rule the states are read by (``compares``): what
+    an account that compares with nothing paid counts as paid, but never as paid more than owed,
+    in the totals or any share of them.
+    """
+    vendors: List[Dict[str, Any]] = []
+    totals = _figures(0, 0)
+    by_tier: Dict[Optional[str], Dict[str, int]] = {}
+    by_date: Dict[Optional[str], Dict[str, int]] = {}
+
+    def add(into: Dict[str, int], owed: int, paid: int, compared: bool) -> None:
+        for key, value in _figures(owed, paid, compared).items():
+            into[key] += value
+
+    for email in sorted(accounts):
+        held = accounts[email]
+        if not held["lines"] and not held["payments"]:
+            continue
+        vendors.append({"email": email, "owedCents": held["owedCents"],
+                        "paidCents": held["paidCents"], "balanceState": balance_state(held)})
+        compared = compares(held)
+        add(totals, held["owedCents"], held["paidCents"], compared)
+        owed = [line["owedCents"] or 0 for line in held["lines"]]
+        if not owed:
+            # A vendor with no line whose payments came to nothing (one removed, or a refund
+            # matching it) is listed, but adds no "No table" row of noughts to the breakdowns.
+            parts = [(None, None, 0, held["paidCents"])] if held["paidCents"] else []
+        else:
+            paid = shares(held["paidCents"], owed if sum(owed) else [1] * len(owed))
+            parts = [((line["tier"] or "").strip() or None, line["date"], cents, share)
+                     for line, cents, share in zip(held["lines"], owed, paid)]
+        for tier, date, cents, share in parts:
+            add(by_tier.setdefault(tier, _figures(0, 0)), cents, share, compared)
+            add(by_date.setdefault(date, _figures(0, 0)), cents, share, compared)
+
+    def tier_place(tier: Optional[str]) -> Tuple[int, int, str]:
+        if tier is None:
+            return (2, 0, "")
+        if tier in tier_order:
+            return (0, tier_order.index(tier), tier)
+        return (1, 0, tier)
+
+    return {
+        "vendors": vendors,
+        "totals": totals,
+        "byTier": [{"tier": tier, **by_tier[tier]} for tier in sorted(by_tier, key=tier_place)],
+        "byDate": [{"date": date, **by_date[date]}
+                   for date in sorted(by_date, key=lambda date: (date is None, date or ""))],
+    }
 
 
 def delete_for_market(market_id: str) -> int:

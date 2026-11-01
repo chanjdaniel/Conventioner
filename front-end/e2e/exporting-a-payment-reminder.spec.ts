@@ -15,7 +15,8 @@ import { mongoEval } from './helpers/mongo';
  * has paid nothing (owes $70), Dave holds Gold one day and has paid $10 (owes $25), Bob has paid
  * his $35 in full, and Carol paid $30 for a $15 half table (paid $15 more than owed). Exporting
  * "Owes" with name, email and the amount still owed gives exactly the vendors whose Payment tab
- * reads "Owes", each with what it says they owe.
+ * reads "Owes", each with what it says they owe, and exactly the Payments page's "Owes" list
+ * (E44/F02/S01).
  */
 const SECOND_DATE = '2099-05-08';
 const GOLD = { id: 1, name: 'Gold' };
@@ -150,4 +151,18 @@ test('exporting "Owes" gives exactly the vendors whose Payment tab says they owe
     if (balance.startsWith('Owes ')) owing.set(email, balance.slice('Owes '.length));
   }
   expect(owing).toEqual(exported);
+
+  // And the Payments page's "Owes" list, which reads the same state the export's filter does: the
+  // same vendors, each owing what the file says. Every vendor here has applied, so the page, which
+  // lists whoever holds a line or a payment, and the file, which lists applications, agree.
+  await page.goto(`${marketScreenPath(marketId, 'payments')}?show=owes`);
+  const listed = page.getByTestId('payments-row');
+  await expect(listed).toHaveCount(exported.size, { timeout: 15000 });
+  const onThePage = new Map<string, string>();
+  for (const row of await listed.all()) {
+    const balance = ((await row.getByTestId('payments-row-balance').textContent()) ?? '').trim();
+    expect(balance).toMatch(/^Owes /);
+    onThePage.set((await row.getAttribute('data-email'))!, balance.slice('Owes '.length));
+  }
+  expect(onThePage).toEqual(exported);
 });

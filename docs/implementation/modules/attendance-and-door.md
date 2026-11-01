@@ -15,6 +15,7 @@ describes:
   - back-end/app.py#organizer_undo_check_in
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/App.vue#fitsAPhone
+  - front-end/src/utils/fitsAPhone.ts
 verified: 2026-11-01
 sources:
   - wayfinding/real-market-readiness/map
@@ -89,7 +90,7 @@ Check-in is open to every market that runs, whatever its intake mode: how a vend
 The product is built for a laptop, and the other organizer market screens need not work below a laptop's width; the door is one carve-out among them, the one someone may hold in their hand, and the Tools tab another, since an organizer may connect Discord from a phone (Daniel, T113).
 The account pages on the way in fit a phone too ([the design language](../../design-system.md#layout)).
 The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
-A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the rail's spine scrolls sideways inside itself, and below about a 990px window the market bar's tabs do ([the market frame](market-frame.md)).
+A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/utils/fitsAPhone.ts), read by [`App.vue`](../../../front-end/src/App.vue)), as every public page does, and gives the market frame the phone's 16px gutter ([the market frame](market-frame.md#sharp-edges)); at 640px and below the rail's spine scrolls sideways inside itself, and below about a 990px window the market bar's tabs do ([the market frame](market-frame.md)).
 Of the organizer market screens Attendance has it, because the door is sometimes a person standing up, Tools, and the Assignments page, where the vendor drawer's "Change assignment" at the door leads; off the market, `/markets` has it, since that is where an organizer on a phone finds the market the door is for (T142), and so do the dashboard sign-in lands on and Organizations, the ways there (T148).
 So the door's journey fits a phone from end to end: `/markets`, the door, a check-in, each of the vendor drawer's tabs, and "Change assignment" to the Assignments page and its change-placement dialog.
 [`the-door-on-a-phone.spec.ts`](../../../front-end/e2e/the-door-on-a-phone.spec.ts) walks it at 390x844 under a phone's own emulation (touch, device scaling), where a page wider than the window widens the layout viewport and zooms out rather than scrolling sideways, and at 1440x900, where the bar and the whole rail stay pinned.
