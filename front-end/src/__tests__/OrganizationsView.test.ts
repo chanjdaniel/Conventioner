@@ -18,8 +18,29 @@ vi.mock('@/utils/api', async (importOriginal) => ({
   api: { post: (...args: unknown[]) => post(...args) },
 }));
 
+import { createMemoryHistory, createRouter } from 'vue-router';
 import OrganizationsView from '@/views/OrganizationsView.vue';
 import AppDialog from '@/components/AppDialog.vue';
+import ManageOrgOverlay from '@/views/ManageOrgOverlay.vue';
+
+/** The page at an address, as the app routes it. */
+async function at(address: string) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/organizations', name: 'organizations', component: OrganizationsView }],
+  });
+  await router.push(address);
+  await router.isReady();
+  return router;
+}
+
+async function mountAt(address = '/organizations') {
+  const router = await at(address);
+  const wrapper = mount(OrganizationsView, {
+    global: { plugins: [router], stubs: { ManageOrgOverlay: true } },
+  });
+  return { router, wrapper };
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -51,7 +72,7 @@ describe('the organizations list', () => {
       .mockReturnValueOnce(afterCreate.promise);
     post.mockResolvedValue({ data: {} });
 
-    const wrapper = mount(OrganizationsView);
+    const { wrapper } = await mountAt();
     await create(wrapper, 'Harbour Collective');
     afterCreate.resolve([OLD, NEW]);
     await flushPromises();
@@ -64,7 +85,7 @@ describe('the organizations list', () => {
   it('keeps the cards on screen while it reads the list again', async () => {
     fetchOrganizations.mockResolvedValueOnce([OLD]);
     post.mockResolvedValue({ data: {} });
-    const wrapper = mount(OrganizationsView);
+    const { wrapper } = await mountAt();
     await flushPromises();
     expect(wrapper.text()).toContain('Riverside Makers');
 
@@ -74,5 +95,40 @@ describe('the organizations list', () => {
     expect(wrapper.text()).toContain('Riverside Makers');
     expect(wrapper.text()).not.toContain('Loading organizations');
     again.resolve([OLD, NEW]);
+  });
+});
+
+describe('Manage organization from its address', () => {
+  const manage = (wrapper: ReturnType<typeof mount>) => wrapper.getComponent(ManageOrgOverlay);
+
+  it('opens for the organization `?manage=` names once the list has loaded', async () => {
+    // Manage market's "Manage organization" points here (E38/F12/S01).
+    fetchOrganizations.mockResolvedValueOnce([OLD, NEW]);
+    const { wrapper } = await mountAt('/organizations?manage=org-2');
+    await flushPromises();
+
+    expect(manage(wrapper).props('manageOpen')).toBe(true);
+    expect(manage(wrapper).props('org')).toMatchObject({ id: 'org-2' });
+  });
+
+  it('drops the key when it closes, so a refresh or Back does not open it again', async () => {
+    fetchOrganizations.mockResolvedValue([OLD, NEW]);
+    const { router, wrapper } = await mountAt('/organizations?manage=org-2');
+    await flushPromises();
+
+    manage(wrapper).vm.$emit('manageClose');
+    await flushPromises();
+
+    expect(manage(wrapper).props('manageOpen')).toBe(false);
+    expect(router.currentRoute.value.query).toEqual({});
+  });
+
+  it("drops a key that names none of the reader's organizations, and opens nothing", async () => {
+    fetchOrganizations.mockResolvedValueOnce([OLD]);
+    const { router, wrapper } = await mountAt('/organizations?manage=org-9');
+    await flushPromises();
+
+    expect(manage(wrapper).props('manageOpen')).toBe(false);
+    expect(router.currentRoute.value.query).toEqual({});
   });
 });

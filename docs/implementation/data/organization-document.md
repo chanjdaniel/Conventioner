@@ -40,6 +40,7 @@ sources:
   - decision/2026-10-20
   - E40/F02/S01
   - E39/F02/S01
+  - E38/F12/S01
 ---
 
 # The organization document, and roles
@@ -126,6 +127,7 @@ Roles change on an archived market too: they are not a change to its record.
 
 The higher of the two (`higher_role`) is the one held, and holding neither means the market is not theirs to see.
 `market_role_of` resolves it the same way for someone already known by id, with the organization already loaded: `people_with_market_role` keeps whoever it gives a role, and the table's `may_be_chosen` asks it of each chosen reviewer and each one offered (E38/F07/S03).
+`people_with_access` lists each of them, for Manage market, at the role that counts with the market's own and their place in the organization (`admin` for its owner and admins, `member` for a member) beside it, and whether the organization's role is the one that counts, which it is when it reaches the market's own, a tie included (E38/F12/S01).
 **An organization's admins run its markets**, but never as Owner: the Owner is the one entry in `roles` that says so, and deleting the market and changing an admin's role are rows whose role is the Owner, fixed.
 Anyone outside the organization who changes a market, a door volunteer included, needs a role on that market (Manage market); [Operations](../../OPERATIONS.md#accounts-and-access) says how to give one.
 Removing someone from the organization takes away what it gave them and leaves any role a market gave them.
