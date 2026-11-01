@@ -104,15 +104,27 @@ describe('the vendor drawer opens on its close and gives focus back', () => {
     expect(document.activeElement).toBe(opener);
   });
 
-  it('leaves focus where it is when another vendor is shown in the open drawer', async () => {
+  it('moves focus to its close when another vendor is shown in the open drawer, as opening does', async () => {
+    // A vendor named in the History tab is shown in place, and the name that was focused goes
+    // with the panel it sat in, which left focus on `<body>` (T162).
     await openFromTheButton();
-    const tab = byTestId('vendor-drawer-tab-application')!;
-    tab.focus();
+    byTestId('vendor-drawer-tab-application')!.focus();
 
     (wrapper!.vm as unknown as HostVm).email = 'omar@ember.test';
     await flushPromises();
 
-    expect(document.activeElement).toBe(tab);
+    expect(document.activeElement).toBe(byTestId('vendors-detail-close'));
+  });
+
+  it('gives focus back to its first opener after showing another vendor', async () => {
+    const opener = await openFromTheButton();
+    (wrapper!.vm as unknown as HostVm).email = 'omar@ember.test';
+    await flushPromises();
+
+    byTestId('vendors-detail-close')!.click();
+    await flushPromises();
+
+    expect(document.activeElement).toBe(opener);
   });
 
   it('not when the opener has left the page, and nothing throws', async () => {

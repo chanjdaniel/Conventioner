@@ -7,6 +7,7 @@ describes:
   - front-end/src/utils/market.ts#resolutionPath
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
+  - front-end/src/utils/vendorDrawer.ts
 verified: 2026-11-01
 sources:
   - wayfinding/readable-journey/map
@@ -22,6 +23,7 @@ sources:
   - E38/F08/S01
   - E46/F01/S02
   - E44/F02/S01
+  - E38/F13/S01
 ---
 
 # Every market page has an address
@@ -43,6 +45,12 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
   Opening a market from a list, the dashboard or a new market all come through it ([`openMarket`](../../../front-end/src/utils/market.ts)), so none of them has to know which page a phase belongs to.
 
 **Every address is built with [`marketPath()`](../../../front-end/src/utils/market.ts)**; nothing spells a market path by hand.
+
+## A page's own state is replaced, the drawer's opening is pushed
+
+A page's filter, view or date kept in its query changes with `router.replace`, so a link and a refresh agree with what is on screen and Back leaves the page rather than stepping through them.
+The [vendor drawer](../../business/flows/vendor-drawer.md) is the one part of a page whose opening is a step of its own ([`useVendorDrawer`](../../../front-end/src/utils/vendorDrawer.ts), E38/F13/S01): opening it from closed pushes `?vendor=` with `vendorDrawer: true` in the entry's `history.state`, and closing it goes `router.back()` when that entry is the drawer's own and the one before it is the same page without the drawer, so Back (a phone's back gesture, the browser's button) closes it and stays on the page, its filter and scroll as they were.
+Its tab and another vendor while it is open replace the entry, a vendor its History tab names on the Vendors page included, so one Back closes it; a drawer reached by a link has no step of its own to take back, and closing it replaces the address instead, so it never leaves the site.
 
 ## Old addresses
 

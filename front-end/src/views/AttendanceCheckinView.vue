@@ -420,7 +420,8 @@ async function undoCheckIn(date: string): Promise<void> {
 .primary-button {
   background: var(--mm-green);
   color: white;
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
   padding: 0 var(--space-4);
   height: 40px;
@@ -437,7 +438,10 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .primary-button:disabled,
 .secondary-button:disabled {
-  opacity: 0.6;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

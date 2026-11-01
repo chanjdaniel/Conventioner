@@ -932,7 +932,8 @@ onUnmounted(() => {
   height: 36px;
   padding: 0 18px;
 
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 6px;
 
   font-family: 'Merge One', sans-serif;
@@ -965,7 +966,10 @@ onUnmounted(() => {
 }
 
 .sg-btn--confirm:disabled {
-  opacity: 0.45;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

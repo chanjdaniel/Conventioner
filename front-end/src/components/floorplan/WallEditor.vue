@@ -600,7 +600,7 @@ watch(
     </v-stage>
 
     <!-- Toolbar overlay -->
-    <div class="wall-editor-toolbar">
+    <div v-if="props.enabled" class="wall-editor-toolbar">
       <!-- Visibility toggle -->
       <button
         class="toolbar-btn"
@@ -784,9 +784,15 @@ watch(
   transition: opacity 0.2s ease-in-out;
 }
 
+/* Until "Wall Editor" is ticked it is a view: the drawing dims and takes no pointer, and the
+   toolbar, which would only be dimmed controls nobody can use, is not drawn. Opacity over the
+   whole editor put its counts and its zoom buttons at 3.1:1 (T162). */
 .wall-editor.is-disabled {
-  opacity: 0.5;
   pointer-events: none;
+}
+
+.wall-editor.is-disabled :deep(.konvajs-content) {
+  opacity: 0.5;
 }
 
 /* ── Toolbar overlay ──────────────────────────────────────────── */
@@ -823,7 +829,8 @@ watch(
 
   background: transparent;
   color: var(--mm-black);
-  border: none;
+  /* Transparent at rest, so the disabled state draws its line without a shift (`.btn`). */
+  border: 1px solid transparent;
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
@@ -841,7 +848,10 @@ watch(
 }
 
 .toolbar-btn:disabled {
-  opacity: 0.35;
+  /* The primitives' one disabled state (`.btn:disabled`): readable, never dimmed by opacity. */
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
+  border-color: var(--mm-border);
   cursor: not-allowed;
 }
 

@@ -623,10 +623,10 @@ const assignedVendorCount = computed(() => tableVendors.value.filter((v) => v.is
   border-radius: var(--radius-control);
 }
 
+/* Muted by its ink, not by opacity: 0.8 over the whole line took the green counts to 3.2:1. */
 .summary-line {
   font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.8;
+  color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
