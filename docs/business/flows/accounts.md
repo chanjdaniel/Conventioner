@@ -79,7 +79,7 @@ Covered by: `auth.spec.ts`, `smoke.spec.ts`, `sign-in-fits-a-phone.spec.ts`, `a-
 2. Enter the code from the email, tick "Remember me" or leave it, and choose "Sign in"; the choice is the Sign in tab's, kept between the two (A2).
 3. "Use a different email" returns to step 1.
 
-Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, as a code for an address with no account does; too many wrong codes; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
+Branches: a wrong code ("That code is not right."), which replaces the line saying the code was sent, and which a code for an address with no account answers too, up to the fifth try; too many wrong codes; an account not yet verified, which says to verify first and offers "Send the link again", as A2 does.
 Covered by: `auth.spec.ts` ("shows error for invalid OTP code") and `the-sign-in-says-what-to-do-next.spec.ts`, which stub the send and walk only a wrong code; `a-failure-says-what-to-do.spec.ts` and `remember-me.spec.ts`, which stub the send and set the code where the server keeps it, then sign in with it; `sign-in-fits-a-phone.spec.ts`.
 
 ## A4. Reset a forgotten password

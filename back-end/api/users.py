@@ -94,8 +94,25 @@ _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 SIGN_IN_DOES_NOT_MATCH = "That email and password do not match."
 #: The screen offers "Send the link again" beside it.
 SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when you registered."
-#: A code that is not the one sent, and a code for an address with no account.
+#: A code that is not the one sent, and a code for an address with no account, alike up to an
+#: account's fifth wrong code, which discards its code and says to ask for a new one; an address
+#: with no account has no count, which the sign-in limits will keep for every address alike.
 SIGN_IN_WRONG_CODE = "That code is not right."
+
+#: What a password for an address with no account is checked against, made once at the app's cost
+#: factor, so that a sign-in takes as long with an account as without one.
+_no_account_hash: Optional[str] = None
+
+
+def _password_matches(bcrypt, user_doc, password: str) -> bool:
+    """Whether the password is the account's, checked whether or not there is an account."""
+    global _no_account_hash
+    if user_doc:
+        return bcrypt.check_password_hash(user_doc["password"], password)
+    if _no_account_hash is None:
+        _no_account_hash = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode("utf-8")
+    bcrypt.check_password_hash(_no_account_hash, password)
+    return False
 
 
 def _now() -> float:
@@ -282,7 +299,7 @@ def login(bcrypt, login_user, request):
 
     # Find user in MongoDB
     user_doc = users_collection.find_one({"email": email})
-    if user_doc and bcrypt.check_password_hash(user_doc["password"], password):
+    if _password_matches(bcrypt, user_doc, password):
         # Check if email is verified
         if not user_doc.get("email_verified", False):
             return jsonify({"message": SIGN_IN_VERIFY_FIRST}), 403

@@ -173,3 +173,54 @@ def test_a_login_id_that_was_not_stored_answers_the_servers_fault(monkeypatch, c
     response = client.post("/login", json={"email": FIXTURE_EMAIL, "password": FIXTURE_PASSWORD})
 
     assert _answer(response) == (500, {"error": "Internal server error"})
+
+
+# A wrong code, over the tries that follow.
+
+def _wrong_codes(client, email, tries):
+    return [_answer(client.post("/login-otp", json={"email": email, "otp": "000000"}))
+            for _ in range(tries)]
+
+
+def test_the_first_four_wrong_codes_answer_alike_with_an_account_or_without(client, verified):
+    """Alike up to the fifth: an account's fifth wrong code discards its code and says to ask for
+    a new one, which an address with no account has no count for. Counting every address alike is
+    the sign-in limits' (E47/F02/S01)."""
+    assert _wrong_codes(client, NO_ACCOUNT_EMAIL, 4) == _wrong_codes(client, FIXTURE_EMAIL, 4)
+
+
+# The password is checked whether or not the address has an account.
+
+def _spy_on_the_password_check(monkeypatch):
+    checked = []
+    check = app_module.bcrypt.check_password_hash
+
+    def spy(pw_hash, password):
+        checked.append(pw_hash)
+        return check(pw_hash, password)
+
+    monkeypatch.setattr(app_module.bcrypt, "check_password_hash", spy)
+    return checked
+
+
+def test_a_wrong_password_is_checked_against_the_accounts_hash(monkeypatch, client, verified):
+    checked = _spy_on_the_password_check(monkeypatch)
+
+    client.post("/login", json={"email": FIXTURE_EMAIL, "password": "not-the-password"})
+
+    assert checked == [verified.doc["password"]]
+
+
+def test_an_address_with_no_account_is_checked_against_one_stand_in_hash(
+    monkeypatch, client, verified
+):
+    checked = _spy_on_the_password_check(monkeypatch)
+
+    for _ in range(2):
+        client.post("/login", json={"email": NO_ACCOUNT_EMAIL, "password": "not-the-password"})
+
+    assert len(checked) == 2
+    assert checked[0] == checked[1], "one hash, made once"
+    assert checked[0] != verified.doc["password"]
+    # Made at the app's cost factor, so the check takes as long as an account's.
+    assert checked[0].split("$")[2] == verified.doc["password"].split("$")[2]
