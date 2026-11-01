@@ -326,7 +326,7 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ### A fake Discord
 
-The Discord specs (`who-is-in-the-discord-server.spec.ts`, `possible-discord-matches.spec.ts`, `giving-the-discord-role.spec.ts`) run the back end's own check and "Give roles" against a fake Discord server, never Discord.
+The Discord specs (`who-is-in-the-discord-server.spec.ts`, `possible-discord-matches.spec.ts`, `giving-the-discord-role.spec.ts`, `exporting-discord-columns.spec.ts`) run the back end's own check and "Give roles" against a fake Discord server, never Discord.
 With `DISCORD_FAKE=true`, the bot client's requests are answered by [`back-end/discord_fake.py`](../back-end/discord_fake.py) from the servers in the `fake_discord_servers` collection, which a spec writes through [`fakeDiscord.ts`](../front-end/e2e/helpers/fakeDiscord.ts), each with a server id of its own.
 Like the two above, it is honoured only under `ALLOW_INSECURE_LOCAL_DEV` and forwarded by `docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it, and a worktree's stack defaults it to `true` (pass `DISCORD_FAKE=false` to use real Discord values).
 The primary checkout's plain `docker compose up` does not, so export it there too, or those specs find no "Check Discord" or "Give roles" and say so.

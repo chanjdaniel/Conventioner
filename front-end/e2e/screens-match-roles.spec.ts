@@ -129,9 +129,13 @@ test('an Editor of a Google Form market is offered no import, and told only an a
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 15000 });
     await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
-    // Nor as the sentence's link (T142): the rail offers a remedy only to whoever may take it.
-    await expect(page.getByTestId('phase-rail-next')).toContainText('responses');
-    await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
+    // Nor as the sentence (T142, E38/F15/S04): a blocker reads only to whoever may take its
+    // remedy, so the Editor reads what they may do in a draft, and is led to read its plan.
+    await expect(page.getByTestId('phase-rail-next')).toContainText(
+      'The market is being planned. Read its plan on Market Setup.',
+    );
+    await expect(page.getByTestId('phase-rail-next')).not.toContainText('Import');
+    await expect(page.getByTestId('phase-rail-next-link')).toHaveText('Go there');
     await page.goto(marketScreenPath(importing.marketId, 'import'));
     await expect(page.getByTestId('import-wrong-phase')).toContainText('not yours to do', {
       timeout: 15000,
@@ -143,7 +147,9 @@ test('an Editor of a Google Form market is offered no import, and told only an a
 /*
  * The rail offers a remedy or a step only to someone who may take it (T142). It told a Viewer "Pick
  * market dates", a link to a page where every control was disabled; an Editor may change the setup,
- * so is still led there. On Tools at a phone's width, where the door is run from.
+ * so is still led there. The blocker's sentence is the remedy's too ("Pick them on Market Setup."),
+ * so a Viewer reads what they may do in a draft instead (E38/F15/S04). On Tools at a phone's width,
+ * where the door is run from.
  */
 test.describe('a draft missing its dates, on a phone', () => {
   let draftId: string;
@@ -161,14 +167,16 @@ test.describe('a draft missing its dates, on a phone', () => {
     await grantRole(request, draftId, EDITOR, 'editor');
   });
 
-  test('a Viewer reads where it stands and is offered no step', async ({ browser }) => {
+  test('a Viewer reads what they may do, and is led to read the plan', async ({ browser }) => {
     await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(marketScreenPath(draftId, 'tools'));
-      await expect(page.getByTestId('phase-rail-next')).toContainText('no market dates', {
-        timeout: 15000,
-      });
-      await expect(page.getByTestId('phase-rail-next-link')).toHaveCount(0);
+      await expect(page.getByTestId('phase-rail-next')).toContainText(
+        'The market is being planned. Read its plan on Market Setup.',
+        { timeout: 15000 },
+      );
+      await expect(page.getByTestId('phase-rail-next')).not.toContainText('Pick');
+      await expect(page.getByTestId('phase-rail-next-link')).toHaveText('Go there');
       await expect(page.getByTestId('phase-rail-fix')).toHaveCount(0);
     });
   });

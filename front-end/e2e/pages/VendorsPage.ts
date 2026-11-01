@@ -68,6 +68,11 @@ export class VendorsPage {
     await this.searchInput.fill(term);
   }
 
+  /** The Discord state the row of the vendor with this address shows (E46/F01/S03). */
+  discordStateOf(email: string): Locator {
+    return this.vendorListItems.filter({ hasText: email }).getByTestId('vendors-list-discord');
+  }
+
   async clickVendor(index: number): Promise<void> {
     await this.vendorListItems.nth(index).click();
   }

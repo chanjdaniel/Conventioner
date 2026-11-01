@@ -22,6 +22,7 @@ import {
   type ExportPreview,
 } from '@/utils/vendorExport';
 import { filenameFrom } from '@/utils/download';
+import type { DiscordShown } from '@/utils/discordCheck';
 import type { ResultFilters } from '@/utils/resultFilters';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 
@@ -105,6 +106,34 @@ describe('the seed the Vendors page gives the export', () => {
 
   it('carries the search, as typed but trimmed', () => {
     expect(vendorsPageSeed({ shown: null, filters: NOTHING, search: '  ana ' }).search).toBe('ana');
+  });
+
+  it('carries the Discord state the page lists (E42/F01/S05)', () => {
+    expect(
+      vendorsPageSeed({ shown: null, filters: NOTHING, search: '', discord: 'not_found' }),
+    ).toEqual({ ...NO_FILTERS, discord: ['not_found'] });
+  });
+
+  it('carries a state only the page works out: possible match and check again', () => {
+    // T156 rereview note 7: the page's `?discord=` holds any state it shows.
+    const seed = (discord: DiscordShown) =>
+      vendorsPageSeed({ shown: null, filters: NOTHING, search: '', discord }).discord;
+
+    expect(seed('possible_match')).toEqual(['possible_match']);
+    expect(seed('check_again')).toEqual(['check_again']);
+  });
+
+  it('carries the Discord state beside "Unassigned only" and where they are placed', () => {
+    const beside = (shown: 'unassigned' | null) =>
+      vendorsPageSeed({
+        shown,
+        filters: { ...NOTHING, date: '2026-11-18', tier: 'Gold' },
+        search: '',
+        discord: 'no_username',
+      }).discord;
+
+    expect(beside('unassigned')).toEqual(['no_username']);
+    expect(beside(null)).toEqual(['no_username']);
   });
 });
 
@@ -259,6 +288,26 @@ const OFFERED: ExportPreview['offered'] = {
     { id: 'paid', label: 'Paid in full' },
     { id: 'over', label: 'Paid more than owed' },
   ],
+  discordStates: [],
+};
+
+/** A market whose Discord server has been checked (E42/F01/S05). */
+const CHECKED: ExportPreview['offered'] = {
+  ...OFFERED,
+  columns: [
+    ...OFFERED.columns,
+    { id: 'discordUsername', label: 'Discord username', group: 'discord' },
+    { id: 'discordState', label: 'Discord state', group: 'discord' },
+  ],
+  groups: [...OFFERED.groups, { id: 'discord', label: 'Discord' }],
+  discordStates: [
+    { id: 'has_role', label: 'Has the role' },
+    { id: 'in_server', label: 'In the server' },
+    { id: 'possible_match', label: 'Possible match' },
+    { id: 'not_found', label: 'Not found' },
+    { id: 'no_username', label: 'No username' },
+    { id: 'check_again', label: 'Check again' },
+  ],
 };
 
 describe('the dialog', () => {
@@ -280,7 +329,9 @@ describe('the dialog', () => {
     vi.useRealTimers();
   });
 
-  async function opened(seed = NO_FILTERS) {
+  async function opened(seed = NO_FILTERS, offered = OFFERED) {
+    const answering = answer;
+    answer = (body) => ({ ...answering(body), offered });
     const wrapper = mount(ExportVendorsDialog, {
       props: { open: true, marketId: 'market-1', seed },
       attachTo: document.body,
@@ -377,6 +428,44 @@ describe('the dialog', () => {
     await wrapper.get('[data-testid="vendor-export-placed"]').setValue('placed');
 
     expect(wrapper.find('[data-testid="vendor-export-tier"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('offers no Discord filter on a market never checked', async () => {
+    const wrapper = await opened();
+
+    expect(wrapper.find('[data-testid="vendor-export-discord-not_found"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('opens on the page’s Discord state, and lists the Discord columns last', async () => {
+    const wrapper = await opened({ ...NO_FILTERS, discord: ['not_found'] }, CHECKED);
+
+    expect(posted[0]?.body).toMatchObject({ filters: { discord: ['not_found'] } });
+    const box = (state: string) =>
+      wrapper.get(`[data-testid="vendor-export-discord-${state}"]`).element as HTMLInputElement;
+    expect(box('not_found').checked).toBe(true);
+    expect(box('in_server').checked).toBe(false);
+    expect(wrapper.get('[data-testid="vendor-export-discord"]').text()).toBe(
+      'Discord (none ticked: any state) Has the role In the server Possible match Not found ' +
+        'No username Check again',
+    );
+    const groups = wrapper.findAll('[data-testid^="vendor-export-group-"]');
+    expect(groups.map((g) => g.get('legend').text()).at(-1)).toBe('Discord');
+    wrapper.unmount();
+  });
+
+  it('asks again with the Discord states ticked', async () => {
+    vi.useFakeTimers();
+    const wrapper = await opened(NO_FILTERS, CHECKED);
+    await vi.runAllTimersAsync();
+    posted.length = 0;
+
+    await wrapper.get('[data-testid="vendor-export-discord-no_username"]').setValue(true);
+    await vi.runAllTimersAsync();
+    await flushPromises();
+
+    expect(posted.at(-1)?.body).toMatchObject({ filters: { discord: ['no_username'] } });
     wrapper.unmount();
   });
 

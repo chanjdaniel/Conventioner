@@ -32,6 +32,7 @@ sources:
   - T82
   - T142
   - T148
+  - E38/F15/S04
 ---
 
 # Attendance and the door
@@ -71,6 +72,12 @@ It loads through the change loader (`_load_market_to_change`), so an archived ma
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
 `_door_write` catches nothing: a market that does not exist answers 404, an archived one or a person the row refuses 403 with its sentence, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
+
+**The page offers Check in and Undo only in Market Days, to someone who may check vendors in, and a row offering neither ends at its status** (`door-row--read`).
+At a desk each row's last column, 7rem, holds the action; for someone offered none it is dropped, since the empty column left each status about 130px short of the row's edge (E38/F15/S04).
+On a phone the vendor's line holds only the vendor and the action, and the table and the status share a line of their own under it (`door-place`), the status at its end or, when both do not fit, under the table: in the action's column a wide status ("9:44 AM by" an address) squeezed the vendor's line and broke their address mid-word.
+So the vendor comes first in the row's markup, and at a desk each cell is placed in its column, the table first.
+[`a-viewer-at-the-door-reads-why.spec.ts`](../../../front-end/e2e/a-viewer-at-the-door-reads-why.spec.ts) holds both widths for a Viewer and an Editor, every address on one line.
 
 **An archived market that ran is still served, as a record** ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 `get_check_in_market` serves a running market, or an archived one whose phase record says it ran, marked `ended`: its page shows each vendor's seats and check-ins and takes no check-in.
