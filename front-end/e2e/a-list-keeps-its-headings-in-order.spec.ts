@@ -30,3 +30,27 @@ test('Organizations heads each card one level under its title', async ({
 
   expect(await headingsOutOfOrder(page)).toEqual([]);
 });
+
+/**
+ * The dashboard has one title for a screen reader to land on, and the remembered market's name sits
+ * one level under it; its buttons are named by their words, not by headings inside them.
+ */
+test('the dashboard opens with its title, the remembered market one level under it', async ({
+  authenticatedPage: page,
+}) => {
+  await new MarketsPage(page).goto();
+  const card = page.getByTestId('market-card').first();
+  const name = (await card.getByTestId('market-card-name').innerText()).trim();
+  await card.getByTestId('market-card-name').getByRole('button').click();
+  await expect(page.getByTestId('market-bar-title')).toHaveText(name, { timeout: 15000 });
+
+  await page.goto('/dashboard');
+  await expect(page.getByTestId('dashboard-last-market-card')).toContainText(name);
+
+  const { violations } = await new AxeBuilder({ page })
+    .options({ runOnly: { type: 'rule', values: ['heading-order', 'page-has-heading-one'] } })
+    .analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard');
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(name);
+});
