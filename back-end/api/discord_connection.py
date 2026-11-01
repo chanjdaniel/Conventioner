@@ -102,9 +102,9 @@ USERNAME_QUESTION_GONE = (
 SERVER_FIELDS = ("guild_id", "guild_name")
 SERVER_CHOICES = ("role_id", "role_name", "invite_link", "checked_at", "vendor_states",
                   "declined_matches", "role_run")
-#: What a check found, forgotten too when the card's username question changes: the states were
-#: read against the old question's answers.
-CHECK_FIELDS = ("checked_at", "vendor_states")
+#: What a check and the last "Give roles" run found, forgotten too when the card's username
+#: question changes: the states and the run's outcomes were read against the old question's answers.
+CHECK_FIELDS = ("checked_at", "vendor_states", "role_run")
 #: What the history records of a change to the card: its fields, never who connected it or when,
 #: which the entry's actor and time already say, and never a check, which records its own entry.
 RECORDED_FIELDS = ("guild_id", "guild_name", "role_id", "role_name", "invite_link",
