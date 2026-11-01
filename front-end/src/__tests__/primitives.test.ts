@@ -17,10 +17,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import postcss from 'postcss';
+import { parse as parseSfc } from 'vue/compiler-sfc';
 
 const SRC = resolvePath(process.cwd(), 'src');
 const PRIMITIVES = postcss.parse(readFileSync(join(SRC, 'assets/primitives.css'), 'utf8'));
 const BASE = postcss.parse(readFileSync(join(SRC, 'assets/base.css'), 'utf8'));
+const MAIN = postcss.parse(readFileSync(join(SRC, 'assets/main.css'), 'utf8'));
 
 /** Every rule in `container`, at any depth, whose selector list holds `selector`, in source order. */
 function rulesWith(container: postcss.Container, selector: string): postcss.Rule[] {
@@ -227,10 +229,50 @@ describe('the primitives exist and own what tokens cannot', () => {
     }
   });
 
+  it('makes a link on a line of its own a target, in the link ink', () => {
+    // WCAG 2.5.8's floor at a desk and a thumb's 44px on a phone, both from the one token, as a
+    // line box with no padding so the link still sits on its text (T79).
+    expect(declaration(PRIMITIVES, '.link-alone', 'display')).toBe('inline-flex');
+    expect(declaration(PRIMITIVES, '.link-alone', 'align-items')).toBe('center');
+    expect(declaration(PRIMITIVES, '.link-alone', 'min-height')).toBe('var(--target-min)');
+    expect(declaration(PRIMITIVES, '.link-alone', 'padding')).toBeNull();
+    expect(declaration(PRIMITIVES, '.link-alone', 'color')).toBe('var(--mm-text-link)');
+    expect(declaration(PRIMITIVES, '.link-alone', 'font-size')).toBe('var(--text-sm)');
+    expect(declaration(PRIMITIVES, '.link-alone', 'text-decoration')).toBe('none');
+    expect(declaration(PRIMITIVES, '.link-alone:hover', 'text-decoration')).toBe('underline');
+  });
+
+  it('owns the link on a line of its own, so the sign-in pages stop owning a copy of it', () => {
+    // Four views each declared the same `.link` rule (T82 note 5).
+    const views = [
+      'EmailVerificationView',
+      'LoginView',
+      'PasswordResetRequestView',
+      'PasswordResetView',
+    ];
+    for (const view of views) {
+      const { descriptor } = parseSfc(readFileSync(join(SRC, `views/${view}.vue`), 'utf8'));
+      for (const style of descriptor.styles) {
+        const css = postcss.parse(style.content);
+        const copies = [...rulesWith(css, '.link'), ...rulesWith(css, '.link-alone')];
+        expect(
+          copies.map((rule) => rule.selector),
+          view,
+        ).toEqual([]);
+      }
+      expect(descriptor.template?.content, view).toContain('class="link-alone"');
+    }
+  });
+
+  it("eases a link's colour alone, so its focus halo appears at once", () => {
+    // `transition: 0.4s` eased every property, so a link's halo rounded its corners and faded in
+    // over 0.4s where a button's appears at once (T181).
+    expect(declaration(MAIN, 'a', 'transition')).toBe('color 0.4s');
+  });
+
   it('is loaded by the app', () => {
-    const main = postcss.parse(readFileSync(join(SRC, 'assets/main.css'), 'utf8'));
     const imports: string[] = [];
-    main.walkAtRules('import', (atRule) => {
+    MAIN.walkAtRules('import', (atRule) => {
       imports.push(atRule.params);
     });
     expect(imports).toContain("'./primitives.css'");

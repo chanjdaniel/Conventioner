@@ -298,6 +298,7 @@ The page objects in `front-end/e2e/pages/` are these, one a line, sorted by clas
 - `AttendanceStatusPage`
 - `CheckinPage`
 - `CsvImportPage`
+- `EmailVerificationPage` (the page a verification link opens)
 - `FloorplanWorkflowPage`
 - `FollowUpDialog` (marking a follow-up, from One by one's card or the All view's drawer)
 - `LoginPage`

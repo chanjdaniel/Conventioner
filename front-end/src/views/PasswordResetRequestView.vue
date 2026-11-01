@@ -119,7 +119,7 @@ const submitRequest = async () => {
         <a
           href="#"
           @click.prevent="router.push('/login')"
-          class="link"
+          class="link-alone"
           data-testid="password-reset-request-back-link"
           >Back to sign in</a
         >
@@ -186,20 +186,5 @@ h1 {
 .form-links {
   margin-top: var(--space-4);
   text-align: center;
-}
-
-/* A link on a line of its own is a target (WCAG 2.5.8, T79): a line box `--target-min` tall, with no
-   padding, so it still sits on its text. */
-.link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--target-min);
-  color: var(--mm-text-link);
-  text-decoration: none;
-  font-size: var(--text-sm);
-}
-
-.link:hover {
-  text-decoration: underline;
 }
 </style>

@@ -352,6 +352,31 @@
 }
 
 /* ============================================================================================
+   .link-alone
+   ============================================================================================ */
+
+/*
+ * A link on a line of its own is a target (WCAG 2.5.8, T79): "Forgot password?" under sign-in,
+ * "Back to sign in" under a form. A line box `--target-min` tall (44px on a phone), with no
+ * padding, so it still sits on its text, in the link ink, underlined only under the pointer.
+ *
+ * The four sign-in pages each carried a copy of this rule as their own `.link` (T82 note 5). A link
+ * inside a sentence is not one of these: it sits on the sentence's line and keeps its height.
+ */
+.link-alone {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--mm-text-link);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.link-alone:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================================================
    Focus
    ============================================================================================ */
 
