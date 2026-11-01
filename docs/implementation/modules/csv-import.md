@@ -9,7 +9,7 @@ describes:
   - back-end/app.py#preview_application_import
   - back-end/app.py#import_applications
   - front-end/src/utils/csvFile.ts
-verified: 2026-10-30
+verified: 2026-11-01
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
@@ -54,7 +54,7 @@ A binary named `responses.csv`, read anyway, went on to Map columns as one colum
 The browser reads every dropped or picked file through `readCsvFile` ([`front-end/src/utils/csvFile.ts`](../../../front-end/src/utils/csvFile.ts)), the import's and the start from a CSV's alike: a file that does not decode as UTF-8, holds a NUL byte, or whose header row holds an unprintable character stops on the upload step with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv." (`NOT_A_CSV_EXPORT`), and nothing is sent.
 A CSV that Excel saved in another encoding is refused the same way once it holds an accented letter, since a decode that guesses garbles every accented name.
 The server sees text, not bytes, so `parse_csv` refuses a NUL anywhere, or an unprintable character or the replacement character in the header row, with the same words, for every endpoint that reads a file.
-A byte-order mark is dropped, and an empty file goes on to the server's "That file is empty."
+The browser's reader drops a byte-order mark, and an empty file goes on to the server's "That file is empty."
 
 **Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
 `import_refusal` refuses a form market outright, and otherwise allows `draft` and `applications` (`IMPORT_PHASES`): a draft's first import is its way into Review, and in Review a Redo import reads the whole file again (E38/F04, [review needs an import](../../business/rules/review-needs-an-import.md)); past review, nothing more can be imported, since no move leads back (bug 42).
