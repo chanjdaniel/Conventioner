@@ -61,6 +61,23 @@ def _account(market: Market, vendor_email: str) -> Dict[str, Any]:
     )
 
 
+def accounts(market: Market) -> Dict[str, Dict[str, Any]]:
+    """Every vendor's account on the market, by address, each as ``vendor_account`` answers it:
+    every vendor with a seat, a kept line or an entry. The caller has asked the table already."""
+    pricing = market.setup_object.pricing if market.setup_object else None
+    seats = seats_by_vendor(market)
+    kept = Payments.amounts_owed_by_vendor(market.id)
+    paid = Payments.payments_by_vendor(market.id)
+    return {
+        address: Payments.account(
+            pricing.currency if pricing else None,
+            Payments.lines(seats.get(address, {}), kept.get(address, {})),
+            paid.get(address, []),
+        )
+        for address in dict.fromkeys([*seats, *kept, *paid])
+    }
+
+
 def vendor_account(market_id: str, vendor_email: str, requesting_user: str) -> Dict[str, Any]:
     """One vendor's account on this market. Asks ``Actions.READ``."""
     market = MarketsApi._load_market_for(market_id, requesting_user, Actions.READ)

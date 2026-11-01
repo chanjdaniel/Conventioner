@@ -1,7 +1,7 @@
 /**
- * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02) and what
- * the market knows of them on Discord (S05), from the Vendors page or the Applications tab's All
- * view (S03).
+ * The vendors, exported to a CSV (E42/F01/S01), with where they sit on each date (S02), from the
+ * Vendors page or the Applications tab's All view (S03), what they owe and have paid (S04), and
+ * what the market knows of them on Discord (S05).
  *
  * The export dialog opens on what a page shows, so the file holds the vendors the organizer was
  * looking at; the server builds the file and its preview from the filters the dialog sends
@@ -15,6 +15,10 @@ import { hasPlaceFilter, type ResultFilters, type VendorsShown } from '@/utils/r
 import type { AllViewFilter } from '@/utils/reviewQueue';
 
 export type ExportStatus = 'open' | 'follow_up' | 'approved' | 'rejected' | 'added';
+
+/** How what a vendor paid compares with what they owe, as their Payment tab reads it: "Owes",
+ * "Paid in full", or "Paid more than owed" (`balance_state` in `back-end/payments.py`). */
+export type ExportPaymentState = 'owes' | 'paid' | 'over';
 
 /** What narrows the vendors; an empty value narrows nothing. */
 export interface ExportFilters {
@@ -33,6 +37,8 @@ export interface ExportFilters {
   answers: Record<string, string[]>;
   /** Only the follow-ups the one exporting owns, as the All view's Mine. */
   mine: boolean;
+  /** Only the vendors in this payment state; empty is paid or not. */
+  payment: '' | ExportPaymentState;
   /** Any of these states the last Discord check found; none is any state. */
   discord: DiscordState[];
 }
@@ -47,6 +53,7 @@ export const NO_FILTERS: ExportFilters = Object.freeze({
   search: '',
   answers: {},
   mine: false,
+  payment: '',
   discord: [],
 }) as ExportFilters;
 
@@ -101,7 +108,7 @@ export function applicationsAllSeed(view: { filter: AllViewFilter; mine: boolean
 }
 
 /** Which heading the dialog lists a column under. */
-export type ExportGroupId = 'vendor' | 'answers' | 'assignment' | 'discord';
+export type ExportGroupId = 'vendor' | 'answers' | 'assignment' | 'payment' | 'discord';
 
 export interface ExportColumn {
   id: string;
@@ -120,6 +127,7 @@ export interface ExportOffered {
   sections: string[];
   tiers: string[];
   questions: { key: string; label: string; options: string[] }[];
+  paymentStates: { id: ExportPaymentState; label: string }[];
   /** The Discord states to filter by, once a check has run; none before. */
   discordStates: { id: DiscordState; label: string }[];
 }
@@ -138,8 +146,9 @@ export interface ColumnGroup {
 }
 
 /**
- * The columns under their headings, in the market's order: who the vendor is, their answers, where
- * they sit, then Discord. A heading with no column under it, as a form with no question of its own, is
+ * The columns under their headings, in the market's order: who the vendor is, their answers,
+ * where they sit, what they owe and have paid, then Discord. A heading with no column under it, as
+ * a form with no question of its own, is
  * left out.
  */
 export function columnGroups(offered: Pick<ExportOffered, 'columns' | 'groups'>): ColumnGroup[] {

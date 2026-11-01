@@ -1,5 +1,5 @@
-"""The market's vendors, exported to a CSV (E42/F01/S01, its placement columns S02, its Discord
-columns S05).
+"""The market's vendors, exported to a CSV (E42/F01/S01, its placement columns S02, its money
+columns S04, its Discord columns S05).
 
 An organizer exports the vendors a page shows, choosing the columns, as a file for a Google Sheet and
 a mail merge (YAMM). The dialog that asks starts from the page's filters; the file is built here from
@@ -11,11 +11,18 @@ exported as well as the assignment's. Where they sit is read from the stored pla
 Assignments page draws (``derive_market_table_rows``), pins and seats moved by hand included, so a
 filter on a seat finds what that page shows, and each date's seat columns export it.
 
+What they owe and have paid is read from the account the drawer's Payment tab reads
+(``api.payments.accounts``), so a payment reminder exported is the vendors that tab says owe.
+
 Who is in the market's Discord server is read from what the last "Check Discord" kept on the market
 (``api.discord_connection``), so a filter on a state finds the vendors the Vendors page shows in it.
 
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
+A money cell is the server's own, from whole cents, so it is written as it is (``money_cell``): a
+negative difference, "-$15", reaches the spreadsheet as a number, where the escape's quote would make
+it text. Where a minus would lead a currency's letters, "-A$15" being a minus and the cell A$15, it is
+the minus sign U+2212, which no spreadsheet reads as a formula.
 """
 import csv
 import io
@@ -29,7 +36,10 @@ import api.applications as ApplicationsApi
 import api.discord_connection as DiscordApi
 import api.market_actions as Actions
 import api.markets as MarketsApi
+import api.payments as PaymentsApi
 import essential_fields as EssentialFields
+import payments as Payments
+import pricing as Pricing
 from assignment.csv_output import as_text_cell
 from client_errors import BadRequestError
 from datatypes import Application, ApplicationStatus, DiscordConnection, FormField, Market
@@ -100,6 +110,7 @@ GROUPS: List[Tuple[str, str]] = [
     ("vendor", "Vendor"),
     ("answers", "Answers"),
     ("assignment", "Assignment"),
+    ("payment", "Payment"),
     ("discord", "Discord"),
 ]
 
@@ -110,6 +121,9 @@ class Column:
     label: str
     cell: Callable[["Vendor"], str]
     group: str = "vendor"
+    #: A cell the server writes from its own numbers, never from anyone's text, so it is written as
+    #: it is rather than escaped (``as_text_cell``): only an amount, ``money_cell``.
+    as_is: bool = False
 
 
 @dataclass
@@ -120,6 +134,9 @@ class Vendor:
     application: Application
     seats: Dict[str, Any] = field(default_factory=dict)
     discord_state: Optional[str] = None
+    #: What they owe and have paid, as the Payment tab reads it; read only when a money column or
+    #: the payment filter asks for it.
+    account: Optional[Dict[str, Any]] = None
 
     @property
     def email(self) -> str:
@@ -220,6 +237,46 @@ def _assignment_columns(market: Market) -> List[Column]:
     ]
 
 
+#: The minus sign, which no spreadsheet reads as a formula lead, where the hyphen-minus is one.
+MINUS_SIGN = "\u2212"
+
+
+def money_cell(cents: int, currency: Optional[str]) -> str:
+    """An amount as a file writes it: as the Payment tab does (``Pricing.money_text``), but where a
+    minus would lead a currency's letters, "-A$15", "-US$15" or "-NZ$15", a minus and a cell
+    reference that Excel opening a CSV evaluates, with the minus sign U+2212 instead. "-$15", "-€15"
+    and "-£15" keep the hyphen-minus, so a spreadsheet reads the number."""
+    text = Pricing.money_text(cents, currency)
+    return MINUS_SIGN + text[1:] if text.startswith("-") and text[1].isalpha() else text
+
+
+def _no_account(currency: Optional[str]) -> Dict[str, Any]:
+    return {"currency": currency, "lines": [], "payments": [], "owedCents": 0, "paidCents": 0}
+
+
+def _payment_columns(market: Market) -> List[Column]:
+    """The price group each table-day is priced by, the amount owed, the amount paid and the
+    difference, "Still owed", below zero where they paid more than owed (Q26)."""
+    pricing = market.setup_object.pricing if market.setup_object else None
+    currency = pricing.currency if pricing else None
+
+    def groups(vendor: Vendor) -> str:
+        lines = (vendor.account or {}).get("lines") or []
+        return ", ".join(dict.fromkeys(line["group"] for line in lines if line.get("group")))
+
+    def money(amount: Callable[[Dict[str, Any]], int]) -> Callable[[Vendor], str]:
+        return lambda vendor: money_cell(amount(vendor.account or _no_account(currency)), currency)
+
+    return [
+        Column("priceGroup", "Price group", groups, "payment"),
+        Column("owed", "Amount owed", money(lambda account: account["owedCents"]), "payment",
+               as_is=True),
+        Column("paid", "Amount paid", money(lambda account: account["paidCents"]), "payment",
+               as_is=True),
+        Column("stillOwed", "Still owed",
+               money(lambda account: account["owedCents"] - account["paidCents"]), "payment",
+               as_is=True),
+    ]
 def _discord_columns(market: Market) -> List[Column]:
     """What the market knows of its vendors on Discord (E42/F01/S05): the username its card's
     question holds, as updated and tidied as the check reads it, while the form asks it; the state
@@ -269,6 +326,7 @@ def offered_columns(market: Market) -> List[Column]:
             for question in _organizers_questions(market)
         ),
         *_assignment_columns(market),
+        *_payment_columns(market),
         *_discord_columns(market),
     ]
 
@@ -304,6 +362,7 @@ def _chosen_columns(asked: Any, offered: List[Column]) -> List[Column]:
 
 PLACED = ("", "placed", "unplaced")
 SIZES = ("", "full", "half")
+PAYMENT_STATES = ("", *Payments.BALANCE_STATES)
 
 
 @dataclass(frozen=True)
@@ -315,6 +374,7 @@ class Filters:
     ``answers`` is a choice question's options, any of which the vendor chose. ``follow_ups_of`` is
     Mine, as the Applications tab has it: the follow-ups that address owns, the one exporting's.
     ``discord`` is any of the states the last Discord check found.
+    ``payment`` is one of ``Payments.BALANCE_STATES``, as the vendor's Payment tab reads.
     """
 
     statuses: Tuple[str, ...] = ()
@@ -327,6 +387,7 @@ class Filters:
     answers: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
     follow_ups_of: str = ""
     discord: Tuple[str, ...] = ()
+    payment: str = ""
 
 
 def _text(body: Dict[str, Any], key: str, allowed: Optional[Tuple[str, ...]] = None) -> str:
@@ -385,6 +446,7 @@ def read_filters(body: Any, questions: List[Dict[str, Any]], requesting_user: st
         answers=answers,
         follow_ups_of=normalized_email(requesting_user) if mine else "",
         discord=discord,
+        payment=_text(body, "payment", PAYMENT_STATES),
     )
 
 
@@ -434,6 +496,9 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
         return False
     if not _placed_matches(vendor, filters):
         return False
+    if filters.payment and Payments.balance_state(
+            vendor.account or _no_account(None)) != filters.payment:
+        return False
     if filters.discord and vendor.discord_state not in filters.discord:
         return False
     for key, options in filters.answers.items():
@@ -444,16 +509,17 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
 
 # ── the vendors and the file ─────────────────────────────────────────────────
 
-def _vendors(market: Market) -> List[Vendor]:
+def _vendors(market: Market, with_accounts: bool = False) -> List[Vendor]:
     """Every application of the market, newest first as the Vendors page lists them (a vendor added
-    by hand, never submitted, last), each with the seats the stored placements give them and the
-    Discord state the last check kept for it."""
+    by hand, never submitted, last), each with the seats the stored placements give them, the
+    Discord state the last check kept for it and, when asked, their account."""
     seats: Dict[str, Dict[str, Any]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
         for email in set(row.assignment):
             seats.setdefault(email.strip().lower(), {})[row.date] = row
     discord_states = {
         found.application_id: found.state for found in _discord(market).vendor_states or []}
+    accounts = PaymentsApi.accounts(market) if with_accounts else {}
 
     vendors = []
     for doc in ApplicationsApi.list_applications_for_market(market.id):
@@ -466,6 +532,7 @@ def _vendors(market: Market) -> List[Vendor]:
         vendor = Vendor(application)
         vendor.seats = seats.get(vendor.email, {})
         vendor.discord_state = discord_states.get(application.id)
+        vendor.account = accounts.get(normalized_email(vendor.email))
         vendors.append(vendor)
     return vendors
 
@@ -483,9 +550,11 @@ def _build(market_id: str, body: Any, requesting_user: str) -> Export:
         raise ExportInvalid("The export's request is not one it reads.")
     filters = read_filters(body.get("filters"), offered_questions(market), requesting_user)
     columns = _chosen_columns(body.get("columns"), offered_columns(market))
+    with_accounts = bool(filters.payment) or any(column.group == "payment" for column in columns)
     rows = [
-        [as_text_cell(column.cell(vendor)) for column in columns]
-        for vendor in _vendors(market)
+        [column.cell(vendor) if column.as_is else as_text_cell(column.cell(vendor))
+         for column in columns]
+        for vendor in _vendors(market, with_accounts)
         if vendor_shown(vendor, filters)
     ]
     return Export(market, [as_text_cell(column.label) for column in columns], rows)
@@ -513,6 +582,8 @@ def preview(market_id: str, body: Any, requesting_user: str) -> Tuple[Dict[str, 
             "tiers": [tier.name for tier in setup.tiers] if setup else [],
             "questions": offered_questions(export.market),
             "discordStates": offered_discord_states(export.market),
+            "paymentStates": [{"id": state, "label": label}
+                              for state, label in Payments.BALANCE_STATES.items()],
         },
     }, 200
 
