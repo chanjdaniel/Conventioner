@@ -8,7 +8,7 @@ Statuses are as of epic E36, read from the code and the specs; a flow walked liv
 Intended flows are written as designed, even when something stops them working today, and are gathered again in [Not reachable yet](#not-reachable-yet).
 On-screen labels are quoted exactly as the product shows them.
 
-How to walk the flows, for E2E or user testing, what a walk needs, and which specs already walk each one: [walking the flows](implementation/testing/walking-the-flows.md).
+How to walk the flows, for E2E or user testing, what a walk needs, and the gaps the specs leave in each one: [walking the flows](implementation/testing/walking-the-flows.md).
 Who may do what on a market: [what each role may do](business/rules/what-each-role-may-do.md).
 The planned offers flows (P5, K6 and group M) are written here, under [Planned, not built](#planned-not-built).
 

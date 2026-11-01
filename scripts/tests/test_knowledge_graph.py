@@ -469,6 +469,76 @@ def test_a_link_within_a_layer_may_be_one_way(repo, capsys):
     assert run(capsys, "check")[0] == 0
 
 
+# check: a flow's "Covered by"
+
+COVERED_BY = "a Covered by is a list, one test a line, sorted by file name"
+INLINE_COVERED_BY = "Covered by: `the-judge.spec.ts`, `a-move-is-judged.spec.ts`.\n"
+
+
+def with_a_node(kind, body):
+    """The whole graph, with one more node of `kind` in its folder holding `body` under its title."""
+    folder = {"flow": "flows", "rule": "rules"}[kind]
+    files = graph()
+    if kind == "flow":
+        files["docs/README.md"] += "- [Flows](business/flows/README.md)\n"
+        files["docs/business/flows/README.md"] = "# Flows\n\n- [Judging](judging.md) - one line\n"
+    else:
+        files["docs/business/rules/README.md"] += "- [Judging](judging.md) - one line\n"
+    files[f"docs/business/{folder}/judging.md"] = node("business", kind, "# Judging\n\n" + body)
+    return files
+
+
+SORTED_COVERED_BY = (
+    "## J1. Judge a move\n\n"
+    "1. Choose the move.\n\n"
+    "Covered by:\n"
+    "- `a-move-is-judged.spec.ts`\n"
+    "- `back-end/tests/test_guards.py` for the guards,\n"
+    "  and what they say\n"
+    '- [`Blocked.test.ts`](../../../back-end/guards.py) ("a refused move"), for the refusal\n'
+    "- `the-judge.spec.ts`\n"
+    "\n"
+    "Covered by:\n"
+    "- `the-judge.spec.ts`\n"
+)
+
+
+def test_a_covered_by_listed_one_test_a_line_in_order_passes(repo, capsys):
+    commit(repo, with_a_node("flow", SORTED_COVERED_BY))
+    code, lines = errors(capsys, "check")
+    assert (code, lines) == (0, [])
+
+
+@pytest.mark.parametrize(
+    "body, line",
+    [
+        (INLINE_COVERED_BY, 8),
+        ("Covered by:\n- `the-judge.spec.ts`\n- `a-move-is-judged.spec.ts`\n", 10),
+        ("Covered by:\n- `the-judge.spec.ts`\n- the sweeps at 390px\n", 10),
+        ("Covered by:\n\n- `the-judge.spec.ts`\n", 8),
+        ("Covered by:\nThe judge's spec.\n", 8),
+        ("Covered by:\n- `the-judge.spec.ts`\nThe rule it obeys.\n", 10),
+    ],
+    ids=["inline", "unsorted", "an item with no code span", "a blank line before the list", "no list",
+         "a line run on to the last item"],
+)
+def test_a_covered_by_written_another_way_is_refused(repo, capsys, body, line):
+    commit(repo, with_a_node("flow", body))
+    code, lines = errors(capsys, "check")
+    assert code == 1
+    assert lines == [f"docs/business/flows/judging.md:{line}: {COVERED_BY}"]
+
+
+@pytest.mark.parametrize(
+    "kind, body",
+    [("rule", INLINE_COVERED_BY), ("flow", f"```text\n{INLINE_COVERED_BY}```\n")],
+    ids=["a rule", "a flow's code block"],
+)
+def test_a_covered_by_outside_a_flow_or_in_a_code_block_is_left_alone(repo, capsys, kind, body):
+    commit(repo, with_a_node(kind, body))
+    assert errors(capsys, "check") == (0, [])
+
+
 # drift
 
 

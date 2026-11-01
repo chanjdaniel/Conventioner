@@ -89,39 +89,261 @@ Each check keeps the order it had, so every route answers each person as it did 
 
 ## Each route's row
 
-| Row (`id`) | Default | Asked by |
-| --- | --- | --- |
-| Read the market (`read`) | Viewer, fixed | `GET /markets/:id` (`get_market_for_user`), the applications list, the assignment, statistics, the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`), tables, attendance, pending offers count, the application form and vendor notes reads, the Payments page (`GET /markets/:id/payments`, `get_market_payments`), a vendor's payments (`GET /markets/:id/payments/<email>`), `POST /floorplans/export` |
-| Read the market's history (`read-history`) | Viewer | `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`), `GET /markets/:id/placement-history` (the assignment history) and `GET /markets/:id/permission-history` (the changes to the market's table) |
-| Export CSV (`export-csv`) | Viewer | `GET /markets/:id/assignment-csv`, `POST /markets/:id/vendor-export` and its `/preview` |
-| Change Market Setup (`change-setup`) | Editor | `PUT /markets/:id/name`, `PUT /markets/:id/plan`, `POST /floorplans/upload`, `DELETE /floorplans/<id>`, `POST /floorplans/analyze`, `POST /floorplans/calibrate`, `POST /floorplans/save-to-market`, `POST /floorplans/place-tables` |
-| Change the form, the automatic rejections and the review highlights (`change-form`) | Editor | `PUT /markets/:id/application-form`, `PUT /markets/:id/rejection-rules`, `PUT /markets/:id/review-highlights` |
-| Import applications, and start a market from a CSV (`import-applications`) | Admin | the three `/markets/:id/applications/import` routes and the two `/markets/:id/csv-proposal` routes (`_importing_market_document`) |
-| Give verdicts and follow-ups (`give-verdicts`) | Editor, or a chosen reviewer the row below lets be chosen | every review write through `_reviewer_on` (`verdict_refusal`): a verdict, a selection's verdicts, a verdict's or a selection's undo, the next card, a claim, a follow-up's owner; and which follow-up owners the market read offers; on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason` |
-| Change a verdict, or overturn an automatic rejection (`change-verdicts`) | Admin | on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`); and whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import); on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer; the form tab's and the import's lines name who may by the row's role (`whoMayTake`) |
-| Choose reviewers (`choose-reviewers`) | Admin | `PUT /markets/:id/reviewers` (`choose_reviewers`, E38/F07/S02), and whom the market read offers as `reviewerCandidates` while the review is open; on screen, the Reviewers panel's Choose or Change reviewers shows by its answer ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md)) |
-| Be chosen as a reviewer, and then give verdicts and follow-ups (`review-when-chosen`) | Viewer | under the giving row's checks, for a chosen reviewer (`refusal`, `role_refusal`); `may_be_chosen`: whom `PUT /markets/:id/reviewers` takes and the market read offers as `reviewerCandidates`, and which chosen reviewers are dealt to and served `able` (E38/F07/S03); nothing is recorded under it, so the history's kind filter leaves it out (`history_groups`) |
-| Move the phase (`move-phase`) | Admin | `POST /markets/:id/transition`, and the seeder's move |
-| Stop taking applications, and take them again (`stop-applications`) | Admin | `POST /markets/:id/applications-stopped` (E38/F04/S02) |
-| Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results`; on screen, the Applications page draws Publish Results by its answer |
-| Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
-| Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
-| Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase, and declining a possible Discord match, `POST /markets/:id/discord/possible-matches/:application_id/declined` (E46/F01/S05) |
-| Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
-| Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
-| Record a payment (`record-payment`) | Editor | `POST /markets/:id/payments/<email>` ([payments](../data/payments.md)) |
-| Change the amount owed (`change-owed`) | Admin | `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`, and a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too) |
-| Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`) | Admin | `POST /markets/:id/payments/<email>/refunds`, `PUT` and `DELETE /markets/:id/payment-entries/<id>` |
-| Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
-| Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check`, and "Give roles", `POST /markets/:id/discord/role-run` |
-| Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer; and whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01) |
-| Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given; taking a role asks both roles rows before it looks at the person, so one refused by both reads the same refusal whoever the person is, then the row of the role taken) |
-| Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
-| Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
-
 **A verdict on an application already approved or rejected asks two rows**: the giving row at `_reviewer_on`, and the change row of each application it writes (E38/F06/S01); the write itself carries `unless_decided`, so a verdict landing between the reviewer's look and the write is the 409 it always was ([what each role may do](../../business/rules/what-each-role-may-do.md#where-it-is-kept)).
 
 **The plan write asks two rows**: Market Setup always, and the Assignment row too when the body changes the assignment rules, which ride in the plan; restating them asks only Market Setup.
+
+One block per row, in the `ACTIONS` order: a new action is a block in its place in that order, and a new route or caller one line in its action's "Asked by" list ([two features never share a line](../conventions/two-features-never-share-a-line.md#the-markets-actions)).
+
+### Read the market (`read`)
+
+Default: Viewer, fixed.
+
+Asked by:
+- `GET /markets/:id` (`get_market_for_user`)
+- the applications list
+- the assignment
+- statistics
+- the Stats tab's figures (`GET /markets/:id/stats`, `get_market_stats`)
+- tables
+- attendance
+- pending offers count
+- the application form and vendor notes reads
+- the Payments page (`GET /markets/:id/payments`, `get_market_payments`)
+- a vendor's payments (`GET /markets/:id/payments/<email>`)
+- `POST /floorplans/export`
+
+### Read the market's history (`read-history`)
+
+Default: Viewer.
+
+Asked by:
+- `GET /markets/:id/history` (Manage market's History section, and a vendor's drawer's History tab with `?vendor=`)
+- `GET /markets/:id/placement-history` (the assignment history)
+- `GET /markets/:id/permission-history` (the changes to the market's table)
+
+### Export CSV (`export-csv`)
+
+Default: Viewer.
+
+Asked by:
+- `GET /markets/:id/assignment-csv`
+- `POST /markets/:id/vendor-export` and its `/preview`
+
+### Change Market Setup (`change-setup`)
+
+Default: Editor.
+
+Asked by:
+- `PUT /markets/:id/name`
+- `PUT /markets/:id/plan`
+- `POST /floorplans/upload`
+- `DELETE /floorplans/<id>`
+- `POST /floorplans/analyze`
+- `POST /floorplans/calibrate`
+- `POST /floorplans/save-to-market`
+- `POST /floorplans/place-tables`
+
+### Change the form, the automatic rejections and the review highlights (`change-form`)
+
+Default: Editor.
+
+Asked by:
+- `PUT /markets/:id/application-form`
+- `PUT /markets/:id/rejection-rules`
+- `PUT /markets/:id/review-highlights`
+
+### Import applications, and start a market from a CSV (`import-applications`)
+
+Default: Admin.
+
+Asked by:
+- the three `/markets/:id/applications/import` routes (`_importing_market_document`)
+- the two `/markets/:id/csv-proposal` routes (`_importing_market_document`)
+
+### Give verdicts and follow-ups (`give-verdicts`)
+
+Default: Editor, or a chosen reviewer the row below lets be chosen.
+
+Asked by:
+- every review write through `_reviewer_on` (`verdict_refusal`):
+  - a verdict
+  - a selection's verdicts
+  - a verdict's or a selection's undo
+  - the next card
+  - a claim
+  - a follow-up's owner
+- which follow-up owners the market read offers
+- on screen, the All view's ticks, its Select all and a selection's verdicts show by its answer and `verdictsSettledReason`
+
+### Change a verdict, or overturn an automatic rejection (`change-verdicts`)
+
+Default: Admin.
+
+Asked by:
+- on top of the row above, `PUT .../review` and `POST .../verdicts` of each application already approved or rejected (`_change_refused`, then `review_application` and `review_selection`)
+- whether a write that judges the automatic rejections again returns a rule's rejection to open (`may_overturn`: the rules save, the form save, updating a vendor's info, an import)
+- on screen, One by one's "Approve instead" and "Reject instead" and a decided card's verdicts, and the All view's tick, Select all and drawer verdicts on a decided row, show by its answer
+- the form tab's and the import's lines name who may by the row's role (`whoMayTake`)
+
+### Choose reviewers (`choose-reviewers`)
+
+Default: Admin.
+
+Asked by:
+- `PUT /markets/:id/reviewers` (`choose_reviewers`, E38/F07/S02)
+- whom the market read offers as `reviewerCandidates` while the review is open
+- on screen, the Reviewers panel's Choose or Change reviewers shows by its answer ([the review is dealt among chosen reviewers](../../business/rules/the-review-is-dealt-among-chosen-reviewers.md))
+
+### Be chosen as a reviewer, and then give verdicts and follow-ups (`review-when-chosen`)
+
+Default: Viewer.
+
+Asked by:
+- under the giving row's checks, for a chosen reviewer (`refusal`, `role_refusal`)
+- `may_be_chosen`:
+  - whom `PUT /markets/:id/reviewers` takes and the market read offers as `reviewerCandidates`
+  - which chosen reviewers are dealt to and served `able` (E38/F07/S03)
+
+Nothing is recorded under it, so the history's kind filter leaves it out (`history_groups`).
+
+### Move the phase (`move-phase`)
+
+Default: Admin.
+
+Asked by:
+- `POST /markets/:id/transition`
+- the seeder's move
+
+### Stop taking applications, and take them again (`stop-applications`)
+
+Default: Admin.
+
+Asked by:
+- `POST /markets/:id/applications-stopped` (E38/F04/S02)
+
+### Publish results (`publish-results`)
+
+Default: Admin.
+
+Asked by:
+- `POST /markets/:id/publish-results`
+- on screen, the Applications page draws Publish Results by its answer
+
+### Add a vendor who never applied (`add-vendor`)
+
+Default: Editor.
+
+Asked by:
+- `POST /markets/:id/vendors`
+
+### Write vendor notes (`write-vendor-notes`)
+
+Default: Editor.
+
+Asked by:
+- `PUT /markets/:id/vendor-notes/<email>` and its `request-handled`
+
+### Update a vendor's info (`update-vendor-info`)
+
+Default: Editor.
+
+Asked by:
+- `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase
+- declining a possible Discord match, `POST /markets/:id/discord/possible-matches/:application_id/declined` (E46/F01/S05)
+
+### Update info the assignment or price reads (`update-assignment-or-price-info`)
+
+Default: Admin.
+
+Asked by:
+- the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged
+- on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence
+
+It records no entry of its own, the write's is `update-vendor-info`'s.
+
+### Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`)
+
+Default: Editor.
+
+Asked by:
+- `POST /markets/:id/assignment`
+- the three `/markets/:id/placements` writes
+- a plan write that changes the assignment rules
+
+### Record a payment (`record-payment`)
+
+Default: Editor.
+
+Asked by:
+- `POST /markets/:id/payments/<email>` ([payments](../data/payments.md))
+
+### Change the amount owed (`change-owed`)
+
+Default: Admin.
+
+Asked by:
+- `PUT` and `DELETE /markets/:id/payments/<email>/owed/<date>`
+- a free that takes the seat off what the vendor owes (`DELETE /markets/:id/placements` with `deductOwed`, which asks the Assignment row too)
+
+### Adjust the amount paid: edit or remove a payment, record a refund (`adjust-paid`)
+
+Default: Admin.
+
+Asked by:
+- `POST /markets/:id/payments/<email>/refunds`
+- `PUT` and `DELETE /markets/:id/payment-entries/<id>`
+
+### Check vendors in (`check-in`)
+
+Default: Editor.
+
+Asked by:
+- `POST` and `DELETE /markets/:id/attendance`
+
+### Connect Discord and give roles (`connect-discord`)
+
+Default: Admin.
+
+Asked by:
+- the Discord card's routes ([the Discord connection](discord.md)):
+  - `POST /markets/:id/discord/authorization`
+  - `POST` and `DELETE /markets/:id/discord/connection`
+  - `PUT /markets/:id/discord`
+  - `GET /markets/:id/discord/roles`
+- the Vendors page's "Check Discord", `POST /markets/:id/discord/check`
+- the Vendors page's "Give roles", `POST /markets/:id/discord/role-run`
+
+### Give and take Editor and Viewer roles (`manage-editors-and-viewers`)
+
+Default: Admin.
+
+Asked by:
+- `/markets/:id/roles` writes on an Editor or a Viewer
+- whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01)
+
+### Give and take Admin roles (`manage-admins`)
+
+Default: Owner, fixed.
+
+Asked by:
+- `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given)
+- taking any role: both roles rows, before it looks at the person, so one refused by both reads the same refusal whoever the person is; then the row of the role taken
+
+### Delete the market (`delete-market`)
+
+Default: Owner, fixed.
+
+Asked by:
+- `DELETE /markets/:id`
+
+### Change this table (`change-the-table`)
+
+Default: Owner, fixed.
+
+Asked by:
+- `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`)
+- `DELETE /markets/:id/permissions` (`reset_permissions`)
 
 ## A market's own rows
 

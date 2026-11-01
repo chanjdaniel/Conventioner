@@ -33,7 +33,8 @@ Both sections are counted on the server and read in one small answer (`GET /mark
 3. "Applied per day" counts those who applied by the day they did, earliest first, in the reader's own calendar; a vendor added by hand never applied, so is on no day.
    The server keeps no time zone for a market, so it sends only the time each applied, never who, and the page makes the days.
 
-Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does").
+Covered by:
+- `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Applications tab does")
 
 ## N2. See what they answered
 
@@ -50,7 +51,9 @@ Covered by: `the-stats-tab.spec.ts` ("the Stats tab counts who applied as the Ap
 
 A row leads nowhere: the All view filters by status, not by an answer.
 The counts come in the page's one answer, read by [`answerCounts.ts`](../../../front-end/src/utils/answerCounts.ts); they read the answers as the organizer does, an organizer's [update of an answer](../rules/an-update-is-kept-beside-the-vendors-answer.md) counted in its place.
-Covered by: `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned"), `test_the_stats_tab.py`.
+Covered by:
+- `test_the_stats_tab.py`
+- `the-stats-tab.spec.ts` ("a chart per choice question counts each option, groups "Other", and narrows to the approved and the assigned")
 
 ## The rules it obeys
 

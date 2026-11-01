@@ -38,19 +38,26 @@ The answer stays changeable on Market Setup while the market is a draft ([E5](pl
 
 An empty name, or no answer to how vendors apply, keeps "Create market" disabled.
 On the Google Form path the same dialog ends on the upload step instead; "Cancel" there leaves a Google Form draft on Market Setup to plan by hand, and its form tab reads "Questions" ([P1](the-google-form-path.md#p1-csv-intake-form-built-by-hand)).
-Covered by: `new-market-org.spec.ts`, `dialog-idiom.spec.ts`, `where-a-form-starts.spec.ts`.
+Covered by:
+- `dialog-idiom.spec.ts`
+- `market-owner.spec.ts`
+- `new-market-org.spec.ts`
+- `where-a-form-starts.spec.ts`
 
 ## D2. Create a market that starts from a Google Form
 
 **Status:** Works (re-walked live on 2026-10-03, as P2; the choice's wording read from the code as of E31/F03/S01).
 As D1, choosing "On my own Google Form"; lands on `/markets/<id>/start-from-csv` (flow [G](starting-from-a-google-form.md)).
-Covered by: `where-a-form-starts.spec.ts`.
+Covered by:
+- `where-a-form-starts.spec.ts`
 
 ## D3. Choose among several organizations
 
 **Status:** Works (walked live).
 With more than one organization the Organization field is a dropdown starting on "Select organization", and "Create market" stays disabled until one is chosen; with exactly one it is plain text.
-Covered by: `dialog-idiom.spec.ts` ("with exactly one organization"), `new-market-org.spec.ts`.
+Covered by:
+- `dialog-idiom.spec.ts` ("with exactly one organization")
+- `new-market-org.spec.ts`
 
 ## D4. Create a market with no organization yet
 
@@ -58,12 +65,14 @@ Covered by: `dialog-idiom.spec.ts` ("with exactly one organization"), `new-marke
 With none, the dialog says "No organizations available. Create an organization" and keeps "Create market" disabled.
 The link goes to `/organizations` (the dialog and anything typed in it are lost); after creating an organization there, start again from "New market".
 The dashboard says the same: create the organization under Organizations first (bug 42).
-Covered by: `new-market-org.spec.ts` (the zero-organization user).
+Covered by:
+- `new-market-org.spec.ts` (the zero-organization user)
 
 ## D5. A name that is already someone's address
 
 **Status:** Works (walked live): "Another market already uses the web address /pier-draft-market. Choose a name that is different in more than accents or punctuation."
 The name becomes the public URL slug, so a name whose slug is taken is refused, look-alikes included ("Cafe Market" beside "Café Market"); see [the slug](../../implementation/data/market-document.md#the-slug).
-Covered by: `public-address.spec.ts`.
+Covered by:
+- `public-address.spec.ts`
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

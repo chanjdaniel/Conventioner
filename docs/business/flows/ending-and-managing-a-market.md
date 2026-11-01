@@ -57,6 +57,9 @@ The "Add user" row does the same: its email field takes the row, with the role a
 | Wind up an organization and every market in it | [B5a to B5c](organizations.md#b5-delete-an-organization) |
 | Return a market to draft to fix its form before anyone applies | [F5](form-tab.md#f5-reopen-the-market-to-fix-the-form) |
 
+Covered by:
+- `org-deletion.spec.ts`
+
 ## L1. Archive after market days
 
 **Status:** Works (re-walked live on 2026-10-03; archiving as the step onward and the landing read from the code as of E31/F02/S03 and E32/F01/S01).
@@ -66,7 +69,10 @@ The "Add user" row does the same: its email field takes the row, with the role a
 3. Expect the rail frozen with "This market is archived. It was published and ran its market days." (bug 8), landing on Assignments; every page is read only (bug 30), and Attendance keeps the record, every vendor who never checked in reading "Did not come".
 4. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in (bug 9).
 
-Covered by: `phase-state-machine.spec.ts`, `an-archive-keeps-its-check-in-page.spec.ts`, `an-archive-is-read-only.spec.ts`.
+Covered by:
+- `an-archive-is-read-only.spec.ts`
+- `an-archive-keeps-its-check-in-page.spec.ts`
+- `phase-state-machine.spec.ts`
 
 ## L2. Abandon a market early
 
@@ -75,7 +81,10 @@ More…, "Archive Market" from any earlier phase, with the same confirmation les
 It is read only, lands on Assignments if it was assigned and on Market Setup if not, and no check-in page is served.
 The rail's note says how far it got: "It was abandoned before it opened applications.", "It opened applications but never allocated tables." or "Its tables were allocated but it was never published, so no check-in page went on the air."; a market older than the phase record says only what it can prove ("It opened applications.", "Its tables were allocated.").
 Its Attendance tab says "This market was archived without being published, so nobody checked in."
-Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ran says it has no attendance"), `an-archive-keeps-its-check-in-page.spec.ts`, `market-remembers-phases.spec.ts`.
+Covered by:
+- `an-archive-is-read-only.spec.ts` ("an archived market that never ran says it has no attendance")
+- `an-archive-keeps-its-check-in-page.spec.ts`
+- `market-remembers-phases.spec.ts`
 
 ## L3. Manage who has access
 
@@ -98,7 +107,13 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 7. A refused change of role is said beneath that person's row, which keeps the role they hold.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
-Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390), and the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role".
+Covered by:
+- `*-sweep.spec.ts`, the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role"
+- `access-control.spec.ts`
+- [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge)
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390)
+- `the-manage-market-dialog-holds-together.spec.ts`
+- `tier2.spec.ts` ("add user, change role, and remove user from market")
 
 ## L3a. Set who may do what
 
@@ -119,20 +134,31 @@ Beneath Permissions, "History", closed until opened, lists every change on the m
 
 A change reaches every screen at its next read of the market: the section shows the table the write answers, and the market open in the store, when it is this one, is re-read, as a rename re-reads it.
 The section is [`MarketPermissions.vue`](../../../front-end/src/components/MarketPermissions.vue), its rows and its changes the shared [`PermissionRows.vue`](../../../front-end/src/components/PermissionRows.vue) and [`PermissionChanges.vue`](../../../front-end/src/components/PermissionChanges.vue) that Manage organization's default permissions show too, its three confirmations teleported beside Manage market as a dialog opened from a dialog is ([dialogs](../../implementation/conventions/dialogs.md)); the words are [`front-end/src/utils/permissionTable.ts`](../../../front-end/src/utils/permissionTable.ts)'s, and the server keeps the table and its changes structured.
-Covered by: [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts), `the-organizations-default.spec.ts` for the copy again, `permissionTable.test.ts`, `marketPermissions.test.ts`, `manageIsOfferedToWhoeverReads.test.ts`, and the sweeps and `every-control-is-named.spec.ts`, which walk the section open.
+Covered by:
+- `*-sweep.spec.ts`, which walk the section open
+- `every-control-is-named.spec.ts`, which walks the section open
+- `manageIsOfferedToWhoeverReads.test.ts`
+- `marketPermissions.test.ts`
+- `permissionTable.test.ts`
+- `the-organizations-default.spec.ts` for the copy again
+- [`the-permissions-section.spec.ts`](../../../front-end/e2e/the-permissions-section.spec.ts)
 
 ## L4. Rename a market
 
 **Status:** Works (walked live in Draft).
 "Rename market", with the name and "Save", in Draft only; afterwards "This market's public web address comes from its name, and it has already been shared, so its name can no longer change.", and an archived market says it is archived.
-Covered by: `public-address.spec.ts`.
+Covered by:
+- `public-address.spec.ts`
 
 ## L5. Delete a market
 
 **Status:** Works (walked live; what it names read from the code as of bug 43's fix and E30/F01/S03).
 Owner only, in any phase: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignments, its check-in records and the record of who changed what. It cannot be undone."), adds "Its application page and check-in page will stop working for anyone who has the link." for whichever of those it has, and opens on Cancel (bug 43).
 Everything the market kept beside itself is deleted with it (bug 47).
-Covered by: `tier2.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, `market-records-go-with-it.spec.ts`.
+Covered by:
+- `market-records-go-with-it.spec.ts`
+- `the-manage-market-dialog-holds-together.spec.ts`
+- `tier2.spec.ts`
 
 ## The rules it obeys
 
@@ -142,4 +168,4 @@ Covered by: `tier2.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, 
 - [When an organization may be deleted](../rules/when-an-organization-may-be-deleted.md): the other way a market goes.
 
 What deleting takes with it is [market deletion](../../implementation/modules/market-deletion.md).
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
