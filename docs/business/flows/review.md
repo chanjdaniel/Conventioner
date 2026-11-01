@@ -7,6 +7,8 @@ describes:
   - front-end/src/components/market/MarketApplicationsTab.vue
   - front-end/src/components/application/ListFreshness.vue
   - front-end/src/components/market/ReviewersPanel.vue
+  - front-end/src/components/application/VerdictUndoLine.vue
+  - front-end/src/utils/verdictUndo.ts
 verified: 2026-11-01
 sources:
   - wayfinding/v0-1-0/map
@@ -48,6 +50,7 @@ sources:
   - E38/F07/S04
   - E38/F07/S02
   - E38/F07/S03
+  - E38/F10/S01
 ---
 
 # Reviewing applications
@@ -78,13 +81,14 @@ Every verdict records who gave it and when, and the review shows it: "Approved b
 
 The queue is triage: one application at a time, carrying every answer it holds, decided from the keyboard, with progress counted, so each verdict is given on a person rather than on a population.
 
-1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
+1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") with "Show N reviewed" beside it ([I2](#i2-change-a-decision)), and one card at a time, in the order the applications arrived.
    A chosen reviewer is handed their own share first, counted as "1 of N in your share" ([dividing the review](#dividing-the-review)).
-2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
+2. A card's heading names the applicant (the name they chose, else the one on their identification) then their email, its status and submitted date; under it the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
    A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
    With reviewers chosen, "Reviewer: <email>" (or "Reviewer: you") under the status says whose share it is ([dividing the review](#dividing-the-review)).
    An answer an organizer updated reads as updated, with "Updated by <address>, <when>; they wrote <their answer>" under it ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
+   After a verdict or a follow-up on an open application or a follow-up, a line under the counts and above the next card says what was decided, "Rejected Jane Doe (jane@example.com).", "Approved …" or "Marked … for follow-up.", with "Undo" (Z), for 2 minutes or until the next verdict ([undoing a verdict just given](#undoing-a-verdict-just-given)).
    Above them, on an open application or a follow-up dealt to another reviewer, someone who may decide it reads "This application is dealt to <email>. If you decide it, its history will say you decided it for them."
 4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the organization's owner, admins and members included, or, to a reviewer from outside the organization, only the people the market's roles name; the reviewer unless they choose another; nothing is sent to them) and, to someone who may write vendor notes, "Their notes: what is needed (optional)"; "Mark for follow-up".
    A chosen Viewer, who writes no notes, marks the follow-up without that box.
@@ -102,10 +106,30 @@ Taking the follow-ups in or out while a hand-out is on its way asks again of the
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-chosen-reviewer-decides.spec.ts`, `one-by-one-hands-out-my-share-first.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`, `the-list-says-when-it-was-read.spec.ts`.
 
+## Undoing a verdict just given
+
+**Status:** Works (read from the code as of E38/F10/S01: `undoing-a-verdict.spec.ts`, `undoingAVerdict.test.ts`, `undoingAVerdictInTheAllView.test.ts`, `test_undoing_a_verdict.py`).
+The rule is [what each role may do](../rules/what-each-role-may-do.md#why): whoever gave a verdict takes it back within 2 minutes, whatever their role, while they may still give verdicts.
+Both views offer it through one composable, [`front-end/src/utils/verdictUndo.ts`](../../../front-end/src/utils/verdictUndo.ts), and a row's and One by one's line is [`VerdictUndoLine.vue`](../../../front-end/src/components/application/VerdictUndoLine.vue).
+
+1. One by one: the line under the counts, above the reviewed list when it is open and above the next card, is a polite live region, "<Approved|Rejected> <name> (<email>)." or "Marked <name> (<email>) for follow-up." (the email alone when they gave no name), with "Undo" and its key, Z.
+   It stays for the window the server's answer gives (`undoSeconds`), or until the next verdict, which offers its own; a change from the reviewed list offers none.
+2. "Undo" returns the application to what the server kept of it when the verdict landed, open, or needs follow-up marked and owned as it was, still dealt to whom it was dealt, and puts it up as the card, held for the reviewer.
+   A follow-up whose owner the reviewer may no longer hand one to is not brought back: the owner has lost their role since, or, to a reviewer from outside the market's organization, is not named in its roles.
+   The line says "This verdict can no longer be undone here: the follow-up it closed would come back to an owner you cannot see on this market. An Admin or the market's owner can change it.", in place of the review route's two refusals of an owner ("A follow-up's owner must have a role on this market." and "You can hand a follow-up only to someone named in this market's roles."), since an undo hands the follow-up to nobody.
+3. A refused undo says why on the line in place of the button: "This verdict can no longer be undone here. An Admin or the owner can change it." past the window or on someone else's verdict, or who changed it since ("<email> approved this application since you opened it.").
+4. The All view offers the same: a row's verdict in its drawer, on the line above its verdicts, and over the list once the drawer is closed; a selection's on its answer, "N applications approved." with "Undo", which reads "N applications undone; K skipped:" and each skipped one with why.
+   A selection that changed any verdict already given offers no undo: the server answers no window for it.
+   The screen reads the last action only: a row's verdict takes a selection's answer away.
+5. The market's history records the undo as its own entry, after the verdict's: "<email> undid their verdict on <vendor>: Rejected back to Open" ([reading the market's history](reading-the-markets-history.md)).
+
+The screens offer no undo after the window, and none of someone else's verdict: [I2](#i2-change-a-decision) is the way, for whoever the change row lets change one.
+The story asked the line and the reviewed list to name the applicant's business too; the app keeps no business name, a business being whatever question a market's form asks, so they name the applicant and their email, as the All view and the import preview do (E38/F03/S01).
+
 ## I2. Change a decision
 
-**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`).
-"Show N reviewed" lists decided applications by email, each with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01; who may change one as of E38/F06/S01: `changing-a-verdict-is-its-own-row.spec.ts`; the list's order and rows as of E38/F10/S01: `undoing-a-verdict.spec.ts`).
+"Show N reviewed", beside the tally above the card, opens the decided applications above the card, newest verdict first (those with no verdict time last, in arrival order), each by name then email with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
 **Changing a verdict is its own row of the table**, "Change a verdict, or overturn an automatic rejection" (default Admin), on top of giving one ([what each role may do](../rules/what-each-role-may-do.md)): "Approve instead" and "Reject instead", an automatic rejection's included, are offered only to someone it lets change one, and a reviewer it refuses reads its sentence once, above the list: "Only an Admin or the owner may change a verdict or overturn an automatic rejection on this market."
 A verdict is approved or rejected: deciding a follow-up is giving one, while sending an approved or rejected application back to needs follow-up is changing one, so the change row asks it too (E38/F06/S01).
 A follow-up is not listed here: it is decided from its own card, or from All.
@@ -117,6 +141,7 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 **Status:** Works (read from the code as of E34/F04 and E38/F05: `the-all-view.spec.ts`, `the-list-says-when-it-was-read.spec.ts`; Export, E42/F01/S03: `exporting-from-the-applications-tab.spec.ts`; the reviewer and the warning, E38/F07/S03: `rows-name-their-reviewer.spec.ts`; "Assigned to", E38/F07/S04: `the-all-view-opens-on-my-share.spec.ts`).
 
 1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, with reviewers chosen whose share it is ("Reviewer: <email>", or "Reviewer: you"), "Followed up by <email>" and who has it open.
+   The highlighted answers and the status lines share the row's room; with no highlighted answer in any listed row, the rows hold no column for them, so the status lines take that room rather than wrap beside an empty band (`theAllViewsRowsUseTheirRoom.test.ts`).
 2. "Filter": "Any status", "Open" (every application not decided yet, `?status=undecided` in the address), "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; a line under it says what Open and Needs follow-up mean, and "N of M" says how many show.
    With reviewers chosen, "Assigned to" beside them narrows the rows to one reviewer's share, decided applications included: "Me" (offered only to a chosen reviewer), "Anyone", or another reviewer by address, kept in the address as `?reviewer=me`, `anyone` or the address.
    With none in the address it is "Me" for a chosen reviewer, who lands on their own share, and "Anyone" for everyone else, an Admin overseeing the review among them; an address naming nobody chosen reads as that default, and the reader's own address as "Me".

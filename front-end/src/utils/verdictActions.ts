@@ -9,7 +9,7 @@ import { MarketAction, mayTake } from '@/utils/marketActions';
 
 /** What became of a verdict: written, refused because it changed since it was seen, or failed. */
 export type VerdictOutcome =
-  | { kind: 'written'; application: Application }
+  | { kind: 'written'; application: Application; undoSeconds: number }
   | { kind: 'changed'; application: Application; message: string }
   | { kind: 'failed'; message: string };
 
@@ -57,10 +57,15 @@ export function useVerdictActions(
     const marketId = market.value?.id;
     if (!marketId) return { kind: 'failed', message: 'No market is open.' };
     try {
-      const written = await reviewApplication(marketId, app, status, ownerEmail);
+      const { application: written, undoSeconds } = await reviewApplication(
+        marketId,
+        app,
+        status,
+        ownerEmail,
+      );
       adopt(written);
       void marketStore.refresh();
-      return { kind: 'written', application: written };
+      return { kind: 'written', application: written, undoSeconds };
     } catch (err) {
       const changed = changedSinceSeen(err);
       if (changed) {
