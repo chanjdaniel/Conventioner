@@ -19,7 +19,7 @@ sources:
 
 The flows ([`USER_FLOWS.md`](../../USER_FLOWS.md) indexes them) are written to be walked, two ways:
 
-- **E2E testing:** each numbered step is a candidate assertion, and each flow's "Covered by" names the Playwright specs that already walk it; the [coverage map](#coverage-map) below lists the gaps.
+- **E2E testing:** each numbered step is a candidate assertion, and each flow's "Covered by" names the tests that already walk it; the [coverage map](#coverage-map) below lists the gaps.
 - **User testing:** paths and flows open with a **Task** you can hand a participant without telling them where to click.
 
 This node says what a walk needs: the stack, the accounts, the outside services, the fixtures, the gaps the specs leave in each flow, and how to seed past the steps a test is not about.

@@ -166,4 +166,4 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): the last blocker into Market Days.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md), and [an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md).
 
-The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); how each flow is walked in a test is in [walking the flows](../../implementation/testing/walking-the-flows.md).
+The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
