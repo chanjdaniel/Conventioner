@@ -420,6 +420,15 @@ export interface DiscordConnection {
   /** When "Check Discord" last read the server's members (E46/F01/S03); what it found of each
    *  vendor, the pages read from the market's `discordVendors`. */
   checkedAt?: string;
+  /** The last "Give roles" run (E46/F01/S04), its report (`discordRoles.ts` reads it). */
+  roleRun?: DiscordRoleRun;
+}
+
+/** A "Give roles" run as kept: when, the role by its name then, and each assigned vendor's end. */
+export interface DiscordRoleRun {
+  ranAt: string;
+  roleName?: string | null;
+  outcomes: { applicationId: string; outcome: string; reason?: string | null }[];
 }
 
 /** A member of the server who may be a vendor (E46/F01/S05): their username, which confirming

@@ -19,7 +19,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -54,6 +54,13 @@ TIMEOUT_SECONDS = 10
 # 10,000 refused requests in 10 minutes block the address.
 RATE_LIMIT_WAITS = 3
 LONGEST_RATE_LIMIT_WAIT_SECONDS = 10
+# A grant's reason in the server's audit log: 1 to 512 URL-encoded UTF-8 characters
+# (``X-Audit-Log-Reason``, https://docs.discord.com/developers/resources/audit-log).
+AUDIT_REASON_LIMIT = 512
+# Each answer says how many requests its route has left before it refills, and in how many seconds
+# (https://docs.discord.com/developers/topics/rate-limits).
+REMAINING_HEADER = "X-RateLimit-Remaining"
+RESET_AFTER_HEADER = "X-RateLimit-Reset-After"
 # List Guild Members answers at most 1000 a page (https://docs.discord.com/developers/resources/guild).
 MEMBERS_PAGE = 1000
 # Discord asks every HTTP client to name itself in this shape (https://docs.discord.com/developers/reference).
@@ -74,6 +81,43 @@ SETTINGS_REFUSED = (
     "check them."
 )
 OUT_OF_REACH = "Conventioner could not reach Discord just now. Try again in a moment."
+#: A member who left the server between the list's read and the grant.
+MEMBER_GONE = "No longer in the server."
+
+# Discord's JSON error codes a refused grant names
+# (https://docs.discord.com/developers/topics/opcodes-and-status-codes#json): the member or user
+# gone, the server gone, the role gone, the bot without access, and the bot without the
+# permission, which for a bot holding Manage Roles means the role sits at or above its own highest
+# ("A bot can grant roles to other users that are of a lower position than its own highest role",
+# https://docs.discord.com/developers/topics/permissions).
+UNKNOWN_GUILD = 10004
+UNKNOWN_MEMBER = 10007
+UNKNOWN_ROLE = 10011
+UNKNOWN_USER = 10013
+MISSING_ACCESS = 50001
+MISSING_PERMISSIONS = 50013
+
+
+def role_above_bot(role_name: str) -> str:
+    """Why no grant of a role can land: the bot's role sits below it, or the bot may not manage
+    roles. Said as the Discord card's warning says it, with the fix."""
+    return (
+        f"Conventioner's role is below {role_name}, or may not manage roles. In Discord, open "
+        "Server Settings, then Roles, and drag the Conventioner role above it."
+    )
+
+
+def role_gone(role_name: str) -> str:
+    return (
+        f"The server no longer has the role {role_name}. "
+        "Choose the role again on the Discord card, on the market's Tools tab."
+    )
+
+
+class OutOfTime(Exception):
+    """A request's time ends before this call could be asked, waited for or answered: nothing
+    refused it, and asking again may finish. A grant cut off while Discord was answering may have
+    landed; the second run then finds the role held."""
 
 
 class DiscordNotSetUp(ClientError):
@@ -84,6 +128,12 @@ class DiscordNotSetUp(ClientError):
 
 class DiscordRefused(ClientError):
     """Discord refused what was asked, for a reason the organizer can act on. A 400."""
+
+    status = 400
+
+
+class MemberGone(ClientError):
+    """One member is no longer in the server: a refusal of that member alone, never the run's."""
 
     status = 400
 
@@ -224,17 +274,21 @@ def server_roles(values: Credentials, guild_id: str) -> List[Role]:
     ]
 
 
-def server_members(values: Credentials, guild_id: str) -> List[Member]:
+def server_members(values: Credentials, guild_id: str,
+                   deadline: Optional[float] = None) -> List[Member]:
     """Every member of the server, a page of 1000 at a time, each page after the last member read.
 
     Needs the ``GUILD_MEMBERS`` privileged intent, switched on for the application in the Developer
     Portal; Discord refuses the list without it.
+
+    With a ``deadline`` (a ``clock()`` reading), each page is asked, waited for and waited on no
+    longer than that time: ``OutOfTime``.
     """
     members: List[Member] = []
     after = "0"
     while True:
         page = _bot(values, "GET", f"/guilds/{guild_id}/members",
-                    params={"limit": MEMBERS_PAGE, "after": after})
+                    params={"limit": MEMBERS_PAGE, "after": after}, deadline=deadline)
         page = page if isinstance(page, list) else []
         for member in page:
             user = member.get("user") or {}
@@ -246,6 +300,76 @@ def server_members(values: Credentials, guild_id: str) -> List[Member]:
         if len(page) < MEMBERS_PAGE or not members:
             return members
         after = members[-1].id
+
+
+class RoleGrants:
+    """One run's grants of one role in one server (Add Guild Member Role, a 204 each), or why not.
+
+    Each grant is named in the server's audit log by ``reason``, and paced by what Discord's last
+    answer said of the route's limit: when it had no request left, the next grant waits for the
+    refill rather than meet a 429. Nothing is asked, waited for or waited on past ``deadline`` (a
+    ``clock()`` reading): that grant is ``OutOfTime``.
+
+    A member who left is ``MemberGone``, that member's alone; anything else refused is about every
+    grant of the run (the bot's role below this one, the role or the server gone, the bot's token),
+    so it is ``DiscordRefused`` or ``DiscordUnavailable`` and the run stops asking.
+    """
+
+    def __init__(self, values: Credentials, guild_id: str, role_id: str, role_name: str, *,
+                 reason: str, deadline: float) -> None:
+        self._values = values
+        self._guild_id = guild_id
+        self._role_id = role_id
+        self._role_name = role_name
+        self._reason = audit_reason(reason)
+        self._deadline = deadline
+        self._refills_at = 0.0
+
+    def give(self, member_id: str) -> None:
+        refill = self._refills_at - clock()
+        if refill > 0:
+            if clock() + refill >= self._deadline:
+                raise OutOfTime()
+            _wait(refill)
+        path = f"/guilds/{self._guild_id}/members/{member_id}/roles/{self._role_id}"
+        answer = _send("PUT", API + path, deadline=self._deadline, headers={
+            "Authorization": f"Bot {self._values.bot_token}",
+            "X-Audit-Log-Reason": self._reason,
+        })
+        self._note_limit(answer)
+        if answer.ok:
+            return
+        if answer.status_code == 401:
+            _refused_settings("the bot's token")
+        body = _body(answer)
+        code = body.get("code") if isinstance(body, dict) else None
+        if answer.status_code == 404 and code in (UNKNOWN_MEMBER, UNKNOWN_USER):
+            raise MemberGone(MEMBER_GONE)
+        if answer.status_code == 404 and code == UNKNOWN_ROLE:
+            raise DiscordRefused(role_gone(self._role_name))
+        if answer.status_code == 403 and code == MISSING_PERMISSIONS:
+            raise DiscordRefused(role_above_bot(self._role_name))
+        if answer.status_code in (403, 404):
+            raise DiscordRefused(BOT_NOT_IN_SERVER)
+        logger.warning("Discord answered %s to giving a role", answer.status_code)
+        raise DiscordUnavailable(OUT_OF_REACH)
+
+    def _note_limit(self, answer: Any) -> None:
+        headers = getattr(answer, "headers", None) or {}
+        try:
+            remaining = int(headers.get(REMAINING_HEADER))
+            reset_after = float(headers.get(RESET_AFTER_HEADER))
+        except (TypeError, ValueError):
+            return
+        self._refills_at = clock() + reset_after if remaining <= 0 else 0.0
+
+
+def audit_reason(text: str) -> str:
+    """``text`` URL-encoded for ``X-Audit-Log-Reason``, cut to Discord's limit at a whole
+    character."""
+    while len(quote(text, safe="")) > AUDIT_REASON_LIMIT:
+        text = text[:-1]
+    return quote(text, safe="")
 
 
 def _name(value: Any) -> Optional[str]:
@@ -275,14 +399,28 @@ def _refused_settings(what: str) -> None:
     raise DiscordUnavailable(SETTINGS_REFUSED)
 
 
-def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any) -> Any:
-    """One request, asked again after each 429's wait while the waits are short and few."""
+def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None,
+          deadline: Optional[float] = None, **kwargs: Any) -> Any:
+    """One request, asked again after each 429's wait while the waits are short and few.
+
+    With a ``deadline``, nothing is sent, waited for or waited on past it: ``OutOfTime``.
+    """
     for waited in range(RATE_LIMIT_WAITS + 1):
+        timeout: float = TIMEOUT_SECONDS
+        if deadline is not None:
+            timeout = min(timeout, deadline - clock())
+            if timeout <= 0:
+                raise OutOfTime()
         try:
             send = DiscordFake.answer if DiscordFake.on() else requests.request
             answer = send(
-                method, url, timeout=TIMEOUT_SECONDS,
+                method, url, timeout=timeout,
                 headers={"User-Agent": USER_AGENT, **(headers or {})}, **kwargs)
+        except requests.Timeout as e:
+            if timeout < TIMEOUT_SECONDS:
+                raise OutOfTime() from e
+            logger.warning("Could not reach Discord: %s", type(e).__name__)
+            raise DiscordUnavailable(OUT_OF_REACH) from e
         except requests.RequestException as e:
             logger.warning("Could not reach Discord: %s", type(e).__name__)
             raise DiscordUnavailable(OUT_OF_REACH) from e
@@ -292,6 +430,8 @@ def _send(method: str, url: str, headers: Optional[Dict[str, str]] = None, **kwa
         if waited == RATE_LIMIT_WAITS or wait is None or wait > LONGEST_RATE_LIMIT_WAIT_SECONDS:
             logger.warning("Discord answered 429 and asked to wait %s seconds", wait)
             raise DiscordUnavailable(SLOW_DOWN)
+        if deadline is not None and clock() + wait >= deadline:
+            raise OutOfTime()
         _wait(wait)
     if answer.status_code >= 500:
         logger.warning("Discord answered %s", answer.status_code)
@@ -314,6 +454,11 @@ def _retry_after(answer: Any) -> Optional[float]:
 
 def _wait(seconds: float) -> None:
     time.sleep(seconds)
+
+
+def clock() -> float:
+    """Seconds on a clock that only goes forward, for a run's deadline."""
+    return time.monotonic()
 
 
 def _body(answer: Any) -> Any:
