@@ -160,8 +160,9 @@ export async function sweep(page: Page): Promise<Sweep> {
  * line. A control of a component's own drawn with `border: none` took the beige and the ink and drew
  * no line, so Publish Results disabled read as a beige patch beside the bar's Publish Market, which
  * had one (T162). A checkbox, a radio, a range and a file input are drawn by the browser and stay
- * out of it, and so does a control in a disabled `<fieldset>`: the settled plan is read as it
- * stands, its calendar and its fields as they were written.
+ * out of it, as does a control drawn as words with no fill (a link's look, as "Resend code in 30s"
+ * is), and a control in a disabled `<fieldset>`: the settled plan is read as it stands, its
+ * calendar and its fields as they were written.
  */
 export async function disabledWithoutLine(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -184,6 +185,9 @@ export async function disabledWithoutLine(page: Page): Promise<string[]> {
         if (box.width === 0 || box.height === 0) return;
         const style = getComputedStyle(el);
         if (style.visibility === 'hidden') return;
+        // A control drawn as words, a link's look, has no box to draw a line around: with no fill
+        // it is not the one disabled state's beige box. A box has a fill, and its line is checked.
+        if (transparent(style.backgroundColor)) return;
         const drawn = ['top', 'right', 'bottom', 'left'].every(
           (side) =>
             parseFloat(style.getPropertyValue(`border-${side}-width`)) >= 1 &&

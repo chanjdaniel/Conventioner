@@ -82,7 +82,7 @@ test.describe('The disabled line', () => {
     ).toEqual(['button.publish-button "Publish Results"', 'button.nav-btn "Next"']);
   });
 
-  test('a disabled button inside its line, an enabled one with none, a hidden one and a read-only form pass', async ({
+  test('a disabled button inside its line, an enabled one with none, a hidden one, a link-styled one and a read-only form pass', async ({
     page,
   }) => {
     expect(
@@ -92,6 +92,7 @@ test.describe('The disabled line', () => {
          <button style="border: none">Publish Results</button>
          <button style="border: none; display: none" disabled>Hidden</button>
          <input type="checkbox" disabled />
+         <button style="border: none; background: none; padding: 0" disabled>Resend code in 30s</button>
          <fieldset disabled><button style="border: none">12</button><input style="all: unset" value="Gold" /></fieldset>`,
       ),
     ).toEqual([]);
