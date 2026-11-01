@@ -609,8 +609,15 @@ def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> 
     return result.modified_count > 0
 
 
-def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> bool:
-    """Remove a user from organization. Owner can remove anyone, admin can remove members."""
+NO_LONGER_IN_THE_ORGANIZATION = "They are no longer in this organization."
+
+
+def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> None:
+    """Remove a user from organization. Owner can remove anyone, admin can remove members.
+
+    Removing someone neither an admin nor a member, another organizer having removed them first,
+    is a 404 saying so, written and recorded as nothing, and Manage organization reads it as done.
+    """
     org = organizations_collection.find_one({"id": org_id})
     if not org:
         raise NotFoundError("Organization not found")
@@ -626,7 +633,9 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> bo
     
     if org.get("owner") == user_id:
         raise BadRequestError("Cannot remove organization owner. Transfer ownership first.")
-    
+    if user_id not in org.get("admins", []) and user_id not in org.get("members", []):
+        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
+
     removed = False
     if user_id in org.get("admins", []):
         if not is_owner:
@@ -643,16 +652,17 @@ def remove_org_user(org_id: str, user_id: str, requesting_user_email: str) -> bo
             {"$pull": {"members": user_id}}
         )
         removed = removed or result.modified_count > 0
-    
+    # Nothing pulled: someone else removed them between the read and these writes.
+    if not removed:
+        raise NotFoundError(NO_LONGER_IN_THE_ORGANIZATION)
+
     users_collection.update_one(
         {"id": user_id},
         {"$pull": {"organizations": org_id}}
     )
-    
-    if removed:
-        _record_role(org_id, requesting_user_email, History.ROLE_TAKEN, user_id,
-                     _role_in(org, user_id), None)
-    return removed
+
+    _record_role(org_id, requesting_user_email, History.ROLE_TAKEN, user_id,
+                 _role_in(org, user_id), None)
 
 
 def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_email: str) -> bool:

@@ -6,6 +6,9 @@
  * organization's markets, less any they hold a role on of their own, or the market role, and the
  * organization's place they keep. Cancel and Escape change nothing; confirming removes and the list
  * updates in place, the dialog open, and focus goes to the list.
+ *
+ * Someone another organizer already removed answers a 404 (T181): the row asked about is gone, so
+ * the confirmation reads it as done, re-reads the list and closes. Any other refusal stays in it.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
@@ -152,6 +155,10 @@ function recordConfirmation(prefix: string): { seen: string[]; stop: () => void 
     attributes: true,
   });
   return { seen, stop: () => observer.disconnect() };
+}
+
+function refusing(status: number, error: string): AxiosError {
+  return Object.assign(new AxiosError('refused'), { response: { status, data: { error } } });
 }
 
 beforeEach(() => {
@@ -312,6 +319,52 @@ describe('Manage organization asks before it removes', () => {
     expect(byTestId('manage-org-admin-email')).not.toBeNull();
     // Refused, it is ready to be asked again.
     expect(byTestId('manage-org-remove-submit-button')!.hasAttribute('disabled')).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('reads someone already removed elsewhere as removed: re-read, closed, focus on the list', async () => {
+    api.delete.mockRejectedValue(refusing(404, 'They are no longer in this organization.'));
+    const wrapper = mountDialog();
+    await flushPromises();
+
+    byTestId('manage-org-remove-member-button')!.click();
+    await flushPromises();
+    // Another admin removed them first: the re-read finds them gone.
+    served = { ...served, members: [], memberEmails: [] };
+    api.get.mockClear();
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledWith('/organizations');
+    expect(byTestId('manage-org-remove-window')).toBeNull();
+    expect(byTestId('manage-org-window')).not.toBeNull();
+    expect(byTestId('manage-org-member-email')).toBeNull();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('manage-org-members');
+    expect(byTestId('manage-org-error')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('keeps any other refusal, a 400, in the confirmation with Remove enabled again', async () => {
+    api.delete.mockRejectedValue(
+      refusing(400, 'Cannot remove organization owner. Transfer ownership first.'),
+    );
+    const wrapper = mountDialog();
+    await flushPromises();
+
+    byTestId('manage-org-remove-member-button')!.click();
+    await flushPromises();
+    byTestId('manage-org-remove-submit-button')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-org-remove-error')?.textContent?.trim()).toBe(
+      'Cannot remove organization owner. Transfer ownership first.',
+    );
+    expect(byTestId('manage-org-member-email')).not.toBeNull();
+    const submit = byTestId('manage-org-remove-submit-button')!;
+    expect(submit.hasAttribute('disabled')).toBe(false);
+    submit.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 
@@ -483,6 +536,50 @@ describe('Manage market asks before it removes', () => {
     );
     expect(document.body.textContent).toContain(EMAIL);
     expect(byTestId('manage-market-remove-submit-button')!.hasAttribute('disabled')).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('reads a role already taken elsewhere as taken: re-read, closed, focus on the list', async () => {
+    api.delete.mockRejectedValue(refusing(404, 'They no longer have a role on this market.'));
+    const wrapper = await open([person()]);
+
+    byTestId('manage-market-remove-user-button')!.click();
+    await flushPromises();
+    // Another admin took the role first: the re-read finds it gone.
+    served = market([]);
+    api.get.mockClear();
+    byTestId('manage-market-remove-submit-button')!.click();
+    await flushPromises();
+
+    expect(api.get).toHaveBeenCalledWith('/markets/market-1');
+    expect(byTestId('manage-market-remove-window')).toBeNull();
+    expect(byTestId('manage-market-window')).not.toBeNull();
+    expect(document.body.textContent).not.toContain(EMAIL);
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('manage-market-people');
+    expect(wrapper.emitted('manageClose')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('keeps any other refusal, a 400, in the confirmation with Remove enabled again', async () => {
+    api.delete.mockRejectedValue(
+      refusing(400, 'Cannot remove the only owner. Transfer ownership first.'),
+    );
+    const wrapper = await open([person()]);
+
+    byTestId('manage-market-remove-user-button')!.click();
+    await flushPromises();
+    byTestId('manage-market-remove-submit-button')!.click();
+    await flushPromises();
+
+    expect(byTestId('manage-market-remove-error')?.textContent?.trim()).toBe(
+      'Cannot remove the only owner. Transfer ownership first.',
+    );
+    expect(document.body.textContent).toContain(EMAIL);
+    const submit = byTestId('manage-market-remove-submit-button')!;
+    expect(submit.hasAttribute('disabled')).toBe(false);
+    submit.click();
+    await flushPromises();
+    expect(api.delete).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 

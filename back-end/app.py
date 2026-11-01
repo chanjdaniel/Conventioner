@@ -642,8 +642,7 @@ def add_org_member(org_id: str) -> Response:
 @login_required
 def remove_org_user(org_id: str, user_id: str) -> Response:
     """Remove a user from an organization."""
-    if not OrgsApi.remove_org_user(org_id, user_id, authenticated_email()):
-        return jsonify({"error": "Failed to remove user"}), 400
+    OrgsApi.remove_org_user(org_id, user_id, authenticated_email())
     return jsonify({"message": "User removed successfully"}), 200
 
 @app.route('/organizations/<org_id>/transfer', methods=['POST'])
@@ -689,8 +688,7 @@ def add_market_role(market_id: str) -> Response:
 @login_required
 def remove_market_role(market_id: str, user_id: str) -> Response:
     """Remove a user role from a market."""
-    if not MarketsApi.remove_market_role(market_id, user_id, authenticated_email()):
-        return jsonify({"error": "Failed to remove role"}), 400
+    MarketsApi.remove_market_role(market_id, user_id, authenticated_email())
     return jsonify({"message": "Role removed successfully"}), 200
 
 @app.route('/markets/<market_id>/roles/<user_id>', methods=['PUT'])

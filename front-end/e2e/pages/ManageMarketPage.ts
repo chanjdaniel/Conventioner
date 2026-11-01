@@ -10,6 +10,8 @@ export class ManageMarketPage {
 
   readonly overlayBackground: Locator;
   readonly window: Locator;
+  /** What Manage market says of a request that failed, under its title. */
+  readonly error: Locator;
   readonly roleSelects: Locator;
   readonly removeUserButtons: Locator;
   readonly people: Locator;
@@ -54,6 +56,7 @@ export class ManageMarketPage {
 
     this.overlayBackground = page.getByTestId('manage-market-background');
     this.window = page.getByTestId('manage-market-window');
+    this.error = page.getByTestId('manage-market-error');
     this.roleSelects = page.getByTestId('manage-market-role-select');
     this.removeUserButtons = page.getByTestId('manage-market-remove-user-button');
     this.people = page.getByTestId('manage-market-people');
@@ -143,6 +146,10 @@ export class ManageMarketPage {
   // ── Remove user ──
 
   /** Removes the person whose row holds `email`, through the confirmation Remove opens. */
+  async confirmRemove(): Promise<void> {
+    await this.removeConfirmButton.click();
+  }
+
   async removeUser(email: string): Promise<void> {
     await this.page
       .getByTestId('manage-market-person')

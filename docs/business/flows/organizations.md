@@ -17,6 +17,7 @@ sources:
   - T148
   - E38/F12/S01
   - E38/F15/S01
+  - T181
 ---
 
 # Organizations
@@ -69,9 +70,10 @@ It asks first, in a destructive confirmation that opens on Cancel: "Remove walk3
 - "They lose access to 9 of its 11 markets, and keep the 2 they hold a role on of their own." when a market gives them a role of its own, as one they created makes them its Owner;
 - "They keep its 3 markets, each through a role of their own." when every one does, and "It has no markets yet." when it has none.
 
-Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation.
+Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation, whose Remove may be pressed again.
+Someone another organizer removed meanwhile is removed all the same: the server answers "They are no longer in this organization.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
 Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
-Covered by: `access-control.spec.ts` ("org membership changes"), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, and the sweeps' state "the manage-organization dialog, removing a member".
+Covered by: `access-control.spec.ts` ("org membership changes"), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, someone removed in another window included, and the sweeps' state "the manage-organization dialog, removing a member".
 
 ## B4. Rename an organization
 

@@ -33,6 +33,7 @@ sources:
   - T142
   - E38/F12/S01
   - E38/F15/S01
+  - T181
 ---
 
 # Ending and managing a market
@@ -88,7 +89,8 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 3. A market role that counts, the organization's being lower or none, is a dropdown of the roles the reader may give (Admin, Editor, Viewer); any other role, the owner's always, is stated as a word, not offered.
 4. "Remove" beside each such person the reader may remove; never the owner.
    It asks first, in a destructive confirmation that opens on Cancel (E38/F15/S01): "Remove walk390@example.com from Spring Market?", then "They lose their Editor role on it." and, for someone in the organization, "They can still view it as a member of <organization>." ("run it as an admin of" for an admin).
-   Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation.
+   Cancel and Escape change nothing and give focus back to that Remove; "Remove" takes the market role, the list re-reads in place with the dialog open, and focus goes to the list; a refusal is said in the confirmation, whose Remove may be pressed again.
+   A role another organizer took meanwhile is taken all the same: the server answers "They no longer have a role on this market.", a 404, and the dialog reads it as done, closing the confirmation and re-reading the list without them (T181).
    Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
 5. Under the list, when a row comes through the organization: "Organization admins and members are managed in Manage organization.", "Manage organization" a link to `/organizations?manage=<id>`, which opens that organization's dialog, for a reader who belongs to it, and plain words for anyone else.
 6. "Add user", for an Admin or the owner only (bug 37): the email, the role, "Add", and "Cancel" on the same row, or on a phone the email above the rest.

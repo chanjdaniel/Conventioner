@@ -103,6 +103,7 @@ sources:
   - T139
   - E38/F11/S01
   - T161
+  - T181
 ---
 
 # An exception never reaches a client
@@ -182,6 +183,7 @@ The assignment reads (`get_assigned_market`, `get_assignment_statistics`, `get_a
 
 So do the organization routes (the list, create, read, update, its history, deletion preview, delete, and adding, removing and handing on its people) and the market role routes (add, remove, update): none catches anything, each keeps the literal answers it decides itself (`Organization name required`, `Invalid role: <role>`), and every refusal of `api/organizations.py` and the markets API's role writes reaches the handler.
 An organization or a market that does not exist answers 404 on each of them, and a role or an address that is not a string is refused as a missing one ([a request value is a string](a-request-value-is-a-string.md)).
+Removing someone already gone says what is true now, as the client half asks: "They are no longer in this organization." and "They no longer have a role on this market.", each a 404 ([the organization document](../data/organization-document.md#the-organization)); the two removal routes answer nothing of their own.
 
 So do the market setup routes: reading a market and listing a user's markets, creating, renaming, planning and deleting one, and its vendor notes, review highlights, rejection rules and permission rows, with their history.
 None catches anything, and each keeps its literal answers (`note is required`, `keys is required`, `Market not found or access denied`).

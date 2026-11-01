@@ -25,6 +25,7 @@ describes:
   - back-end/api/permissions.py
   - back-end/api/markets.py#get_markets_for_user
   - back-end/tests/test_the_market_list_shows_what_the_read_serves.py
+  - back-end/tests/test_removing_someone_already_gone.py
   - back-end/api/markets.py#create_owned_market
   - back-end/api/markets.py#organization_refusal
   - back-end/api/markets.py#add_market_role
@@ -75,6 +76,7 @@ It serves each with what removing someone from it takes (E38/F15/S01): `marketCo
 Renaming is all an update does: it reads the body's `name`, a string that is not blank, and nothing else, so the owner, the admins, the members and the markets change only through the writes above, which keep each user's `organizations` in step.
 Transferring ownership makes the old owner an admin; transferring it to its own owner is refused before anything is written.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
+Removing someone who is neither an admin nor a member, another organizer having removed them first, answers 404 "They are no longer in this organization." before any write, as does a removal whose `$pull` finds them gone under it; nothing is recorded, and Manage organization reads that 404 as done ([remove a person](../../business/flows/organizations.md#b3-remove-a-person)); a market role taken twice answers alike ([roles on a market](#roles-on-a-market)).
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
 What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
 
@@ -117,6 +119,7 @@ Anyone else is added afterwards by email, through `add_market_role`, which store
 The owner's entry cannot be changed, removed or added beside, so a market's ownership cannot be handed on.
 An owner manages every other role; an admin manages editors and viewers: the table's two rows for roles, Give and take Admin roles (Owner, fixed) and Give and take Editor and Viewer roles (Admin), which `roles_row` picks by the role given or taken ([the market's actions](../modules/market-actions.md)).
 Roles change on an archived market too: they are not a change to its record.
+Taking a role nobody holds, another organizer having taken it first, answers 404 "They no longer have a role on this market.", as does a removal whose write finds it gone under it, and records nothing; `remove_market_role` asks both roles rows first, so someone who may take no role there is refused as for a role someone holds, never told whether the person holds one, and Manage market reads the 404 as done ([`test_removing_someone_already_gone.py`](../../../back-end/tests/test_removing_someone_already_gone.py), with its organization twin [above](#the-organization)).
 
 **"Markets this person has a role on" is a query on the map's key**, `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 

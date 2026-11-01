@@ -2041,8 +2041,16 @@ def add_market_role(market_id: str, user_email: str, role: MarketRole, requestin
     return result.modified_count > 0
 
 
-def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bool:
-    """Remove a user role from a market. Asks the row that takes the role (``Actions.roles_row``)."""
+NO_LONGER_ON_THE_MARKET = "They no longer have a role on this market."
+
+
+def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> None:
+    """Remove a user role from a market. Asks the row that takes the role (``Actions.roles_row``).
+
+    Taking the role of someone who holds none here, another organizer having taken it first, is
+    a 404 saying so, written and recorded as nothing, and Manage market reads it as done; a
+    requester whom neither roles row lets take a role is refused as for anyone who holds one.
+    """
     context = load_market_context(market_id)
     if context is None:
         raise MarketNotFoundError("Market not found")
@@ -2055,7 +2063,11 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
 
     roles = market_dict.get('roles', {})
     if user_id not in roles:
-        raise BadRequestError("User does not have a role in this market")
+        refusals = [Actions.refusal(row, requesting_user, market, organization)
+                    for row in (Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS)]
+        if all(refusals):
+            raise ForbiddenError(refusals[0])
+        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
     
     if roles.get(user_id) == MarketRole.OWNER.value:
         # Count how many owners there are
@@ -2077,10 +2089,11 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> bo
         {"$set": {"roles": roles}}
     )
     
-    if result.modified_count > 0:
-        _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
-                     market.roles[user_id], None)
-    return result.modified_count > 0
+    # Nothing changed: someone else took the role between the read and this write.
+    if result.modified_count == 0:
+        raise NotFoundError(NO_LONGER_ON_THE_MARKET)
+    _record_role(market_id, requesting_user, History.ROLE_TAKEN, user_id,
+                 market.roles[user_id], None)
 
 
 def update_market_role(market_id: str, user_id: str, new_role: MarketRole, requesting_user: str) -> bool:
