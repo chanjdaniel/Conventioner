@@ -8,7 +8,8 @@ nothing, before any write or when the write finds them gone under it. Manage org
 Manage market read that 404 as done, since the row the organizer wanted gone is gone.
 
 The owner, only-owner and Forbidden refusals are unchanged, and a caller who may remove no one is
-refused, never told whether the person is still there.
+refused in one sentence, never told whether the person is still there, nor whether they are the
+market's only owner or an Admin.
 
 Pinned through the test client against the real app, over collections that apply the writes.
 """
@@ -42,7 +43,8 @@ MEMBER = SimpleNamespace(id="user-member", email="member@example.com")
 GONE = SimpleNamespace(id="user-gone", email="gone@example.com")
 EDITOR = SimpleNamespace(id="user-editor", email="editor@example.com")
 VIEWER = SimpleNamespace(id="user-viewer", email="viewer@example.com")
-PEOPLE = (OWNER, ADMIN, MEMBER, GONE, EDITOR, VIEWER)
+STRANGER = SimpleNamespace(id="user-stranger", email="stranger@example.com")
+PEOPLE = (OWNER, ADMIN, MEMBER, GONE, EDITOR, VIEWER, STRANGER)
 
 NO_LONGER_IN_THE_ORGANIZATION = {"error": "They are no longer in this organization."}
 NO_LONGER_ON_THE_MARKET = {"error": "They no longer have a role on this market."}
@@ -291,6 +293,19 @@ class TestTheMarket:
 
         assert response.status_code == 403
         assert response.get_json() == taking.get_json()
+
+    def test_a_caller_with_no_role_learns_nothing_of_who_holds_which(self, market, history):
+        market.doc["roles"][ADMIN.id] = "admin"
+        stranger = signed_in_as(STRANGER)
+
+        answers = [stranger.delete(f"/markets/{MARKET_ID}/roles/{person.id}")
+                   for person in (OWNER, ADMIN, EDITOR, GONE)]
+
+        assert [answer.status_code for answer in answers] == [403] * 4
+        assert all(answer.get_json() == answers[0].get_json() for answer in answers), (
+            "the only owner, an Admin, an Editor and nobody read alike")
+        assert market.writes == []
+        assert market_entries(history) == []
 
     def test_a_missing_market_is_still_not_found(self, market, history):
         response = signed_in_as(OWNER).delete(f"/markets/market-missing/roles/{EDITOR.id}")

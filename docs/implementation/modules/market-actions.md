@@ -115,7 +115,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Check vendors in (`check-in`) | Editor | `POST` and `DELETE /markets/:id/attendance` |
 | Connect Discord and give roles (`connect-discord`) | Admin | the Discord card's routes: `POST /markets/:id/discord/authorization`, `POST` and `DELETE /markets/:id/discord/connection`, `PUT /markets/:id/discord` and `GET /markets/:id/discord/roles` ([the Discord connection](discord.md)), and the Vendors page's "Check Discord", `POST /markets/:id/discord/check`, and "Give roles", `POST /markets/:id/discord/role-run` |
 | Give and take Editor and Viewer roles (`manage-editors-and-viewers`) | Admin | `/markets/:id/roles` writes on an Editor or a Viewer; and whom the market read names the organization's people to in `peopleWithAccess`, beside the organization's own people (E38/F12/S01) |
-| Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given) |
+| Give and take Admin roles (`manage-admins`) | Owner, fixed | `/markets/:id/roles` writes on an Admin (a role change asks the row of the role taken and of the one given; taking a role asks both roles rows before it looks at the person, so one refused by both reads the same refusal whoever the person is, then the row of the role taken) |
 | Delete the market (`delete-market`) | Owner, fixed | `DELETE /markets/:id` |
 | Change this table (`change-the-table`) | Owner, fixed | `PUT` and `DELETE /markets/:id/permissions/<action>` (`set_permission`, `reset_permission`), `DELETE /markets/:id/permissions` (`reset_permissions`) |
 

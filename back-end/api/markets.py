@@ -2042,8 +2042,9 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     """Remove a user role from a market. Asks the row that takes the role (``Actions.roles_row``).
 
     Taking the role of someone who holds none here, another organizer having taken it first, is
-    a 404 saying so, written and recorded as nothing, and Manage market reads it as done; a
-    requester whom neither roles row lets take a role is refused as for anyone who holds one.
+    a 404 saying so, written and recorded as nothing, and Manage market reads it as done. A
+    requester whom neither roles row lets take a role is refused first, in one sentence, so they
+    learn nothing of whether the person is the only owner, an Admin, anyone else or nobody.
     """
     context = load_market_context(market_id)
     if context is None:
@@ -2055,12 +2056,13 @@ def remove_market_role(market_id: str, user_id: str, requesting_user: str) -> No
     market = context.market
     organization = context.organization
 
+    refusals = [Actions.refusal(row, requesting_user, market, organization)
+                for row in (Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS)]
+    if all(refusals):
+        raise ForbiddenError(refusals[0])
+
     roles = market_dict.get('roles', {})
     if user_id not in roles:
-        refusals = [Actions.refusal(row, requesting_user, market, organization)
-                    for row in (Actions.MANAGE_EDITORS_AND_VIEWERS, Actions.MANAGE_ADMINS)]
-        if all(refusals):
-            raise ForbiddenError(refusals[0])
         raise NotFoundError(NO_LONGER_ON_THE_MARKET)
     
     if roles.get(user_id) == MarketRole.OWNER.value:
