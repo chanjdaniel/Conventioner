@@ -310,6 +310,36 @@ def test_a_restored_session_carried_to_another_browser_is_refused(client, users)
     assert elsewhere.status_code == 401
 
 
+def _without_the_user_agent(client, path):
+    """A request whose header block ended before its User-Agent, as a connection cut mid-request
+    delivers one: the server reads what came as the whole request (T177)."""
+    kept = client.environ_base.pop("HTTP_USER_AGENT")
+    try:
+        return client.get(path)
+    finally:
+        client.environ_base["HTTP_USER_AGENT"] = kept
+
+
+@pytest.mark.parametrize("remember", [False, True])
+@pytest.mark.parametrize(
+    "odd_request",
+    [
+        _without_the_user_agent,
+        lambda client, path: client.get(path, headers={"User-Agent": "another-browser"}),
+    ],
+    ids=["without-a-user-agent", "from-another-browser"],
+)
+def test_one_odd_request_does_not_end_the_sign_in(client, users, remember, odd_request):
+    _sign_in(client, remember=remember)
+    assert _signed_in(client)
+
+    # Whatever it is answered, the browser that signed in is still signed in at its next request:
+    # one request the server could not hold to it is not a sign-out (T177).
+    odd_request(client, "/check-session")
+
+    assert [_signed_in(client) for _ in range(2)] == [True, True]
+
+
 # What came before, and a password reset.
 
 def test_a_remember_cookie_issued_before_the_lengths_is_not_read(client, users):
