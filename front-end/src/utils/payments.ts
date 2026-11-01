@@ -90,13 +90,15 @@ export function money(cents: number, account: Pick<VendorAccount, 'currency'>): 
 /**
  * How what they paid compares with what they owe: "Owes $27", "Paid in full", or "Paid $15 more
  * than owed", the case where a refund is to be issued (Q26). Nothing owed and nothing paid is
- * "Nothing owed".
+ * "Nothing owed". On a market without prices (no `currency`) nothing is priced, so a payment is
+ * never "more than owed": it reads as what was paid, "Paid $35".
  */
 export function balanceText(
   account: Pick<VendorAccount, 'currency' | 'owedCents' | 'paidCents'>,
 ): string {
   const balance = account.owedCents - account.paidCents;
   if (balance > 0) return `Owes ${money(balance, account)}`;
+  if (balance < 0 && !account.currency) return `Paid ${money(account.paidCents, account)}`;
   if (balance < 0) return `Paid ${money(-balance, account)} more than owed`;
   return account.owedCents > 0 ? 'Paid in full' : 'Nothing owed';
 }
@@ -107,6 +109,25 @@ export function balanceState(
 ): 'owing' | 'settled' | 'overpaid' {
   const balance = account.owedCents - account.paidCents;
   return balance > 0 ? 'owing' : balance < 0 ? 'overpaid' : 'settled';
+}
+
+const BALANCE_CHIP = {
+  owing: 'chip--attention',
+  settled: 'chip--positive',
+  overpaid: 'chip--informational',
+} as const;
+
+/**
+ * The comparison's chip, on the Payment tab and the Payments page alike: owing asks for attention,
+ * square is positive, and paid more than owed, a refund to issue, informs. Nothing owed and nothing
+ * paid takes no tone, nor does a payment on a market without prices, which compares with no price.
+ */
+export function balanceChip(
+  account: Pick<VendorAccount, 'currency' | 'owedCents' | 'paidCents'>,
+): string {
+  if (!account.owedCents && !account.paidCents) return 'chip--neutral';
+  const state = balanceState(account);
+  return state === 'overpaid' && !account.currency ? 'chip--neutral' : BALANCE_CHIP[state];
 }
 
 /** A line's seat as it reads: "North Wing 1, Gold, full table", and the price group that set its price

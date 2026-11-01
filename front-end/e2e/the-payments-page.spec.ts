@@ -7,6 +7,8 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { marketScreenPath } from './helpers/marketScreens';
 import { mongoEval } from './helpers/mongo';
+import { VendorsPage } from './pages/VendorsPage';
+import { VendorExportDialog } from './pages/VendorExportDialog';
 
 /**
  * The Payments page (E44/F02/S01), the Assignment tab's fourth page.
@@ -326,6 +328,40 @@ test.describe('the Payments page', () => {
       await expect(page).toHaveURL(new RegExp(`/markets/${unpriced}/setup$`));
       await expect(page.getByTestId('plan-card-pricing')).toBeVisible({ timeout: 15000 });
     });
+  });
+
+  test('on a market without prices a payment reads what was paid, and the export offers no payment filter', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Nothing is priced there, so nobody paid "more than owed" (finding 8): not on the page, not
+    // on the Payment tab, and not as a list to export.
+    const unpriced = await threeVendorsPaying(request, null);
+
+    await paymentsPage(page, unpriced);
+    const balances = await rows(page).evaluateAll((found) =>
+      found.map((row) => [
+        row.getAttribute('data-email'),
+        row.querySelector('[data-testid="payments-row-balance"]')?.textContent?.trim(),
+      ]),
+    );
+    expect(Object.fromEntries(balances)).toEqual({
+      [ALICE]: 'Paid $35',
+      [BOB]: 'Paid $30',
+      [CAROL]: 'Paid $25',
+    });
+    await page.locator(`[data-email="${ALICE}"]`).getByTestId('payments-row-open').click();
+    await expect(page.getByTestId('payment-tab').getByTestId('payment-balance')).toHaveText(
+      'Paid $35',
+    );
+
+    const vendors = new VendorsPage(page);
+    await vendors.goto(unpriced);
+    await vendors.exportButton.click();
+    const dialog = new VendorExportDialog(page);
+    await expect(dialog.window).toBeVisible();
+    await expect(dialog.summary).toContainText('vendors');
+    await expect(dialog.payment).toHaveCount(0);
   });
 
   /**

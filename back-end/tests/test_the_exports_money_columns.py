@@ -269,6 +269,22 @@ class TestThePaymentFilter:
             {"id": "over", "label": "Paid more than owed"}]
         assert offered["count"] == 1
 
+    def test_a_market_with_no_prices_offers_no_payment_state(self, market):
+        # On it everyone who paid would be "Paid more than owed", the list the Payments page
+        # offers no filter for there (finding 8).
+        market.doc["setupObject"]["pricing"] = None
+
+        offered, _ = VendorExport.preview(MARKET, {"filters": {}}, EDITOR)
+
+        assert offered["offered"]["paymentStates"] == []
+
+    @pytest.mark.parametrize("state", ["owes", "paid", "over"])
+    def test_a_market_with_no_prices_ignores_a_payment_filter(self, market, state):
+        # As the Payments page ignores a filter in its address there: it narrows nothing.
+        market.doc["setupObject"]["pricing"] = None
+
+        assert set(_by_email(_export({"payment": state}))) == {ANA, BEN, CY, DEE, EVE}
+
     def test_a_state_the_dialog_could_not_have_sent_is_refused(self, market):
         with pytest.raises(BadRequestError):
             _export({"payment": "refund due"})

@@ -19,7 +19,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { hasAssignment } from '@/utils/marketPage';
 import { useOpenMarket } from '@/utils/openMarket';
-import { balanceState, balanceText, money } from '@/utils/payments';
+import { balanceChip, balanceText, money } from '@/utils/payments';
 import {
   loadMarketPayments,
   paymentsFilters,
@@ -158,16 +158,6 @@ const COLUMNS: readonly { key: PaymentsSortKey; label: string; amount: boolean }
 function ariaSort(key: PaymentsSortKey): 'ascending' | 'descending' | undefined {
   if (sort.value.key !== key) return undefined;
   return sort.value.descending ? 'descending' : 'ascending';
-}
-
-/** A row's comparison, toned as the Payment tab's is. */
-const CHIP = {
-  owing: 'chip--attention',
-  settled: 'chip--positive',
-  overpaid: 'chip--informational',
-};
-function balanceChip(vendor: { owedCents: number; paidCents: number }): string {
-  return vendor.owedCents || vendor.paidCents ? CHIP[balanceState(vendor)] : 'chip--neutral';
 }
 
 const nobodyShown = computed(() => {
@@ -370,7 +360,7 @@ const nobodyShown = computed(() => {
                   <td class="payments-amount">
                     <span
                       class="chip"
-                      :class="balanceChip(vendor)"
+                      :class="balanceChip({ ...vendor, currency: found.currency })"
                       data-testid="payments-row-balance"
                       >{{ balanceText({ ...vendor, currency: found.currency }) }}</span
                     >

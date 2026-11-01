@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '@/utils/api';
 import { getFormattedTimestamp } from '@/utils/utils';
 import { dateLabel } from '@/utils/vendorDetails';
 import {
+  balanceChip,
   balanceState,
   balanceText,
   entryChange,
@@ -167,11 +168,6 @@ function onEntryMenu(entry: Payment, id: string): void {
 }
 
 const state = computed(() => (account.value ? balanceState(account.value) : 'settled'));
-const CHIP = {
-  owing: 'chip--attention',
-  settled: 'chip--positive',
-  overpaid: 'chip--informational',
-};
 
 /** What a line owes, as it reads: its amount, or that the market gives the seat no price. */
 function owedText(cents: number | null): string {
@@ -205,7 +201,7 @@ defineExpose({ reload: load });
         </dl>
         <span
           class="chip"
-          :class="account.owedCents || account.paidCents ? CHIP[state] : 'chip--neutral'"
+          :class="balanceChip(account)"
           :data-state="state"
           data-testid="payment-balance"
         >

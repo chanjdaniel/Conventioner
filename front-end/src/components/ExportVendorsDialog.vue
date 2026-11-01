@@ -292,7 +292,9 @@ async function download(): Promise<void> {
             </div>
           </template>
 
-          <div class="export-field">
+          <!-- A market without prices offers no payment state: nothing is owed there, so everyone
+               who paid would be "Paid more than owed" (E44/F02/S01). -->
+          <div v-if="offered.paymentStates.length" class="export-field">
             <label class="field-label" for="vendor-export-payment">Payment</label>
             <select
               id="vendor-export-payment"

@@ -194,6 +194,14 @@ class TestTheTotals:
             ANA: 0, BEN: 0, CY: 0, DEE: 0}
         assert got["totals"]["owedCents"] == 0
 
+    def test_a_market_with_no_prices_puts_nobody_in_a_payment_state(self, market):
+        # Nothing is priced, so a payment there is not "more than owed" (finding 8): the page
+        # offers no filter there, and the export's payment filter reads no state there either.
+        market.doc["setupObject"]["pricing"] = None
+
+        assert {v["email"]: v["balanceState"] for v in page()["vendors"]} == {
+            ANA: None, BEN: None, CY: None, DEE: None}
+
     def test_a_market_with_nobody_reads_empty(self, market, market_records):
         market_records.payments.documents.clear()
         market.doc["assignmentObject"] = {"vendorAssignments": [], "assignmentStatistics": None}

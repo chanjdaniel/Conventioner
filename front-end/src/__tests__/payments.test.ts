@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  balanceChip,
   balanceState,
   balanceText,
   entryText,
@@ -59,8 +60,19 @@ describe('how what they paid compares with what they owe', () => {
     expect(balanceText(account(3001, 1500))).toBe('Owes $15.01');
   });
 
-  it('reads an unpriced market in the card’s own default currency', () => {
-    expect(balanceText(account(0, 2500, null))).toBe('Paid $25 more than owed');
+  it('says only what was paid on a market without prices, in the card’s own default currency', () => {
+    // Nothing is priced there, so a payment is never "more than owed" (finding 8), and its chip
+    // takes no tone: neither square nor a refund to issue.
+    expect(balanceText(account(0, 2500, null))).toBe('Paid $25');
+    expect(balanceChip(account(0, 2500, null))).toBe('chip--neutral');
+    expect(balanceText(account(0, 0, null))).toBe('Nothing owed');
+  });
+
+  it('tones the comparison as it reads', () => {
+    expect(balanceChip(account(7000, 4300))).toBe('chip--attention');
+    expect(balanceChip(account(7000, 7000))).toBe('chip--positive');
+    expect(balanceChip(account(3500, 5000))).toBe('chip--informational');
+    expect(balanceChip(account(0, 0))).toBe('chip--neutral');
   });
 });
 
