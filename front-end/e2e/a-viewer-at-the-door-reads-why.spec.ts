@@ -50,6 +50,22 @@ async function shortOfTheRowsEnd(row: Locator, inside: Locator): Promise<number>
   return Math.round(rowBox!.x + rowBox!.width - padding - (box!.x + box!.width));
 }
 
+/**
+ * A vendor's address on their row is whole, on one line. On a phone the status shared a column with
+ * the action, so a wide one ("9:44 AM by e2e@example.com") squeezed the vendor's line and broke the
+ * address mid-word, for a Viewer as for an Editor (E38/F15/S04).
+ */
+async function expectAddressWhole(row: Locator, vendor: string): Promise<void> {
+  const address = row.getByTestId('vendor-identity-email');
+  await expect(address).toHaveText(vendor);
+  const lines = await address.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+  });
+  expect(lines, `${vendor}'s address is on one line`).toBe(1);
+}
+
 /** Signed in on the test's own page, so the size the test uses is the window the door is drawn in. */
 async function signIn(page: Page, person: { email: string; password: string }, width: number) {
   const login = new LoginPage(page);
@@ -114,8 +130,9 @@ for (const size of SIZES) {
         'Follow who has checked in at the door.',
       );
 
-      // Each status ends its row, with no empty column beside it.
+      // Each status ends its row, with no empty column beside it, and each address is whole.
       for (const vendor of [HERE, NOT_YET]) {
+        await expectAddressWhole(door.row(vendor), vendor);
         expect(
           await shortOfTheRowsEnd(door.row(vendor), door.status(vendor)),
           `${vendor}'s status ends the row`,
@@ -145,6 +162,7 @@ for (const size of SIZES) {
         [HERE, undo],
       ] as const) {
         const row = door.row(vendor);
+        await expectAddressWhole(row, vendor);
         expect(
           await shortOfTheRowsEnd(row, action),
           `${vendor}'s action ends the row`,
