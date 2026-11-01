@@ -686,20 +686,21 @@ async function decideSelection() {
 
     <ul v-else :class="['all-list', { 'all-list-no-leading': !leadingShown }]">
       <li v-for="app in shown" :key="app.id" class="all-row" data-testid="applications-all-row">
-        <input
-          v-if="decides"
-          type="checkbox"
-          class="all-tick"
-          :checked="selected.has(app.id)"
-          :disabled="!!untickable(app)"
-          :aria-label="
-            untickable(app)
-              ? `${app.applicantEmail}: ${untickable(app)}`
-              : `Select ${app.applicantEmail}`
-          "
-          data-testid="applications-all-tick"
-          @change="toggle(app, ($event.target as HTMLInputElement).checked)"
-        />
+        <!-- The box inside a square of its own, the target a thumb taps on a phone. -->
+        <label v-if="decides" class="all-tick">
+          <input
+            type="checkbox"
+            :checked="selected.has(app.id)"
+            :disabled="!!untickable(app)"
+            :aria-label="
+              untickable(app)
+                ? `${app.applicantEmail}: ${untickable(app)}`
+                : `Select ${app.applicantEmail}`
+            "
+            data-testid="applications-all-tick"
+            @change="toggle(app, ($event.target as HTMLInputElement).checked)"
+          />
+        </label>
         <button
           type="button"
           class="all-row-button"
@@ -707,7 +708,9 @@ async function decideSelection() {
           @click="drawer.open(app.applicantEmail)"
         >
           <span class="all-who">
-            <span class="all-name">{{ nameOf(app) || app.applicantEmail }}</span>
+            <span class="all-name" data-testid="applications-all-name">{{
+              nameOf(app) || app.applicantEmail
+            }}</span>
             <span v-if="nameOf(app)" class="all-email">{{ app.applicantEmail }}</span>
           </span>
           <span v-if="leadingShown" class="all-leading">{{ leading(app) }}</span>
@@ -908,10 +911,17 @@ async function decideSelection() {
   gap: var(--space-1);
 }
 
+/* "All" is a word wide; a target is never narrower than it is tall. */
+.all-status .btn {
+  min-width: var(--target-min);
+}
+
 .all-mine {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  /* The label is the target, the box inside it. */
+  min-height: var(--target-min);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
@@ -935,6 +945,7 @@ async function decideSelection() {
  */
 .all-assigned-select {
   height: var(--control-height-compact);
+  min-width: var(--target-min);
   field-sizing: content;
 }
 
@@ -1020,6 +1031,9 @@ async function decideSelection() {
 
 .all-tick {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* The leading answers shorten to fit, so the status lines share the row's room with them, and
@@ -1078,6 +1092,24 @@ async function decideSelection() {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
+}
+
+/*
+ * On a phone a row is one column, read down: who, the leading answers, then the status lines, each
+ * the row's width. Three columns squeezed the name to two characters a line and stood the status
+ * chip outside the row (T180), and the tick stands in a square a thumb can tap.
+ */
+@media (width <= 640px) {
+  .all-row-button,
+  .all-list-no-leading .all-row-button {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .all-tick {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 .drawer-verdict {

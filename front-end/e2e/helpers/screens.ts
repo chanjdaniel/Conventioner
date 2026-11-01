@@ -62,6 +62,8 @@ const PUBLIC = [DESKTOP, PHONE];
  * - Organizations (T148);
  * - Vendors (T180), with its drawer and dialogs, so a vendor is looked up and corrected at the door;
  * - Payments (T180), so who still owes is read at the door.
+ * - the Applications page (T180), the one page of Market Setup's view that fits, with its drawer
+ *   and dialogs, so a late application is decided and a vendor's answer corrected from a phone.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -446,7 +448,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'a draft, its applications',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(setup('draft', 'applications'), 'market-tab-note'),
   },
   {
@@ -495,8 +497,21 @@ export const SCREENS: Screen[] = [
   {
     name: 'applications open, all at once',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(setup('open', 'applications'), 'applications-all-tick'),
+  },
+  {
+    // Update info opens inside a phone's window over the All view as it does over Vendors (T180);
+    // T122 found it cut there.
+    name: 'the Update info dialog, over the applications',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(
+      setup('open', 'applications'),
+      'applications-all-tick',
+      ['applications-all-row', 'vendors-detail-update-info'],
+      ['vendors-detail-update-info', 'update-info-window'],
+    ),
   },
   {
     // Who reviews which application, chosen from the panel over the views (E38/F07/S02).
@@ -513,13 +528,13 @@ export const SCREENS: Screen[] = [
   {
     name: 'the review divided, my share at once',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(setup('dealt', 'applications'), 'applications-all-assigned-to'),
   },
   {
     name: "the review divided, another's application in the drawer",
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(
       (seed) =>
         `${setup('dealt', 'applications')(seed)}?reviewer=anyone&vendor=applicant0@example.com`,
@@ -1012,7 +1027,7 @@ export const SCREENS: Screen[] = [
   {
     name: 'market days, the applications',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: at(setup('big', 'applications'), 'market-setup-applications-condition'),
   },
   {

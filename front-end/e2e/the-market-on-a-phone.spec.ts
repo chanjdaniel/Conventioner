@@ -1,6 +1,11 @@
 import type { APIRequestContext, Locator } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath } from './helpers/marketScreens';
+import {
+  seedApplicationWithStatus,
+  seedPhaseMarket,
+  transitionMarket,
+} from './helpers/seedPhaseMarket';
 import { mongoEval } from './helpers/mongo';
 import { inTheWindow, PHONE_AND_DESK, widths } from './helpers/phoneWindow';
 import { savePlan } from './helpers/savePlan';
@@ -29,6 +34,10 @@ const OWES = 'alice@example.com';
 const PAID = 'bob@example.com';
 /** An Editor of the market, who corrects a vendor's answers at the door. */
 const EDITOR = { email: 'e2e-phone-editor@example.com', password: 'e2epassword123' };
+/** A Viewer of the market, who reads the review from their phone. */
+const VIEWER = { email: 'e2e-phone-viewer@example.com', password: 'e2epassword123' };
+/** The one application of the Applications leg's market, still open. */
+const APPLICANT = 'phone-applicant@example.com';
 /** The vendor drawer's tabs, in its order. */
 const DRAWER_TABS = ['application', 'assignments', 'payment', 'history'] as const;
 
@@ -40,6 +49,37 @@ async function call(
 ) {
   const res = await request[method](`${BACKEND_URL}${path}`, { data });
   expect(res.ok(), `${method} ${path}: ${await res.text()}`).toBeTruthy();
+}
+
+/** Gives `who` a role on the market, as its organizer does from Manage market. */
+async function grant(
+  request: APIRequestContext,
+  marketId: string,
+  who: { email: string; password: string },
+  role: 'editor' | 'viewer',
+): Promise<void> {
+  ensureVerifiedUser(who.email, who.password);
+  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: who.email, role },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+}
+
+/** A market taking applications on its own form, with one application still open. */
+async function aMarketInReview(request: APIRequestContext): Promise<string> {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
+  seedApplicationWithStatus(marketId, 'open', APPLICANT, {
+    name: 'Alexandria Montgomery-Featherstonehaugh',
+    category: 'Ceramics',
+  });
+  return marketId;
 }
 
 /**
@@ -116,6 +156,47 @@ for (const size of PHONE_AND_DESK) {
         expect(box.height, `${what} is a 44px target`).toBeGreaterThanOrEqual(44);
         expect(box.x + box.width, `${what} ends inside the window`).toBeLessThanOrEqual(width);
       }
+    }
+
+    /** On a phone, a checkbox's label is the target a thumb taps, the box inside it. */
+    async function expectLabelTarget(box: Locator, what: string): Promise<void> {
+      if (!size.phone) return;
+      const label = await box.evaluate((el) => {
+        const r = (el as HTMLInputElement).labels?.[0]?.getBoundingClientRect();
+        return r ? { width: r.width, height: r.height, right: r.right } : null;
+      });
+      expect(label, `${what} has a label`).not.toBeNull();
+      expect(label!.width, `${what} is 44px wide`).toBeGreaterThanOrEqual(44);
+      expect(label!.height, `${what} is a 44px target`).toBeGreaterThanOrEqual(44);
+      expect(label!.right, `${what} ends inside the window`).toBeLessThanOrEqual(width);
+    }
+
+    /** On a phone, each of `targets` is at least as wide as a thumb's target is tall. */
+    async function expectWide(targets: Locator, what: string): Promise<void> {
+      if (!size.phone) return;
+      for (const target of await targets.all()) {
+        const box = (await target.boundingBox())!;
+        expect(box.width, `${what} is 44px wide`).toBeGreaterThanOrEqual(44);
+      }
+    }
+
+    /**
+     * An All-view row read down on a phone, the applicant's name over their status; at a desk the
+     * status stands beside the name, as it always has.
+     */
+    async function expectNameOverStatus(row: Locator): Promise<void> {
+      const name = (await row.getByTestId('applications-all-name').boundingBox())!;
+      const status = (await row.getByTestId('applications-all-status').boundingBox())!;
+      if (size.phone) {
+        expect(name.y + name.height, 'the name stands over the status').toBeLessThanOrEqual(
+          status.y,
+        );
+      } else {
+        expect(status.x, 'the status stands right of the name').toBeGreaterThanOrEqual(
+          name.x + name.width,
+        );
+      }
+      await expectAcross(row.getByTestId('applications-all-status'), 'the status');
     }
 
     test('Payments: who still owes, and their drawer', async ({
@@ -212,11 +293,7 @@ for (const size of PHONE_AND_DESK) {
       browser,
     }) => {
       const marketId = await aMarketThatIsOwed(request);
-      ensureVerifiedUser(EDITOR.email, EDITOR.password);
-      const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-        data: { user_email: EDITOR.email, role: 'editor' },
-      });
-      expect(granted.ok(), await granted.text()).toBeTruthy();
+      await grant(request, marketId, EDITOR, 'editor');
 
       // From Payments by the Assignment tab's page row.
       await page.goto(marketScreenPath(marketId, 'payments'));
@@ -318,12 +395,90 @@ for (const size of PHONE_AND_DESK) {
         size.use,
       );
     });
+
+    test('Applications: an Editor reviews, and a Viewer reads, at the window', async ({
+      browser,
+      request,
+    }) => {
+      const marketId = await aMarketInReview(request);
+      await grant(request, marketId, EDITOR, 'editor');
+      await grant(request, marketId, VIEWER, 'viewer');
+
+      // T166 note 10: an Editor on a phone saw the page laid out 1001px wide and zoomed out.
+      await withUser(
+        browser,
+        EDITOR.email,
+        EDITOR.password,
+        async (editor) => {
+          const { expectFits: fits, expectInside: inside, press: tap } = inTheWindow(size);
+          await editor.goto(marketScreenPath(marketId, 'applications'));
+          const row = editor.getByTestId('applications-all-row').first();
+          await expect(row).toBeVisible({ timeout: 15000 });
+          await fits(editor, 'the Applications page, for an Editor');
+          await expectAcross(row, 'the row');
+          await expectNameOverStatus(row);
+
+          // The views switch, the filters, Mine, the count and Export wrap in the window, each a
+          // thumb's target; so is the row's tick.
+          await expectTargets(editor.getByTestId(/^applications-view-/), 'a view');
+          await expectWide(editor.getByTestId(/^applications-view-/), 'a view');
+          await expectTargets(editor.getByTestId(/^applications-all-filter-/), 'a filter');
+          await expectWide(editor.getByTestId(/^applications-all-filter-/), 'a filter');
+          await expectTargets(editor.getByTestId('applications-all-export-button'), 'Export');
+          await expectAcross(editor.getByTestId('applications-all-count'), 'the count');
+          await expectLabelTarget(editor.getByTestId('applications-all-mine'), 'Mine');
+          await expectLabelTarget(row.getByTestId('applications-all-tick'), "the row's tick");
+          await tap(row.getByTestId('applications-all-tick'));
+          await expect(row.getByTestId('applications-all-tick')).toBeChecked();
+          await expect(editor.getByTestId('applications-all-selection')).toBeVisible();
+          await expectAcross(editor.getByTestId('applications-all-selection'), 'the selection');
+          await tap(editor.getByTestId('applications-all-selection-clear'));
+
+          // The drawer opens inside the window, its verdicts inside it, and Update info over it.
+          await tap(row.getByTestId('applications-all-name'));
+          const drawer = editor.getByTestId('vendors-detail-panel');
+          await expect(drawer.getByTestId('applications-all-drawer-verdict')).toBeVisible();
+          await expect(drawer).toBeInViewport({ ratio: 1 });
+          await inside(drawer, 'the drawer');
+          await inside(drawer.getByTestId('applications-all-approve'), 'Approve');
+          await tap(drawer.getByTestId('vendors-detail-update-info'));
+          const updating = editor.getByTestId('update-info-window');
+          await expect(updating).toBeVisible();
+          await inside(updating, 'Update info');
+          const save = editor.getByTestId('update-info-submit-button');
+          await save.scrollIntoViewIfNeeded();
+          await inside(save, 'Save');
+          await tap(editor.getByTestId('update-info-cancel-button'));
+          await expect(updating).toHaveCount(0);
+          await fits(editor, 'the Applications page, the drawer open');
+        },
+        size.use,
+      );
+
+      // A Viewer reads the same page at the same width.
+      await withUser(
+        browser,
+        VIEWER.email,
+        VIEWER.password,
+        async (viewer) => {
+          const { expectFits: fits } = inTheWindow(size);
+          await viewer.goto(marketScreenPath(marketId, 'applications'));
+          const row = viewer.getByTestId('applications-all-row').first();
+          await expect(row).toBeVisible({ timeout: 15000 });
+          await fits(viewer, 'the Applications page, for a Viewer');
+          await expectAcross(row, 'the row');
+          await expectNameOverStatus(row);
+        },
+        size.use,
+      );
+    });
   });
 }
 
 /**
  * Between a phone and a desk (T142, T180): every market place that fits a phone lifts the desktop
- * floor at every width under it, so a tablet lays it out at its own width. At 768 the market's name
+ * floor at every width under it, so a tablet lays it out at its own width, and a page of the same
+ * view that does not, the plan, keeps it. At 768 the market's name
  * drew 0px wide and the tabs ran past the window, so the page scrolled sideways.
  */
 test.describe('between a phone and a desk', () => {
@@ -340,7 +495,14 @@ test.describe('between a phone and a desk', () => {
         TEST_USER.password,
         { intakeMode: 'form' },
       );
-      for (const where of ['attendance', 'tools', 'assignments', 'vendors', 'payments'] as const) {
+      for (const where of [
+        'attendance',
+        'tools',
+        'assignments',
+        'vendors',
+        'payments',
+        'applications',
+      ] as const) {
         await page.goto(marketScreenPath(seed.marketId, where));
         await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
         expect((await widths(page)).sideways, `${where} scrolls sideways`).toBe(0);
@@ -353,6 +515,10 @@ test.describe('between a phone and a desk', () => {
           `${where}: the tabs end inside the window`,
         ).toBeLessThanOrEqual(width);
       }
+      // The plan, a page of the same view as Applications, is built at a desk and keeps its floor.
+      await page.goto(marketScreenPath(seed.marketId, 'setup'));
+      await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
+      expect((await widths(page)).sideways, 'the plan keeps the desktop floor').toBeGreaterThan(0);
     });
   }
 });

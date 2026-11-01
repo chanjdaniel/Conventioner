@@ -58,6 +58,7 @@ sources:
   - T148
   - E38/F15/S01
   - T181
+  - T180
 ---
 
 # Conventioner's design language
@@ -176,6 +177,7 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 - the dashboard, where sign-in lands on the way to the door (T148);
 - `/markets`, the way to the market an organizer runs from the door (T142);
 - Organizations, the dashboard's other place (T148);
+- the Applications page, the one page of Market Setup's view that fits, with the vendor drawer and Update info over it, where a late application is decided from a phone ([the review](business/flows/review.md)) (T180);
 - the Assignments page, where the vendor drawer's "Change assignment" at the door leads ([placements](implementation/modules/placements.md)) (T142);
 - Vendors, with the [vendor drawer](business/flows/vendor-drawer.md), Update info and the payment dialogs, where a vendor is looked up, paid and corrected from the door ([vendors](business/flows/vendors.md)) (T180);
 - Payments, where who still owes is read on market day ([payments](business/flows/payments.md)) (T180);
@@ -185,7 +187,7 @@ Some organizer places lift the desktop floor too, by `meta.fitsAPhone`, each wit
 
 The setup screens keep the floor, since they are built at a desk before the market and the floorplan and the form builder are drawn for a pointer; one a line:
 
-- Market Setup's plan;
+- Market Setup's plan, a page of the same view as the Applications page, which alone lifts the floor (`meta.fitsAPhone` names the page);
 - the form builder;
 - Settings, the assignment rules;
 - the import;
@@ -197,6 +199,7 @@ The setup screens keep the floor, since they are built at a desk before the mark
 A summary card stacks so whenever it is narrower than its name, its facts and its Manage need side by side (45rem with Manage, 37.5rem without), so a card at 768px stacks too rather than pushing Manage past its edge (T148).
 The Assignments page on a phone narrows its gutter to 16px too: its summary's figures stack, one to a 44px row, and its actions wrap under them; the filters stand in the page's flow rather than pinned, each filling its row and two sharing one where both fit; a half table's two seats stand one under the other, each seat's Change a 44px target; and a dialog's buttons wrap rather than run past its window.
 Vendors on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters, Export and Add a vendor wrapping beneath it, and a vendor's row stacks the name over its chips, which wrap where the Discord state, the badge, "Added" and the date count are wider together than the row.
+The Applications page on a phone narrows its gutter to 16px too: the All view's row is one column, read down, the applicant's name and address, the leading answers, then the status chip and its lines, each the row's width; each row's tick stands in a 44px square beside it, and "Mine" is its label's 44px row; the views switch's and the status filters' buttons are 44px wide at least, as at every width.
 Payments on a phone narrows its gutter to 16px too: the search takes its row with the "Show only" filters wrapping beneath it, the market's four figures stand two to a row, and each table lays its rows out as blocks, its row heading (the tier, the date or the vendor) on a line of its own and each value on a line beside its column's heading, since neither table's columns share 343px; the vendors' headings stay above as a row of sort buttons, each a 44px target.
 The dashboard is one column, 716px wide at most and the window's width less a 16px gutter at each side where that is narrower: the remembered market's card, or the sentence and its step, fills it, Markets and Organizations share the row beneath in two equal tiles, and Sign out is under them.
 [Organizations](business/flows/organizations.md) on a phone narrows its gutter to 16px, as `/markets` does, and "New organization" keeps one line, wrapping under the title only when the two cannot share the row; in Manage organization each person's address takes a line of its own with the role and Remove beneath it, and an add row's email field takes the row with Add and Cancel beneath it.

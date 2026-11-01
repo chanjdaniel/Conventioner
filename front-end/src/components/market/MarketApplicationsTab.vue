@@ -156,6 +156,11 @@ const condition = computed(() => {
   gap: var(--space-1);
 }
 
+/* "All" is a word wide; a target is never narrower than it is tall. */
+.review-views-switch .btn {
+  min-width: var(--target-min);
+}
+
 .review-views-hint {
   margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
@@ -186,5 +191,12 @@ const condition = computed(() => {
      where it was unreachable. The other tabs each scroll inside their own card; this one has no
      card to scroll inside. */
   overflow-y: auto;
+}
+
+/* The phone's gutter, as the other pages that fit a phone take it (T180). */
+@media (width <= 640px) {
+  .settings-body.settings-body-stacked {
+    padding: var(--space-4);
+  }
 }
 </style>

@@ -96,6 +96,10 @@ const router = createRouter({
       path: `/markets/:marketId/:page(${SETUP_VIEW_PAGES.join('|')})`,
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
+      // A late application is decided and a vendor's answer corrected from a phone at the market
+      // (T180), so the Applications page fits one; the plan, the form and Settings are built at a
+      // desk before it, and keep the desktop floor.
+      meta: { fitsAPhone: ['applications'] },
       // The pages were a `?tab=` on `setup` until E22/F04/S02, and a bookmark or an emailed link may
       // still say so; it lands on the page it named, by the name it has now.
       beforeEnter: (to) => {
