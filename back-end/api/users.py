@@ -89,6 +89,31 @@ REMEMBERED_SIGN_IN_LIFETIME = timedelta(days=30)
 #: The kinds of sign-in a sign-in id names, and how long each lasts.
 _LIFETIMES = {"s": SIGN_IN_LIFETIME, "r": REMEMBERED_SIGN_IN_LIFETIME}
 
+#: What a refused sign-in says (E38/F14/S02), in the sign-in screen's words, each with what to do
+#: next beside it on the screen. A wrong password and an address with no account say the same.
+SIGN_IN_DOES_NOT_MATCH = "That email and password do not match."
+#: The screen offers "Send the link again" beside it.
+SIGN_IN_VERIFY_FIRST = "Verify your email address first: we sent you a link when you registered."
+#: A code that is not the one sent, and a code for an address with no account, alike up to an
+#: account's fifth wrong code, which discards its code and says to ask for a new one; an address
+#: with no account has no count, which the sign-in limits will keep for every address alike.
+SIGN_IN_WRONG_CODE = "That code is not right."
+
+#: What a password for an address with no account is checked against, made once at the app's cost
+#: factor, so that a sign-in takes as long with an account as without one.
+_no_account_hash: Optional[str] = None
+
+
+def _password_matches(bcrypt, user_doc, password: str) -> bool:
+    """Whether the password is the account's, checked whether or not there is an account."""
+    global _no_account_hash
+    if user_doc:
+        return bcrypt.check_password_hash(user_doc["password"], password)
+    if _no_account_hash is None:
+        _no_account_hash = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode("utf-8")
+    bcrypt.check_password_hash(_no_account_hash, password)
+    return False
+
 
 def _now() -> float:
     """The server's clock, in seconds since the epoch."""
@@ -182,7 +207,9 @@ def _sign_in(login_user, user_doc, remember: bool):
         )
         stored = users_collection.find_one({"id": user_doc["id"]})
         if not stored or not stored.get("login_id"):
-            return jsonify({"message": "Invalid credentials"}), 401
+            # Not a refusal: the account was there a moment ago. The error handler logs it and
+            # answers the server's fault.
+            raise RuntimeError("an account's login id was not stored at its first sign-in")
         user_doc["login_id"] = stored["login_id"]
 
     user_doc.pop('_id', None)
@@ -272,14 +299,14 @@ def login(bcrypt, login_user, request):
 
     # Find user in MongoDB
     user_doc = users_collection.find_one({"email": email})
-    if user_doc and bcrypt.check_password_hash(user_doc["password"], password):
+    if _password_matches(bcrypt, user_doc, password):
         # Check if email is verified
         if not user_doc.get("email_verified", False):
-            return jsonify({"message": "Please verify your email before logging in"}), 403
+            return jsonify({"message": SIGN_IN_VERIFY_FIRST}), 403
 
         return _sign_in(login_user, user_doc, flag_field(data, "remember"))
 
-    return jsonify({"message": "Invalid credentials"}), 401
+    return jsonify({"message": SIGN_IN_DOES_NOT_MATCH}), 401
 
 def logout(logout_user):
     logout_user()
@@ -559,7 +586,7 @@ def request_otp(request):
 
     # Check if email is verified
     if not user_doc.get("email_verified", False):
-        return jsonify({"msg": "Please verify your email before using passwordless login"}), 403
+        return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
     # One code at a time: refused until an hour after the last code expired, unless it was used or
     # five wrong tries discarded it, either of which clears its expiry.
@@ -612,7 +639,7 @@ def login_with_otp(login_user, request):
     user_doc = users_collection.find_one({"email": email})
     
     if not user_doc:
-        return jsonify({"msg": "Invalid credentials"}), 401
+        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
     # Check if OTP exists and matches
     stored_otp = user_doc.get("otp")
@@ -632,7 +659,7 @@ def login_with_otp(login_user, request):
             )
             return jsonify({"msg": "Too many wrong codes. Ask for a new one."}), 429
         
-        return jsonify({"msg": "That code is not right."}), 401
+        return jsonify({"msg": SIGN_IN_WRONG_CODE}), 401
 
     # Check if OTP has expired
     expires_at = user_doc.get("otp_expires")
@@ -641,7 +668,7 @@ def login_with_otp(login_user, request):
 
     # Check if email is verified
     if not user_doc.get("email_verified", False):
-        return jsonify({"msg": "Please verify your email before logging in"}), 403
+        return jsonify({"msg": SIGN_IN_VERIFY_FIRST}), 403
 
     # Clear OTP and attempts
     users_collection.update_one(

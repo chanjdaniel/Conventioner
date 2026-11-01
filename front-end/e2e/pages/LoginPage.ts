@@ -18,6 +18,9 @@ export class LoginPage {
   readonly passwordInput: Locator;
   readonly togglePassword: Locator;
   readonly errorMessage: Locator;
+  readonly successMessage: Locator;
+  readonly errorForgotPasswordLink: Locator;
+  readonly resendVerificationButton: Locator;
   readonly submitButton: Locator;
   readonly forgotPasswordLink: Locator;
   readonly rememberMe: Locator;
@@ -38,6 +41,7 @@ export class LoginPage {
   readonly otpCodeInput: Locator;
   readonly otpErrorMessage: Locator;
   readonly otpSuccessMessage: Locator;
+  readonly otpResendVerificationButton: Locator;
   readonly otpSubmitButton: Locator;
   readonly otpDifferentEmailLink: Locator;
   readonly otpRememberMe: Locator;
@@ -54,6 +58,9 @@ export class LoginPage {
     this.passwordInput = page.getByTestId('login-password-input');
     this.togglePassword = page.getByTestId('login-toggle-password');
     this.errorMessage = page.getByTestId('login-error-message');
+    this.successMessage = page.getByTestId('login-success-message');
+    this.errorForgotPasswordLink = page.getByTestId('login-error-forgot-password-link');
+    this.resendVerificationButton = page.getByTestId('login-resend-verification-button');
     this.submitButton = page.getByTestId('login-submit-button');
     this.forgotPasswordLink = page.getByTestId('login-forgot-password-link');
     this.rememberMe = page.getByTestId('login-remember-me');
@@ -72,6 +79,7 @@ export class LoginPage {
     this.otpCodeInput = page.getByTestId('login-otp-code-input');
     this.otpErrorMessage = page.getByTestId('login-otp-error-message');
     this.otpSuccessMessage = page.getByTestId('login-otp-success-message');
+    this.otpResendVerificationButton = page.getByTestId('login-otp-resend-verification-button');
     this.otpSubmitButton = page.getByTestId('login-otp-submit-button');
     this.otpDifferentEmailLink = page.getByTestId('login-otp-different-email-link');
     this.otpRememberMe = page.getByTestId('login-otp-remember-me');
