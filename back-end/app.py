@@ -384,16 +384,17 @@ class RefusingLoginManager(LoginManager):
     """Flask-Login's "strong" session protection, refusing a request without ending the sign-in.
 
     "strong" holds a session to the client that signed in, its address and browser, and refuses a
-    request from any other. Flask-Login refuses one by deleting the session, and the remember-me
-    cookie with it; so one request the server could not hold to the browser signed it out: a
-    request a closed connection cut short of its User-Agent, say, whose answer, carrying the
-    cookie's deletion, nobody read (T177). Before E38/F14/S01 the remember-me cookie every sign-in
-    set brought such a session back; a sign-in without "Remember me" has none.
+    request from any other. Flask-Login refuses one by deleting a session that is not permanent,
+    and the remember-me cookie with it, and only marks a permanent one not fresh. Sessions were
+    permanent until E38/F14/S01; since then one request the server could not hold to the browser
+    signed it out (T177). In the store on disk the deletion is on the server, so it held even when
+    nobody read the answer: a request a closed connection cut short of its User-Agent, say. In the
+    cookie store the deletion travels in the answer, so it signed out a browser that read it.
 
-    So a request from another client is answered as signed out, and the session and the
-    remember-me cookie stay as they were for the browser that signed in. A copied session cookie is
-    refused as before, at every request; a browser whose address changes is too, until it is back
-    on the first address or signs in again (E47).
+    So a request from another client, its session permanent or not, is answered as signed out, and
+    the session and the remember-me cookie stay as they were for the browser that signed in. A
+    copied session cookie is refused as before, at every request; a browser whose address changes
+    is too, until it is back on the first address or signs in again (E47).
     """
 
     def _session_protection_failed(self) -> bool:
