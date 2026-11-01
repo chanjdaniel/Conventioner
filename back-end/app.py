@@ -394,10 +394,6 @@ def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
     session["_id"] = login_manager._session_identifier_generator()
 
 
-import session_loss_probe  # noqa: E402  TEMPORARY (T177), reverted before review
-session_loss_probe.install(app)
-
-
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_templates_bp, url_prefix="/floorplans")
