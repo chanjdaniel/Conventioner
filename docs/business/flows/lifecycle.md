@@ -154,7 +154,7 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 
 - Every earlier stage was to stay editable in later phases, the plan included (wayfinding/the-order-of-the-work/01); the setup settles on leaving draft instead ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md), E31/F01).
 - The Google Form path was to say "Start Collecting" and "Done Collecting" and stop in Applications Open and Applications Closed, with Import still open in both (wayfinding/what-to-show-and-when/02); it then stopped in Import, left Draft with "Import responses" and stepped through Applications Closed into Review (E32/F02/S01).
-- Applications Open, Applications Closed and Review were three phases, with Close Applications, Begin review, Reopen Applications and Import more responses between them; they are one stage, closing applications is a fact about the form, and a late export is a Redo import (E38/F04, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
+- Applications Open, Applications Closed and Review were three phases, with Close applications, Begin review, Reopen applications and Import more responses between them; they are one stage, closing applications is a fact about the form, and a late export is a Redo import (E38/F04, [ADR 0016](../../adr/0016-one-stage-for-applications-and-review.md)).
 - Every tab out of its phase was to carry a read-only line of its own, such as "Fixed when applications opened" on Market Setup and "Decided; the assignment works from these" on Applications (wayfinding/what-to-show-and-when/02); the phase alone gives a line only to Applications and Attendance, and the locks the server owns say so where they apply.
 
 ## The rules it obeys
