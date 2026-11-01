@@ -69,7 +69,7 @@ The review is the import's own ledger, a table of "CSV column", "First answers" 
 
 1. "What the file says about your plan": market dates, tiers best first, and "Most days one vendor may get" (an assignment rule, choosable).
    A value the plan already has is matched against it, and one that disagrees is settled with the import's own value fix, mapped to one of the plan's values or ignored; a plan that has values is never added to.
-2. "Every column, in your file's order": each column's first answers and what it "Becomes": an essential question, "Your question" with a type, Required and kept options, or "Left out".
+2. "Every column, in your file's order": each column's first answers and "answered by N of M", both read from the rows that are responses (a status your team typed into an empty row is none), and what it "Becomes": an essential question, "Your question" with a type, Required and kept options, or "Left out".
    The ledger changes only a column's fate, a question's type, whether it is required and which options to keep; labels, help text and order are the form builder's, after confirm.
    Every one of the organizer's questions is proposed not required; only the organizer ticks Required ([no question is inferred required](../rules/no-question-is-inferred-required.md)).
 3. "Essential questions no column answers": each proposed as not asked, with why.

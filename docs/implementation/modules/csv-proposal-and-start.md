@@ -47,6 +47,10 @@ An essential question no column answers is proposed as not asked, which is what 
 
 **The start reads a file as the import does** (E38/F15/S02): the browser's `readCsvFile` and the server's `parse_csv` are the import's own, so a file that is not a CSV export stops on the Upload step with the import's words ([the CSV import](csv-import.md#sharp-edges)).
 
+**A response is a row someone submitted** (`_is_response`): one with three answered cells, or every cell in a file narrower than three columns, since a Google Form with one question exports its Timestamp and that question, and every submission fills both.
+An organizer's status typed into an empty row is one cell, and is no response (bug 40).
+Every column's "answered by N of M", its first answers and the share of the responses that answered it (which decides who applied, a team's verdict column, and which questions nearly everyone answered) are read from those rows alone, so a first answer never stands beside "answered by 0 of 0" (E38/F15/S02).
+
 **Only a draft whose form has no questions of its own** (`refusal`): the plan and the form it writes are a draft's to change, and the proposal never has to merge with questions already written.
 
 **The proposal writes nothing; confirm writes in ONE conditioned update, or nothing.**

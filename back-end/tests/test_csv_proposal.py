@@ -382,6 +382,35 @@ class TestWhatAColumnCarries:
         proposal = CsvProposal.proposal(headers, rows)
         assert all(c["answered"] <= proposal["responses"] for c in proposal["columns"])
 
+    def test_a_one_column_file_counts_each_row_as_a_response(self):
+        """A file narrower than three columns cannot hold three answers: its rows are its
+        responses, and the address column is answered by every one of them."""
+        rows = [[f"p{i}@mail.test"] for i in range(5)]
+        proposal = CsvProposal.proposal(["Email Address"], rows)
+        column = proposal["columns"][0]
+        assert proposal["responses"] == 5
+        assert (column["answered"], column["fate"]) == (5, "applicant_email")
+
+    def test_a_two_column_file_counts_each_full_row_as_a_response(self):
+        """A Google Form with one question exports its Timestamp and that question."""
+        rows = [["1/1/2026 9:00:00", f"p{i}@mail.test"] for i in range(5)] + [["", "FALSE"]]
+        proposal = CsvProposal.proposal(["Timestamp", "Email Address"], rows)
+        assert proposal["responses"] == 5
+        assert [c["answered"] for c in proposal["columns"]] == [5, 5]
+        assert proposal["columns"][1]["firstAnswers"] == [
+            "p0@mail.test", "p1@mail.test", "p2@mail.test"]
+
+    def test_a_column_answered_only_outside_the_responses_is_worded_from_them(self):
+        """The ledger's words come from the rows it counts: a first answer beside "answered by 0
+        of 0", and "Everyone answered it with their own email" over no responses, said otherwise."""
+        headers = ["Timestamp", "Email Address", "Business name", "What do you sell?"]
+        rows = [["1/1/2026 9:00:00", f"p{i}@mail.test", "", ""] for i in range(5)]
+        proposal = CsvProposal.proposal(headers, rows)
+        email = proposal["columns"][1]
+        assert proposal["responses"] == 0
+        assert (email["answered"], email["firstAnswers"]) == (0, [])
+        assert email["why"] != "Everyone answered it with their own email"
+
     def test_an_essential_no_column_answers_is_not_asked(self):
         headers, rows = _read("days-as-one-question")
         not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}

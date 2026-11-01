@@ -193,13 +193,15 @@ def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:
     return None
 
 
-def _responses(rows: List[List[str]]) -> int:
-    """Rows someone submitted: a row an organizer typed a status into alone is not one."""
-    return sum(1 for row in rows if _is_response(row))
+# How many answered cells make a row a response, in a file at least this wide.
+RESPONSE_CELLS = 3
 
 
 def _is_response(row: List[str]) -> bool:
-    return sum(1 for cell in row if cell.strip()) >= 3
+    """Three answered cells, or every cell of a file narrower than that: a Google Form with one
+    question exports its Timestamp and that question, and every submission fills both, while an
+    organizer's status typed into an empty row is one cell."""
+    return sum(1 for cell in row if cell.strip()) >= min(RESPONSE_CELLS, len(row))
 
 
 class _Column:
@@ -207,12 +209,17 @@ class _Column:
     options are listed from."""
 
     def __init__(self, header: str, values: List[str], people: List[str], responses: int,
-                 row_emails: List[Optional[str]], applicant_emails: Set[str]):
+                 responding: List[bool], row_emails: List[Optional[str]],
+                 applicant_emails: Set[str]):
         self.header = header
         self.label = collapse_header(header)
         self.values = values
         filled = [value.strip() for value in values if value.strip()]
         self.filled = len(filled)
+        # What the ledger says against the responses is read from the same rows (bug 40): the
+        # answers in the rows counted as responses, never an organizer's status-only row.
+        self.answered = [value for value, response in zip(values, responding)
+                         if response and value.strip()]
         self.responses = responses or 1
 
         whole: Dict[str, Set[str]] = {}
@@ -267,7 +274,7 @@ class _Column:
 
     @property
     def answered_share(self) -> float:
-        return self.filled / self.responses
+        return len(self.answered) / self.responses
 
     def is_choice_like(self) -> bool:
         """Most answers are a handful of repeated values: a choice, not a name."""
@@ -830,13 +837,14 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
         else f"row {index}" for index, row in enumerate(body)
     ]
     applicant_emails = {person for person in people if "@" in person}
-    responses = _responses(body)
+    responding = [_is_response(row) for row in body]
+    responses = sum(responding)
 
     columns = []
     for index, header in enumerate(headers):
         own = index == applicant
         columns.append(_Column(
-            header, [row[index] for row in body], people, responses,
+            header, [row[index] for row in body], people, responses, responding,
             row_emails=[None] * len(body) if own else [p if "@" in p else None for p in people],
             applicant_emails=set() if own else applicant_emails,
         ))
@@ -869,10 +877,9 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
             "group": groups.get(index),
             # Counted over the same rows as the responses it is shown against: counting every
             # filled cell, an organizer's status-only row included, said "answered by 360 of
-            # 359" (bug 40).
-            "answered": sum(1 for value, row in zip(column.values, body)
-                            if value.strip() and _is_response(row)),
-            "firstAnswers": [value for value in column.values if value.strip()][:3],
+            # 359" (bug 40), and a first answer stood beside "answered by 0 of 0".
+            "answered": len(column.answered),
+            "firstAnswers": column.answered[:3],
             "fate": decided["fate"],
             "essential": decided.get("essential"),
             "leftOut": decided.get("leftOut"),
