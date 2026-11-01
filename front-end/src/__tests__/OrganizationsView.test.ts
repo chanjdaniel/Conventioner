@@ -102,7 +102,7 @@ describe('the organizations list', () => {
 describe('the organizations list, when its read fails', () => {
   it('says the organizer seems offline, and Try again reads the list again', async () => {
     fetchOrganizations.mockRejectedValueOnce({ isAxiosError: true, request: {} });
-    const wrapper = mount(OrganizationsView);
+    const { wrapper } = await mountAt();
     await flushPromises();
 
     expect(wrapper.get('[data-testid="organizations-read-failed"]').text()).toContain(
