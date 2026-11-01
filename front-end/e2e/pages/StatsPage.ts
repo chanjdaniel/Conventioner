@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 /**
  * Page object for a market's Stats tab (/markets/:marketId/stats): who applied, by status and by
  * the day each applied (E45/F01/S01), and a chart per choice question, narrowed to the approved or
- * the assigned (E45/F01/S02).
+ * the assigned (E45/F01/S02); above them the placement and money headlines (E45/F01/S03).
  */
 export class StatsPage {
   readonly page: Page;
@@ -28,6 +28,16 @@ export class StatsPage {
 
   async goto(marketId: string): Promise<void> {
     await this.page.goto(marketScreenPath(marketId, 'stats'));
+  }
+
+  /** A headline at the top of the page: `used`, `free`, `unassigned`, `owed`, `paid`, `stillOwed`. */
+  headline(id: string): Locator {
+    return this.page.getByTestId(`stats-headline-${id}`);
+  }
+
+  /** A headline's figure: "4", "$117.50". */
+  headlineFigure(id: string): Locator {
+    return this.headline(id).getByTestId('stats-headline-figure');
   }
 
   /** A status's row, by the All view filter it opens: `undecided`, `reviewer_approved`, ... */
