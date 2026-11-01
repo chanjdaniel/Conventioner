@@ -73,6 +73,13 @@ class Markets(FakeMarkets):
         self.docs.append(stored)
         return SimpleNamespace(inserted_id=stored["_id"])
 
+    def find(self, query, projection=None):
+        """The organizations list reads its markets' roles, for what removing someone takes."""
+        return [
+            mongo_project(copy.deepcopy(doc), projection)
+            for doc in self.docs if mongo_matches(doc, query)
+        ]
+
 
 def organization(**overrides):
     return {
@@ -97,6 +104,7 @@ def world(monkeypatch):
         update_one=lambda *_a, **_k: None, update_many=lambda *_a, **_k: None))
     monkeypatch.setattr(MarketsApi.PermissionsApi, "organizations_collection", organizations)
     monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+    monkeypatch.setattr(OrgsApi, "markets_collection", markets)
     monkeypatch.setattr(MarketsApi, "db", {"organizations": organizations})
     monkeypatch.setattr(History, "history_collection", history)
     monkeypatch.setattr(History, "legacy_placement_collection", FakeHistoryCollection())

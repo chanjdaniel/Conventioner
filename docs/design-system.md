@@ -8,14 +8,14 @@ describes:
   - front-end/stylelint.config.js
   - front-end/src/__tests__/spacingScale.test.ts
   - front-end/e2e/contrast-sweep.spec.ts
-  - front-end/e2e/contrast-measure.spec.ts
-  - front-end/e2e/helpers/contrastSweep.ts
   - front-end/e2e/accessibility-sweep.spec.ts
   - front-end/e2e/layout-sweep.spec.ts
   - front-end/e2e/focus-sweep.spec.ts
   - front-end/e2e/layout-detectors.spec.ts
   - front-end/e2e/helpers/screens.ts
   - front-end/e2e/helpers/layoutDetectors.ts
+  - front-end/e2e/contrast-measure.spec.ts
+  - front-end/e2e/helpers/contrastSweep.ts
 verified: 2026-11-01
 sources:
   - wayfinding/claims-and-room/map
@@ -56,6 +56,7 @@ sources:
   - T123
   - T142
   - T148
+  - E38/F15/S01
 ---
 
 # Conventioner's design language
@@ -326,9 +327,14 @@ The placement dialog's two vendor pickers are its first use.
 
 | | Variants | Notes |
 | --- | --- | --- |
-| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
+| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third, both 44px on a phone. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. `--secondary` with `--destructive` is a row's destructive action, below. |
 | `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: 0`: a select fills its column and never pushes past it, in Firefox as in Chromium. A column that must fit a select's options sizes its own track. |
 | `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. The tint is an opaque `--mm-chip-*` ground, so a chip reads the same on beige as on white. A status is a chip; the action beside it is a button. |
+
+**A row's destructive action is quiet; the confirmation's is filled** (E38/F15/S01).
+`.btn--secondary.btn--destructive` is the destructive intent at the secondary weight: red ink (`--mm-red`, 5.44:1 on white) on the secondary button's white and border, at 400, not a fourth intent.
+A list of people with a filled red Remove on every row shouted the one action nobody came for; each such Remove now asks first, and the confirmation's own button is the filled `--destructive` one: Manage organization's and Manage market's people ([removing a person](business/flows/organizations.md#b3-remove-a-person), [managing who has access](business/flows/ending-and-managing-a-market.md#l3-manage-who-has-access)).
+It keeps the `btn--destructive` class, so [a dialog](implementation/conventions/dialogs.md) still never opens on it.
 
 **On a phone every target is 44px**, the size a thumb wants (T82).
 The heights are tokens in `base.css`: `--control-height` (36px) for `.btn`, `.field` and `.add-row`, `--control-height-compact` (28px) for `.btn--compact`, and `--target-min` (24px, WCAG 2.5.8's floor), the least any other target may be: a tab, a link on its own line, a Show toggle, a Copy button, a choice's label.
