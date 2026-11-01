@@ -359,6 +359,7 @@ const submitOTPLogin = async () => {
             v-model="email"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             data-testid="login-email-input"
           />
@@ -371,6 +372,7 @@ const submitOTPLogin = async () => {
             v-model="password"
             placeholder=""
             class="password-input"
+            autocomplete="current-password"
             required
             data-testid="login-password-input"
           />
@@ -384,6 +386,14 @@ const submitOTPLogin = async () => {
             {{ showPassword ? 'Hide' : 'Show' }}
           </button>
         </div>
+        <p
+          class="error-message"
+          role="alert"
+          v-show="errorMessage"
+          data-testid="login-error-message"
+        >
+          {{ errorMessage }}
+        </p>
         <label class="remember-me">
           <input
             v-model="remember"
@@ -394,14 +404,6 @@ const submitOTPLogin = async () => {
           Remember me
         </label>
         <p id="remember-me-help" class="field-help remember-me-help">{{ REMEMBER_ME_HELP }}</p>
-        <p
-          class="error-message"
-          role="alert"
-          v-show="errorMessage"
-          data-testid="login-error-message"
-        >
-          {{ errorMessage }}
-        </p>
         <button
           type="submit"
           class="btn btn--primary submit-button"
@@ -444,6 +446,7 @@ const submitOTPLogin = async () => {
             v-model="registerEmail"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             data-testid="login-register-email-input"
           />
@@ -456,6 +459,7 @@ const submitOTPLogin = async () => {
             v-model="registerPassword"
             placeholder=""
             class="password-input"
+            autocomplete="new-password"
             required
             data-testid="login-register-password-input"
           />
@@ -477,6 +481,7 @@ const submitOTPLogin = async () => {
             v-model="registerPasswordConfirm"
             placeholder=""
             class="password-input"
+            autocomplete="new-password"
             required
             data-testid="login-register-password-confirm-input"
           />
@@ -535,6 +540,7 @@ const submitOTPLogin = async () => {
             v-model="otpEmail"
             placeholder="you@example.com"
             class="email-input"
+            autocomplete="username"
             required
             :disabled="otpRequested"
             data-testid="login-otp-email-input"
@@ -557,20 +563,6 @@ const submitOTPLogin = async () => {
             data-testid="login-otp-code-input"
           />
         </div>
-        <template v-if="otpRequested">
-          <label class="remember-me">
-            <input
-              v-model="remember"
-              type="checkbox"
-              aria-describedby="otp-remember-me-help"
-              data-testid="login-otp-remember-me"
-            />
-            Remember me
-          </label>
-          <p id="otp-remember-me-help" class="field-help remember-me-help">
-            {{ REMEMBER_ME_HELP }}
-          </p>
-        </template>
         <p
           class="error-message"
           role="alert"
@@ -587,6 +579,20 @@ const submitOTPLogin = async () => {
         >
           {{ otpSuccessMessage }}
         </p>
+        <template v-if="otpRequested">
+          <label class="remember-me">
+            <input
+              v-model="remember"
+              type="checkbox"
+              aria-describedby="otp-remember-me-help"
+              data-testid="login-otp-remember-me"
+            />
+            Remember me
+          </label>
+          <p id="otp-remember-me-help" class="field-help remember-me-help">
+            {{ REMEMBER_ME_HELP }}
+          </p>
+        </template>
         <button
           type="submit"
           class="btn btn--primary submit-button"
