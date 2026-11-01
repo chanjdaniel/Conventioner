@@ -370,6 +370,8 @@ def audit_reason(text: str) -> str:
     while len(quote(text, safe="")) > AUDIT_REASON_LIMIT:
         text = text[:-1]
     return quote(text, safe="")
+
+
 def _name(value: Any) -> Optional[str]:
     """A display name or a nickname as Discord sends it: a string, or null for none set."""
     return value if isinstance(value, str) and value.strip() else None
