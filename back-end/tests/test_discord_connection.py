@@ -1888,7 +1888,7 @@ class TestPossibleMatches:
         fern = world.applicant("fern@example.com", "Fern Studio")
         _check(client)
 
-        def server_members(_values, _guild):
+        def server_members(_values, _guild, deadline=None):
             assert _decline(client, fern, "fern_studio_42").status_code == 200
             return world.discord.members
 
@@ -1986,6 +1986,31 @@ class TestWhatThePageShows:
                   "moreMatches": 0},
             never: {"state": "no_username", "shown": "no_username", "possibleMatches": [],
                     "moreMatches": 0},
+        }
+
+    def test_a_give_roles_run_keeps_the_offers_and_what_was_declined(self, client, world):
+        """A run writes every vendor's state as a check does (E46/F01/S04), so it offers what a
+        check would: a vendor it gave the role reads "Has the role", not "Check again", and one
+        not found keeps the members offered, the declined left out."""
+        world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
+                                                      "roleName": "Vendor Test"},
+                     **WITH_THE_FORM, **_seats("fern@example.com", "oak@example.com"))
+        world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio"),
+                                 _alike("1003", "fern.studio", nick="Fern Studio"),
+                                 _alike("1002", "oak.and.co")]
+        fern = world.applicant("fern@example.com", "Fern Studio")
+        oak = world.applicant("oak@example.com", "oak.and.co")
+        _check(client)
+        assert _decline(client, fern, "fern.studio").status_code == 200
+
+        assert _give(client).status_code == 200
+
+        assert _shown(client) == {
+            fern: {"state": "not_found", "shown": "possible_match", "moreMatches": 0,
+                   "possibleMatches": [{"username": "fern_studio_42", "displayName": "Fern Studio",
+                                        "nick": None}]},
+            oak: {"state": "has_role", "shown": "has_role", "possibleMatches": [],
+                  "moreMatches": 0},
         }
 
     def test_a_member_declined_is_left_out_and_with_none_left_the_vendor_is_not_found(
@@ -2111,15 +2136,17 @@ class TestWhatThePageShows:
     def test_the_market_contract_declares_what_the_read_serves(self, client, world):
         """``docs/schema.d.ts``, generated from ``MarketSchemaContract``, is the market as the front
         end receives it (T156 rereview note 9): its connection declares no field the read leaves
-        out, and ``discordVendors`` is declared as served."""
+        out, and ``discordVendors`` is declared as served. A "Give roles" run first, so its report
+        is served too."""
         from datatypes import MarketSchemaContract
 
         world.market(_id="mongo-market-123", discord={**CONNECTED, "roleId": "r-vendor",
                                                       "roleName": "Vendor Test",
                                                       "inviteLink": "https://discord.gg/abc123"},
-                     **WITH_THE_FORM)
+                     **WITH_THE_FORM, **_seats("fern@example.com"))
         world.discord.members = [_alike("1001", "fern_studio_42", display_name="Fern Studio")]
         fern = world.applicant("fern@example.com", "Fern Studio")
+        assert _give(client).status_code == 200
         _check(client)
         _decline(client, fern, "fern_studio_42")
         world.discord.members.append(_alike("1002", "fernstudio", nick="Fern Studio"))

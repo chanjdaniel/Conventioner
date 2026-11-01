@@ -331,6 +331,7 @@ With `DISCORD_FAKE=true`, the bot client's requests are answered by [`back-end/d
 Like the two above, it is honoured only under `ALLOW_INSECURE_LOCAL_DEV` and forwarded by `docker-compose.yml`; the CI e2e job and `scripts/nm-test.sh` set it, and a worktree's stack defaults it to `true` (pass `DISCORD_FAKE=false` to use real Discord values).
 The primary checkout's plain `docker compose up` does not, so export it there too, or those two specs find no "Check Discord" and say so.
 Connecting through the card skips Discord's approval screen under it, and connects the first fake server.
+"Give roles" gives a role there too: the grant lands on the member in that collection, refused as Discord refuses one (a member not in the server, a role it lacks, or one at or above the bot's own).
 
 ## CI Pipeline
 
