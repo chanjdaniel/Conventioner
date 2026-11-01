@@ -109,14 +109,14 @@ describe('reading a CSV file', () => {
         ch,
       ]);
 
-    it.each(named(['\x08', '\x0b', '\x0c', '\x1f', '\x7f', '\x9f', '\uFFFD']))(
+    it.each(named(['\x08', '\x0b', '\x0c', '\x0e', '\x1f', '\x7f', '\x9f', '\uFFFD']))(
       'refuses %s in the header row',
       async (_name, ch) => {
         expect(await readCsvFile(fileOf(`Name${ch}x\nAda\n`))).toEqual({ error: NOT_A_CSV_EXPORT });
       },
     );
 
-    it.each(named(['\t', '\x20', '\x7e', '\xa0']))(
+    it.each(named(['\t', '\x20', '\x7e', '\xa0', '\uFFFC', '\uFFFE']))(
       'accepts %s in the header row',
       async (_name, ch) => {
         const text = `Name${ch}x\nAda\n`;

@@ -54,7 +54,7 @@ A binary named `responses.csv`, read anyway, went on to Map columns as one colum
 The browser reads every dropped or picked file through `readCsvFile` ([`front-end/src/utils/csvFile.ts`](../../../front-end/src/utils/csvFile.ts)), the import's and the start from a CSV's alike: a file that does not decode as UTF-8, holds a NUL byte, or whose header row holds an unprintable character stops on the upload step with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv." (`NOT_A_CSV_EXPORT`), and nothing is sent.
 A CSV that Excel saved in another encoding is refused the same way once it holds an accented letter, since a decode that guesses garbles every accented name.
 The server sees text, not bytes, so `parse_csv` refuses a NUL anywhere, or an unprintable character or the replacement character in the header row, with the same words, for every endpoint that reads a file.
-The two unprintable sets are one set written twice (`UNPRINTABLE` in the browser, `_UNPRINTABLE_CODES` on the server), and one table of the characters on each side of every bound runs through both readers, so a bound moved in either fails a test.
+The two unprintable sets are one set written twice (`UNPRINTABLE` in the browser, `_UNPRINTABLE_CODES` on the server), and one table of the characters on each side of every bound, line feed and carriage return aside, runs in a header row through both readers, so a bound moved in either fails a test.
 The browser's reader drops a byte-order mark, and an empty file goes on to the server's "That file is empty."
 
 **Importing is the CSV path's, in Draft and Review** (E31/F03/S04).
