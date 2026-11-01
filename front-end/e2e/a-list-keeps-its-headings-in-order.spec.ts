@@ -15,6 +15,26 @@ async function headingsOutOfOrder(page: import('@playwright/test').Page): Promis
   return violations.flatMap((v) => v.nodes.map((node) => node.target.join(' ')));
 }
 
+/** axe's outline rules: no skipped level, and a title for a screen reader to land on. */
+async function outlineViolations(page: import('@playwright/test').Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page })
+    .options({ runOnly: { type: 'rule', values: ['heading-order', 'page-has-heading-one'] } })
+    .analyze();
+  return violations.map((v) => v.id);
+}
+
+/**
+ * The words of every heading inside a link or a button. axe judges neither, but a control is named
+ * by its words, and a heading inside one makes the control part of the page's outline.
+ */
+async function headingsInsideControls(page: import('@playwright/test').Page): Promise<string[]> {
+  return page.evaluate(() =>
+    Array.from(document.querySelectorAll(':is(a, button) :is(h1, h2, h3, h4, h5, h6)')).map((h) =>
+      (h.textContent ?? '').trim(),
+    ),
+  );
+}
+
 test('Markets heads each card one level under its title', async ({ authenticatedPage: page }) => {
   await new MarketsPage(page).goto();
   await expect(page.getByTestId('market-card').first()).toBeVisible();
@@ -47,10 +67,32 @@ test('the dashboard opens with its title, the remembered market one level under 
   await page.goto('/dashboard');
   await expect(page.getByTestId('dashboard-last-market-card')).toContainText(name);
 
-  const { violations } = await new AxeBuilder({ page })
-    .options({ runOnly: { type: 'rule', values: ['heading-order', 'page-has-heading-one'] } })
-    .analyze();
-  expect(violations.map((v) => v.id)).toEqual([]);
+  expect(await outlineViolations(page)).toEqual([]);
+  expect(await headingsInsideControls(page)).toEqual([]);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard');
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(name);
+});
+
+/** The market chooser behind the Load market dialog, reached by its address. */
+test('the market chooser opens with its title and heads neither of its buttons', async ({
+  authenticatedPage: page,
+}) => {
+  await page.goto('/init');
+  await expect(page.getByTestId('init-load-existing-market-button')).toBeVisible();
+
+  expect(await outlineViolations(page)).toEqual([]);
+  expect(await headingsInsideControls(page)).toEqual([]);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Set up or load a market');
+});
+
+/** The drawer's links are named by their words; only its account line is a heading. */
+test('the navigation drawer heads none of its links', async ({ authenticatedPage: page }) => {
+  await new MarketsPage(page).goto();
+  await page.getByRole('button', { name: 'Open navigation' }).click();
+  const drawer = page.getByTestId('app-nav');
+  await expect(drawer.getByRole('link', { name: 'Organizations' })).toBeVisible();
+
+  expect(await outlineViolations(page)).toEqual([]);
+  expect(await headingsInsideControls(page)).toEqual([]);
+  await expect(drawer.getByRole('heading')).toHaveCount(1);
 });
