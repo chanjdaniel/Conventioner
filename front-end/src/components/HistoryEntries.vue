@@ -162,27 +162,17 @@ onUpdated(measureFields);
             :data-testid="`${testid}-own-vendor`"
             >{{ part.name || part.email }}</span
           >
-          <RouterLink
-            v-else-if="vendorLink && openVendor"
-            v-slot="{ href }"
-            :to="vendorLink(part.email)"
-            custom
-          >
-            <a
-              :href="href"
-              class="history-vendor"
-              :data-testid="`${testid}-vendor-link`"
-              @click="openInPlace($event, part.email)"
-              >{{ part.name || part.email
-              }}<template v-if="part.name"
-                >{{ ' ' }}<span class="history-email">{{ part.email }}</span></template
-              ></a
-            >
-          </RouterLink>
+          <!-- Opened in place, the click is caught on its way down, before the link's own: a
+               prevented click is one RouterLink does not follow. -->
           <component
             :is="vendorLink ? RouterLink : 'span'"
             v-else
             :to="vendorLink ? vendorLink(part.email) : undefined"
+            v-on="
+              openVendor
+                ? { clickCapture: (event: MouseEvent) => openInPlace(event, part.email) }
+                : {}
+            "
             :class="{ 'history-vendor': vendorLink }"
             :data-testid="`${testid}-vendor-link`"
             >{{ part.name || part.email
