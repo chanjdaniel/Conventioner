@@ -191,7 +191,7 @@ The cookie keeps Flask-Login's name, so a browser's old one is replaced or clear
 **A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a session whose client, its address and browser, is not the one it recorded, and deletes the remember-me cookie with it.
 It applies in both stores, since the session is not permanent in either (a permanent session would only be marked not fresh).
 A session the remember-me cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)): Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
-So a remembered sign-in also ends when the client's address changes, a phone moving from a venue's wifi to its cellular network among them.
+So a remembered sign-in also ends when the client's address changes, a phone moving from a venue's wifi to its cellular network among them; Daniel kept "strong" (2026-11-01), and that sign-out is an E47 (account security) follow-up.
 
 ## Where a write comes from
 

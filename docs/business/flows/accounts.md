@@ -51,7 +51,7 @@ From the verification page, ask for another link.
 **Task:** "Sign in, then sign out."
 
 1. At `/login`, Sign in tab, enter email and password, choose "Sign in".
-   "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
+   "Remember me" under the password is unticked: the sign-in then ends when the browser closes, and at the latest 12 hours after it; ticked, it lasts 30 days from signing in, however the browser is used, as long as its address and browser stay the same: a phone that moves from the venue's wifi to cellular is signed out, an E47 follow-up ([the cookies](../../implementation/conventions/security-invariants.md#the-cookies)).
 2. Expect the dashboard (`/dashboard`), or the page the address carried in `next` (E38/F11/S01).
 3. Choose "Sign out" on the dashboard or in the navigation menu ([C4](finding-a-market.md#c4-the-navigation-menu)); expect `/login`.
 
