@@ -395,6 +395,9 @@ export function pageForTab(
   return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
+/** The guard that holds the stage open while an application is undecided (`guards.py`). */
+const UNDECIDED = 'all_applications_reviewed';
+
 /**
  * The guards whose refusal, when it names no remedy, is a plain fact that asks nobody to do
  * anything, so it reads to everyone: `all_applications_reviewed` names none only to say "There are
@@ -404,9 +407,6 @@ export function pageForTab(
  * names none and is a fact too, but guards only the move back to draft, never the step onward.
  * Keyed on the guard, never on its words.
  */
-/** The guard that holds the stage open while an application is undecided (`guards.py`). */
-const UNDECIDED = 'all_applications_reviewed';
-
 const FACTS: ReadonlySet<string> = new Set([UNDECIDED]);
 
 /**

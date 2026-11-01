@@ -48,7 +48,7 @@ sources:
 **Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
 The Assignment tab holds three pages: Settings (the rules and the run, headed "Assignment settings", [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Assignments (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
-Before a run the rail says "Set the rules and allocate tables."; after it, whoever may take the step onward reads "Check the assignments, then publish the market: that puts the check-in page up, and cannot be undone.", and an Editor who may change the seats but not publish reads what is theirs there instead ([the lifecycle](lifecycle.md#what-the-rail-says), E38/F15/S04).
+What the rail says before a run and after it, to whoever may take the step, to an Editor who may change the seats but not publish, and to a Viewer, is in [the lifecycle's table and the lines under it](lifecycle.md#what-the-rail-says) (E38/F15/S04).
 **Setting the rules and running them is one page; reading and changing what they produced is another.**
 The tab is called Assignment because that is the organizers' word for the whole job, and its pages are named for what they hold: Settings sets the assignment rules, and what the solver produces is the table allocation, read on Assignments as assignments ([Assignment](../concepts/assignment.md)).
 Its heading says "Assignment settings", so it is not taken for the market's own settings on Market Setup.
