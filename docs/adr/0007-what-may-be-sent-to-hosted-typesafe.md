@@ -7,7 +7,7 @@ describes:
   - back-end/csv_proposal.py#_ceiling_state
   - back-end/csv_proposal.py#_shape
   - back-end/csv_proposal.py#_team_candidates
-verified: 2026-10-22
+verified: 2026-11-01
 sources:
   - wayfinding/the-form-started-from-a-csv/01
   - wayfinding/the-form-started-from-a-csv/02
@@ -16,6 +16,7 @@ sources:
   - wayfinding/the-form-started-from-a-csv/map
   - E24/F02/S03
   - E38/F02/S01
+  - E38/F15/S02
 status: accepted
 ---
 
@@ -38,7 +39,7 @@ And TypeSafe keeps what it is sent for no fixed period, with a right to derive t
 The tickets are the form-started-from-a-CSV map's, named in `sources`.
 
 - A request is one column, never a row, so values from different columns never meet.
-- The team-column question sends the column's heading, the share of rows that answered it, the share of answers that are distinct, and a typical answer's shape computed on the server ("email addresses", "links", "numbers", "prose, around 80 characters"); never an answer, not even a smallest or largest, since in a free-text column one value can be a phone or student number.
+- The team-column question sends the column's heading, the share of the responses that answered it (the ledger's own, so an organizer's status-only row is no answer and it is never over 100%), the share of answers that are distinct, and a typical answer's shape computed on the server ("email addresses", "links", "numbers", "prose, around 80 characters"); never an answer, not even a smallest or largest, since in a free-text column one value can be a phone or student number.
 - The ceiling question sends the question's own text, which is the organizer's words.
 - A heading that itself holds an email, link, handle or phone number is never sent, and its question is not asked.
 - Ticket 01 also allowed the answers at least 3 applicants share; the 0.8 threshold was not measured with them, so none are sent.
@@ -54,6 +55,7 @@ The tickets are the form-started-from-a-CSV map's, named in `sources`.
 - TypeSafe can only make a column less uncertain: it never overrides a confident rule, and its answer is a pre-filled choice the organizer sees and can change.
 - What counts as holding an email, link, handle or phone number widened when the start began keeping answers (E38/F02/S01, [the CSV proposal and start](../implementation/modules/csv-proposal-and-start.md)): a link without its scheme, a handle after any punctuation, a 7-digit phone number, an address spelled out and a street address count too, so a heading holding one is not sent either. That only narrows what is sent; no heading of the five exports moved.
   What may be *kept* of an applicant's answers rests on this ADR's uniqueness rule too, and is [ADR 0018](0018-what-of-an-applicants-answers-the-market-may-keep.md).
+- The share was every filled cell over the responses until E38/F15/S02, which read a status-only row as an answer and a file with no responses as "Answered in 500% of rows"; it is now read from the responses alone. Compared on the real exports and the synthetic corpus, one column's state changed, an essential question's, from 101% to 100%, and no column asked or proposed moved on any file, so the threshold's measurement stands.
 - [Releasing](../RELEASING.md#optional-hosted-typesafe) lists the variable for a deployment; it is not among the boot requirements.
 
 ## Considered and rejected

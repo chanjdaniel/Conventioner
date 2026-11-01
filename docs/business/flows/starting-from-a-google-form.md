@@ -3,6 +3,8 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/StartFromCsvView.vue
+  - front-end/src/utils/csvProposal.ts
+  - front-end/src/components/csvProposal/ProposalLedger.vue
 verified: 2026-10-22
 sources:
   - wayfinding/the-form-started-from-a-csv/05
@@ -18,6 +20,7 @@ sources:
   - bug/27
   - bug/41
   - E38/F02/S01
+  - E38/F15/S02
 ---
 
 # Starting from a Google Form's responses
@@ -52,6 +55,7 @@ Past Draft, Market Setup is settled and offers no start; the flow's own address 
 **Status:** Works (walked live).
 
 1. Under "Upload your Google Form's responses", drop or choose the CSV (Google Sheets: File, Download, Comma-separated values).
+   A file that is not a CSV export stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", as at the import (E38/F15/S02).
    Only when a TypeSafe key is configured does the step add that column headings, and a description of the shape of their answers, are sent to TypeSafe, and that individual vendors' answers never leave Conventioner.
 2. "Reading your columns…" shows while the proposal is made; there is no background job, and TypeSafe that has not answered in 5 seconds leaves the rules' answer, the row saying "Couldn't reach TypeSafe".
 3. If the form's dates have no year, "Which year are these dates in?" opens on the year the stated weekdays fit and checks weekdays against the year typed ("Monday, November 17 is a Monday in 2025."), warning "…, so check the year." when they do not fit; "Use this year".
@@ -67,7 +71,7 @@ The review is the import's own ledger, a table of "CSV column", "First answers" 
 
 1. "What the file says about your plan": market dates, tiers best first, and "Most days one vendor may get" (an assignment rule, choosable).
    A value the plan already has is matched against it, and one that disagrees is settled with the import's own value fix, mapped to one of the plan's values or ignored; a plan that has values is never added to.
-2. "Every column, in your file's order": each column's first answers and what it "Becomes": an essential question, "Your question" with a type, Required and kept options, or "Left out".
+2. "Every column, in your file's order": each column's first answers and "answered by N of M", both read from the rows that are responses (a status your team typed into an empty row is none), and what it "Becomes": an essential question, "Your question" with a type, Required and kept options, or "Left out".
    The ledger changes only a column's fate, a question's type, whether it is required and which options to keep; labels, help text and order are the form builder's, after confirm.
    Every one of the organizer's questions is proposed not required; only the organizer ticks Required ([no question is inferred required](../rules/no-question-is-inferred-required.md)).
 3. "Essential questions no column answers": each proposed as not asked, with why.
@@ -75,7 +79,7 @@ The review is the import's own ledger, a table of "CSV column", "First answers" 
    Rare options are unticked by default ("chosen by 2 - keep?").
    Rare means fewer than 3 applicants, or, for a multi-select, under a set share of its answers, so an option chosen by 4 can be unticked too.
    A question the organizer made required, whose unticked options would leave applicants with no answer, says how many ("N applicants answered only options that are left out, so their applications would not import."); "Show all answers" lists every one and "Keep all" ticks them (bug 4).
-5. The side panel, "Your proposal", sticks beside the ledger and counts "to check", "answer essential questions", "become your questions" and "left out", says "Nothing is written until you confirm.", and holds "Create the form and plan" and "Cancel".
+5. The side panel, "Your proposal" ([`ProposalLedger.vue`](../../../front-end/src/components/csvProposal/ProposalLedger.vue)), sticks beside the ledger and counts "to check", then the rows by what they become (`proposalCounts` and `railLines` in [`csvProposal.ts`](../../../front-end/src/utils/csvProposal.ts)), adding up to the rows under "Every column, in your file's order": "say who applied and when" ("says who applied" when only the address column is there, "says when each applied" when only the timestamp column is), "answer essential questions", "become your questions" and "left out", each worded for one at one ("1 answers an essential question", "1 says who applied"); it says "Nothing is written until you confirm.", and holds "Create the form and plan" and "Cancel".
 
 The ledger is the import's because the later import opens on the same one, so the organizer learns one screen, and file order is how they know their own Google Form; sorting the columns by what they become, or listing only the rows to check, were tried and not taken.
 
