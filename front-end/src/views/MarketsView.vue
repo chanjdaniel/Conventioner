@@ -10,7 +10,7 @@ import {
   MARKET_SORTS,
   type MarketListQuery,
   type MarketSort,
-  PHASES_IN_ORDER,
+  FILTER_PHASES,
   localToday,
   marketListQueryFromRoute,
   marketListQueryToRoute,
@@ -225,7 +225,7 @@ function handleNewClose() {
                 All phases
               </button>
               <button
-                v-for="phase in PHASES_IN_ORDER"
+                v-for="phase in FILTER_PHASES"
                 :key="phase"
                 type="button"
                 class="btn btn--compact btn--secondary phase-toggle"

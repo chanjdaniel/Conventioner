@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { type Market, MarketPhase } from '@/assets/types/datatypes';
 import {
   DEFAULT_MARKET_LIST_QUERY,
+  FILTER_PHASES,
   type MarketListQuery,
   marketListQueryFromRoute,
   marketListQueryToRoute,
   viewMarkets,
 } from '@/utils/marketList';
+import { phaseSpine } from '@/utils/phase';
 
 const TODAY = '2026-09-30';
 
@@ -179,6 +181,16 @@ describe('sort', () => {
   });
 });
 
+describe('the phases the filter offers', () => {
+  it('are the stages the rail draws, in its order', () => {
+    expect(FILTER_PHASES).toEqual(phaseSpine());
+  });
+
+  it('leave out offers, which no market reaches (E38/F15/S03)', () => {
+    expect(FILTER_PHASES).not.toContain(MarketPhase.Offers);
+  });
+});
+
 describe('the address', () => {
   const orgIds = ['org-a', 'org-b'];
 
@@ -208,6 +220,13 @@ describe('the address', () => {
   it('ignores a phase this build does not know, keeping the ones it does', () => {
     expect(marketListQueryFromRoute({ phase: 'applications,bogus' }, orgIds).phases).toEqual([
       MarketPhase.Applications,
+    ]);
+  });
+
+  it('drops offers from an old bookmark, so it opens onto every market', () => {
+    expect(marketListQueryFromRoute({ phase: 'offers' }, orgIds).phases).toEqual([]);
+    expect(marketListQueryFromRoute({ phase: 'offers,assignment' }, orgIds).phases).toEqual([
+      MarketPhase.Assignment,
     ]);
   });
 
