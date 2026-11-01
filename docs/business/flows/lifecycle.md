@@ -125,6 +125,8 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.
+Covered by:
+- `phase-state-machine.spec.ts`
 
 ## Where the check-in address lives
 
@@ -134,6 +136,9 @@ A form market's application page has a chip of its own on the same row, from the
 
 The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
 A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.
+Covered by:
+- `market-remembers-phases.spec.ts`
+- `the-rail-addresses.spec.ts`
 
 ## Why the phases are the order of the work
 
@@ -161,4 +166,4 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): the last blocker into Market Days.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md), and [an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md).
 
-The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); how each flow is walked in a test is in [walking the flows](../../implementation/testing/walking-the-flows.md).
+The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

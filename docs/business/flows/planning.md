@@ -44,6 +44,8 @@ One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-on
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
 The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates, Section Setup and Pricing are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
+Covered by:
+- `plan-saves-once.spec.ts`
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
 
@@ -64,7 +66,9 @@ The calendar opens on the current month and has no month or year jump.
 It accepts a date in the past without comment; leaving Draft is refused while one is in the plan.
 Each day is a toggle button named by its full date ("Monday, November 20, 2023").
 The solver fills the dates one at a time, in the order they were picked ([dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
-Covered by: `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`.
+Covered by:
+- `date-display-timezone.spec.ts`
+- `market-dates-by-month.spec.ts`
 
 ## E2. Tiers
 
@@ -82,7 +86,12 @@ A market needs at least one before it leaves Draft.
 **Status:** Works (walked live).
 "+" adds a row of name, Location, Tier and Count; "Total tables" sums the counts; tables are named after their section ("North Row 1" to "North Row 4").
 A section may have no tier; a plan without tiers assigns, and its form asks no tier preference (bug 23; re-walked live as P1).
-Covered by: `plan-cards-share-a-row.spec.ts`, `sizing-model.spec.ts`, `untiered-plans-assign.spec.ts`, `market-pipeline.spec.ts`, `alignment.spec.ts`.
+Covered by:
+- `alignment.spec.ts`
+- `market-pipeline.spec.ts`
+- `plan-cards-share-a-row.spec.ts`
+- `sizing-model.spec.ts`
+- `untiered-plans-assign.spec.ts`
 
 ## E5. How vendors apply
 
@@ -93,7 +102,8 @@ Covered by: `plan-cards-share-a-row.spec.ts`, `sizing-model.spec.ts`, `untiered-
 
 Under it, "Start from my Google Form's responses" opens the start from a Google Form ([G2](starting-from-a-google-form.md#g2-from-an-existing-draft)) and leaves this choice as it is.
 A market whose vendors are imported has applicant pages that answer exactly as a nonexistent market's ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
-Covered by: `intake-mode.spec.ts`.
+Covered by:
+- `intake-mode.spec.ts`
 
 ## E6. Sections from a floorplan
 
@@ -111,7 +121,9 @@ Offered as "Set up sections from a floorplan instead" on Section Setup while the
 The wizard makes no AI calls; placement is a geometry solver ([floorplan placement](../../implementation/modules/floorplan-placement.md)).
 Only one table type is used by assignment in this release ([F6](form-tab.md#f6-table-type-preference)), and the path's card says so.
 Past Draft the flow says the setup is settled and offers nothing to draw (`what-to-show-and-when.spec.ts`).
-Covered by: `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures), `the-floorplan-beta-places-tables.spec.ts`.
+Covered by:
+- `floorplan.spec.ts` (grouping and editing are driven through store state, not real gestures)
+- `the-floorplan-beta-places-tables.spec.ts`
 
 ## E7. Edit the plan after Draft
 
@@ -138,7 +150,8 @@ What else freezes, and when:
 
 **Status:** Works (re-walked live on 2026-10-03).
 While the market is a draft, the "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above, and this form will have something to ask about."), offers "Build the application form" once it can, and once the form has questions of its own or is locked says so, with "Open the application form" or "See the application form" (bug 16).
-Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is").
+Covered by:
+- `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is")
 
 ## E9. Pricing
 
@@ -178,4 +191,4 @@ The card sits after Section Setup because its columns are the tiers the sections
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 - [What each role may do](../rules/what-each-role-may-do.md): the plan is an Editor's.
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

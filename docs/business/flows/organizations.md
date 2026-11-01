@@ -30,7 +30,9 @@ An organization's people are its Owner, its Admins and its Members; only the own
 Its owner and admins run every market it holds as the market's Admin does, and a member reads them; a role a market gives someone counts beside that, and the higher one is held ([what each role may do](../rules/what-each-role-may-do.md)).
 
 The list and its dialogs (New organization, Manage organization and Delete organization) fit a phone, as the dashboard that leads here does: nothing scrolls sideways or zooms out, and on Manage organization each person's address takes a line of its own ([the design language](../../design-system.md#layout)).
-Covered by: `organizations-fit-a-phone.spec.ts`, and the [sweeps](../../design-system.md#what-keeps-this-true) at 390px.
+Covered by:
+- [`*-sweep.spec.ts`](../../design-system.md#what-keeps-this-true), the sweeps, at 390px
+- `organizations-fit-a-phone.spec.ts`
 
 ## B1. Create an organization
 
@@ -45,7 +47,8 @@ Each organization's card says its name, your role in it, how many markets it hol
 The count is the organization read's `marketCount`, counted from the markets themselves, the count Remove's confirmation says too ([B3](#b3-remove-a-person)), so the two never disagree on one screen (E38/F15/S01); [`OrganizationsView.test.ts`](../../../front-end/src/__tests__/OrganizationsView.test.ts) pins it.
 
 A person with no organization is told on the dashboard and in the create-market dialog to make one here first ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet)).
-Covered by: `tier2.spec.ts` ("Organization CRUD").
+Covered by:
+- `tier2.spec.ts` ("Organization CRUD")
 
 ## B2. Add an admin or a member
 
@@ -57,7 +60,13 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 4. Sign in as that person: an admin runs every market of the organization as its Admin (Manage on each market's card, the rail's phase moves, the seats on Assignments), and a member sees every one as a Viewer; each market's Manage market lists them as "Admin, through <organization>" or "Viewer, through <organization>".
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
-Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`, `screens-match-roles.spec.ts` ("an organization admin with no role on the market"), [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (Manage organization from its address) and `OrganizationsView.test.ts` for the key it opens on and drops.
+Covered by:
+- `access-control.spec.ts`
+- `dialog-idiom.spec.ts`
+- [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (Manage organization from its address)
+- `OrganizationsView.test.ts` for the key it opens on and drops
+- `screens-match-roles.spec.ts` ("an organization admin with no role on the market")
+- `tier2.spec.ts`
 
 ## B3. Remove a person
 
@@ -71,19 +80,25 @@ It asks first, in a destructive confirmation that opens on Cancel: "Remove walk3
 
 Cancel and Escape change nothing and give focus back to that Remove; "Remove" removes them, the list re-reads in place with the dialog open, and focus goes to the Admins or Members list they were in; a refusal is said in the confirmation.
 Each row's Remove is the destructive intent at secondary weight, red ink on white, not a filled red button on every row ([the design language](../../design-system.md#the-primitive-layer)).
-Covered by: `access-control.spec.ts` ("org membership changes"), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390, and the sweeps' state "the manage-organization dialog, removing a member".
+Covered by:
+- `*-sweep.spec.ts`, the sweeps' state "the manage-organization dialog, removing a member"
+- `access-control.spec.ts` ("org membership changes")
+- [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) at 1440 and 390
 
 ## B4. Rename an organization
 
 **Status:** Works (walked live).
 Manage, "Rename organization", edit, "Save"; the owner's alone, so an admin's dialog has no such section.
-Covered by: `tier2.spec.ts`.
+Covered by:
+- `tier2.spec.ts`
 
 ## B5. Delete an organization
 
 Manage, "Delete organization" opens a preview of what would be destroyed; confirm with "Delete it all".
 A deletion record is written before anything is destroyed.
-Covered by: `org-deletion.spec.ts`.
+Covered by:
+- `org-deletion.spec.ts`
+
 The rule it obeys is [when an organization may be deleted](../rules/when-an-organization-may-be-deleted.md).
 
 ### B5a. It holds no markets
@@ -106,7 +121,7 @@ Refused, naming each blocking market and its phase: "Archive or delete them firs
 
 **Status:** No screen (`POST /organizations/<id>/transfer` exists; no screen offers it).
 
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## B7. Read the organization's history
 
@@ -121,7 +136,9 @@ Its specs and gaps are in [walking the flows](../../implementation/testing/walki
 
 With nothing yet it says "Nothing has changed on this organization yet."
 What is recorded, and why a member may read it: [the organization document](../../implementation/data/organization-document.md#the-organizations-history).
-Covered by: `the-organizations-history.spec.ts`, and `organizationHistory.test.ts` for the words, the paging and a member's dialog.
+Covered by:
+- `organizationHistory.test.ts` for the words, the paging and a member's dialog
+- `the-organizations-history.spec.ts`
 
 ## B8. Set the default permissions for new markets
 
@@ -137,4 +154,7 @@ Covered by: `the-organizations-history.spec.ts`, and `organizationHistory.test.t
 
 A market created in the organization afterwards starts with these rows, each "Copied from the organization" in its own Permissions section; a market created before keeps its own until its owner copies the organization's defaults again ([L3a](ending-and-managing-a-market.md#l3a-set-who-may-do-what)).
 What is stored, and why it is a copy: [the organization document](../../implementation/data/organization-document.md#its-default-table).
-Covered by: `the-organizations-default.spec.ts`, `organizationPermissions.test.ts`, and `test_the_organizations_default.py` for the writes, the refusals and the copy.
+Covered by:
+- `organizationPermissions.test.ts`
+- `test_the_organizations_default.py` for the writes, the refusals and the copy
+- `the-organizations-default.spec.ts`

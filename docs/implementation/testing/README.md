@@ -18,4 +18,4 @@ One line per node, sorted by file name.
 - [Floorplan E2E](floorplan-e2e.md) - deterministic, no AI to mock; which canvas steps are real gestures, and the coverage gap
 - [Test data](test-data.md) - where each kind of test data lives, the fictional "Example" vocabulary, the rule for adding more, and what the real-data check enforces
 - [The market journey spec](the-market-journey-spec.md) - the one spec that walks the whole journey; the slices; where a new test belongs
-- [Walking the flows](walking-the-flows.md) - the stack, accounts and fixtures a walk needs, which specs walk which flows, the test data recipes
+- [Walking the flows](walking-the-flows.md) - the stack, accounts and fixtures a walk needs, the gaps the specs leave in each flow, the test data recipes

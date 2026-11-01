@@ -70,34 +70,44 @@ A question that measures (a date, a number) asks which end comes first instead o
 An applicant who chose several answers is placed by their best; one who answered nothing sorts behind everyone who did.
 Rules apply in order; "×" (a button named "Remove rule N") removes one.
 The full order of turns is [priority and tie-breaks](../rules/priority-and-tie-breaks.md).
-Covered by: `market-pipeline.spec.ts`, `the-assignment-tabs-pages.spec.ts`, `the-rules-table-lines-up.spec.ts`.
+Covered by:
+- `market-pipeline.spec.ts`
+- `the-assignment-tabs-pages.spec.ts`
+- `the-rules-table-lines-up.spec.ts`
 
 ## J2. Assignment options
 
 **Status:** Works (walked live; the blank share read from the code as of E27, `assignment-options.spec.ts`).
 Under "Assignment Options", "Max assignments per vendor" ("The most dates any one vendor can be given. Leave blank for no ceiling.", at most the number of market dates) and "Max half table proportion per section (%)" (0 to 100; "Leave blank for 30%, the default.").
 "Allocate tables" stays disabled only while a value is out of range: "Correct the assignment rules above to allocate tables."
-Covered by: `assignment-options.spec.ts`.
+Covered by:
+- `assignment-options.spec.ts`
 
 ### J2a. No ceiling on dates
 
 **Status:** Works (re-walked live on 2026-10-03; bug 7).
 Leave "Max assignments per vendor" blank ("No ceiling") and run with no limit ([the ceiling on dates per vendor](../rules/max-assignments-ceiling.md)).
-Covered by: `assignment-options.spec.ts`.
+Covered by:
+- `assignment-options.spec.ts`
 
 ## J3. Allocate tables
 
 **Status:** Works (re-walked live on 2026-10-03, with and without tiers; bug 23).
 "Allocate tables" lands on Assignments.
 Dates fill one at a time, in the order the plan holds them, so later days can end up nearly empty; that is known behaviour, kept as it is (bug 39, [dates fill one at a time, in the plan's order](../rules/dates-fill-in-calendar-order.md)).
-Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `untiered-plans-assign.spec.ts`.
+Covered by:
+- `market-pipeline.spec.ts`
+- `the-result-page.spec.ts`
+- `untiered-plans-assign.spec.ts`
 
 ### J3a. Refused: an approved application is incomplete
 
 **Status:** Works (walked live; the links read from the code as of bug 42's fix).
 The whole run is refused: "N approved applications cannot be assigned until their answers are complete:", naming each applicant, each name a link to their application ([an incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md)).
 Only the run is: an assignment already stored still shows on Assignments, its summary and grid, and each vendor's drawer, and before one exists the drawer reads nobody placed (T139).
-Covered by: `a-refused-run-says-who-and-where.spec.ts`, `a-stored-assignment-reads-with-an-answer-missing.spec.ts`.
+Covered by:
+- `a-refused-run-says-who-and-where.spec.ts`
+- `a-stored-assignment-reads-with-an-answer-missing.spec.ts`
 
 ### J3b. Refused outside the Assignment phase
 
@@ -118,7 +128,11 @@ The button is disabled with the reason; the server refuses too, in every phase b
 4. Tables by date then section; each seat shows its occupant's name, or "Vacant" (half a table) / "Unassigned" (a whole free table); a seat held by someone not approved is marked "Not approved".
    A name opens the [vendor drawer](vendor-drawer.md).
 
-Covered by: `the-result-page.spec.ts`, `tables.spec.ts`, `a-search-on-the-results.spec.ts`, `tier2.spec.ts` (CSV export).
+Covered by:
+- `a-search-on-the-results.spec.ts`
+- `tables.spec.ts`
+- `the-result-page.spec.ts`
+- `tier2.spec.ts` (CSV export)
 
 ## J5. The result is out of date
 
@@ -127,7 +141,8 @@ When the rules, the plan or the approved applications change after a run, a note
 Changing an input does not unassign anyone until the run is repeated, and a hand placement is not a change.
 The plan settles on leaving Draft and the verdicts on entering Assignment, so in Assignment it is the rules an organizer changes; the plan and the applications change after a run only in the database, as specs do.
 The note shows only in Assignment, where running again is possible.
-Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
+Covered by:
+- `the-result-knows-what-it-was-made-from.spec.ts`
 
 ## J14. The rules close with the assignment
 
@@ -136,7 +151,8 @@ Once the market can no longer return to Assignment, or its results are published
 A person who may change nothing reads the rules read only too, with no Assign, and is told why once, above the page; the page's own line says only the rules' lock (T15).
 Changing the rules asks both the Market Setup row and the Assignment row, since they ride in the plan, and Allocate tables asks the Assignment row alone, so on a market whose owner set the two apart a person may be offered Allocate tables with the rules read only (E39/F01/S03).
 Pressing it writes a pending plan edit first only for someone who may change the plan; to anyone else the rules are read only and nothing of theirs is waiting, so the press goes straight to the run, which the plan's write would otherwise refuse.
-Covered by: `the-assignment-rules-close.spec.ts`.
+Covered by:
+- `the-assignment-rules-close.spec.ts`
 
 ## I7. Publish results
 
@@ -150,7 +166,9 @@ On a market whose vendors apply on its own page only, from the Applications page
 3. Confirm: the button gives way to a "Results published" chip; the run and the rules are settled (J3b, J14), and the market can be published (K1).
 4. Each applicant reads their outcome on "Your application" ([H3c](applying-online.md#h3c-a-vendor-checks-their-application)).
 
-Covered by: `results-wait-for-the-allocation.spec.ts`, `vendors-see-their-application-after-close.spec.ts`.
+Covered by:
+- `results-wait-for-the-allocation.spec.ts`
+- `vendors-see-their-application-after-close.spec.ts`
 
 ## The rules it obeys
 
@@ -162,7 +180,7 @@ Covered by: `results-wait-for-the-allocation.spec.ts`, `vendors-see-their-applic
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md), and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md).
 
 What a run records of its inputs is [what an assignment was made from](../../implementation/modules/made-from.md).
-Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 
 ## Superseded
 

@@ -35,4 +35,4 @@ What each step of the path does now:
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): exactly one way in, and importing is the Google Form path's.
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): an imported market's applicant pages read as no market at all.
 
-Its specs are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+Its gaps worth a spec are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
