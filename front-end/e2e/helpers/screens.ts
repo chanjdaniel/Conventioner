@@ -71,7 +71,8 @@ const PUBLIC = [DESKTOP, PHONE];
  * - Payments (T180), so who still owes is read at the door;
  * - the Applications page (T180), the one page of Market Setup's view that fits, both its views,
  *   its drawer and dialogs, so a late application is decided, the review dealt and a vendor's
- *   answer corrected from a phone.
+ *   answer corrected from a phone;
+ * - Stats (T180), so how the day stands is read at the market.
  */
 const FITS_A_PHONE = [DESKTOP, LAPTOP, PHONE];
 
@@ -914,15 +915,23 @@ export const SCREENS: Screen[] = [
     open: at(screen('big', 'attendance'), 'attendance-row'),
   },
   {
-    // Who applied, and a chart per choice question, as ledgers of bars (E45/F01/S01, S02). The
-    // two load apart, so it waits for both.
+    // The headlines, who applied, and a chart per choice question, as ledgers of bars (E45/F01/S01
+    // to S03); it fits a phone (T180). The two load apart, so it waits for both.
     name: 'the stats',
     who: 'organizer',
-    sizes: ORGANIZER,
+    sizes: FITS_A_PHONE,
     open: async (page, seed) => {
       await at(screen('big', 'stats'), 'stats-status')(page, seed);
       await visible(page, 'stats-answer');
     },
+  },
+  {
+    // A priced market's Stats (T180): the money's headlines too, set apart from the placements by
+    // a rule, beside them at a desk and above them on a phone.
+    name: 'the stats, priced',
+    who: 'organizer',
+    sizes: FITS_A_PHONE,
+    open: at(screen('rules', 'stats'), 'stats-headline-stillOwed'),
   },
   {
     // The manual tools, Discord's card first (E46/F01/S02); it fits a phone, as the door does.

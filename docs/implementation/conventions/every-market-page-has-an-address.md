@@ -8,7 +8,7 @@ describes:
   - front-end/src/utils/market.ts#openMarket
   - front-end/src/views/MarketLanding.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-11-01
+verified: 2026-11-02
 sources:
   - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/01

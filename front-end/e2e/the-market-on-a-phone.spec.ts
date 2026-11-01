@@ -35,6 +35,9 @@ import {
  * On the Applications page a reviewer works the queue One by one, the organizer deals the review
  * to a chosen reviewer who then decides their share, and results are published, each at the
  * phone's own width.
+ *
+ * Stats tells how the day stands, its headlines each a link to the page that shows the figure, for
+ * the organizer and for a Viewer who only reads the market.
  */
 
 const OWES = 'alice@example.com';
@@ -179,6 +182,29 @@ async function aMarketThatIsOwed(request: APIRequestContext): Promise<string> {
     note: '',
   });
   return marketId;
+}
+
+/**
+ * The owed market's form asks a choice question too, answered by both vendors, so Stats has a
+ * chart and its switch. The form locked at the first application, so the question is written.
+ */
+function askWhatTheySell(marketId: string): void {
+  const filter = `{ id: ${JSON.stringify(marketId)} }`;
+  const field = {
+    key: 'selling',
+    label: 'What will you sell?',
+    type: 'select',
+    required: false,
+    options: ['Prints', 'Ceramics'],
+    order: 1,
+  };
+  mongoEval(
+    `const m = db.markets.findOne(${filter}); ` +
+      `const fields = ((m.applicationForm || {}).fields || []).concat([${JSON.stringify(field)}]); ` +
+      `db.markets.updateOne(${filter}, { $set: { 'applicationForm.fields': fields } }); ` +
+      `db.applications.updateMany({ market_id: ${JSON.stringify(marketId)} }, ` +
+      `{ $set: { 'form_data.selling': 'Ceramics' } })`,
+  );
 }
 
 for (const size of PHONE_AND_DESK) {
@@ -658,6 +684,76 @@ for (const size of PHONE_AND_DESK) {
       await expect(page.getByTestId('applications-published-badge')).toBeVisible();
       await expectFits(page, 'the Applications page, results published');
     });
+
+    test('Stats: the market at a glance, for an organizer and a Viewer', async ({
+      authenticatedPage: page,
+      request,
+      browser,
+    }) => {
+      const marketId = await aMarketThatIsOwed(request);
+      askWhatTheySell(marketId);
+      ensureVerifiedUser(VIEWER.email, VIEWER.password);
+      await grantMarketRole(request, marketId, VIEWER, 'viewer');
+
+      await page.goto(marketScreenPath(marketId, 'stats'));
+      const headlines = page.getByTestId('stats-headlines');
+      await expect(headlines.getByTestId('stats-headline-stillOwed')).toHaveText('$35 still owed', {
+        timeout: 15000,
+      });
+      await expectFits(page, 'Stats');
+
+      // The headlines wrap in the window, each link a thumb's target on its own line.
+      await expectAcross(headlines, 'the headlines');
+      await expect(headlines.getByRole('listitem')).toHaveCount(6);
+      for (const headline of await headlines.getByRole('listitem').all()) {
+        await expectAcross(headline, `the headline "${await headline.innerText()}"`);
+      }
+      await expectTargets(headlines.getByRole('link'), "a headline's link");
+
+      // The answer groups' switch is a row of targets, and the ledgers read inside the window.
+      const among = page.getByRole('group', { name: 'Count the answers of' }).getByRole('button');
+      await expect(among).toHaveText(['All', 'Approved', 'Assigned']);
+      await expectWide(among, 'a group');
+      await expectTargets(among, 'a group');
+      const ledgers = page.getByTestId(/^stats-(by-status|by-day|question)$/);
+      expect(await ledgers.count(), 'the ledgers are drawn').toBeGreaterThanOrEqual(3);
+      for (const ledger of await ledgers.all()) {
+        await expectAcross(ledger, 'a ledger');
+      }
+      await press(among.filter({ hasText: 'Assigned' }));
+      await expect(among.filter({ hasText: 'Assigned' })).toHaveAttribute('aria-pressed', 'true');
+      await expectFits(page, 'Stats, counting the assigned');
+
+      // A headline's link lands on the page it names, at the window's width.
+      await press(headlines.getByTestId('stats-headline-stillOwed').getByRole('link'));
+      await page.waitForURL(/\/payments\?show=owes$/);
+      await expect(page.getByTestId('payments-show-owes')).toHaveAttribute('aria-pressed', 'true', {
+        timeout: 15000,
+      });
+      await expect(page.getByTestId('payments-row')).toHaveCount(1);
+      await expectFits(page, 'Payments, from a headline');
+
+      // A Viewer reads the same figures at the window.
+      await withUser(
+        browser,
+        VIEWER.email,
+        VIEWER.password,
+        async (viewer) => {
+          await viewer.goto(marketScreenPath(marketId, 'stats'));
+          await expect(viewer.getByTestId('stats-headline-stillOwed')).toHaveText(
+            '$35 still owed',
+            { timeout: 15000 },
+          );
+          await expect(viewer.getByTestId('stats-among-all')).toBeVisible();
+          expect(await widths(viewer), 'Stats keeps the window for a Viewer').toEqual({
+            layout: width,
+            sideways: 0,
+            zoom: 1,
+          });
+        },
+        size.use,
+      );
+    });
   });
 }
 
@@ -688,6 +784,7 @@ test.describe('between a phone and a desk', () => {
         'vendors',
         'payments',
         'applications',
+        'stats',
       ] as const) {
         await page.goto(marketScreenPath(seed.marketId, where));
         await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
@@ -706,5 +803,35 @@ test.describe('between a phone and a desk', () => {
       await expect(page.getByTestId('phase-rail-checkin')).toBeVisible({ timeout: 15000 });
       expect((await widths(page)).sideways, 'the plan keeps the desktop floor').toBeGreaterThan(0);
     });
+  }
+});
+
+/**
+ * The narrowest phone (T180 review): 320px is WCAG 1.4.10's reflow width. Stats' cards kept an
+ * 18rem floor there, so in a 256px column they ran past the frame's card to the window's edge,
+ * which no sideways scroll showed.
+ */
+test('Stats keeps its headlines and cards inside the frame at 320', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const marketId = await aMarketThatIsOwed(request);
+  askWhatTheySell(marketId);
+  await page.goto(marketScreenPath(marketId, 'stats'));
+  await expect(page.getByTestId('stats-headline-stillOwed')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId('stats-question')).toHaveCount(1);
+  expect((await widths(page)).sideways, 'Stats scrolls sideways').toBe(0);
+  const frame = (await page.getByTestId('market-frame-card').boundingBox())!;
+  const parts = [
+    page.getByTestId('stats-headlines'),
+    ...(await page.getByTestId(/^stats-(by-status|by-day|question)$/).all()),
+  ];
+  for (const part of parts) {
+    const box = (await part.boundingBox())!;
+    expect(
+      box.x + box.width,
+      `${await part.getAttribute('data-testid')} ends inside the frame`,
+    ).toBeLessThanOrEqual(frame.x + frame.width);
   }
 });

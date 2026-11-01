@@ -180,6 +180,9 @@ const router = createRouter({
       path: '/markets/:marketId/stats',
       name: 'market-stats',
       component: () => import('@/views/StatsView.vue'),
+      // How the day stands is read at the market, on a phone (T180), so it fits one, as the door
+      // does.
+      meta: { fitsAPhone: true },
     },
     // Where Discord's approval screen sends the organizer back (E46/F01/S02), registered as a
     // redirect in Discord's Developer Portal. It opens in a tab of its own: it finishes connecting,
