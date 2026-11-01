@@ -73,7 +73,7 @@ It writes through `record_attendance`, which stamps `checked_in_by`, so the two 
 `_door_write` catches nothing: a market that does not exist answers 404, an archived one or a person the row refuses 403 with its sentence, and one that cannot be read `Invalid market data`, 400, each raised by the change loader ([an exception never reaches a client](../conventions/an-exception-never-reaches-a-client.md)); a body that is not a JSON object is `A JSON object is required`, 400.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
 
-**The page offers Check in and Undo only to someone who may check vendors in, and a row offering neither ends at its status** (`door-row--read`).
+**The page offers Check in and Undo only in Market Days, to someone who may check vendors in, and a row offering neither ends at its status** (`door-row--read`).
 At a desk each row's last column, 7rem, holds the action; for someone offered none it is dropped, since the empty column left each status about 130px short of the row's edge (E38/F15/S04).
 On a phone the action stands on the vendor's line and the status under it, both at the row's end, so the row needs no change there.
 [`a-viewer-at-the-door-reads-why.spec.ts`](../../../front-end/e2e/a-viewer-at-the-door-reads-why.spec.ts) holds both widths for a Viewer and an Editor.
