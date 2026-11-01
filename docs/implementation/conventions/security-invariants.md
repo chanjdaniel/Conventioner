@@ -4,6 +4,7 @@ kind: convention
 describes:
   - back-end/app.py#check_public_endpoint_defenses
   - back-end/app.py#configure_public_endpoint_defenses
+  - back-end/app.py#hold_a_restored_session_to_its_browser
   - back-end/utils/deployment.py
   - back-end/utils/session_storage.py
   - back-end/utils/env_file.py
@@ -180,12 +181,17 @@ Loopback counts as a secure context, so local development is unaffected.
 The settings sit together in [`app.py`](../../../back-end/app.py) under one comment; `HttpOnly` is Flask-Login's default for the remember-me cookie and is asserted rather than set.
 Both name the account by its login id, which a password reset replaces, so a reset ends every session and remember-me cookie issued before it: [users and email](../data/users-and-email.md#the-session-names-the-account-by-its-login-id).
 
-**How long a sign-in lasts is two named constants in [`api/users.py`](../../../back-end/api/users.py), and the server enforces both, not only the browser** (E38/F14/S01).
+**How long a sign-in lasts is two named constants in [`api/users.py`](../../../back-end/api/users.py), and the server enforces both, not only the browser** (E38/F14/S01, ["Remember me" at sign-in](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
 `SIGN_IN_LIFETIME`, 12 hours, is a sign-in without "Remember me": it sets the session cookie only, which ends with the browser, since `SESSION_PERMANENT` is off in either store.
 `REMEMBERED_SIGN_IN_LIFETIME`, 30 days, is one with it: the remember-me cookie also expires then (`REMEMBER_COOKIE_DURATION`), and use does not extend it (`REMEMBER_COOKIE_REFRESH_EACH_REQUEST` is off).
 Both cookies carry a sign-in id, the login id with the sign-in's kind and time, and both are signed with `SECRET_KEY`, so the user loader can refuse a sign-in as old as its length whatever a browser kept: a browser that restores its tabs restores a session cookie too.
 A sign-in id of any other shape loads no one, so the year-long remember-me cookies and the sessions issued before it are not read, and every organizer signs in once more after the release that brings it.
 The cookie keeps Flask-Login's name, so a browser's old one is replaced or cleared at its next sign-in, and a sign-in without "Remember me" clears a remember-me cookie the browser held.
+
+**A session is held to the client that signed in**: Flask-Login's `session_protection = "strong"` refuses a session whose client, its address and browser, is not the one it recorded, and deletes the remember-me cookie with it.
+It applies in both stores, since the session is not permanent in either (a permanent session would only be marked not fresh).
+A session the remember-me cookie restores records its client too (`hold_a_restored_session_to_its_browser` in [`app.py`](../../../back-end/app.py)): Flask-Login's restore does not, so until E38/F14/S01 a remembered browser was signed back in for one request and then signed out, its cookie deleted.
+So a remembered sign-in also ends when the client's address changes, a phone moving from a venue's wifi to its cellular network among them.
 
 ## Where a write comes from
 

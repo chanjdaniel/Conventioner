@@ -37,8 +37,15 @@ from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
-from flask import Flask, request, jsonify, make_response, Response
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask import Flask, request, jsonify, make_response, Response, session
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+    user_loaded_from_cookie,
+)
 from flask_bcrypt import Bcrypt
 from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
@@ -373,6 +380,19 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = "strong"
+
+
+@user_loaded_from_cookie.connect_via(app)
+def hold_a_restored_session_to_its_browser(_app: Flask, user: Any) -> None:
+    """Hold a session the remember-me cookie restored to the browser that restored it.
+
+    "strong" refuses a session whose client identifier is not the one it holds, and deletes the
+    remember-me cookie with it; a sign-in records the identifier (`login_user`), but Flask-Login's
+    restore from the cookie does not, so the session it restored was refused at its next request
+    and "Remember me" lasted one request (E38/F14/S01). Recorded here, the way `login_user` does.
+    """
+    session["_id"] = login_manager._session_identifier_generator()
+
 
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")

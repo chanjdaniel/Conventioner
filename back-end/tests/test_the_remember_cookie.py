@@ -289,6 +289,27 @@ def test_signing_back_in_by_the_remember_cookie_does_not_extend_it(client, users
     assert not _signed_in(_reopened(reopened))
 
 
+def test_a_browser_signed_back_in_by_the_remember_cookie_stays_signed_in(client, users):
+    _sign_in_remembered(client)
+    reopened = _reopened(client)
+
+    # Each request after the first, too: the session the cookie restored is held to the browser
+    # as a signed-in one is, not refused at the next request with the cookie deleted.
+    assert [_signed_in(reopened) for _ in range(3)] == [True, True, True]
+    assert reopened.get_cookie(REMEMBER_COOKIE) is not None
+
+
+def test_a_restored_session_carried_to_another_browser_is_refused(client, users):
+    _sign_in_remembered(client)
+    reopened = _reopened(client)
+    assert _signed_in(reopened)
+
+    # The session protection's "strong" mode still holds it to the browser that restored it.
+    elsewhere = reopened.get("/check-session", headers={"User-Agent": "another-browser"})
+
+    assert elsewhere.status_code == 401
+
+
 # What came before, and a password reset.
 
 def test_a_remember_cookie_issued_before_the_lengths_is_not_read(client, users):
