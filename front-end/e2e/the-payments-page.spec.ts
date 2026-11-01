@@ -313,6 +313,8 @@ test.describe('the Payments page', () => {
       await expect(
         page.getByTestId('payments-totals').getByTestId('payments-total-owedCents'),
       ).toContainText('$117.50');
+      // Only a market without prices may hold payments that compare with nothing (finding 15).
+      await expect(page.getByTestId('payments-unpriced-caption')).toHaveCount(0);
 
       await paymentsPage(page, unpriced);
       await expect(page.getByTestId('payments-unpriced')).toContainText('Pricing is off');
@@ -394,8 +396,8 @@ test.describe('the Payments page', () => {
     ]) {
       await expect(totals.getByTestId(`payments-total-${figure}`)).toContainText(shown);
     }
-    await expect(page.getByTestId('payments-unpriced-caption')).toContainText(
-      '"Paid" includes payments from vendors who owe nothing',
+    await expect(page.getByTestId('payments-unpriced-caption')).toHaveText(
+      '"Paid" includes what vendors who owe nothing paid; only a vendor who owes can pay more than owed.',
     );
     await vendors.goto(unpriced);
     await vendors.exportButton.click();
@@ -403,6 +405,20 @@ test.describe('the Payments page', () => {
     await expect(dialog.payment).toBeVisible();
     await dialog.payment.selectOption({ label: 'Paid more than owed' });
     await expect(dialog.summary).toHaveText(/^1 vendor,/);
+
+    // Once every vendor who paid owes, "Paid" holds nothing that compares with no price, and the
+    // caption goes (finding 15).
+    for (const email of [BOB, CAROL]) {
+      await call(
+        request,
+        'put',
+        `/markets/${unpriced}/payments/${encodeURIComponent(email)}/owed/${email === BOB ? SEED_MARKET_DATE : SECOND_DATE}`,
+        { cents: 1000 },
+      );
+    }
+    await paymentsPage(page, unpriced);
+    await expect(page.getByTestId('payments-total-paidMoreCents')).toContainText('$50');
+    await expect(page.getByTestId('payments-unpriced-caption')).toHaveCount(0);
   });
 
   /**

@@ -239,6 +239,34 @@ class TestTheTotals:
             sums = tuple(sum(row[key] for row in got[breakdown]) for key in FIGURES)
             assert sums == figures(got["totals"])
 
+    def test_a_refund_beyond_what_was_paid_on_a_market_with_no_prices_owes_it_back(
+            self, market, market_records):
+        # A negative net paid is money owed back to the market (T153 review finding 14): Ana,
+        # owing nothing, had her $35 removed and $15 refunded, so she owes $15, in her state, the
+        # totals and her days' shares alike; Ben owes $20 by hand and paid $30.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, BEN, SAT, 2000, "admin@example.com")
+        entry = next(doc for doc in market_records.payments.documents if doc["vendor_email"] == ANA)
+        PaymentsApi.remove_payment(MARKET, entry["id"], EDITOR)
+        PaymentsApi.record_refund(
+            MARKET, ANA, {"cents": 1500, "method": "e-transfer", "paidOn": "2099-04-02", "note": ""},
+            EDITOR)
+
+        got = page()
+        assert {v["email"]: v["balanceState"] for v in got["vendors"]} == {
+            ANA: Payments.OWES, BEN: Payments.PAID_MORE, CY: None, DEE: None}
+        assert figures(got["totals"]) == (2000, 5000, 1500, 1000)
+        assert [(row["tier"], *figures(row)) for row in got["byTier"]] == [
+            ("Gold", 0, 1000, 1500, 0),
+            ("Silver", 2000, 3000, 0, 1000),
+            (None, 0, 1000, 0, 0),
+        ]
+        assert [(row["date"], *figures(row)) for row in got["byDate"]] == [
+            (SAT, 2000, 2250, 750, 1000),
+            (SUN, 0, 1750, 750, 0),
+            (None, 0, 1000, 0, 0),
+        ]
+
     def test_a_market_with_nobody_reads_empty(self, market, market_records):
         market_records.payments.documents.clear()
         market.doc["assignmentObject"] = {"vendorAssignments": [], "assignmentStatistics": None}

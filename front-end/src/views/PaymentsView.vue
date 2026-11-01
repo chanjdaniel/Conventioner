@@ -23,6 +23,7 @@ import { balanceChip, balanceText, money } from '@/utils/payments';
 import {
   loadMarketPayments,
   owingCounted,
+  paidOwingNothing,
   paymentsFilters,
   paymentsShownFrom,
   paymentsSortFrom,
@@ -301,9 +302,13 @@ const nobodyShown = computed(() => {
                   A payment is a vendor's, not a day's: what each vendor paid is shared across their
                   table-days by what each owes.
                 </p>
-                <p v-if="!priced" class="payments-caption" data-testid="payments-unpriced-caption">
-                  "Paid" includes payments from vendors who owe nothing, so "Paid" minus "Owed" need
-                  not equal "Paid more than owed" minus "Still owed".
+                <p
+                  v-if="paidOwingNothing(found)"
+                  class="payments-caption"
+                  data-testid="payments-unpriced-caption"
+                >
+                  "Paid" includes what vendors who owe nothing paid; only a vendor who owes can pay
+                  more than owed.
                 </p>
               </div>
             </section>

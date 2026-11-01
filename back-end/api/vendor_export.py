@@ -238,11 +238,11 @@ def money_cell(cents: int, currency: Optional[str]) -> str:
 
 def _offers_payment_states(market: Market) -> bool:
     """Whether anyone on the market may be in a payment state (``Payments.balance_state``): always
-    on a market that sets prices, and on one that does not only where some vendor owes an amount
-    set by hand, since there an account owing nothing is in none."""
+    on a market that sets prices, and on one that does not only where some account compares
+    (``Payments.compares``): one owing an amount set by hand, or refunded beyond what it paid."""
     if market.setup_object and market.setup_object.pricing:
         return True
-    return any(account["owedCents"] for account in PaymentsApi.accounts(market).values())
+    return any(Payments.compares(account) for account in PaymentsApi.accounts(market).values())
 
 
 def _no_account(currency: Optional[str]) -> Dict[str, Any]:

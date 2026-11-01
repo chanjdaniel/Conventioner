@@ -313,6 +313,27 @@ class TestThePaymentFilter:
 
         assert set(_by_email(_export({"payment": state}))) == emails
 
+    def test_a_refund_beyond_what_was_paid_on_a_market_with_no_prices_owes(self, market):
+        # A negative net paid is money owed back to the market (T153 review finding 14): Cy,
+        # owing nothing there, paid $30 and was refunded $45, so his row reads "Owes $15" and he
+        # is on the payment reminder beside Ana, owing $20 by hand, and Eve's kept line.
+        market.doc["setupObject"]["pricing"] = None
+        Payments.set_amount_owed(MARKET, ANA, SAT, 2000, "admin@example.com")
+        _pay(CY, 4500, Payments.REFUND)
+
+        assert set(_by_email(_export({"payment": "owes"}))) == {ANA, CY, EVE}
+        assert _by_email(_export({"payment": "owes"}))[CY] == ["$0", "-$15", "$15"]
+
+    def test_a_refund_beyond_what_was_paid_offers_the_states_where_nobody_else_owes(self, market):
+        _nobody_owes_without_prices(market)
+        _pay(CY, 4500, Payments.REFUND)
+
+        offered, _ = VendorExport.preview(MARKET, {"filters": {}}, EDITOR)
+
+        assert [state["id"] for state in offered["offered"]["paymentStates"]] == [
+            "owes", "paid", "over"]
+        assert set(_by_email(_export({"payment": "owes"}))) == {CY}
+
     def test_a_state_the_dialog_could_not_have_sent_is_refused(self, market):
         with pytest.raises(BadRequestError):
             _export({"payment": "refund due"})

@@ -76,6 +76,13 @@ describe('how what they paid compares with what they owe', () => {
     expect(balanceChip(account(2000, 1000, null))).toBe('chip--attention');
   });
 
+  it('reads a refund beyond what was paid on a market without prices as owed back', () => {
+    // A negative net paid is money owed back to the market (finding 14), as the server's
+    // `balance_state` reads it: "Owes", on the attention chip.
+    expect(balanceText(account(0, -1500, null))).toBe('Owes $15');
+    expect(balanceChip(account(0, -1500, null))).toBe('chip--attention');
+  });
+
   it('tones the comparison as it reads', () => {
     expect(balanceChip(account(7000, 4300))).toBe('chip--attention');
     expect(balanceChip(account(7000, 7000))).toBe('chip--positive');

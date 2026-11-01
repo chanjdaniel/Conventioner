@@ -9,6 +9,7 @@
  */
 import type { LocationQuery, LocationQueryValue } from 'vue-router';
 import { api } from '@/utils/api';
+import { compares } from '@/utils/payments';
 import { vendorHeadline, vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 
 /**
@@ -68,13 +69,27 @@ type Owing = Pick<MarketPayments, 'currency' | 'vendors'> | null | undefined;
 
 /**
  * Whether the market has money owed to count: always where it sets prices, and where it sets none
- * (`currency` null) only where some vendor owes an amount set by hand. Elsewhere nothing is owed,
- * so nobody is in a payment state (`balance_state` in `back-end/payments.py`): the reading follows
- * each vendor's account, not the market (T153 review finding 10). The page draws the market's
- * figures and offers its filters only where this holds (finding 12).
+ * (`currency` null) only where some vendor's account `compares`: one owing an amount set by hand, or
+ * refunded beyond what it paid. Elsewhere nothing is owed, so nobody is in a payment state
+ * (`balance_state` in `back-end/payments.py`): the reading follows each vendor's account, not the
+ * market (T153 review findings 10 and 14). The page draws the market's figures and offers its
+ * filters only where this holds (finding 12).
  */
 export function owingCounted(payments: Owing): boolean {
-  return !!payments && (payments.currency != null || payments.vendors.some((v) => v.owedCents > 0));
+  if (!payments) return false;
+  const { currency } = payments;
+  return currency != null || payments.vendors.some((v) => compares({ ...v, currency }));
+}
+
+/**
+ * Whether "Paid" holds what a vendor whose account does not `compare` paid: someone owing nothing
+ * on a market without prices, whose payment is counted as paid but never as paid more than owed.
+ * The page says so under the market's figures only then (T153 review finding 15).
+ */
+export function paidOwingNothing(payments: Owing): boolean {
+  if (!payments) return false;
+  const { currency } = payments;
+  return payments.vendors.some((v) => v.paidCents > 0 && !compares({ ...v, currency }));
 }
 
 /**

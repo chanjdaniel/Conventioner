@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   PAYMENTS_SHOWN,
+  owingCounted,
+  paidOwingNothing,
   paymentsFilters,
   paymentsShownFrom,
   paymentsSortFrom,
@@ -90,6 +92,13 @@ describe('the Payments page filters', () => {
     expect(paymentsShownFrom('owes', setByHand)).toBe('owes');
   });
 
+  it('offers the filters on a market without prices where a refund went beyond what was paid', () => {
+    // A negative net paid is money owed back to the market (finding 14).
+    const refundedBeyond = { currency: null, vendors: [{ ...DEE, paidCents: -1500 }] };
+    expect(owingCounted(refundedBeyond)).toBe(true);
+    expect(paymentsShownFrom('owes', refundedBeyond)).toBe('owes');
+  });
+
   it('ignores a filter in the address on a market without prices where nobody owes', () => {
     expect(paymentsShownFrom('over', unpriced)).toBeNull();
     expect(paymentsShownFrom('over', priced)).toBe('over');
@@ -162,5 +171,34 @@ describe('the Payments page search', () => {
     expect(found('alice')).toEqual([CY.email]);
     expect(found('ben@')).toEqual([BEN.email]);
     expect(found('example', 'owes')).toEqual([ANA.email]);
+  });
+});
+
+describe("the market's money caption", () => {
+  // "Paid" holds what a vendor whose account compares with nothing paid, so it is said only where
+  // one did (T153 review finding 15).
+  const ben = { ...BEN, owedCents: 0, balanceState: null };
+
+  it('is drawn where a vendor owing nothing on a market without prices paid', () => {
+    expect(paidOwingNothing({ currency: null, vendors: [{ ...ANA, owedCents: 2000 }, ben] })).toBe(
+      true,
+    );
+  });
+
+  it('is not drawn where every vendor who paid owes', () => {
+    const owing = { currency: null, vendors: [{ ...ANA, owedCents: 2000 }, DEE] };
+    expect(paidOwingNothing(owing)).toBe(false);
+  });
+
+  it('is not drawn where a vendor owing nothing was refunded beyond what they paid', () => {
+    // A negative amount paid is owed back (finding 14): it compares, and reads "Owes".
+    expect(paidOwingNothing({ currency: null, vendors: [{ ...DEE, paidCents: -1500 }] })).toBe(
+      false,
+    );
+  });
+
+  it('is not drawn on a market with prices', () => {
+    expect(paidOwingNothing({ currency: 'CAD', vendors: [ben] })).toBe(false);
+    expect(paidOwingNothing(null)).toBe(false);
   });
 });

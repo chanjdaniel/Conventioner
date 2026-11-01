@@ -315,17 +315,20 @@ BALANCE_STATES = {OWES: "Owes", PAID_IN_FULL: "Paid in full", PAID_MORE: "Paid m
 
 def compares(vendor_account: Mapping[str, Any]) -> bool:
     """Whether what an ``account`` paid compares with what it owes: always on a market with prices,
-    and on one without (no ``currency``) only for an account owing an amount set by hand. The
-    reading follows the account, not the market (T153 review findings 10 and 12)."""
-    return vendor_account["currency"] is not None or bool(vendor_account["owedCents"])
+    and on one without (no ``currency``) only for an account owing an amount set by hand, or one
+    refunded beyond what it paid, whose negative amount paid is money owed back to the market. The
+    reading follows the account, not the market (T153 review findings 10, 12 and 14)."""
+    return (vendor_account["currency"] is not None or bool(vendor_account["owedCents"])
+            or vendor_account["paidCents"] < 0)
 
 
 def balance_state(vendor_account: Mapping[str, Any]) -> Optional[str]:
     """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid.
 
     On a market without prices (no ``currency``) an account owing nothing is in none either,
-    whatever was paid: nothing is priced, so a payment is not "more than owed". One owing an
-    amount set by hand reads as anywhere (``compares``)."""
+    whatever it paid, so long as that is not below nothing: nothing is priced, so a payment is not
+    "more than owed". One owing an amount set by hand, or refunded beyond what it paid, reads as
+    anywhere (``compares``)."""
     if not compares(vendor_account):
         return None
     balance = vendor_account["owedCents"] - vendor_account["paidCents"]
