@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Export vendors (E42/F01/S01): the vendors a page shows, as a CSV for a Google Sheet and YAMM,
- * from the Vendors page or the Applications tab's All view (S03).
+ * from the Vendors page or the Applications tab's All view (S03). A payment reminder is one
+ * export: "Owes" and the amount still owed (S04).
  *
  * It opens on the page's filters (`seed`), shows them and lets them change. The columns are ticked
  * under their headings, where they sit on each date under "Assignment" (S02), and the ticked ones
@@ -290,6 +291,21 @@ async function download(): Promise<void> {
               </select>
             </div>
           </template>
+
+          <div class="export-field">
+            <label class="field-label" for="vendor-export-payment">Payment</label>
+            <select
+              id="vendor-export-payment"
+              v-model="filters.payment"
+              class="field field--select"
+              data-testid="vendor-export-payment"
+            >
+              <option value="">Paid or not</option>
+              <option v-for="state in offered.paymentStates" :key="state.id" :value="state.id">
+                {{ state.label }}
+              </option>
+            </select>
+          </div>
 
           <fieldset
             v-for="question in offered.questions"

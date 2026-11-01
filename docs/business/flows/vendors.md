@@ -22,6 +22,7 @@ sources:
   - E42/F01/S01
   - E42/F01/S02
   - E42/F01/S03
+  - E42/F01/S04
   - E41/F01/S01
   - E38/F08/S02
   - T139
@@ -66,25 +67,30 @@ Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff scr
 
 ## J15. Export the vendors to a CSV
 
-**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`).
+**Status:** Works (E42/F01/S01, `exporting-vendors.spec.ts`; the placement columns E42/F01/S02, `exporting-placements-by-date.spec.ts`; from the Applications tab E42/F01/S03, `exporting-from-the-applications-tab.spec.ts`; the money columns E42/F01/S04, `exporting-a-payment-reminder.spec.ts`).
 For a Google Sheet and a mail merge such as YAMM: any of the market's vendors, filtered by what the app knows of them, with the columns chosen.
 
 1. "Export", beside the show-only choices, opens "Export vendors" ([`ExportVendorsDialog.vue`](../../../front-end/src/components/ExportVendorsDialog.vue)) on what the page shows ([`vendorsPageSeed`](../../../front-end/src/utils/vendorExport.ts)): "Unassigned only" as the approved and added vendors not assigned, on the page's date when one is chosen; "Rejected only" as the rejected; the page's date, section, tier and table size as the vendors assigned there; and the search.
    The Applications tab's All view opens the same dialog on its status filter and Mine ([the All view](review.md#the-all-view), `applicationsAllSeed`).
-2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; and the options of each of the form's choice questions, any of which the vendor chose.
-3. The columns are ticked under three headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none) and "Assignment".
+2. Every filter is shown and may be changed: the name or email searched; the status, any of Open, Needs follow-up, Approved, Rejected and Added by hand, none ticked being any; "Mine: the follow-ups I own", the follow-ups whose owner is the one exporting, as the server reads who asks; assigned or not ("Assigned", "Assigned or not", "Not assigned"), on any date or on one; for the assigned, the seat's section, tier and size; "Payment", any of "Paid or not", "Owes", "Paid in full" and "Paid more than owed", as the vendor's Payment tab reads what they paid against what they owe ([payments](../../implementation/data/payments.md)), a vendor owing nothing and having paid nothing being none of the three; and the options of each of the form's choice questions, any of which the vendor chose.
+3. The columns are ticked under four headings: "Vendor" (Name, the full name; Preferred name; Email; Status), "Answers" (each of the form's own questions, the heading left out when it asks none), "Assignment" and "Payment".
    Name, Email and Status are ticked to begin with.
 4. "Assignment" holds, for each market date, where the vendor sits that day: "Wed 18 Nov - table", "- section", "- tier" and "- half or full" (Full table or Half table), empty on a date they hold no seat; then "Dates assigned", how many of the market's dates they hold one on.
    The seats are the stored placements the Assignments page draws, pins and seats moved by hand included, and a vendor added by hand exports theirs like anyone.
-5. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
-6. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
-7. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
+5. "Payment" holds "Price group", the price group each of their lines is priced by, a freed day's kept line included, once each and joined by ", " ("Everyone else" for a vendor in no group; empty where no line names a group, or for a vendor with no line); "Amount owed" and "Amount paid", the two totals of their Payment tab; and "Still owed", the amount owed less the amount paid, below zero where they paid more than owed ("-$15", a refund to issue).
+   An amount is written as the Payment tab writes it, in the market's currency: "$35", "$15.01".
+   So a payment reminder is one export: "Owes", with Name, Email and Still owed.
+6. "In the file, in this order" lists the ticked columns: a column ticked joins the end, and each is moved by dragging or with its up and down buttons.
+7. "N vendors, M columns" and the file's first three rows preview it, and follow every change.
+8. "Download CSV" saves one row per vendor, the header the columns as named, a multi-select answer one cell joined by ", ", a box Yes or No. The file is UTF-8 with a byte-order mark, so a spreadsheet reads accents, and is named for the market and the organizer's day, `<market>_vendors_<YYYY-MM-DD>.csv`.
 
 The server builds the file and the preview from the filters the dialog sends ([`vendor_export.py`](../../../back-end/api/vendor_export.py)), so what is exported is what the server holds, and a seat is read from the stored placements the Assignments page draws.
 An answer an organizer updated is exported, and filtered on, as updated ([an update is kept beside the vendor's answer](../rules/an-update-is-kept-beside-the-vendors-answer.md)).
-Every cell is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
+Every cell but an amount is written so a spreadsheet shows it as text: one beginning with `=`, `+`, `-`, `@`, a tab, a carriage return or a newline gains a leading quote, as the assignment's download does.
+An amount is the server's own, written from whole cents, so it is left as it is: "-$15" reaches the spreadsheet as the number it is, where the quote would make it text and show.
+Where a minus would lead a currency's letters, as "-A$15", "-US$15" or "-NZ$15" would, each a minus and a cell reference that Excel evaluates, the amount is written with the minus sign "−" (U+2212) instead, which no spreadsheet reads as a formula.
 No column set is saved between exports yet.
-Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `back-end/tests/test_exporting_vendors.py`, `exportingVendors.test.ts`.
+Covered by: `exporting-vendors.spec.ts`, `exporting-placements-by-date.spec.ts`, `exporting-from-the-applications-tab.spec.ts`, `exporting-a-payment-reminder.spec.ts` ("Owes" gives exactly the vendors whose Payment tab reads "Owes", with what it says they owe), `back-end/tests/test_exporting_vendors.py`, `back-end/tests/test_the_exports_money_columns.py`, `exportingVendors.test.ts`.
 
 ## J16. See who is in the Discord server
 
