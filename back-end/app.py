@@ -95,8 +95,6 @@ from utils.session_storage import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SESSION_MAX_AGE = 7200
-
 
 def verify_market_key_migration() -> None:
     """Refuse to boot unless the market-key migration is recorded as applied.
@@ -343,8 +341,15 @@ def configure_public_endpoint_defenses(
 
 app = Flask(__name__)
 
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
+# How long a sign-in lasts (E38/F14/S01): the two lengths are `UsersApi`'s, and the user loader
+# refuses a sign-in older than its own. The session cookie ends with the browser in either store
+# (flask-session's own default is a lasting cookie); a store on disk keeps a session no longer than
+# an unremembered sign-in lasts. The remember-me cookie expires when a remembered sign-in ends, and
+# use does not extend it.
+app.config["SESSION_PERMANENT"] = False
+app.config["PERMANENT_SESSION_LIFETIME"] = UsersApi.SIGN_IN_LIFETIME
+app.config["REMEMBER_COOKIE_DURATION"] = UsersApi.REMEMBERED_SIGN_IN_LIFETIME
+app.config["REMEMBER_COOKIE_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 # Not configurable, for the session cookie and the remember-me cookie alike: a SameSite=None cookie
@@ -397,8 +402,8 @@ def healthz() -> Response:
 # users
 
 @login_manager.user_loader
-def get_user(login_id: str) -> Any:
-    return UsersApi.get_user_by_login_id(login_id)
+def get_user(sign_in: str) -> Any:
+    return UsersApi.signed_in_account(sign_in)
 
 
 
@@ -2054,7 +2059,7 @@ def cleanup_sessions() -> None:
     if keeps_sessions_on_disk(app):
         now = time.time()
         for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
-            if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:
+            if os.stat(session_file).st_mtime < now - UsersApi.SIGN_IN_LIFETIME.total_seconds():
                 os.remove(session_file)
 
 cleanup_sessions()

@@ -49,3 +49,13 @@ def string_field(body: Any, key: str) -> Optional[str]:
         return None
     value = body.get(key)
     return value if isinstance(value, str) else None
+
+
+def flag_field(body: Any, key: str) -> bool:
+    """Whether the body's ``key`` is JSON ``true``.
+
+    A tick box is sent as a boolean; anything else, the string ``"true"`` and the number ``1``
+    among them, reads as unticked, so a choice that widens what a request may do is never taken
+    from a truthy stand-in.
+    """
+    return isinstance(body, dict) and body.get(key) is True

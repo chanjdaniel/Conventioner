@@ -1,18 +1,27 @@
-"""The remember-me cookie carries the session cookie's settings, and a password reset ends both.
+"""How long a sign-in lasts, the cookies that carry it, and a password reset that ends them.
 
-Signing in sets two cookies: the session, and the remember-me cookie that signs the account back
-in once the session has lapsed. The app and the API are on different hosts, so both are
-``SameSite=None``, which a browser accepts only on a ``Secure`` cookie, and both are ``HttpOnly``
-so that no script on the page reads them.
+Signing in offers "Remember me" (E38/F14/S01). Unticked, the sign-in sets the session cookie
+only, which ends with the browser, and the server refuses it 12 hours after signing in, since a
+browser that restores its tabs restores that cookie too. Ticked, it also sets the remember-me
+cookie, which signs the account back in once the session has lapsed: it expires 30 days after
+signing in, use does not extend it, and the server refuses it then too, whatever the browser kept.
 
-Both name the account by its login id, not its address, and a password reset replaces the login
-id: every session and remember-me cookie issued before the reset stops signing in.
+The app and the API are on different hosts, so both cookies are ``SameSite=None``, which a browser
+accepts only on a ``Secure`` cookie, and both are ``HttpOnly`` so that no script on the page reads
+them.
+
+Both name the sign-in, not the address: the account's login id, whether it was remembered, and
+when it was made. A password reset replaces the login id, so every session and remember-me cookie
+issued before the reset stops signing in, and a cookie from before the sign-in carried its time is
+not read at all.
 """
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import pytest
+from flask_login.utils import encode_cookie
 
 from conftest import mongo_matches, mongo_project, skip_without_real_dependencies
 
@@ -29,6 +38,11 @@ FIXTURE_PASSWORD = "fixture-password-1"
 NEW_PASSWORD = "fixture-password-2"
 RESET_TOKEN = "fixture-reset-token"
 FIXTURE_OTP = "123456"
+REMEMBER_COOKIE = "remember_token"
+
+TWELVE_HOURS = timedelta(hours=12)
+THIRTY_DAYS = timedelta(days=30)
+A_SECOND = timedelta(seconds=1)
 
 
 class OneAccount:
@@ -74,32 +88,90 @@ def users(monkeypatch):
     return collection
 
 
+class Clock:
+    """The server's clock, which a test moves on instead of waiting."""
+
+    def __init__(self):
+        self.now = datetime.now(timezone.utc).timestamp()
+
+    def __call__(self):
+        return self.now
+
+    def move_on(self, by: timedelta):
+        self.now += by.total_seconds()
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    clock = Clock()
+    monkeypatch.setattr(UsersApi, "_now", clock)
+    return clock
+
+
 @pytest.fixture
 def client():
     return app_module.app.test_client()
 
 
-def _set_cookie(response, name):
-    """The attributes of the ``Set-Cookie`` header for one cookie, lower-cased."""
-    headers = [
+def _set_cookies(response, name):
+    return [
         header for header in response.headers.getlist("Set-Cookie")
         if header.startswith(f"{name}=")
     ]
+
+
+def _set_cookie(response, name):
+    """The attributes of the ``Set-Cookie`` header for one cookie, lower-cased."""
+    headers = _set_cookies(response, name)
     assert len(headers) == 1, f"expected one {name} cookie, got {headers}"
     return [part.strip().lower() for part in headers[0].split(";")[1:]]
 
 
-def _sign_in(client, password=FIXTURE_PASSWORD):
-    response = client.post("/login", json={"email": FIXTURE_EMAIL, "password": password})
+def _expires(response, name):
+    """When the browser drops the cookie, or None for one that ends with the browser."""
+    attributes = _set_cookie(response, name)
+    assert not any(a.startswith("max-age=") for a in attributes)
+    expires = [a.split("=", 1)[1] for a in attributes if a.startswith("expires=")]
+    return parsedate_to_datetime(expires[0]) if expires else None
+
+
+def _sign_in(client, password=FIXTURE_PASSWORD, remember=None):
+    body = {"email": FIXTURE_EMAIL, "password": password}
+    if remember is not None:
+        body["remember"] = remember
+    response = client.post("/login", json=body)
     assert response.status_code == 200
     return response
 
 
-def _holding_only_the_remember_cookie(client):
-    """A fresh client, as a browser that kept the remember-me cookie after its session lapsed."""
+def _sign_in_remembered(client, password=FIXTURE_PASSWORD):
+    return _sign_in(client, password, remember=True)
+
+
+def _sign_in_with_the_code(client, remember=None):
+    body = {"email": FIXTURE_EMAIL, "otp": FIXTURE_OTP}
+    if remember is not None:
+        body["remember"] = remember
+    response = client.post("/login-otp", json=body)
+    assert response.status_code == 200
+    return response
+
+
+def _sign_in_with_the_code_remembered(client):
+    return _sign_in_with_the_code(client, remember=True)
+
+
+def _reopened(client):
+    """A fresh client, as a browser reopened: it kept the remember-me cookie, and no session."""
     fresh = app_module.app.test_client()
-    fresh.set_cookie("remember_token", client.get_cookie("remember_token").value)
+    kept = client.get_cookie(REMEMBER_COOKIE)
+    if kept is not None:
+        fresh.set_cookie(REMEMBER_COOKIE, kept.value)
     return fresh
+
+
+def _signed_in(client):
+    return client.get("/check-session").status_code == 200
 
 
 def _reset_the_password():
@@ -108,47 +180,178 @@ def _reset_the_password():
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize("cookie", ["remember_token", "session"])
+# The cookies' settings.
+
+@pytest.mark.parametrize("cookie", [REMEMBER_COOKIE, "session"])
 def test_signing_in_sets_the_cookie_secure_samesite_none_and_httponly(client, users, cookie):
-    attributes = _set_cookie(_sign_in(client), cookie)
+    attributes = _set_cookie(_sign_in_remembered(client), cookie)
 
     assert "secure" in attributes
     assert "samesite=none" in attributes
     assert "httponly" in attributes
 
 
-def test_the_remember_cookie_signs_a_fresh_client_in(client, users):
+@pytest.mark.parametrize("remember", [True, None], ids=["ticked", "unticked"])
+def test_the_session_cookie_ends_with_the_browser(client, users, remember):
+    assert _expires(_sign_in(client, remember=remember), "session") is None
+
+
+# Unticked: the session only, for 12 hours at the most.
+
+@pytest.mark.parametrize("remember", [None, False, "true", 1, "yes"],
+                         ids=["absent", "false", "the-string-true", "one", "yes"])
+def test_an_unticked_sign_in_sets_no_remember_cookie(client, users, remember):
+    response = _sign_in(client, remember=remember)
+
+    assert _set_cookies(response, REMEMBER_COOKIE) == []
+    assert _signed_in(client)
+    assert not _signed_in(_reopened(client))
+
+
+def test_an_unticked_sign_in_by_code_sets_no_remember_cookie(client, users):
+    assert _set_cookies(_sign_in_with_the_code(client), REMEMBER_COOKIE) == []
+
+
+def test_an_unticked_session_lasts_until_twelve_hours_after_signing_in(client, users, clock):
     _sign_in(client)
 
-    assert _holding_only_the_remember_cookie(client).get("/check-session").status_code == 200
+    clock.move_on(TWELVE_HOURS - A_SECOND)
+    assert _signed_in(client)
+    clock.move_on(A_SECOND)
+    assert not _signed_in(client)
 
 
-def test_a_password_reset_ends_every_session_and_remember_cookie_issued_before_it(client, users):
+def test_use_does_not_extend_an_unticked_session(client, users, clock):
     _sign_in(client)
-    remembered = _holding_only_the_remember_cookie(client)
+    for _ in range(11):
+        clock.move_on(timedelta(hours=1))
+        assert _signed_in(client)
+
+    clock.move_on(timedelta(hours=1))
+    assert not _signed_in(client)
+
+
+def test_an_unticked_sign_in_forgets_a_browser_remembered_before(client, users):
+    _sign_in_remembered(client)
+    assert client.get_cookie(REMEMBER_COOKIE) is not None
+
+    _sign_in(client, remember=False)
+
+    assert client.get_cookie(REMEMBER_COOKIE) is None
+    assert _signed_in(client)
+    assert not _signed_in(_reopened(client))
+
+
+# Ticked: 30 days from signing in, on the cookie and on the server.
+
+@pytest.mark.parametrize("sign_in", [_sign_in_remembered, _sign_in_with_the_code_remembered],
+                         ids=["password", "code"])
+def test_a_ticked_sign_in_sets_a_remember_cookie_that_expires_in_thirty_days(
+    client, users, sign_in
+):
+    before = datetime.now(timezone.utc)
+    response = sign_in(client)
+
+    expires = _expires(response, REMEMBER_COOKIE)
+    assert before + THIRTY_DAYS - timedelta(minutes=1) <= expires
+    assert expires <= datetime.now(timezone.utc) + THIRTY_DAYS
+    assert _signed_in(_reopened(client))
+
+
+def test_a_ticked_session_outlasts_twelve_hours(client, users, clock):
+    _sign_in_remembered(client)
+
+    clock.move_on(TWELVE_HOURS + timedelta(hours=1))
+
+    assert _signed_in(client)
+
+
+def test_the_server_refuses_a_remember_cookie_thirty_days_after_signing_in(client, users, clock):
+    _sign_in_remembered(client)
+
+    clock.move_on(THIRTY_DAYS - A_SECOND)
+    assert _signed_in(_reopened(client))
+    assert _signed_in(client)
+    clock.move_on(A_SECOND)
+    assert not _signed_in(_reopened(client))
+    assert not _signed_in(client)
+
+
+def test_signing_back_in_by_the_remember_cookie_does_not_extend_it(client, users, clock):
+    _sign_in_remembered(client)
+    clock.move_on(timedelta(days=29))
+    reopened = _reopened(client)
+    assert _signed_in(reopened)
+
+    clock.move_on(timedelta(days=1))
+
+    assert not _signed_in(reopened)
+    assert not _signed_in(_reopened(reopened))
+
+
+# What came before, and a password reset.
+
+def test_a_remember_cookie_issued_before_the_lengths_is_not_read(client, users):
+    _sign_in(client)
+    before = app_module.app.test_client()
+    with app_module.app.test_request_context():
+        # The cookie a sign-in set until now: the bare login id, signed.
+        before.set_cookie(REMEMBER_COOKIE, encode_cookie(users.doc["login_id"]))
+
+    assert not _signed_in(before)
+
+
+@pytest.mark.parametrize("held", ["a-sign-in", "the-bare-login-id", "the-address"])
+def test_a_session_is_read_only_as_a_sign_in(monkeypatch, client, users, clock, held):
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
+    users.doc["login_id"] = "fixture-login-id"
+    held_id = {
+        "a-sign-in": f"fixture-login-id.s.{int(clock.now)}",
+        "the-bare-login-id": "fixture-login-id",
+        "the-address": FIXTURE_EMAIL,
+    }[held]
+    with client.session_transaction() as session:
+        session["_user_id"] = held_id
+        session["_fresh"] = True
+
+    assert _signed_in(client) == (held == "a-sign-in")
+
+
+@pytest.mark.parametrize("held", [
+    "fixture-login-id.x.0", "fixture-login-id.s.", "fixture-login-id.s.-1",
+    "fixture-login-id.s.1e9", "fixture-login-id.s.²", ".s.0", "", None, 7,
+])
+def test_a_sign_in_of_any_other_shape_loads_no_one(users, clock, held):
+    users.doc["login_id"] = "fixture-login-id"
+
+    assert UsersApi.signed_in_account(held) is None
+
+
+@pytest.mark.parametrize("remember", [True, None], ids=["ticked", "unticked"])
+def test_a_password_reset_ends_every_session_and_remember_cookie_issued_before_it(
+    client, users, remember
+):
+    _sign_in(client, remember=remember)
+    reopened = _reopened(client)
 
     _reset_the_password()
 
-    assert remembered.get("/check-session").status_code == 401
-    assert client.get("/check-session").status_code == 401
+    assert not _signed_in(reopened)
+    assert not _signed_in(client)
 
 
 def test_signing_in_after_a_reset_works_at_once(users):
-    _sign_in(app_module.app.test_client())
+    _sign_in_remembered(app_module.app.test_client())
     _reset_the_password()
 
     client = app_module.app.test_client()
-    _sign_in(client, NEW_PASSWORD)
+    _sign_in_remembered(client, NEW_PASSWORD)
 
-    assert client.get("/check-session").status_code == 200
-    assert _holding_only_the_remember_cookie(client).get("/check-session").status_code == 200
+    assert _signed_in(client)
+    assert _signed_in(_reopened(client))
 
 
-def _sign_in_with_the_code(client):
-    response = client.post("/login-otp", json={"email": FIXTURE_EMAIL, "otp": FIXTURE_OTP})
-    assert response.status_code == 200
-    return response
-
+# The login id.
 
 @pytest.mark.parametrize("sign_in", [_sign_in, _sign_in_with_the_code], ids=["password", "code"])
 def test_an_account_without_a_login_id_gets_one_at_its_first_sign_in_and_keeps_it(users, sign_in):
@@ -168,18 +371,4 @@ def test_two_first_sign_ins_at_once_agree_on_the_login_id(client, users):
     _sign_in(client)
 
     assert users.doc["login_id"] == "the-other-sign-in"
-    assert client.get("/check-session").status_code == 200
-
-
-@pytest.mark.parametrize("held", ["login-id", "address"])
-def test_a_session_names_the_account_by_its_login_id_not_its_address(
-    monkeypatch, client, users, held
-):
-    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
-    users.doc["login_id"] = "fixture-login-id"
-    with client.session_transaction() as session:
-        session["_user_id"] = "fixture-login-id" if held == "login-id" else FIXTURE_EMAIL
-        session["_fresh"] = True
-
-    expected = 200 if held == "login-id" else 401
-    assert client.get("/check-session").status_code == expected
+    assert _signed_in(client)
