@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
+import { test, expect, TEST_USER, APP_API, CsvImportPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
@@ -19,7 +19,7 @@ test.describe('Every move lands on its phase’s page', () => {
   }) => {
     const seed = await seedApplicantMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
       { setupObject: planSetupObject(), intakeMode: 'csv' },
@@ -50,17 +50,11 @@ test.describe('Every move lands on its phase’s page', () => {
   test('Begin Assignment lands on the assignment', async ({ authenticatedPage: page }) => {
     const seed = await seedMarketWithVendors(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
     );
-    await transitionMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      seed.marketId,
-      'applications',
-    );
+    await transitionMarket(page.request, APP_API, TEST_USER.email, seed.marketId, 'applications');
 
     await page.goto(marketSetupPath(seed.marketId, 'applications'));
     await page.getByTestId('phase-transition-assignment').click();
@@ -71,7 +65,7 @@ test.describe('Every move lands on its phase’s page', () => {
   test('Publish lands at the door', async ({ authenticatedPage: page }) => {
     const seed = await seedAssignedMarket(
       page.request,
-      BACKEND_URL,
+      APP_API,
       TEST_USER.email,
       TEST_USER.password,
     );
@@ -92,20 +86,10 @@ test.describe('Every move lands on its phase’s page', () => {
   });
 
   test('a move back lands on its phase’s page too', async ({ authenticatedPage: page }) => {
-    const seed = await seedPhaseMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { intakeMode: 'form' },
-    );
-    await transitionMarket(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      seed.marketId,
-      'applications',
-    );
+    const seed = await seedPhaseMarket(page.request, APP_API, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
+    await transitionMarket(page.request, APP_API, TEST_USER.email, seed.marketId, 'applications');
 
     await page.goto(marketSetupPath(seed.marketId, 'applications'));
     await page.getByTestId('phase-rail-menu-button').click();

@@ -8,6 +8,7 @@ import {
   NewMarketPage,
   TEST_USER,
   BACKEND_URL,
+  APP_API,
 } from './fixtures';
 import { ensureTestOrg, ensureTestOrgs, loginViaApi } from './helpers/seeds';
 import { OrganizationsPage } from './pages/OrganizationsPage';
@@ -130,14 +131,10 @@ test.describe('The create-market dialog is the dialog idiom', () => {
 
     // A name the server will refuse, so the error is a real one.
     const taken = `Duplicate Dialog ${Date.now()}`;
-    await loginViaApi(page.request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const orgId = await ensureTestOrg(
-      page.request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
-    await page.request.post(`${BACKEND_URL}/markets`, {
+    // With the page's own cookies, so at the page's own address for the API (`APP_API`).
+    await loginViaApi(page.request, APP_API, TEST_USER.email, TEST_USER.password);
+    const orgId = await ensureTestOrg(page.request, APP_API, TEST_USER.email, TEST_USER.password);
+    await page.request.post(`${APP_API}/markets`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {
         name: taken,

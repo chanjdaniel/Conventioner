@@ -1,7 +1,15 @@
 import { getFormattedDate } from '../src/utils/utils';
 import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
-import { test, expect, MarketSetupPage, ResultPage, BACKEND_URL, TEST_USER } from './fixtures';
+import {
+  test,
+  expect,
+  MarketSetupPage,
+  ResultPage,
+  BACKEND_URL,
+  APP_API,
+  TEST_USER,
+} from './fixtures';
 import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { upcomingSaturday } from './helpers/upcoming';
@@ -29,15 +37,15 @@ test.describe('Market pipeline E2E', () => {
 
     // Phase 1: Create the market via API instead of CSV upload.
     const ctx = page.request;
-    await loginViaApi(ctx, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    const orgsRes = await ctx.get(`${BACKEND_URL}/organizations`, {
+    await loginViaApi(ctx, APP_API, TEST_USER.email, TEST_USER.password);
+    const orgsRes = await ctx.get(`${APP_API}/organizations`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const orgs = (await orgsRes.json()).organizations as { id: string }[];
     const orgId = orgs[0]?.id;
     if (!orgId) throw new Error('No organization found');
 
-    const createRes = await ctx.post(`${BACKEND_URL}/markets`, {
+    const createRes = await ctx.post(`${APP_API}/markets`, {
       headers: {
         'Content-Type': 'application/json',
         'X-Owner-Email': TEST_USER.email,
@@ -87,7 +95,7 @@ test.describe('Market pipeline E2E', () => {
         maxHalfTableProportionPerSection: null,
       },
     };
-    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, minimalSetup);
+    await savePlan(ctx, APP_API, TEST_USER.email, marketId, minimalSetup);
 
     // The signed-in user, where the screens that still read it look; the market is the URL's.
     await page.evaluate((user) => {
@@ -203,7 +211,7 @@ test.describe('Market pipeline E2E', () => {
     });
 
     // The server advanced the phase, and reports isDraft derived from it.
-    const storedRes = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
+    const storedRes = await page.request.get(`${APP_API}/markets/${marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     expect(storedRes.ok()).toBe(true);

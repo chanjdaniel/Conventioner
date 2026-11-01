@@ -1,4 +1,4 @@
-import { test, expect, TEST_USER, BACKEND_URL, NewMarketPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, APP_API, NewMarketPage } from './fixtures';
 import { ensureTestOrg, marketNameToSlug } from './helpers/seeds';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import {
@@ -51,8 +51,7 @@ test.describe('I already have a Google Form, at creation', () => {
     await dialog.nameInput.press('Enter');
     await expect(page).toHaveURL(/\/markets\/[^/]+\/setup$/);
     const marketId = new URL(page.url()).pathname.split('/')[2];
-    const market = (await (await page.request.get(`${BACKEND_URL}/markets/${marketId}`)).json())
-      .market;
+    const market = (await (await page.request.get(`${APP_API}/markets/${marketId}`)).json()).market;
     expect(market.intakeMode).toBe('form');
   });
 
@@ -76,8 +75,7 @@ test.describe('I already have a Google Form, at creation', () => {
     const marketId = new URL(page.url()).pathname.split('/')[2];
 
     await flow.upload.getByRole('button', { name: 'Cancel' }).click();
-    const market = (await (await page.request.get(`${BACKEND_URL}/markets/${marketId}`)).json())
-      .market;
+    const market = (await (await page.request.get(`${APP_API}/markets/${marketId}`)).json()).market;
     expect(market.intakeMode).toBe('csv');
     expect(market.phase).toBe('draft');
     expect(market.applicationForm?.fields ?? []).toEqual([]);
@@ -120,7 +118,7 @@ test.describe("Start from a draft's Market Setup", () => {
     await expect(page.getByTestId('plan-start-from-csv-reason')).toContainText(
       'questions of its own',
     );
-    const refused = await page.request.post(`${BACKEND_URL}/markets/${marketId}/csv-proposal`, {
+    const refused = await page.request.post(`${APP_API}/markets/${marketId}/csv-proposal`, {
       data: { csvContent: 'Timestamp,Email Address\n1/1/2026 9:00:00,a@mail.test\n' },
     });
     expect(refused.status()).toBe(409);
@@ -175,14 +173,13 @@ test.describe("Start from a draft's Market Setup", () => {
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
 
-    const market = (await (await page.request.get(`${BACKEND_URL}/markets/${marketId}`)).json())
-      .market;
+    const market = (await (await page.request.get(`${APP_API}/markets/${marketId}`)).json()).market;
     expect(market.intakeMode).toBe('form');
 
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications');
     // The applicant's form, as the public apply page reads it: live, with the organizer's questions.
     const form = await page.request.get(
-      `${BACKEND_URL}/public/markets/${marketNameToSlug(name)}/application-form`,
+      `${APP_API}/public/markets/${marketNameToSlug(name)}/application-form`,
     );
     expect(form.ok()).toBe(true);
     const served = await form.json();
