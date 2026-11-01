@@ -4,7 +4,7 @@
  * The drawer opened and closed by replacing the address, so Back with it open left the page: from
  * Vendors, it went to the dashboard. Opening it from a closed drawer is now a step of its own in the
  * browser's history, and closing it takes that step back, so Back and the drawer's own close leave
- * history alike. A drawer reached by a link or a reload has no step to take back, and closing it
+ * history alike. A drawer reached by a link has no step of its own to take back, and closing it
  * replaces the address as before, so it never leaves the site.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -129,7 +129,7 @@ describe('opening the drawer is a step; Back takes it back', () => {
   });
 });
 
-describe('a drawer reached by a link or a reload', () => {
+describe('a drawer reached by a link', () => {
   it('opens, and closing it stays on the page', async () => {
     await begin(`/vendors?vendor=${encodeURIComponent(ANA)}&vendorTab=history`);
     expect(drawer.email.value).toBe(ANA);

@@ -47,9 +47,9 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 
 ## A page's own state is replaced, the drawer's opening is pushed
 
-A page keeps what it shows in its query, a filter, a view or a date, and changes it with `router.replace`, so a link, a refresh and Back agree with what is on screen and Back leaves the page.
+A page's filter, view or date kept in its query changes with `router.replace`, so a link and a refresh agree with what is on screen and Back leaves the page rather than stepping through them.
 The [vendor drawer](../../business/flows/vendor-drawer.md) is the one part of a page whose opening is a step of its own ([`useVendorDrawer`](../../../front-end/src/utils/vendorDrawer.ts), E38/F13/S01): opening it from closed pushes `?vendor=` with `vendorDrawer: true` in the entry's `history.state`, and closing it goes `router.back()` when that entry is the drawer's own and the one before it is the same page without the drawer, so Back (a phone's back gesture, the browser's button) closes it and stays on the page, its filter and scroll as they were.
-Its tab and another vendor while it is open replace the entry, so one Back closes it; a drawer reached by a link or a reload has no step to take back, and closing it replaces the address instead.
+Its tab and another vendor while it is open replace the entry, so one Back closes it; a drawer reached by a link has no step of its own to take back, and closing it replaces the address instead, so it never leaves the site.
 
 ## Old addresses
 

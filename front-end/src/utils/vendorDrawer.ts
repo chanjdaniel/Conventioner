@@ -19,9 +19,9 @@ const DRAWER_STEP = 'vendorDrawer';
  * (E38/F13/S01): opening it from closed pushes an entry marked as the drawer's, and closing it takes
  * that step back, so Back (a phone's back gesture, the browser's button) closes the drawer and stays
  * on the page, with its filter and scroll. Changing the tab or the vendor while it is open replaces
- * the entry, so one Back closes it whatever was done inside. A drawer reached by a link or a reload
- * has no step before it to take back, and closing it replaces the address instead, never leaving the
- * site.
+ * the entry, so one Back closes it whatever was done inside. A drawer reached by a link has no step
+ * of its own to take back, and closing it replaces the address instead, never leaving the site; a
+ * reload keeps the entry it reloaded, so it closes as before the reload.
  */
 export function useVendorDrawer() {
   const route = useRoute();

@@ -12,8 +12,8 @@ import { marketScreenPath } from './helpers/marketScreens';
  * The drawer opened and closed by replacing the address, so a phone's back gesture with it open left
  * the page: from Vendors, it went to the dashboard. Opening it is a step of the browser's history
  * now, and closing it takes that step back, so Back closes the drawer and leaves the page as it was,
- * its search and scroll included. A drawer reached by a link or a reload has no step to take back,
- * and closing it stays on the page.
+ * its search and scroll included. A drawer reached by a link or a reload opens, and closing it stays
+ * on the page.
  */
 const ON_THE_DAY = '2099-05-02';
 
