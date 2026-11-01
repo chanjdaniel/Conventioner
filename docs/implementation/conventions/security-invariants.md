@@ -219,12 +219,14 @@ A new origin the app loads from (an analytics script, an image host) goes into i
 **It is report-only until it has run in production with no reports**, as `Content-Security-Policy-Report-Only`; promoting it is renaming that one header key to `Content-Security-Policy`.
 It has no reporting endpoint, so a report shows only in a browser's console; walk a production build under it with `npm run build-only && npm run preview`, since `vite preview` serves `vercel.json`'s headers ([`deployedHeaders`](../../../front-end/vite.config.ts)), and the dev server, whose styles are injected inline, is not a build the policy describes.
 The preview sends `/api` where the dev server does, since Vite's preview takes `server.proxy` when it has no proxy of its own: to `VITE_BACKEND_URL`, else `https://127.0.0.1:5001`, the primary checkout's back end.
-So on a worktree's stack nobody can sign in under the preview unless `VITE_BACKEND_URL` names that stack's back end, at 5001 plus ten for each slot ([the port map](../../../scripts/README-treehouse.md#port-map-per-worktree-slot)), the `TH_BACKEND_PORT` that `scripts/th-compose.sh ports` prints while the stack runs.
-The config reads `VITE_BACKEND_URL` from the shell, never from `front-end/.env`.
-On slot 6, from `front-end/` with the stack up:
+So on a worktree's stack nobody can sign in under the preview unless `VITE_BACKEND_URL` names that stack's back end, and the config reads it from the shell, never from `front-end/.env`.
+`scripts/th-compose.sh ports` prints a running stack's back-end port as `TH_BACKEND_PORT`: on a treehouse slot that is 5001 plus ten for each slot ([the port map](../../../scripts/README-treehouse.md#port-map-per-worktree-slot)), and on a stack whose ports Docker picked (`TH_PORTS=auto`) only `ports` gives it.
+From the worktree's root, with the stack up:
 
 ```sh
-VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only && VITE_BACKEND_URL=https://127.0.0.1:5061 npm run preview
+eval "$(scripts/th-compose.sh ports)"
+cd front-end
+VITE_ALLOW_INSECURE_LOCAL_DEV=true npm run build-only && VITE_BACKEND_URL="https://127.0.0.1:$TH_BACKEND_PORT" npm run preview
 ```
 
 `VITE_ALLOW_INSECURE_LOCAL_DEV` lets the build go without a site key ([the front end's half](#the-front-ends-half)); sign in at the address the preview prints.
