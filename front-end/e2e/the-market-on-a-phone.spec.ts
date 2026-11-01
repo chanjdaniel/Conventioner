@@ -131,7 +131,7 @@ for (const size of PHONE_AND_DESK) {
       await expectAcross(pages, 'the page row');
       await press(page.getByTestId('market-pages-payments'));
       await page.waitForURL(/\/payments$/);
-      const row = page.locator(`[data-email="${OWES}"]`);
+      const row = page.getByTestId('payments-row').filter({ hasText: OWES });
       await expect(row.getByTestId('payments-row-balance')).toHaveText(/^Owes/, {
         timeout: 15000,
       });
@@ -143,7 +143,9 @@ for (const size of PHONE_AND_DESK) {
       await expectTargets(page.getByTestId('payments-shown').getByRole('button'), 'a filter');
 
       // The figures, and every table, read inside the window.
-      for (const figure of await page.getByTestId('payments-totals').locator('> div').all()) {
+      const figures = page.getByTestId('payments-totals').getByTestId(/^payments-total-/);
+      await expect(figures).toHaveCount(4);
+      for (const figure of await figures.all()) {
         await expectAcross(figure, `the figure "${await figure.innerText()}"`);
       }
       for (const table of await page.getByRole('table').all()) {
@@ -153,6 +155,41 @@ for (const size of PHONE_AND_DESK) {
           'a table runs past itself',
         ).toBe(0);
       }
+
+      // Laid out as blocks on a phone, each table still reads as a table to a screen reader: its
+      // column headings, a row heading per tier, and a value in each cell, as at a desk.
+      const byTier = page.getByTestId('payments-by-tier').getByRole('table');
+      await expect(byTier.getByRole('columnheader')).toHaveText([
+        'Tier',
+        'Owed',
+        'Paid',
+        'Still owed',
+        'Paid more than owed',
+      ]);
+      await expect(byTier.getByRole('rowheader')).toHaveText(['Gold']);
+      const gold = byTier.getByRole('row').filter({ has: page.getByRole('rowheader') });
+      await expect(gold.getByRole('cell')).toHaveCount(4);
+      const goldValues = ['$70', '$35', '$35', '$0'];
+      for (const [i, cell] of (await gold.getByRole('cell').all()).entries()) {
+        await expect(cell, 'a Gold value').toHaveAccessibleName(
+          new RegExp(`^\\S*\\${goldValues[i]}\\b`),
+        );
+      }
+      const vendorsTable = page
+        .getByRole('table')
+        .filter({ has: page.getByTestId('payments-row') });
+      await expect(vendorsTable.getByRole('columnheader')).toHaveCount(4);
+      for (const [i, name] of ['Vendor', 'Owed', 'Paid', 'Difference'].entries()) {
+        await expect(vendorsTable.getByRole('columnheader').nth(i)).toHaveAccessibleName(
+          new RegExp(`^${name}`),
+        );
+      }
+      await expect(
+        vendorsTable.getByRole('row').filter({ hasText: OWES }).getByRole('cell'),
+      ).toHaveCount(4);
+      await expect(
+        vendorsTable.getByRole('row').filter({ hasText: PAID }).getByRole('cell'),
+      ).toHaveCount(4);
 
       // The vendor who owes opens their Payment tab in the drawer, inside the window.
       await press(row.getByTestId('payments-row-open'));

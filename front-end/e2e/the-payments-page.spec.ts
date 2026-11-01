@@ -477,13 +477,13 @@ test.describe('the Payments page', () => {
       // gutter, x 32, the page link's label on it and its pill reaching into it, and the page's
       // own notes and titles stand on it too.
       for (const [where, title] of [
-        ['payments', '#payments-vendors-title'],
-        ['assignments', '.date-heading'],
+        ['payments', 'payments-vendors-title'],
+        ['assignments', 'tables-date-heading'],
       ] as const) {
         await page.goto(marketScreenPath(unpriced, where));
         await expect(page.getByTestId('market-read-only')).toBeVisible({ timeout: 15000 });
-        await expect(page.locator(title).first()).toBeVisible();
-        const phone = await starts(page, title);
+        await expect(page.getByTestId(title).first()).toBeVisible();
+        const phone = await starts(page, `[data-testid="${title}"]`);
         expect({ ...phone, pageLink: undefined }, where).toEqual({
           name: 32,
           rail: 32,

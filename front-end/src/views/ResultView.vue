@@ -513,7 +513,7 @@ function swapSeats(withEmail: string): void {
                 :data-date="dateGroup.date"
                 data-testid="tables-date-group"
               >
-                <h2 class="date-heading">
+                <h2 class="date-heading" data-testid="tables-date-heading">
                   <span>{{ dateGroup.displayDate }}</span>
                   <span class="date-heading-count"
                     >{{ dateGroup.rowCount }}

@@ -342,7 +342,13 @@ const nobodyShown = computed(() => {
             class="payments-section"
             aria-labelledby="payments-vendors-title"
           >
-            <h2 id="payments-vendors-title" class="payments-title">Vendors</h2>
+            <h2
+              id="payments-vendors-title"
+              class="payments-title"
+              data-testid="payments-vendors-title"
+            >
+              Vendors
+            </h2>
             <p v-if="!listed.length" class="payments-note" data-testid="payments-none-shown">
               {{ nobodyShown }}
             </p>
@@ -755,14 +761,20 @@ const nobodyShown = computed(() => {
     font-weight: 600;
   }
 
-  /* The figures' headings are said by each line, so they stand only for a screen reader. */
+  /* The figures' headings are said by each line, so they stand only for a screen reader: the
+     `.visually-hidden` utility of `assets/base.css`, copied whole, since it applies here only on a
+     phone; change one with the other. */
   .payments-table--figures thead {
     position: absolute;
     width: 1px;
     height: 1px;
+    padding: 0;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- the utility's own value, not spacing: it pulls the 1px box off the layout */
+    margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
+    border: 0;
   }
 
   .payments-table--vendors thead tr {
