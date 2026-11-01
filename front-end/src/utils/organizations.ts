@@ -23,6 +23,8 @@ export type RawOrganization = {
   userRole?: OrganizationRoleType;
   user_role?: OrganizationRoleType;
   defaultPermissionTable?: PermissionTableRow[];
+  marketCount?: number;
+  marketsWithOwnRole?: Record<string, number>;
 };
 
 export function parseOrgFromApi(org: RawOrganization): Organization {
@@ -40,6 +42,8 @@ export function parseOrgFromApi(org: RawOrganization): Organization {
     theme: org.theme,
     userRole: userRole ?? undefined,
     defaultPermissionTable: org.defaultPermissionTable,
+    marketCount: org.marketCount,
+    marketsWithOwnRole: org.marketsWithOwnRole,
   };
 }
 
