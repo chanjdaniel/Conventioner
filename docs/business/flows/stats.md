@@ -38,7 +38,9 @@ Every figure is counted on the server and read in one small answer (`GET /market
    With neither, there is no strip.
 3. A zero whose filter would list nothing, "0 table-days free", "0 vendors unassigned" or "$0 still owed", is told but not linked, as the Assignments page's counts cannot be chosen at zero.
 
-Covered by: `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices"), `test_the_stats_headlines.py`.
+Covered by:
+- `test_the_stats_headlines.py`
+- `the-stats-headlines.spec.ts` ("each headline is the figure of the page it links to, opened on its filter", "placements are told once an assignment is stored, and money only with prices")
 
 ## N2. See who applied
 
