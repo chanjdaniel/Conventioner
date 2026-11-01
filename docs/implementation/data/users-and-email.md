@@ -21,6 +21,8 @@ sources:
   - T85
   - E38/F14/S01
   - T169
+  - E38/F14/S02
+  - T176
 ---
 
 # Users, and the one spelling of an address
@@ -55,6 +57,11 @@ A login id that matches no account loads no one, with no fallback to loading by 
 So every organizer must sign in once more after the release that brings login ids, since their sessions had named the account by its address, and once more after the release that brings sign-in ids, since theirs had named the bare login id.
 
 **Both sign-ins, the password and the code, give an account its login id at its first sign-in** (`_sign_in`): it is written only where none is stored, then read back, so two first sign-ins at once agree on one and neither signs the other out.
+A read-back that finds none is the server's fault, logged and answered 500, never a refused sign-in.
+
+**A refused sign-in says what to do next, in three named sentences in `users.py`** (E38/F14/S02, [the sign-in's messages](../../business/flows/accounts.md#a2-sign-in-and-sign-out)).
+`SIGN_IN_DOES_NOT_MATCH` answers a wrong password and an address with no account alike, the same status and body; `SIGN_IN_VERIFY_FIRST` answers a right password, a right code or a code asked for on an account not yet verified; `SIGN_IN_WRONG_CODE` answers a wrong code and a code for an address with no account alike.
+`test_the_sign_in_answers.py` holds each, and that none says "log in".
 Both read the body's `remember` with `flag_field`, so only JSON `true` is "Remember me" ([a request value is a string](../conventions/a-request-value-is-a-string.md#the-one-spelling)).
 The tests are [`back-end/tests/test_the_remember_cookie.py`](../../../back-end/tests/test_the_remember_cookie.py).
 A route test that signs in by writing the session with an address points the user loader at its own fake account with conftest's `sessions_load_through_get_user`.
