@@ -2,11 +2,13 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
- * The navigation drawer and the password pages line up (items 10 and 11 of bug 43; E26/F10/S01).
+ * The navigation drawer, the password pages and the market chooser at `/init` line up (items 10
+ * and 11 of bug 43; E26/F10/S01; T161).
  *
- * Sign out sat a few pixels off the rows above it, shorter, with a wider divider. The password
- * pages were Title Case, with a left-aligned title over a centred subtitle and an input whose
- * right border was painted over by the input inside it.
+ * Sign out sat a few pixels off the rows above it, shorter, with a wider divider, and read in
+ * another font and ink than they did. The password pages were Title Case, with a left-aligned
+ * title over a centred subtitle and an input whose right border was painted over by the input
+ * inside it. `/init`'s two buttons stand whole on one row at a desk's size.
  */
 test.use({ viewport: { width: 1440, height: 900 } });
 
