@@ -98,7 +98,7 @@ Covered by: `an-archive-is-read-only.spec.ts` ("an archived market that never ra
 7. A refused change of role is said beneath that person's row, which keeps the role they hold.
 
 The organization line says "Belongs to <organization>. Its admins run it; its members can view it."
-Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, at 1440 and 390), and the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role".
+Covered by: `tier2.spec.ts` ("add user, change role, and remove user from market"), `access-control.spec.ts`, `the-manage-market-dialog-holds-together.spec.ts`, [`everyone-with-access.spec.ts`](../../../front-end/e2e/everyone-with-access.spec.ts) (the walk's case, and at 390 nothing overflowing and each Remove a 44px target, on one edge), [`removing-someone-asks-first.spec.ts`](../../../front-end/e2e/removing-someone-asks-first.spec.ts) (the confirmation's words, Cancel, Escape, confirming and where focus goes, someone removed in another window included, at 1440 and 390), and the sweeps' states "the manage-market dialog, an organization's people" and "the manage-market dialog, removing a market role".
 
 ## L3a. Set who may do what
 

@@ -127,7 +127,8 @@ Each helper is one block, what it leaves and its notes, one note a line; a new h
   - names of about 70 characters
   - 40 applications in every review state
   - a review divided between the organizer and a Viewer (the organizer's share all decided)
-  - 36 vendors over four dates and three sections, with `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
+  - 36 vendors over four dates and three sections
+  - `SCREENS_EDITOR` an Editor on that market, so a `SCREENS` state signed in as `'editor'` reads Update info with the answers the assignment reads locked
   - settled rules
   - an archive
   - two CSV markets
