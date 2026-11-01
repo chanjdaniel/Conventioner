@@ -140,24 +140,28 @@ test('Refresh recovers from a list that failed to load, in both views', async ({
   // All: the first read fails, so the page says so; a Refresh that reads the list shows it.
   await failRead();
   await all.goto(marketId);
-  await expect(page.getByText('Failed to load applications')).toBeVisible();
+  await expect(page.getByTestId('applications-read-failed')).toContainText(
+    'You seem to be offline. Check the connection and try again.',
+  );
   await page.unroute(THE_LIST);
   await refresh.click();
   await expect(all.rows).toHaveCount(3);
   await expect(all.selectAll).toBeVisible();
-  await expect(page.getByText('Failed to load applications')).toHaveCount(0);
+  await expect(page.getByTestId('applications-read-failed')).toHaveCount(0);
 
   // One by one: the same, and its own refresh failing says so and keeps the card.
   await failRead();
   await monitor.goto(marketId);
-  await expect(page.getByText('Failed to load applications')).toBeVisible();
+  await expect(page.getByTestId('applications-read-failed')).toContainText(
+    'You seem to be offline. Check the connection and try again.',
+  );
   // Not "No applications received yet." under the error: nothing was read to say so.
   await expect(monitor.empty).toHaveCount(0);
   await page.unroute(THE_LIST);
   await refresh.click();
   await expect(monitor.progress).toContainText('of 3 to review');
   await expect(monitor.card).toBeVisible();
-  await expect(page.getByText('Failed to load applications')).toHaveCount(0);
+  await expect(page.getByTestId('applications-read-failed')).toHaveCount(0);
   const up = ((await monitor.email.textContent()) ?? '').trim();
 
   await failRead();

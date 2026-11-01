@@ -34,7 +34,7 @@ async function loadOrganizations() {
   try {
     organizations.value = await fetchOrganizations();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load organizations');
+    errorMessage.value = getApiErrorMessage(err, 'The organizations could not be loaded.');
     organizations.value = [];
   } finally {
     loading.value = false;

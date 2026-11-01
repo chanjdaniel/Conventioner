@@ -119,7 +119,7 @@ async function downloadCsv(): Promise<void> {
     );
     saveCsv(response, `${props.market.name || 'market'}_assigned.csv`);
   } catch (err: unknown) {
-    downloadError.value = await downloadErrorMessage(err, 'Failed to download CSV.');
+    downloadError.value = await downloadErrorMessage(err, 'The CSV was not downloaded.');
   } finally {
     isDownloading.value = false;
   }

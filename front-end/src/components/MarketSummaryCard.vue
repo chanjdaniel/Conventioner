@@ -26,6 +26,11 @@ const props = defineProps<{
   market: Market;
   /** The row's own action, when the list has one beyond opening the market. */
   showManage?: boolean;
+  /**
+   * The name's heading level: one under the heading the list stands under, so the page's outline
+   * skips none. 2 under a page's `h1` (Markets, the dashboard), 3 under a dialog's `h2` title, the default.
+   */
+  headingLevel?: 2 | 3;
 }>();
 
 defineEmits<{ open: []; manage: [] }>();
@@ -51,9 +56,9 @@ const facts = computed<SummaryFact[]>(() => [
 <template>
   <SummaryCard :facts="facts" selectable data-testid="market-card" @select="$emit('open')">
     <template #name>
-      <h3 data-testid="market-card-name" :title="market.name">
+      <component :is="`h${headingLevel ?? 3}`" data-testid="market-card-name" :title="market.name">
         <button type="button" class="summary-card-open">{{ market.name }}</button>
-      </h3>
+      </component>
     </template>
     <template #badge>
       <PhaseBadge :phase="market.phase" :intake-mode="market.intakeMode" />

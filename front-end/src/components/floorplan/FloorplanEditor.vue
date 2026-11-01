@@ -9,7 +9,7 @@ import {
   Transformer as VTransformer,
 } from 'vue-konva';
 import { useFloorplanStore } from '@/stores/floorplan';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { useUndoRedo } from '@/components/floorplan/useUndoRedo';
 import { canvasColor } from '@/utils/canvasColor';
 import type { PlacedTableObject, WallSegment } from '@/assets/types/datatypes';
@@ -132,15 +132,9 @@ async function loadBackgroundImage(gridfsId: string) {
       store.floorplan.imageWidth = img.width;
       store.floorplan.imageHeight = img.height;
     }
-  } catch (_e: unknown) {
-    const err = _e as {
-      name?: string;
-      code?: string;
-      response?: { data?: { error?: string } };
-      message?: string;
-    };
+  } catch (err: unknown) {
     console.error('Failed to load floorplan image:', err);
-    errorMsg.value = 'Failed to load floorplan image. Please try refreshing the page.';
+    errorMsg.value = getApiErrorMessage(err, 'The floorplan image could not be loaded.');
   }
 }
 

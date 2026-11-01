@@ -54,14 +54,14 @@ const { marketId } = storeToRefs(useMarketStore());
         <template #icon>
           <IconMarkets class="nav-icon" />
         </template>
-        <h3>Markets</h3>
+        <span class="nav-label">Markets</span>
       </ElementNavigationItem>
 
       <ElementNavigationItem to="/organizations" @menuClose="$emit('menuClose')">
         <template #icon>
           <IconOrganizations class="nav-icon" />
         </template>
-        <h3>Organizations</h3>
+        <span class="nav-label">Organizations</span>
       </ElementNavigationItem>
 
       <ElementNavigationItem
@@ -73,14 +73,15 @@ const { marketId } = storeToRefs(useMarketStore());
           <IconVendors class="nav-icon" />
         </template>
         <!-- Scoped, and says so: this is the vendors of the market that is open, not a directory. -->
-        <h3>Market vendors</h3>
+        <span class="nav-label">Market vendors</span>
       </ElementNavigationItem>
 
       <ElementSignoutButton>
         <template #icon>
           <IconSignOutSquare class="nav-icon" />
         </template>
-        <span class="signout-label">Sign out</span>
+        <!-- A row like the links above it, so its words are drawn as theirs are. -->
+        <span class="nav-label">Sign out</span>
       </ElementSignoutButton>
     </div>
   </div>
@@ -92,12 +93,13 @@ const { marketId } = storeToRefs(useMarketStore());
   font-size: var(--text-lg);
 }
 
-h3 {
+/* A link is named by its words: a heading inside one put the drawer's links in the page's outline.
+   Sign out's words take it too: they read in Outfit and the body's slate below the links. */
+.nav-label {
   font-family: 'Merge One';
   font-style: normal;
   font-size: var(--text-lg);
 
-  /* color: white; */
   color: var(--mm-black);
 }
 

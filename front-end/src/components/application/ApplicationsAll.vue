@@ -56,6 +56,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import ExportVendorsDialog from '@/components/ExportVendorsDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 import ListFreshness from '@/components/application/ListFreshness.vue';
+import ReadFailed from '@/components/ReadFailed.vue';
 
 const props = defineProps<{
   market: Market | null;
@@ -92,7 +93,7 @@ async function load() {
   try {
     await read();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
+    errorMessage.value = getApiErrorMessage(err, 'The applications could not be loaded.');
   } finally {
     loading.value = false;
   }
@@ -544,8 +545,10 @@ async function decideSelection() {
             </option>
           </select>
         </label>
+        <!-- Nothing read is not none: under a failed read there is nothing to count. The box stays,
+             so Export keeps its place at the row's end. -->
         <span class="all-count" data-testid="applications-all-count">
-          {{ shown.length }} of {{ applications.length }}
+          <template v-if="!errorMessage">{{ shown.length }} of {{ applications.length }}</template>
         </span>
         <button
           v-if="mayExport"
@@ -671,7 +674,7 @@ async function decideSelection() {
       </ul>
     </div>
 
-    <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
+    <ReadFailed v-if="errorMessage" name="applications" :message="errorMessage" @retry="load" />
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
     <!-- Nothing has come in is not nothing matching: the tab opens here now (E38/F05/S01). -->
     <p v-else-if="!applications.length" class="all-empty" data-testid="applications-all-empty">
@@ -762,7 +765,14 @@ async function decideSelection() {
               >{{ holderOf(opened) }}</span
             >
           </p>
-          <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
+          <p
+            v-if="verdictMessage"
+            class="drawer-message"
+            role="alert"
+            data-testid="applications-all-verdict-message"
+          >
+            {{ verdictMessage }}
+          </p>
           <VerdictUndoLine
             v-if="undoInDrawer && undoOffered"
             :line="undoOffered.line"
@@ -934,15 +944,10 @@ async function decideSelection() {
   color: var(--mm-text-muted);
 }
 
-.all-error,
 .all-empty {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-}
-
-.all-error {
-  color: var(--mm-red);
 }
 
 .all-selection {
