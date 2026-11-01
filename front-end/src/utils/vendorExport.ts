@@ -9,7 +9,7 @@
  */
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
-import type { DiscordState } from '@/utils/discordCheck';
+import type { DiscordShown } from '@/utils/discordCheck';
 import { downloadErrorMessage, saveCsv } from '@/utils/download';
 import { hasPlaceFilter, type ResultFilters, type VendorsShown } from '@/utils/resultFilters';
 import type { AllViewFilter } from '@/utils/reviewQueue';
@@ -39,8 +39,8 @@ export interface ExportFilters {
   mine: boolean;
   /** Only the vendors in this payment state; empty is paid or not. */
   payment: '' | ExportPaymentState;
-  /** Any of these states the last Discord check found; none is any state. */
-  discord: DiscordState[];
+  /** Any of these states, as the Vendors page shows them; none is any state. */
+  discord: DiscordShown[];
 }
 
 export const NO_FILTERS: ExportFilters = Object.freeze({
@@ -60,13 +60,14 @@ export const NO_FILTERS: ExportFilters = Object.freeze({
 /**
  * The Vendors page's filters as the export's. "Unassigned only" is the approved vendors and those
  * added by hand with no seat (E38/F08/S02), on the date when one is chosen; where they are placed
- * is the vendors placed there; the Discord state the page lists is the vendors in it (S05).
+ * is the vendors placed there; the Discord state the page lists, any it shows, is the vendors in it
+ * (S05).
  */
 export function vendorsPageSeed(page: {
   shown: VendorsShown;
   filters: ResultFilters;
   search: string;
-  discord?: DiscordState | null;
+  discord?: DiscordShown | null;
 }): ExportFilters {
   const seed: ExportFilters = {
     ...NO_FILTERS,
@@ -128,8 +129,8 @@ export interface ExportOffered {
   tiers: string[];
   questions: { key: string; label: string; options: string[] }[];
   paymentStates: { id: ExportPaymentState; label: string }[];
-  /** The Discord states to filter by, once a check has run; none before. */
-  discordStates: { id: DiscordState; label: string }[];
+  /** The Discord states to filter by, every one the Vendors page shows, once a check has run. */
+  discordStates: { id: DiscordShown; label: string }[];
 }
 
 export interface ExportPreview {

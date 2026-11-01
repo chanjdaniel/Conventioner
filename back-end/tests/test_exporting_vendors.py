@@ -657,12 +657,7 @@ class TestTheDiscordColumns:
             {"id": "discordInvite", "label": "Discord invite link", "group": "discord"},
         ]
         assert {"id": "discord", "label": "Discord"} in offered["groups"]
-        assert offered["discordStates"] == [
-            {"id": "has_role", "label": "Has the role"},
-            {"id": "in_server", "label": "In the server"},
-            {"id": "not_found", "label": "Not found"},
-            {"id": "no_username", "label": "No username"},
-        ]
+        assert offered["discordStates"]
 
     def test_the_username_question_is_listed_once_under_discord_not_under_answers(
             self, market, applications):

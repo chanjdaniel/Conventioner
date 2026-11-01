@@ -35,7 +35,9 @@ export class VendorExportDialog {
   }
 
   /** A Discord state's box, offered once a check has run (E42/F01/S05). */
-  discordState(id: 'has_role' | 'in_server' | 'not_found' | 'no_username'): Locator {
+  discordState(
+    id: 'has_role' | 'in_server' | 'possible_match' | 'not_found' | 'no_username' | 'check_again',
+  ): Locator {
     return this.page.getByTestId(`vendor-export-discord-${id}`);
   }
 

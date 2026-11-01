@@ -126,12 +126,14 @@ CHANGED_WHILE_DECLINING = (
     "The market's Discord connection changed. Check Discord again, then answer its offers."
 )
 
-#: Each state as the Vendors page says it (`discordCheck.ts`), and the export writes it.
+#: Each of ``SHOWN`` as the Vendors page says it (`discordCheck.ts`), and the export writes it.
 STATE_LABELS = {
     HAS_ROLE: "Has the role",
     IN_SERVER: "In the server",
+    POSSIBLE_MATCH: "Possible match",
     NOT_FOUND: "Not found",
     NO_USERNAME: "No username",
+    CHECK_AGAIN: "Check again",
 }
 
 #: An old Discord tag, "name#1234", from before usernames were unique: its number is not part of

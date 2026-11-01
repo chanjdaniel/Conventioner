@@ -14,8 +14,9 @@ filter on a seat finds what that page shows, and each date's seat columns export
 What they owe and have paid is read from the account the drawer's Payment tab reads
 (``api.payments.accounts``), so a payment reminder exported is the vendors that tab says owe.
 
-Who is in the market's Discord server is read from what the last "Check Discord" kept on the market
-(``api.discord_connection``), so a filter on a state finds the vendors the Vendors page shows in it.
+Who is in the market's Discord server is read as the Vendors page shows it (``shown_vendors``, from
+what the last "Check Discord" kept and the answers now), so a filter on a state finds the vendors
+that page shows in it, "Possible match" and "Check again" included.
 
 A cell holding the applicant's own text is written so no spreadsheet runs it (``as_text_cell``): the
 file is a new way out for applicants' data, and a name beginning with ``=`` is a formula to Sheets.
@@ -128,12 +129,12 @@ class Column:
 
 @dataclass
 class Vendor:
-    """One application, where it sits (``{date: table row}``), and its Discord state as the last
-    check found it, None when no check has found it."""
+    """One application, where it sits (``{date: table row}``), and its Discord state as the Vendors
+    page shows it (one of ``SHOWN``), None when the last check did not read it."""
 
     application: Application
     seats: Dict[str, Any] = field(default_factory=dict)
-    discord_state: Optional[str] = None
+    discord_shown: Optional[str] = None
     #: What they owe and have paid, as the Payment tab reads it; read only when a money column or
     #: the payment filter asks for it.
     account: Optional[Dict[str, Any]] = None
@@ -293,7 +294,7 @@ def _discord_columns(market: Market) -> List[Column]:
     if connection.checked_at:
         columns.append(Column(
             "discordState", "Discord state",
-            lambda vendor: DiscordApi.STATE_LABELS.get(vendor.discord_state or "", ""),
+            lambda vendor: DiscordApi.STATE_LABELS.get(vendor.discord_shown or "", ""),
             "discord"))
     if connection.invite_link:
         link = connection.invite_link
@@ -303,11 +304,12 @@ def _discord_columns(market: Market) -> List[Column]:
 
 
 def offered_discord_states(market: Market) -> List[Dict[str, str]]:
-    """The states a vendor may be filtered by, once a check has found some."""
+    """The states a vendor may be filtered by, every one the Vendors page can show, once a check
+    has found some."""
     if not _discord(market).checked_at:
         return []
     return [{"id": state, "label": DiscordApi.STATE_LABELS[state]}
-            for state in DiscordApi.STATES]
+            for state in DiscordApi.SHOWN]
 
 
 def offered_columns(market: Market) -> List[Column]:
@@ -373,7 +375,7 @@ class Filters:
     and a size describe a seat, so they hold only of the vendors placed, and of the same seat.
     ``answers`` is a choice question's options, any of which the vendor chose. ``follow_ups_of`` is
     Mine, as the Applications tab has it: the follow-ups that address owns, the one exporting's.
-    ``discord`` is any of the states the last Discord check found.
+    ``discord`` is any of the states the Vendors page shows (``SHOWN``).
     ``payment`` is one of ``Payments.BALANCE_STATES``, as the vendor's Payment tab reads.
     """
 
@@ -428,7 +430,7 @@ def read_filters(body: Any, questions: List[Dict[str, Any]], requesting_user: st
         answers[key] = _strings(options, "answers")
 
     discord = _strings(body.get("discord", []), "discord")
-    if any(state not in DiscordApi.STATES for state in discord):
+    if any(state not in DiscordApi.SHOWN for state in discord):
         raise ExportInvalid("The filter 'discord' is not one the export reads.")
 
     mine = body.get("mine", False)
@@ -499,7 +501,7 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
     if filters.payment and Payments.balance_state(
             vendor.account or _no_account(None)) != filters.payment:
         return False
-    if filters.discord and vendor.discord_state not in filters.discord:
+    if filters.discord and vendor.discord_shown not in filters.discord:
         return False
     for key, options in filters.answers.items():
         if options and not set(_answer_values(vendor.answers.get(key))) & set(options):
@@ -511,18 +513,19 @@ def vendor_shown(vendor: Vendor, filters: Filters) -> bool:
 
 def _vendors(market: Market, with_accounts: bool = False) -> List[Vendor]:
     """Every application of the market, newest first as the Vendors page lists them (a vendor added
-    by hand, never submitted, last), each with the seats the stored placements give them, the
-    Discord state the last check kept for it and, when asked, their account."""
+    by hand, never submitted, last), each with the seats the stored placements give them, its
+    Discord state as the Vendors page shows it and, when asked, their account."""
     seats: Dict[str, Dict[str, Any]] = {}
     for row in MarketsApi.derive_market_table_rows(market):
         for email in set(row.assignment):
             seats.setdefault(email.strip().lower(), {})[row.date] = row
-    discord_states = {
-        found.application_id: found.state for found in _discord(market).vendor_states or []}
     accounts = PaymentsApi.accounts(market) if with_accounts else {}
 
+    docs = ApplicationsApi.list_applications_for_market(market.id)
+    shown = DiscordApi.shown_vendors(market, docs)
+
     vendors = []
-    for doc in ApplicationsApi.list_applications_for_market(market.id):
+    for doc in docs:
         try:
             application = Application(**doc)
         except Exception:
@@ -531,7 +534,8 @@ def _vendors(market: Market, with_accounts: bool = False) -> List[Vendor]:
             continue
         vendor = Vendor(application)
         vendor.seats = seats.get(vendor.email, {})
-        vendor.discord_state = discord_states.get(application.id)
+        found = shown.get(application.id)
+        vendor.discord_shown = found.shown if found else None
         vendor.account = accounts.get(normalized_email(vendor.email))
         vendors.append(vendor)
     return vendors
