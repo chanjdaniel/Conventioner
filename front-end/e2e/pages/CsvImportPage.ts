@@ -23,7 +23,10 @@ export class CsvImportPage {
   readonly fileInput: Locator;
   readonly filename: Locator;
 
+  readonly error: Locator;
+
   // Mapping
+  readonly columnCount: Locator;
   readonly columnRows: Locator;
   readonly unmappedWarning: Locator;
   readonly allMapped: Locator;
@@ -80,8 +83,10 @@ export class CsvImportPage {
     this.wrongPhase = page.getByTestId('import-wrong-phase');
 
     this.fileInput = page.getByTestId('import-file-input');
+    this.error = page.getByTestId('import-error');
     this.filename = page.getByTestId('import-filename');
 
+    this.columnCount = page.getByTestId('import-column-count');
     this.columnRows = page.getByTestId('import-column-row');
     this.unmappedWarning = page.getByTestId('import-unmapped-warning');
     this.allMapped = page.getByTestId('import-all-mapped');
@@ -132,11 +137,12 @@ export class CsvImportPage {
   }
 
   /** Hand the flow a CSV as though the organizer had picked it off their disk. */
-  async chooseFile(contents: string): Promise<void> {
+  /** Choose a file named `form-responses.csv`: CSV text, or the bytes of a file that is not one. */
+  async chooseFile(contents: string | Buffer): Promise<void> {
     await this.fileInput.setInputFiles({
       name: 'form-responses.csv',
       mimeType: 'text/csv',
-      buffer: Buffer.from(contents, 'utf-8'),
+      buffer: typeof contents === 'string' ? Buffer.from(contents, 'utf-8') : contents,
     });
   }
 

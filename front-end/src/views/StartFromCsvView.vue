@@ -30,6 +30,7 @@ import {
   type ProposalDraft,
   type RowChoice,
 } from '@/utils/csvProposal';
+import { readCsvFile } from '@/utils/csvFile';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
 
@@ -85,7 +86,11 @@ const planCeiling = computed(
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
 async function onFileChosen(event: Event) {
-  await acceptFile((event.target as HTMLInputElement).files?.[0]);
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  // Cleared, so the same file chosen again after a refusal is read again.
+  input.value = '';
+  await acceptFile(file);
 }
 
 async function onFileDropped(event: DragEvent) {
@@ -95,15 +100,17 @@ async function onFileDropped(event: DragEvent) {
 
 async function acceptFile(file: File | undefined) {
   if (!file) return;
-  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
-    error.value = `${file.name} is not a CSV file.`;
+  // The import's own reader: a file that is not a CSV export stops here, on the upload step.
+  const read = await readCsvFile(file);
+  if ('error' in read) {
+    error.value = read.error;
     return;
   }
   error.value = '';
   fileName.value = file.name;
   step.value = 'reading';
   try {
-    csvContent.value = await file.text();
+    csvContent.value = read.text;
     const { data } = await api.post<Proposal>(`/markets/${marketId.value}/csv-proposal`, {
       csvContent: csvContent.value,
     });

@@ -21,6 +21,7 @@ sources:
   - E33/F02/S01
   - E38/F02/S01
   - E38/F02/S02
+  - E38/F15/S02
 ---
 
 # The CSV proposal and start
@@ -43,6 +44,8 @@ A file never states locations, sections or table counts, so the proposal never o
 An essential question no column answers is proposed as not asked, which is what the import would otherwise refuse on.
 
 ## Sharp edges
+
+**The start reads a file as the import does** (E38/F15/S02): the browser's `readCsvFile` and the server's `parse_csv` are the import's own, so a file that is not a CSV export stops on the Upload step with the import's words ([the CSV import](csv-import.md#sharp-edges)).
 
 **Only a draft whose form has no questions of its own** (`refusal`): the plan and the form it writes are a draft's to change, and the proposal never has to merge with questions already written.
 

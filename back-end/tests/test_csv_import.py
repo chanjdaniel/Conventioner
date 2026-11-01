@@ -572,6 +572,57 @@ class TestTheImportReportsHonestly:
         assert body["samples"][0]["formData"]["essential_available_dates"] == DATES
 
 
+def _binary_as_text() -> str:
+    """An invented binary as a browser's lossy decode sends it: magic bytes, then every byte once."""
+    return (b"\x89PNG" + bytes(range(256))).decode("utf-8", errors="replace")
+
+
+class TestAFileThatIsNotCsv:
+    """E38/F15/S02: a binary named responses.csv went on to the mapping step as one garbled column."""
+
+    def test_a_binary_is_refused_as_not_a_csv_export(self):
+        error, headers, rows = CsvImport.parse_csv(_binary_as_text())
+
+        assert error == CsvImport.NOT_A_CSV_EXPORT and headers == [] and rows == []
+
+    def test_the_message_says_what_to_do(self):
+        assert CsvImport.NOT_A_CSV_EXPORT == (
+            "This file does not look like a CSV export. "
+            "Download the responses again from Google Forms as .csv."
+        )
+
+    def test_a_nul_anywhere_is_refused(self):
+        error, _headers, _rows = CsvImport.parse_csv("A,B\n1,2\x00\n")
+
+        assert error == CsvImport.NOT_A_CSV_EXPORT
+
+    def test_an_unprintable_header_is_refused(self):
+        error, _headers, _rows = CsvImport.parse_csv("PK\x03\x04\x14\x06\nA\n")
+
+        assert error == CsvImport.NOT_A_CSV_EXPORT
+
+    def test_a_replacement_character_in_the_header_is_refused(self):
+        error, _headers, _rows = CsvImport.parse_csv("Caf\ufffd name\nAda\n")
+
+        assert error == CsvImport.NOT_A_CSV_EXPORT
+
+    def test_one_column_is_still_a_csv(self):
+        error, headers, rows = CsvImport.parse_csv("Email Address\nada@example.test\n")
+
+        assert error is None and headers == ["Email Address"] and rows == [["ada@example.test"]]
+
+    def test_tabs_and_line_breaks_inside_answers_are_text(self):
+        error, headers, rows = CsvImport.parse_csv('Name,"Long\r\nanswer"\r\nZo\u00eb,"one\ttwo"\r\n')
+
+        assert error is None and headers == ["Name", "Long\r\nanswer"]
+        assert rows == [["Zo\u00eb", "one\ttwo"]]
+
+    def test_the_inspect_refuses_it_before_the_mapping(self, markets):
+        body, status = CsvImport.inspect(markets.doc, _binary_as_text())
+
+        assert status == 400 and body["error"] == CsvImport.NOT_A_CSV_EXPORT
+
+
 class TestTheDecisionsInPlay:
     """Every value a saved decision settles is reported, so the organizer can see and change it.
 

@@ -18,6 +18,7 @@ sources:
   - bug/27
   - bug/41
   - E38/F02/S01
+  - E38/F15/S02
 ---
 
 # Starting from a Google Form's responses
@@ -52,6 +53,7 @@ Past Draft, Market Setup is settled and offers no start; the flow's own address 
 **Status:** Works (walked live).
 
 1. Under "Upload your Google Form's responses", drop or choose the CSV (Google Sheets: File, Download, Comma-separated values).
+   A file that is not a CSV export stays on Upload with "This file does not look like a CSV export. Download the responses again from Google Forms as .csv.", as at the import (E38/F15/S02).
    Only when a TypeSafe key is configured does the step add that column headings, and a description of the shape of their answers, are sent to TypeSafe, and that individual vendors' answers never leave Conventioner.
 2. "Reading your columns…" shows while the proposal is made; there is no background job, and TypeSafe that has not answered in 5 seconds leaves the rules' answer, the row saying "Couldn't reach TypeSafe".
 3. If the form's dates have no year, "Which year are these dates in?" opens on the year the stated weekdays fit and checks weekdays against the year typed ("Monday, November 17 is a Monday in 2025."), warning "…, so check the year." when they do not fit; "Use this year".

@@ -16,6 +16,7 @@ import os
 
 import pytest
 
+import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 
@@ -443,6 +444,13 @@ class TestWhoMayAsk:
     def test_an_unreadable_file_is_a_bad_request(self):
         result, status = CsvProposal.propose(_market(), "")
         assert status == 400
+
+    def test_a_binary_is_refused_as_not_a_csv_export(self):
+        """E38/F15/S02: the start reads a file as the import does."""
+        binary = (b"\x89PNG" + bytes(range(256))).decode("utf-8", errors="replace")
+        result, status = CsvProposal.propose(_market(), binary)
+        assert status == 400
+        assert result["error"] == CsvImport.NOT_A_CSV_EXPORT
 
 
 # --- What names someone (E38/F02/S01) -------------------------------------------------------------
