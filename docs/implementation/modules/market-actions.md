@@ -40,6 +40,7 @@ sources:
   - E38/F07/S03
   - E44/F01/S01
   - E44/F01/S02
+  - E46/F01/S05
 ---
 
 # The market's actions
@@ -100,7 +101,7 @@ Each check keeps the order it had, so every route answers each person as it did 
 | Publish results (`publish-results`) | Admin | `POST /markets/:id/publish-results`; on screen, the Applications page draws Publish Results by its answer |
 | Add a vendor who never applied (`add-vendor`) | Editor | `POST /markets/:id/vendors` |
 | Write vendor notes (`write-vendor-notes`) | Editor | `PUT /markets/:id/vendor-notes/<email>` and its `request-handled` |
-| Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase |
+| Update a vendor's info (`update-vendor-info`) | Editor | `PUT /markets/:id/applications/:app_id/answers` ([`back-end/api/vendor_info.py`](../../../back-end/api/vendor_info.py)), in any phase, and declining a possible Discord match, `POST /markets/:id/discord/possible-matches/:application_id/declined` (E46/F01/S05) |
 | Update info the assignment or price reads (`update-assignment-or-price-info`) | Admin | the same write, asked after `update-vendor-info` when an answer it updates is one the solver reads (`SOLVER_RELEVANT_KEYS`) or one of the form's own questions a price group reads (`Groups.keys` in `back-end/pricing.py`, served as `priceReads`), before the answer is judged; on screen, the Update info dialog shows those answers read-only to whoever it refuses, with its sentence; it records no entry of its own, the write's is `update-vendor-info`'s |
 | Allocate tables, change the assignment rules, and assign, swap or free seats (`assign`) | Editor | `POST /markets/:id/assignment`, the three `/markets/:id/placements` writes, and a plan write that changes the assignment rules |
 | Record a payment (`record-payment`) | Editor | `POST /markets/:id/payments/<email>` ([payments](../data/payments.md)) |

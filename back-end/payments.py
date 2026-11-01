@@ -141,16 +141,19 @@ def remove_payment(market_id: str, payment_id: str, by: str) -> Optional[Dict[st
     return payment(market_id, payment_id)
 
 
-def payments_for(market_id: str, vendor_email: str) -> List[Dict[str, Any]]:
-    """One vendor's entries, removed ones too, the last recorded first."""
-    found = payments_collection.find(_vendor(market_id, vendor_email))
+def _last_first(found: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(found, key=lambda doc: doc.get("recorded_at") or "", reverse=True)
 
 
+def payments_for(market_id: str, vendor_email: str) -> List[Dict[str, Any]]:
+    """One vendor's entries, removed ones too, the last recorded first."""
+    return _last_first(payments_collection.find(_vendor(market_id, vendor_email)))
+
+
 def payments_by_vendor(market_id: str) -> Dict[str, List[Dict[str, Any]]]:
-    """Every vendor's entries on the market, removed ones too, by vendor, in one read."""
+    """Every vendor's entries on the market, by address, each as ``payments_for`` reads it."""
     found: Dict[str, List[Dict[str, Any]]] = {}
-    for doc in payments_collection.find({MARKET_ID_FIELD: market_id}):
+    for doc in _last_first(payments_collection.find({MARKET_ID_FIELD: market_id})):
         found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", []).append(doc)
     return found
 
@@ -226,7 +229,7 @@ def amounts_owed_for(market_id: str, vendor_email: str) -> Dict[str, Dict[str, A
 
 
 def amounts_owed_by_vendor(market_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """What is kept of every vendor's table-days on the market, by vendor and date, in one read."""
+    """What is kept of every vendor's table-days on the market, by address, then by date."""
     found: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for doc in amounts_owed_collection.find({MARKET_ID_FIELD: market_id}):
         found.setdefault(doc.get(VENDOR_EMAIL_FIELD) or "", {})[doc["date"]] = doc
@@ -301,6 +304,25 @@ def account(
     }
 
 
+#: How what a vendor paid compares with what they owe, as the Payment tab reads it
+#: (``balanceText`` in ``front-end/src/utils/payments.ts``): "Owes $27", "Paid in full", or
+#: "Paid $15 more than owed", a refund to issue (Q26). Nothing owed and nothing paid is none.
+OWES = "owes"
+PAID_IN_FULL = "paid"
+PAID_MORE = "over"
+BALANCE_STATES = {OWES: "Owes", PAID_IN_FULL: "Paid in full", PAID_MORE: "Paid more than owed"}
+
+
+def balance_state(vendor_account: Mapping[str, Any]) -> Optional[str]:
+    """Which of ``BALANCE_STATES`` an ``account`` is in, or None for nothing owed and none paid."""
+    balance = vendor_account["owedCents"] - vendor_account["paidCents"]
+    if balance > 0:
+        return OWES
+    if balance < 0:
+        return PAID_MORE
+    return PAID_IN_FULL if vendor_account["owedCents"] > 0 else None
+
+
 # --- The market's money (E44/F02/S01) -------------------------------------------------------------
 
 def _figures(owed: int, paid: int) -> Dict[str, int]:
@@ -332,8 +354,9 @@ def market_summary(
     A payment is a vendor's, never a day's, so what a vendor paid is shared across their table-days
     in proportion to what each owes, or evenly where they owe nothing, and each day's share counts
     toward its tier and its date; what a vendor with no line paid is counted apart, under neither
-    (``None``), and only where it is not nothing. A vendor's days are all owing or all paid more, so the still owed and the paid more
-    of every breakdown add up to the market's, which are each vendor's own, summed.
+    (``None``), and only where it is not nothing. A vendor's days are all owing or all paid more,
+    so the still owed and the paid more of every breakdown add up to the market's, which are each
+    vendor's own, summed.
     """
     vendors: List[Dict[str, Any]] = []
     totals = _figures(0, 0)

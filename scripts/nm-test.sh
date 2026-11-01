@@ -243,6 +243,7 @@ npx playwright install chromium
 # Match CI's e2e job env
 export DISABLE_CAPTCHA=true
 export DISABLE_EMAIL=true
+export DISCORD_FAKE=true
 
 cd "$REPO_ROOT"
 # The images every run with the same dependencies shares: built only when none has their tag yet.

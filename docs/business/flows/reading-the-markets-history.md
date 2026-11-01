@@ -20,6 +20,7 @@ sources:
   - E39/F02/S01
   - E44/F01/S02
   - E46/F01/S03
+  - E46/F01/S05
 ---
 
 # Reading the market's history
@@ -43,6 +44,7 @@ An organizer reads it to investigate a problem or a mistake, which is why it liv
    A vendor added by hand reads "e2e@example.com added Walk-in Wares as a vendor", opening to the name and status given and then each price answer under its question's label, in the form's order (the answers sit under `answers` in the detail, so a question keyed `name` or `status` never collides with them).
    Both "applied" and an update of the info open to each answer under its question as the form asks it, in the form's order (the essential questions first, then the organizer's own), each read as the Application tab reads it, dates and tiers in words, the table-share question as one answer in the vendor's words, and an answer that reads the same on both sides left out.
    The Discord card reads "e2e@example.com connected the market to the Discord server “Riverside Makers”", "… disconnected the market from the Discord server “Riverside Makers”" and "… changed the Discord card: role and invite link", opening to the server's and the role's names and the username question's label, never Discord's ids or the question's key; a question the entry recorded without its label reads by the form's label, or as its key "(no longer on the form)".
+   A possible Discord match declined reads "e2e@example.com said the Discord member @fern_studio_42 is not Ana Rivera", opening to the member, by username and the names that looked alike, and the username on file it was offered for ([possible matches](../../implementation/modules/discord.md#possible-matches)); one confirmed is the update of their info it saved.
    "Check Discord" reads "e2e@example.com checked who is in the Discord server: 1 has the role, 2 in the server, 1 not found", opening to each vendor whose state it changed, before ("not checked" the first time) and after, and how many it found in each state ([the Discord connection](../../implementation/modules/discord.md#who-is-in-the-server)).
    A change the screen has no sentence for yet reads through the deliberate fallback "made a change: <row label>, about <vendor>"; one whose action no row of the table names reads "made a change", never the action's id.
 3. A vendor named in a change is a link to the market's Vendors page with their drawer open (`?vendor=`, [the vendor drawer](vendor-drawer.md)); the dialog closes as the page changes.
