@@ -619,8 +619,11 @@ async function download(): Promise<void> {
   color: var(--mm-green);
 }
 
-/* The preview is as wide as its columns; the dialog is not. */
+/* The preview is as wide as its columns; the dialog is not. A scroller the browser makes focusable
+   is no control the primitive layer gives room to, so it takes the controls' `scroll-margin` here:
+   focus brought it only just into view, and the dialog's window cut its halo off. */
 .export-table-scroll {
+  scroll-margin: var(--space-2);
   overflow-x: auto;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
