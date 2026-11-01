@@ -5,7 +5,7 @@ describes:
   - docker-compose.yml
   - back-end/.env.example
   - front-end/.env.example
-verified: 2026-10-30
+verified: 2026-11-01
 ---
 
 # Conventioner - Development Startup Guide
@@ -567,7 +567,7 @@ Each service publishes its port on `127.0.0.1` only.
 **Frontend** (set in docker-compose.yml):
 
 - `VITE_FLASK_HOST`: API base path (default: `/api`)
-- `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://backend:5001`)
+- `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://127.0.0.1:5001`; the compose file sets `https://backend:5001`)
 
 ### Vision AI Setup (Optional)
 
