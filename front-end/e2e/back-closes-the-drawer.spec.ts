@@ -1,7 +1,8 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
-import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { TablesPage } from './pages/TablesPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { marketScreenPath } from './helpers/marketScreens';
 
@@ -177,4 +178,34 @@ test.describe('on a phone', () => {
     await expect(page).toHaveURL((url) => url.pathname === vendorsPath && url.search === '');
     await expect(vendors.vendorListItems).toHaveCount(2);
   });
+});
+
+test('on a desktop, Back closes a drawer opened from a seat and keeps the Assignments filter', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const seed = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const tables = new TablesPage(page);
+  await page.goto('/dashboard');
+  await tables.goto(seed.marketId);
+  await tables.setFilter('date', SEED_MARKET_DATE);
+  await expect(page).toHaveURL(/date=/);
+  const filtered = page.url();
+
+  const seat = page.getByTestId('tables-seat-occupied').first();
+  await tables.openVendor(seat);
+  await expect(page.getByTestId('vendors-detail-close')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId('vendors-detail-close')).toBeHidden();
+  await expect(page).toHaveURL(filtered);
+  await expect(seat).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard$/);
 });
