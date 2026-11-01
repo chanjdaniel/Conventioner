@@ -606,6 +606,21 @@ class TestAFileThatIsNotCsv:
 
         assert error == CsvImport.NOT_A_CSV_EXPORT
 
+    # The edges of the unprintable set, on both sides of each bound. The same table runs through
+    # the browser's reader in front-end/src/__tests__/aFileThatIsNotCsv.test.ts ("the edges of
+    # the unprintable set"); keep the two alike.
+    @pytest.mark.parametrize("ch", ["\x08", "\x0b", "\x0c", "\x1f", "\x7f", "\x9f", "\ufffd"])
+    def test_an_edge_of_the_unprintable_set_in_the_header_is_refused(self, ch):
+        error, _headers, _rows = CsvImport.parse_csv(f"Name{ch}x\nAda\n")
+
+        assert error == CsvImport.NOT_A_CSV_EXPORT
+
+    @pytest.mark.parametrize("ch", ["\t", "\x20", "\x7e", "\xa0"])
+    def test_a_character_just_outside_the_unprintable_set_in_the_header_is_accepted(self, ch):
+        error, headers, _rows = CsvImport.parse_csv(f"Name{ch}x\nAda\n")
+
+        assert error is None and headers == [f"Name{ch}x"]
+
     def test_one_column_is_still_a_csv(self):
         error, headers, rows = CsvImport.parse_csv("Email Address\nada@example.test\n")
 

@@ -99,6 +99,32 @@ describe('reading a CSV file', () => {
     expect(await readCsvFile(fileOf(text))).toEqual({ text });
   });
 
+  // The edges of the unprintable set, on both sides of each bound. The same table runs through
+  // `parse_csv` in back-end/tests/test_csv_import.py (TestAFileThatIsNotCsv); keep the two alike.
+  describe('the edges of the unprintable set', () => {
+    /** Each character with its code point, for a test's title. */
+    const named = (chars: string[]) =>
+      chars.map((ch) => [
+        `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`,
+        ch,
+      ]);
+
+    it.each(named(['\x08', '\x0b', '\x0c', '\x1f', '\x7f', '\x9f', '\uFFFD']))(
+      'refuses %s in the header row',
+      async (_name, ch) => {
+        expect(await readCsvFile(fileOf(`Name${ch}x\nAda\n`))).toEqual({ error: NOT_A_CSV_EXPORT });
+      },
+    );
+
+    it.each(named(['\t', '\x20', '\x7e', '\xa0']))(
+      'accepts %s in the header row',
+      async (_name, ch) => {
+        const text = `Name${ch}x\nAda\n`;
+        expect(await readCsvFile(fileOf(text))).toEqual({ text });
+      },
+    );
+  });
+
   it('refuses a file that is not named or typed as a CSV, by its name', async () => {
     const pdf = new File(['%PDF-1.4'], 'responses.pdf', { type: 'application/pdf' });
     expect(await readCsvFile(pdf)).toEqual({
