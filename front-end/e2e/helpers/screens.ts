@@ -14,12 +14,18 @@ import {
   NO_ORG_USER,
   BACKEND_URL,
   APP_API,
+  CsvImportPage,
   FloorplanWorkflowPage,
 } from '../fixtures';
 import { marketScreenPath, marketSetupPath, oneByOnePath } from './marketScreens';
 import { createApplicantLoginChallenge } from './seedApplicantMarket';
 import { loginViaApi } from './seeds';
-import { SCREENS_EDITOR, seedTheScreens, type TheScreensSeed } from './seedTheScreens';
+import {
+  FIRST_IMPORT,
+  SCREENS_EDITOR,
+  seedTheScreens,
+  type TheScreensSeed,
+} from './seedTheScreens';
 import { settle } from './settle';
 
 /**
@@ -570,6 +576,24 @@ export const SCREENS: Screen[] = [
     who: 'organizer',
     sizes: ORGANIZER,
     open: at(screen('csv', 'import'), 'import-view'),
+  },
+  {
+    // The first import offers the reviewers on its preview, as "Open Applications" does on a
+    // market's own form (E38/F07/S02); nothing is imported, so every run finds it the same.
+    name: "a CSV draft's first import, choosing reviewers",
+    who: 'organizer',
+    sizes: ORGANIZER,
+    open: async (page, seed) => {
+      const importing = new CsvImportPage(page);
+      await page.goto(screen('csvFirst', 'import')(seed));
+      await expect(importing.view).toBeVisible({ timeout: 15000 });
+      await importing.chooseFile(FIRST_IMPORT.csv);
+      await importing.mapColumns(FIRST_IMPORT.headers, FIRST_IMPORT.mapping);
+      await expect(importing.allMapped).toBeVisible();
+      await importing.clickPreview();
+      await expect(importing.previewCounts).toContainText('3 of 3 rows');
+      await expect(importing.reviewers).toBeVisible();
+    },
   },
 
   // Assignment, its rules still open and nothing run.

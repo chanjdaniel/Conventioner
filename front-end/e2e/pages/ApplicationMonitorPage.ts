@@ -53,6 +53,10 @@ export class ApplicationMonitorPage {
   readonly undoLine: Locator;
   readonly undoButton: Locator;
   readonly decidedNames: Locator;
+  /** "Needs follow-up" on the card, which opens `FollowUpDialog` (E34/F02/S01). */
+  readonly followUpButton: Locator;
+  /** The frame's line saying why the person looking may change nothing on the market (T15). */
+  readonly readOnly: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -85,6 +89,8 @@ export class ApplicationMonitorPage {
     this.undoLine = page.getByTestId('app-monitor-undo');
     this.undoButton = page.getByTestId('app-monitor-undo-button');
     this.decidedNames = page.getByTestId('app-monitor-decided-name');
+    this.followUpButton = page.getByTestId('app-monitor-follow-up-button');
+    this.readOnly = page.getByTestId('market-read-only');
   }
 
   /** A row of the reviewed list, by its applicant. */

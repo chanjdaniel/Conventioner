@@ -8,6 +8,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
+import { FollowUpDialog } from './pages/FollowUpDialog';
 
 /**
  * A chosen reviewer, a Viewer included, decides (E38/F07/S03).
@@ -53,7 +54,7 @@ test('a chosen Viewer approves, marks a follow-up without notes, and changes no 
     await review.goto(marketId);
     await review.waitForLoaded();
     // The frame no longer says the market is read-only to them.
-    await expect(page.getByTestId('market-read-only')).toHaveCount(0);
+    await expect(review.readOnly).toHaveCount(0);
 
     await review.approve('amy@thistle.test');
     await expect(review.decidedGiverOf('amy@thistle.test')).toHaveText(
@@ -61,13 +62,12 @@ test('a chosen Viewer approves, marks a follow-up without notes, and changes no 
     );
 
     await expect(review.email).toHaveText('ben@ember.test');
-    await page.getByTestId('app-monitor-follow-up-button').click();
-    const dialog = page.getByTestId('follow-up-window');
-    await expect(dialog).toBeVisible();
-    await expect(page.getByTestId('follow-up-owner')).toHaveValue(ANA);
-    await expect(page.getByTestId('follow-up-note')).toHaveCount(0);
-    await page.getByTestId('follow-up-submit-button').click();
-    await expect(dialog).toBeHidden();
+    await review.followUpButton.click();
+    const followUp = new FollowUpDialog(page);
+    await expect(followUp.dialog).toBeVisible();
+    await expect(followUp.owner).toHaveValue(ANA);
+    await expect(followUp.note).toHaveCount(0);
+    await followUp.confirm();
     await expect(review.done).toBeVisible();
 
     // Approved by someone else first: a change, which is the change row's.
@@ -91,9 +91,9 @@ test('a Viewer who is not chosen reads the review and decides nothing', async ({
     await review.goto(marketId);
     await review.waitForLoaded();
 
-    await expect(page.getByTestId('market-read-only')).toBeVisible();
+    await expect(review.readOnly).toBeVisible();
     await expect(review.approveButton).toHaveCount(0);
     await expect(review.rejectButton).toHaveCount(0);
-    await expect(page.getByTestId('app-monitor-follow-up-button')).toHaveCount(0);
+    await expect(review.followUpButton).toHaveCount(0);
   });
 });
